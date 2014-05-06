@@ -22,4 +22,10 @@ public class UnrealTournamentEditorTarget : TargetRules
 	{
 		OutExtraModuleNames.Add("UnrealTournament");
 	}
+    public override GUBPProjectOptions GUBP_IncludeProjectInPromotedBuild_EditorTypeOnly(UnrealTargetPlatform HostPlatform)
+    {
+        var Result = new GUBPProjectOptions();
+        Result.bIsPromotable = true;
+        return Result;
+    }
 }
