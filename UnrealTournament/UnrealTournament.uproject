@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"Version": 0,
+	"VersionName": "0.0",
+	"EngineVersion": "4.1.0-2053896+++depot+UE4-Releases+4.1",
+	"PackageFileUE4Version": 352,
+	"PackageFileLicenseeUE4Version": 0,
+	"EngineAssociation": "4.1",
+	"FriendlyName": "",
+	"Description": "",
+	"Category": "",
+	"CreatedBy": "",
+	"CreatedByURL": "",
+	"Modules": [
+		{
+			"Name": "UnrealTournament",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"EpicSampleNameHash": "0"
+}
