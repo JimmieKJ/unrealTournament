@@ -18,6 +18,7 @@
     <File Name="UnrealTournament/Content/Character/SM_Projectile.uasset" Hash="1a84e3e6f4bcf0a5550644b3de4a374ded88821b" />
     <File Name="UnrealTournament/Content/Maps/Example_Map.umap" Hash="ebccfa369a8bee4564335c9765d0b55737796ecc" />
     <File Name="UnrealTournament/Content/Meshes/TemplateCube_Rounded.uasset" Hash="c62e052526103d5e4973ad0f1bd4f6cc5ef0edf6" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Readme.txt" Hash="619e3a661a26dc56b2d747a0b8a5d857c4838285" />
     <File Name="UnrealTournament/Content/Textures/Crosshair.uasset" Hash="36ecb1032c7dd81bc9ae816ec16ed59f332d4e05" />
   </Files>
   <Blobs>
@@ -32,6 +33,7 @@
     <Blob Hash="48b4638f67a84f5258718fe877c28cdfd00476d6" Size="33894" PackHash="aec1e9cb1dba1df689187674f3dec4d697be506c" PackOffset="460582" />
     <Blob Hash="55f12395269e453c314718ebc1bf3ac0c27370f0" Size="19018" PackHash="aec1e9cb1dba1df689187674f3dec4d697be506c" PackOffset="506716" />
     <Blob Hash="5706ce0ffd4a963bc2f6fd85a9d0a9ce03ecfdb9" Size="319642" PackHash="aec1e9cb1dba1df689187674f3dec4d697be506c" PackOffset="923614" />
+    <Blob Hash="619e3a661a26dc56b2d747a0b8a5d857c4838285" Size="231" PackHash="8c281651f2968882279f1afab81c05e7ad6e5df5" PackOffset="8" />
     <Blob Hash="6af5306473d28337b85a0245f535056d2dd018ee" Size="12383" PackHash="aec1e9cb1dba1df689187674f3dec4d697be506c" PackOffset="445960" />
     <Blob Hash="c62e052526103d5e4973ad0f1bd4f6cc5ef0edf6" Size="17004" PackHash="aec1e9cb1dba1df689187674f3dec4d697be506c" PackOffset="1398166" />
     <Blob Hash="cd0d7968bcf9b740f07c3110703451c0e4dbd07e" Size="12574" PackHash="aec1e9cb1dba1df689187674f3dec4d697be506c" PackOffset="525734" />
@@ -41,6 +43,7 @@
     <Blob Hash="f5b1d2ac72aef303bd98a2e43b092b86ca7dd768" Size="54394" PackHash="aec1e9cb1dba1df689187674f3dec4d697be506c" PackOffset="859461" />
   </Blobs>
   <Packs>
+    <Pack Hash="8c281651f2968882279f1afab81c05e7ad6e5df5" Size="239" CompressedSize="168" RemotePath="0-590c133dec2fc51b51acf1f0499cd489c9a22032" />
     <Pack Hash="92a11de4c4648f89e1f0fc4cd2bed3c119cee728" Size="9609415" CompressedSize="6640877" RemotePath="0-7284ff633601c8a1848c855623cfbb33215174a8" />
     <Pack Hash="aec1e9cb1dba1df689187674f3dec4d697be506c" Size="1417115" CompressedSize="675282" RemotePath="0-7284ff633601c8a1848c855623cfbb33215174a8" />
   </Packs>
