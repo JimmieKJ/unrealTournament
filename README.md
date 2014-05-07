@@ -1,9 +1,9 @@
 Welcome to the Unreal Tournament source code!
 ===============================
 
-This is the source code page for the **Unreal Tournament on GitHub**.  Unreal Tournament is being created in close collaboration between Epic and the Unreal Engine 4 developer community.  You’ll be able to see live commits from Epic developers along with integrated code submissions from the community!  You can also use this code as a starting point for experimentation and Unreal Tournament mod creation.
+This is the source code page for **Unreal Tournament on GitHub**.  Unreal Tournament is being created in close collaboration between Epic and the Unreal Engine 4 developer community.  You’ll be able to see live commits from Epic developers along with integrated code submissions from the community!  You can also use this code as a starting point for experimentation and Unreal Tournament mod creation.
 
-As described in the [License Agreement](https://github.com/EpicGames/UnrealTournament/blob/master/LICENSE.pdf), assets residing in the UnrealTournament/Content/RestrictedAssets may only be used for Unreal Tournament submissions.
+As described in the [License Agreement](https://github.com/EpicGames/UnrealTournament/blob/master/LICENSE.pdf), assets residing in UnrealTournament/Content/RestrictedAssets may only be used for Unreal Tournament submissions.
 
 We have forum sections where you can discuss Unreal Tournament [development](https://forums.unrealengine.com/) and [design](https://forums.unrealengine.com/).  Check out the [Unreal Tournament wiki](https://wiki.unrealengine.com/Unreal_Tournament_Development) for documentation on the design and development process of the game.
 
