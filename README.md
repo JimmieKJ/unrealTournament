@@ -5,7 +5,7 @@ This is the source code page for **Unreal Tournament on GitHub**.  Unreal Tourna
 
 As described in the [License Agreement](https://github.com/EpicGames/UnrealTournament/blob/master/LICENSE.pdf), assets residing in **UnrealTournament/Content/RestrictedAssets** may only be used for Unreal Tournament submissions.
 
-We’re working hard to get a basic version of Unreal Tournament deathmatch up and running to provide a basis for design iteration and further development. You can follow our progress on this fork, and start extending or modding the code as it becomes functional. If you want to get involved, join us on our [design forums](https://forums.unrealengine.com/) to participate in design discussions, and go to the [development forums](https://forums.unrealengine.com/) to find projects that need help and discover other opportunities to contribute.
+We’re working hard to get a basic version of Unreal Tournament deathmatch up and running to provide a basis for design iteration and further development. You can follow our progress on this fork, and start extending or modding the code as it becomes functional. If you want to get involved, join us on our [forums](http://forums.unrealengine.com/forumdisplay.php?34-Unreal-Tournament) to participate in design discussions, find projects that need help, and discover other opportunities to contribute.
 
 Check out the [Unreal Tournament wiki](https://wiki.unrealengine.com/Unreal_Tournament_Development) for documentation on the design and development process of the game.
 
