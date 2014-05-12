@@ -1,13 +1,13 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UnrealTournamentCharacter.h"
-#include "UnrealTournamentProjectile.h"
+#include "UTCharacter.h"
+#include "UTProjectile.h"
 
 //////////////////////////////////////////////////////////////////////////
-// AUnrealTournamentCharacter
+// AUTCharacter
 
-AUnrealTournamentCharacter::AUnrealTournamentCharacter(const class FPostConstructInitializeProperties& PCIP)
+AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
 	// Set size for collision capsule
@@ -40,29 +40,29 @@ AUnrealTournamentCharacter::AUnrealTournamentCharacter(const class FPostConstruc
 //////////////////////////////////////////////////////////////////////////
 // Input
 
-void AUnrealTournamentCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+void AUTCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
 {
 	// set up gameplay key bindings
 	check(InputComponent);
 
 	InputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	
-	InputComponent->BindAction("Fire", IE_Pressed, this, &AUnrealTournamentCharacter::OnFire);
-	InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AUnrealTournamentCharacter::TouchStarted);
+	InputComponent->BindAction("Fire", IE_Pressed, this, &AUTCharacter::OnFire);
+	InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AUTCharacter::TouchStarted);
 
-	InputComponent->BindAxis("MoveForward", this, &AUnrealTournamentCharacter::MoveForward);
-	InputComponent->BindAxis("MoveRight", this, &AUnrealTournamentCharacter::MoveRight);
+	InputComponent->BindAxis("MoveForward", this, &AUTCharacter::MoveForward);
+	InputComponent->BindAxis("MoveRight", this, &AUTCharacter::MoveRight);
 	
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
 	InputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
-	InputComponent->BindAxis("TurnRate", this, &AUnrealTournamentCharacter::TurnAtRate);
+	InputComponent->BindAxis("TurnRate", this, &AUTCharacter::TurnAtRate);
 	InputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
-	InputComponent->BindAxis("LookUpRate", this, &AUnrealTournamentCharacter::LookUpAtRate);
+	InputComponent->BindAxis("LookUpRate", this, &AUTCharacter::LookUpAtRate);
 }
 
-void AUnrealTournamentCharacter::OnFire()
+void AUTCharacter::OnFire()
 {
 	// try and fire a projectile
 	if (ProjectileClass != NULL)
@@ -75,7 +75,7 @@ void AUnrealTournamentCharacter::OnFire()
 		if (World != NULL)
 		{
 			// spawn the projectile at the muzzle
-			World->SpawnActor<AUnrealTournamentProjectile>(ProjectileClass, SpawnLocation, SpawnRotation);
+			World->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation);
 		}
 	}
 
@@ -98,7 +98,7 @@ void AUnrealTournamentCharacter::OnFire()
 
 }
 
-void AUnrealTournamentCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
+void AUTCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
 {
 	// only fire for first finger down
 	if (FingerIndex == 0)
@@ -107,7 +107,7 @@ void AUnrealTournamentCharacter::TouchStarted(const ETouchIndex::Type FingerInde
 	}
 }
 
-void AUnrealTournamentCharacter::MoveForward(float Value)
+void AUTCharacter::MoveForward(float Value)
 {
 	if (Value != 0.0f)
 	{
@@ -123,7 +123,7 @@ void AUnrealTournamentCharacter::MoveForward(float Value)
 	}
 }
 
-void AUnrealTournamentCharacter::MoveRight(float Value)
+void AUTCharacter::MoveRight(float Value)
 {
 	if (Value != 0.0f)
 	{
@@ -139,13 +139,13 @@ void AUnrealTournamentCharacter::MoveRight(float Value)
 	}
 }
 
-void AUnrealTournamentCharacter::TurnAtRate(float Rate)
+void AUTCharacter::TurnAtRate(float Rate)
 {
 	// calculate delta for this frame from the rate information
 	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 }
 
-void AUnrealTournamentCharacter::LookUpAtRate(float Rate)
+void AUTCharacter::LookUpAtRate(float Rate)
 {
 	// calculate delta for this frame from the rate information
 	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());

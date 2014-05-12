@@ -1,17 +1,17 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UnrealTournamentProjectile.h"
+#include "UTProjectile.h"
 
 
-AUnrealTournamentProjectile::AUnrealTournamentProjectile(const class FPostConstructInitializeProperties& PCIP) 
+AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCIP) 
 	: Super(PCIP)
 {
 	// Use a sphere as a simple collision representation
 	CollisionComp = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
 	CollisionComp->InitSphereRadius(5.0f);
 	CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
-	CollisionComp->OnComponentHit.AddDynamic(this, &AUnrealTournamentProjectile::OnHit);		// set up a notification for when this component overlaps something
+	CollisionComp->OnComponentHit.AddDynamic(this, &AUTProjectile::OnHit);		// set up a notification for when this component overlaps something
 	RootComponent = CollisionComp;
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
@@ -26,7 +26,7 @@ AUnrealTournamentProjectile::AUnrealTournamentProjectile(const class FPostConstr
 	InitialLifeSpan = 3.0f;
 }
 
-void AUnrealTournamentProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if ((OtherActor != NULL) && (OtherActor != this) && (OtherComp != NULL))
 	{

@@ -1,10 +1,10 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "UnrealTournamentCharacter.generated.h"
+#include "UTCharacter.generated.h"
 
 UCLASS(config=Game)
-class AUnrealTournamentCharacter : public ACharacter
+class AUTCharacter : public ACharacter
 {
 	GENERATED_UCLASS_BODY()
 
@@ -30,7 +30,7 @@ class AUnrealTournamentCharacter : public ACharacter
 
 	/** Projectile class to spawn */
 	UPROPERTY(EditDefaultsOnly, Category=Projectile)
-	TSubclassOf<class AUnrealTournamentProjectile> ProjectileClass;
+	TSubclassOf<class AUTProjectile> ProjectileClass;
 
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Gameplay)

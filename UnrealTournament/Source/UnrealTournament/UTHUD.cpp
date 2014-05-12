@@ -1,9 +1,9 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UnrealTournamentHUD.h"
+#include "UTHUD.h"
 
-AUnrealTournamentHUD::AUnrealTournamentHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	// Set the crosshair texture
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshiarTexObj(TEXT("/Game/Textures/Crosshair"));
@@ -11,7 +11,7 @@ AUnrealTournamentHUD::AUnrealTournamentHUD(const class FPostConstructInitializeP
 }
 
 
-void AUnrealTournamentHUD::DrawHUD()
+void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
@@ -28,5 +28,12 @@ void AUnrealTournamentHUD::DrawHUD()
 	FCanvasTileItem TileItem( CrosshairDrawPosition, CrosshairTex->Resource, FLinearColor::White);
 	TileItem.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem( TileItem );
+
+	int32 XPos;
+	FString ProtoTypeText = FString::Printf(TEXT("Alpha Prototype"));
+	XPos = GEngine->GetSmallFont()->GetStringSize(*ProtoTypeText);
+
+	FCanvasTextItem TextItem(FVector2D(Center.X - (XPos * 0.5f), 5.0f), FText::FromString(ProtoTypeText), GEngine->GetSmallFont(), FLinearColor::White);
+	Canvas->DrawItem(TextItem);
 }
 

@@ -1,10 +1,10 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
-#include "UnrealTournamentHUD.generated.h"
+#include "UTHUD.generated.h"
 
 UCLASS()
-class AUnrealTournamentHUD : public AHUD
+class AUTHUD : public AHUD
 {
 	GENERATED_UCLASS_BODY()
 

@@ -1,10 +1,10 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "UnrealTournamentProjectile.generated.h"
+#include "UTProjectile.generated.h"
 
 UCLASS(config=Game)
-class AUnrealTournamentProjectile : public AActor
+class AUTProjectile : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
