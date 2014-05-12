@@ -16,10 +16,19 @@
 
 # Ignore project files in the root
 /*.sln
+/*.xcodeproj
+/*/*.sln
+/*/*.xcodeproj
+
+# Ignore local user Visual Studio files in any folder
 *.suo
 *.opensdf
 *.sdf
-/*.xcodeproj
+
+# Ignore intermediate folders from Xcode
+# TODO: This section can be removed after UnrealBuildTool has been changed to generated Xcode projects that force the 'build' directory to be created under the Intermediate folder instead.
+/build/**
+/*/build/**
 
 # Derived data cache is never checked in
 /*/DerivedDataCache/**
