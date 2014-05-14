@@ -5,3 +5,4 @@
 
 IMPLEMENT_PRIMARY_GAME_MODULE( FDefaultGameModuleImpl, UnrealTournament, "UnrealTournament" );
  
+DEFINE_LOG_CATEGORY(UT);

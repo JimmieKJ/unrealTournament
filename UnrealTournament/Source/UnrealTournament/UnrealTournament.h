@@ -6,6 +6,8 @@
 #include "Engine.h"
 #include "EngineKismetLibraryClasses.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
+
 #define COLLISION_PROJECTILE	ECC_GameTraceChannel1
 
 
