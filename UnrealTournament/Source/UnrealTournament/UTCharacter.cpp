@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTCharacter.h"
 #include "UTProjectile.h"
+#include "UnrealNetwork.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -22,9 +23,6 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FirstPersonCameraComponent->AttachParent = CapsuleComponent;
 	FirstPersonCameraComponent->RelativeLocation = FVector(0, 0, 64.f); // Position the camera
 
-	// Default offset from the character location for projectiles to spawn
-	GunOffset = FVector(100.0f, 30.0f, 10.0f);
-
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
 	Mesh1P = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
 	Mesh1P->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
@@ -32,9 +30,14 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	Mesh1P->RelativeLocation = FVector(0.f, 0.f, -150.f);
 	Mesh1P->bCastDynamicShadow = false;
 	Mesh1P->CastShadow = false;
+}
 
-	// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P are set in the
-	// derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+void AUTCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	// TODO: should be done by game type
+	AddInventory(GetWorld()->SpawnActor<AUTWeapon>(DefaultWeapon, FVector(0.0f), FRotator(0, 0, 0)), true);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -47,7 +50,10 @@ void AUTCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 
 	InputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	
-	InputComponent->BindAction("Fire", IE_Pressed, this, &AUTCharacter::OnFire);
+	InputComponent->BindAction("StartFire", IE_Pressed, this, &AUTCharacter::OnFire);
+	InputComponent->BindAction("StopFire", IE_Released, this, &AUTCharacter::OnStopFire);
+	InputComponent->BindAction("StartAltFire", IE_Pressed, this, &AUTCharacter::OnAltFire);
+	InputComponent->BindAction("StopAltFire", IE_Released, this, &AUTCharacter::OnStopAltFire);
 	InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AUTCharacter::TouchStarted);
 
 	InputComponent->BindAxis("MoveForward", this, &AUTCharacter::MoveForward);
@@ -64,38 +70,95 @@ void AUTCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 
 void AUTCharacter::OnFire()
 {
-	// try and fire a projectile
-	if (ProjectileClass != NULL)
-	{
-		const FRotator SpawnRotation = GetControlRotation();
-		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-		const FVector SpawnLocation = GetActorLocation() + SpawnRotation.RotateVector(GunOffset);
+	StartFire(0);
+}
+void AUTCharacter::OnStopFire()
+{
+	StopFire(0);
+}
+void AUTCharacter::OnAltFire()
+{
+	StartFire(1);
+}
+void AUTCharacter::OnStopAltFire()
+{
+	StopFire(1);
+}
 
-		UWorld* const World = GetWorld();
-		if (World != NULL)
+void AUTCharacter::StartFire(uint8 FireModeNum)
+{
+	if (!IsLocallyControlled())
+	{
+		UE_LOG(UT, Warning, TEXT("StartFire() can only be called on the owning client"));
+	}
+	else if (Weapon != NULL)
+	{
+		if (PendingFire.Num() < FireModeNum + 1)
 		{
-			// spawn the projectile at the muzzle
-			World->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation);
+			PendingFire.SetNumZeroed(FireModeNum + 1);
+		}
+		if (PendingFire[FireModeNum] == 0)
+		{
+			PendingFire[FireModeNum] = 1;
+			Weapon->StartFire(FireModeNum);
 		}
 	}
+}
 
-	// try and play the sound if specified
-	if (FireSound != NULL)
+void AUTCharacter::StopFire(uint8 FireModeNum)
+{
+	if (!IsLocallyControlled())
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
+		UE_LOG(UT, Warning, TEXT("StopFire() can only be called on the owning client"));
 	}
-
-	// try and play a firing animation if specified
-	if(FireAnimation != NULL)
+	else if (Weapon != NULL && IsPendingFire(FireModeNum))
 	{
-		// Get the animation object for the arms mesh
-		UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
-		if(AnimInstance != NULL)
+		PendingFire[FireModeNum] = 0;
+		Weapon->StopFire(FireModeNum);
+	}
+}
+
+void AUTCharacter::SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode)
+{
+	FlashLocation = InFlashLoc;
+	// we reserve the zero vector to stop firing, so make sure we aren't setting a value that would replicate that way
+	if (FlashLocation.SizeSquared() < 1.0f)
+	{
+		FlashLocation.Z += 1.1f;
+	}
+	FireMode = InFireMode;
+}
+void AUTCharacter::IncrementFlashCount(uint8 InFireMode)
+{
+	FlashCount++;
+	// we reserve zero for not firing; make sure we don't set that
+	if (FlashCount == 0)
+	{
+		FlashCount++;
+	}
+	FireMode = InFireMode;
+}
+void AUTCharacter::ClearFiringInfo()
+{
+	FlashLocation = FVector::ZeroVector;
+	FlashCount = 0;
+}
+void AUTCharacter::FiringInfoUpdated()
+{
+	if (FlashLocation.IsZero() && FlashCount == 0)
+	{
+		if (Weapon != NULL) // and in first person?
 		{
-			AnimInstance->Montage_Play(FireAnimation, 1.f);
+			Weapon->StopFiringEffects();
 		}
 	}
-
+	else
+	{
+		if (Weapon != NULL)  // and in first person?
+		{
+			Weapon->PlayFiringEffects();
+		}
+	}
 }
 
 void AUTCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
@@ -149,4 +212,178 @@ void AUTCharacter::LookUpAtRate(float Rate)
 {
 	// calculate delta for this frame from the rate information
 	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
+}
+
+void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
+{
+	if (InvToAdd != NULL)
+	{
+		if (InventoryList == NULL)
+		{
+			InventoryList = InvToAdd;
+		}
+		else if (InventoryList == InvToAdd)
+		{
+			UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
+		}
+		else
+		{
+			AUTInventory* Last = InventoryList;
+			while (Last->NextInventory != NULL)
+			{
+				// avoid recursion
+				if (Last->NextInventory == InvToAdd)
+				{
+					UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
+					return;
+				}
+				Last = Last->NextInventory;
+			}
+			Last->NextInventory = InvToAdd;
+		}
+		InvToAdd->GivenTo(this, bAutoActivate);
+	}
+}
+
+void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
+{
+	if (InvToRemove != NULL)
+	{
+		if (InvToRemove == InventoryList)
+		{
+			InventoryList = InventoryList->NextInventory;
+		}
+		else
+		{
+			for (AUTInventory* TestInv = InventoryList; TestInv->NextInventory != NULL; TestInv = TestInv->NextInventory)
+			{
+				if (TestInv->NextInventory == InvToRemove)
+				{
+					TestInv->NextInventory = InvToRemove->NextInventory;
+					break;
+				}
+			}
+		}
+		if (InvToRemove == PendingWeapon)
+		{
+			PendingWeapon = NULL;
+		}
+		else if (InvToRemove == Weapon)
+		{
+			if (PendingWeapon != NULL)
+			{
+				WeaponChanged();
+			}
+			else
+			{
+				// TODO: implement
+				//Controller->SwitchToBestWeapon();
+			}
+		}
+		InvToRemove->eventRemoved();
+	}
+}
+
+bool AUTCharacter::IsInInventory(const AUTInventory* TestInv) const
+{
+	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	{
+		if (Inv == TestInv)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
+{
+	if (Role <= ROLE_SimulatedProxy)
+	{
+		UE_LOG(UT, Warning, TEXT("Illegal SwitchWeapon() call on remote client"));
+	}
+	else if (NewWeapon == NULL || NewWeapon->Instigator != this || !IsInInventory(NewWeapon))
+	{
+		UE_LOG(UT, Warning, TEXT("Weapon %s is not owned by self"), *NewWeapon->GetName());
+	}
+	else if (Role == ROLE_Authority)
+	{
+		ClientSwitchWeapon(NewWeapon);
+		// NOTE: we don't call LocalSwitchWeapon() here; we ping back from the client so all weapon switches are lead by the client
+		//		otherwise, we get inconsistencies if both sides trigger weapon changes
+	}
+	else
+	{
+		LocalSwitchWeapon(NewWeapon);
+		ServerSwitchWeapon(NewWeapon);
+	}
+}
+
+void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
+{
+	if (Weapon == NULL)
+	{
+		Weapon = NewWeapon;
+		Weapon->BringUp();
+	}
+	else if (Weapon->PutDown())
+	{
+		PendingWeapon = NewWeapon;
+	}
+}
+
+void AUTCharacter::ClientSwitchWeapon_Implementation(AUTWeapon* NewWeapon)
+{
+	LocalSwitchWeapon(NewWeapon);
+	if (Role < ROLE_Authority)
+	{
+		ServerSwitchWeapon(NewWeapon);
+	}
+}
+
+void AUTCharacter::ServerSwitchWeapon_Implementation(AUTWeapon* NewWeapon)
+{
+	if (NewWeapon != NULL)
+	{
+		LocalSwitchWeapon(NewWeapon);
+	}
+}
+bool AUTCharacter::ServerSwitchWeapon_Validate(AUTWeapon* NewWeapon)
+{
+	return true;
+}
+
+void AUTCharacter::WeaponChanged()
+{
+	if (PendingWeapon != NULL)
+	{
+		checkSlow(IsInInventory(PendingWeapon));
+		Weapon = PendingWeapon;
+		PendingWeapon = NULL;
+		Weapon->BringUp();
+	}
+	else
+	{
+		// restore current weapon since pending became invalid
+		Weapon->BringUp();
+	}
+}
+
+void AUTCharacter::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
+{
+	if (IsLocallyControlled())
+	{
+		// TODO: some ratings comparison or something
+		SwitchWeapon(TestWeapon);
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("Illegal CheckAutoWeaponSwitch(); %s not locally controlled"), *GetName());
+	}
+}
+
+void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 }

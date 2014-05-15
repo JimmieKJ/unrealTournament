@@ -24,29 +24,98 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
 
-	/** Gun muzzle's offset from the characters location */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Gameplay)
-	FVector GunOffset;
+	inline class AUTInventory* GetInventory()
+	{
+		return InventoryList;
+	}
 
-	/** Projectile class to spawn */
-	UPROPERTY(EditDefaultsOnly, Category=Projectile)
-	TSubclassOf<class AUTProjectile> ProjectileClass;
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void AddInventory(AUTInventory* InvToAdd, bool bAutoActivate);
 
-	/** Sound to play each time we fire */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Gameplay)
-	USoundBase* FireSound;
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void RemoveInventory(AUTInventory* InvToRemove);
 
-	/** AnimMontage to play each time we fire */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
-	UAnimMontage* FireAnimation;
+	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
+
+	/** switches weapons; handles client/server sync, safe to call on either side */
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void SwitchWeapon(AUTWeapon* NewWeapon);
+
+	inline bool IsPendingFire(uint8 FireMode) const
+	{
+		return (FireMode < PendingFire.Num() && PendingFire[FireMode] != 0);
+	}
+
+	inline AUTWeapon* GetWeapon() const
+	{
+		return Weapon;
+	}
+	inline AUTWeapon* GetPendingWeapon() const
+	{
+		return PendingWeapon;
+	}
+
+	bool IsInInventory(const AUTInventory* TestInv) const;
+
+	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up */
+	virtual void WeaponChanged();
+
+	virtual void PossessedBy(AController* NewController);
+
+	/** replicated weapon firing info */
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoUpdated, Category = "Weapon")
+	uint8 FlashCount;
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
+	uint8 FireMode;
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoUpdated, Category = "Weapon")
+	FVector FlashLocation;
+
+	/** set info for one instance of firing and plays firing effects; assumed to be a valid shot - call ClearFiringInfo() if the weapon has stopped firing
+	 * if a location is not needed (projectile) call IncrementFlashCount() instead
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode);
+	/** set info for one instance of firing and plays firing effects; assumed to be a valid shot - call ClearFiringInfo() if the weapon has stopped firing
+	* if a location is needed (instant hit, beam, etc) call SetFlashLocation() instead
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void IncrementFlashCount(uint8 InFireMode);
+	/** clears firing variables; i.e. because the weapon has stopped firing */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void ClearFiringInfo();
+
+	/** called when firing variables are updated to trigger/stop effects */
+	UFUNCTION()
+	virtual void FiringInfoUpdated();
 
 protected:
+
+	/** switches weapon locally, must execute independently on both server and client */
+	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
+	/** RPC to do weapon switch */
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);
+	UFUNCTION(Client, Reliable)
+	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);
 
 	/** Handler for a touch input beginning. */
 	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
 
-	/** Fires a projectile. */
+	/** weapon fire input handling */
 	void OnFire();
+	void OnStopFire();
+	void OnAltFire();
+	void OnStopAltFire();
+
+	// firemodes with input currently being held down (pending or actually firing)
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	TArray<uint8> PendingFire;
+
+	/** weapon firing */
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void StartFire(uint8 FireModeNum);
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void StopFire(uint8 FireModeNum);
 
 	/** Handles moving forward/backward */
 	void MoveForward(float Val);
@@ -66,7 +135,19 @@ protected:
 	 */
 	void LookUpAtRate(float Rate);
 
-protected:
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Pawn")
+	AUTInventory* InventoryList;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	AUTWeapon* PendingWeapon;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	class AUTWeapon* Weapon;
+
+	/** default weapon - TODO: should be in gametype */
+	UPROPERTY(EditAnywhere, Category = "Pawn")
+	TSubclassOf<AUTWeapon> DefaultWeapon;
+
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) OVERRIDE;
 	// End of APawn interface
