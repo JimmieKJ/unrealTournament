@@ -386,4 +386,7 @@ void AUTCharacter::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
 }

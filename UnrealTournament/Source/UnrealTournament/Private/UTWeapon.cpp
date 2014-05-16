@@ -20,6 +20,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	BringUpTime = 0.5f;
 	PutDownTime = 0.5f;
 
+	bFPFireFromCenter = true;
 	FireOffset = FVector(100.0f, 30.0f, 10.0f);
 
 	InactiveState = PCIP.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
@@ -177,6 +178,11 @@ void AUTWeapon::PlayFiringEffects()
 			static FName NAME_HitLocation(TEXT("HitLocation"));
 			PSC->SetVectorParameter(NAME_HitLocation, UTOwner->FlashLocation);
 		}
+		// FIXME: temp debug line until we have effects
+		else
+		{
+			DrawDebugLine(GetWorld(), UTOwner->GetActorLocation() + UTOwner->GetViewRotation().RotateVector(FireOffset), UTOwner->FlashLocation, FColor(0, 0, 255), false, 0.5f);
+		}
 	}
 }
 void AUTWeapon::StopFiringEffects()
@@ -218,13 +224,30 @@ bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo > AmmoCost[FireModeNum]);
 }
 
+FVector AUTWeapon::GetFireStartLoc()
+{
+	if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
+	{
+		return UTOwner->GetPawnViewLocation();
+	}
+	else
+	{
+		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
+		return UTOwner->GetActorLocation() + UTOwner->GetViewRotation().RotateVector(FireOffset);
+	}
+}
+
+FRotator AUTWeapon::GetFireRotation()
+{
+	return UTOwner->GetViewRotation();
+}
+
 void AUTWeapon::FireInstantHit()
 {
 	checkSlow(InstantHitInfo.IsValidIndex(CurrentFireMode));
 
-	const FRotator SpawnRotation = UTOwner->GetControlRotation();
-	// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-	const FVector SpawnLocation = UTOwner->GetActorLocation() + SpawnRotation.RotateVector(FireOffset);
+	const FRotator SpawnRotation = GetFireRotation();
+	const FVector SpawnLocation = GetFireStartLoc();
 	const FVector FireDir = SpawnRotation.Vector();
 
 	FHitResult Hit;
@@ -239,11 +262,6 @@ void AUTWeapon::FireInstantHit()
 
 		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType), UTOwner->Controller, this);
 	}
-	// FIXME: temp debug line until we have effects
-	if (!FireEffect.IsValidIndex(CurrentFireMode) || FireEffect[CurrentFireMode] == NULL)
-	{
-		DrawDebugLine(GetWorld(), SpawnLocation, Hit.Location, FColor(0, 0, 255), false, 0.5f);
-	}
 	UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 }
 
@@ -252,9 +270,8 @@ AUTProjectile* AUTWeapon::FireProjectile()
 	checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
 
 	// try and fire a projectile
-	const FRotator SpawnRotation = UTOwner->GetControlRotation();
-	// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-	const FVector SpawnLocation = UTOwner->GetActorLocation() + SpawnRotation.RotateVector(FireOffset);
+	const FRotator SpawnRotation = GetFireRotation();
+	const FVector SpawnLocation = GetFireStartLoc();
 
 	UTOwner->IncrementFlashCount(CurrentFireMode);
 

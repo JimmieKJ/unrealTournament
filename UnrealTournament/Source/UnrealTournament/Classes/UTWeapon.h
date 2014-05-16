@@ -63,8 +63,13 @@ class AUTWeapon : public AUTInventory
 	 */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
-
-	/** Firing offset from character center */
+	
+	/** causes weapons fire to originate from the center of the player's view when in first person mode (and human controlled)
+	 * in other cases the fire start point defaults to the weapon's world position
+	 */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	bool bFPFireFromCenter;
+	/** Firing offset from weapon for weapons fire. If bFPFireFromCenter is true and it's a player in first person mode, this is only used for visual effects */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	FVector FireOffset;
 
@@ -119,6 +124,12 @@ class AUTWeapon : public AUTInventory
 	virtual void PlayFiringEffects();
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StopFiringEffects();
+
+	/** return start point for weapons fire */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual FVector GetFireStartLoc();
+	/** return fire direction for weapons fire */
+	virtual FRotator GetFireRotation();
 
 	/** use up AmmoCost units of ammo for the current fire mode
 	 * also handles triggering auto weapon switch if out of ammo
