@@ -12,6 +12,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	CollisionComp->InitSphereRadius(5.0f);
 	CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
 	CollisionComp->OnComponentHit.AddDynamic(this, &AUTProjectile::OnHit);		// set up a notification for when this component overlaps something
+	CollisionComp->bTraceComplexOnMove = true;
 	RootComponent = CollisionComp;
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
