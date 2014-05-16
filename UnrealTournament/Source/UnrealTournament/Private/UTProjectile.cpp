@@ -32,6 +32,11 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 
 void AUTProjectile::BeginPlay()
 {
+	if (SpawnInstigator != NULL)
+	{
+		Instigator = SpawnInstigator;
+	}
+
 	Super::BeginPlay();
 	
 	if (Instigator != NULL)
@@ -42,7 +47,7 @@ void AUTProjectile::BeginPlay()
 
 void AUTProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (OtherActor != NULL && OtherActor != this && OtherComp != NULL && !bExploded)
+	if (OtherActor != NULL && OtherActor != this && OtherActor != Instigator && OtherComp != NULL && !bExploded)
 	{
 		// TODO: replicated momentum handling
 		OtherComp->AddImpulseAtLocation(GetVelocity() * 100.0f, GetActorLocation());

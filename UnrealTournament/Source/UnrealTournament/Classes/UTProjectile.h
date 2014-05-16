@@ -51,5 +51,12 @@ class AUTProjectile : public AActor
 
 	UFUNCTION(BlueprintCallable, Category = Projectile)
 	virtual void Explode(const FVector& HitLocation, const FVector& HitNormal);
+
+protected:
+	/** workaround to Instigator not exposed in blueprint spawn at engine level
+	 * ONLY USED IN SPAWN ACTOR NODE
+	 */
+	UPROPERTY(BlueprintReadWrite, Meta = (ExposeOnSpawn = "true"), Category = "Spawn")
+	APawn* SpawnInstigator;
 };
 
