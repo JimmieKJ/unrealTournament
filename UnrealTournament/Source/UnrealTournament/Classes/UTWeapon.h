@@ -126,9 +126,10 @@ class AUTWeapon : public AUTInventory
 	virtual void StopFiringEffects();
 
 	/** return start point for weapons fire */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
 	virtual FVector GetFireStartLoc();
 	/** return fire direction for weapons fire */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
 	virtual FRotator GetFireRotation();
 
 	/** use up AmmoCost units of ammo for the current fire mode
