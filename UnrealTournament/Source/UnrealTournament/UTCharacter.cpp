@@ -19,17 +19,17 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	BaseLookUpRate = 45.f;
 
 	// Create a CameraComponent	
-	FirstPersonCameraComponent = PCIP.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
-	FirstPersonCameraComponent->AttachParent = CapsuleComponent;
-	FirstPersonCameraComponent->RelativeLocation = FVector(0, 0, 64.f); // Position the camera
+	CharacterCameraComponent = PCIP.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
+	CharacterCameraComponent->AttachParent = CapsuleComponent;
+	CharacterCameraComponent->RelativeLocation = FVector(0, 0, 64.f); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
-	Mesh1P = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
-	Mesh1P->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
-	Mesh1P->AttachParent = FirstPersonCameraComponent;
-	Mesh1P->RelativeLocation = FVector(0.f, 0.f, -150.f);
-	Mesh1P->bCastDynamicShadow = false;
-	Mesh1P->CastShadow = false;
+	FirstPersonMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
+	FirstPersonMesh->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
+	FirstPersonMesh->AttachParent = CharacterCameraComponent;
+	FirstPersonMesh->RelativeLocation = FVector(0.f, 0.f, -150.f);
+	FirstPersonMesh->bCastDynamicShadow = false;
+	FirstPersonMesh->CastShadow = false;
 }
 
 void AUTCharacter::PossessedBy(AController* NewController)
@@ -49,7 +49,7 @@ void AUTCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 	check(InputComponent);
 
 	InputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-	
+
 	InputComponent->BindAction("StartFire", IE_Pressed, this, &AUTCharacter::OnFire);
 	InputComponent->BindAction("StopFire", IE_Released, this, &AUTCharacter::OnStopFire);
 	InputComponent->BindAction("StartAltFire", IE_Pressed, this, &AUTCharacter::OnAltFire);

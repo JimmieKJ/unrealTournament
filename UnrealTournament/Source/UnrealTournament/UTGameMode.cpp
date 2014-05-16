@@ -2,7 +2,10 @@
 
 #include "UnrealTournament.h"
 #include "UTGameMode.h"
+#include "UTGameState.h"
 #include "UTHUD.h"
+#include "UTPlayerState.h"
+#include "UTPlayerController.h"
 
 AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -16,4 +19,11 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 
 	// use our custom HUD class
 	HUDClass = AUTHUD::StaticClass();
+
+	PlayerControllerClass = AUTPlayerController::StaticClass();
+	MinRespawnDelay = 1.5f;
+	bUseSeamlessTravel = true;
+	CountDown = 4;
+	bPauseable = false;
 }
+
