@@ -1,5 +1,6 @@
 // Copyright 1998-2013 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
 
 #include "UTPlayerState.generated.h"
 
@@ -35,6 +36,7 @@ class AUTPlayerState : public APlayerState
 	virtual void SetWaitingPlayer(bool B);
 	virtual void IncrementKills(bool bEnemyKill);
 	virtual void IncrementDeaths();
+	virtual void AdjustScore(int ScoreAdjustment);
 };
 
 

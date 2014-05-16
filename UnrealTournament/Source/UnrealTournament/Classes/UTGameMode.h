@@ -5,10 +5,15 @@
 
 /** Defines the current state of the game. */
 
-UCLASS(minimalapi, dependson=AUTGameState)
+UCLASS(minimalapi, dependson=UTGameState)
 class AUTGameMode : public AGameMode
 {
 	GENERATED_UCLASS_BODY()
+
+public:
+	/** Cached reference to our game state for quick access. */
+	UPROPERTY()
+	AUTGameState* UTGameState;		
 
 	/** Currently not used, but will be needed later*/
 	UPROPERTY(globalconfig)
@@ -63,8 +68,25 @@ class AUTGameMode : public AGameMode
 
 	UPROPERTY()
 	TSubclassOf<class UUTLocalMessage>  GameMessageClass;
-	
-public:
+
+	UPROPERTY()
+	TSubclassOf<class UUTLocalMessage>  VictoryMessageClass;
+
+	//UFUNCTION()
+	//virtual void SetGameStage(EGameStage NewGameStage);
+
+	virtual void Reset() OVERRIDE;
+	virtual void StartNewPlayer(class APlayerController* NewPlayer);
+	virtual bool IsEnemy(class AController* First, class AController* Second);
+	virtual void Killed( class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, const class UDamageType* DamageType );
+	virtual void ScoreKill(AController* Killer, AController* Other);
+	virtual bool CheckScore(AUTPlayerState* Scorer);
+	virtual bool AUTGameMode::IsAWinner(AUTPlayerController* PC);
+	virtual void EndGame(AUTPlayerState* Winner, const FString& Reason);
+	virtual void EndMatch();
+
+	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, const UDamageType* DamageType);
+	virtual void PlayEndOfMatchMessage();
 
 protected:
 };

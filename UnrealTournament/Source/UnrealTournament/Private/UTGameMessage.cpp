@@ -1,7 +1,6 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UTLocalMessage.h"
 #include "UTGameMessage.h"
 #include "GameFramework/LocalMessage.h"
 

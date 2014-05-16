@@ -51,3 +51,9 @@ void AUTPlayerState::IncrementDeaths()
 	Deaths += 1;
 	SetNetUpdateTime(FMath::Min(NetUpdateTime, GetWorld()->TimeSeconds + 0.3f * FMath::FRand()));
 }
+
+void AUTPlayerState::AdjustScore(int ScoreAdjustment)
+{
+	Score += ScoreAdjustment;
+	ForceNetUpdate();
+}

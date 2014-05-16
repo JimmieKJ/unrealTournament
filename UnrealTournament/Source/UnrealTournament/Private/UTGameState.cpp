@@ -1,8 +1,6 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UTGameMode.h"
-#include "UTGameState.h"
 #include "Net/UnrealNetwork.h"
 
 AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
@@ -14,8 +12,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTGameState, CurrentGameStage);
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
+	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);

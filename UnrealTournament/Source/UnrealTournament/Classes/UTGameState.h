@@ -3,25 +3,10 @@
 
 #include "UTGameState.generated.h"
 
-UENUM()
-enum EGameStage
-{
-	/** Playing montage in usual way. */
-	EGS_Initializing,
-	EGS_PreGrame, 
-	EGS_GameInProgress,
-	EGS_GameOver,
-	EGS_MAX,
-};
-
-
 UCLASS(minimalapi)
 class AUTGameState : public AGameState
 {
 	GENERATED_UCLASS_BODY()
-
-	UPROPERTY(Replicated)
-	TEnumAsByte<EGameStage> CurrentGameStage;
 
 	/** If TRUE, then we weapon pick ups to stay on their base */
 	UPROPERTY(Replicated)
@@ -50,6 +35,9 @@ class AUTGameState : public AGameState
 	/** How much time is remaining in this match. */
 	UPROPERTY()
 	uint32 RemainingTime;
+
+	UPROPERTY(Replicated)
+	AUTPlayerState* WinnerPlayerState;
 
 	UFUNCTION()
 	virtual void SetTimeLimit(float NewTimeLimit);
