@@ -9,7 +9,7 @@ class UUTWeaponStateActive : public UUTWeaponState
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponStateActive::UUTWeaponStateActive(const FPostConstructInitializeProperties& PCIP)
+	UUTWeaponStateActive(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 	{}
 

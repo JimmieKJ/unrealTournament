@@ -10,7 +10,7 @@ class UUTWeaponStateInactive : public UUTWeaponState
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponStateInactive::UUTWeaponStateInactive(const FPostConstructInitializeProperties& PCIP)
+	UUTWeaponStateInactive(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 	{}
 

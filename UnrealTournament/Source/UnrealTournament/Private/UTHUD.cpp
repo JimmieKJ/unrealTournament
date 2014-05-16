@@ -14,7 +14,6 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 {
 }
 
-
 void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -39,9 +38,4 @@ void AUTHUD::DrawHUD()
 
 	FCanvasTextItem TextItem(FVector2D(Center.X - (XPos * 0.5f), 5.0f), FText::FromString(ProtoTypeText), GEngine->GetSmallFont(), FLinearColor::White);
 	Canvas->DrawItem(TextItem);
-}
-
-void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
-{
-
 }
