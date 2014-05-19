@@ -64,12 +64,16 @@ class AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
 	
+	/** first person mesh */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TSubobjectPtr<USkeletalMeshComponent> Mesh;
+
 	/** causes weapons fire to originate from the center of the player's view when in first person mode (and human controlled)
 	 * in other cases the fire start point defaults to the weapon's world position
 	 */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	bool bFPFireFromCenter;
-	/** Firing offset from weapon for weapons fire. If bFPFireFromCenter is true and it's a player in first person mode, this is only used for visual effects */
+	/** Firing offset from weapon for weapons fire. If bFPFireFromCenter is true and it's a player in first person mode, this is from the camera center */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	FVector FireOffset;
 
@@ -106,6 +110,15 @@ class AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintImplementableEvent)
 	bool eventPreventPutDown();
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void eventAttachToOwner();
+	UFUNCTION(BlueprintImplementableEvent)
+	void eventDetachFromOwner();
+	/** attach the visuals to Owner's first person view */
+	virtual void AttachToOwner();
+	/** detach the visuals from the Owner's first person view */
+	virtual void DetachFromOwner();
+
 	/** return number of fire modes */
 	virtual uint8 GetNumFireModes()
 	{
@@ -120,10 +133,17 @@ class AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintImplementableEvent)
 	bool FireShotOverride();
 
+	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StopFiringEffects();
+
+	/** play effects associated with the shot's impact given the impact point
+	 * called only if FlashLocation has been set (instant hit weapon)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void PlayImpactEffects(const FVector& TargetLoc);
 
 	/** return start point for weapons fire */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")

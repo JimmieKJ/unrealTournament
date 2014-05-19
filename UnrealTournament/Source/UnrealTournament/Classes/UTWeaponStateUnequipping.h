@@ -25,6 +25,7 @@ class UUTWeaponStateUnequipping : public UUTWeaponState
 
 	void PutDownFinished()
 	{
+		GetOuterAUTWeapon()->DetachFromOwner();
 		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->InactiveState);
 		GetOuterAUTWeapon()->GetUTOwner()->WeaponChanged();
 	}

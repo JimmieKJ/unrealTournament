@@ -21,12 +21,16 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	PutDownTime = 0.5f;
 
 	bFPFireFromCenter = true;
-	FireOffset = FVector(100.0f, 30.0f, 10.0f);
+	FireOffset = FVector(75.0f, 0.0f, 0.0f);
 
 	InactiveState = PCIP.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = PCIP.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
 	EquippingState = PCIP.CreateDefaultSubobject<UUTWeaponStateEquipping>(this, TEXT("StateEquipping"));
 	UnequippingState = PCIP.CreateDefaultSubobject<UUTWeaponStateUnequipping>(this, TEXT("StateUnequipping"));
+
+	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
+	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
+	Mesh->AttachParent = RootComponent;
 
 	if (FiringState.Num() == 0)
 	{
@@ -37,6 +41,13 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 			{
 				FiringState.Add(NewState);
 				FireInterval.Add(1.0f);
+				UParticleSystemComponent* PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent, UParticleSystemComponent>(this, FName(*FString::Printf(TEXT("MuzzleFlash%i"), i)), false, false, false);
+				MuzzleFlash.Add(PSC);
+				if (PSC != NULL)
+				{
+					PSC->bAutoActivate = false;
+					PSC->AttachParent = Mesh;
+				}
 			}
 		}
 	}
@@ -132,6 +143,8 @@ void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 
 void AUTWeapon::BringUp()
 {
+	AttachToOwner();
+
 	CurrentState->BringUp();
 }
 bool AUTWeapon::PutDown()
@@ -145,6 +158,24 @@ bool AUTWeapon::PutDown()
 		CurrentState->PutDown();
 		return true;
 	}
+}
+
+void AUTWeapon::AttachToOwner()
+{
+	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
+	{
+		Mesh->AttachTo(UTOwner->FirstPersonMesh);
+	}
+	eventAttachToOwner();
+}
+
+void AUTWeapon::DetachFromOwner()
+{
+	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
+	{
+		Mesh->DetachFromParent();
+	}
+	eventDetachFromOwner();
 }
 
 void AUTWeapon::PlayFiringEffects()
@@ -168,26 +199,36 @@ void AUTWeapon::PlayFiringEffects()
 			}
 		}
 
-		// TODO: muzzle flash
-
-		// fire effects
-		if (FireEffect.IsValidIndex(CurrentFireMode) && FireEffect[CurrentFireMode] != NULL)
+		// muzzle flash
+		if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
 		{
-			const FVector SpawnLocation = UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
-			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (UTOwner->FlashLocation - SpawnLocation).Rotation(), true);
-			static FName NAME_HitLocation(TEXT("HitLocation"));
-			PSC->SetVectorParameter(NAME_HitLocation, UTOwner->FlashLocation);
-		}
-		// FIXME: temp debug line until we have effects
-		else
-		{
-			DrawDebugLine(GetWorld(), UTOwner->GetActorLocation() + UTOwner->GetViewRotation().RotateVector(FireOffset), UTOwner->FlashLocation, FColor(0, 0, 255), false, 0.5f);
+			MuzzleFlash[CurrentFireMode]->ActivateSystem();
 		}
 	}
 }
 void AUTWeapon::StopFiringEffects()
 {
 	// TODO
+}
+void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		// fire effects
+		if (FireEffect.IsValidIndex(CurrentFireMode) && FireEffect[CurrentFireMode] != NULL)
+		{
+			const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (TargetLoc - SpawnLocation).Rotation(), true);
+			static FName NAME_HitLocation(TEXT("HitLocation"));
+			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
+		}
+		// FIXME: temp debug line until we have effects
+		else
+		{
+			const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
+			DrawDebugLine(GetWorld(), SpawnLocation, TargetLoc, FColor(0, 0, 255), false, 0.5f);
+		}
+	}
 }
 
 void AUTWeapon::FireShot()
@@ -204,6 +245,7 @@ void AUTWeapon::FireShot()
 		{
 			FireInstantHit();
 		}
+		PlayFiringEffects();
 	}
 }
 
@@ -228,12 +270,12 @@ FVector AUTWeapon::GetFireStartLoc()
 {
 	if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
 	{
-		return UTOwner->GetPawnViewLocation();
+		return UTOwner->GetPawnViewLocation() + GetFireRotation().RotateVector(FireOffset);
 	}
 	else
 	{
 		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-		return UTOwner->GetActorLocation() + UTOwner->GetViewRotation().RotateVector(FireOffset);
+		return UTOwner->GetActorLocation() + GetFireRotation().RotateVector(FireOffset);
 	}
 }
 

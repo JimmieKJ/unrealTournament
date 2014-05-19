@@ -27,9 +27,19 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FirstPersonMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
 	FirstPersonMesh->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
 	FirstPersonMesh->AttachParent = CharacterCameraComponent;
-	FirstPersonMesh->RelativeLocation = FVector(0.f, 0.f, -150.f);
 	FirstPersonMesh->bCastDynamicShadow = false;
 	FirstPersonMesh->CastShadow = false;
+
+	HealthMax = 100;
+}
+
+void AUTCharacter::BeginPlay()
+{
+	if (Health == 0)
+	{
+		Health = HealthMax;
+	}
+	Super::BeginPlay();
 }
 
 void AUTCharacter::PossessedBy(AController* NewController)
@@ -38,6 +48,93 @@ void AUTCharacter::PossessedBy(AController* NewController)
 
 	// TODO: should be done by game type
 	AddInventory(GetWorld()->SpawnActor<AUTWeapon>(DefaultWeapon, FVector(0.0f), FRotator(0, 0, 0)), true);
+}
+
+float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	if (Health <= 0)
+	{
+		// assume already dead
+		return 0.0f;
+	}
+	else
+	{
+		int32 ResultDamage = FMath::Trunc(Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser));
+
+		// TODO: gametype links, etc
+
+		Health -= ResultDamage;
+		SetLastTakeHitInfo(ResultDamage, DamageEvent);
+		if (Health <= 0)
+		{
+			Died(EventInstigator, DamageEvent);
+		}
+
+		return float(ResultDamage);
+	}
+}
+
+void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEvent)
+{
+	LastTakeHitInfo.Damage = Damage;
+	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
+	LastTakeHitInfo.Momentum = FVector::ZeroVector; // TODO
+
+	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+	{
+		LastTakeHitInfo.HitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location;
+	}
+	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
+	{
+		LastTakeHitInfo.HitLocation = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0) ? ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location : GetActorLocation();
+	}
+	else
+	{
+		LastTakeHitInfo.HitLocation = GetActorLocation();
+	}
+			
+	PlayTakeHitEffects();
+}
+
+void AUTCharacter::PlayTakeHitEffects()
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+	}
+}
+
+bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& DamageEvent)
+{
+	if (Role < ROLE_Authority || bTearOff)
+	{
+		// can't kill pawns on client
+		// can't kill pawns that are already dead :)
+		return false;
+	}
+	else
+	{
+		// TODO: GameInfo::PreventDeath()
+
+		// TODO: GameInfo::Killed()
+
+		Health = FMath::Min<int32>(Health, 0);
+		if (Controller != NULL)
+		{
+			Controller->PawnPendingDestroy(this);
+		}
+
+		bTearOff = true;
+		PlayDying();
+
+		return true;
+	}
+}
+
+void AUTCharacter::PlayDying()
+{
+	// TODO: ragdoll, et al
+	//		also remember need to do lifespan for replication, not straight destroy
+	Destroy();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -127,6 +224,7 @@ void AUTCharacter::SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode)
 		FlashLocation.Z += 1.1f;
 	}
 	FireMode = InFireMode;
+	FiringInfoUpdated();
 }
 void AUTCharacter::IncrementFlashCount(uint8 InFireMode)
 {
@@ -137,6 +235,7 @@ void AUTCharacter::IncrementFlashCount(uint8 InFireMode)
 		FlashCount++;
 	}
 	FireMode = InFireMode;
+	FiringInfoUpdated();
 }
 void AUTCharacter::ClearFiringInfo()
 {
@@ -145,20 +244,11 @@ void AUTCharacter::ClearFiringInfo()
 }
 void AUTCharacter::FiringInfoUpdated()
 {
-	if (FlashLocation.IsZero() && FlashCount == 0)
+	if (Weapon != NULL && !FlashLocation.IsZero())  // and in first person?
 	{
-		if (Weapon != NULL) // and in first person?
-		{
-			Weapon->StopFiringEffects();
-		}
+		Weapon->PlayImpactEffects(FlashLocation);
 	}
-	else
-	{
-		if (Weapon != NULL)  // and in first person?
-		{
-			Weapon->PlayFiringEffects();
-		}
-	}
+	// TODO: weapon attachment
 }
 
 void AUTCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
@@ -385,6 +475,8 @@ void AUTCharacter::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 
 void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_SkipOwner);

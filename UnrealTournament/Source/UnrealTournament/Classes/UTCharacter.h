@@ -3,6 +3,25 @@
 
 #include "UTCharacter.generated.h"
 
+USTRUCT(BlueprintType)
+struct FTakeHitInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** the amount of damage */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	int32 Damage;
+	/** the location of the hit (relative to Pawn center) */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	FVector HitLocation;
+	/** how much momentum was imparted */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	FVector Momentum;
+	/** the damage type we were hit with */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	TSubclassOf<UDamageType> DamageType;
+};
+
 UCLASS(config=Game)
 class AUTCharacter : public ACharacter
 {
@@ -87,6 +106,35 @@ class AUTCharacter : public ACharacter
 	/** called when firing variables are updated to trigger/stop effects */
 	UFUNCTION()
 	virtual void FiringInfoUpdated();
+
+	UPROPERTY(BlueprintReadWrite, Category = Pawn)
+	int32 Health;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pawn)
+	int32 HealthMax;
+
+	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated, ReplicatedUsing=PlayTakeHitEffects)
+	FTakeHitInfo LastTakeHitInfo;
+
+	virtual void BeginPlay() OVERRIDE;
+
+	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) OVERRIDE;
+
+	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
+	virtual void SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEvent);
+
+	/** plays clientside hit effects using the data previously stored in LastTakeHitInfo */
+	UFUNCTION(BlueprintCosmetic)
+	virtual void PlayTakeHitEffects();
+
+	/** called when we die (generally, by running out of health)
+	 *  SERVER ONLY - do not do visual effects here!
+	 * return true if we can die, false if immortal (gametype effect, powerup, mutator, etc)
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
+	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
+
+	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
+	virtual void PlayDying();
 
 protected:
 

@@ -29,6 +29,10 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	DamageParams.BaseDamage = 20;
 	DamageParams.DamageFalloff = 1.0;
 	Momentum = 50000.0f;
+
+	SetReplicates(true);
+	bNetTemporary = false;
+	bReplicateInstigator = true;
 }
 
 void AUTProjectile::BeginPlay()
@@ -48,7 +52,8 @@ void AUTProjectile::BeginPlay()
 
 void AUTProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (OtherActor != NULL && OtherActor != this && OtherActor != Instigator && OtherComp != NULL && !bExploded)
+	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
+	if (OtherActor != NULL && OtherActor != this && OtherActor != Instigator && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds))
 	{
 		// TODO: replicated momentum handling
 		OtherComp->AddImpulseAtLocation(GetVelocity() * 100.0f, GetActorLocation());
@@ -91,7 +96,7 @@ void AUTProjectile::ShutDown()
 	SetLifeSpan(0.2f);
 	CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	ProjectileMovement->SetActive(false);
-	bHidden = true;
+	SetActorHiddenInGame(true);
 	bExploded = true;
 	// TODO: remove effects, sounds
 }

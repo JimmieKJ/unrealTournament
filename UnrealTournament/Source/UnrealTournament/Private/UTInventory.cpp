@@ -6,6 +6,7 @@
 AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	SetReplicates(true);
 	bOnlyRelevantToOwner = true;
 	bReplicateInstigator = true;
 }
@@ -79,5 +80,6 @@ void AUTInventory::ClientRemoved_Implementation()
 
 void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTInventory, NextInventory, COND_OwnerOnly);
 }
