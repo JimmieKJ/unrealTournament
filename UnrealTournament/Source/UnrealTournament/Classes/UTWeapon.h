@@ -130,6 +130,9 @@ class AUTWeapon : public AUTInventory
 	/** fires a shot and consumes ammo */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void FireShot();
+	/** blueprint override for firing
+	 * NOTE: do an authority check before spawning projectiles, etc as this function is called on both sides
+	 */
 	UFUNCTION(BlueprintImplementableEvent)
 	bool FireShotOverride();
 

@@ -139,7 +139,7 @@ bool AUTGameMode::IsEnemy(AController * First, AController* Second)
 	return First != Second;
 }
 
-void AUTGameMode::Killed( AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType )
+void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 	AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
@@ -156,7 +156,7 @@ void AUTGameMode::Killed( AController* Killer, AController* KilledPlayer, APawn*
 	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
 }
 
-void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, const UDamageType* DamageType )
+void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 }
 
@@ -288,17 +288,17 @@ void AUTGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 }
 
 
-void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other, const UDamageType* DamageType)
+void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
 {
 	if (DeathMessageClass != NULL)
 	{
 		if ( (Killer == Other) || (Killer == NULL) )
 		{
-			BroadcastLocalized(this, DeathMessageClass, 1, NULL, Other->PlayerState, const_cast<UDamageType*>(DamageType));
+			BroadcastLocalized(this, DeathMessageClass, 1, NULL, Other->PlayerState, DamageType);
 		}
 		else
 		{
-			BroadcastLocalized(this, DeathMessageClass, 0, Killer->PlayerState, Other->PlayerState, const_cast<UDamageType*>(DamageType));
+			BroadcastLocalized(this, DeathMessageClass, 0, Killer->PlayerState, Other->PlayerState, DamageType);
 		}
 	}
 }

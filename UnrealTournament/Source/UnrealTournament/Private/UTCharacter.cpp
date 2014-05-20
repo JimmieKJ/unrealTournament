@@ -52,10 +52,11 @@ void AUTCharacter::PossessedBy(AController* NewController)
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	if (Health <= 0)
+	if (IsDead())
 	{
-		// assume already dead
-		return 0.0f;
+		// already dead
+		// TODO: ragdoll impulses, gibbing, etc
+		return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 	}
 	else
 	{
@@ -98,14 +99,14 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEv
 
 void AUTCharacter::PlayTakeHitEffects()
 {
-	if (GetNetMode() != NM_DedicatedServer)
+	if (GetNetMode() != NM_DedicatedServer && !eventOverrideTakeHitEffects())
 	{
 	}
 }
 
 bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& DamageEvent)
 {
-	if (Role < ROLE_Authority || bTearOff)
+	if (Role < ROLE_Authority || IsDead())
 	{
 		// can't kill pawns on client
 		// can't kill pawns that are already dead :)
@@ -115,7 +116,7 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 	{
 		// TODO: GameInfo::PreventDeath()
 
-		// TODO: GameInfo::Killed()
+		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, (Controller != NULL) ? Controller : Cast<AController>(GetOwner()), this, DamageEvent.DamageTypeClass);
 
 		Health = FMath::Min<int32>(Health, 0);
 		if (Controller != NULL)

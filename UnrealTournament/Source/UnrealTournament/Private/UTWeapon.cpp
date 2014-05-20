@@ -237,13 +237,16 @@ void AUTWeapon::FireShot()
 
 	if (!FireShotOverride())
 	{
-		if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
+		if (Role == ROLE_Authority)
 		{
-			FireProjectile();
-		}
-		else if (InstantHitInfo.IsValidIndex(CurrentFireMode) && InstantHitInfo[CurrentFireMode].DamageType != NULL)
-		{
-			FireInstantHit();
+			if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
+			{
+				FireProjectile();
+			}
+			else if (InstantHitInfo.IsValidIndex(CurrentFireMode) && InstantHitInfo[CurrentFireMode].DamageType != NULL)
+			{
+				FireInstantHit();
+			}
 		}
 		PlayFiringEffects();
 	}

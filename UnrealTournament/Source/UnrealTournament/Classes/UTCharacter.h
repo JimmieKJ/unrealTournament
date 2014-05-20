@@ -125,6 +125,9 @@ class AUTCharacter : public ACharacter
 	/** plays clientside hit effects using the data previously stored in LastTakeHitInfo */
 	UFUNCTION(BlueprintCosmetic)
 	virtual void PlayTakeHitEffects();
+	/** blueprintable damage effects; return true to prevent default hit effects; LastTakeHitInfo contains most recent hit data */
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
+	bool eventOverrideTakeHitEffects();
 
 	/** called when we die (generally, by running out of health)
 	 *  SERVER ONLY - do not do visual effects here!
@@ -136,6 +139,9 @@ class AUTCharacter : public ACharacter
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();
 	virtual void AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd);
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	bool IsDead();
 
 protected:
 
@@ -205,4 +211,9 @@ protected:
 	// End of APawn interface
 
 };
+
+inline bool AUTCharacter::IsDead()
+{
+	return bTearOff || bPendingKillPending || Health <= 0;
+}
 

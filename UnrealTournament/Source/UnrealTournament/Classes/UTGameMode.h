@@ -87,8 +87,8 @@ public:
 	virtual void Reset();
 	virtual void RestartGame();
 	virtual bool IsEnemy(class AController* First, class AController* Second);
-	virtual void Killed( class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, const class UDamageType* DamageType );
-	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, const UDamageType* DamageType );
+	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
+	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void ScoreKill(AController* Killer, AController* Other);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
 	virtual bool IsAWinner(AUTPlayerController* PC);
@@ -96,7 +96,7 @@ public:
 	virtual void EndGame(AUTPlayerState* Winner, const FString& Reason);
 	virtual void StartMatch();
 	virtual void EndMatch();
-	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, const UDamageType* DamageType);
+	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	virtual void PlayEndOfMatchMessage();
 
 	virtual void RestartPlayer(AController* aPlayer);
