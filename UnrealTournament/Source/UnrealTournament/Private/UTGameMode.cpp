@@ -21,6 +21,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	HUDClass = AUTHUD::StaticClass();
 
 	GameStateClass = AUTGameState::StaticClass();
+	PlayerStateClass = AUTPlayerState::StaticClass();
 
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 	MinRespawnDelay = 1.5f;
@@ -144,6 +145,8 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 	AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 	AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
 
+	UE_LOG(UT,Log,TEXT("Player Killed: %s killed %s"), (KillerPlayerState != NULL ? *KillerPlayerState->PlayerName : TEXT("NULL")), (KilledPlayerState != NULL ? *KilledPlayerState->PlayerName : TEXT("NULL")));
+
 	bool const bEnemyKill = IsEnemy(Killer, KilledPlayer);
 
 	if ( KilledPlayerState != NULL )
@@ -154,6 +157,13 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 	}
 
 	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
+
+	// Force Respawn 
+
+	if (KilledPlayer && bForceRespawn)
+	{
+		RestartPlayer(KilledPlayer);
+	}
 }
 
 void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)

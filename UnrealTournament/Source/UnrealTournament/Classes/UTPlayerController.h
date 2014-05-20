@@ -16,7 +16,19 @@ class AUTPlayerController : public APlayerController
 
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
-	virtual void ClientRestart_Implementation(APawn* NewPawn) OVERRIDE;
+	virtual void SetPawn(APawn* InPawn);
+	virtual void SetupInputComponent() OVERRIDE;
+
+protected:
+
+	/** weapon fire input handling -- NOTE: Just forward to the pawn */
+	void OnFire();
+	void OnStopFire();
+	void OnAltFire();
+	void OnStopAltFire();
+
+	/** Handler for a touch input beginning. */
+	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
 };
 
 

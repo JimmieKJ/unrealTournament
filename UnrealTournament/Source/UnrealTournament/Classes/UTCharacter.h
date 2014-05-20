@@ -107,7 +107,7 @@ class AUTCharacter : public ACharacter
 	UFUNCTION()
 	virtual void FiringInfoUpdated();
 
-	UPROPERTY(BlueprintReadWrite, Category = Pawn)
+	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
 	int32 Health;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pawn)
 	int32 HealthMax;
@@ -143,6 +143,14 @@ class AUTCharacter : public ACharacter
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	bool IsDead();
 
+	/** weapon firing */
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void StartFire(uint8 FireModeNum);
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void StopFire(uint8 FireModeNum);
+
+	virtual void UnPossessed();
+
 protected:
 
 	/** switches weapon locally, must execute independently on both server and client */
@@ -153,24 +161,9 @@ protected:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);
 
-	/** Handler for a touch input beginning. */
-	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
-
-	/** weapon fire input handling */
-	void OnFire();
-	void OnStopFire();
-	void OnAltFire();
-	void OnStopAltFire();
-
 	// firemodes with input currently being held down (pending or actually firing)
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	TArray<uint8> PendingFire;
-
-	/** weapon firing */
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
-	virtual void StartFire(uint8 FireModeNum);
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
-	virtual void StopFire(uint8 FireModeNum);
 
 	/** Handles moving forward/backward */
 	void MoveForward(float Val);
@@ -214,6 +207,6 @@ protected:
 
 inline bool AUTCharacter::IsDead()
 {
-	return bTearOff || bPendingKillPending || Health <= 0;
+	return bTearOff || bPendingKillPending;
 }
 

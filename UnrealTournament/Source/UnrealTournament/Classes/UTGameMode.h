@@ -104,8 +104,6 @@ public:
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
-
-protected:
 };
 
 

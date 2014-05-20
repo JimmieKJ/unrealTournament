@@ -12,6 +12,7 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
+	UE_LOG(UT,Log,TEXT("RecLocMsg: %s %i"), *MessageClass->GetFullName(), MessageIndex);
 }
 
 void AUTHUD::DrawHUD()
@@ -32,11 +33,30 @@ void AUTHUD::DrawHUD()
 	TileItem.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem( TileItem );
 
+	/**
+	 * This is all TEMP code.  It will be replaced with a new hud system shortly but I 
+	 * needed a way to display some data.  
+	 **/
+
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
-		TempDrawString(FText::FromString(TEXT("Alpha Prototype")), Center.X, 5.0f, ETextHorzPos::Center, GEngine->GetSmallFont(), FLinearColor::White);
+		TempDrawString(FText::FromString(TEXT("!! Alpha Prototype !!")), Center.X, 5.0f, ETextHorzPos::Center, GEngine->GetSmallFont(), FLinearColor::White);
 		TempDrawString( TempConvertTime(GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, GEngine->GetMediumFont(), FLinearColor::White);
+
+		AUTPlayerState* OwnerState = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
+		if (OwnerState)
+		{
+			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","Score","{0} : Score"), FText::AsNumber(OwnerState->Score)), Canvas->ClipX - 5.0f, 5.0f, ETextHorzPos::Right, GEngine->GetLargeFont(), FLinearColor::White);
+			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","Deaths","{0} : Deaths"), FText::AsNumber(OwnerState->Deaths)), Canvas->ClipX - 5.0f, 25.0f, ETextHorzPos::Right, GEngine->GetSmallFont(), FLinearColor::White);
+		}
+
+		AUTCharacter* OwnerChar = Cast<AUTCharacter>(PlayerOwner->GetPawn());
+		if (OwnerChar)
+		{
+			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","HEALTH","Health: {0}"), FText::AsNumber(OwnerChar->Health)), 0, Canvas->ClipY - 20.0f, ETextHorzPos::Left, GEngine->GetLargeFont(), FLinearColor::White);
+		}
+
 	}
 }
 

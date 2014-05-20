@@ -61,7 +61,6 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 	else
 	{
 		int32 ResultDamage = FMath::Trunc(Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser));
-
 		// TODO: gametype links, etc
 
 		Health -= ResultDamage;
@@ -148,12 +147,6 @@ void AUTCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 
 	InputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 
-	InputComponent->BindAction("StartFire", IE_Pressed, this, &AUTCharacter::OnFire);
-	InputComponent->BindAction("StopFire", IE_Released, this, &AUTCharacter::OnStopFire);
-	InputComponent->BindAction("StartAltFire", IE_Pressed, this, &AUTCharacter::OnAltFire);
-	InputComponent->BindAction("StopAltFire", IE_Released, this, &AUTCharacter::OnStopAltFire);
-	InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AUTCharacter::TouchStarted);
-
 	InputComponent->BindAxis("MoveForward", this, &AUTCharacter::MoveForward);
 	InputComponent->BindAxis("MoveRight", this, &AUTCharacter::MoveRight);
 	
@@ -164,23 +157,6 @@ void AUTCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 	InputComponent->BindAxis("TurnRate", this, &AUTCharacter::TurnAtRate);
 	InputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	InputComponent->BindAxis("LookUpRate", this, &AUTCharacter::LookUpAtRate);
-}
-
-void AUTCharacter::OnFire()
-{
-	StartFire(0);
-}
-void AUTCharacter::OnStopFire()
-{
-	StopFire(0);
-}
-void AUTCharacter::OnAltFire()
-{
-	StartFire(1);
-}
-void AUTCharacter::OnStopAltFire()
-{
-	StopFire(1);
 }
 
 void AUTCharacter::StartFire(uint8 FireModeNum)
@@ -250,15 +226,6 @@ void AUTCharacter::FiringInfoUpdated()
 		Weapon->PlayImpactEffects(FlashLocation);
 	}
 	// TODO: weapon attachment
-}
-
-void AUTCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
-{
-	// only fire for first finger down
-	if (FingerIndex == 0)
-	{
-		OnFire();
-	}
 }
 
 void AUTCharacter::MoveForward(float Value)
@@ -478,6 +445,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_SkipOwner);
@@ -501,4 +469,8 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	}
 }
 
-
+void AUTCharacter::UnPossessed()
+{
+	UE_LOG(UT,Warning,TEXT("UNPOSSESS"));
+	Super::UnPossessed();
+}
