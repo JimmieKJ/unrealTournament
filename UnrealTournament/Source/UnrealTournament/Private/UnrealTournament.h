@@ -6,6 +6,7 @@
 #include "Engine.h"
 #include "EngineKismetLibraryClasses.h"
 #include "ParticleDefinitions.h"
+#include "UTATypes.h"
 #include "UTLocalMessage.h"
 #include "UTPlayerState.h"
 #include "UTGameState.h"

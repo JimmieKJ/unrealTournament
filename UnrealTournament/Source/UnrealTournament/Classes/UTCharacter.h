@@ -135,6 +135,7 @@ class AUTCharacter : public ACharacter
 
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();
+	virtual void AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd);
 
 protected:
 
@@ -192,6 +193,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	class AUTWeapon* Weapon;
 
+	UPROPERTY(EditAnywhere, Category = "Pawn")
+	TArray<TSubclassOf<AUTInventory> > DefaultCharacterInventory;
+
 	/** default weapon - TODO: should be in gametype */
 	UPROPERTY(EditAnywhere, Category = "Pawn")
 	TSubclassOf<AUTWeapon> DefaultWeapon;
@@ -199,5 +203,6 @@ protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) OVERRIDE;
 	// End of APawn interface
+
 };
 

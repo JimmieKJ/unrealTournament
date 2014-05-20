@@ -5,6 +5,7 @@
 
 /** Defines the current state of the game. */
 
+
 UCLASS(minimalapi, dependson=UTGameState)
 class AUTGameMode : public AGameMode
 {
@@ -14,6 +15,9 @@ public:
 	/** Cached reference to our game state for quick access. */
 	UPROPERTY()
 	AUTGameState* UTGameState;		
+
+	UPROPERTY()
+	TEnumAsByte<EGameStage::Type> CurrentGameStage;
 
 	/** Currently not used, but will be needed later*/
 	UPROPERTY(globalconfig)
@@ -72,21 +76,34 @@ public:
 	UPROPERTY()
 	TSubclassOf<class UUTLocalMessage>  VictoryMessageClass;
 
-	//UFUNCTION()
-	//virtual void SetGameStage(EGameStage NewGameStage);
+	UPROPERTY(EditAnywhere, Category = "Inventory")
+	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
 
-	virtual void Reset() OVERRIDE;
-	virtual void StartNewPlayer(class APlayerController* NewPlayer);
+	UFUNCTION()
+	virtual void SetGameStage(EGameStage::Type NewGameStage);
+
+	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
+	virtual void InitGameState();
+	virtual void Reset();
+	virtual void RestartGame();
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed( class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, const class UDamageType* DamageType );
+	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, const UDamageType* DamageType );
 	virtual void ScoreKill(AController* Killer, AController* Other);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
-	virtual bool AUTGameMode::IsAWinner(AUTPlayerController* PC);
+	virtual bool IsAWinner(AUTPlayerController* PC);
+	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 	virtual void EndGame(AUTPlayerState* Winner, const FString& Reason);
+	virtual void StartMatch();
 	virtual void EndMatch();
-
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, const UDamageType* DamageType);
 	virtual void PlayEndOfMatchMessage();
+
+	virtual void RestartPlayer(AController* aPlayer);
+	virtual void SetPlayerDefaults(APawn* PlayerPawn);
+
+	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
+
 
 protected:
 };
