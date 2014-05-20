@@ -13,7 +13,7 @@ void UUTWeaponStateActive::BeginState(const UUTWeaponState* PrevState)
 		// check for any firemode already pending
 		for (uint8 i = 0; i < GetOuterAUTWeapon()->GetNumFireModes(); i++)
 		{
-			if (GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(i))
+			if (GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(i) && GetOuterAUTWeapon()->HasAmmo(i))
 			{
 				GetOuterAUTWeapon()->CurrentFireMode = i;
 				GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->FiringState[i]);

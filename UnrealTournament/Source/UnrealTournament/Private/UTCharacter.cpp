@@ -167,15 +167,7 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 	}
 	else if (Weapon != NULL)
 	{
-		if (PendingFire.Num() < FireModeNum + 1)
-		{
-			PendingFire.SetNumZeroed(FireModeNum + 1);
-		}
-		if (PendingFire[FireModeNum] == 0)
-		{
-			PendingFire[FireModeNum] = 1;
-			Weapon->StartFire(FireModeNum);
-		}
+		Weapon->StartFire(FireModeNum);
 	}
 }
 
@@ -185,16 +177,16 @@ void AUTCharacter::StopFire(uint8 FireModeNum)
 	{
 		UE_LOG(UT, Warning, TEXT("StopFire() can only be called on the owning client"));
 	}
-	else if (Weapon != NULL && IsPendingFire(FireModeNum))
+	else if (Weapon != NULL)
 	{
-		PendingFire[FireModeNum] = 0;
 		Weapon->StopFire(FireModeNum);
 	}
 }
 
 void AUTCharacter::SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode)
 {
-	FlashLocation = InFlashLoc;
+	// make sure two consecutive shots don't set the same FlashLocation as that will prevent replication and thus clients won't see the shot
+	FlashLocation = ((FlashLocation - InFlashLoc).SizeSquared() >= 1.0f) ? InFlashLoc : (InFlashLoc + FVector(0.0f, 0.0f, 1.0f));
 	// we reserve the zero vector to stop firing, so make sure we aren't setting a value that would replicate that way
 	if (FlashLocation.SizeSquared() < 1.0f)
 	{
@@ -448,7 +440,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
 }
 

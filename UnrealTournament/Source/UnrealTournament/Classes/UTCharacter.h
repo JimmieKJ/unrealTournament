@@ -64,6 +64,15 @@ class AUTCharacter : public ACharacter
 	{
 		return (FireMode < PendingFire.Num() && PendingFire[FireMode] != 0);
 	}
+	/** sets the pending fire flag; generally should be called by whatever weapon processes the firing command, unless it's an explicit single shot */
+	inline void SetPendingFire(uint8 FireMode, bool bNowFiring)
+	{
+		if (PendingFire.Num() < FireMode + 1)
+		{
+			PendingFire.SetNumZeroed(FireMode + 1);
+		}
+		PendingFire[FireMode] = bNowFiring ? 1 : 0;
+	}
 
 	inline AUTWeapon* GetWeapon() const
 	{
@@ -87,7 +96,7 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
 	uint8 FireMode;
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoUpdated, Category = "Weapon")
-	FVector FlashLocation;
+	FVector_NetQuantize FlashLocation;
 
 	/** set info for one instance of firing and plays firing effects; assumed to be a valid shot - call ClearFiringInfo() if the weapon has stopped firing
 	 * if a location is not needed (projectile) call IncrementFlashCount() instead

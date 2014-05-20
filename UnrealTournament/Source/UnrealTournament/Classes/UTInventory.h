@@ -4,7 +4,7 @@
 
 #include "UTInventory.generated.h"
 
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, meta = (ChildCanTick))
 class AUTInventory : public AActor
 {
 	GENERATED_UCLASS_BODY()

@@ -3,7 +3,7 @@
 
 #include "UTProjectile.generated.h"
 
-UCLASS()
+UCLASS(meta = (ChildCanTick))
 class AUTProjectile : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -47,7 +47,9 @@ class AUTProjectile : public AActor
 
 	/** called when projectile hits something */
 	UFUNCTION()
-	void OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	UFUNCTION()
+	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	UFUNCTION(BlueprintCallable, Category = Projectile)
 	virtual void Explode(const FVector& HitLocation, const FVector& HitNormal);

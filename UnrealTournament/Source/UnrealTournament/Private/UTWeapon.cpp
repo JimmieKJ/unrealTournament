@@ -117,6 +117,7 @@ bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
 }
 void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
 {
+	UTOwner->SetPendingFire(FireModeNum, true);
 	CurrentState->BeginFiringSequence(FireModeNum);
 }
 
@@ -138,6 +139,7 @@ bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum)
 }
 void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 {
+	UTOwner->SetPendingFire(FireModeNum, false);
 	CurrentState->EndFiringSequence(FireModeNum);
 }
 
@@ -237,16 +239,13 @@ void AUTWeapon::FireShot()
 
 	if (!FireShotOverride())
 	{
-		if (Role == ROLE_Authority)
+		if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 		{
-			if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
-			{
-				FireProjectile();
-			}
-			else if (InstantHitInfo.IsValidIndex(CurrentFireMode) && InstantHitInfo[CurrentFireMode].DamageType != NULL)
-			{
-				FireInstantHit();
-			}
+			FireProjectile();
+		}
+		else if (InstantHitInfo.IsValidIndex(CurrentFireMode) && InstantHitInfo[CurrentFireMode].DamageType != NULL)
+		{
+			FireInstantHit();
 		}
 		PlayFiringEffects();
 	}
@@ -254,6 +253,9 @@ void AUTWeapon::FireShot()
 
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
+	// FIXME: temporarily disabled until we have enough systems going
+	return;
+
 	if (AmmoCost.IsValidIndex(FireModeNum))
 	{
 		Ammo -= AmmoCost[FireModeNum];
@@ -294,10 +296,14 @@ void AUTWeapon::FireInstantHit()
 	const FRotator SpawnRotation = GetFireRotation();
 	const FVector SpawnLocation = GetFireStartLoc();
 	const FVector FireDir = SpawnRotation.Vector();
+	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
 	FHitResult Hit;
-	GetWorld()->LineTraceSingle(Hit, SpawnLocation, SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange, ECC_GameTraceChannel1, FCollisionQueryParams(GetClass()->GetFName(), true, UTOwner));
-	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged)
+	if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
+	{
+		Hit.Location = EndTrace;
+	}
+	else if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged)
 	{
 		// TODO: replicated momentum handling
 		if (Hit.Component != NULL)
@@ -307,24 +313,34 @@ void AUTWeapon::FireInstantHit()
 
 		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType), UTOwner->Controller, this);
 	}
-	UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+	if (Role == ROLE_Authority)
+	{
+		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+	}
 }
 
 AUTProjectile* AUTWeapon::FireProjectile()
 {
-	checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
+	if (Role == ROLE_Authority)
+	{
+		checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
 
-	// try and fire a projectile
-	const FRotator SpawnRotation = GetFireRotation();
-	const FVector SpawnLocation = GetFireStartLoc();
+		// try and fire a projectile
+		const FRotator SpawnRotation = GetFireRotation();
+		const FVector SpawnLocation = GetFireStartLoc();
 
-	UTOwner->IncrementFlashCount(CurrentFireMode);
+		UTOwner->IncrementFlashCount(CurrentFireMode);
 
-	// spawn the projectile at the muzzle
-	FActorSpawnParameters Params;
-	Params.Instigator = UTOwner;
-	Params.Owner = UTOwner;
-	return GetWorld()->SpawnActor<AUTProjectile>(ProjClass[CurrentFireMode], SpawnLocation, SpawnRotation, Params);
+		// spawn the projectile at the muzzle
+		FActorSpawnParameters Params;
+		Params.Instigator = UTOwner;
+		Params.Owner = UTOwner;
+		return GetWorld()->SpawnActor<AUTProjectile>(ProjClass[CurrentFireMode], SpawnLocation, SpawnRotation, Params);
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 float AUTWeapon::GetRefireTime(uint8 FireModeNum)

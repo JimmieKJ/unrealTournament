@@ -17,6 +17,10 @@ struct FInstantHitDamageInfo
 	float Momentum;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
 	float TraceRange;
+
+	FInstantHitDamageInfo()
+		: Damage(10), TraceRange(10000.0f)
+	{}
 };
 
 UCLASS(Blueprintable, Abstract)
