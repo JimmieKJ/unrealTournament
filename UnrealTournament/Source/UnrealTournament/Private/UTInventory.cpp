@@ -90,4 +90,5 @@ void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVel
 	{
 		UTOwner->RemoveInventory(this);
 	}
+	Destroy();
 }
