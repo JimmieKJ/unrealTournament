@@ -170,7 +170,6 @@ void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* 
 {
 }
 
-
 void AUTGameMode::ScoreKill(AController* Killer, AController* Other)
 {
 	if( (Killer == Other) || (Killer == NULL) )
@@ -194,6 +193,18 @@ void AUTGameMode::ScoreKill(AController* Killer, AController* Other)
 	}
 }
 
+void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
+	if (UTC != NULL)
+	{
+		if (UTC->GetWeapon() != NULL)
+		{
+			UTC->TossInventory(UTC->GetWeapon());
+		}
+		UTC->DiscardAllInventory();
+	}
+}
 
 bool AUTGameMode::CheckScore(AUTPlayerState* Scorer)
 {

@@ -7,6 +7,7 @@
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
 #include "UTWeaponStateInactive.h"
+#include "UnrealNetwork.h"
 
 AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -30,6 +31,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 
 	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
+	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
 
 	if (FiringState.Num() == 0)
@@ -46,6 +48,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 				if (PSC != NULL)
 				{
 					PSC->bAutoActivate = false;
+					PSC->SetOnlyOwnerSee(true);
 					PSC->AttachParent = Mesh;
 				}
 			}
@@ -80,6 +83,22 @@ void AUTWeapon::GotoState(UUTWeaponState* NewState)
 		const UUTWeaponState* PrevState = CurrentState;
 		CurrentState = NewState;
 		CurrentState->BeginState(PrevState); // NOTE: may trigger another GotoState() call
+	}
+}
+
+void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+
+	// if character has ammo on it, transfer to weapon
+	for (int32 i = 0; i < NewOwner->SavedAmmo.Num(); i++)
+	{
+		if (NewOwner->SavedAmmo[i].Type == GetClass())
+		{
+			AddAmmo(NewOwner->SavedAmmo[i].Amount);
+			NewOwner->SavedAmmo.RemoveAt(i);
+			break;
+		}
 	}
 }
 
@@ -162,22 +181,20 @@ bool AUTWeapon::PutDown()
 	}
 }
 
-void AUTWeapon::AttachToOwner()
+void AUTWeapon::AttachToOwner_Implementation()
 {
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->AttachTo(UTOwner->FirstPersonMesh);
 	}
-	eventAttachToOwner();
 }
 
-void AUTWeapon::DetachFromOwner()
+void AUTWeapon::DetachFromOwner_Implementation()
 {
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->DetachFromParent();
 	}
-	eventDetachFromOwner();
 }
 
 void AUTWeapon::PlayFiringEffects()
@@ -251,6 +268,29 @@ void AUTWeapon::FireShot()
 	}
 }
 
+void AUTWeapon::AddAmmo(int32 Amount)
+{
+	Ammo = FMath::Clamp<int32>(Ammo + Amount, 0, MaxAmmo);
+	
+	// trigger weapon switch if necessary
+	if (UTOwner->IsLocallyControlled())
+	{
+		OnRep_Ammo();
+	}
+}
+
+void AUTWeapon::OnRep_Ammo()
+{
+	for (int32 i = GetNumFireModes() - 1; i >= 0; i--)
+	{
+		if (HasAmmo(i))
+		{
+			return;
+		}
+	}
+	// TODO: UTOwner->Controller->SwitchToBestWeapon();
+}
+
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
 	// FIXME: temporarily disabled until we have enough systems going
@@ -258,7 +298,7 @@ void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 
 	if (AmmoCost.IsValidIndex(FireModeNum))
 	{
-		Ammo -= AmmoCost[FireModeNum];
+		AddAmmo(-AmmoCost[FireModeNum]);
 	}
 	else
 	{
@@ -364,4 +404,19 @@ void AUTWeapon::Tick(float DeltaTime)
 	{
 		CurrentState->Tick(DeltaTime);
 	}
+}
+
+void AUTWeapon::Destroyed()
+{
+	Super::Destroyed();
+
+	// this makes sure timers, etc go away
+	GotoState(InactiveState);
+}
+
+void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION(AUTWeapon, Ammo, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
 }

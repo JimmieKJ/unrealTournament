@@ -34,9 +34,14 @@ class AUTWeapon : public AUTInventory
 	friend class UUTWeaponStateEquipping;
 	friend class UUTWeaponStateUnequipping;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing=OnRep_Ammo, Category = "Weapon")
 	int32 Ammo;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	/** handles weapon switch when out of ammo, etc
+	 * NOTE: called on server if owner is locally controlled, on client only when owner is remote
+	 */
+	UFUNCTION()
+	virtual void OnRep_Ammo();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Weapon")
 	int32 MaxAmmo;
 	/** ammo cost for one shot of each fire mode */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -111,17 +116,16 @@ class AUTWeapon : public AUTInventory
 	 * return false to prevent weapon switch (must keep this weapon equipped)
 	 */
 	virtual bool PutDown();
+	/** allows blueprint to prevent the weapon from being switched away from */
 	UFUNCTION(BlueprintImplementableEvent)
 	bool eventPreventPutDown();
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void eventAttachToOwner();
-	UFUNCTION(BlueprintImplementableEvent)
-	void eventDetachFromOwner();
 	/** attach the visuals to Owner's first person view */
-	virtual void AttachToOwner();
+	UFUNCTION(BlueprintNativeEvent)
+	void AttachToOwner();
 	/** detach the visuals from the Owner's first person view */
-	virtual void DetachFromOwner();
+	UFUNCTION(BlueprintNativeEvent)
+	void DetachFromOwner();
 
 	/** return number of fire modes */
 	virtual uint8 GetNumFireModes()
@@ -129,6 +133,7 @@ class AUTWeapon : public AUTInventory
 		return FMath::Min3(255, FiringState.Num(), FireInterval.Num());
 	}
 
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
 	virtual void ClientGivenTo_Internal(bool bAutoActivate) OVERRIDE;
 
 	/** fires a shot and consumes ammo */
@@ -159,6 +164,10 @@ class AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
 	virtual FRotator GetFireRotation();
 
+	/** add (or remove via negative number) the ammo held by the weapon */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void AddAmmo(int32 Amount);
+
 	/** use up AmmoCost units of ammo for the current fire mode
 	 * also handles triggering auto weapon switch if out of ammo
 	 */
@@ -187,6 +196,8 @@ class AUTWeapon : public AUTInventory
 	}
 
 	virtual void Tick(float DeltaTime) OVERRIDE;
+
+	virtual void Destroyed() OVERRIDE;
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")

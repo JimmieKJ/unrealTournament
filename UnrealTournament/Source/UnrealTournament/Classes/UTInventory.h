@@ -4,7 +4,7 @@
 
 #include "UTInventory.generated.h"
 
-UCLASS(Blueprintable, meta = (ChildCanTick))
+UCLASS(Blueprintable, notplaceable, meta = (ChildCanTick))
 class AUTInventory : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -55,5 +55,6 @@ public:
 		checkSlow(UTOwner == GetOwner());
 		return UTOwner;
 	}
+	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity);
 	virtual void Destroyed();
 };

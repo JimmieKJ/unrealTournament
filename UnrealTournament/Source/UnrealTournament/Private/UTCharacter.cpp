@@ -82,24 +82,23 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEv
 
 	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 	{
-		LastTakeHitInfo.HitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location;
+		LastTakeHitInfo.RelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetActorLocation();
 	}
-	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
+	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
-		LastTakeHitInfo.HitLocation = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0) ? ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location : GetActorLocation();
+		LastTakeHitInfo.RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetActorLocation();
 	}
-	else
-	{
-		LastTakeHitInfo.HitLocation = GetActorLocation();
-	}
+
+	LastTakeHitTime = GetWorld()->TimeSeconds;
 			
 	PlayTakeHitEffects();
 }
 
-void AUTCharacter::PlayTakeHitEffects()
+void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
-	if (GetNetMode() != NM_DedicatedServer && !eventOverrideTakeHitEffects())
+	if (GetNetMode() != NM_DedicatedServer)
 	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodEffect, LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
 	}
 }
 
@@ -264,6 +263,47 @@ void AUTCharacter::LookUpAtRate(float Rate)
 	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
 }
 
+void AUTCharacter::AddAmmo(const FStoredAmmo& AmmoToAdd)
+{
+	AUTWeapon* ExistingWeapon = FindInventoryType<AUTWeapon>(AmmoToAdd.Type, true);
+	if (ExistingWeapon != NULL)
+	{
+		ExistingWeapon->AddAmmo(AmmoToAdd.Amount);
+	}
+	else
+	{
+		for (int32 i = 0; i < SavedAmmo.Num(); i++)
+		{
+			if (SavedAmmo[i].Type == AmmoToAdd.Type)
+			{
+				// note that we're not clamping to max here, the weapon does so when the ammo is applied to it
+				SavedAmmo[i].Amount += AmmoToAdd.Amount;
+				if (SavedAmmo[i].Amount <= 0)
+				{
+					SavedAmmo.RemoveAt(i);
+				}
+				return;
+			}
+		}
+		if (AmmoToAdd.Amount > 0)
+		{
+			new(SavedAmmo)FStoredAmmo(AmmoToAdd);
+		}
+	}
+}
+
+AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass)
+{
+	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	{
+		if (bExactClass ? (Inv->GetClass() == Type) : Inv->IsA(Type))
+		{
+			return Inv;
+		}
+	}
+	return NULL;
+}
+
 void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 {
 	if (InvToAdd != NULL)
@@ -320,6 +360,7 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 		}
 		else if (InvToRemove == Weapon)
 		{
+			Weapon = NULL;
 			if (PendingWeapon != NULL)
 			{
 				WeaponChanged();
@@ -345,6 +386,30 @@ bool AUTCharacter::IsInInventory(const AUTInventory* TestInv) const
 	}
 
 	return false;
+}
+
+void AUTCharacter::TossInventory(AUTInventory* InvToToss)
+{
+	if (InvToToss == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("TossInventory(): InvToToss == NULL"));
+	}
+	else if (!IsInInventory(InvToToss))
+	{
+		UE_LOG(UT, Warning, TEXT("Attempt to remove %s which is not in %s's inventory!"), *InvToToss->GetName(), *GetName());
+	}
+	else
+	{
+		InvToToss->DropFrom(GetActorLocation() + GetActorRotation().Vector() * GetSimpleCollisionCylinderExtent().X, GetVelocity() + GetActorRotation().RotateVector(FVector(300.0f, 0.0f, 150.0f)));
+	}
+}
+
+void AUTCharacter::DiscardAllInventory()
+{
+	while (InventoryList != NULL)
+	{
+		InventoryList->Destroy();
+	}
 }
 
 void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
@@ -433,6 +498,13 @@ void AUTCharacter::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 	}
 }
 
+void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
+{
+	Super::PreReplication(ChangedPropertyTracker);
+
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
+}
+
 void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -440,8 +512,9 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_SimulatedOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_SimulatedOnly);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)

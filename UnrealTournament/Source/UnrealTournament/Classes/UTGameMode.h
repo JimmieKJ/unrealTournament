@@ -98,8 +98,11 @@ public:
 	virtual void EndMatch();
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	virtual void PlayEndOfMatchMessage();
+	UFUNCTION(BlueprintCallable, Category = UTGame)
+	virtual void DiscardInventory(APawn* Other, AController* Killer = NULL);
 
 	virtual void RestartPlayer(AController* aPlayer);
+	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn);
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);

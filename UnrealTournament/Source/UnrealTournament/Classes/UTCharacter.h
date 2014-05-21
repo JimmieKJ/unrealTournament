@@ -13,13 +13,25 @@ struct FTakeHitInfo
 	int32 Damage;
 	/** the location of the hit (relative to Pawn center) */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
-	FVector HitLocation;
+	FVector_NetQuantize RelHitLocation;
 	/** how much momentum was imparted */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
-	FVector Momentum;
+	FVector_NetQuantize Momentum;
 	/** the damage type we were hit with */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
 	TSubclassOf<UDamageType> DamageType;
+};
+
+/** ammo counter */
+USTRUCT(BlueprintType)
+struct FStoredAmmo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Ammo)
+	TSubclassOf<class AUTWeapon> Type;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Ammo)
+	int32 Amount;
 };
 
 UCLASS(config=Game)
@@ -43,6 +55,13 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseLookUpRate;
 
+	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
+	UPROPERTY()
+	TArray<FStoredAmmo> SavedAmmo;
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual void AddAmmo(const FStoredAmmo& AmmoToAdd);
+
 	inline class AUTInventory* GetInventory()
 	{
 		return InventoryList;
@@ -53,6 +72,26 @@ class AUTCharacter : public ACharacter
 
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void RemoveInventory(AUTInventory* InvToRemove);
+
+	/** find an inventory item of a specified type */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual AUTInventory* K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass = false);
+
+	template<typename InvClass>
+	inline InvClass* FindInventoryType(TSubclassOf<InvClass> Type, bool bExactClass = false)
+	{
+		return CastChecked<InvClass>(K2_FindInventoryType(Type, bExactClass));
+	}
+
+	/** toss an inventory item in the direction the player is facing
+	 * (the inventory must have a pickup defined)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void TossInventory(AUTInventory* InvToToss);
+
+	/** discards (generally destroys) all inventory items */
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void DiscardAllInventory();
 
 	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
 
@@ -123,6 +162,9 @@ class AUTCharacter : public ACharacter
 
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated, ReplicatedUsing=PlayTakeHitEffects)
 	FTakeHitInfo LastTakeHitInfo;
+	/** time of last SetLastTakeHitInfo() - authority only */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	float LastTakeHitTime;
 
 	virtual void BeginPlay() OVERRIDE;
 
@@ -131,12 +173,13 @@ class AUTCharacter : public ACharacter
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
 	virtual void SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEvent);
 
+	/** TEMP blood effect until we have a better hit effects system */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	UParticleSystem* BloodEffect;
+
 	/** plays clientside hit effects using the data previously stored in LastTakeHitInfo */
-	UFUNCTION(BlueprintCosmetic)
-	virtual void PlayTakeHitEffects();
-	/** blueprintable damage effects; return true to prevent default hit effects; LastTakeHitInfo contains most recent hit data */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
-	bool eventOverrideTakeHitEffects();
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	void PlayTakeHitEffects();
 
 	/** called when we die (generally, by running out of health)
 	 *  SERVER ONLY - do not do visual effects here!
@@ -159,6 +202,8 @@ class AUTCharacter : public ACharacter
 	virtual void StopFire(uint8 FireModeNum);
 
 	virtual void UnPossessed();
+
+	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);
 
 protected:
 
