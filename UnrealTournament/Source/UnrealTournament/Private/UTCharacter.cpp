@@ -512,9 +512,9 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_SimulatedOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_SimulatedOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_Custom);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
