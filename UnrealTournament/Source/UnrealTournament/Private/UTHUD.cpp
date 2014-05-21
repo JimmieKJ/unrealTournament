@@ -1,13 +1,21 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UTHUD.h"
 
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	// Set the crosshair texture
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshairTexObj(TEXT("/Game/Textures/Crosshair"));
 	CrosshairTex = CrosshairTexObj.Object;
+
+	AddHudWidget(UUTHUDWidget_Paperdoll::StaticClass(), 0.0f, 0.0f);
+}
+
+void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass, float X, float Y)
+{
+	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass);
+	Widget->Position = FVector2D(X,Y);
+	HudWidgets.Add(Widget);
 }
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
@@ -15,14 +23,42 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 	UE_LOG(UT,Log,TEXT("RecLocMsg: %s %i"), *MessageClass->GetFullName(), MessageIndex);
 }
 
+void AUTHUD::PostRender()
+{
+	if (PlayerOwner != NULL)
+	{
+		UTPlayerOwner = Cast<AUTPlayerController>(PlayerOwner);
+		if (UTPlayerOwner != NULL)
+		{
+			UTCharacterOwner = UTPlayerOwner->UTCharacter;
+		}
+	}
+
+	Super::PostRender();
+
+	UTPlayerOwner = NULL;
+	UTCharacterOwner = NULL;
+
+}
+
 void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	// Draw very simple crosshair
-
 	// find center of the Canvas
 	const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+
+	for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
+	{
+		// If we aren't hidden then set the canvas and render..
+		if (!HudWidgets[WidgetIndex]->IsHidden())
+		{
+			HudWidgets[WidgetIndex]->PreDraw(this, Canvas, Center);
+			HudWidgets[WidgetIndex]->Draw(RenderDelta);
+		}
+	}
+
+	// Draw very simple crosshair
 
 	// offset by half the texture's dimensions so that the center of the texture aligns with the center of the Canvas
 	const FVector2D CrosshairDrawPosition( (Center.X - (CrosshairTex->GetSurfaceWidth() * 0.5f)),
@@ -50,13 +86,6 @@ void AUTHUD::DrawHUD()
 			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","Score","{0} : Score"), FText::AsNumber(OwnerState->Score)), Canvas->ClipX - 5.0f, 5.0f, ETextHorzPos::Right, GEngine->GetLargeFont(), FLinearColor::White);
 			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","Deaths","{0} : Deaths"), FText::AsNumber(OwnerState->Deaths)), Canvas->ClipX - 5.0f, 25.0f, ETextHorzPos::Right, GEngine->GetSmallFont(), FLinearColor::White);
 		}
-
-		AUTCharacter* OwnerChar = Cast<AUTCharacter>(PlayerOwner->GetPawn());
-		if (OwnerChar)
-		{
-			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","HEALTH","Health: {0}"), FText::AsNumber(OwnerChar->Health)), 0, Canvas->ClipY - 20.0f, ETextHorzPos::Left, GEngine->GetLargeFont(), FLinearColor::White);
-		}
-
 	}
 }
 

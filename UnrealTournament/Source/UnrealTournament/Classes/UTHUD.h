@@ -10,6 +10,21 @@ class AUTHUD : public AHUD
 
 public:
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	TArray<class UUTHUDWidget*> HudWidgets;
+
+	// Holds the UTPlayerController that owns this hud.  NOTE: This is only valid during the render phase
+	class AUTPlayerController* UTPlayerOwner;
+
+	// Holds the character.  NOTE: This is only valid during the render phase
+	class AUTCharacter* UTCharacterOwner;
+
+
+	virtual void AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass, float X, float Y);
+
+	// We override PostRender so that we can cache bunch of vars that need caching.
+	virtual void PostRender();
+
 	/** Primary draw call for the HUD */
 	virtual void DrawHUD() OVERRIDE;
 

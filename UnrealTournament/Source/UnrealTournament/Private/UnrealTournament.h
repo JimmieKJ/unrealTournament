@@ -11,6 +11,8 @@
 #include "UTPlayerState.h"
 #include "UTGameState.h"
 #include "UTHud.h"
+#include "UTHudWidget.h"
+#include "UTHUDWidget_Paperdoll.h"
 #include "UTCharacter.h"
 #include "UTPlayerController.h"
 #include "UTProjectile.h"

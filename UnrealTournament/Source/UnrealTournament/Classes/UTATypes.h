@@ -8,7 +8,6 @@ namespace EGameStage
 {
 	enum Type
 	{
-		/** Playing montage in usual way. */
 		Initializing,
 		PreGame, 
 		GameInProgress,
@@ -22,10 +21,21 @@ namespace ETextHorzPos
 {
 	enum Type
 	{
-		/** Playing montage in usual way. */
 		Left,
 		Center, 
 		Right,
+		MAX,
+	};
+}
+
+UENUM()
+namespace ETextVertPos
+{
+	enum Type
+	{
+		Top,
+		Center,
+		Bottom,
 		MAX,
 	};
 }
