@@ -156,6 +156,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 	}
 
+	DiscardInventory(KilledPawn, Killer);
 	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
 
 	// Force Respawn 
