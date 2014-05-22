@@ -107,6 +107,13 @@ class AUTCharacter : public ACharacter
 	{
 		return Weapon;
 	}
+	inline TSubclassOf<AUTWeapon> GetWeaponClass() const
+	{
+		// debug check to make sure this matches as expected
+		checkSlow(GetNetMode() == NM_Client || (Weapon == NULL ? WeaponClass == NULL : ((UObject*)Weapon)->GetClass() == WeaponClass));
+		
+		return WeaponClass;
+	}
 	inline AUTWeapon* GetPendingWeapon() const
 	{
 		return PendingWeapon;
@@ -157,6 +164,7 @@ class AUTCharacter : public ACharacter
 	float LastTakeHitTime;
 
 	virtual void BeginPlay() OVERRIDE;
+	virtual void Destroyed() OVERRIDE;
 
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) OVERRIDE;
 
@@ -191,8 +199,6 @@ class AUTCharacter : public ACharacter
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void StopFire(uint8 FireModeNum);
 
-	virtual void UnPossessed();
-
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);
 
 protected:
@@ -204,6 +210,10 @@ protected:
 	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);
+
+	/** spawn/destroy/replace the current weapon attachment to represent the equipped weapon (through WeaponClass) */
+	UFUNCTION()
+	virtual void UpdateWeaponAttachment();
 
 	// firemodes with input currently being held down (pending or actually firing)
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
@@ -217,6 +227,12 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	class AUTWeapon* Weapon;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	class AUTWeaponAttachment* WeaponAttachment;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing=UpdateWeaponAttachment, Category = "Pawn")
+	TSubclassOf<AUTWeapon> WeaponClass;
 
 	UPROPERTY(EditAnywhere, Category = "Pawn")
 	TArray<TSubclassOf<AUTInventory> > DefaultCharacterInventory;

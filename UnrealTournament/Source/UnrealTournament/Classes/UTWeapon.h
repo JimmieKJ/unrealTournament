@@ -23,7 +23,7 @@ struct FInstantHitDamageInfo
 	{}
 };
 
-UCLASS(Blueprintable, Abstract)
+UCLASS(Blueprintable, Abstract, NotPlaceable)
 class AUTWeapon : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
@@ -33,6 +33,9 @@ class AUTWeapon : public AUTInventory
 	friend class UUTWeaponStateActive;
 	friend class UUTWeaponStateEquipping;
 	friend class UUTWeaponStateUnequipping;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TSubclassOf<class AUTWeaponAttachment> AttachmentType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing=OnRep_Ammo, Category = "Weapon")
 	int32 Ammo;

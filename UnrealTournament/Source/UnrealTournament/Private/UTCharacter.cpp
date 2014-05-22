@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTCharacter.h"
 #include "UTProjectile.h"
+#include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -110,6 +111,8 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 	{
 		// TODO: GameInfo::PreventDeath()
 
+		bTearOff = true; // important to set this as early as possible so IsDead() returns true
+
 		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, (Controller != NULL) ? Controller : Cast<AController>(GetOwner()), this, DamageEvent.DamageTypeClass);
 
 		Health = FMath::Min<int32>(Health, 0);
@@ -118,7 +121,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			Controller->PawnPendingDestroy(this);
 		}
 
-		bTearOff = true;
 		PlayDying();
 
 		return true;
@@ -130,6 +132,17 @@ void AUTCharacter::PlayDying()
 	// TODO: ragdoll, et al
 	//		also remember need to do lifespan for replication, not straight destroy
 	Destroy();
+}
+
+void AUTCharacter::Destroyed()
+{
+	Super::Destroyed();
+
+	DiscardAllInventory();
+	if (WeaponAttachment != NULL)
+	{
+		WeaponAttachment->Destroy();
+	}
 }
 
 void AUTCharacter::StartFire(uint8 FireModeNum)
@@ -186,11 +199,24 @@ void AUTCharacter::ClearFiringInfo()
 }
 void AUTCharacter::FiringInfoUpdated()
 {
-	if (Weapon != NULL && !FlashLocation.IsZero())  // and in first person?
+	if (Weapon != NULL && IsLocallyControlled() && Cast<APlayerController>(Controller) != NULL)  // and in first person?
 	{
-		Weapon->PlayImpactEffects(FlashLocation);
+		if (!FlashLocation.IsZero())
+		{
+			Weapon->PlayImpactEffects(FlashLocation);
+		}
 	}
-	// TODO: weapon attachment
+	else if (WeaponAttachment != NULL)
+	{
+		if (FlashCount != 0 || !FlashLocation.IsZero())
+		{
+			WeaponAttachment->PlayFiringEffects();
+		}
+		else
+		{
+			WeaponAttachment->StopFiringEffects();
+		}
+	}
 }
 
 void AUTCharacter::AddAmmo(const FStoredAmmo& AmmoToAdd)
@@ -297,8 +323,19 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 			}
 			else
 			{
-				// TODO: implement
-				//Controller->SwitchToBestWeapon();
+				if (!bTearOff)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+					if (PC != NULL)
+					{
+						PC->SwitchToBestWeapon();
+					}
+				}
+				if (Weapon == NULL)
+				{
+					WeaponClass = NULL;
+					UpdateWeaponAttachment();
+				}
 			}
 		}
 		InvToRemove->eventRemoved();
@@ -344,24 +381,27 @@ void AUTCharacter::DiscardAllInventory()
 
 void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 {
-	if (Role <= ROLE_SimulatedProxy)
+	if (NewWeapon != NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("Illegal SwitchWeapon() call on remote client"));
-	}
-	else if (NewWeapon == NULL || NewWeapon->Instigator != this || !IsInInventory(NewWeapon))
-	{
-		UE_LOG(UT, Warning, TEXT("Weapon %s is not owned by self"), *NewWeapon->GetName());
-	}
-	else if (Role == ROLE_Authority)
-	{
-		ClientSwitchWeapon(NewWeapon);
-		// NOTE: we don't call LocalSwitchWeapon() here; we ping back from the client so all weapon switches are lead by the client
-		//		otherwise, we get inconsistencies if both sides trigger weapon changes
-	}
-	else
-	{
-		LocalSwitchWeapon(NewWeapon);
-		ServerSwitchWeapon(NewWeapon);
+		if (Role <= ROLE_SimulatedProxy)
+		{
+			UE_LOG(UT, Warning, TEXT("Illegal SwitchWeapon() call on remote client"));
+		}
+		else if (NewWeapon->Instigator != this || !IsInInventory(NewWeapon))
+		{
+			UE_LOG(UT, Warning, TEXT("Weapon %s is not owned by self"), *GetNameSafe(NewWeapon));
+		}
+		else if (Role == ROLE_Authority)
+		{
+			ClientSwitchWeapon(NewWeapon);
+			// NOTE: we don't call LocalSwitchWeapon() here; we ping back from the client so all weapon switches are lead by the client
+			//		otherwise, we get inconsistencies if both sides trigger weapon changes
+		}
+		else
+		{
+			LocalSwitchWeapon(NewWeapon);
+			ServerSwitchWeapon(NewWeapon);
+		}
 	}
 }
 
@@ -428,6 +468,8 @@ void AUTCharacter::WeaponChanged()
 	{
 		checkSlow(IsInInventory(PendingWeapon));
 		Weapon = PendingWeapon;
+		WeaponClass = Weapon->GetClass();
+		UpdateWeaponAttachment();
 		PendingWeapon = NULL;
 		Weapon->BringUp();
 	}
@@ -435,6 +477,26 @@ void AUTCharacter::WeaponChanged()
 	{
 		// restore current weapon since pending became invalid
 		Weapon->BringUp();
+	}
+}
+
+void AUTCharacter::UpdateWeaponAttachment()
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		TSubclassOf<AUTWeaponAttachment> NewAttachmentClass = (WeaponClass != NULL) ? WeaponClass.GetDefaultObject()->AttachmentType : NULL;
+		if (WeaponAttachment != NULL && (NewAttachmentClass == NULL || (WeaponAttachment != NULL && WeaponAttachment->GetClass() != NewAttachmentClass)))
+		{
+			WeaponAttachment->Destroy();
+			WeaponAttachment = NULL;
+		}
+		if (WeaponAttachment == NULL && NewAttachmentClass != NULL)
+		{
+			FActorSpawnParameters Params;
+			Params.Instigator = this;
+			Params.Owner = this;
+			WeaponAttachment = GetWorld()->SpawnActor<AUTWeaponAttachment>(NewAttachmentClass, Params);
+		}
 	}
 }
 
@@ -455,6 +517,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_Custom);
+	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -472,10 +535,4 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	{
 		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
 	}
-}
-
-void AUTCharacter::UnPossessed()
-{
-	UE_LOG(UT,Warning,TEXT("UNPOSSESS"));
-	Super::UnPossessed();
 }

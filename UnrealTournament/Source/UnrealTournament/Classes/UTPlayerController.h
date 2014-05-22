@@ -1,4 +1,4 @@
-// Copyright 1998-2013 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTPlayerController.generated.h"
@@ -28,6 +28,19 @@ public:
 
 	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
 
+	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
+	 * SoundPlayer may be NULL
+	 */
+	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed);
+	/** plays a heard sound locally
+	 * SoundPlayer may be NULL for an unattached sound
+	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
+	 */
+	UFUNCTION(client, unreliable)
+	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded);
+
+	virtual void SwitchToBestWeapon();
+
 protected:
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
@@ -41,7 +54,6 @@ protected:
 	bool bAutoWeaponSwitch;
 
 	/** weapon selection */
-	virtual void SwitchToBestWeapon();
 	void PrevWeapon();
 	void NextWeapon();
 	virtual void SwitchWeaponInSequence(bool bPrev);

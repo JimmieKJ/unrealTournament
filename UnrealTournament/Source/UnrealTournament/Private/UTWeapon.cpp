@@ -72,7 +72,7 @@ void AUTWeapon::GotoState(UUTWeaponState* NewState)
 {
 	if (NewState == NULL || !NewState->IsIn(this))
 	{
-		UE_LOG(UT, Warning, TEXT("Attempt to send %s to invalid state %s"), *GetName(), (NewState == NULL) ? TEXT("None") : *NewState->GetFullName());
+		UE_LOG(UT, Warning, TEXT("Attempt to send %s to invalid state %s"), *GetName(), *GetFullNameSafe(NewState));
 	}
 	else if (CurrentState != NewState)
 	{
@@ -221,7 +221,7 @@ void AUTWeapon::PlayFiringEffects()
 		// try and play the sound if specified
 		if (FireSound.IsValidIndex(CurrentFireMode) && FireSound[CurrentFireMode] != NULL)
 		{
-			UGameplayStatics::PlaySoundAtLocation(this, FireSound[CurrentFireMode], UTOwner->GetActorLocation());
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[CurrentFireMode], UTOwner, SRT_AllButOwner);
 		}
 
 		// try and play a firing animation if specified
@@ -257,12 +257,6 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (TargetLoc - SpawnLocation).Rotation(), true);
 			static FName NAME_HitLocation(TEXT("HitLocation"));
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
-		}
-		// FIXME: temp debug line until we have effects
-		else
-		{
-			const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
-			DrawDebugLine(GetWorld(), SpawnLocation, TargetLoc, FColor(0, 0, 255), false, 0.5f);
 		}
 	}
 }

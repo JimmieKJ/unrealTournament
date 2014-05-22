@@ -11,6 +11,7 @@ void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 }
 void UUTWeaponStateFiring::EndState()
 {
+	GetOuterAUTWeapon()->StopFiringEffects();
 	GetOuterAUTWeapon()->GetUTOwner()->ClearFiringInfo();
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::RefireCheckTimer);
 }

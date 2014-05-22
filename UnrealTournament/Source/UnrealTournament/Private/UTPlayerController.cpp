@@ -4,6 +4,8 @@
 #include "UTHud.h"
 #include "UTPlayerState.h"
 #include "UTPlayerController.h"
+#include "ActiveSound.h"
+#include "AudioDevice.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -291,3 +293,48 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 		OnFire();
 	}
 }
+
+void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed)
+{
+	bool bIsOccluded = false;
+	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
+	{
+		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
+		UNetConnection* Conn = Cast<UNetConnection>(Player);
+		FVector RepLoc = (SoundPlayer != NULL && SoundPlayer->GetActorLocation() == SoundLocation && Conn->ActorChannels.Contains(SoundPlayer)) ? FVector::ZeroVector : SoundLocation;
+		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bIsOccluded);
+	}
+}
+
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded)
+{
+	if (SoundPlayer == this || SoundPlayer == GetViewTarget())
+	{
+		// no attenuation/spatialization, full volume
+		FActiveSound NewActiveSound;
+		NewActiveSound.World = GetWorld();
+		NewActiveSound.Sound = TheSound;
+
+		NewActiveSound.VolumeMultiplier = 1.0f;
+		NewActiveSound.PitchMultiplier = 1.0f;
+
+		NewActiveSound.RequestedStartTime = 0.0f;
+
+		NewActiveSound.bLocationDefined = false;
+		NewActiveSound.bIsUISound = false;
+		NewActiveSound.bHasAttenuationSettings = false;
+		NewActiveSound.bAllowSpatialization = false;
+
+		// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
+		GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
+	}
+	else if (!SoundLocation.IsZero())
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, bIsOccluded ? 0.5f : 1.0f);
+	}
+	else if (SoundPlayer != NULL)
+	{
+		UGameplayStatics::PlaySoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, bIsOccluded ? 0.5f : 1.0f);
+	}
+}
+
