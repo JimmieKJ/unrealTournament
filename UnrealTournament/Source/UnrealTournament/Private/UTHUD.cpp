@@ -30,7 +30,7 @@ void AUTHUD::PostRender()
 		UTPlayerOwner = Cast<AUTPlayerController>(PlayerOwner);
 		if (UTPlayerOwner != NULL)
 		{
-			UTCharacterOwner = UTPlayerOwner->UTCharacter;
+			UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
 		}
 	}
 

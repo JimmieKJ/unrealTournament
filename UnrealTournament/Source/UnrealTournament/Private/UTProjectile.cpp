@@ -11,7 +11,6 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	CollisionComp = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
 	CollisionComp->InitSphereRadius(5.0f);
 	CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
-	CollisionComp->OnComponentHit.AddDynamic(this, &AUTProjectile::OnHit);		// set up a notification for when this component is blocked by something
 	CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
 	CollisionComp->bTraceComplexOnMove = true;
 	RootComponent = CollisionComp;
@@ -23,6 +22,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	ProjectileMovement->MaxSpeed = 3000.f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bShouldBounce = false;
+	ProjectileMovement->OnProjectileStop.AddDynamic(this, &AUTProjectile::OnStop);
 
 	// Die after 3 seconds by default
 	InitialLifeSpan = 3.0f;
@@ -55,18 +55,23 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 {
 	FHitResult Hit;
 	OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
-	OnHit(OtherActor, OtherComp, GetVelocity().SafeNormal(), Hit);
+	ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
+}
+void AUTProjectile::OnStop(const FHitResult& Hit)
+{
+	ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
 }
 
-void AUTProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTProjectile::ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
-	// FIXME: Use OnProjectileStop() to handle bounce logic instead
-	if ( OtherActor != this && (OtherActor != Instigator || Instigator != NULL) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds) &&
-		(!ProjectileMovement->bShouldBounce || (OtherComp->GetCollisionObjectType() != ECC_WorldStatic && OtherComp->GetCollisionObjectType() != ECC_WorldDynamic)) )
+	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds))
 	{
 		// TODO: replicated momentum handling
-		OtherComp->AddImpulseAtLocation(GetVelocity() * 100.0f, GetActorLocation());
+		if (OtherComp != NULL)
+		{
+			OtherComp->AddImpulseAtLocation(GetVelocity() * 100.0f, GetActorLocation());
+		}
 
 		if (OtherActor != NULL)
 		{
@@ -74,12 +79,12 @@ void AUTProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FV
 			Event.Params = DamageParams;
 			Event.Params.MinimumDamage = DamageParams.BaseDamage; // force full damage for direct hit
 			Event.DamageTypeClass = MyDamageType;
-			Event.Origin = Hit.Location;
+			Event.Origin = HitLocation;
 			OtherActor->TakeDamage(DamageParams.BaseDamage, Event, InstigatorController, this);
 		}
 
 		ImpactedActor = OtherActor;
-		Explode(Hit.Location, Hit.Normal);
+		Explode(HitLocation, HitNormal);
 		ImpactedActor = NULL;
 	}
 }

@@ -93,6 +93,17 @@ class AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float PutDownTime;
 
+	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
+	 * generally, the corresponding number key is bound to access the weapons in that group
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	int32 Group;
+	/** if the player acquires more than one weapon in a group, we assign a unique GroupSlot to keep a consistent order
+	 * this value is only set on clients
+	 */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Weapon")
+	int32 GroupSlot;
+
 	virtual void BeginPlay() OVERRIDE;
 
 	void GotoState(class UUTWeaponState* NewState);

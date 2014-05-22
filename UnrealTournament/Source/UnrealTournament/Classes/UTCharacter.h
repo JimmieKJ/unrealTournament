@@ -47,14 +47,6 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	TSubobjectPtr<class UCameraComponent> CharacterCameraComponent;
 
-	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
-	float BaseTurnRate;
-
-	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
-	float BaseLookUpRate;
-
 	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
 	UPROPERTY()
 	TArray<FStoredAmmo> SavedAmmo;
@@ -92,8 +84,6 @@ class AUTCharacter : public ACharacter
 	/** discards (generally destroys) all inventory items */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void DiscardAllInventory();
-
-	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
 
 	/** switches weapons; handles client/server sync, safe to call on either side */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
@@ -219,24 +209,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	TArray<uint8> PendingFire;
 
-	/** Handles moving forward/backward */
-	void MoveForward(float Val);
-
-	/** Handles stafing movement, left and right */
-	void MoveRight(float Val);
-
-	/**
-	 * Called via input to turn at a given rate.
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void TurnAtRate(float Rate);
-
-	/**
-	 * Called via input to turn look up/down at a given rate.
-	 * @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
-	 */
-	void LookUpAtRate(float Rate);
-
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Pawn")
 	AUTInventory* InventoryList;
 
@@ -252,11 +224,6 @@ protected:
 	/** default weapon - TODO: should be in gametype */
 	UPROPERTY(EditAnywhere, Category = "Pawn")
 	TSubclassOf<AUTWeapon> DefaultWeapon;
-
-	// APawn interface
-	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) OVERRIDE;
-	// End of APawn interface
-
 };
 
 inline bool AUTCharacter::IsDead()

@@ -46,8 +46,10 @@ class AUTProjectile : public AActor
 	virtual void ShutDown();
 
 	/** called when projectile hits something */
+	UFUNCTION(BlueprintCallable, Category = Projectile)
+	virtual void ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
 	UFUNCTION()
-	virtual void OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnStop(const FHitResult& Hit);
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 

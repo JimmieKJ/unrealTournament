@@ -112,9 +112,26 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 
 	Super::ClientGivenTo_Internal(bAutoActivate);
 
+	// assign GroupSlot if required
+	for (AUTInventory* Inv = UTOwner->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+	{
+		if (Inv != this)
+		{
+			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
+			if (Weap != NULL && Weap->Group == Group)
+			{
+				Group = FMath::Max<int32>(Group, Weap->Group + 1);
+			}
+		}
+	}
+
 	if (bAutoActivate)
 	{
-		UTOwner->CheckAutoWeaponSwitch(this);
+		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
+		if (PC != NULL)
+		{
+			PC->CheckAutoWeaponSwitch(this);
+		}
 	}
 }
 
