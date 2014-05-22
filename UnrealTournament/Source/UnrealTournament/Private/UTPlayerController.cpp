@@ -1,4 +1,4 @@
-// Copyright 1998-2013 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
 #include "UTHud.h"
@@ -19,8 +19,10 @@ void AUTPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	InputComponent->BindAxis("MoveForward", this, &AUTPlayerController::MoveForward);
-	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight);
+	// bConsumeInput = false is temp until prototype is moved to C++
+	InputComponent->BindAxis("MoveForward", this, &AUTPlayerController::MoveForward).bConsumeInput = false;
+	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight).bConsumeInput = false;
+	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump).bConsumeInput = false;
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -29,8 +31,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAxis("TurnRate", this, &AUTPlayerController::TurnAtRate);
 	InputComponent->BindAxis("LookUp", this, &APlayerController::AddPitchInput);
 	InputComponent->BindAxis("LookUpRate", this, &AUTPlayerController::LookUpAtRate);
-
-	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
 
 	InputComponent->BindAction("PrevWeapon", IE_Pressed, this, &AUTPlayerController::PrevWeapon);
 	InputComponent->BindAction("NextWeapon", IE_Released, this, &AUTPlayerController::NextWeapon);
@@ -291,4 +291,3 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 		OnFire();
 	}
 }
-
