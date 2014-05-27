@@ -18,6 +18,9 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 		DefaultPawnClass = (UClass*)PlayerPawnObject.Object->GeneratedClass;
 	}
 */
+
+	DefaultPawnClass = AUTCharacter::StaticClass();
+
 	// use our custom HUD class
 	HUDClass = AUTHUD::StaticClass();
 
