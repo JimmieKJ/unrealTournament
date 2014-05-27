@@ -9,9 +9,11 @@
 
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
+/*
 	// Set the crosshair texture
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshairTexObj(TEXT("/Game/Textures/Crosshair"));
 	CrosshairTex = CrosshairTexObj.Object;
+*/
 }
 
 void AUTHUD::BeginPlay()
