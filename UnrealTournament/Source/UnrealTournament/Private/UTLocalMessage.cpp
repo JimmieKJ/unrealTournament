@@ -9,12 +9,12 @@
 UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	MessageArea = 1;
+	Lifetime = 2.0;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
-	FText LocalMessageText = GetDefault<UUTLocalMessage>(GetClass())->GetText(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_1, ClientData.OptionalObject);
+	FText LocalMessageText = GetDefault<UUTLocalMessage>(GetClass())->ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_1, ClientData.OptionalObject);
 	if ( !LocalMessageText.IsEmpty() )
 	{
 		if ( Cast<AUTHUD>(ClientData.LocalPC->MyHUD) != NULL )
@@ -32,7 +32,7 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 FText UUTLocalMessage::ResolveMessage(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	FFormatNamedArguments Args;
-	GetArgs(Args);
+	GetArgs(Args, Switch, bTargetsPlayerState1, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	return FText::Format(GetText(Switch, bTargetsPlayerState1, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject), Args);
 }
 
@@ -49,26 +49,6 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 FText UUTLocalMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	return FText::GetEmpty();
-}
-
-FColor UUTLocalMessage::GetConsoleColor( APlayerState* RelatedPlayerState_1 ) const
-{
-    return GetDefault<UUTLocalMessage>(GetClass())->DrawColor;
-}
-
-FColor UUTLocalMessage::GetColor(
-	int32 Switch,
-	APlayerState* RelatedPlayerState_1,
-	APlayerState* RelatedPlayerState_2,
-	UObject* OptionalObject
-	) const
-{
-	return GetDefault<UUTLocalMessage>(GetClass())->DrawColor;
-}
-
-int32 UUTLocalMessage::GetFontSize( int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, APlayerState* LocalPlayer ) const
-{
-    return GetDefault<UUTLocalMessage>(GetClass())->FontSize;
 }
 
 float UUTLocalMessage::GetLifeTime(int32 Switch) const

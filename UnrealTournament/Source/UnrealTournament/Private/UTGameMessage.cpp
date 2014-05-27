@@ -8,6 +8,8 @@
 UUTGameMessage::UUTGameMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
+	MessageArea = FName(TEXT("GameMessage"));
+
 	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","BEGIN...");
 	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","!!!! OVERTIME !!!!");
 	CantBeSpectator = NSLOCTEXT("UTGameMessage","CantBeSpectator","You can not become a spectator!");

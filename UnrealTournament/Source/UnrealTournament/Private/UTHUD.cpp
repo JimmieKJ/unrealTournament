@@ -2,25 +2,60 @@
 
 #include "UnrealTournament.h"
 
+#include "UTHUDWidgetMessage.h"
+#include "UTHUDWidget_Paperdoll.h"
+#include "UTHUDWidgetMessage_DeathMessages.h"
+
+
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	// Set the crosshair texture
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshairTexObj(TEXT("/Game/Textures/Crosshair"));
 	CrosshairTex = CrosshairTexObj.Object;
-
-	AddHudWidget(UUTHUDWidget_Paperdoll::StaticClass(), 0.0f, 0.0f);
 }
 
-void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass, float X, float Y)
+void AUTHUD::BeginPlay()
 {
-	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass);
-	Widget->Position = FVector2D(X,Y);
+	Super::BeginPlay();
+
+	for (int WidgetIndex = 0 ; WidgetIndex < HudWidgetClasses.Num(); WidgetIndex++)
+	{
+		AddHudWidget(HudWidgetClasses[WidgetIndex]);
+	}
+
+	AddHudWidget(UUTHUDWidget_Paperdoll::StaticClass());
+	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());
+}
+
+void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
+{
+	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass,GetTransientPackage());
 	HudWidgets.Add(Widget);
+
+	UE_LOG(UT,Log,TEXT("Adding Widget %s"),*GetNameSafe(Widget));
+
+	// If this widget is a messaging widget, then track it
+	UUTHUDWidgetMessage* MessageWidget = Cast<UUTHUDWidgetMessage>(Widget);
+	if (MessageWidget != NULL)
+	{
+		UE_LOG(UT,Log,TEXT(" -- Tracking as Message for Area %i"),*MessageWidget->ManagedMessageArea.ToString());
+		HudMessageWidgets.Add(MessageWidget->ManagedMessageArea, MessageWidget);
+	}
+
 }
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
-	UE_LOG(UT,Log,TEXT("RecLocMsg: %s %i"), *MessageClass->GetFullName(), MessageIndex);
+	UE_LOG(UT,Log,TEXT("AUTHUD::ReceiveLocalMessage: %s %i %i"), *GetNameSafe(MessageClass), MessageIndex, *MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea.ToString() );
+	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));
+	if (DestinationWidget != NULL)
+	{
+		DestinationWidget->ReceiveLocalMessage(MessageClass, RelatedPlayerState_1, RelatedPlayerState_2,MessageIndex, LocalMessageText, OptionalObject);
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("No Message Widget to Display Text"));
+	}
 }
 
 void AUTHUD::PostRender()
@@ -51,10 +86,14 @@ void AUTHUD::DrawHUD()
 	for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 	{
 		// If we aren't hidden then set the canvas and render..
-		if (!HudWidgets[WidgetIndex]->IsHidden())
+		if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
 		{
 			HudWidgets[WidgetIndex]->PreDraw(this, Canvas, Center);
-			HudWidgets[WidgetIndex]->Draw(RenderDelta);
+			if (!HudWidgets[WidgetIndex]->eventDraw(RenderDelta))
+			{
+				HudWidgets[WidgetIndex]->Draw(RenderDelta);
+				HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
+			}
 		}
 	}
 

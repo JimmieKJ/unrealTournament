@@ -10,13 +10,8 @@ UUTKillerMessage::UUTKillerMessage(const class FPostConstructInitializePropertie
 {
 	bIsSpecial = true;
 	bIsUnique = true;
-	DrawColor = FColor(255, 255, 255, 255);
-
-	FontSize = 2;
-	MessageArea = 1;
-
+	MessageArea = FName(TEXT("DeathMessage"));
 	YouKilledText = NSLOCTEXT("UTKillerMessage","YouKilledText","You killed {Player2Name}");
-
 }
 
 FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const

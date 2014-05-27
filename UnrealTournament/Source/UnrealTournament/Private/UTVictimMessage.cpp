@@ -10,11 +10,7 @@ UUTVictimMessage::UUTVictimMessage(const class FPostConstructInitializePropertie
 {
 	bIsUnique = true;
 	Lifetime = 6.0f;
-	DrawColor = FColor(255, 0, 0, 255);
-
-	FontSize = 2;
-	MessageArea = 1;
-
+	MessageArea = FName(TEXT("DeathMessage"));
 	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name} with {WeaponName}");
 }
 

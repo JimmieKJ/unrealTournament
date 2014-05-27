@@ -12,8 +12,7 @@
 UUTDeathMessage::UUTDeathMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	MessageArea = 1;
-	DrawColor = FColor(255, 0, 0, 255);
+	MessageArea = FName(TEXT("DeathMessage"));
 	bIsSpecial = false;
 
 	GenericKillMessage = NSLOCTEXT("UTDeathMessage","GenericKillMessage","{Player1Name} killed {Player2Name} with {WeaponName}");
@@ -37,7 +36,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			ClientData.RelatedPlayerState_1,
 			ClientData.RelatedPlayerState_2,
 			0,
-			GetDefault<UUTKillerMessage>()->GetText(ClientData.MessageIndex, ClientData.RelatedPlayerState_1== ClientData.LocalPC->PlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
+			GetDefault<UUTKillerMessage>()->ResolveMessage(ClientData.MessageIndex, ClientData.RelatedPlayerState_1== ClientData.LocalPC->PlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 			ClientData.OptionalObject );
 		}
 	}
@@ -51,7 +50,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			ClientData.RelatedPlayerState_1,
 			ClientData.RelatedPlayerState_2,
 			0,
-			GetDefault<UUTVictimMessage>()->GetText(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
+			GetDefault<UUTVictimMessage>()->ResolveMessage(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 			ClientData.OptionalObject );
 		}
 	}

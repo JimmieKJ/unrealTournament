@@ -13,6 +13,10 @@ class UUTHUDWidget_Paperdoll : public UUTHUDWidget
 	GENERATED_UCLASS_BODY()
 
 public:
+
+	UPROPERTY()
+	UTexture* PaperDollTexture;
+
 	virtual void Draw(float DeltaTime);
 protected:
 
