@@ -43,13 +43,29 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 			{
 				FiringState.Add(NewState);
 				FireInterval.Add(1.0f);
-				UParticleSystemComponent* PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent, UParticleSystemComponent>(this, FName(*FString::Printf(TEXT("MuzzleFlash%i"), i)), false, false, false);
-				MuzzleFlash.Add(PSC);
-				if (PSC != NULL)
+			}
+		}
+	}
+}
+
+void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemComponent*>& MFArray)
+{
+	TArray<const UBlueprintGeneratedClass*> ParentBPClassStack;
+	UBlueprintGeneratedClass::GetGeneratedClassesHierarchy(Weap->GetClass(), ParentBPClassStack);
+	for (int32 i = ParentBPClassStack.Num() - 1; i >= 0; i--)
+	{
+		const UBlueprintGeneratedClass* CurrentBPGClass = ParentBPClassStack[i];
+		if (CurrentBPGClass->SimpleConstructionScript)
+		{
+			TArray<USCS_Node*> ConstructionNodes = CurrentBPGClass->SimpleConstructionScript->GetAllNodes();
+			for (int32 j = 0; j < ConstructionNodes.Num(); j++)
+			{
+				for (int32 k = 0; k < MFArray.Num(); k++)
 				{
-					PSC->bAutoActivate = false;
-					PSC->SetOnlyOwnerSee(true);
-					PSC->AttachParent = Mesh;
+					if (ConstructionNodes[j]->ComponentTemplate == MFArray[k])
+					{
+						MFArray[k] = Cast<UParticleSystemComponent>((UObject*)FindObjectWithOuter(Weap, ConstructionNodes[j]->ComponentTemplate->GetClass(), ConstructionNodes[j]->VariableName));
+					}
 				}
 			}
 		}
@@ -59,6 +75,8 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 void AUTWeapon::BeginPlay()
 {
 	Super::BeginPlay();
+
+	InstanceMuzzleFlashArray(this, MuzzleFlash);
 
 	// might have already been activated if at startup, see ClientGivenTo_Internal()
 	if (CurrentState == NULL)
@@ -200,10 +218,22 @@ bool AUTWeapon::PutDown()
 
 void AUTWeapon::AttachToOwner_Implementation()
 {
+	// sanity check some settings
+	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
+	{
+		if (MuzzleFlash[i] != NULL)
+		{
+			MuzzleFlash[i]->bAutoActivate = false;
+			MuzzleFlash[i]->SetOwnerNoSee(true);
+		}
+	}
+	// attach
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->AttachTo(UTOwner->FirstPersonMesh);
 	}
+	// register components now
+	Super::RegisterAllComponents();
 }
 
 void AUTWeapon::DetachFromOwner_Implementation()
@@ -212,6 +242,8 @@ void AUTWeapon::DetachFromOwner_Implementation()
 	{
 		Mesh->DetachFromParent();
 	}
+	// unregister components so they go away
+	UnregisterAllComponents();
 }
 
 void AUTWeapon::PlayFiringEffects()

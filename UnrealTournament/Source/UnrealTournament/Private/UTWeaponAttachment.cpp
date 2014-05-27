@@ -9,23 +9,13 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
 	Mesh->SetOwnerNoSee(true);
 	Mesh->AttachParent = RootComponent;
-
-	for (int32 i = 0; i < 2; i++)
-	{
-		UParticleSystemComponent* PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent, UParticleSystemComponent>(this, FName(*FString::Printf(TEXT("MuzzleFlash%i"), i)), false, false, false);
-		MuzzleFlash.Add(PSC);
-		if (PSC != NULL)
-		{
-			PSC->bAutoActivate = false;
-			PSC->SetOwnerNoSee(true);
-			PSC->AttachParent = Mesh;
-		}
-	}
 }
 
 void AUTWeaponAttachment::BeginPlay()
 {
 	Super::BeginPlay();
+
+	AUTWeapon::InstanceMuzzleFlashArray(this, MuzzleFlash);
 
 	UTOwner = Cast<AUTCharacter>(Instigator);
 	if (UTOwner != NULL)
@@ -48,6 +38,15 @@ void AUTWeaponAttachment::Destroyed()
 
 void AUTWeaponAttachment::AttachToOwner_Implementation()
 {
+	// sanity check some settings
+	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
+	{
+		if (MuzzleFlash[i] != NULL)
+		{
+			MuzzleFlash[i]->bAutoActivate = false;
+			MuzzleFlash[i]->SetOnlyOwnerSee(true);
+		}
+	}
 	Mesh->SetRelativeLocation(AttachOffset);
 	Mesh->AttachTo(UTOwner->Mesh, AttachSocket);
 }

@@ -7,5 +7,9 @@ public class UnrealTournament : ModuleRules
 	public UnrealTournament(TargetInfo Target)
 	{
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
+        if (Target.Type == TargetRules.TargetType.Editor)
+        {
+            PublicDependencyModuleNames.AddRange(new string[] { "Slate" });
+        }
 	}
 }

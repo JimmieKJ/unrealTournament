@@ -108,6 +108,18 @@ class AUTWeapon : public AUTInventory
 	int32 GroupSlot;
 
 	virtual void BeginPlay() OVERRIDE;
+	virtual void RegisterAllComponents() OVERRIDE
+	{
+		// don't register in game by default for perf, we'll manually call Super from AttachToOwner()
+		if (GetWorld()->WorldType == EWorldType::Editor || GetWorld()->WorldType == EWorldType::Preview)
+		{
+			Super::RegisterAllComponents();
+		}
+		else
+		{
+			RootComponent = NULL; // this was set for the editor view, but we don't want it
+		}
+	}
 
 	void GotoState(class UUTWeaponState* NewState);
 
@@ -212,6 +224,13 @@ class AUTWeapon : public AUTInventory
 	virtual void Tick(float DeltaTime) OVERRIDE;
 
 	virtual void Destroyed() OVERRIDE;
+
+	/** we added an editor tool to allow the user to set the MuzzleFlash entries to a component created in the blueprint components view,
+	 * but the resulting instances won't be automatically set...
+	 * so we need to manually hook it all up
+	 * static so we can share with UTWeaponAttachment
+	 */
+	static void InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemComponent*>& MFArray);
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
