@@ -53,7 +53,6 @@ void UUTHUDWidget::Draw(float DeltaTime)
 void UUTHUDWidget::PostDraw(float RenderedTime)
 {
 	LastRenderTime = RenderedTime;
-	UTHUDOwner = NULL;
 	Canvas = NULL;
 }
 
