@@ -5,7 +5,7 @@
 
 UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
-	static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
+	static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	PaperDollTexture = HudTexture.Object;
 
 	Position=FVector2D(5.0f, -5.0f);

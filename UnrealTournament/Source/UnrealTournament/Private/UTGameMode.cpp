@@ -11,15 +11,13 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
 	// set default pawn class to our Blueprinted character
-/*
-	static ConstructorHelpers::FObjectFinder<UBlueprint> PlayerPawnObject(TEXT("/Game/Blueprints/WIP/Nick/NickUTCharacter2.NickUTCharacter2"));
+
+	static ConstructorHelpers::FObjectFinder<UBlueprint> PlayerPawnObject(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/WIP/Nick/NickUTCharacter2.NickUTCharacter2'"));
+	
 	if (PlayerPawnObject.Object != NULL)
 	{
 		DefaultPawnClass = (UClass*)PlayerPawnObject.Object->GeneratedClass;
 	}
-*/
-
-	DefaultPawnClass = AUTCharacter::StaticClass();
 
 	// use our custom HUD class
 	HUDClass = AUTHUD::StaticClass();
