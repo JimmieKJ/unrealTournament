@@ -259,8 +259,7 @@ void AUTWeapon::PlayFiringEffects()
 		// try and play a firing animation if specified
 		if (FireAnimation.IsValidIndex(CurrentFireMode) && FireAnimation[CurrentFireMode] != NULL)
 		{
-			// Get the animation object for the arms mesh
-			UAnimInstance* AnimInstance = UTOwner->FirstPersonMesh->GetAnimInstance();
+			UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
 			if (AnimInstance != NULL)
 			{
 				AnimInstance->Montage_Play(FireAnimation[CurrentFireMode], 1.f);

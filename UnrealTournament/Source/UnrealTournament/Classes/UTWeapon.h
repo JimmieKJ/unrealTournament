@@ -96,6 +96,12 @@ class AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float PutDownTime;
 
+	/** equip anims */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* BringUpAnim;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* PutDownAnim;
+
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
 	 */
