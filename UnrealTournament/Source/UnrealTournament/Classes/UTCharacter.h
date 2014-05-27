@@ -199,7 +199,9 @@ class AUTCharacter : public ACharacter
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void StopFire(uint8 FireModeNum);
 
-	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);
+	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
+
+	virtual void SetBase(UPrimitiveComponent* NewBase, bool bNotifyActor=true) OVERRIDE;
 
 protected:
 
