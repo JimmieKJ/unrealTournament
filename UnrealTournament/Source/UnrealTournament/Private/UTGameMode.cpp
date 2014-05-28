@@ -416,3 +416,120 @@ void AUTGameMode::ChangeName(AController* Other, const FString& S, bool bNameCha
     Other->PlayerState->SetPlayerName(SMod);
 }
 
+bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
+{
+	if ( Player && Cast<APlayerStartPIE>(Player->StartSpot.Get()) )
+	{
+		return true;
+	}
+
+	return ( GetWorld()->GetNetMode() == NM_Standalone && Player != NULL && Player->StartSpot.IsValid() &&
+		(bWaitingToStartMatch || (Player->PlayerState != NULL && Cast<AUTPlayerState>(Player->PlayerState)->bWaitingPlayer)) 
+		 && (RatePlayerStart(Cast<APlayerStart>(Player->StartSpot.Get()), Player) >= 0.f) );
+}
+
+
+AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& IncomingName)
+{
+	AActor* const Best = Super::FindPlayerStart(Player, IncomingName);
+
+	if (Best)
+	{
+		LastStartSpot = Best;
+	}
+
+	return Best;
+}
+
+AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
+{
+	// Start by choosing a random start
+	int32 RandStart = FMath::RandHelper(PlayerStarts.Num());
+
+	float BestRating = 0.f;
+	APlayerStart* BestStart = NULL;
+	for ( int32 i=RandStart; i<PlayerStarts.Num(); i++ )
+	{
+		APlayerStart* P = PlayerStarts[i];
+		float NewRating = RatePlayerStart(P,Player);
+
+		if ( NewRating >= 30 )
+		{
+			// this PlayerStart is good enough
+			return P;
+		}
+		if ( NewRating > BestRating )
+		{
+			BestRating = NewRating;
+			BestStart = P;
+		}
+	}
+	for ( int32 i=0; i<RandStart; i++ )
+	{
+		APlayerStart* P = PlayerStarts[i];
+		float NewRating = RatePlayerStart(P,Player);
+
+		if ( NewRating >= 30 )
+		{
+			// this PlayerStart is good enough
+			return P;
+		}
+		if ( NewRating > BestRating )
+		{
+			BestRating = NewRating;
+			BestStart = P;
+		}
+	}
+	return BestStart ? BestStart : Super::ChoosePlayerStart(Player);
+}
+
+float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
+{
+	float Score = 20;
+
+	AActor* LastSpot = (Player && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
+	if ( (P == LastStartSpot) || (LastSpot != NULL && P == LastSpot) )
+	{
+		UE_LOG(UT,Log,TEXT("   %s was the last spot"), *GetNameSafe(P))
+		// avoid re-using starts
+		Score -= 15.0f;
+	}
+
+	bool bTwoPlayerGame = ( NumPlayers + NumBots == 2 );
+
+	if (Player != NULL)
+	{
+		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+		{
+			AController* OtherController = *Iterator;
+			ACharacter* OtherCharacter = Cast<ACharacter>( OtherController->GetPawn());
+
+			if ( OtherCharacter && OtherCharacter->PlayerState )
+			{
+				if ( (FMath::Abs(P->GetActorLocation().Z - OtherCharacter->GetActorLocation().Z) < P->CapsuleComponent->GetScaledCapsuleHalfHeight() + OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight())
+					&& ((P->GetActorLocation() - OtherCharacter->GetActorLocation()).Size2D() < P->CapsuleComponent->GetScaledCapsuleRadius() + OtherCharacter->CapsuleComponent->GetScaledCapsuleRadius()) )
+				{
+					// overlapping - would telefrag
+					return -10;
+				}
+
+				float NextDist = (OtherCharacter->GetActorLocation() - P->GetActorLocation()).Size();
+				static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
+
+				if ( NextDist < 3000.0f && 
+						!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation()+FVector(0.f,0.f,OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), P->GetActorLocation(), ECC_WorldStatic, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
+				{
+					Score -= (5 - 0.001f*NextDist);
+				}
+				else if ( bTwoPlayerGame )
+				{
+					// in 2 player game, look for any visibility
+					Score += FMath::Min(2.f,0.001f*NextDist);
+					if ( !GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation(), P->GetActorLocation(), ECC_WorldStatic, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
+						Score -= 5;
+				}
+			}
+		}
+	}
+	return FMath::Max(Score, 0.2f);
+}

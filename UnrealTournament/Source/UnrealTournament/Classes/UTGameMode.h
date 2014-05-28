@@ -107,6 +107,10 @@ public:
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
+	virtual bool ShouldSpawnAtStartSpot(AController* Player);
+	virtual class AActor* FindPlayerStart( AController* Player, const FString& IncomingName = TEXT("") );
+	virtual AActor* ChoosePlayerStart( AController* Player );
+	virtual float RatePlayerStart(APlayerStart* P, AController* Player);
 };
 
 
