@@ -146,6 +146,10 @@ class AUTWeapon : public AUTInventory
 	virtual void BeginFiringSequence(uint8 FireModeNum);
 	virtual void EndFiringSequence(uint8 FireModeNum);
 
+	/** blueprint hook when the trigger is released; called on both client and server */
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnStoppedFiring();
+
 	/** activates the weapon as part of a weapon switch
 	 * (this weapon has already been set to Pawn->Weapon)
 	 */

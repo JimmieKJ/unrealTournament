@@ -202,6 +202,8 @@ void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, false);
 	CurrentState->EndFiringSequence(FireModeNum);
+
+	OnStoppedFiring();
 }
 
 void AUTWeapon::BringUp()

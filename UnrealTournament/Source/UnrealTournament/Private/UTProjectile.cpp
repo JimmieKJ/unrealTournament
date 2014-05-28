@@ -49,6 +49,11 @@ void AUTProjectile::BeginPlay()
 	{
 		InstigatorController = Instigator->Controller;
 	}
+
+	if (Role == ROLE_Authority)
+	{
+		ProjectileMovement->Velocity.Z += TossZ;
+	}
 }
 
 void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
