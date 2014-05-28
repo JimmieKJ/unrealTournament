@@ -7,6 +7,8 @@
 AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	bCanBeDamaged = false;
+
 	Collision = PCIP.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->InitCapsuleSize(64.0f, 75.0f);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTPickup::OnOverlapBegin);
@@ -29,7 +31,7 @@ void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherCom
 
 void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (TouchedBy->Controller != NULL)
+	if (Role == ROLE_Authority && TouchedBy->Controller != NULL)
 	{
 		GiveTo(TouchedBy);
 		StartSleeping();
@@ -41,11 +43,6 @@ void AUTPickup::GiveTo_Implementation(APawn* Target)
 
 void AUTPickup::StartSleeping_Implementation()
 {
-	// TODO: EffectIsRelevant() ?
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent);
-	}
 	SetActorHiddenInGame(true);
 	SetActorEnableCollision(false);
 	if (RespawnTime > 0.0f)
@@ -58,13 +55,17 @@ void AUTPickup::StartSleeping_Implementation()
 		bActive = false;
 	}
 }
-void AUTPickup::WakeUp_Implementation()
+void AUTPickup::PlayTakenEffects()
 {
 	// TODO: EffectIsRelevant() ?
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		UGameplayStatics::SpawnEmitterAttached(RespawnParticles, RootComponent);
+		UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None);
 	}
+}
+void AUTPickup::WakeUp_Implementation()
+{
 	SetActorHiddenInGame(false);
 	SetActorEnableCollision(true);
 	GetWorld()->GetTimerManager().ClearTimer(this, &AUTPickup::WakeUp);
@@ -72,6 +73,15 @@ void AUTPickup::WakeUp_Implementation()
 	if (Role == ROLE_Authority)
 	{
 		bActive = true;
+	}
+}
+void AUTPickup::PlayRespawnEffects()
+{
+	// TODO: EffectIsRelevant() ?
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UGameplayStatics::SpawnEmitterAttached(RespawnParticles, RootComponent);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), RespawnSound, this, SRT_None);
 	}
 }
 

@@ -45,6 +45,9 @@ protected:
 	uint32 bPendingClientGivenTo : 1;
 	uint32 bPendingAutoActivate : 1;
 
+	UPROPERTY()
+	USkeletalMeshComponent* PickupMesh;
+
 public:
 	AUTInventory* GetNext() const
 	{
@@ -57,4 +60,15 @@ public:
 	}
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity);
 	virtual void Destroyed();
+
+	/** return a component that can be instanced to be applied to pickups */
+	UFUNCTION(BlueprintNativeEvent)
+	USkeletalMeshComponent* GetPickupMeshTemplate();
+
+	/** respawn time for level placed pickups of this type */
+	UPROPERTY(EditDefaultsOnly, Category = Pickup)
+	float RespawnTime;
+	/** if set, item starts off not being available when placed in the level (must wait RespawnTime from start of match) */
+	UPROPERTY(EditDefaultsOnly, Category = Pickup)
+	bool bDelayedSpawn;
 };

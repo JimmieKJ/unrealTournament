@@ -41,7 +41,20 @@ public:
 
 	virtual void SwitchToBestWeapon();
 
+	inline void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
+	{
+		// insert new pickups at the beginning so the order should be newest->oldest
+		// this makes iteration and removal faster when deciding whether the pickup is still hidden in the per-frame code
+		RecentWeaponPickups.Insert(NewPickup, 0);
+	}
+
+	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
+
 protected:
+
+	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
+	UPROPERTY()
+	TArray<class AUTPickupWeapon*> RecentWeaponPickups;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)

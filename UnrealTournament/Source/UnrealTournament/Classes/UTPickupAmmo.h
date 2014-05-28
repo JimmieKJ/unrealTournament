@@ -11,6 +11,6 @@ class AUTPickupAmmo : public AUTPickup
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	FStoredAmmo Ammo;
 
-	virtual void ProcessTouch_Implementation(APawn* TouchedBy);
-	virtual void GiveTo_Implementation(APawn* Target);
+	virtual void ProcessTouch_Implementation(APawn* TouchedBy) OVERRIDE;
+	virtual void GiveTo_Implementation(APawn* Target) OVERRIDE;
 };

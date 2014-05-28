@@ -7,13 +7,16 @@
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
 #include "UTWeaponStateInactive.h"
+#include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
 
 AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+: Super(PCIP.DoNotCreateDefaultSubobject(TEXT("PickupMesh")))
 {
 	AmmoCost.Add(1);
 	AmmoCost.Add(1);
+
+	bWeaponStay = true;
 
 	Ammo = 20;
 	MaxAmmo = 50;
@@ -29,7 +32,6 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	EquippingState = PCIP.CreateDefaultSubobject<UUTWeaponStateEquipping>(this, TEXT("StateEquipping"));
 	UnequippingState = PCIP.CreateDefaultSubobject<UUTWeaponStateUnequipping>(this, TEXT("StateUnequipping"));
 
-	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
@@ -46,6 +48,11 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 			}
 		}
 	}
+}
+
+USkeletalMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation()
+{
+	return (AttachmentType != NULL) ? AttachmentType.GetDefaultObject()->Mesh.Get() : Super::GetPickupMeshTemplate_Implementation();
 }
 
 void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemComponent*>& MFArray)

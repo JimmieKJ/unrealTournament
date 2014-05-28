@@ -23,9 +23,15 @@ class AUTPickup : public AActor
 	/** one-shot particle effect played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* TakenParticles;
+	/** one-shot sound played when the pickup is taken */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	USoundBase* TakenSound;
 	/** one-shot particle effect played when the pickup respawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* RespawnParticles;
+	/** one-shot sound played when the pickup respawns */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	USoundBase* RespawnSound;
 
 	UFUNCTION()
 	virtual void OnRep_bActive();
@@ -36,12 +42,15 @@ class AUTPickup : public AActor
 	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void GiveTo(APawn* Target);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Pickup)
 	void StartSleeping();
-
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Pickup)
 	void WakeUp();
+	UFUNCTION(BlueprintCallable, Category = Pickup)
+	virtual void PlayTakenEffects();
+	UFUNCTION(BlueprintCallable, Category = Pickup)
+	virtual void PlayRespawnEffects();
 };

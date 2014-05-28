@@ -6,6 +6,9 @@
 #include "UTPlayerController.h"
 #include "ActiveSound.h"
 #include "AudioDevice.h"
+#include "UTPickup.h"
+#include "UTPickupInventory.h"
+#include "UTPickupWeapon.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -381,4 +384,24 @@ void AUTPlayerController::OnTapBack()
 	LastTapBackTime = (!UTCharacter || CheckDodge(LastTapBackTime, -1.f, 0.f, 0.f, 1.f)) ? -10.f : GetWorld()->GetTimeSeconds();
 }
 
+void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents)
+{
+	Super::UpdateHiddenComponents(ViewLocation, HiddenComponents);
 
+	for (int32 i = RecentWeaponPickups.Num() - 1; i >= 0; i--)
+	{
+		if (RecentWeaponPickups[i] == NULL)
+		{
+			RecentWeaponPickups.RemoveAt(i, 1, false);
+		}
+		else if (!RecentWeaponPickups[i]->IsTaken(GetPawn()))
+		{
+			RecentWeaponPickups[i]->PlayRespawnEffects();
+			RecentWeaponPickups.RemoveAt(i, 1, false);
+		}
+		else if (RecentWeaponPickups[i]->GetMesh() != NULL)
+		{
+			HiddenComponents.Add(RecentWeaponPickups[i]->GetMesh()->ComponentId);
+		}
+	}
+}

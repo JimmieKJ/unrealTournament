@@ -113,6 +113,10 @@ class AUTWeapon : public AUTInventory
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Weapon")
 	int32 GroupSlot;
 
+	/** whether this weapon stays around by default when someone picks it up (i.e. multiple people can pick up from the same spot without waiting for respawn time) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	bool bWeaponStay;
+
 	virtual void BeginPlay() OVERRIDE;
 	virtual void RegisterAllComponents() OVERRIDE
 	{
@@ -126,6 +130,8 @@ class AUTWeapon : public AUTInventory
 			RootComponent = NULL; // this was set for the editor view, but we don't want it
 		}
 	}
+
+	virtual USkeletalMeshComponent* GetPickupMeshTemplate_Implementation() OVERRIDE;
 
 	void GotoState(class UUTWeaponState* NewState);
 

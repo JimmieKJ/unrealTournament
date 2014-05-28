@@ -9,6 +9,19 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 	SetReplicates(true);
 	bOnlyRelevantToOwner = true;
 	bReplicateInstigator = true;
+
+	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
+	PickupMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent, USkeletalMeshComponent>(this, TEXT("PickupMesh"), false, false, false);
+	if (PickupMesh != NULL)
+	{
+		PickupMesh->AttachParent = RootComponent;
+		PickupMesh->bAutoRegister = false;
+	}
+}
+
+USkeletalMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation()
+{
+	return PickupMesh;
 }
 
 void AUTInventory::Destroyed()

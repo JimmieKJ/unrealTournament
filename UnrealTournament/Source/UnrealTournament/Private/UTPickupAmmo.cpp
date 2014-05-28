@@ -12,7 +12,7 @@ AUTPickupAmmo::AUTPickupAmmo(const FPostConstructInitializeProperties& PCIP)
 
 void AUTPickupAmmo::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Cast<AUTCharacter>(TouchedBy) != NULL)
+	if (Role == ROLE_Authority && Cast<AUTCharacter>(TouchedBy) != NULL)
 	{
 		Super::ProcessTouch_Implementation(TouchedBy);
 	}
