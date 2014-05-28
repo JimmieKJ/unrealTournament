@@ -15,16 +15,26 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	BaseLookUpRate = 45.f;
 
 	bAutoWeaponSwitch = true;
+
+	MaxDodgeClickTime = 0.25f;
+	LastTapLeftTime = -10.f;
+	LastTapRightTime = -10.f;
+	LastTapForwardTime = -10.f;
+	LastTapBackTime = -10.f;
 }
 
 void AUTPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	// bConsumeInput = false is temp until prototype is moved to C++
-	InputComponent->BindAxis("MoveForward", this, &AUTPlayerController::MoveForward).bConsumeInput = false;
-	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight).bConsumeInput = false;
-	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump).bConsumeInput = false;
+	InputComponent->BindAxis("MoveForward", this, &AUTPlayerController::MoveForward);
+	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight);
+	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
+
+	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
+	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
+	InputComponent->BindAction("TapForward", IE_Pressed, this, &AUTPlayerController::OnTapForward);
+	InputComponent->BindAction("TapBack", IE_Pressed, this, &AUTPlayerController::OnTapBack);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -337,4 +347,38 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		UGameplayStatics::PlaySoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, bIsOccluded ? 0.5f : 1.0f);
 	}
 }
+
+bool AUTPlayerController::CheckDodge(float LastTapTime, float DodgeDirX, float DodgeDirY, float DodgeCrossX, float DodgeCrossY)
+{
+	if ( UTCharacter && (GetWorld()->GetTimeSeconds() - LastTapTime < MaxDodgeClickTime) )
+	{
+		FRotator TurnRot(0.f, UTCharacter->GetActorRotation().Yaw, 0.f);
+		FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+		FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
+		FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+		UTCharacter->Dodge(DodgeDirX*X + DodgeDirY*Y, DodgeCrossX*X + DodgeCrossY*Y);
+	}
+	return false;
+}
+
+void AUTPlayerController::OnTapLeft()
+{
+	LastTapLeftTime = (!UTCharacter || CheckDodge(LastTapLeftTime, 0.f, -1.f, 1.f, 0.f)) ? -10.f : GetWorld()->GetTimeSeconds();
+}
+
+void AUTPlayerController::OnTapRight()
+{
+	LastTapRightTime = (!UTCharacter || CheckDodge(LastTapRightTime, 0.f, 1.f, 1.f, 0.f)) ? -10.f : GetWorld()->GetTimeSeconds();
+}
+
+void AUTPlayerController::OnTapForward()
+{
+	LastTapForwardTime = (!UTCharacter || CheckDodge(LastTapForwardTime, 1.f, 0.f, 0.f, 1.f)) ? -10.f : GetWorld()->GetTimeSeconds();
+}
+
+void AUTPlayerController::OnTapBack()
+{
+	LastTapBackTime = (!UTCharacter || CheckDodge(LastTapBackTime, -1.f, 0.f, 0.f, 1.f)) ? -10.f : GetWorld()->GetTimeSeconds();
+}
+
 

@@ -50,6 +50,22 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	float BaseLookUpRate;
 
+	// @TODO FIXMESTEVE make config
+	UPROPERTY(EditAnywhere, Category = Dodging)
+	float MaxDodgeClickTime;
+
+	UPROPERTY(BluePrintReadOnly, Category = Dodging)
+	float LastTapLeftTime;
+
+	UPROPERTY(BluePrintReadOnly, Category = Dodging)
+	float LastTapRightTime;
+
+	UPROPERTY(BluePrintReadOnly, Category = Dodging)
+	float LastTapForwardTime;
+
+	UPROPERTY(BluePrintReadOnly, Category = Dodging)
+	float LastTapBackTime;
+
 	UPROPERTY(config, BlueprintReadOnly, Category = Weapon)
 	bool bAutoWeaponSwitch;
 
@@ -83,6 +99,15 @@ protected:
 
 	/** Handler for a touch input beginning. */
 	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
+
+	/** If double tap, tell pawn to dodge */
+	bool CheckDodge(float LastTapTime, float DodgeDirX, float DodgeDirY, float DodgeCrossX, float DodgeCrossY);
+
+	/** Dodge tap input handling */
+	void OnTapLeft();
+	void OnTapRight();
+	void OnTapForward();
+	void OnTapBack();
 };
 
 

@@ -159,6 +159,7 @@ class AUTCharacter : public ACharacter
 
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated, ReplicatedUsing=PlayTakeHitEffects)
 	FTakeHitInfo LastTakeHitInfo;
+
 	/** time of last SetLastTakeHitInfo() - authority only */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitTime;
@@ -196,8 +197,25 @@ class AUTCharacter : public ACharacter
 	/** weapon firing */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void StartFire(uint8 FireModeNum);
+
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void StopFire(uint8 FireModeNum);
+
+	/** Return true if character is currently able to dodge. */
+	virtual bool CanDodge() const;
+
+	/** Dodge requested by controller, return whether dodge occurred. */
+	virtual bool Dodge(const FVector &DodgeDir, const FVector &DodgeCross);
+
+	/** Dodge just occured in dodge dir, play any sounds/effects desired. */
+	UFUNCTION(BlueprintImplementableEvent)
+	virtual void OnDodge(const FVector &DodgeDir);
+
+	/** Blueprint override for dodge handling. Rteturn true to skip default dodge in C++. */
+	UFUNCTION(BlueprintImplementableEvent)
+	bool DodgeOverride(const FVector &DodgeDir, const FVector &DodgeCross);
+
+	virtual bool CanJump() const OVERRIDE;
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
 

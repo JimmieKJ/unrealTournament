@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTCharacter.h"
+#include "UTCharacterMovement.h"
 #include "UTProjectile.h"
 #include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
@@ -10,7 +11,7 @@
 // AUTCharacter
 
 AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	: Super(PCIP.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
 	CapsuleComponent->InitCapsuleSize(42.f, 96.0f);
@@ -590,3 +591,35 @@ void AUTCharacter::SetBase( UPrimitiveComponent* NewBaseComponent, bool bNotifyP
 		UTMovementBaseUtility::AddTickDependency(CharacterMovement->PrimaryComponentTick, MovementBase);
 	}
 }
+
+bool AUTCharacter::CanDodge() const
+{
+	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->CanDodge(); 
+}
+
+bool AUTCharacter::Dodge(const FVector &DodgeDir, const FVector &DodgeCross)
+{
+	if (CanDodge())
+	{
+		if ( DodgeOverride(DodgeDir, DodgeCross) )
+		{
+			return true;
+		}
+		if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->PerformDodge(DodgeDir, DodgeCross))
+		{
+			OnDodge(DodgeDir);
+			// @TODO FIXMESTEVE need to cause falling damage based on pre-dodge falling Velocity.Z if was falling
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AUTCharacter::CanJump() const
+{
+	// @TODO FIXMESTEVE ask to get this mostly moved to CharacterMovement!
+	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && (CharacterMovement->IsMovingOnGround() || Cast<UUTCharacterMovement>(CharacterMovement)->CanMultiJump()) && CharacterMovement->CanEverJump() && !CharacterMovement->bWantsToCrouch;
+}
+
+
+
