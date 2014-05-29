@@ -213,6 +213,10 @@ class AUTCharacter : public ACharacter
 	UFUNCTION(BlueprintImplementableEvent)
 	virtual void OnDodge(const FVector &DodgeDir);
 
+	/** Landing assist just occurred */
+	UFUNCTION(BlueprintImplementableEvent)
+		virtual void OnLandingAssist();
+
 	/** Blueprint override for dodge handling. Rteturn true to skip default dodge in C++. */
 	UFUNCTION(BlueprintImplementableEvent)
 	bool DodgeOverride(const FVector &DodgeDir, const FVector &DodgeCross);

@@ -12,11 +12,11 @@ public:
 	//=========================================
 	// DODGING
 	/** Dodge impulse in XY plane */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Horizontal Dodge Impulse"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Impulse- Horizontal"))
 	float DodgeImpulseHorizontal;
 
 	/** Dodge impulse added in Z direction */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Vertical Dodge Impulse"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Impulse - Vertical"))
 	float DodgeImpulseVertical;
 
 	/** How far to trace looking for a wall to dodge from */
@@ -24,31 +24,31 @@ public:
 	float WallDodgeTraceDist;
 
 	/** Vertical impulse for a wall dodge. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Vertical impulse for a wall dodge"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Impulse Vertical"))
 	float WallDodgeImpulseVertical;
 
 	/** Max Falling speed without additive Wall Dodge Vertical Impulse.  If falling faster, vertical dodge impulse is added to current falling velocity. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Falling speed without additive Wall Dodge Vertical Impulse"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Non Additive Dodge Fall Speed"))
 	float MaxNonAdditiveDodgeFallSpeed;
 
 	/** Max positive Z speed with additive Wall Dodge Vertical Impulse.  Wall Dodge will not add impulse making vertical speed higher than this amount. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max jumping speed with additive Wall Dodge Vertical Impulse"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Additive Dodge Jump Speed"))
 	float MaxAdditiveDodgeJumpSpeed;
 
 	/** Horizontal speed reduction on dodge landing (multiplied). */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Horizontal speed reduction on dodge landing (multiplied)"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
 		float DodgeLandingSpeedFactor;
 
 	/** Time after landing dodge before another can be attempted. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Time after landing dodge before another can be attempted."))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Reset Interval"))
 		float DodgeResetInterval;
 
 	/** Time after starting wall dodge before another can be attempted. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Time after starting wall dodge before another can be attempted."))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Reset Interval"))
 		float WallDodgeResetInterval;
 
 	/** World time when another dodge can be attempted. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "World time when another dodge can be attempted."))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Reset Time"))
 		float DodgeResetTime;
 
 	/** If falling, verify can wall dodge.  The cause character to dodge. */
@@ -56,7 +56,7 @@ public:
 	bool PerformDodge(const FVector &DodgeDir, const FVector &DodgeCross);
 
 	/** True during a dodge. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Currently in a dodge."))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Is Dodging"))
 	bool bIsDodging;
 
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
@@ -75,23 +75,23 @@ public:
 	// MULTIJUMP
 
 	/** Max number of multijumps. 2= double jump. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max number of multijumps"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Multijump Count"))
 	float MaxMultiJumpCount;
 
 	/** Current count of multijumps. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Current count of multijumps"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Current Multijump Count"))
 	float CurrentMultiJumpCount;
 
 	/** Whether to allow multijumps during a dodge. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Allow multijump from dodge"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Allow Dodge Multijumps"))
 	bool bAllowDodgeMultijumps;
 
 	/** Max absolute Z velocity allowed for multijump (low values mean only near jump apex). */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max falling speed to multijump"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Multijump Z Speed"))
 	float MaxMultiJumpZSpeed;
 
 	/** Vertical impulse on multijump. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump vertical impulse"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump impulse (vertical)"))
 	float MultiJumpImpulse;
 
 	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) OVERRIDE;
@@ -138,6 +138,29 @@ public:
 
 	/** Return SprintSpeed if CanSprint(). */
 	virtual float GetMaxSpeed() const OVERRIDE;
+
+	//=========================================
+	// Landing Assist
+
+	/** Boost to help successfully land jumps that just barely missed */
+	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Step Up Distance."))
+		float LandingStepUp;
+
+	/** Boost to help successfully land jumps that just barely missed */
+	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Assist Boost."))
+		float LandingAssistBoost;
+
+	/** True if already assisted this jump */
+	UPROPERTY(Category = "LandingAssist", BlueprintReadOnly, meta = (DisplayName = "Jump Assisted."))
+		bool bJumpAssisted;
+
+	virtual void PhysFalling(float deltaTime, int32 Iterations) OVERRIDE;
+
+	/** Return true if found a landing assist spot, and add LandingAssistBoost */
+	virtual void FindValidLandingSpot(const FVector& CapsuleLocation);
+
+	/** Check for landing assist */
+	virtual void NotifyJumpApex() OVERRIDE;
 
 	//=========================================
 

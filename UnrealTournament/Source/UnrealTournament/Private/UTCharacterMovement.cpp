@@ -30,6 +30,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SprintAccel = 100.f;
 	AutoSprintDelayInterval = 2.f;
 	SprintStartTime = 0.f;
+	LandingStepUp = 50.f;
+	LandingAssistBoost = 400.f;
+	bJumpAssisted = false;
 }
 
 bool UUTCharacterMovement::CanDodge()
@@ -81,6 +84,7 @@ bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &
 			: WallDodgeImpulseVertical;
 	}
 	bIsDodging = true;
+	bNotifyApex = true;
 	CurrentMultiJumpCount++;
 	SetMovementMode(MOVE_Falling);
 	return true;
@@ -120,7 +124,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		bIsDodging = false;
 	}
 	SprintStartTime = CharacterOwner->GetWorld()->GetTimeSeconds() + AutoSprintDelayInterval;
-
+	bJumpAssisted = false;
 	CurrentMultiJumpCount = 0;
 	if (IsFalling())
 	{
@@ -134,6 +138,7 @@ bool UUTCharacterMovement::DoJump()
 {
 	if ( IsFalling() ? DoMultiJump() : Super::DoJump())
 	{
+		bNotifyApex = true;
 		CurrentMultiJumpCount++;
 		return true;
 	}
@@ -253,6 +258,284 @@ FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() 
 	return ClientPredictionData;
 }
 
+/** @TODO FIXMESTEVE - physfalling copied from base version and edited.  At some point should probably add some hooks to base version and use those instead. */
+void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
+{
+	// Bound final 2d portion of velocity
+	const float Speed2d = Velocity.Size2D();
+	const float BoundSpeed = FMath::Max(Speed2d, GetModifiedMaxSpeed() * AnalogInputModifier);
+
+	//bound acceleration, falling object has minimal ability to impact acceleration
+	FVector FallAcceleration = Acceleration;
+	FallAcceleration.Z = 0.f;
+	bool bSkipLandingAssist = true;
+	FHitResult Hit(1.f);
+	if (!HasRootMotion())
+	{
+		// test for slope to avoid using air control to climb walls @TODO FIXMESTEVE USE THIS FOR landing assist also? - if no aircontrol and trace hit nothing, skip landing assist
+		float TickAirControl = AirControl;
+		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
+		{
+			const float TestWalkTime = FMath::Max(deltaTime, 0.05f);
+			const FVector TestWalk = ((TickAirControl * GetModifiedMaxAcceleration() * FallAcceleration.SafeNormal() + FVector(0.f, 0.f, GetGravityZ())) * TestWalkTime + Velocity) * TestWalkTime;
+			if (!TestWalk.IsZero())
+			{
+				static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
+				FHitResult Result(1.f);
+				FCollisionQueryParams CapsuleQuery(FallingTraceParamsTag, false, CharacterOwner);
+				FCollisionResponseParams ResponseParam;
+				InitCollisionParams(CapsuleQuery, ResponseParam);
+				const FVector PawnLocation = CharacterOwner->GetActorLocation();
+				const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
+				const bool bHit = GetWorld()->SweepSingle(Result, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+				if (bHit)
+				{
+					bSkipLandingAssist = false;
+					// Only matters if we can't walk there
+					if (!IsValidLandingSpot(Result.Location, Result))
+					{
+						TickAirControl = 0.f;
+					}
+				}
+			}
+		}
+
+		float MaxAccel = GetModifiedMaxAcceleration() * TickAirControl;
+
+		// Boost maxAccel to increase player's control when falling
+		if ((Speed2d < 10.f) && (TickAirControl > 0.f) && (TickAirControl <= 0.05f)) //allow initial burst
+		{
+			MaxAccel = MaxAccel + (10.f - Speed2d) / deltaTime;
+		}
+
+		FallAcceleration = FallAcceleration.ClampMaxSize(MaxAccel);
+	}
+
+	float remainingTime = deltaTime;
+	float timeTick = 0.1f;
+
+	while ((remainingTime > 0.f) && (Iterations < 8))
+	{
+		Iterations++;
+		timeTick = (remainingTime > 0.05f)
+			? FMath::Min(0.05f, remainingTime * 0.5f)
+			: remainingTime;
+
+		remainingTime -= timeTick;
+		const FVector OldLocation = CharacterOwner->GetActorLocation();
+		const FRotator PawnRotation = CharacterOwner->GetActorRotation();
+		bJustTeleported = false;
+
+		FVector OldVelocity = Velocity;
+
+		// Apply input
+		if (!HasRootMotion())
+		{
+			// Acceleration = FallAcceleration for CalcVelocity, but we restore it after using it.
+			TGuardValue<FVector> RestoreAcceleration(Acceleration, FallAcceleration);
+			const float SavedVelZ = Velocity.Z;
+			Velocity.Z = 0.f;
+			CalcVelocity(timeTick, FallingLateralFriction, false, BrakingDecelerationFalling);
+			Velocity.Z = SavedVelZ;
+		}
+
+		// Apply gravity
+		Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), timeTick);
+
+		if (bNotifyApex && CharacterOwner->Controller && (Velocity.Z <= 0.f))
+		{
+			// Just passed jump apex since now going down
+			bNotifyApex = false;
+			NotifyJumpApex();
+		}
+
+		if (!HasRootMotion())
+		{
+			// make sure not exceeding acceptable speed
+			Velocity = Velocity.ClampMaxSize2D(BoundSpeed);
+		}
+
+		FVector Adjusted = 0.5f*(OldVelocity + Velocity) * timeTick;
+		SafeMoveUpdatedComponent(Adjusted, PawnRotation, true, Hit);
+
+		if (!HasValidData())
+		{
+			return;
+		}
+
+		if (IsSwimming()) //just entered water
+		{
+			remainingTime = remainingTime + timeTick * (1.f - Hit.Time);
+			StartSwimming(OldLocation, OldVelocity, timeTick, remainingTime, Iterations);
+			return;
+		}
+		else if (Hit.Time < 1.f)
+		{
+			if (IsValidLandingSpot(UpdatedComponent->GetComponentLocation(), Hit))
+			{
+				remainingTime += timeTick * (1.f - Hit.Time);
+				if (!bJustTeleported && (Hit.Time > 0.1f) && (Hit.Time * timeTick > 0.003f))
+				{
+					Velocity = (CharacterOwner->GetActorLocation() - OldLocation) / (timeTick * Hit.Time);
+				}
+				ProcessLanded(Hit, remainingTime, Iterations);
+				return;
+			}
+			else
+			{
+				if (!bSkipLandingAssist)
+				{
+					FindValidLandingSpot(UpdatedComponent->GetComponentLocation());
+				}
+				HandleImpact(Hit, deltaTime, Adjusted);
+
+				if (Acceleration.SizeSquared2D() > 0.f)
+				{
+					// If we've changed physics mode, abort.
+					if (!HasValidData() || !IsFalling())
+					{
+						return;
+					}
+				}
+
+				const FVector OldHitNormal = Hit.Normal;
+				const FVector OldHitImpactNormal = Hit.ImpactNormal;
+				FVector Delta = ComputeSlideVector(Adjusted, 1.f - Hit.Time, OldHitNormal, Hit);
+
+				if ((Delta | Adjusted) > 0.f)
+				{
+					SafeMoveUpdatedComponent(Delta, PawnRotation, true, Hit);
+					if (Hit.Time < 1.f) //hit second wall
+					{
+						if (IsValidLandingSpot(UpdatedComponent->GetComponentLocation(), Hit))
+						{
+							remainingTime = 0.f;
+							ProcessLanded(Hit, remainingTime, Iterations);
+							return;
+						}
+
+						HandleImpact(Hit, timeTick, Delta);
+
+						// If we've changed physics mode, abort.
+						if (!HasValidData() || !IsFalling())
+						{
+							return;
+						}
+
+						TwoWallAdjust(Delta, Hit, OldHitNormal);
+
+						// bDitch=true means that pawn is straddling two slopes, neither of which he can stand on
+						bool bDitch = ((OldHitImpactNormal.Z > 0.f) && (Hit.ImpactNormal.Z > 0.f) && (FMath::Abs(Delta.Z) <= KINDA_SMALL_NUMBER) && ((Hit.ImpactNormal | OldHitImpactNormal) < 0.f));
+						SafeMoveUpdatedComponent(Delta, PawnRotation, true, Hit);
+						if (Hit.Time == 0)
+						{
+							// if we are stuck then try to side step
+							FVector SideDelta = (OldHitNormal + Hit.ImpactNormal).SafeNormal2D();
+							if (SideDelta.IsNearlyZero())
+							{
+								SideDelta = FVector(OldHitNormal.Y, -OldHitNormal.X, 0).SafeNormal();
+							}
+							SafeMoveUpdatedComponent(SideDelta, PawnRotation, true, Hit);
+						}
+
+						if (bDitch || IsValidLandingSpot(UpdatedComponent->GetComponentLocation(), Hit) || Hit.Time == 0)
+						{
+							remainingTime = 0.f;
+							ProcessLanded(Hit, remainingTime, Iterations);
+							return;
+						}
+						else if (GetPerchRadiusThreshold() > 0.f && Hit.Time == 1.f && OldHitImpactNormal.Z >= GetWalkableFloorZ())
+						{
+							// We might be in a virtual 'ditch' within our perch radius. This is rare.
+							const FVector PawnLocation = CharacterOwner->GetActorLocation();
+							const float ZMovedDist = FMath::Abs(PawnLocation.Z - OldLocation.Z);
+							const float MovedDist2DSq = (PawnLocation - OldLocation).SizeSquared2D();
+							if (ZMovedDist <= 0.2f * timeTick && MovedDist2DSq <= 4.f * timeTick)
+							{
+								Velocity.X += 0.25f * GetMaxSpeed() * (FMath::FRand() - 0.5f);
+								Velocity.Y += 0.25f * GetMaxSpeed() * (FMath::FRand() - 0.5f);
+								Velocity.Z = FMath::Max<float>(JumpZVelocity * 0.25f, 1.f);
+								Delta = Velocity * timeTick;
+								SafeMoveUpdatedComponent(Delta, PawnRotation, true, Hit);
+							}
+						}
+					}
+				}
+
+				// Calculate average velocity based on actual movement after considering collisions
+				if (!bJustTeleported)
+				{
+					// Use average velocity for XY movement (no acceleration except for air control in those axes), but want actual velocity in Z axis
+					const float OldVelZ = OldVelocity.Z;
+					OldVelocity = (CharacterOwner->GetActorLocation() - OldLocation) / timeTick;
+					OldVelocity.Z = OldVelZ;
+				}
+			}
+		}
+
+		if (!HasRootMotion() && !bJustTeleported && MovementMode != MOVE_None)
+		{
+			// refine the velocity by figuring out the average actual velocity over the tick, and then the final velocity.
+			// This particularly corrects for situations where level geometry affected the fall.
+			Velocity = (CharacterOwner->GetActorLocation() - OldLocation) / timeTick; //actual average velocity
+			if ((Velocity.Z < OldVelocity.Z) || (OldVelocity.Z >= 0.f))
+			{
+				Velocity = 2.f*Velocity - OldVelocity; //end velocity has 2* accel of avg
+			}
+
+			if (Velocity.SizeSquared2D() <= KINDA_SMALL_NUMBER * 10.f)
+			{
+				Velocity.X = 0.f;
+				Velocity.Y = 0.f;
+			}
+
+			Velocity = Velocity.ClampMaxSize(GetPhysicsVolume()->TerminalVelocity);
+		}
+	}
+}
+
+void UUTCharacterMovement::NotifyJumpApex()
+{
+	FindValidLandingSpot(UpdatedComponent->GetComponentLocation());
+	Super::NotifyJumpApex();
+}
+
+void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
+{
+	// Only try jump assist once, and not while still going up
+	if (bJumpAssisted || (Velocity.Z > 0.f))
+	{
+		return;
+	}
+	bJumpAssisted = true;
+	//UE_LOG(UT, Warning, TEXT("Try Assist"));
+	// See if stepping up/forward in acceleration direction would result in valid landing
+	FHitResult Result(1.f);
+	static const FName LandAssistTraceParamsTag = FName(TEXT("LandAssist"));
+	FCollisionQueryParams CapsuleQuery(LandAssistTraceParamsTag, false, CharacterOwner);
+	FCollisionResponseParams ResponseParam;
+	InitCollisionParams(CapsuleQuery, ResponseParam);
+	const FVector PawnLocation = UpdatedComponent->GetComponentLocation();
+	const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
+	bool bHit = GetWorld()->SweepSingle(Result, PawnLocation, PawnLocation + FVector(0.f, 0.f,LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+	FVector HorizontalStart = bHit ? Result.Location : PawnLocation + FVector(0.f, 0.f, LandingStepUp);
+	float ElapsedTime = 0.05f; // FMath::Min(0.05f, remainingTime);
+	FVector HorizontalDir = Acceleration.SafeNormal2D() * MaxWalkSpeed * 0.05f;;
+	bHit = GetWorld()->SweepSingle(Result, HorizontalStart, HorizontalStart + HorizontalDir, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+	FVector LandingStart = bHit ? Result.Location : HorizontalStart + HorizontalDir;
+	bHit = GetWorld()->SweepSingle(Result, LandingStart, LandingStart - FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+
+	if (IsValidLandingSpot(Result.Location, Result))
+	{
+		//UE_LOG(UT, Warning, TEXT("ASSIST"));
+		bJustTeleported = true;
+		if (Cast<AUTCharacter>(CharacterOwner))
+		{
+			Cast<AUTCharacter>(CharacterOwner)->OnLandingAssist();
+		}
+		Velocity.Z = LandingAssistBoost; // @TODO FIXMESTEVE what if falling fast need damage, or just skip landing assist
+	}
+}
 
 /*
 void AUTCharacter::Landed(const FHitResult& Hit)
