@@ -40,7 +40,8 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void eventClientRemoved();
 
-	virtual void OnRep_Instigator();
+	void CheckPendingClientGivenTo();
+	virtual void OnRep_Instigator() OVERRIDE;
 
 	uint32 bPendingClientGivenTo : 1;
 	uint32 bPendingAutoActivate : 1;
@@ -59,7 +60,7 @@ public:
 		return UTOwner;
 	}
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity);
-	virtual void Destroyed();
+	virtual void Destroyed() OVERRIDE;
 
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)

@@ -56,8 +56,19 @@ class AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<FInstantHitDamageInfo> InstantHitInfo;
 	/** firing state for mode, contains core firing sequence and directs to appropriate global firing functions */
-	UPROPERTY(Instanced, EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon")
 	TArray<class UUTWeaponStateFiring*> FiringState;
+#if WITH_EDITOR
+private:
+	/** class of firing state to use (workaround for editor limitations - editinlinenew doesn't work) */
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
+public:
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
+#endif
+	// FIXME: temp until 4.2 merge
+	void ValidateFiringStates();
+
 	/** time between shots, trigger checks, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<float> FireInterval;
@@ -219,7 +230,7 @@ class AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void ConsumeAmmo(uint8 FireModeNum);
 	
-	virtual void FireInstantHit();
+	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL);
 	virtual AUTProjectile* FireProjectile();
 
 	/** returns whether we can meet AmmoCost for the given fire mode */

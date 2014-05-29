@@ -9,6 +9,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
 	Mesh->SetOwnerNoSee(true);
 	Mesh->AttachParent = RootComponent;
+	AttachSocket = FName((TEXT("WeaponPoint")));
 }
 
 void AUTWeaponAttachment::BeginPlay()
@@ -36,7 +37,7 @@ void AUTWeaponAttachment::Destroyed()
 	Super::Destroyed();
 }
 
-void AUTWeaponAttachment::AttachToOwner_Implementation()
+void AUTWeaponAttachment::RegisterAllComponents()
 {
 	// sanity check some settings
 	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
@@ -44,9 +45,14 @@ void AUTWeaponAttachment::AttachToOwner_Implementation()
 		if (MuzzleFlash[i] != NULL)
 		{
 			MuzzleFlash[i]->bAutoActivate = false;
-			MuzzleFlash[i]->SetOnlyOwnerSee(true);
+			MuzzleFlash[i]->SetOwnerNoSee(true);
 		}
 	}
+	Super::RegisterAllComponents();
+}
+
+void AUTWeaponAttachment::AttachToOwner_Implementation()
+{
 	Mesh->SetRelativeLocation(AttachOffset);
 	Mesh->AttachTo(UTOwner->Mesh, AttachSocket);
 }
@@ -58,23 +64,44 @@ void AUTWeaponAttachment::DetachFromOwner_Implementation()
 
 void AUTWeaponAttachment::PlayFiringEffects()
 {
+	// stop any firing effects for other firemodes
+	// this is needed because if the user swaps firemodes very quickly replication might not receive a discrete stop and start new
+	StopFiringEffects(true);
+
 	// muzzle flash
-	if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL)
+	if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL && MuzzleFlash[UTOwner->FireMode]->Template != NULL)
 	{
-		MuzzleFlash[UTOwner->FireMode]->ActivateSystem();
+		// if we detect a looping particle system, then don't reactivate it
+		if (!MuzzleFlash[UTOwner->FireMode]->bIsActive || MuzzleFlash[UTOwner->FireMode]->Template->Emitters[0] == NULL ||
+			MuzzleFlash[UTOwner->FireMode]->Template->Emitters[0]->GetLODLevel(0)->RequiredModule->EmitterLoops > 0)
+		{
+			MuzzleFlash[UTOwner->FireMode]->ActivateSystem();
+		}
 	}
 
 	// fire effects
+	static FName NAME_HitLocation(TEXT("HitLocation"));
 	if (FireEffect.IsValidIndex(UTOwner->FireMode) && FireEffect[UTOwner->FireMode] != NULL)
 	{
 		const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL) ? MuzzleFlash[UTOwner->FireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetActorRotation().RotateVector(FVector(UTOwner->GetSimpleCollisionCylinderExtent().X, 0.0f, 0.0f));
 		UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[UTOwner->FireMode], SpawnLocation, (UTOwner->FlashLocation - SpawnLocation).Rotation(), true);
-		static FName NAME_HitLocation(TEXT("HitLocation"));
 		PSC->SetVectorParameter(NAME_HitLocation, UTOwner->FlashLocation);
+	}
+	// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
+	else if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL)
+	{
+		MuzzleFlash[UTOwner->FireMode]->SetVectorParameter(NAME_HitLocation, UTOwner->FlashLocation);
 	}
 }
 
-void AUTWeaponAttachment::StopFiringEffects()
+void AUTWeaponAttachment::StopFiringEffects(bool bIgnoreCurrentMode)
 {
-
+	// we need to default to stopping all modes' firing effects as we can't rely on the replicated value to be correct at this point
+	for (uint8 i = 0; i < MuzzleFlash.Num(); i++)
+	{
+		if (MuzzleFlash[i] != NULL && (!bIgnoreCurrentMode || i != UTOwner->FireMode))
+		{
+			MuzzleFlash[i]->DeactivateSystem();
+		}
+	}
 }

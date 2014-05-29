@@ -6,7 +6,7 @@
 /** the third person representation of a weapon
  * not spawned on dedicated servers
  */
-UCLASS(Blueprintable, NotPlaceable)
+UCLASS(Blueprintable, NotPlaceable, Abstract)
 class AUTWeaponAttachment : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -39,6 +39,7 @@ public:
 	TArray<UParticleSystem*> FireEffect;
 
 	virtual void BeginPlay() OVERRIDE;
+	virtual void RegisterAllComponents() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
 	UFUNCTION(BlueprintNativeEvent)
@@ -54,5 +55,5 @@ public:
 	virtual void PlayFiringEffects();
 	/** stops any looping fire effects */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void StopFiringEffects();
+	virtual void StopFiringEffects(bool bIgnoreCurrentMode = false);
 };

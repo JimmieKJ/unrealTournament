@@ -16,6 +16,10 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	AmmoCost.Add(1);
 	AmmoCost.Add(1);
 
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
+	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
+
 	bWeaponStay = true;
 
 	Ammo = 20;
@@ -36,16 +40,16 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
 
-	if (FiringState.Num() == 0)
+	for (int32 i = 0; i < 2; i++)
 	{
-		for (int32 i = 0; i < 2; i++)
+		UUTWeaponStateFiring* NewState = PCIP.CreateDefaultSubobject<UUTWeaponStateFiring, UUTWeaponStateFiring>(this, FName(*FString::Printf(TEXT("FiringState%i"), i)), false, false, false);
+		if (NewState != NULL)
 		{
-			UUTWeaponStateFiring* NewState = PCIP.CreateDefaultSubobject<UUTWeaponStateFiring, UUTWeaponStateFiring>(this, FName(*FString::Printf(TEXT("FiringState%i"), i)), false, false, false);
-			if (NewState != NULL)
-			{
-				FiringState.Add(NewState);
-				FireInterval.Add(1.0f);
-			}
+			FiringState.Add(NewState);
+#if WITH_EDITOR
+			FiringStateType.Add(UUTWeaponStateFiring::StaticClass());
+#endif
+			FireInterval.Add(1.0f);
 		}
 	}
 }
@@ -79,8 +83,51 @@ void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemCom
 	}
 }
 
+void AUTWeapon::ValidateFiringStates()
+{
+	bool bMadeChanges = false;
+	FiringState.SetNum(FiringStateType.Num());
+	for (int32 i = 0; i < FiringStateType.Num(); i++)
+	{
+		// don't allow setting None
+		if (FiringStateType[i] == NULL)
+		{
+			FiringStateType[i] = UUTWeaponStateFiring::StaticClass();
+		}
+		if (FiringState[i] != NULL && FiringState[i]->GetClass() != FiringStateType[i])
+		{
+			FiringState[i]->MarkPendingKill();
+			FiringState[i] = NULL;
+			bMadeChanges = true;
+		}
+		if (FiringState[i] == NULL && FiringStateType[i] != NULL)
+		{
+			FiringState[i] = ConstructObject<UUTWeaponStateFiring>(FiringStateType[i], this);
+			bMadeChanges = true;
+		}
+	}
+	if (bMadeChanges)
+	{
+		FEditorSupportDelegates::UpdateUI.Broadcast();
+	}
+}
+#if WITH_EDITOR
+void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property == NULL || PropertyChangedEvent.Property->GetFName() == FName(TEXT("FiringStateType")))
+	{
+		ValidateFiringStates();
+	}
+}
+#endif
+
 void AUTWeapon::BeginPlay()
 {
+	// FIXME: temp until 4.2 merge
+	ValidateFiringStates();
+
 	Super::BeginPlay();
 
 	InstanceMuzzleFlashArray(this, MuzzleFlash);
@@ -246,7 +293,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 		if (MuzzleFlash[i] != NULL)
 		{
 			MuzzleFlash[i]->bAutoActivate = false;
-			MuzzleFlash[i]->SetOwnerNoSee(true);
+			MuzzleFlash[i]->SetOnlyOwnerSee(true);
 		}
 	}
 	// attach
@@ -289,27 +336,40 @@ void AUTWeapon::PlayFiringEffects()
 		}
 
 		// muzzle flash
-		if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
+		if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
 		{
-			MuzzleFlash[CurrentFireMode]->ActivateSystem();
+			// if we detect a looping particle system, then don't reactivate it
+			if ( !MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->Template->Emitters[0] == NULL ||
+				MuzzleFlash[CurrentFireMode]->Template->Emitters[0]->GetLODLevel(0)->RequiredModule->EmitterLoops > 0 )
+			{
+				MuzzleFlash[CurrentFireMode]->ActivateSystem();
+			}
 		}
 	}
 }
 void AUTWeapon::StopFiringEffects()
 {
-	// TODO
+	if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
+	{
+		MuzzleFlash[CurrentFireMode]->DeactivateSystem();
+	}
 }
 void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		// fire effects
+		static FName NAME_HitLocation(TEXT("HitLocation"));
 		if (FireEffect.IsValidIndex(CurrentFireMode) && FireEffect[CurrentFireMode] != NULL)
 		{
 			const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (TargetLoc - SpawnLocation).Rotation(), true);
-			static FName NAME_HitLocation(TEXT("HitLocation"));
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
+		}
+		// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
+		else if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
+		{
+			MuzzleFlash[CurrentFireMode]->SetVectorParameter(NAME_HitLocation, TargetLoc);
 		}
 	}
 }
@@ -393,7 +453,7 @@ FRotator AUTWeapon::GetFireRotation()
 	return UTOwner->GetViewRotation();
 }
 
-void AUTWeapon::FireInstantHit()
+void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 {
 	checkSlow(InstantHitInfo.IsValidIndex(CurrentFireMode));
 
@@ -407,7 +467,7 @@ void AUTWeapon::FireInstantHit()
 	{
 		Hit.Location = EndTrace;
 	}
-	else if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged)
+	else if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
 		// TODO: replicated momentum handling
 		if (Hit.Component != NULL)
@@ -420,6 +480,10 @@ void AUTWeapon::FireInstantHit()
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+	}
+	if (OutHit != NULL)
+	{
+		*OutHit = Hit;
 	}
 }
 
@@ -464,7 +528,8 @@ void AUTWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (CurrentState != InactiveState)
+	// apparently things can get ticked before BeginPlay() is called. Seems like bad news...
+	if (CurrentState != NULL && CurrentState != InactiveState)
 	{
 		CurrentState->Tick(DeltaTime);
 	}

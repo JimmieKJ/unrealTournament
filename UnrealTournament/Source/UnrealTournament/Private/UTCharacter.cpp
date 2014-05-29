@@ -203,6 +203,7 @@ void AUTCharacter::ClearFiringInfo()
 {
 	FlashLocation = FVector::ZeroVector;
 	FlashCount = 0;
+	FiringInfoUpdated();
 }
 void AUTCharacter::FiringInfoUpdated()
 {
@@ -414,37 +415,45 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 
 void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 {
-	if (Weapon == NULL)
+	// make sure clients don't try to switch to weapons that haven't been fully replicated/initialized
+	if (NewWeapon != NULL && NewWeapon->GetUTOwner() == NULL)
 	{
-		if (NewWeapon != NULL)
-		{
-			// initial equip
-			PendingWeapon = NewWeapon;
-			WeaponChanged();
-		}
+		ClientSwitchWeapon(Weapon);
 	}
-	else if (NewWeapon != NULL)
+	else
 	{
-		if (NewWeapon != Weapon)
+		if (Weapon == NULL)
 		{
-			if (Weapon->PutDown())
+			if (NewWeapon != NULL)
 			{
-				// standard weapon switch to some other weapon
+				// initial equip
 				PendingWeapon = NewWeapon;
+				WeaponChanged();
 			}
 		}
-		else if (PendingWeapon != NULL)
+		else if (NewWeapon != NULL)
 		{
-			// switching back to weapon that was on its way down
+			if (NewWeapon != Weapon)
+			{
+				if (Weapon->PutDown())
+				{
+					// standard weapon switch to some other weapon
+					PendingWeapon = NewWeapon;
+				}
+			}
+			else if (PendingWeapon != NULL)
+			{
+				// switching back to weapon that was on its way down
+				PendingWeapon = NULL;
+				Weapon->BringUp();
+			}
+		}
+		else if (Weapon != NULL && PendingWeapon != NULL && PendingWeapon->PutDown())
+		{
+			// stopping weapon switch in progress by passing NULL
 			PendingWeapon = NULL;
 			Weapon->BringUp();
 		}
-	}
-	else if (Weapon != NULL && PendingWeapon != NULL && PendingWeapon->PutDown())
-	{
-		// stopping weapon switch in progress by passing NULL
-		PendingWeapon = NULL;
-		Weapon->BringUp();
 	}
 }
 

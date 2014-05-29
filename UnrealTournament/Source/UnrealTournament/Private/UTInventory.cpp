@@ -40,12 +40,18 @@ void AUTInventory::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	Instigator = NewOwner;
 	SetOwner(NewOwner);
 	UTOwner = NewOwner;
+	PrimaryActorTick.AddPrerequisite(UTOwner, UTOwner->PrimaryActorTick);
 	eventGivenTo(NewOwner, bAutoActivate);
 	ClientGivenTo(bAutoActivate);
 }
 
 void AUTInventory::Removed()
 {
+	if (UTOwner != NULL)
+	{
+		PrimaryActorTick.RemovePrerequisite(UTOwner, UTOwner->PrimaryActorTick);
+	}
+
 	ClientRemoved(); // must be first, since it won't replicate after Owner is lost
 
 	Instigator = NULL;
@@ -54,25 +60,32 @@ void AUTInventory::Removed()
 	eventRemoved();
 }
 
-void AUTInventory::OnRep_Instigator()
+void AUTInventory::CheckPendingClientGivenTo()
 {
-	Super::OnRep_Instigator();
 	if (bPendingClientGivenTo && Instigator != NULL)
 	{
 		bPendingClientGivenTo = false;
 		ClientGivenTo_Implementation(bPendingAutoActivate);
 	}
 }
+void AUTInventory::OnRep_Instigator()
+{
+	Super::OnRep_Instigator();
+	CheckPendingClientGivenTo();
+}
 
 void AUTInventory::ClientGivenTo_Implementation(bool bAutoActivate)
 {
-	if (Instigator == NULL)
+	if (Instigator == NULL || !Cast<AUTCharacter>(Instigator)->IsInInventory(this))
 	{
 		bPendingClientGivenTo = true;
 		bPendingAutoActivate = bAutoActivate;
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTInventory::CheckPendingClientGivenTo, 0.1f, false);
 	}
 	else
 	{
+		GetWorld()->GetTimerManager().ClearTimer(this, &AUTInventory::CheckPendingClientGivenTo);
+		bPendingClientGivenTo = false;
 		ClientGivenTo_Internal(bAutoActivate);
 		eventClientGivenTo(bAutoActivate);
 	}
@@ -84,10 +97,15 @@ void AUTInventory::ClientGivenTo_Internal(bool bAutoActivate)
 	SetOwner(Instigator);
 	UTOwner = Cast<AUTCharacter>(Instigator);
 	checkSlow(UTOwner != NULL);
+	PrimaryActorTick.AddPrerequisite(UTOwner, UTOwner->PrimaryActorTick);
 }
 
 void AUTInventory::ClientRemoved_Implementation()
 {
+	if (UTOwner != NULL)
+	{
+		PrimaryActorTick.RemovePrerequisite(UTOwner, UTOwner->PrimaryActorTick);
+	}
 	eventClientRemoved();
 }
 
