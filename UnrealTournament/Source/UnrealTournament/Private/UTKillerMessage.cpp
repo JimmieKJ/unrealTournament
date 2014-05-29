@@ -8,6 +8,7 @@
 UUTKillerMessage::UUTKillerMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
+	Lifetime=2.0;
 	bIsSpecial = true;
 	bIsUnique = true;
 	MessageArea = FName(TEXT("DeathMessage"));

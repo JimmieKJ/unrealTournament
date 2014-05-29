@@ -9,7 +9,7 @@ UUTVictimMessage::UUTVictimMessage(const class FPostConstructInitializePropertie
 	: Super(PCIP)
 {
 	bIsUnique = true;
-	Lifetime = 6.0f;
+	Lifetime = 2.0f;
 	MessageArea = FName(TEXT("DeathMessage"));
 	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name} with {WeaponName}");
 }

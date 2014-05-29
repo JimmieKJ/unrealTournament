@@ -63,7 +63,7 @@ void UUTHUDWidget::PostDraw(float RenderedTime)
 }
 
 
-void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
 	if (Font && !Text.IsEmpty())
 	{
@@ -82,8 +82,8 @@ void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float Dra
 		
 			if (bScaleByDesignedResolution)
 			{
-				XL *= RenderScale;
-				YL *= RenderScale;
+				XL *= RenderScale * TextScale;
+				YL *= RenderScale* TextScale;
 			}
 
 			if (TextHorzAlignment != ETextHorzPos::Left)
@@ -101,7 +101,7 @@ void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float Dra
 
 		if (bScaleByDesignedResolution)
 		{
-			TextItem.Scale = FVector2D(RenderScale, RenderScale);
+			TextItem.Scale = FVector2D(RenderScale * TextScale, RenderScale * TextScale);
 		}
 		Canvas->DrawColor = DrawColor;
 		Canvas->DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;

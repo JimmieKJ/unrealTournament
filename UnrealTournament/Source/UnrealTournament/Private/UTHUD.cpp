@@ -5,6 +5,7 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidget_Paperdoll.h"
 #include "UTHUDWidgetMessage_DeathMessages.h"
+#include "UTHUDWidget_DMPlayerLeaderboard.h"
 
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
@@ -35,6 +36,8 @@ void AUTHUD::BeginPlay()
 	}
 
 	AddHudWidget(UUTHUDWidget_Paperdoll::StaticClass());
+	AddHudWidget(UUTHUDWidget_DMPlayerScore::StaticClass());
+	AddHudWidget(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
 	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());
 }
 
@@ -71,6 +74,27 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 
 void AUTHUD::PostRender()
 {
+	// Always sort the PlayerState array at the beginning of each frame
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL)
+	{
+		GS->SortPRIArray();
+	}
+/* -- ENABLE to see the player list 
+
+		float Y = Canvas->ClipY * 0.5;
+		for (int i=0;i<GS->PlayerArray.Num();i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+			if (PS != NULL)
+			{
+				FString Text = FString::Printf(TEXT("%s - %i"), *PS->PlayerName, PS->Score);
+				TempDrawString(FText::FromString(Text), 0, Y, ETextHorzPos::Left, GetFontFromSizeIndex(0), FLinearColor::White);
+				Y+=24;			
+			}
+		}
+	}
+*/
 	if (PlayerOwner != NULL)
 	{
 		UTPlayerOwner = Cast<AUTPlayerController>(PlayerOwner);
@@ -129,13 +153,6 @@ void AUTHUD::DrawHUD()
 	{
 		TempDrawString(FText::FromString(TEXT("!! Alpha Prototype !!")), Center.X, 5.0f, ETextHorzPos::Center, GEngine->GetSmallFont(), FLinearColor::White);
 		TempDrawString( TempConvertTime(GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, GEngine->GetMediumFont(), FLinearColor::White);
-
-		AUTPlayerState* OwnerState = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
-		if (OwnerState)
-		{
-			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","Score","{0} : Score"), FText::AsNumber(OwnerState->Score)), Canvas->ClipX - 5.0f, 5.0f, ETextHorzPos::Right, GEngine->GetLargeFont(), FLinearColor::White);
-			TempDrawString( FText::Format(NSLOCTEXT("UTHUD","Deaths","{0} : Deaths"), FText::AsNumber(OwnerState->Deaths)), Canvas->ClipX - 5.0f, 25.0f, ETextHorzPos::Right, GEngine->GetSmallFont(), FLinearColor::White);
-		}
 	}
 }
 
@@ -175,7 +192,7 @@ void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type Tex
 	Canvas->DrawItem(TextItem);
 }
 
-void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale)
+void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits, bool bRightAlign)
 {
 	const float FontPositions[10] = {633,297,325,365,403,441,480,519,556,594};
 	const float FontSizes[10] = {40,28,40,38,38,39,39,37,38,39};
@@ -183,9 +200,35 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 	// Convert the number to an ANSICHAR* so we can itterate 
 	FString NumStr = FString::Printf(TEXT("%i"), Number);
 	ANSICHAR *Ansi = TCHAR_TO_ANSI(*NumStr);
-	for (int i=0;i<NumStr.Len();i++)
+
+	if (bRightAlign)
 	{
-		int32 Index = BYTE(*Ansi++) - 48;
+		Ansi += (NumStr.Len() -1);
+	}
+
+	int Cnt = NumStr.Len();
+	if (Cnt < MinDigits)
+	{
+		Cnt = MinDigits;
+	}
+
+	for (int i=0;i<Cnt;i++)
+	{
+		int32 Index = 0;
+		if (Cnt - i <= NumStr.Len())
+		{
+			Index = uint8(*Ansi) - 48;
+			if (bRightAlign)
+			{
+				Ansi--;
+			}
+			else
+			{
+				Ansi++;
+			}
+		}
+
+	
 		if (Index >= 0 && Index <=9)
 		{
 			float U = FontPositions[Index];
@@ -198,7 +241,8 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 			Canvas->DrawColor = Color;
 			Canvas->DrawTile(OldHudTexture, X, Y, 0.0, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
 
-			X += FontSizes[Index] * Scale;
+			X += (FontSizes[Index] * Scale * (bRightAlign? -1.0 : 1.0f));
 		}
+
 	}
 }

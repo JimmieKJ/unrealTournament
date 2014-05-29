@@ -120,11 +120,13 @@ protected:
 	 * @param X		The X position relative to the widget
 	 * @param Y		The Y position relative to the widget
 	 * @param Font	The font to use for the text
+	 * @param TextScale	Additional scaling to add
+	 * @param DrawColor	The color to draw in
 	 * @param TextHorzAlignment	How to align the text horizontally within the widget
 	 * @param TextVertAlignment How to align the text vertically within the widget
 	 **/
 	UFUNCTION(BlueprintCallable, Category="Widgets")
-	virtual void DrawText(FText Text, float X, float Y, UFont* Font, float DrawOpacity=1.0f, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
+	virtual void DrawText(FText Text, float X, float Y, UFont* Font, float TextScale=1.0, float DrawOpacity=1.0f, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
 	
 	/**
 	 * Draws a texture on the screen.

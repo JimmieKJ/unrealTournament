@@ -62,7 +62,7 @@ protected:
 	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type TextPosition, UFont* Font, FLinearColor Color);
 
 public:
-	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale);
+	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
 
 private:
 	/** Crosshair asset pointer */

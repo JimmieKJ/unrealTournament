@@ -19,7 +19,7 @@ public:
 	}
 
 	UPROPERTY()
-	APlayerState* UTPlayerState;
+	AUTPlayerState* UTPlayerState;
 
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
