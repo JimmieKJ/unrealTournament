@@ -160,6 +160,19 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	}
 }
 
+void AUTWeapon::Removed()
+{
+	Super::Removed();
+
+	GotoState(InactiveState);
+}
+void AUTWeapon::ClientRemoved()
+{
+	Super::ClientRemoved();
+
+	GotoState(InactiveState);
+}
+
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
 	BeginFiringSequence(FireModeNum);

@@ -178,6 +178,9 @@ class AUTWeapon : public AUTInventory
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
 	virtual void ClientGivenTo_Internal(bool bAutoActivate) OVERRIDE;
 
+	virtual void Removed() OVERRIDE;
+	virtual void ClientRemoved() OVERRIDE;
+
 	/** fires a shot and consumes ammo */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void FireShot();
