@@ -6,12 +6,23 @@
 #include "UTHUDWidget_Paperdoll.h"
 #include "UTHUDWidgetMessage_DeathMessages.h"
 
-
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
+	WidgetOpacity = 1.0f;
+
 	// Set the crosshair texture
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshairTexObj(TEXT("Texture2D'/Game/RestrictedAssets/Textures/crosshair.crosshair'"));
 	CrosshairTex = CrosshairTexObj.Object;
+
+	static ConstructorHelpers::FObjectFinder<UTexture2D> OldHudTextureObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
+	OldHudTexture = OldHudTextureObj.Object;
+
+	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack36.fntRobotoBlack36'"));
+	MediumFont = MFont.Object;
+
+	static ConstructorHelpers::FObjectFinder<UFont> LFont(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack72.fntRobotoBlack72'"));
+	LargeFont = LFont.Object;
+
 }
 
 void AUTHUD::BeginPlay()
@@ -162,4 +173,32 @@ void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type Tex
 
 	FCanvasTextItem TextItem(RenderPos, Text, Font, Color);
 	Canvas->DrawItem(TextItem);
+}
+
+void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale)
+{
+	const float FontPositions[10] = {633,297,325,365,403,441,480,519,556,594};
+	const float FontSizes[10] = {40,28,40,38,38,39,39,37,38,39};
+
+	// Convert the number to an ANSICHAR* so we can itterate 
+	FString NumStr = FString::Printf(TEXT("%i"), Number);
+	ANSICHAR *Ansi = TCHAR_TO_ANSI(*NumStr);
+	for (int i=0;i<NumStr.Len();i++)
+	{
+		int32 Index = BYTE(*Ansi++) - 48;
+		if (Index >= 0 && Index <=9)
+		{
+			float U = FontPositions[Index];
+			float Width = FontSizes[Index];
+			float UL = Width;
+			// Draw the background.
+			Canvas->DrawColor = Color;
+			Canvas->DrawColor.A *= GlowOpacity;
+			Canvas->DrawTile(OldHudTexture, X, Y, 0.0, Width * Scale, 47 * Scale, U, 49, UL, 47, EBlendMode::BLEND_Translucent);
+			Canvas->DrawColor = Color;
+			Canvas->DrawTile(OldHudTexture, X, Y, 0.0, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
+
+			X += FontSizes[Index] * Scale;
+		}
+	}
 }

@@ -21,5 +21,9 @@ public:
 protected:
 
 private:
+	int32 LastHealth;
+	float HealthFlashOpacity;
 
+	int32 LastArmor;
+	float ArmorFlashOpacity;
 };

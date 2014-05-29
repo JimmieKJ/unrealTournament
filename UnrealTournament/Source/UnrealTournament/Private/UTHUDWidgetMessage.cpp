@@ -81,7 +81,7 @@ void UUTHUDWidgetMessage::Draw(float DeltaTime)
 void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
-	DrawText(MessageQueue[QueueIndex].Text, 0, 0, MessageQueue[QueueIndex].DisplayFont, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	DrawText(MessageQueue[QueueIndex].Text, 0.0f, 0.0f, MessageQueue[QueueIndex].DisplayFont, 1.0, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
 }
 
 void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)

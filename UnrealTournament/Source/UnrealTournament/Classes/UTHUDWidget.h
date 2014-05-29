@@ -13,7 +13,7 @@
 
 #include "UTHUDWidget.generated.h"
 
-const float WIDGET_DEFAULT_Y_RESOLUTION = 1080;	// designing for 1080p (19200x1080).  Widgets will be reposition/size against this number.
+const float WIDGET_DEFAULT_Y_RESOLUTION = 720;	// designing for 720p (1280x720).  Widgets will be reposition/size against this number. 
 
 UCLASS(BlueprintType, Blueprintable)
 class UUTHUDWidget : public UObject
@@ -47,6 +47,10 @@ public:
 	// If true, any scaling will maintain the aspect ratio of the widget.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	uint32 bMaintainAspectRatio:1;
+
+	// The opacity of this widget
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
+	float Opacity;
 
 	// Hide/show this widget.
 	virtual bool IsHidden();
@@ -105,6 +109,11 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	class UCanvas* Canvas;
 
+	// The scale needed to maintain aspect ratio
+	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
+	float AspectScale;
+
+
 	/**
 	 * Draws text on the screen.  You can use the TextHorzPosition and TextVertPosition to justify the text that you are drawing.
 	 * @param Text	The Text to display.
@@ -115,7 +124,7 @@ protected:
 	 * @param TextVertAlignment How to align the text vertically within the widget
 	 **/
 	UFUNCTION(BlueprintCallable, Category="Widgets")
-	virtual void DrawText(FText Text, float X, float Y, UFont* Font, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
+	virtual void DrawText(FText Text, float X, float Y, UFont* Font, float DrawOpacity=1.0f, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
 	
 	/**
 	 * Draws a texture on the screen.
@@ -134,7 +143,7 @@ protected:
 	 * @param RotPivot		The point at which within the image that the rotation will be around
 	 **/
 	UFUNCTION(BlueprintCallable, Category="Widgets")
-	virtual void DrawTexture(UTexture* Texture, float X, float Y, float Width, float Height, float MaterialU=0.0f, float MaterialV=0.0f, float MaterialUL=1.0, float MaterialVL=1.0f, FLinearColor DrawColor=FLinearColor::White, FVector2D RenderOffset=FVector2D(0.0f, 0.0f), float Rotation=0, FVector2D RotPivot=FVector2D(0.5f, 0.5f));
+	virtual void DrawTexture(UTexture* Texture, float X, float Y, float Width, float Height, float MaterialU = 0.0f, float MaterialV = 0.0f, float MaterialUL = 1.0, float MaterialVL = 1.0f,float DrawOpacity = 1.0f, FLinearColor DrawColor = FLinearColor::White, FVector2D RenderOffset = FVector2D(0.0f, 0.0f), float Rotation = 0, FVector2D RotPivot = FVector2D(0.5f, 0.5f));
 
 	/**
 	 * Draws a material on the screen.
@@ -153,5 +162,5 @@ protected:
 	 * @param RotPivot		The point at which within the image that the rotation will be around
 	 **/
 	UFUNCTION(BlueprintCallable, Category="Widgets")
-	virtual void DrawMaterial( UMaterialInterface* Material, float X, float Y, float Width, float Height, float MaterialU, float MaterialV, float MaterialUWidth, float MaterialVHeight, FVector2D RenderOffset=FVector2D(0.0f, 0.0f), float Rotation=0, FVector2D RotPivot=FVector2D(0.5f, 0.5f));
+	virtual void DrawMaterial( UMaterialInterface* Material, float X, float Y, float Width, float Height, float MaterialU, float MaterialV, float MaterialUWidth, float MaterialVHeight, float DrawOpacity = 1.0f, FLinearColor DrawColor = FLinearColor::White, FVector2D RenderOffset = FVector2D(0.0f, 0.0f), float Rotation=0, FVector2D RotPivot = FVector2D(0.5f, 0.5f));
 };

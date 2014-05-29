@@ -8,6 +8,7 @@
 
 UUTHUDWidget::UUTHUDWidget(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
+	Opacity = 1.0f;
 	Origin = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.0f, 0.0f);
 
@@ -31,6 +32,8 @@ void UUTHUDWidget::PreDraw(AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D In
 	Canvas = InCanvas;
 	CanvasCenter = InCanvasCenter;
 
+	AspectScale = Size.Y > 0 ? Size.X / Size.Y : 0;
+
 	// Figure out the initial position.
 
 	RenderPosition.X = Canvas->ClipX * ScreenPosition.X;
@@ -40,10 +43,13 @@ void UUTHUDWidget::PreDraw(AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D In
 
 	// Apply any scaling
 	RenderSize.Y = Size.Y * RenderScale;
-	RenderSize.X = (bMaintainAspectRatio ?  RenderSize.Y * (Size.X / Size.Y) : RenderSize.X * RenderScale);
+	if (Size.X > 0)
+	{
+		RenderSize.X = (bMaintainAspectRatio ?  RenderSize.Y * AspectScale : RenderSize.X * RenderScale);
+	}
 
-	RenderPosition.X += Position.X * RenderScale - (RenderSize.X * Origin.X);
-	RenderPosition.Y += Position.Y * RenderScale - (RenderSize.Y * Origin.Y);
+	RenderPosition.X += (Position.X * RenderScale) - (RenderSize.X * Origin.X);
+	RenderPosition.Y += (Position.Y * RenderScale) - (RenderSize.Y * Origin.Y);
 }
 
 void UUTHUDWidget::Draw(float DeltaTime)
@@ -57,7 +63,7 @@ void UUTHUDWidget::PostDraw(float RenderedTime)
 }
 
 
-void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
 	if (Font && !Text.IsEmpty())
 	{
@@ -97,12 +103,17 @@ void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FLinearCo
 		{
 			TextItem.Scale = FVector2D(RenderScale, RenderScale);
 		}
+		Canvas->DrawColor = DrawColor;
+		Canvas->DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
 		Canvas->DrawItem(TextItem);
 	}
 }
 
-void UUTHUDWidget::DrawTexture(UTexture* Texture, float X, float Y, float Width, float Height, float U, float V, float UL, float VL, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)
+void UUTHUDWidget::DrawTexture(UTexture* Texture, float X, float Y, float Width, float Height, float U, float V, float UL, float VL, float DrawOpacity, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)
 {
+
+	float ImageAspectScale = Height > 0 ? Width / Height : 0.0f;
+
 	if (Texture && Texture->Resource )
 	{
 		if (bScaleByDesignedResolution)
@@ -110,11 +121,18 @@ void UUTHUDWidget::DrawTexture(UTexture* Texture, float X, float Y, float Width,
 			X *= RenderScale;
 			Y *= RenderScale;
 			
-			Width = (bMaintainAspectRatio) ? ((Height * RenderScale) * (Width / Height)) : Width * RenderScale;
 			Height = Height * RenderScale;
+			Width = (bMaintainAspectRatio) ? (Height * ImageAspectScale) : Width * RenderScale;
 		}
 
 		FVector2D RenderPos = FVector2D(RenderPosition.X + X - (Width * RenderOffset.X), RenderPosition.Y + Y - (Height * RenderOffset.Y));
+
+		U = U / Texture->Resource->GetSizeX();
+		V = V / Texture->Resource->GetSizeY();
+		UL = U + (UL / Texture->Resource->GetSizeX());
+		VL = V + (VL / Texture->Resource->GetSizeY());
+
+		DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
 
 		FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U,V), FVector2D(UL,VL), DrawColor);
 		ImageItem.Rotation = FRotator(0,Rotation,0);
@@ -124,7 +142,7 @@ void UUTHUDWidget::DrawTexture(UTexture* Texture, float X, float Y, float Width,
 	}
 }
 
-void UUTHUDWidget::DrawMaterial( UMaterialInterface* Material, float X, float Y, float Width, float Height, float MaterialU, float MaterialV, float MaterialUWidth, float MaterialVHeight, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)
+void UUTHUDWidget::DrawMaterial( UMaterialInterface* Material, float X, float Y, float Width, float Height, float MaterialU, float MaterialV, float MaterialUWidth, float MaterialVHeight, float DrawOpacity, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)
 {
 	if (Material)
 	{
@@ -133,15 +151,20 @@ void UUTHUDWidget::DrawMaterial( UMaterialInterface* Material, float X, float Y,
 			X *= RenderScale;
 			Y *= RenderScale;
 			
-			Width = (bMaintainAspectRatio) ? ((Height * RenderScale) * (Width / Height)) : Width * RenderScale;
+			Width = (bMaintainAspectRatio) ? ((Height * RenderScale) * AspectScale) : Width * RenderScale;
 			Height = Height * RenderScale;
 		}
 
 		FVector2D RenderPos = FVector2D(RenderPosition.X + X - (Width * RenderOffset.X), RenderPosition.Y + Y - (Height * RenderOffset.Y));
 
-		FCanvasTileItem MaterialItem( RenderPos, Material->GetRenderProxy(0), FVector2D( Width, Height) , FVector2D( MaterialU, MaterialV ), FVector2D( MaterialU+MaterialUWidth, MaterialV +MaterialVHeight) );
+
+		FCanvasTileItem MaterialItem( RenderPos, Material->GetRenderProxy(0), FVector2D( Width, Height) , FVector2D( MaterialU, MaterialV ), FVector2D( MaterialU+MaterialUWidth, MaterialV +MaterialVHeight));
+
+		DrawColor.A *= DrawOpacity + UTHUDOwner->WidgetOpacity;
+		MaterialItem.SetColor(DrawColor);
 		MaterialItem.Rotation = FRotator(0, Rotation, 0);
 		MaterialItem.PivotPoint = RotPivot;
+		Canvas->DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
 		Canvas->DrawItem( MaterialItem );
 	}
 }

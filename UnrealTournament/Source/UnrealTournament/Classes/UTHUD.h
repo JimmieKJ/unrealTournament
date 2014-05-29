@@ -25,6 +25,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	TArray<TSubclassOf<UUTHUDWidget> > HudWidgetClasses;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	class UFont* MediumFont;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	class UFont* LargeFont;
+
+	// The Global Opacity for Hud Widgets
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	float WidgetOpacity;
+
+
 	// Add any of the blueprint based hud widgets
 	virtual void BeginPlay();
 
@@ -42,11 +53,16 @@ public:
 
 protected:
 
+	UTexture2D* OldHudTexture;
+
 	// TEMP : Convert seconds to a time string.
 	FText TempConvertTime(int Seconds);
 
 	// TEMP: Until the new Hud system comes online, quickly draw a string to the screen.  This will be replaced soon.
 	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type TextPosition, UFont* Font, FLinearColor Color);
+
+public:
+	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale);
 
 private:
 	/** Crosshair asset pointer */

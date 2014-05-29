@@ -7,8 +7,14 @@
 UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	ManagedMessageArea = FName(TEXT("DeathMessage"));
-	Position = FVector2D(960.0f, 810.0f);	// Middle of the screen, 3/4 of the way down @ 1290x1080
-	Size = FVector2D(1920.0f, 60.0f);		// Full width, about 60px tall
-	Origin = FVector2D(0.5f, 0.0f);	// Centered on the position
+	Position = FVector2D(0.0f, 0.0f);			
+	ScreenPosition = FVector2D(0.5f, 0.65f);
+	Size = FVector2D(0.0f, 0.0f);			
+	Origin = FVector2D(0.5f, 0.0f);				
+
+	MessageColor = FLinearColor::Red;
+
+	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack36.fntRobotoBlack36'"));
+	MessageFont = Font.Object;
 }
 
