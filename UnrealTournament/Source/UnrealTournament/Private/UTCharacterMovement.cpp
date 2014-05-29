@@ -37,7 +37,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 bool UUTCharacterMovement::CanDodge()
 {
-	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (CharacterOwner->GetWorld()->GetTimeSeconds() > DodgeResetTime);
+	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (GetCurrentMovementTime() > DodgeResetTime);
 }
 
 bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &DodgeCross)
@@ -66,7 +66,7 @@ bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &
 		{
 			return false;
 		}
-		DodgeResetTime = CharacterOwner->GetWorld()->GetTimeSeconds() + WallDodgeResetInterval;
+		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 	}
 
 	// perform the dodge
@@ -97,7 +97,7 @@ float UUTCharacterMovement::GetModifiedMaxAcceleration() const
 
 bool UUTCharacterMovement::CanSprint() const
 {
-	return CharacterOwner && IsMovingOnGround() && !IsCrouching() && (CharacterOwner->GetWorld()->GetTimeSeconds() > SprintStartTime);
+	return CharacterOwner && IsMovingOnGround() && !IsCrouching() && (GetCurrentMovementTime() > SprintStartTime);
 }
 
 float UUTCharacterMovement::GetMaxSpeed() const
@@ -107,23 +107,36 @@ float UUTCharacterMovement::GetMaxSpeed() const
 
 void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration)
 {
-	SprintStartTime = CharacterOwner->GetWorld()->GetTimeSeconds() + AutoSprintDelayInterval;
+	SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	Super::ApplyVelocityBraking(DeltaTime, Friction, BrakingDeceleration);
+}
+
+float UUTCharacterMovement::GetCurrentMovementTime() const
+{
+	if (CharacterOwner->Role != ROLE_Authority)
+	{
+		FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
+		return ServerData ? ServerData->CurrentClientTimeStamp : CharacterOwner->GetWorld()->GetTimeSeconds();
+	}
+	return CharacterOwner->GetWorld()->GetTimeSeconds();
 }
 
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
-	if (CharacterOwner && CharacterOwner->NotifyLanded(Hit))
+	if (CharacterOwner)
 	{
-		CharacterOwner->Landed(Hit);
+		if (CharacterOwner->NotifyLanded(Hit))
+		{
+			CharacterOwner->Landed(Hit);
+		}
+		if (bIsDodging)
+		{
+			Velocity *= DodgeLandingSpeedFactor;
+			DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
+			bIsDodging = false;
+		}
+		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	}
-	if (bIsDodging)
-	{
-		Velocity *= DodgeLandingSpeedFactor;
-		DodgeResetTime = CharacterOwner->GetWorld()->GetTimeSeconds() + DodgeResetInterval;
-		bIsDodging = false;
-	}
-	SprintStartTime = CharacterOwner->GetWorld()->GetTimeSeconds() + AutoSprintDelayInterval;
 	bJumpAssisted = false;
 	CurrentMultiJumpCount = 0;
 	if (IsFalling())

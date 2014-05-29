@@ -108,23 +108,23 @@ public:
 	// AUTO-SPRINT
 
 	/** How long you have to be running/grounded before auto-sprint engages. */
-	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "How long you have to be running/grounded before auto-sprint engages."))
+	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Auto Sprint Delay Interval"))
 		float AutoSprintDelayInterval;
 
 	/** Max speed when sprinting. */
-	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max speed when sprinting."))
+	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Sprint Speed"))
 		float SprintSpeed;
 
 	/** Acceleration when sprinting. */
-	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Acceleration when sprinting."))
+	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Sprint Acceleration"))
 		float SprintAccel;
 
-	/** World time when another dodge can be attempted. */
-	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "World time when sprinting can start."))
+	/** World time when sprinting can start. */
+	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Sprint Start Time"))
 		float SprintStartTime;
 
 	/** True when sprinting. */
-	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Currently sprinting."))
+	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Is sprinting"))
 		bool bIsSprinting;
 
 	/** Reset sprint start if braking. */
@@ -163,6 +163,10 @@ public:
 	virtual void NotifyJumpApex() OVERRIDE;
 
 	//=========================================
+	// Networking
+
+	/** Return world time on client, CurrentClientTimeStamp on server */
+	virtual float GetCurrentMovementTime() const;
 
 	virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const OVERRIDE;
 };
