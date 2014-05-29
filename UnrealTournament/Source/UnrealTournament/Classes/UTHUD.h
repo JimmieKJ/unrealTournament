@@ -35,6 +35,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
 
+	// This is a test var to test a theory - RELAX!
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	FVector2D CrossHairCenterPoint;
+
 
 	// Add any of the blueprint based hud widgets
 	virtual void BeginPlay();

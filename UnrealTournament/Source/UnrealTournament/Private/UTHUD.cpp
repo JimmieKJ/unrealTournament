@@ -24,6 +24,8 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	static ConstructorHelpers::FObjectFinder<UFont> LFont(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack72.fntRobotoBlack72'"));
 	LargeFont = LFont.Object;
 
+	CrossHairCenterPoint = FVector2D(0.5f,0.5f);
+
 }
 
 void AUTHUD::BeginPlay()
@@ -132,11 +134,14 @@ void AUTHUD::DrawHUD()
 		}
 	}
 
+
+	const FVector2D CrossHairCenter(Canvas->ClipX * CrossHairCenterPoint.X, Canvas->ClipY * CrossHairCenterPoint.Y);
+
 	// Draw very simple crosshair
 
 	// offset by half the texture's dimensions so that the center of the texture aligns with the center of the Canvas
-	const FVector2D CrosshairDrawPosition( (Center.X - (CrosshairTex->GetSurfaceWidth() * 0.5f)),
-										   (Center.Y - (CrosshairTex->GetSurfaceHeight() * 0.5f)) );
+	const FVector2D CrosshairDrawPosition( (CrossHairCenter.X - (CrosshairTex->GetSurfaceWidth() * 0.5f)),
+										   (CrossHairCenter.Y - (CrosshairTex->GetSurfaceHeight() * 0.5f)) );
 
 	// draw the crosshair
 	FCanvasTileItem TileItem( CrosshairDrawPosition, CrosshairTex->Resource, FLinearColor::White);
