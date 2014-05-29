@@ -16,8 +16,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxNonAdditiveDodgeFallSpeed = -200.f;
 	MaxAdditiveDodgeJumpSpeed = 750.f;
 	CurrentMultiJumpCount = 0;
-	MaxMultiJumpCount = 2;
-	bAllowDodgeMultijumps = true;
+	MaxMultiJumpCount = 1;
+	bAllowDodgeMultijumps = false;
 	MaxMultiJumpZSpeed = 100.f;
 	MultiJumpImpulse = 500.f;
 	DodgeLandingSpeedFactor = 0.1f;
@@ -69,7 +69,6 @@ bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &
 	// perform the dodge
 	float VelocityZ = Velocity.Z;
 	Velocity = DodgeImpulseHorizontal*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
-
 	if (!IsFalling())
 	{
 		Velocity.Z = DodgeImpulseVertical;
@@ -157,6 +156,103 @@ bool UUTCharacterMovement::CanMultiJump()
 {
 	return ((CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed));
 }
+
+
+void UUTCharacterMovement::ClearJumpInput()
+{
+	bPressedDodgeForward = false;
+	bPressedDodgeBack = false;
+	bPressedDodgeLeft = false;
+	bPressedDodgeRight = false;
+}
+
+//======================================================
+// Networking Support
+
+FSavedMovePtr FNetworkPredictionData_Client_UTChar::AllocateNewMove()
+{
+	return FSavedMovePtr(new FSavedMove_UTCharacter());
+}
+
+bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const
+{
+	bool bPressedDodge = bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight;
+	bool bNewPressedDodge = ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight;
+	if (bPressedDodge || bNewPressedDodge)
+	{
+		return false;
+	}
+
+	return Super::CanCombineWith(NewMove, Character, MaxDelta);
+}
+
+uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
+{
+	uint8 Result = 0;
+
+	if (bPressedJump)
+	{
+		Result |= 1;
+	}
+
+	if (bPressedDodgeForward)
+	{
+		Result |= (1 << 2);
+	}
+	else if (bPressedDodgeBack)
+	{
+		Result |= (2 << 2);
+	}
+	else if (bPressedDodgeLeft)
+	{
+		Result |= (3 << 2);
+	}
+	else if (bPressedDodgeRight)
+	{
+		Result |= (4 << 2);
+	}
+
+	return Result;
+}
+
+void FSavedMove_UTCharacter::Clear()
+{
+	Super::Clear();
+	bPressedDodgeForward = false;
+	bPressedDodgeBack = false;
+	bPressedDodgeLeft = false;
+	bPressedDodgeRight = false;
+}
+
+void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
+{
+	Super::SetMoveFor(Character, InDeltaTime, NewAccel, ClientData);
+	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(Character->CharacterMovement);
+	if (UTCharMov)
+	{
+		bPressedDodgeForward = UTCharMov->bPressedDodgeForward;
+		bPressedDodgeBack = UTCharMov->bPressedDodgeBack;
+		bPressedDodgeLeft = UTCharMov->bPressedDodgeLeft;
+		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
+	}
+}
+
+FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() const
+{
+	// Should only be called on client in network games
+	check(PawnOwner != NULL);
+	check(PawnOwner->Role < ROLE_Authority);
+	check(GetNetMode() == NM_Client);
+
+	if (!ClientPredictionData)
+	{
+		UUTCharacterMovement* MutableThis = const_cast<UUTCharacterMovement*>(this);
+		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_UTChar();
+	}
+
+	return ClientPredictionData;
+}
+
 
 /*
 void AUTCharacter::Landed(const FHitResult& Hit)

@@ -114,7 +114,7 @@ protected:
 	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
 
 	/** If double tap, tell pawn to dodge */
-	bool CheckDodge(float LastTapTime, float DodgeDirX, float DodgeDirY, float DodgeCrossX, float DodgeCrossY);
+	bool CheckDodge(float LastTapTime, bool bForward, bool bBack, bool bLeft, bool bRight);
 
 	/** Dodge tap input handling */
 	void OnTapLeft();

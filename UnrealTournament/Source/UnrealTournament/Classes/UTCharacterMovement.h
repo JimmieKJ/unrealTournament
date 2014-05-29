@@ -59,8 +59,17 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Currently in a dodge."))
 	bool bIsDodging;
 
+	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
+	bool bPressedDodgeForward;
+	bool bPressedDodgeBack;
+	bool bPressedDodgeLeft;
+	bool bPressedDodgeRight;
+
 	/** Return true if character can dodge. */
 	virtual bool CanDodge();
+
+	/** Clear dodging input related flags */
+	void ClearJumpInput();
 
 	//=========================================
 	// MULTIJUMP
@@ -130,5 +139,44 @@ public:
 	/** Return SprintSpeed if CanSprint(). */
 	virtual float GetMaxSpeed() const OVERRIDE;
 
+	//=========================================
+
+	virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const OVERRIDE;
 };
+
+// Networking support
+class FSavedMove_UTCharacter : public FSavedMove_Character
+{
+public:
+	typedef FSavedMove_Character Super;
+
+	FSavedMove_UTCharacter()
+	{
+	}
+
+	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
+	bool bPressedDodgeForward;
+	bool bPressedDodgeBack;
+	bool bPressedDodgeLeft;
+	bool bPressedDodgeRight;
+
+	virtual void Clear() OVERRIDE;
+	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) OVERRIDE;
+	virtual uint8 GetCompressedFlags() const OVERRIDE;
+	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const OVERRIDE;
+};
+
+
+class FNetworkPredictionData_Client_UTChar : public FNetworkPredictionData_Client_Character
+{
+public:
+	typedef FNetworkPredictionData_Client_Character Super;
+
+	/** Allocate a new saved move. Subclasses should override this if they want to use a custom move class. */
+	virtual FSavedMovePtr AllocateNewMove() OVERRIDE;
+};
+
+
+
+
 

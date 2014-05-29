@@ -4,6 +4,7 @@
 #include "UTHud.h"
 #include "UTPlayerState.h"
 #include "UTPlayerController.h"
+#include "UTCharacterMovement.h"
 #include "ActiveSound.h"
 #include "AudioDevice.h"
 #include "UTPickup.h"
@@ -351,38 +352,39 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 	}
 }
 
-bool AUTPlayerController::CheckDodge(float LastTapTime, float DodgeDirX, float DodgeDirY, float DodgeCrossX, float DodgeCrossY)
+bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
-	if ( UTCharacter && (GetWorld()->GetTimeSeconds() - LastTapTime < MaxDodgeClickTime) )
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? Cast<UUTCharacterMovement>(UTCharacter->CharacterMovement) : NULL;
+	if (MyCharMovement && (GetWorld()->GetTimeSeconds() - LastTapTime < MaxDodgeClickTime))
 	{
-		FRotator TurnRot(0.f, UTCharacter->GetActorRotation().Yaw, 0.f);
-		FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
-		FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
-		FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
-		UTCharacter->Dodge(DodgeDirX*X + DodgeDirY*Y, DodgeCrossX*X + DodgeCrossY*Y);
+		MyCharMovement->bPressedDodgeForward = bForward;
+		MyCharMovement->bPressedDodgeBack = bBack;
+		MyCharMovement->bPressedDodgeLeft = bLeft;
+		MyCharMovement->bPressedDodgeRight = bRight;
 	}
 	return false;
 }
 
-void AUTPlayerController::OnTapLeft()
-{
-	LastTapLeftTime = (!UTCharacter || CheckDodge(LastTapLeftTime, 0.f, -1.f, 1.f, 0.f)) ? -10.f : GetWorld()->GetTimeSeconds();
-}
-
-void AUTPlayerController::OnTapRight()
-{
-	LastTapRightTime = (!UTCharacter || CheckDodge(LastTapRightTime, 0.f, 1.f, 1.f, 0.f)) ? -10.f : GetWorld()->GetTimeSeconds();
-}
-
 void AUTPlayerController::OnTapForward()
 {
-	LastTapForwardTime = (!UTCharacter || CheckDodge(LastTapForwardTime, 1.f, 0.f, 0.f, 1.f)) ? -10.f : GetWorld()->GetTimeSeconds();
+	LastTapForwardTime = (!UTCharacter || CheckDodge(LastTapForwardTime, true, false, false, false)) ? -10.f : GetWorld()->GetTimeSeconds();
 }
 
 void AUTPlayerController::OnTapBack()
 {
-	LastTapBackTime = (!UTCharacter || CheckDodge(LastTapBackTime, -1.f, 0.f, 0.f, 1.f)) ? -10.f : GetWorld()->GetTimeSeconds();
+	LastTapBackTime = (!UTCharacter || CheckDodge(LastTapBackTime, false, true, false, false)) ? -10.f : GetWorld()->GetTimeSeconds();
 }
+
+void AUTPlayerController::OnTapLeft()
+{
+	LastTapLeftTime = (!UTCharacter || CheckDodge(LastTapLeftTime, false, false, true, false)) ? -10.f : GetWorld()->GetTimeSeconds();
+}
+
+void AUTPlayerController::OnTapRight()
+{
+	LastTapRightTime = (!UTCharacter || CheckDodge(LastTapRightTime, false, false, false, true)) ? -10.f : GetWorld()->GetTimeSeconds();
+}
+
 
 void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents)
 {
@@ -405,3 +407,4 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		}
 	}
 }
+

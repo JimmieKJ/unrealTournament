@@ -139,11 +139,13 @@ class AUTCharacter : public ACharacter
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode);
+
 	/** set info for one instance of firing and plays firing effects; assumed to be a valid shot - call ClearFiringInfo() if the weapon has stopped firing
 	* if a location is needed (instant hit, beam, etc) call SetFlashLocation() instead
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void IncrementFlashCount(uint8 InFireMode);
+
 	/** clears firing variables; i.e. because the weapon has stopped firing */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void ClearFiringInfo();
@@ -217,9 +219,18 @@ class AUTCharacter : public ACharacter
 
 	virtual bool CanJump() const OVERRIDE;
 
+	virtual void CheckJumpInput(float DeltaTime) OVERRIDE;
+
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
 
 	virtual void SetBase(UPrimitiveComponent* NewBase, bool bNotifyActor=true) OVERRIDE;
+
+	virtual void UpdateFromCompressedFlags(uint8 Flags) OVERRIDE;
+
+	/** Also call UTCharacterMovement ClearJumpInput() */
+	virtual void ClearJumpInput() OVERRIDE;
+
+	virtual void Restart() OVERRIDE;
 
 protected:
 

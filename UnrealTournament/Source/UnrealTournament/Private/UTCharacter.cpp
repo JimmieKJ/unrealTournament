@@ -40,6 +40,12 @@ void AUTCharacter::BeginPlay()
 	Super::BeginPlay();
 }
 
+void AUTCharacter::Restart()
+{
+	Super::Restart();
+	ClearJumpInput();
+}
+
 void AUTCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
@@ -619,6 +625,59 @@ bool AUTCharacter::CanJump() const
 {
 	// @TODO FIXMESTEVE ask to get this mostly moved to CharacterMovement!
 	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && (CharacterMovement->IsMovingOnGround() || Cast<UUTCharacterMovement>(CharacterMovement)->CanMultiJump()) && CharacterMovement->CanEverJump() && !CharacterMovement->bWantsToCrouch;
+}
+
+void AUTCharacter::CheckJumpInput(float DeltaTime)
+{
+	if (bPressedJump)
+	{
+		DoJump(bClientUpdating);
+	}
+	else
+	{
+		UUTCharacterMovement* MyMovement = Cast<UUTCharacterMovement>(CharacterMovement);
+		if (MyMovement->bPressedDodgeForward || MyMovement->bPressedDodgeBack || MyMovement->bPressedDodgeLeft || MyMovement->bPressedDodgeRight)
+		{
+			float DodgeDirX = MyMovement->bPressedDodgeForward ? 1.f : (MyMovement->bPressedDodgeBack ? -1.f : 0.f);
+			float DodgeDirY = MyMovement->bPressedDodgeLeft ? -1.f : (MyMovement->bPressedDodgeRight ? 1.f : 0.f);
+			float DodgeCrossX = (MyMovement->bPressedDodgeLeft || MyMovement->bPressedDodgeRight) ? 1.f : 0.f;
+			float DodgeCrossY = (MyMovement->bPressedDodgeForward || MyMovement->bPressedDodgeBack) ? 1.f : 0.f;
+			FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
+			FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+			FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
+			FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+			Dodge(DodgeDirX*X + DodgeDirY*Y, DodgeCrossX*X + DodgeCrossY*Y);
+		}
+	}
+}
+
+void AUTCharacter::ClearJumpInput()
+{
+	Super::ClearJumpInput();
+	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(CharacterMovement);
+	if (UTCharMov)
+	{
+		UTCharMov->ClearJumpInput();
+	}
+}
+
+void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
+{
+	Super::UpdateFromCompressedFlags(Flags);
+
+	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(CharacterMovement);
+	if (UTCharMov)
+	{
+		int32 DodgeFlags = (Flags >> 2) & 7;
+		if (DodgeFlags != 0)
+		{
+			UE_LOG(UT, Warning, TEXT("DodgeFlags %d"), DodgeFlags);
+		}
+		UTCharMov->bPressedDodgeForward = (DodgeFlags == 1);
+		UTCharMov->bPressedDodgeBack = (DodgeFlags == 2);
+		UTCharMov->bPressedDodgeLeft = (DodgeFlags == 3);
+		UTCharMov->bPressedDodgeRight = (DodgeFlags == 4);
+	}
 }
 
 
