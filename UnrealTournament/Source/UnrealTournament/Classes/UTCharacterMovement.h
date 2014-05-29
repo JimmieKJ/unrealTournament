@@ -24,10 +24,10 @@ public:
 	float WallDodgeTraceDist;
 
 	/** Vertical impulse for a wall dodge. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Vertical Impulse is Additive"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Vertical impulse for a wall dodge"))
 	float WallDodgeImpulseVertical;
 
-	/** Max Falling speed without additive Wall Dodge Vertical Impulse.  If falling faster, vertical dodge impulse is added to current falling velocity event if bAdditiveVerticalImpulse is false. */
+	/** Max Falling speed without additive Wall Dodge Vertical Impulse.  If falling faster, vertical dodge impulse is added to current falling velocity. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Falling speed without additive Wall Dodge Vertical Impulse"))
 	float MaxNonAdditiveDodgeFallSpeed;
 

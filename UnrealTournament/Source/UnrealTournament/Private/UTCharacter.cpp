@@ -669,10 +669,6 @@ void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 	if (UTCharMov)
 	{
 		int32 DodgeFlags = (Flags >> 2) & 7;
-		if (DodgeFlags != 0)
-		{
-			UE_LOG(UT, Warning, TEXT("DodgeFlags %d"), DodgeFlags);
-		}
 		UTCharMov->bPressedDodgeForward = (DodgeFlags == 1);
 		UTCharMov->bPressedDodgeBack = (DodgeFlags == 2);
 		UTCharMov->bPressedDodgeLeft = (DodgeFlags == 3);
