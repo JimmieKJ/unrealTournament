@@ -300,7 +300,7 @@ void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 
 void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 {
-	if (InvToRemove != NULL)
+	if (InvToRemove != NULL && InventoryList != NULL)
 	{
 		if (InvToRemove == InventoryList)
 		{
@@ -345,7 +345,7 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 				}
 			}
 		}
-		InvToRemove->eventRemoved();
+		InvToRemove->Removed();
 	}
 }
 
