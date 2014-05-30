@@ -147,7 +147,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 			MessageQueue[QueueIndex] = MessageQueue[QueueIndex+1];
 		}
 	}
-	
+
 	AddMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 

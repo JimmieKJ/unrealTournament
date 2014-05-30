@@ -5,6 +5,7 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidget_Paperdoll.h"
 #include "UTHUDWidgetMessage_DeathMessages.h"
+#include "UTHUDWidgetMessage_ConsoleMessages.h"
 #include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
 
@@ -42,6 +43,7 @@ void AUTHUD::BeginPlay()
 	AddHudWidget(UUTHUDWidget_DMPlayerScore::StaticClass());
 	AddHudWidget(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
 	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());
+	AddHudWidget(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
 }
 
 void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)

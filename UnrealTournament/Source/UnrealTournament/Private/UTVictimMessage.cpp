@@ -11,7 +11,7 @@ UUTVictimMessage::UUTVictimMessage(const class FPostConstructInitializePropertie
 	bIsUnique = true;
 	Lifetime = 2.0f;
 	MessageArea = FName(TEXT("DeathMessage"));
-	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name} with {WeaponName}");
+	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name}"); //  with {WeaponName} -- Removed for now
 }
 
 FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
