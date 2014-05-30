@@ -5,6 +5,7 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidget_Paperdoll.h"
 #include "UTHUDWidgetMessage_DeathMessages.h"
+#include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
 
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
