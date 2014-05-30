@@ -1224,6 +1224,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/RocketLauncher/BP_Rocket_Projectile.uasset" Hash="c92b8cd976113966e1e582f0d38f9cf23f22c347" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/RocketLauncher/BP_Rocket_Projectile_Spiral.uasset" Hash="70953ce4a199d99a7fc0325363cd04892fa1aa13" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.uasset" Hash="ee2822a2b4373705ba1de3364b7284fb68b41078" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/RocketLauncher/RocketAmmoPickup.uasset" Hash="ee5290a9768bd88fd3f03c2c9a152a459c9f2949" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/RocketLauncher/UTDMG_Rocket.uasset" Hash="c979d2c941d624e3883d8ace7193baed2faabe73" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_AltFire_1P.uasset" Hash="489c730e4a2d9f00419c1f736e082a1e747ed8e9" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_AnimBP_1p.uasset" Hash="eea9e373d4a23517330b35b279211d5a29aff35a" />
@@ -1231,7 +1232,6 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_Fire_1P.uasset" Hash="0a5afed44593e6d10185c69fd5864f46aadfee30" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_Putdown_1P.uasset" Hash="b9d3aefcc1ee11d50a8bda0718af280cbbfa7480" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/FlakAmmoPickup.uasset" Hash="1f5caa13fd874d8e2c64372980ae47901886eebb" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/RocketAmmoPickup.uasset" Hash="ee5290a9768bd88fd3f03c2c9a152a459c9f2949" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/ShockAmmoPickup.uasset" Hash="21b3dc3ca4ca05b49ef4dd4e8cdf7eb2a08cbb2b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.uasset" Hash="7675b307fe2c6947faa7a97e9a64752400993e06" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/ShockBall.uasset" Hash="d76e0d30ef320cf09bb6f9dbdd42d9778af5422f" />
