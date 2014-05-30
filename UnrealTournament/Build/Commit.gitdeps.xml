@@ -1210,6 +1210,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/LinkGun/BP_Link_Proj.uasset" Hash="d081a26ccc8d8c7d08980c4db5b843504e2301dc" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/LinkGun/BP_LinkGun.uasset" Hash="b2ab3d986530233fa088d696002b992ebf4688f9" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.uasset" Hash="3e94c71b88f9a61ef2cb40317aa68d671bca0267" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/LinkGun/LinkAmmoPickup.uasset" Hash="d4cb379a412786b52dff51357bb7387cb9608808" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/LinkGun/UTDMG_Link_Alt.uasset" Hash="0a640a5768dda478112bf50ac85357f14a4c875f" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/LinkGun/UTDMG_Link_Primary.uasset" Hash="d8271c19568ea5882246183ee6c5c1bff2b0c07b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Minigun/Assets/Bullet_Mat.uasset" Hash="7592b51942d23ced87c36b8d876e9ac8638c62c7" />
@@ -1229,7 +1230,6 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_Fire_1P.uasset" Hash="0a5afed44593e6d10185c69fd5864f46aadfee30" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_Putdown_1P.uasset" Hash="b9d3aefcc1ee11d50a8bda0718af280cbbfa7480" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/FlakAmmoPickup.uasset" Hash="1f5caa13fd874d8e2c64372980ae47901886eebb" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/LinkAmmoPickup.uasset" Hash="d4cb379a412786b52dff51357bb7387cb9608808" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/MinigunAmmoPickup.uasset" Hash="529dfa5dad0646b0f44099cee9b461e68c39761a" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/RocketAmmoPickup.uasset" Hash="ee5290a9768bd88fd3f03c2c9a152a459c9f2949" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/ShockAmmoPickup.uasset" Hash="21b3dc3ca4ca05b49ef4dd4e8cdf7eb2a08cbb2b" />
