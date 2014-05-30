@@ -23,6 +23,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bShouldBounce = false;
 	ProjectileMovement->OnProjectileStop.AddDynamic(this, &AUTProjectile::OnStop);
+	ProjectileMovement->OnProjectileBounce.AddDynamic(this, &AUTProjectile::OnBounce);
 
 	// Die after 3 seconds by default
 	InitialLifeSpan = 3.0f;
@@ -66,11 +67,15 @@ void AUTProjectile::OnStop(const FHitResult& Hit)
 {
 	ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
 }
+void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
+{
+	bCanHitInstigator = true;
+}
 
 void AUTProjectile::ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
-	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds))
+	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds))
 	{
 		// TODO: replicated momentum handling
 		if (OtherComp != NULL)

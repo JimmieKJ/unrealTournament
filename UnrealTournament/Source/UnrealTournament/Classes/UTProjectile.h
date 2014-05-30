@@ -25,6 +25,9 @@ class AUTProjectile : public AActor
 	TSubclassOf<UDamageType> MyDamageType;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float Momentum;
+	/** whether the projectile can impact its Instigator (player who fired it) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+	bool bCanHitInstigator;
 
 	UPROPERTY(BlueprintReadWrite, Category = Projectile)
 	AController* InstigatorController;
@@ -53,6 +56,8 @@ class AUTProjectile : public AActor
 	virtual void ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
 	UFUNCTION()
 	virtual void OnStop(const FHitResult& Hit);
+	UFUNCTION()
+	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity);
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
