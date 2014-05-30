@@ -33,6 +33,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	LandingStepUp = 50.f;
 	LandingAssistBoost = 400.f;
 	bJumpAssisted = false;
+	MaxSafeFallSpeed = -1500.f;
 }
 
 bool UUTCharacterMovement::CanDodge()
@@ -113,7 +114,7 @@ void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction,
 
 float UUTCharacterMovement::GetCurrentMovementTime() const
 {
-	if (CharacterOwner->Role != ROLE_Authority)
+	if ((CharacterOwner->Role == ROLE_Authority) && !CharacterOwner->IsLocallyControlled())
 	{
 		FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 		return ServerData ? ServerData->CurrentClientTimeStamp : CharacterOwner->GetWorld()->GetTimeSeconds();
@@ -146,6 +147,48 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 
 	StartNewPhysics(remainingTime, Iterations);
 }
+
+/*
+void AUTCharacter::Landed(const FHitResult& Hit)
+{
+	TakeFallingDamage();
+	OnLanded(Hit);
+	if (GetVelocity().Z < -200.f)
+	{
+		OldZ = GetActorLocation().Z;
+		bJustLanded = bUpdateEyeHeight;
+	}
+	RecalculateBaseEyeHeight();
+}
+
+void AUTCharacter::TakeFallingDamage()
+{
+	UUTCharacterMovement* MyMovement = Cast<UUTCharacterMovement>(CharacterMovement);
+	if (MyMovement)
+	{
+		float FallingSpeed = MyMovement->Velocity.Z;
+		if (FallingSpeed < -0.5f * MyMovement->MaxSafeFallSpeed)
+		{
+			if (Role == ROLE_Authority)
+			{
+				if (FallingSpeed < -1.f * MyMovement->MaxSafeFallSpeed)
+				{
+					if (IsTouchingWaterVolume())
+					{
+						FallingSpeed += 100.f;
+					}
+					if (FallingSpeed < -1.f * MyMovement->MaxSafeFallSpeed)
+					{
+						virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser);
+						FPointDamageEvent DamageEvent(DamageAmount, Hit, -ActorForward, UDamageType::StaticClass());
+						TakeDamage(-100.f * (FallingSpeed + MyMovement->MaxSafeFallSpeed) / MyMovement->MaxSafeFallSpeed, FDamageEvent(FallingDamageType), NULL, NULL);
+					}
+				}
+			}
+		}
+	}
+}
+*/
 
 bool UUTCharacterMovement::DoJump()
 {
@@ -515,8 +558,8 @@ void UUTCharacterMovement::NotifyJumpApex()
 
 void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 {
-	// Only try jump assist once, and not while still going up
-	if (bJumpAssisted || (Velocity.Z > 0.f))
+	// Only try jump assist once, and not while still going up, and not if falling too fast
+	if (bJumpAssisted || (Velocity.Z > 0.f) || (Velocity.Z < MaxSafeFallSpeed))
 	{
 		return;
 	}
@@ -546,69 +589,6 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 		{
 			Cast<AUTCharacter>(CharacterOwner)->OnLandingAssist();
 		}
-		Velocity.Z = LandingAssistBoost; // @TODO FIXMESTEVE what if falling fast need damage, or just skip landing assist
+		Velocity.Z = LandingAssistBoost; 
 	}
 }
-
-/*
-void AUTCharacter::Landed(const FHitResult& Hit)
-{
-	TakeFallingDamage();
-	LastHitBy = NULL;
-
-	// adds impulses to vehicles and dynamicSMActors (e.g. PhysicsActors)
-	FVector Impulse;
-	Impulse.Z = GetVelocity().Z * 4.f; // 4.0f works well for landing on a Scorpion
-	if (Cast<ADynamicSMActor>(Hit.GetActor()) != NULL)
-	{
-		Cast<ADynamicSMActor>(Hit.GetActor())->StaticMeshComponent->AddImpulseAtPosition(Impulse, GetActorLocation());
-	}
-
-	if (GetVelocity().Z < -200.f)
-	{
-		OldZ = GetActorLocation().Z;
-		bJustLanded = bUpdateEyeHeight;
-	}
-	bDodging = false;
-
-	if (!bHidden)
-	{
-		PlayLandingSound();
-	}
-	if (CharacterMovement)
-	{
-		if (GetVelocity().Z < -CharacterMovement->MaxFallSpeed)
-		{
-			UGameplayStatics::PlaySoundAtLocation(this, FallingDamageLandSound, GetActorLocation());
-		}
-		else if (GetVelocity().Z < -0.5f * CharacterMovement->MaxFallSpeed)
-		{
-			UGameplayStatics::PlaySoundAtLocation(this, LandSound, GetActorLocation());
-		}
-	}
-
-	RecalculateBaseEyeHeight();
-}
-
-void AUTPawn::TakeFallingDamage()
-{
-	if ( CharacterMovement && GetVelocity().Z < -0.5f * CharacterMovement->MaxFallSpeed)
-	{
-		if (Role == ROLE_Authority)
-		{
-			if (GetVelocity().Z < -1.f * CharacterMovement->MaxFallSpeed)
-			{
-				float EffectiveSpeed = GetVelocity().Z;
-				if (IsTouchingWaterVolume())
-				{
-					EffectiveSpeed += 100.f;
-				}
-				if (EffectiveSpeed < -1.f * CharacterMovement->MaxFallSpeed)
-				{
-					TakeDamage(-100.f * (EffectiveSpeed + CharacterMovement->MaxFallSpeed) / CharacterMovement->MaxFallSpeed, FDamageEvent(FallingDamageType), NULL, NULL);
-				}
-			}
-		}
-	}
-}
-*/
