@@ -79,7 +79,7 @@ bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &
 	else if (VelocityZ < MaxAdditiveDodgeJumpSpeed)
 	{
 		// vertical impulse may or may not be additive
-		Velocity.Z = (VelocityZ < MaxNonAdditiveDodgeFallSpeed)
+		Velocity.Z = (VelocityZ > MaxNonAdditiveDodgeFallSpeed)
 			? FMath::Min(VelocityZ + WallDodgeImpulseVertical, MaxAdditiveDodgeJumpSpeed)
 			: WallDodgeImpulseVertical;
 	}
