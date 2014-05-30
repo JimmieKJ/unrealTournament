@@ -11,6 +11,21 @@ void AUTPickupInventory::BeginPlay()
 	SetInventoryType(InventoryType);
 }
 
+void AUTPickupInventory::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// we have a special class for weapons so don't allow setting them here
+	if (PropertyChangedEvent.Property == NULL || PropertyChangedEvent.Property->GetFName() == FName(TEXT("InventoryType")))
+	{
+		if (InventoryType->IsChildOf(AUTWeapon::StaticClass()))
+		{
+			InventoryType = NULL;
+			FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Use UTPickupWeapon for weapon pickups.")));
+		}
+	}
+}
+
 void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 {
 	InventoryType = NewType;
@@ -47,7 +62,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 	}
 	else
 	{
-		USkeletalMeshComponent* NewMesh = InventoryType.GetDefaultObject()->GetPickupMeshTemplate();
+		UMeshComponent* NewMesh = InventoryType.GetDefaultObject()->GetPickupMeshTemplate();
 		if (NewMesh == NULL)
 		{
 			if (Mesh != NULL)
@@ -57,21 +72,43 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 				Mesh = NULL;
 			}
 		}
-		else if (Mesh == NULL || Mesh->SkeletalMesh != NewMesh->SkeletalMesh || Mesh->Materials != NewMesh->Materials)
+		else
 		{
-			if (Mesh != NULL)
+			USkeletalMeshComponent* SkelTemplate = Cast<USkeletalMeshComponent>(NewMesh);
+			UStaticMeshComponent* StaticTemplate = Cast<UStaticMeshComponent>(NewMesh);
+			if ( Mesh == NULL || Mesh->GetClass() != NewMesh->GetClass() || Mesh->Materials != NewMesh->Materials ||
+				(SkelTemplate != NULL && ((USkeletalMeshComponent*)Mesh)->SkeletalMesh != SkelTemplate->SkeletalMesh) ||
+				(StaticTemplate != NULL && ((UStaticMeshComponent*)Mesh)->StaticMesh != StaticTemplate->StaticMesh) )
 			{
-				Mesh->DetachFromParent();
-				Mesh->UnregisterComponent();
+				if (Mesh != NULL)
+				{
+					Mesh->DetachFromParent();
+					Mesh->UnregisterComponent();
+				}
+				Mesh = ConstructObject<UMeshComponent>(NewMesh->GetClass(), this, NAME_None, RF_NoFlags, NewMesh);
+				Mesh->AttachParent = NULL;
+				Mesh->AttachChildren.Empty();
+				Mesh->RelativeRotation = FRotator::ZeroRotator;
+				if (SkelTemplate != NULL)
+				{
+					((USkeletalMeshComponent*)Mesh)->bForceRefpose = true;
+				}
+				Mesh->RegisterComponent();
+				Mesh->AttachTo(RootComponent);
 			}
-			Mesh = ConstructObject<USkeletalMeshComponent>(NewMesh->GetClass(), this, NAME_None, RF_NoFlags, NewMesh);
-			Mesh->AttachParent = NULL;
-			Mesh->AttachChildren.Empty();
-			Mesh->RelativeRotation = FRotator::ZeroRotator;
-			Mesh->bForceRefpose = true;
-			Mesh->RegisterComponent();
-			Mesh->AttachTo(RootComponent);
 		}
+	}
+}
+
+void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
+{
+	if (Mesh != NULL)
+	{
+		Mesh->SetHiddenInGame(bNowHidden);
+	}
+	else
+	{
+		Super::SetPickupHidden(bNowHidden);
 	}
 }
 
@@ -89,10 +126,14 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 	AUTCharacter* P = Cast<AUTCharacter>(Target);
 	if (P != NULL && InventoryType != NULL)
 	{
-		FActorSpawnParameters Params;
-		Params.bNoCollisionFail = true;
-		Params.Instigator = P;
-		P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+		AUTInventory* Existing = P->FindInventoryType(InventoryType, true);
+		if (Existing == NULL || !Existing->StackPickup(NULL))
+		{
+			FActorSpawnParameters Params;
+			Params.bNoCollisionFail = true;
+			Params.Instigator = P;
+			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+		}
 	}
 }
 
