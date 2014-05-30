@@ -31,6 +31,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	HealthMax = 100;
 	SuperHealthMax = 199;
 	DamageScaling = 1.0f;
+	FireRateMultiplier = 1.0f;
 }
 
 void AUTCharacter::BeginPlay()
