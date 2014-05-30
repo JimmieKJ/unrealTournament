@@ -1204,6 +1204,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Flak/Flak_Primary.uasset" Hash="2df2d85ca87e7734e9e1dd09207378b7abacad22" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Flak/Flak_Shard.uasset" Hash="f64ca79763fdaea61d39f2c445f011f3e65f8985" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Flak/Flak_Shell.uasset" Hash="0a38c7c362139e06541260aa65a1281030aa774e" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Flak/FlakAmmoPickup.uasset" Hash="1f5caa13fd874d8e2c64372980ae47901886eebb" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Flak/UTDmg_FlakShard.uasset" Hash="51ac1aaa63305f408389f990b92d45008e0b9a08" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Flak/UTDmg_FlakShell.uasset" Hash="8e063d6836d1225b10c1595cbaaaed412d944873" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/LinkGun/BP_Link_Primary.uasset" Hash="5e0c4e4fc39b1f3f769d35d5ca86ebe5589c7c7c" />
@@ -1231,7 +1232,6 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_Equip1P.uasset" Hash="ab2dcffa3a97ce353745aa64fbc885a7f4f64386" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_Fire_1P.uasset" Hash="0a5afed44593e6d10185c69fd5864f46aadfee30" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/Assets/Shock_Putdown_1P.uasset" Hash="b9d3aefcc1ee11d50a8bda0718af280cbbfa7480" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/FlakAmmoPickup.uasset" Hash="1f5caa13fd874d8e2c64372980ae47901886eebb" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/ShockAmmoPickup.uasset" Hash="21b3dc3ca4ca05b49ef4dd4e8cdf7eb2a08cbb2b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.uasset" Hash="7675b307fe2c6947faa7a97e9a64752400993e06" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/ShockRifle/ShockBall.uasset" Hash="d76e0d30ef320cf09bb6f9dbdd42d9778af5422f" />
