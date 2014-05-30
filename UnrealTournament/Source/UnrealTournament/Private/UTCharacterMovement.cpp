@@ -7,14 +7,14 @@
 UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	JumpZVelocity = 650.f;
-	MaxWalkSpeed = 800.f;
+	JumpZVelocity = 720.f;
+	MaxWalkSpeed = 900.f;
 	DodgeImpulseHorizontal = 1300.f;
-	DodgeImpulseVertical = 420.f;
-	WallDodgeImpulseVertical = 200.f;
+	DodgeImpulseVertical = 500.f;
+	WallDodgeImpulseVertical = 240.f;
 	WallDodgeTraceDist = 50.f;
 	MaxNonAdditiveDodgeFallSpeed = -200.f;
-	MaxAdditiveDodgeJumpSpeed = 750.f;
+	MaxAdditiveDodgeJumpSpeed = 850.f;
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
@@ -30,10 +30,11 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SprintAccel = 100.f;
 	AutoSprintDelayInterval = 2.f;
 	SprintStartTime = 0.f;
-	LandingStepUp = 50.f;
+	LandingStepUp = 30.f;
 	LandingAssistBoost = 400.f;
 	bJumpAssisted = false;
-	MaxSafeFallSpeed = -1500.f;
+	MaxSafeFallSpeed = -1800.f;
+	CrouchedSpeedMultiplier = 0.4f;
 }
 
 bool UUTCharacterMovement::CanDodge()
