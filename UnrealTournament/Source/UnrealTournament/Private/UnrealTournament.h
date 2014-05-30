@@ -8,6 +8,8 @@
 #include "ParticleDefinitions.h"
 #include "UTATypes.h"
 #include "UTGameplayStatics.h"
+#include "UTGameUserSettings.h"
+#include "UTLocalPlayer.h"
 #include "UTLocalMessage.h"
 #include "UTPlayerState.h"
 #include "UTGameState.h"

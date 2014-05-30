@@ -408,3 +408,18 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	}
 }
 
+void AUTPlayerController::SetName(const FString& S)
+{
+	if (!S.IsEmpty())
+	{
+		Super::SetName(S);
+
+		UUTGameUserSettings* Settings;
+		Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+		if (Settings)
+		{
+			Settings->SetPlayerName(S);
+			Settings->SaveSettings();
+		}
+	}
+}
