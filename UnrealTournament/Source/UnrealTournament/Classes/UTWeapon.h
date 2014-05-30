@@ -58,7 +58,7 @@ class AUTWeapon : public AUTInventory
 	/** firing state for mode, contains core firing sequence and directs to appropriate global firing functions */
 	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon")
 	TArray<class UUTWeaponStateFiring*> FiringState;
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 private:
 	/** class of firing state to use (workaround for editor limitations - editinlinenew doesn't work) */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
@@ -142,7 +142,7 @@ public:
 		}
 	}
 
-	virtual USkeletalMeshComponent* GetPickupMeshTemplate_Implementation() OVERRIDE;
+	virtual UMeshComponent* GetPickupMeshTemplate_Implementation() OVERRIDE;
 
 	void GotoState(class UUTWeaponState* NewState);
 
@@ -190,7 +190,7 @@ public:
 	virtual void ClientGivenTo_Internal(bool bAutoActivate) OVERRIDE;
 
 	virtual void Removed() OVERRIDE;
-	virtual void ClientRemoved() OVERRIDE;
+	virtual void ClientRemoved_Implementation() OVERRIDE;
 
 	/** fires a shot and consumes ammo */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -250,6 +250,11 @@ public:
 	{
 		GotoState(ActiveState);
 	}
+
+	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) OVERRIDE;
+
+	/** update any timers and such due to a weapon timing change; for example, a powerup that changes firing speed */
+	virtual void UpdateTiming();
 
 	virtual void Tick(float DeltaTime) OVERRIDE;
 

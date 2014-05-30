@@ -16,7 +16,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Inventory")
 	AUTInventory* NextInventory;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
 	AUTCharacter* UTOwner;
 
 	/** called when this inventory item has been given to the specified character */
@@ -46,8 +46,8 @@ protected:
 	uint32 bPendingClientGivenTo : 1;
 	uint32 bPendingAutoActivate : 1;
 
-	UPROPERTY()
-	USkeletalMeshComponent* PickupMesh;
+	UPROPERTY(EditDefaultsOnly, Category = Pickup)
+	UMeshComponent* PickupMesh;
 
 public:
 	AUTInventory* GetNext() const
@@ -56,7 +56,7 @@ public:
 	}
 	AUTCharacter* GetUTOwner() const
 	{
-		checkSlow(UTOwner == GetOwner());
+		checkSlow(UTOwner == GetOwner() || Role < ROLE_Authority); // on client RPC to assign UTOwner could be delayed
 		return UTOwner;
 	}
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity);
@@ -64,7 +64,7 @@ public:
 
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)
-	USkeletalMeshComponent* GetPickupMeshTemplate();
+	UMeshComponent* GetPickupMeshTemplate();
 
 	/** respawn time for level placed pickups of this type */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
@@ -72,4 +72,12 @@ public:
 	/** if set, item starts off not being available when placed in the level (must wait RespawnTime from start of match) */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	bool bDelayedSpawn;
+
+	/** called by pickups when another inventory of same class will be given, allowing the item to simply stack instance values
+	 * instead of spawning a new item
+	 * ContainedInv may be NULL if it's a pickup that spawns new instead of containing a partially used existing item
+	 * return true to prevent giving/spawning a new inventory item
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	bool StackPickup(AUTInventory* ContainedInv);
 };

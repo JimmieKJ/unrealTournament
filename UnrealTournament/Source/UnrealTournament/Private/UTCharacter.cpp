@@ -29,6 +29,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FirstPersonMesh->CastShadow = false;
 
 	HealthMax = 100;
+	SuperHealthMax = 199;
+	DamageScaling = 1.0f;
 }
 
 void AUTCharacter::BeginPlay()
@@ -76,6 +78,40 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 		return float(ResultDamage);
 	}
+}
+
+void AUTCharacter::ModifyDamageTaken_Implementation(float& Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	AUTCharacter* InstigatorChar = NULL;
+	if (DamageCauser != NULL)
+	{
+		InstigatorChar = Cast<AUTCharacter>(DamageCauser->Instigator);
+	}
+	if (InstigatorChar == NULL && EventInstigator != NULL)
+	{
+		InstigatorChar = Cast<AUTCharacter>(EventInstigator->GetPawn());
+	}
+	if (InstigatorChar != NULL && !InstigatorChar->IsDead())
+	{
+		InstigatorChar->ModifyDamageCaused(Damage, DamageEvent, this, EventInstigator, DamageCauser);
+	}
+}
+void AUTCharacter::ModifyDamageCaused_Implementation(float& Damage, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser)
+{
+	Damage *= DamageScaling;
+}
+
+float AUTCharacter::InternalTakeRadialDamage(float Damage, const FRadialDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
+{
+	float Result = Super::InternalTakeRadialDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+	ModifyDamageTaken(Result, DamageEvent, EventInstigator, DamageCauser);
+	return Result;
+}
+float AUTCharacter::InternalTakePointDamage(float Damage, const FPointDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
+{
+	float Result = Super::InternalTakePointDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+	ModifyDamageTaken(Result, DamageEvent, EventInstigator, DamageCauser);
+	return Result;
 }
 
 void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEvent)
@@ -381,9 +417,12 @@ void AUTCharacter::TossInventory(AUTInventory* InvToToss)
 
 void AUTCharacter::DiscardAllInventory()
 {
-	while (InventoryList != NULL)
+	AUTInventory* Inv = InventoryList;
+	while (Inv != NULL)
 	{
-		InventoryList->Destroy();
+		AUTInventory* NextInv = Inv->GetNext();
+		Inv->Destroy();
+		Inv = NextInv;
 	}
 }
 
@@ -516,6 +555,23 @@ void AUTCharacter::UpdateWeaponAttachment()
 	}
 }
 
+float AUTCharacter::GetFireRateMultiplier()
+{
+	return FMath::Max<float>(FireRateMultiplier, 0.1f);
+}
+void AUTCharacter::SetFireRateMultiplier(float InMult)
+{
+	FireRateMultiplier = InMult;
+	FireRateChanged();
+}
+void AUTCharacter::FireRateChanged()
+{
+	if (Weapon != NULL)
+	{
+		Weapon->UpdateTiming();
+	}
+}
+
 void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
 	Super::PreReplication(ChangedPropertyTracker);
@@ -534,6 +590,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, DamageScaling, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FireRateMultiplier, COND_OwnerOnly);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)

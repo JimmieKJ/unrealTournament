@@ -54,7 +54,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	}
 }
 
-USkeletalMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation()
+UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation()
 {
 	return (AttachmentType != NULL) ? AttachmentType.GetDefaultObject()->Mesh.Get() : Super::GetPickupMeshTemplate_Implementation();
 }
@@ -85,7 +85,7 @@ void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemCom
 
 void AUTWeapon::ValidateFiringStates()
 {
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 	bool bMadeChanges = false;
 	FiringState.SetNum(FiringStateType.Num());
 	for (int32 i = 0; i < FiringStateType.Num(); i++)
@@ -113,7 +113,7 @@ void AUTWeapon::ValidateFiringStates()
 	}
 #endif
 }
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -211,15 +211,15 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 
 void AUTWeapon::Removed()
 {
+	GotoState(InactiveState);
+
 	Super::Removed();
-
-	GotoState(InactiveState);
 }
-void AUTWeapon::ClientRemoved()
+void AUTWeapon::ClientRemoved_Implementation()
 {
-	Super::ClientRemoved();
-
 	GotoState(InactiveState);
+
+	Super::ClientRemoved_Implementation();
 }
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
@@ -517,13 +517,29 @@ float AUTWeapon::GetRefireTime(uint8 FireModeNum)
 {
 	if (FireInterval.IsValidIndex(FireModeNum))
 	{
-		return FMath::Max<float>(0.01f, FireInterval[FireModeNum]);
+		float Result = FireInterval[FireModeNum];
+		if (UTOwner != NULL)
+		{
+			Result *= UTOwner->GetFireRateMultiplier();
+		}
+		return FMath::Max<float>(0.01f, Result);
 	}
 	else
 	{
 		UE_LOG(UT, Warning, TEXT("Invalid firing mode %i in %s::GetRefireTime()"), int32(FireModeNum), *GetName());
 		return 0.1f;
 	}
+}
+
+void AUTWeapon::UpdateTiming()
+{
+	CurrentState->UpdateTiming();
+}
+
+bool AUTWeapon::StackPickup_Implementation(AUTInventory* ContainedInv)
+{
+	AddAmmo(ContainedInv != NULL ? Cast<AUTWeapon>(ContainedInv)->Ammo : GetClass()->GetDefaultObject<AUTWeapon>()->Ammo);
+	return true;
 }
 
 void AUTWeapon::Tick(float DeltaTime)

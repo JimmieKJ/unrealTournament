@@ -72,7 +72,9 @@ class AUTCharacter : public ACharacter
 	template<typename InvClass>
 	inline InvClass* FindInventoryType(TSubclassOf<InvClass> Type, bool bExactClass = false)
 	{
-		return CastChecked<InvClass>(K2_FindInventoryType(Type, bExactClass));
+		InvClass* Result = (InvClass*)K2_FindInventoryType(Type, bExactClass);
+		checkSlow(Result == NULL || Result->IsA(InvClass::StaticClass()));
+		return Result;
 	}
 
 	/** toss an inventory item in the direction the player is facing
@@ -156,8 +158,22 @@ class AUTCharacter : public ACharacter
 
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
 	int32 Health;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pawn)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	int32 HealthMax;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+	int32 SuperHealthMax;
+
+	/** multiplier to damage caused by this Pawn */
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = Pawn)
+	float DamageScaling;
+	
+	/** accessors to FireRateMultiplier */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	float GetFireRateMultiplier();
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	void SetFireRateMultiplier(float InMult);
+	UFUNCTION()
+	void FireRateChanged();
 
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated, ReplicatedUsing=PlayTakeHitEffects)
 	FTakeHitInfo LastTakeHitInfo;
@@ -215,7 +231,7 @@ class AUTCharacter : public ACharacter
 
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
-		virtual void OnLandingAssist();
+	virtual void OnLandingAssist();
 
 	/** Blueprint override for dodge handling. Rteturn true to skip default dodge in C++. */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -237,6 +253,20 @@ class AUTCharacter : public ACharacter
 	virtual void Restart() OVERRIDE;
 
 protected:
+
+	/** multiplier to firing speed */
+	UPROPERTY(Replicated, ReplicatedUsing=FireRateChanged)
+	float FireRateMultiplier;
+
+	/** hook to modify damage taken by this Pawn */
+	UFUNCTION(BlueprintNativeEvent)
+	void ModifyDamageTaken(float& Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
+	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc */
+	UFUNCTION(BlueprintNativeEvent)
+	void ModifyDamageCaused(float& Damage, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser);
+
+	virtual float InternalTakeRadialDamage(float Damage, const FRadialDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) OVERRIDE;
+	virtual float InternalTakePointDamage(float Damage, const FPointDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) OVERRIDE;
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);

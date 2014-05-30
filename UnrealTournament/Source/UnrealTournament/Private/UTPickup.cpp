@@ -42,9 +42,14 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 void AUTPickup::GiveTo_Implementation(APawn* Target)
 {}
 
+void AUTPickup::SetPickupHidden(bool bNowHidden)
+{
+	SetActorHiddenInGame(bNowHidden);
+}
+
 void AUTPickup::StartSleeping_Implementation()
 {
-	SetActorHiddenInGame(true);
+	SetPickupHidden(true);
 	SetActorEnableCollision(false);
 	if (RespawnTime > 0.0f)
 	{
@@ -67,7 +72,7 @@ void AUTPickup::PlayTakenEffects()
 }
 void AUTPickup::WakeUp_Implementation()
 {
-	SetActorHiddenInGame(false);
+	SetPickupHidden(false);
 	SetActorEnableCollision(true);
 	GetWorld()->GetTimerManager().ClearTimer(this, &AUTPickup::WakeUp);
 

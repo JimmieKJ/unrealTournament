@@ -53,4 +53,7 @@ class AUTPickup : public AActor
 	virtual void PlayTakenEffects();
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void PlayRespawnEffects();
+	/** sets the hidden state of the pickup - note that this doesn't necessarily mean the whole object (e.g. item mesh but not holder) */
+	UFUNCTION(BlueprintCallable, Category = Pickup)
+	virtual void SetPickupHidden(bool bNowHidden);
 };

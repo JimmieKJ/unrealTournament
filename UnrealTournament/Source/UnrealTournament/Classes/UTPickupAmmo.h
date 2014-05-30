@@ -8,7 +8,7 @@ class AUTPickupAmmo : public AUTPickup
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	FStoredAmmo Ammo;
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) OVERRIDE;

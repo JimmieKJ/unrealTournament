@@ -10,8 +10,10 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 	bOnlyRelevantToOwner = true;
 	bReplicateInstigator = true;
 
+	RespawnTime = 30.0f;
+
 	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
-	PickupMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent, USkeletalMeshComponent>(this, TEXT("PickupMesh"), false, false, false);
+	PickupMesh = PCIP.CreateDefaultSubobject<UStaticMeshComponent, UStaticMeshComponent>(this, TEXT("PickupMesh0"), false, false, false);
 	if (PickupMesh != NULL)
 	{
 		PickupMesh->AttachParent = RootComponent;
@@ -19,17 +21,16 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 	}
 }
 
-USkeletalMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation()
+UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation()
 {
 	return PickupMesh;
 }
 
 void AUTInventory::Destroyed()
 {
-	AUTCharacter* C = Cast<AUTCharacter>(Instigator);
-	if (C != NULL)
+	if (UTOwner != NULL)
 	{
-		C->RemoveInventory(this);
+		UTOwner->RemoveInventory(this);
 	}
 
 	Super::Destroyed();
@@ -47,6 +48,8 @@ void AUTInventory::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTInventory::Removed()
 {
+	eventRemoved();
+
 	if (UTOwner != NULL)
 	{
 		PrimaryActorTick.RemovePrerequisite(UTOwner, UTOwner->PrimaryActorTick);
@@ -57,7 +60,6 @@ void AUTInventory::Removed()
 	Instigator = NULL;
 	SetOwner(NULL);
 	UTOwner = NULL;
-	eventRemoved();
 }
 
 void AUTInventory::CheckPendingClientGivenTo()
@@ -107,6 +109,8 @@ void AUTInventory::ClientRemoved_Implementation()
 		PrimaryActorTick.RemovePrerequisite(UTOwner, UTOwner->PrimaryActorTick);
 	}
 	eventClientRemoved();
+	SetOwner(NULL);
+	UTOwner = NULL;
 }
 
 void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -122,4 +126,9 @@ void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVel
 		UTOwner->RemoveInventory(this);
 	}
 	Destroy();
+}
+
+bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
+{
+	return false;
 }
