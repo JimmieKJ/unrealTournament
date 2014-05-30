@@ -15,15 +15,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, ReplicatedUsing=InventoryTypeUpdated, Category = Inventory)
 	TSubclassOf<AUTInventory> InventoryType;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
-	USkeletalMeshComponent* Mesh;
+	UMeshComponent* Mesh;
 public:
 
-	inline const USkeletalMeshComponent* GetMesh()
+	inline const UMeshComponent* GetMesh()
 	{
 		return Mesh;
 	}
 
 	virtual void BeginPlay() OVERRIDE;
+
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
 
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType);
@@ -32,4 +34,5 @@ public:
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) OVERRIDE;
 	virtual void GiveTo_Implementation(APawn* Target) OVERRIDE;
+	virtual void SetPickupHidden(bool bNowHidden) OVERRIDE;
 };
