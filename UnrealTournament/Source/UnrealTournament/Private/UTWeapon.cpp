@@ -85,6 +85,7 @@ void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemCom
 
 void AUTWeapon::ValidateFiringStates()
 {
+#if WITH_EDITOR
 	bool bMadeChanges = false;
 	FiringState.SetNum(FiringStateType.Num());
 	for (int32 i = 0; i < FiringStateType.Num(); i++)
@@ -110,6 +111,7 @@ void AUTWeapon::ValidateFiringStates()
 	{
 		FEditorSupportDelegates::UpdateUI.Broadcast();
 	}
+#endif
 }
 #if WITH_EDITOR
 void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
