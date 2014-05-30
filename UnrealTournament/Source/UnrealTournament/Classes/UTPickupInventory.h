@@ -24,8 +24,9 @@ public:
 	}
 
 	virtual void BeginPlay() OVERRIDE;
-
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
+#endif
 
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType);

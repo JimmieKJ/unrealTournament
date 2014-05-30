@@ -11,6 +11,7 @@ void AUTPickupInventory::BeginPlay()
 	SetInventoryType(InventoryType);
 }
 
+#if WITH_EDITOR
 void AUTPickupInventory::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -25,6 +26,7 @@ void AUTPickupInventory::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 		}
 	}
 }
+#endif
 
 void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 {
