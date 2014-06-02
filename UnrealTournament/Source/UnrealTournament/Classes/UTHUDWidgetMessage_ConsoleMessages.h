@@ -7,8 +7,13 @@ class UUTHUDWidgetMessage_ConsoleMessages : public UUTHUDWidgetMessage
 {
 	GENERATED_UCLASS_BODY()
 
-protected:
+public:
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
+		int32 NumVisibleLines;
 
+protected:
+	virtual void DrawMessages(float DeltaTime);
+	virtual void DrawMessage(int32 QueueIndex, float X, float Y);
 private:
 
 };

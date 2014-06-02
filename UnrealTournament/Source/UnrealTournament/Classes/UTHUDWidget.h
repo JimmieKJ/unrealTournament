@@ -121,13 +121,80 @@ protected:
 	 * @param Y		The Y position relative to the widget
 	 * @param Font	The font to use for the text
 	 * @param TextScale	Additional scaling to add
+	 * @param DrawOpacity	The alpha to use on this draw call.  NOTE: the Widget's Opacity will be multipled in
 	 * @param DrawColor	The color to draw in
 	 * @param TextHorzAlignment	How to align the text horizontally within the widget
 	 * @param TextVertAlignment How to align the text vertically within the widget
 	 **/
-	UFUNCTION(BlueprintCallable, Category="Widgets")
 	virtual void DrawText(FText Text, float X, float Y, UFont* Font, float TextScale=1.0, float DrawOpacity=1.0f, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
+
+	/**
+	 * Draws text on the screen.  You can use the TextHorzPosition and TextVertPosition to justify the text that you are drawing.
+	 * @param Text	The Text to display.
+	 * @param X		The X position relative to the widget
+	 * @param Y		The Y position relative to the widget
+	 * @param Font	The font to use for the text
+	 * @param OutlineColor	The Color for the outline
+	 * @param TextScale	Additional scaling to add
+	 * @param DrawOpacity	The alpha to use on this draw call.  NOTE: the Widget's Opacity will be multipled in
+	 * @param DrawColor	The color to draw in
+	 * @param TextHorzAlignment	How to align the text horizontally within the widget
+	 * @param TextVertAlignment How to align the text vertically within the widget
+	 **/
+	virtual void DrawText(FText Text, float X, float Y, UFont* Font, FLinearColor OutlineColor, float TextScale=1.0, float DrawOpacity=1.0f, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
+
+	/**
+	 * Draws text on the screen.  You can use the TextHorzPosition and TextVertPosition to justify the text that you are drawing.
+	 * @param Text	The Text to display.
+	 * @param X		The X position relative to the widget
+	 * @param Y		The Y position relative to the widget
+	 * @param Font	The font to use for the text
+	 * @param ShadowDirection	The Direction for the shadow
+	 * @param ShadowColor	The color of the shadow
+	 * @param TextScale	Additional scaling to add
+	 * @param DrawOpacity	The alpha to use on this draw call.  NOTE: the Widget's Opacity will be multipled in
+	 * @param DrawColor	The color to draw in
+	 * @param TextHorzAlignment	How to align the text horizontally within the widget
+	 * @param TextVertAlignment How to align the text vertically within the widget
+	 **/
+	virtual void DrawText(FText Text, float X, float Y, UFont* Font, FVector2D ShadowDirection = FVector2D(0,0), FLinearColor ShadowColor = FLinearColor::Black, float TextScale=1.0, float DrawOpacity=1.0f, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
 	
+	/**
+	 * Draws text on the screen.  You can use the TextHorzPosition and TextVertPosition to justify the text that you are drawing.
+	 * @param Text	The Text to display.
+	 * @param X		The X position relative to the widget
+	 * @param Y		The Y position relative to the widget
+	 * @param Font	The font to use for the text
+	 * @param ShadowDirection	The Direction for the shadow
+	 * @param ShadowColor	The color of the shadow
+	 * @param OutlineColor	The Color for the outline
+	 * @param TextScale	Additional scaling to add
+	 * @param DrawOpacity	The alpha to use on this draw call.  NOTE: the Widget's Opacity will be multipled in
+	 * @param DrawColor	The color to draw in
+	 * @param TextHorzAlignment	How to align the text horizontally within the widget
+	 * @param TextVertAlignment How to align the text vertically within the widget
+	 **/
+	virtual void DrawText(FText Text, float X, float Y, UFont* Font, FVector2D ShadowDirection = FVector2D(0,0), FLinearColor ShadowColor = FLinearColor::Black, FLinearColor OutlineColor=FLinearColor::Black, float TextScale=1.0, float DrawOpacity=1.0f, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
+
+	/**
+	 * Draws text on the screen.  This is the Blueprint callable override.  You can use the TextHorzPosition and TextVertPosition to justify the text that you are drawing.
+	 * @param Text	The Text to display.
+	 * @param X		The X position relative to the widget
+	 * @param Y		The Y position relative to the widget
+	 * @param Font	The font to use for the text
+	 * @param ShadowDirection	The Direction for the shadow
+	 * @param ShadowColor	The color of the shadow
+	 * @param OutlineColor	The Color for the outline
+	 * @param TextScale	Additional scaling to add
+	 * @param DrawOpacity	The alpha to use on this draw call.  NOTE: the Widget's Opacity will be multipled in
+	 * @param DrawColor	The color to draw in
+	 * @param TextHorzAlignment	How to align the text horizontally within the widget
+	 * @param TextVertAlignment How to align the text vertically within the widget
+	 **/
+
+	UFUNCTION(BlueprintCallable, Category="Widgets")
+	virtual void DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow = false, FVector2D ShadowDirection = FVector2D(0,0), FLinearColor ShadowColor = FLinearColor::Black, bool bDrawOutline = false, FLinearColor OutlineColor = FLinearColor::Black, float TextScale = 1.0, float DrawOpacity = 1.0, FLinearColor DrawColor = FLinearColor::White, ETextHorzPos::Type TextHorzAlignment = ETextHorzPos::Left, ETextVertPos::Type TextVertAlignment = ETextVertPos::Top);
+
 	/**
 	 * Draws a texture on the screen.
 	 * @param Texture		The texture to draw on the screen
@@ -165,4 +232,8 @@ protected:
 	 **/
 	UFUNCTION(BlueprintCallable, Category="Widgets")
 	virtual void DrawMaterial( UMaterialInterface* Material, float X, float Y, float Width, float Height, float MaterialU, float MaterialV, float MaterialUWidth, float MaterialVHeight, float DrawOpacity = 1.0f, FLinearColor DrawColor = FLinearColor::White, FVector2D RenderOffset = FVector2D(0.0f, 0.0f), float Rotation=0, FVector2D RotPivot = FVector2D(0.5f, 0.5f));
+
+private:
+
+
 };

@@ -12,9 +12,14 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FPostConstructInitializePro
 
 void UUTHUDWidgetMessage::Draw(float DeltaTime)
 {
+	AgeMessages(DeltaTime);
+	DrawMessages(DeltaTime);
+}
+
+void UUTHUDWidgetMessage::AgeMessages(float DeltaTime)
+{
 	if (MessageQueue[0].MessageClass == NULL) return;	// Quick out if nothing to render.
 
-	Canvas->Reset();
 	int32 QueueSize = ARRAY_COUNT(MessageQueue);
 
 	// Pass 1 - Precache anything that's needed and age out messages.
@@ -45,7 +50,8 @@ void UUTHUDWidgetMessage::Draw(float DeltaTime)
 		}
 
 		// Age out the message.
-		if (MessageQueue[QueueIndex].EndOfLife < UTHUDOwner->GetWorld()->GetTimeSeconds())
+		MessageQueue[QueueIndex].LifeLeft -= DeltaTime;
+		if (MessageQueue[QueueIndex].LifeLeft <= 0.0)
 		{
 			for (int j=QueueIndex; j < QueueSize - 1; j++)
 			{
@@ -57,9 +63,15 @@ void UUTHUDWidgetMessage::Draw(float DeltaTime)
 		}
 
 	}
+}
 
+void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
+{
 	// Pass 2 - Render the message
 
+	Canvas->Reset();
+
+	int32 QueueSize = ARRAY_COUNT(MessageQueue);
 	for (int QueueIndex = 0; QueueIndex < QueueSize; QueueIndex++)
 	{
 		// When we hit the empty section of the array, exit out
@@ -74,14 +86,14 @@ void UUTHUDWidgetMessage::Draw(float DeltaTime)
 			continue;
 		}
 
-		DrawMessage(QueueIndex);
+		DrawMessage(QueueIndex, 0.0f, 0.0f);
 	}
 }
 
-void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex)
+void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
-	DrawText(MessageQueue[QueueIndex].Text, 0.0f, 0.0f, MessageQueue[QueueIndex].DisplayFont, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
 }
 
 void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
@@ -93,8 +105,6 @@ void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
 
 void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
-	UE_LOG(UT,Log,TEXT("RecLocMsg: %s %i"), *GetNameSafe(MessageClass), MessageIndex);
-
 	if (MessageClass == NULL || LocalMessageText.IsEmpty()) return;
 
 	
@@ -159,14 +169,22 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	MessageQueue[QueueIndex].MessageIndex = MessageIndex;
 	MessageQueue[QueueIndex].Text = LocalMessageText;
 
-	MessageQueue[QueueIndex].EndOfLife = UTHUDOwner->GetWorld()->GetTimeSeconds() + GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
-	MessageQueue[QueueIndex].DrawColor = MessageColor;
-	MessageQueue[QueueIndex].DisplayFont = MessageFont == NULL ? GEngine->GetSmallFont() : MessageFont;
-	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
+	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
+	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;
+
+	// Layout the widget
+	LayoutMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1,RelatedPlayerState_2,OptionalObject);
 
 	MessageQueue[QueueIndex].MessageCount = MessageCount;
 
 	MessageQueue[QueueIndex].bHasBeenRendered = false;
 	MessageQueue[QueueIndex].TextWidth = 0;
 	MessageQueue[QueueIndex].TextHeight = 0;
+}
+
+void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	MessageQueue[QueueIndex].DrawColor = MessageColor;
+	MessageQueue[QueueIndex].DisplayFont = MessageFont == NULL ? GEngine->GetSmallFont() : MessageFont;
+	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
 }

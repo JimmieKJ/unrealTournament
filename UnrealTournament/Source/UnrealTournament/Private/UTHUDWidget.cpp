@@ -65,6 +65,25 @@ void UUTHUDWidget::PostDraw(float RenderedTime)
 
 void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
+	DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+}
+
+void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+{
+	DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, true, OutlineColor, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+}
+
+void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FVector2D ShadowDirection, FLinearColor ShadowColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+{
+	DrawText(Text, X, Y, Font, true, ShadowDirection, ShadowColor, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+}
+void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FVector2D ShadowDirection, FLinearColor ShadowColor, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+{
+	DrawText(Text, X, Y, Font, true, ShadowDirection, ShadowColor, true, OutlineColor, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
+}
+
+void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow, FVector2D ShadowDirection, FLinearColor ShadowColor, bool bDrawOutline, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+{
 	if (Font && !Text.IsEmpty())
 	{
 		if (bScaleByDesignedResolution)
@@ -98,6 +117,19 @@ void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float Tex
 		}
 
 		FCanvasTextItem TextItem(RenderPos, Text, Font, DrawColor);
+
+		if (bDrawOutline)
+		{
+			TextItem.bOutlined = true;
+			TextItem.OutlineColor = OutlineColor;
+			TextItem.OutlineColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
+		}
+
+		if (bDrawShadow)
+		{
+			ShadowColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
+			TextItem.EnableShadow(ShadowColor, ShadowDirection);
+		}
 
 		if (bScaleByDesignedResolution)
 		{

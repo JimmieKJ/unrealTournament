@@ -9,13 +9,29 @@ UUTVictimMessage::UUTVictimMessage(const class FPostConstructInitializePropertie
 	: Super(PCIP)
 {
 	bIsUnique = true;
-	Lifetime = 2.0f;
+	Lifetime = 3.0f;
 	MessageArea = FName(TEXT("DeathMessage"));
 	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name}"); //  with {WeaponName} -- Removed for now
+
+	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideNiceJob","Nice job Butterfingers!"));
+	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideOwnTop","Popped your own top did ya?"));
+	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideKillOther","How about you kill the other guy!"));
+	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideLosePoints","You know you lose points for that right?"));
 }
 
 FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
-	return GetDefault<UUTVictimMessage>()->YouWereKilledByText;
+	switch(Switch)
+	{
+		case 0:	
+			return GetDefault<UUTVictimMessage>()->YouWereKilledByText;
+
+		case 1:
+			const UUTVictimMessage* DefaultMessage = GetDefault<UUTVictimMessage>(GetClass());
+			int Idx = int(float(DefaultMessage->SuicideTexts.Num()) * FMath::FRand());
+			return DefaultMessage->SuicideTexts[Idx];
+	}
+
+	return FText::GetEmpty();
 }
 

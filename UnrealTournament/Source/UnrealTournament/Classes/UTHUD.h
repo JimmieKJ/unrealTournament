@@ -59,13 +59,14 @@ protected:
 
 	UTexture2D* OldHudTexture;
 
+public:
+
 	// TEMP : Convert seconds to a time string.
 	FText TempConvertTime(int Seconds);
 
 	// TEMP: Until the new Hud system comes online, quickly draw a string to the screen.  This will be replaced soon.
 	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type TextPosition, UFont* Font, FLinearColor Color);
 
-public:
 	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
 
 private:

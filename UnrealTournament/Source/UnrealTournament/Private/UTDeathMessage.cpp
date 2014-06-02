@@ -12,10 +12,11 @@
 UUTDeathMessage::UUTDeathMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	MessageArea = FName(TEXT("DeathMessage"));
+	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;
 
-	GenericKillMessage = NSLOCTEXT("UTDeathMessage","GenericKillMessage","{Player1Name} killed {Player2Name} with {WeaponName}");
+	GenericKillMessage = NSLOCTEXT("UTDeathMessage","GenericKillMessage","{Player1Name} killed {Player2Name}"); //  with {WeaponName} -- Fix when we have proper damage types
+	SuicideKillMessage = NSLOCTEXT("UTDeathMessage","SuicideKillMessage","{Player2Name} Suicided");
 }
 
 void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -35,7 +36,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			UUTKillerMessage::StaticClass(),
 			ClientData.RelatedPlayerState_1,
 			ClientData.RelatedPlayerState_2,
-			0,
+			ClientData.MessageIndex,
 			GetDefault<UUTKillerMessage>()->ResolveMessage(ClientData.MessageIndex, ClientData.RelatedPlayerState_1== ClientData.LocalPC->PlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 			ClientData.OptionalObject );
 		}
@@ -49,15 +50,14 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			UUTVictimMessage::StaticClass(),
 			ClientData.RelatedPlayerState_1,
 			ClientData.RelatedPlayerState_2,
-			0,
+			ClientData.MessageIndex,
 			GetDefault<UUTVictimMessage>()->ResolveMessage(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 			ClientData.OptionalObject );
 		}
 	}
-	else
-	{
-		Super::ClientReceive(ClientData);
-	}
+
+	// Also recieve the console message side of this.
+	Super::ClientReceive(ClientData);
 }
 
 void UUTDeathMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
@@ -70,5 +70,10 @@ void UUTDeathMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 
 FText UUTDeathMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
-	return GenericKillMessage;
+	switch(Switch)
+	{
+		case 0 : return GenericKillMessage;
+		case 1 : return SuicideKillMessage;
+	}
+	return FText::GetEmpty();	
 }

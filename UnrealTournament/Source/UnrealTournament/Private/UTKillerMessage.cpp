@@ -8,7 +8,7 @@
 UUTKillerMessage::UUTKillerMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	Lifetime=2.0;
+	Lifetime=3.0;
 	bIsSpecial = true;
 	bIsUnique = true;
 	MessageArea = FName(TEXT("DeathMessage"));
@@ -17,10 +17,5 @@ UUTKillerMessage::UUTKillerMessage(const class FPostConstructInitializePropertie
 
 FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
-	if (RelatedPlayerState_2 == NULL || RelatedPlayerState_2->PlayerName == TEXT(""))
-	{
-		return FText::GetEmpty();
-	}
-
-	return GetDefault<UUTKillerMessage>(GetClass())->YouKilledText;
+	return GetDefault<UUTKillerMessage>(GetClass())->YouKilledText;	
 }

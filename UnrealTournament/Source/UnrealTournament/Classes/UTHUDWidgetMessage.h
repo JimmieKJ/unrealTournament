@@ -30,9 +30,13 @@ struct FLocalizedMessageData
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	FText Text;
 
-	// When will this message disappear
+	// How much time does this message have left
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	float EndOfLife;
+	float LifeLeft;
+
+	// How long total this message has in it's life
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float LifeSpan;
 
 	// The optional object for this class.  
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
@@ -62,11 +66,11 @@ struct FLocalizedMessageData
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	int32 MessageCount;
 
-
 	FLocalizedMessageData()
 		: MessageClass(NULL)
 		, MessageIndex(0)
-		, EndOfLife(0)
+		, LifeLeft(0)
+		, LifeSpan(0)
 		, DrawColor(ForceInit)
 		, OptionalObject(NULL)
 		, DisplayFont(NULL)
@@ -100,6 +104,8 @@ public:
 	FLinearColor MessageColor;
 
 	virtual void Draw(float DeltaTime);
+	virtual void AgeMessages(float DeltaTime);
+	virtual void DrawMessages(float DeltaTime);
 
 	// MessageWidgets need to be able to receive local messages from the HUD.  They will be responsible for managing their own messages.
 	virtual void ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject = NULL);
@@ -112,7 +118,9 @@ protected:
 
 	virtual void ClearMessage(FLocalizedMessageData& Message);
 	virtual void AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
-	virtual void DrawMessage(int32 QueueIndex);
+	virtual void LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
+	virtual void DrawMessage(int32 QueueIndex, float X, float Y);
+
 
 private:
 

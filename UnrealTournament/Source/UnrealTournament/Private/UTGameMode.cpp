@@ -490,7 +490,6 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	AActor* LastSpot = (Player && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
 	if ( (P == LastStartSpot) || (LastSpot != NULL && P == LastSpot) )
 	{
-		UE_LOG(UT,Log,TEXT("   %s was the last spot"), *GetNameSafe(P))
 		// avoid re-using starts
 		Score -= 15.0f;
 	}

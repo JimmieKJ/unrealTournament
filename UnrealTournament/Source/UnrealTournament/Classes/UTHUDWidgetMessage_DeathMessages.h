@@ -8,6 +8,9 @@ class UUTHUDWidgetMessage_DeathMessages : public UUTHUDWidgetMessage
 	GENERATED_UCLASS_BODY()
 
 protected:
+	virtual void DrawMessages(float DeltaTime);
+	virtual void DrawMessage(int32 QueueIndex, float X, float Y);
+	virtual void LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
 
 private:
 

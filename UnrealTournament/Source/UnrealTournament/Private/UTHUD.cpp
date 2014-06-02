@@ -51,8 +51,6 @@ void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass,GetTransientPackage());
 	HudWidgets.Add(Widget);
 
-	UE_LOG(UT,Log,TEXT("Adding Widget %s"),*GetNameSafe(Widget));
-
 	// If this widget is a messaging widget, then track it
 	UUTHUDWidgetMessage* MessageWidget = Cast<UUTHUDWidgetMessage>(Widget);
 	if (MessageWidget != NULL)
@@ -65,7 +63,6 @@ void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
-	UE_LOG(UT,Log,TEXT("AUTHUD::ReceiveLocalMessage: %s %i %i"), *GetNameSafe(MessageClass), MessageIndex, *MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea.ToString() );
 	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));
 	if (DestinationWidget != NULL)
 	{
