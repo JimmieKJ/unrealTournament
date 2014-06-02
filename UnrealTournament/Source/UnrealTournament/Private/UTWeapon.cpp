@@ -439,7 +439,12 @@ bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 
 FVector AUTWeapon::GetFireStartLoc()
 {
-	if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
+	if (UTOwner == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("GetFireStartLoc(): No Owner (died while firing?)"));
+		return FVector::ZeroVector;
+	}
+	else if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
 	{
 		return UTOwner->GetPawnViewLocation() + GetFireRotation().RotateVector(FireOffset);
 	}
@@ -452,7 +457,15 @@ FVector AUTWeapon::GetFireStartLoc()
 
 FRotator AUTWeapon::GetFireRotation()
 {
-	return UTOwner->GetViewRotation();
+	if (UTOwner == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("GetFireRotation(): No Owner (died while firing?)"));
+		return FRotator::ZeroRotator;
+	}
+	else
+	{
+		return UTOwner->GetViewRotation();
+	}
 }
 
 void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)

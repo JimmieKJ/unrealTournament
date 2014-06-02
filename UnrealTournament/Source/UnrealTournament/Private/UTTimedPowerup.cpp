@@ -7,6 +7,7 @@ AUTTimedPowerup::AUTTimedPowerup(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
 	TimeRemaining = 30.0f;
+	RespawnTime = 90.0f;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;

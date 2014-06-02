@@ -10,16 +10,25 @@ class AUTPickup : public AActor
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	TSubobjectPtr<UCapsuleComponent> Collision;
+	// hack: UMaterialBillboardComponent isn't exposed, can't use native subobject
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadWrite, Category = Pickup)
+	UMaterialBillboardComponent* TimerSprite;
+	//UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	//TSubobjectPtr<UMaterialBillboardComponent> TimerSprite;
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	TSubobjectPtr<UTextRenderComponent> TimerText;
 
 	/** respawn time for the pickup; if it's <= 0 then the pickup doesn't respawn until the round resets */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	float RespawnTime;
 	/** if set, pickup begins play with its respawn time active */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
-	bool bDelayedSpawn;
+	uint32 bDelayedSpawn : 1;
 	/** whether the pickup is currently active */
-	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing=OnRep_bActive, Category = Pickup)
-	bool bActive;
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_bActive, Category = Pickup)
+	uint32 bActive : 1;
+	/** whether to display TimerSprite/TimerText on the pickup while it is respawning */
+	uint32 bDisplayRespawnTimer : 1;
 	/** one-shot particle effect played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* TakenParticles;
@@ -32,6 +41,12 @@ class AUTPickup : public AActor
 	/** one-shot sound played when the pickup respawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	USoundBase* RespawnSound;
+
+	UPROPERTY(BlueprintReadOnly, Category = Effects)
+	UMaterialInstanceDynamic* TimerMI;
+
+	virtual void OnConstruction(const FTransform& Transform) OVERRIDE;
+	virtual void Tick(float DeltaTime) OVERRIDE;
 
 	UFUNCTION()
 	virtual void OnRep_bActive();
