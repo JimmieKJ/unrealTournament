@@ -142,16 +142,16 @@ public:
 	//=========================================
 	// Landing Assist
 
-	/** Boost to help successfully land jumps that just barely missed */
-	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Step Up Distance."))
+	/** Defines what jumps just barely missed */
+	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Step Up Distance"))
 		float LandingStepUp;
 
 	/** Boost to help successfully land jumps that just barely missed */
-	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Assist Boost."))
+	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Assist Boost"))
 		float LandingAssistBoost;
 
 	/** True if already assisted this jump */
-	UPROPERTY(Category = "LandingAssist", BlueprintReadOnly, meta = (DisplayName = "Jump Assisted."))
+	UPROPERTY(Category = "LandingAssist", BlueprintReadOnly, meta = (DisplayName = "Jump Assisted"))
 		bool bJumpAssisted;
 
 	virtual void PhysFalling(float deltaTime, int32 Iterations) OVERRIDE;
