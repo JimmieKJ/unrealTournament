@@ -7,10 +7,12 @@
 void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 {
 	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+	GetOuterAUTWeapon()->OnStartedFiring();
 	FireShot();
 }
 void UUTWeaponStateFiring::EndState()
 {
+	GetOuterAUTWeapon()->OnStoppedFiring();
 	GetOuterAUTWeapon()->StopFiringEffects();
 	GetOuterAUTWeapon()->GetUTOwner()->ClearFiringInfo();
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::RefireCheckTimer);

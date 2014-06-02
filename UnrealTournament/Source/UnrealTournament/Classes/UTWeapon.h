@@ -157,9 +157,17 @@ public:
 	virtual void BeginFiringSequence(uint8 FireModeNum);
 	virtual void EndFiringSequence(uint8 FireModeNum);
 
+	/** blueprint hook when the firing state starts; called on both client and server */
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnStartedFiring();
 	/** blueprint hook when the trigger is released; called on both client and server */
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnStoppedFiring();
+	/** blueprint hook for pressing one fire mode while another is currently firing (e.g. hold alt, press primary)
+	 * CurrentFireMode == current, OtherFireMode == one just pressed
+	 */
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnMultiPress(uint8 OtherFireMode);
 
 	/** activates the weapon as part of a weapon switch
 	 * (this weapon has already been set to Pawn->Weapon)

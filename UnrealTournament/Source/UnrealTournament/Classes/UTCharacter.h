@@ -95,6 +95,9 @@ class AUTCharacter : public ACharacter
 	{
 		return (FireMode < PendingFire.Num() && PendingFire[FireMode] != 0);
 	}
+	/** blueprint accessor to what firemodes the player currently has active */
+	UFUNCTION(BlueprintPure, Category = Weapon)
+	bool IsTriggerDown(uint8 FireMode);
 	/** sets the pending fire flag; generally should be called by whatever weapon processes the firing command, unless it's an explicit single shot */
 	inline void SetPendingFire(uint8 FireMode, bool bNowFiring)
 	{

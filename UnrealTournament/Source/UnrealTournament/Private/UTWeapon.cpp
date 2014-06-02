@@ -242,6 +242,10 @@ void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, true);
 	CurrentState->BeginFiringSequence(FireModeNum);
+	if (CurrentState->IsFiring() && CurrentFireMode != FireModeNum)
+	{
+		OnMultiPress(FireModeNum);
+	}
 }
 
 void AUTWeapon::StopFire(uint8 FireModeNum)
@@ -264,8 +268,6 @@ void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, false);
 	CurrentState->EndFiringSequence(FireModeNum);
-
-	OnStoppedFiring();
 }
 
 void AUTWeapon::BringUp()
@@ -482,7 +484,11 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		Hit.Location = EndTrace;
 	}
-	else if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
+	if (Role == ROLE_Authority)
+	{
+		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+	}
+	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
 		// TODO: replicated momentum handling
 		if (Hit.Component != NULL)
@@ -491,10 +497,6 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		}
 
 		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType), UTOwner->Controller, this);
-	}
-	if (Role == ROLE_Authority)
-	{
-		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 	}
 	if (OutHit != NULL)
 	{

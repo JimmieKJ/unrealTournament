@@ -213,6 +213,11 @@ void AUTCharacter::StopFire(uint8 FireModeNum)
 	}
 }
 
+bool AUTCharacter::IsTriggerDown(uint8 FireMode)
+{
+	return IsPendingFire(FireMode);
+}
+
 void AUTCharacter::SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode)
 {
 	// make sure two consecutive shots don't set the same FlashLocation as that will prevent replication and thus clients won't see the shot
