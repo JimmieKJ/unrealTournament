@@ -129,8 +129,6 @@ class AUTCharacter : public ACharacter
 	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up */
 	virtual void WeaponChanged();
 
-	virtual void PossessedBy(AController* NewController);
-
 	/** replicated weapon firing info */
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoUpdated, Category = "Weapon")
 	uint8 FlashCount;
@@ -255,6 +253,16 @@ class AUTCharacter : public ACharacter
 
 	virtual void Restart() OVERRIDE;
 
+	/** sets replicated ambient (looping) sound on this Pawn
+	 * only one ambient sound can be set at a time
+	 * pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
+	 */
+	UFUNCTION(BlueprintCallable, Category = Audio)
+	virtual void SetAmbientSound(USoundBase* NewAmbientSound, bool bClear = false);
+
+	UFUNCTION()
+	void AmbientSoundUpdated();
+
 protected:
 
 	/** multiplier to firing speed */
@@ -303,11 +311,12 @@ protected:
 	TSubclassOf<AUTWeapon> WeaponClass;
 
 	UPROPERTY(EditAnywhere, Category = "Pawn")
-	TArray<TSubclassOf<AUTInventory> > DefaultCharacterInventory;
+	TArray< TSubclassOf<AUTInventory> > DefaultCharacterInventory;
 
-	/** default weapon - TODO: should be in gametype */
-	UPROPERTY(EditAnywhere, Category = "Pawn")
-	TSubclassOf<AUTWeapon> DefaultWeapon;
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=AmbientSoundUpdated, Category = "Pawn")
+	USoundBase* AmbientSound;
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UAudioComponent* AmbientSoundComp;
 };
 
 inline bool AUTCharacter::IsDead()

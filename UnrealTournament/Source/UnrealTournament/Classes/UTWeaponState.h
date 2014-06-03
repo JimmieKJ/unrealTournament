@@ -13,6 +13,12 @@ class UUTWeaponState : public UObject
 	: Super(PCIP)
 	{}
 
+	// accessor for convenience
+	inline AUTCharacter* GetUTOwner()
+	{
+		return GetOuterAUTWeapon()->GetUTOwner();
+	}
+
 	virtual void BeginState(const UUTWeaponState* PrevState)
 	{}
 	virtual void EndState()

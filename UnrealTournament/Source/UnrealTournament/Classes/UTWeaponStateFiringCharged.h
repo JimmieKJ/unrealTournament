@@ -18,6 +18,10 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 
 	virtual void BeginState(const UUTWeaponState* PrevState) OVERRIDE
 	{
+		if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
+		{
+			GetUTOwner()->SetAmbientSound(GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()]);
+		}
 		GetOuterAUTWeapon()->OnStartedFiring();
 		bCharging = true;
 	}

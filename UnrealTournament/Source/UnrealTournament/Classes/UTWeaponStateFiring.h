@@ -14,6 +14,12 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	: Super(PCIP)
 	{}
 
+	// accessor for convenience
+	inline uint8 GetFireMode()
+	{
+		return GetOuterAUTWeapon()->GetCurrentFireMode();
+	}
+
 	virtual bool IsFiring() OVERRIDE
 	{
 		// default is we're firing if we're in this state

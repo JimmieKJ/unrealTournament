@@ -75,6 +75,9 @@ public:
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireSound;
+	/** looping (ambient) sound to set on owner while firing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TArray<USoundBase*> FireLoopingSound;
 	/** AnimMontage to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<UAnimMontage*> FireAnimation;

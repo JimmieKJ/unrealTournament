@@ -49,14 +49,6 @@ void AUTCharacter::Restart()
 	ClearJumpInput();
 }
 
-void AUTCharacter::PossessedBy(AController* NewController)
-{
-	Super::PossessedBy(NewController);
-
-	// TODO: should be done by game type
-	AddInventory(GetWorld()->SpawnActor<AUTWeapon>(DefaultWeapon, FVector(0.0f), FRotator(0, 0, 0)), true);
-}
-
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	if (IsDead())
@@ -186,6 +178,51 @@ void AUTCharacter::Destroyed()
 	if (WeaponAttachment != NULL)
 	{
 		WeaponAttachment->Destroy();
+	}
+}
+
+void AUTCharacter::SetAmbientSound(USoundBase* NewAmbientSound, bool bClear)
+{
+	if (bClear)
+	{
+		if (NewAmbientSound == AmbientSound)
+		{
+			AmbientSound = NULL;
+		}
+	}
+	else
+	{
+		AmbientSound = NewAmbientSound;
+	}
+	AmbientSoundUpdated();
+}
+void AUTCharacter::AmbientSoundUpdated()
+{
+	if (AmbientSound == NULL)
+	{
+		if (AmbientSoundComp != NULL)
+		{
+			AmbientSoundComp->Stop();
+		}
+	}
+	else
+	{
+		if (AmbientSoundComp == NULL)
+		{
+			AmbientSoundComp = NewObject<UAudioComponent>(this);
+			AmbientSoundComp->bAutoDestroy = false;
+			AmbientSoundComp->bAutoActivate = false;
+			AmbientSoundComp->AttachTo(RootComponent);
+			AmbientSoundComp->RegisterComponent();
+		}
+		if (AmbientSoundComp->Sound != AmbientSound)
+		{
+			AmbientSoundComp->SetSound(AmbientSound);
+		}
+		if (!AmbientSoundComp->IsPlaying())
+		{
+			AmbientSoundComp->Play();
+		}
 	}
 }
 
@@ -598,6 +635,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DamageScaling, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireRateMultiplier, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSound, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -748,6 +786,3 @@ void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 		UTCharMov->bPressedDodgeRight = (DodgeFlags == 4);
 	}
 }
-
-
-
