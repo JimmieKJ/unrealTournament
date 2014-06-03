@@ -23,6 +23,10 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Trace Distance"))
 	float WallDodgeTraceDist;
 
+	/** Wall Dodge impulse in XY plane */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Impulse- Horizontal"))
+		float WallDodgeImpulseHorizontal;
+
 	/** Vertical impulse for first wall dodge. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Impulse Vertical"))
 	float WallDodgeImpulseVertical;

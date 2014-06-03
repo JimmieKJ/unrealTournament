@@ -11,6 +11,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxWalkSpeed = 900.f;
 	DodgeImpulseHorizontal = 1300.f;
 	DodgeImpulseVertical = 500.f;
+	WallDodgeImpulseHorizontal = 1300.f;
 	WallDodgeImpulseVertical = 240.f;
 	WallDodgeSecondImpulseVertical = 0.f;
 	WallDodgeTraceDist = 50.f;
@@ -54,6 +55,8 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		return false;
 	}
 
+	float HorizontalImpulse = DodgeImpulseHorizontal;
+
 	if (IsFalling())
 	{
 		if (CurrentWallDodgeCount > MaxWallDodges)
@@ -91,11 +94,12 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		}
 		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 		CurrentWallDodgeCount++;
+		HorizontalImpulse = WallDodgeImpulseHorizontal;
 	}
 
 	// perform the dodge
 	float VelocityZ = Velocity.Z;
-	Velocity = DodgeImpulseHorizontal*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
+	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
 	float SpeedXY = FMath::Min(Velocity.Size(), DodgeMaxHorizontalVelocity);
 	Velocity = SpeedXY*Velocity.SafeNormal();
