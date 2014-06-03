@@ -150,13 +150,16 @@ void AUTWeapon::GotoState(UUTWeaponState* NewState)
 	}
 	else if (CurrentState != NewState)
 	{
+		UUTWeaponState* PrevState = CurrentState;
 		if (CurrentState != NULL)
 		{
-			CurrentState->EndState();
+			CurrentState->EndState(); // NOTE: may trigger another GotoState() call
 		}
-		const UUTWeaponState* PrevState = CurrentState;
-		CurrentState = NewState;
-		CurrentState->BeginState(PrevState); // NOTE: may trigger another GotoState() call
+		if (CurrentState == PrevState)
+		{
+			CurrentState = NewState;
+			CurrentState->BeginState(PrevState); // NOTE: may trigger another GotoState() call
+		}
 	}
 }
 
