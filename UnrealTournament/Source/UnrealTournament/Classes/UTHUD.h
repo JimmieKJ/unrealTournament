@@ -70,6 +70,7 @@ public:
 
 protected:
 
+	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
 
 public:
