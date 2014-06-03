@@ -209,7 +209,10 @@ void AUTProjectile::Explode(const FVector& HitLocation, const FVector& HitNormal
 			IgnoreActors.Add(ImpactedActor);
 		}
 		ApplyRadialDamageWithFalloff(this, DamageParams.BaseDamage, DamageParams.MinimumDamage, HitLocation, DamageParams.InnerRadius, DamageParams.OuterRadius, DamageParams.DamageFalloff, MyDamageType, IgnoreActors, this, InstigatorController);
-		bTearOff = true;
+		if (Role == ROLE_Authority)
+		{
+			bTearOff = true;
+		}
 		bExploded = true;
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -231,5 +234,12 @@ void AUTProjectile::ShutDown()
 
 void AUTProjectile::TornOff()
 {
-	Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
+	if (bExploded)
+	{
+		ShutDown(); // make sure it took effect; LifeSpan in particular won't unless we're authority
+	}
+	else
+	{
+		Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
+	}
 }

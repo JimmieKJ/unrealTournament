@@ -70,7 +70,7 @@ public:
 	void ValidateFiringStates();
 
 	/** time between shots, trigger checks, etc */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon", meta = (ClampMin = "0.1"))
 	TArray<float> FireInterval;
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")

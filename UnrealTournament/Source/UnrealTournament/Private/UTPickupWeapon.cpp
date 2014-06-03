@@ -31,7 +31,7 @@ bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
 		}
 		else if (Customers[i].P == TestPawn)
 		{
-			return (GetWorld()->TimeSeconds >= Customers[i].NextPickupTime);
+			return (GetWorld()->TimeSeconds < Customers[i].NextPickupTime);
 		}
 	}
 	return false;
