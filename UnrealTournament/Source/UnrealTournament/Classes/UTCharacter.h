@@ -224,7 +224,7 @@ class AUTCharacter : public ACharacter
 	virtual bool CanDodge() const;
 
 	/** Dodge requested by controller, return whether dodge occurred. */
-	virtual bool Dodge(const FVector &DodgeDir, const FVector &DodgeCross);
+	virtual bool Dodge(FVector DodgeDir, FVector DodgeCross);
 
 	/** Dodge just occured in dodge dir, play any sounds/effects desired. */
 	UFUNCTION(BlueprintImplementableEvent)

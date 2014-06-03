@@ -12,8 +12,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeImpulseHorizontal = 1300.f;
 	DodgeImpulseVertical = 500.f;
 	WallDodgeImpulseVertical = 240.f;
+	WallDodgeSecondImpulseVertical = 0.f;
 	WallDodgeTraceDist = 50.f;
-	MaxNonAdditiveDodgeFallSpeed = -200.f;
+	MinAdditiveDodgeFallSpeed = -1000.f;
 	MaxAdditiveDodgeJumpSpeed = 850.f;
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
@@ -22,7 +23,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MultiJumpImpulse = 500.f;
 	DodgeLandingSpeedFactor = 0.1f;
 	DodgeResetInterval = 0.35f;
-	WallDodgeResetInterval = 0.1f;
+	WallDodgeResetInterval = 0.2f;
 	DodgeResetTime = 0.f;
 	SprintSpeed = 1200.f;
 	bIsDodging = false;
@@ -35,6 +36,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	bJumpAssisted = false;
 	MaxSafeFallSpeed = -1800.f;
 	CrouchedSpeedMultiplier = 0.4f;
+	CurrentWallDodgeCount = 0;
+	MaxWallDodges = 3;
+	WallDodgeMinNormal = 0.5f;
+	DodgeMaxHorizontalVelocity = 1500.f;
 }
 
 bool UUTCharacterMovement::CanDodge()
@@ -42,7 +47,7 @@ bool UUTCharacterMovement::CanDodge()
 	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (GetCurrentMovementTime() > DodgeResetTime);
 }
 
-bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &DodgeCross)
+bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 {
 	if (!HasValidData())
 	{
@@ -51,6 +56,10 @@ bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &
 
 	if (IsFalling())
 	{
+		if (CurrentWallDodgeCount > MaxWallDodges)
+		{
+			return false;
+		}
 		// if falling, check if can perform wall dodge
 		FVector TraceEnd = -1.f*DodgeDir;
 		float PawnCapsuleRadius, PawnCapsuleHalfHeight;
@@ -68,22 +77,40 @@ bool UUTCharacterMovement::PerformDodge(const FVector &DodgeDir, const FVector &
 		{
 			return false;
 		}
+		if ( (Result.Normal | DodgeDir) < WallDodgeMinNormal )
+		{
+			// clamp dodge direction based on wall normal
+			FVector ForwardDir = (Result.Normal ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
+			if ((ForwardDir | DodgeDir) < 0.f)
+			{
+				ForwardDir *= -1.f;
+			}
+			DodgeDir = Result.Normal*WallDodgeMinNormal*WallDodgeMinNormal + ForwardDir*(1.f - WallDodgeMinNormal)*(1.f - WallDodgeMinNormal);
+			FVector NewDodgeCross = (DodgeDir ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
+			DodgeCross = ((NewDodgeCross | DodgeCross) < 0.f) ? -1.f*NewDodgeCross : NewDodgeCross;
+		}
 		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
+		CurrentWallDodgeCount++;
 	}
 
 	// perform the dodge
 	float VelocityZ = Velocity.Z;
 	Velocity = DodgeImpulseHorizontal*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
+	Velocity.Z = 0.f;
+	float SpeedXY = FMath::Min(Velocity.Size(), DodgeMaxHorizontalVelocity);
+	Velocity = SpeedXY*Velocity.SafeNormal();
 	if (!IsFalling())
 	{
 		Velocity.Z = DodgeImpulseVertical;
 	}
-	else if (VelocityZ < MaxAdditiveDodgeJumpSpeed)
+	else if ((VelocityZ < MaxAdditiveDodgeJumpSpeed) && (VelocityZ > MinAdditiveDodgeFallSpeed))
 	{
-		// vertical impulse may or may not be additive
-		Velocity.Z = (VelocityZ > MaxNonAdditiveDodgeFallSpeed)
-			? FMath::Min(VelocityZ + WallDodgeImpulseVertical, MaxAdditiveDodgeJumpSpeed)
-			: WallDodgeImpulseVertical;
+		float CurrentWallImpulse = (CurrentWallDodgeCount < 2) ? WallDodgeImpulseVertical : WallDodgeSecondImpulseVertical;
+		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);
+	}
+	else
+	{
+		Velocity.Z = VelocityZ;
 	}
 	bIsDodging = true;
 	bNotifyApex = true;
@@ -141,6 +168,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	}
 	bJumpAssisted = false;
 	CurrentMultiJumpCount = 0;
+	CurrentWallDodgeCount = 0;
 	if (IsFalling())
 	{
 		SetPostLandedPhysics(Hit);

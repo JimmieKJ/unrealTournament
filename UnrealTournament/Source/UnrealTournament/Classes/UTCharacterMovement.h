@@ -23,13 +23,33 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Trace Distance"))
 	float WallDodgeTraceDist;
 
-	/** Vertical impulse for a wall dodge. */
+	/** Vertical impulse for first wall dodge. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Impulse Vertical"))
 	float WallDodgeImpulseVertical;
 
-	/** Max Falling speed without additive Wall Dodge Vertical Impulse.  If falling faster, vertical dodge impulse is added to current falling velocity. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Non Additive Dodge Fall Speed"))
-	float MaxNonAdditiveDodgeFallSpeed;
+	/** Vertical impulse for subsequent consecutive wall dodges. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Second Impulse Vertical"))
+		float WallDodgeSecondImpulseVertical;
+
+	/** Minimum Normal of Wall Dodge from wall (1.0 is 90 degrees, 0.0 is along wall, 0.7 is 45 degrees). */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Min Normal"))
+		float WallDodgeMinNormal;
+
+	/** Max number of consecutive wall dodges without landing. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Wall Dodges"))
+		int32 MaxWallDodges;
+
+	/** Current count of wall dodges. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly, meta = (DisplayName = "Current Wall Dodge Count"))
+		int32 CurrentWallDodgeCount;
+
+	/** Time after starting wall dodge before another can be attempted. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Reset Interval"))
+		float WallDodgeResetInterval;
+
+	/** If falling faster than this speed, then don't add wall dodge impulse. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Min Additive Dodge Fall Speed"))
+	float MinAdditiveDodgeFallSpeed;
 
 	/** Max positive Z speed with additive Wall Dodge Vertical Impulse.  Wall Dodge will not add impulse making vertical speed higher than this amount. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Additive Dodge Jump Speed"))
@@ -43,9 +63,9 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Reset Interval"))
 		float DodgeResetInterval;
 
-	/** Time after starting wall dodge before another can be attempted. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Reset Interval"))
-		float WallDodgeResetInterval;
+	/** Maximum XY velocity of dodge (dodge impulse + current movement combined). */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Max Horizontal Velocity"))
+		float DodgeMaxHorizontalVelocity;
 
 	/** World time when another dodge can be attempted. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Reset Time"))
@@ -53,7 +73,7 @@ public:
 
 	/** If falling, verify can wall dodge.  The cause character to dodge. */
 	UFUNCTION()
-	bool PerformDodge(const FVector &DodgeDir, const FVector &DodgeCross);
+	bool PerformDodge(FVector &DodgeDir, FVector &DodgeCross);
 
 	/** True during a dodge. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Is Dodging"))
@@ -76,11 +96,11 @@ public:
 
 	/** Max number of multijumps. 2= double jump. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Multijump Count"))
-	float MaxMultiJumpCount;
+	int32 MaxMultiJumpCount;
 
 	/** Current count of multijumps. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Current Multijump Count"))
-	float CurrentMultiJumpCount;
+	int32 CurrentMultiJumpCount;
 
 	/** Whether to allow multijumps during a dodge. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Allow Dodge Multijumps"))

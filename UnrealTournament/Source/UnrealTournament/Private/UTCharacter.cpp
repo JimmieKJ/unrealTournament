@@ -714,7 +714,7 @@ bool AUTCharacter::CanDodge() const
 	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->CanDodge(); 
 }
 
-bool AUTCharacter::Dodge(const FVector &DodgeDir, const FVector &DodgeCross)
+bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 {
 	if (CanDodge())
 	{
