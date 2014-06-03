@@ -15,6 +15,10 @@ class AUTPickupHealth : public AUTPickup
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	bool bSuperHeal;
 
+	/** return the upper limit this pickup can increase the character's health to */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Pickup)
+	int32 GetHealMax(AUTCharacter* P);
+
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) OVERRIDE;
 	virtual void GiveTo_Implementation(APawn* Target) OVERRIDE;
 };

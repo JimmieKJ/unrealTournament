@@ -8,6 +8,7 @@ AUTPickupAmmo::AUTPickupAmmo(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
 	Ammo.Amount = 10;
+	bDisplayRespawnTimer = false;
 }
 
 void AUTPickupAmmo::ProcessTouch_Implementation(APawn* TouchedBy)

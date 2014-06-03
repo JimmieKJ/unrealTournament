@@ -76,6 +76,7 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 	if (Role == ROLE_Authority && TouchedBy->Controller != NULL)
 	{
 		GiveTo(TouchedBy);
+		PlayTakenEffects(true);
 		StartSleeping();
 	}
 }
@@ -120,13 +121,24 @@ void AUTPickup::StartSleeping_Implementation()
 		bActive = false;
 	}
 }
-void AUTPickup::PlayTakenEffects()
+void AUTPickup::PlayTakenEffects(bool bReplicate)
 {
+	if (bReplicate)
+	{
+		bRepTakenEffects = true;
+	}
 	// TODO: EffectIsRelevant() ?
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent);
 		UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None);
+	}
+}
+void AUTPickup::ReplicatedTakenEffects()
+{
+	if (bRepTakenEffects)
+	{
+		PlayTakenEffects(false);
 	}
 }
 void AUTPickup::WakeUp_Implementation()
@@ -148,6 +160,7 @@ void AUTPickup::WakeUp_Implementation()
 	if (Role == ROLE_Authority)
 	{
 		bActive = true;
+		bRepTakenEffects = false;
 	}
 }
 void AUTPickup::PlayRespawnEffects()

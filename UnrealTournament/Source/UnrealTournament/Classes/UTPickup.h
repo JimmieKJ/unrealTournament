@@ -29,6 +29,9 @@ class AUTPickup : public AActor
 	uint32 bActive : 1;
 	/** whether to display TimerSprite/TimerText on the pickup while it is respawning */
 	uint32 bDisplayRespawnTimer : 1;
+	/** plays taken effects when received on client as true */
+	UPROPERTY(ReplicatedUsing=ReplicatedTakenEffects)
+	uint32 bRepTakenEffects : 1;
 	/** one-shot particle effect played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* TakenParticles;
@@ -50,6 +53,8 @@ class AUTPickup : public AActor
 
 	UFUNCTION()
 	virtual void OnRep_bActive();
+	UFUNCTION()
+	void ReplicatedTakenEffects();
 
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
@@ -65,7 +70,7 @@ class AUTPickup : public AActor
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Pickup)
 	void WakeUp();
 	UFUNCTION(BlueprintCallable, Category = Pickup)
-	virtual void PlayTakenEffects();
+	virtual void PlayTakenEffects(bool bReplicate);
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void PlayRespawnEffects();
 	/** sets the hidden state of the pickup - note that this doesn't necessarily mean the whole object (e.g. item mesh but not holder) */

@@ -10,11 +10,27 @@ AUTPickupHealth::AUTPickupHealth(const FPostConstructInitializeProperties& PCIP)
 	HealAmount = 25;
 }
 
+int32 AUTPickupHealth::GetHealMax_Implementation(AUTCharacter* P)
+{
+	if (P == NULL)
+	{
+		return 0;
+	}
+	else
+	{
+		return bSuperHeal ? P->SuperHealthMax : P->HealthMax;
+	}
+}
+
 void AUTPickupHealth::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Role == ROLE_Authority && Cast<AUTCharacter>(TouchedBy) != NULL)
+	if (Role == ROLE_Authority)
 	{
-		Super::ProcessTouch_Implementation(TouchedBy);
+		AUTCharacter* P = Cast<AUTCharacter>(TouchedBy);
+		if (P != NULL && (bSuperHeal || P->Health < GetHealMax(P)))
+		{
+			Super::ProcessTouch_Implementation(TouchedBy);
+		}
 	}
 }
 
@@ -23,6 +39,6 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 	AUTCharacter* P = Cast<AUTCharacter>(Target);
 	if (P != NULL)
 	{
-		P->Health = FMath::Min<int32>(P->Health + HealAmount, bSuperHeal ? P->SuperHealthMax : P->HealthMax);
+		P->Health = FMath::Max<int32>(P->Health, FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)));
 	}
 }

@@ -52,10 +52,7 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 			{
 				GiveTo(TouchedBy);
 			}
-			if (GetNetMode() != NM_DedicatedServer)
-			{
-				UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent);
-			}
+			PlayTakenEffects(false);
 			if (TouchedBy->IsLocallyControlled())
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(TouchedBy->Controller);
