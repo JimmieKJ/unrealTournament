@@ -54,12 +54,12 @@ public:
 		}
 	}
 
-	virtual uint32 UTJumpPadRenderingProxy::GetMemoryFootprint(void) const
+	virtual uint32 GetMemoryFootprint(void) const
 	{
 		return(sizeof(*this));
 	}
 
-	FPrimitiveViewRelevance UTJumpPadRenderingProxy::GetViewRelevance(const FSceneView* View)
+	FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && (View && View->Family && View->Family->EngineShowFlags.Navigation);
