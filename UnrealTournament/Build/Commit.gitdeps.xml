@@ -6,7 +6,6 @@
     <File Name="UnrealTournament/Content/Blueprints/Generic_Lift.uasset" Hash="25e3f825c7ab7f80b31cad7e3ff44a87afa426e4" />
     <File Name="UnrealTournament/Content/Blueprints/WIP/Nick/Nick_Game.uasset" Hash="7c5b24885d05515a6604fcab8dd33a9ad397f9af" />
     <File Name="UnrealTournament/Content/Collections/Health Pickups.collection" Hash="91694588247847250c8a831c3c9d3d73ea0257d3" />
-    <File Name="UnrealTournament/Content/Collections/Pickups.collection" Hash="91694588247847250c8a831c3c9d3d73ea0257d3" />
     <File Name="UnrealTournament/Content/Maps/Example_Map.umap" Hash="3b3f1adcf73f43e35c0e0bdac16035b981c32749" />
     <File Name="UnrealTournament/Content/Maps/WIP/DM-CurseTest.umap" Hash="e82df81353c52ddcbd61775fa77acd66dd479f60" />
     <File Name="UnrealTournament/Content/Maps/WIP/DM-DeckTest.umap" Hash="4508a7bbce160941614e6700dc0f90303fed1500" />
@@ -3121,7 +3120,7 @@
     <Pack Hash="b8fb2f0442bf0c3654753eb93a68e73eac18a807" Size="2097158" CompressedSize="1137985" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
     <Pack Hash="b91447a7ef323322541348c72536279ccff35ef6" Size="2090400" CompressedSize="1567581" RemotePath="0-948df54d0d3a7355aa4ba61ec0697db26fd293fe" />
     <Pack Hash="b96a71b12b31d7692d75be5acfd4ffe96638b3a5" Size="6333170" CompressedSize="6333538" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
-    <Pack Hash="b98a27a82a8953b5d4357fb515e3d79b9064b778" Size="229" CompressedSize="125" RemotePath="0-5f1eb68bd419240c7d9767c7270d5b7db38ed4f7" />
+    <Pack Hash="b98a27a82a8953b5d4357fb515e3d79b9064b778" Size="229" CompressedSize="125" RemotePath="0-ad0a94b4a6fbfcaf35c72a62bde1ca9bfd172452" />
     <Pack Hash="bbab097e84cde9751df584497a88cc960501f5e7" Size="5723554" CompressedSize="5723891" RemotePath="0-948df54d0d3a7355aa4ba61ec0697db26fd293fe" />
     <Pack Hash="bef71b79884a6f45ff5319c22dd3c8c0d1d07c81" Size="2094694" CompressedSize="2082416" RemotePath="0-12d1a1cf14c51702833792ddfb07eb766d559045" />
     <Pack Hash="c347913e1f1744bdf365f664d2c1826441b1b387" Size="4207285" CompressedSize="4207316" RemotePath="0-55100ed9ed8f5030b804413c654743d53917e31c" />
