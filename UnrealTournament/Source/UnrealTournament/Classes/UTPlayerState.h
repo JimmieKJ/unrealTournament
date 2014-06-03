@@ -21,7 +21,7 @@ class AUTPlayerState : public APlayerState
 	float LastKillTime;
 
 	/** Kills by this player.  Not replicated but calculated client-side */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	int32 Kills;
 
 	/** Can't respawn once out of lives */

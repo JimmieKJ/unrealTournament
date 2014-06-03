@@ -56,6 +56,9 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("StartAltFire", IE_Pressed, this, &AUTPlayerController::OnAltFire);
 	InputComponent->BindAction("StopAltFire", IE_Released, this, &AUTPlayerController::OnStopAltFire);
 	InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AUTPlayerController::TouchStarted);
+
+	InputComponent->BindAction("ShowScores", IE_Pressed, this, &AUTPlayerController::OnShowScores);
+	InputComponent->BindAction("ShowScores", IE_Released, this, &AUTPlayerController::OnHideScores);
 }
 
 /* Cache a copy of the PlayerState cast'd to AUTPlayerState for easy reference.  Do it both here and when the replicated copy of APlayerState arrives in OnRep_PlayerState */
@@ -423,3 +426,44 @@ void AUTPlayerController::SetName(const FString& S)
 		}
 	}
 }
+
+void AUTPlayerController::ToggleScoreboard(bool bShow)
+{
+	if (MyHUD != NULL && Cast<AUTHUD>(MyHUD) != NULL)
+	{
+		Cast<AUTHUD>(MyHUD)->ToggleScoreboard(bShow);
+	}
+}
+
+void AUTPlayerController::ClientToggleScoreboard_Implementation(bool bShow)
+{
+	ToggleScoreboard(bShow);
+}
+
+void AUTPlayerController::ClientSetHUDAndScoreboard_Implementation(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass)
+{
+	// First, create the HUD
+
+	ClientSetHUD_Implementation(NewHUDClass);
+
+	UE_LOG(UT,Log,TEXT("ClientSetHUDAndScoreboard: %s %s"),*GetNameSafe(NewScoreboardClass), *GetNameSafe(MyHUD));
+
+	MyUTHUD = Cast<AUTHUD>(MyHUD);
+	if (MyUTHUD != NULL && NewScoreboardClass != NULL)
+	{
+		MyUTHUD->CreateScoreboard(NewScoreboardClass);
+	}
+	
+}
+
+void AUTPlayerController::OnShowScores()
+{
+	ToggleScoreboard(true);
+}
+
+void AUTPlayerController::OnHideScores()
+{
+	ToggleScoreboard(false);
+}
+
+

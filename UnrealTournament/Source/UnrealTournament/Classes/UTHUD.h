@@ -3,7 +3,8 @@
 
 #include "UTHUD.generated.h"
 
-UCLASS()
+
+UCLASS(Config=Game)
 class AUTHUD : public AHUD
 {
 	GENERATED_UCLASS_BODY()
@@ -39,7 +40,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FVector2D CrossHairCenterPoint;
 
-
 	// Add any of the blueprint based hud widgets
 	virtual void BeginPlay();
 
@@ -54,10 +54,23 @@ public:
 
 	/** Receive a localized message from somewhere to be displayed */
 	virtual void ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject = NULL);
+	
+	UFUNCTION(BlueprintCallable, Category="HUD")
+	virtual void ToggleScoreboard(bool bShow);
+
+	UPROPERTY(BlueprintReadOnly, Category="HUD")
+	uint32 bShowScores:1;
+
+	/** Creates the scoreboard */
+	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
+	
+	UTexture2D* OldHudTexture;
+
+
 
 protected:
 
-	UTexture2D* OldHudTexture;
+	class UUTScoreboard* MyUTScoreboard;
 
 public:
 
@@ -65,7 +78,7 @@ public:
 	FText TempConvertTime(int Seconds);
 
 	// TEMP: Until the new Hud system comes online, quickly draw a string to the screen.  This will be replaced soon.
-	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type TextPosition, UFont* Font, FLinearColor Color);
+	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0);
 
 	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
 

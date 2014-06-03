@@ -532,3 +532,42 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	}
 	return FMath::Max(Score, 0.2f);
 }
+
+/**
+ *	We are going to duplicate GameMode's StartNewPlayer because we any to replicate the scoreboard class along with the hud class.  
+ *  We are doing this here like this because we are trying to not change engine.  Ultimately the code to create the hud should be
+ *  moved to it's own easy to override function instead of being hard-coded in StartNewPlayer
+ **/
+void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
+{
+	AUTPlayerController* UTNewPlayer = Cast<AUTPlayerController>(NewPlayer);
+	if (UTNewPlayer != NULL)
+	{
+		// tell client what hud class to use
+
+		TSubclassOf<UUTScoreboard> ScoreboardClass = LoadClass<UUTScoreboard>(NULL, *ScoreboardClassName.ClassName, NULL, LOAD_None, NULL);
+		UTNewPlayer->ClientSetHUDAndScoreboard(HUDClass, ScoreboardClass);
+
+		if (!bDelayedStart)
+		{
+			// start match, or let player enter, immediately
+			if ( bWaitingToStartMatch )
+			{
+				StartMatch();
+			}
+			else
+			{
+				RestartPlayer(NewPlayer);
+			}
+
+			if (NewPlayer->GetPawn() != NULL)
+			{
+				NewPlayer->GetPawn()->ClientSetRotation(NewPlayer->GetPawn()->GetActorRotation());
+			}
+		}
+	}
+	else
+	{
+		Super::StartNewPlayer(NewPlayer);
+	}
+}

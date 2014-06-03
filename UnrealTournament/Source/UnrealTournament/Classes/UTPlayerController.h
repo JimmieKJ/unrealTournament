@@ -52,6 +52,16 @@ public:
 
 	virtual void SetName(const FString& S);
 
+	UFUNCTION(exec)
+	virtual void ToggleScoreboard(bool bShow);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientToggleScoreboard(bool bShow);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
+
+
 protected:
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
@@ -83,6 +93,9 @@ protected:
 
 	UPROPERTY(config, BlueprintReadOnly, Category = Weapon)
 	bool bAutoWeaponSwitch;
+
+	UPROPERTY()
+	class AUTHUD* MyUTHUD;
 
 	/** weapon selection */
 	void PrevWeapon();
@@ -123,6 +136,10 @@ protected:
 	void OnTapRight();
 	void OnTapForward();
 	void OnTapBack();
+
+	virtual void OnShowScores();
+	virtual void OnHideScores();
+
 };
 
 

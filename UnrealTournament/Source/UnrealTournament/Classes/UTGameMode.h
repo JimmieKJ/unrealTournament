@@ -76,6 +76,10 @@ public:
 	UPROPERTY()
 	TSubclassOf<class UUTLocalMessage>  VictoryMessageClass;
 
+	/** Name of the Scoreboard */
+	UPROPERTY(Config)
+	FStringClassReference ScoreboardClassName;
+
 	UPROPERTY(EditAnywhere, Category = "Inventory")
 	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
 
@@ -107,11 +111,13 @@ public:
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
+	virtual void StartNewPlayer(APlayerController* NewPlayer);
 	virtual bool ShouldSpawnAtStartSpot(AController* Player);
 	virtual class AActor* FindPlayerStart( AController* Player, const FString& IncomingName = TEXT("") );
 	virtual AActor* ChoosePlayerStart( AController* Player );
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player);
 };
+
 
 
 

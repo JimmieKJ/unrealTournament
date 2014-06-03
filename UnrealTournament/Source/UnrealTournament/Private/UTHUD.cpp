@@ -8,6 +8,7 @@
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 #include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
+#include "UTScoreboard.h"
 
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
@@ -27,6 +28,8 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	LargeFont = LFont.Object;
 
 	CrossHairCenterPoint = FVector2D(0.5f,0.5f);
+
+
 
 }
 
@@ -61,6 +64,11 @@ void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 
 }
 
+void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
+{
+	MyUTScoreboard = ConstructObject<UUTScoreboard>(NewScoreboardClass, GetTransientPackage());
+}
+
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
 	UUTHUDWidgetMessage* DestinationWidget = (HudMessageWidgets.FindRef(MessageClass->GetDefaultObject<UUTLocalMessage>()->MessageArea));
@@ -72,6 +80,11 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 	{
 		UE_LOG(UT,Log,TEXT("No Message Widget to Display Text"));
 	}
+}
+
+void AUTHUD::ToggleScoreboard(bool bShow)
+{
+	bShowScores = bShow;
 }
 
 void AUTHUD::PostRender()
@@ -117,47 +130,69 @@ void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	// find center of the Canvas
-	const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
-
-	for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
+	if (bShowScores)
 	{
-		// If we aren't hidden then set the canvas and render..
-		if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
+		if (MyUTScoreboard != NULL)
 		{
-			HudWidgets[WidgetIndex]->PreDraw(this, Canvas, Center);
-			if (!HudWidgets[WidgetIndex]->eventDraw(RenderDelta))
+
+			MyUTScoreboard->Canvas = Canvas;
+			MyUTScoreboard->UTHUDOwner = this;
+			MyUTScoreboard->UTGameState = GetWorld()->GetGameState<AUTGameState>();
+
+			if (Canvas && MyUTScoreboard->UTGameState)
 			{
-				HudWidgets[WidgetIndex]->Draw(RenderDelta);
-				HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
+				MyUTScoreboard->DrawScoreboard(RenderDelta);
 			}
+
+			MyUTScoreboard->Canvas = NULL;
+			MyUTScoreboard->UTHUDOwner = NULL;
+			MyUTScoreboard->UTGameState = NULL;
 		}
 	}
-
-
-	const FVector2D CrossHairCenter(Canvas->ClipX * CrossHairCenterPoint.X, Canvas->ClipY * CrossHairCenterPoint.Y);
-
-	// Draw very simple crosshair
-
-	// offset by half the texture's dimensions so that the center of the texture aligns with the center of the Canvas
-	const FVector2D CrosshairDrawPosition( (CrossHairCenter.X - (CrosshairTex->GetSurfaceWidth() * 0.5f)),
-										   (CrossHairCenter.Y - (CrosshairTex->GetSurfaceHeight() * 0.5f)) );
-
-	// draw the crosshair
-	FCanvasTileItem TileItem( CrosshairDrawPosition, CrosshairTex->Resource, FLinearColor::White);
-	TileItem.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem( TileItem );
-
-	/**
-	 * This is all TEMP code.  It will be replaced with a new hud system shortly but I 
-	 * needed a way to display some data.  
-	 **/
-
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
+	else
 	{
-		TempDrawString(FText::FromString(TEXT("!! Alpha Prototype !!")), Center.X, 5.0f, ETextHorzPos::Center, GEngine->GetSmallFont(), FLinearColor::White);
-		TempDrawString( TempConvertTime(GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, GEngine->GetMediumFont(), FLinearColor::White);
+		// find center of the Canvas
+		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+
+		for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
+		{
+			// If we aren't hidden then set the canvas and render..
+			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
+			{
+				HudWidgets[WidgetIndex]->PreDraw(this, Canvas, Center);
+				if (!HudWidgets[WidgetIndex]->eventDraw(RenderDelta))
+				{
+					HudWidgets[WidgetIndex]->Draw(RenderDelta);
+					HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
+				}
+			}
+		}
+
+
+		const FVector2D CrossHairCenter(Canvas->ClipX * CrossHairCenterPoint.X, Canvas->ClipY * CrossHairCenterPoint.Y);
+
+		// Draw very simple crosshair
+
+		// offset by half the texture's dimensions so that the center of the texture aligns with the center of the Canvas
+		const FVector2D CrosshairDrawPosition( (CrossHairCenter.X - (CrosshairTex->GetSurfaceWidth() * 0.5f)),
+											   (CrossHairCenter.Y - (CrosshairTex->GetSurfaceHeight() * 0.5f)) );
+
+		// draw the crosshair
+		FCanvasTileItem TileItem( CrosshairDrawPosition, CrosshairTex->Resource, FLinearColor::White);
+		TileItem.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem( TileItem );
+
+		/**
+		 * This is all TEMP code.  It will be replaced with a new hud system shortly but I 
+		 * needed a way to display some data.  
+		 **/
+
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState)
+		{
+			TempDrawString(FText::FromString(TEXT("!! Alpha Prototype !!")), Center.X, 5.0f, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetSmallFont(), FLinearColor::White);
+			TempDrawString( TempConvertTime(GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetMediumFont(), FLinearColor::White);
+		}
 	}
 }
 
@@ -182,18 +217,26 @@ FText AUTHUD::TempConvertTime(int Seconds)
 }
 
 
-void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type TextPosition, UFont* Font, FLinearColor Color)
+void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale)
 {
 
 	FVector2D RenderPos = FVector2D(X,Y);
-	if (TextPosition != ETextHorzPos::Left)
+
+	int32 XL, YL;
+	Font->GetStringHeightAndWidth(Text.ToString(), YL, XL);
+
+	if (HorzAlignment != ETextHorzPos::Left)
 	{
-		int32 XL, YL;
-		Font->GetStringHeightAndWidth(Text.ToString(), YL, XL);
-		RenderPos.X -= TextPosition == ETextHorzPos::Right ? XL : XL * 0.5f;
+		RenderPos.X -= HorzAlignment == ETextHorzPos::Right ? XL : XL * 0.5f;
+	}
+
+	if (VertAlignment != ETextVertPos::Top)
+	{
+		RenderPos.Y -= VertAlignment == ETextVertPos::Bottom ? YL : YL * 0.5f;
 	}
 
 	FCanvasTextItem TextItem(RenderPos, Text, Font, Color);
+	TextItem.Scale = FVector2D(Scale,Scale);
 	Canvas->DrawItem(TextItem);
 }
 
@@ -236,6 +279,12 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 	
 		if (Index >= 0 && Index <=9)
 		{
+
+			if (bRightAlign)
+			{
+				X -= FontSizes[Index] * Scale;
+			}
+
 			float U = FontPositions[Index];
 			float Width = FontSizes[Index];
 			float UL = Width;
@@ -246,8 +295,14 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 			Canvas->DrawColor = Color;
 			Canvas->DrawTile(OldHudTexture, X, Y, 0.0, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
 
-			X += (FontSizes[Index] * Scale * (bRightAlign? -1.0 : 1.0f));
+			if (!bRightAlign)
+			{
+				X += FontSizes[Index] * Scale;
+			}
+
 		}
 
 	}
 }
+
+
