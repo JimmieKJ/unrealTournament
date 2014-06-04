@@ -3,6 +3,31 @@
 
 #include "UTHUD.generated.h"
 
+const uint32 MAX_DAMAGE_INDICATORS = 3;		// # of damage indicators on the screen at any one time
+const float DAMAGE_FADE_DURATION = 1.0f;	// How fast a damage indicator fades out
+
+USTRUCT()
+struct FDamageHudIndicator
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	float RotationAngle;
+
+	UPROPERTY()
+	float DamageAmount;
+
+	UPROPERTY()
+	float FadeTime;
+
+	FDamageHudIndicator()
+		: RotationAngle(0.0f)
+		, DamageAmount(0.0f)
+		, FadeTime(0.0f)
+	{
+	}
+};
+
 
 UCLASS(Config=Game)
 class AUTHUD : public AHUD
@@ -12,9 +37,6 @@ class AUTHUD : public AHUD
 public:
 	// Holds the UTPlayerController that owns this hud.  NOTE: This is only valid during the render phase
 	class AUTPlayerController* UTPlayerOwner;
-
-	// Holds the character.  NOTE: This is only valid during the render phase
-	class AUTCharacter* UTCharacterOwner;
 
 	// Holds the list of all hud widgets that are currently active
 	UPROPERTY(Transient)
@@ -40,8 +62,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FVector2D CrossHairCenterPoint;
 
+	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
+	UPROPERTY()
+	TArray<struct FDamageHudIndicator> DamageIndicators;
+
 	// Add any of the blueprint based hud widgets
 	virtual void BeginPlay();
+
+	virtual void PostInitializeComponents();
 
 	// Creates and adds a hud widget
 	virtual void AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
@@ -66,6 +94,8 @@ public:
 	
 	UTexture2D* OldHudTexture;
 
+	virtual void PawnDamaged(FVector HitLocation, float DamageAmount, TSubclassOf<UDamageType> DamageClass);
+	virtual void DrawDamageIndicators();
 
 
 protected:
@@ -80,12 +110,11 @@ public:
 
 	// TEMP: Until the new Hud system comes online, quickly draw a string to the screen.  This will be replaced soon.
 	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0);
-
 	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
 
 private:
 	/** Crosshair asset pointer */
 	UTexture2D* CrosshairTex;
-
+	UTexture2D* DamageIndicatorTexture;
 };
 

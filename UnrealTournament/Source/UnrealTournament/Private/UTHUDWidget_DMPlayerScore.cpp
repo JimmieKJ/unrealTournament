@@ -18,7 +18,7 @@ UUTHUDWidget_DMPlayerScore::UUTHUDWidget_DMPlayerScore(const class FPostConstruc
 
 void UUTHUDWidget_DMPlayerScore::Draw(float DeltaTime)
 {
-	if (UTHUDOwner->UTCharacterOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
+	if ( UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
 	{
 		float Score = int32(UTHUDOwner->UTPlayerOwner->UTPlayerState->Score);
 		float Deaths = UTHUDOwner->UTPlayerOwner->UTPlayerState->Deaths;

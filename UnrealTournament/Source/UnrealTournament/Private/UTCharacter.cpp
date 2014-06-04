@@ -137,6 +137,11 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodEffect, LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+		if (PC != NULL && PC->MyUTHUD != NULL)
+		{
+			PC->MyUTHUD->PawnDamaged(GetActorLocation() + LastTakeHitInfo.RelHitLocation, LastTakeHitInfo.Damage, LastTakeHitInfo.DamageType);
+		}
 	}
 }
 

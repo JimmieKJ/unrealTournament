@@ -26,9 +26,7 @@ void UUTHUDWidget_DMPlayerLeaderboard::CalcStanding(int32& Standing, int32& Spre
 
 		// Assume position 1.
 		Standing = 1;
-		Spread = MyPS->Score - GameState->PlayerArray[0]->Score;
-
-
+		int MyIndex = 0;
 		for (int i=0;i<GameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
@@ -40,9 +38,20 @@ void UUTHUDWidget_DMPlayerLeaderboard::CalcStanding(int32& Standing, int32& Spre
 				}
 				else
 				{
+					MyIndex = i;
 					break;	// Found my position
 				}
 			}
+		}
+
+		if (Standing > 1)
+		{
+			Spread = MyPS->Score - GameState->PlayerArray[0]->Score;
+		}
+		else if (MyIndex < GameState->PlayerArray.Num()-1)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(GameState->PlayerArray[MyIndex+1]);					
+			Spread = MyPS->Score - PS->Score;
 		}
 	}
 }

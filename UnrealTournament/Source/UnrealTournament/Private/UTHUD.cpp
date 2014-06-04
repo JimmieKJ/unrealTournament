@@ -10,6 +10,8 @@
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
 #include "UTScoreboard.h"
 
+
+
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	WidgetOpacity = 1.0f;
@@ -29,7 +31,8 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 
 	CrossHairCenterPoint = FVector2D(0.5f,0.5f);
 
-
+	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
+	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
 }
 
@@ -47,7 +50,22 @@ void AUTHUD::BeginPlay()
 	AddHudWidget(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
 	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());
 	AddHudWidget(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
+
+	DamageIndicators.Init(MAX_DAMAGE_INDICATORS);
+	for (int i=0;i<MAX_DAMAGE_INDICATORS;i++)
+	{
+		DamageIndicators[i].RotationAngle = 0.0f;
+		DamageIndicators[i].DamageAmount = 0.0f;
+		DamageIndicators[i].FadeTime = 0.0f;
+	}
 }
+
+void AUTHUD::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
+}
+
 
 void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 {
@@ -58,7 +76,6 @@ void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	UUTHUDWidgetMessage* MessageWidget = Cast<UUTHUDWidgetMessage>(Widget);
 	if (MessageWidget != NULL)
 	{
-		UE_LOG(UT,Log,TEXT(" -- Tracking as Message for Area %i"),*MessageWidget->ManagedMessageArea.ToString());
 		HudMessageWidgets.Add(MessageWidget->ManagedMessageArea, MessageWidget);
 	}
 
@@ -110,20 +127,7 @@ void AUTHUD::PostRender()
 		}
 	}
 */
-	if (PlayerOwner != NULL)
-	{
-		UTPlayerOwner = Cast<AUTPlayerController>(PlayerOwner);
-		if (UTPlayerOwner != NULL)
-		{
-			UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
-		}
-	}
-
 	Super::PostRender();
-
-	UTPlayerOwner = NULL;
-	UTCharacterOwner = NULL;
-
 }
 
 void AUTHUD::DrawHUD()
@@ -181,6 +185,8 @@ void AUTHUD::DrawHUD()
 		FCanvasTileItem TileItem( CrosshairDrawPosition, CrosshairTex->Resource, FLinearColor::White);
 		TileItem.BlendMode = SE_BLEND_Translucent;
 		Canvas->DrawItem( TileItem );
+
+		DrawDamageIndicators();
 
 		/**
 		 * This is all TEMP code.  It will be replaced with a new hud system shortly but I 
@@ -305,4 +311,66 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 	}
 }
 
+void AUTHUD::PawnDamaged(FVector HitLocation, float DamageAmount, TSubclassOf<UDamageType> DamageClass)
+{
+	// Calculate the rotation 	
+	AUTCharacter* UTC = UTPlayerOwner->GetUTCharacter();
+	if (UTC != NULL && ! UTC->IsDead())	// If have a pawn and it's alive...
+	{
+		FVector CharacterLocation;
+		FRotator CharacterRotation;
+
+		UTC->GetActorEyesViewPoint(CharacterLocation, CharacterRotation);
+		FVector HitSafeNormal = (HitLocation - CharacterLocation).SafeNormal2D();
+		float Ang = FMath::Acos(FVector::DotProduct(CharacterRotation.Vector().SafeNormal2D(), HitSafeNormal)) * (180.0f / PI);
+
+		// Figure out Left/Right....
+		float FinalAng = ( FVector::DotProduct( FVector::CrossProduct(CharacterRotation.Vector(), FVector(0,0,1)), HitSafeNormal)) > 0 ? 360 - Ang : Ang;
+
+		int BestIndex = 0;
+		float BestTime = DamageIndicators[0].FadeTime;
+		for (int i=0; i < MAX_DAMAGE_INDICATORS; i++)
+		{
+			if (DamageIndicators[i].FadeTime <= 0.0f)					
+			{
+				BestIndex = i;
+				break;
+			}
+			else
+			{
+				if (DamageIndicators[i].FadeTime < BestTime)
+				{
+					BestIndex = i;
+					BestTime = DamageIndicators[i].FadeTime;
+				}
+			}
+		}
+
+		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
+		DamageIndicators[BestIndex].RotationAngle = FinalAng;
+	}
+}
+
+void AUTHUD::DrawDamageIndicators()
+{
+	FLinearColor DrawColor = FLinearColor::White;
+	for (int i=0; i < MAX_DAMAGE_INDICATORS; i++)
+	{
+		if (DamageIndicators[i].FadeTime > 0.0f)
+		{
+			DrawColor.A = 1.0 * (DamageIndicators[i].FadeTime / DAMAGE_FADE_DURATION);
+
+			float Size = 384 * (Canvas->ClipY / 720.0f);
+			float Half = Size * 0.5;
+
+			FCanvasTileItem ImageItem(FVector2D((Canvas->ClipX * 0.5) - Half, (Canvas->ClipY * 0.5) - Half), DamageIndicatorTexture->Resource, FVector2D(Size, Size), FVector2D(0,0), FVector2D(1,1), DrawColor);
+			ImageItem.Rotation = FRotator(0,DamageIndicators[i].RotationAngle,0);
+			ImageItem.PivotPoint = FVector2D(0.5,0.5);
+			ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+			Canvas->DrawItem( ImageItem );
+
+			DamageIndicators[i].FadeTime -= RenderDelta;
+		}
+	}
+}
 

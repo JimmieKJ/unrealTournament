@@ -50,7 +50,6 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, f
 	{
 		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
 	}
-
 	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, FLinearColor::Black, 1.0f, Alpha, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
 }
 

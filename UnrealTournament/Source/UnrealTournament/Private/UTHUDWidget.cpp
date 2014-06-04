@@ -116,6 +116,9 @@ void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDra
 			}
 		}
 
+		DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
+		Canvas->DrawColor = DrawColor;
+
 		FCanvasTextItem TextItem(RenderPos, Text, Font, DrawColor);
 
 		if (bDrawOutline)
@@ -135,8 +138,6 @@ void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDra
 		{
 			TextItem.Scale = FVector2D(RenderScale * TextScale, RenderScale * TextScale);
 		}
-		Canvas->DrawColor = DrawColor;
-		Canvas->DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
 		Canvas->DrawItem(TextItem);
 	}
 }

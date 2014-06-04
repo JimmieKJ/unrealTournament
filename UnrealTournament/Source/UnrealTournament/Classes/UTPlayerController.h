@@ -21,6 +21,9 @@ public:
 	UPROPERTY()
 	AUTPlayerState* UTPlayerState;
 
+	UPROPERTY()
+	class AUTHUD* MyUTHUD;
+
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
 	virtual void SetPawn(APawn* InPawn);
@@ -94,8 +97,6 @@ protected:
 	UPROPERTY(config, BlueprintReadOnly, Category = Weapon)
 	bool bAutoWeaponSwitch;
 
-	UPROPERTY()
-	class AUTHUD* MyUTHUD;
 
 	/** weapon selection */
 	void PrevWeapon();
@@ -139,7 +140,6 @@ protected:
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();
-
 };
 
 
