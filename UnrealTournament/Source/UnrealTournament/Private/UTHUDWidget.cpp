@@ -2,7 +2,6 @@
 
 #include "UnrealTournament.h"
 
-#include "EngineMaterialClasses.h"
 #include "BatchedElements.h"
 #include "RenderResource.h"
 

@@ -41,10 +41,10 @@ void UUTScoreboard::DrawHeader(float RenderDelta)
 	float Y = Canvas->ClipY * 0.19 - 35 * ResScale;;
 	float X = Canvas->ClipX * 0.15;
 	Canvas->SetDrawColor(23,72,155,200);
-	Canvas->DrawTile(Canvas->DefaultTexture, X, Y - (3 * ResScale), 0.0, Canvas->ClipX * 0.7,6 * ResScale,0,0,1,1);
+	Canvas->DrawTile(Canvas->DefaultTexture, X, Y - (3 * ResScale), Canvas->ClipX * 0.7,6 * ResScale,0,0,1,1);
 
 	Canvas->DrawColor = FLinearColor::White;
-	Canvas->DrawTile(UTHUDOwner->OldHudTexture, X + 10 * ResScale, Y - 35 * ResScale, 0, 82 * ResScale, 69 * ResScale, 734,190, 82,70);
+	Canvas->DrawTile(UTHUDOwner->OldHudTexture, X + 10 * ResScale, Y - 35 * ResScale, 82 * ResScale, 69 * ResScale, 734,190, 82,70);
 
 	// Draw the Time...
 
@@ -78,7 +78,7 @@ void UUTScoreboard::DrawFooter(float RenderDelta)
 	float Y = Canvas->ClipY * 0.81 * ResScale;;
 	float X = Canvas->ClipX * 0.15;
 	Canvas->SetDrawColor(23,72,155,200);
-	Canvas->DrawTile(Canvas->DefaultTexture, X, Y , 0.0, Canvas->ClipX * 0.7,6 * ResScale,0,0,1,1);
+	Canvas->DrawTile(Canvas->DefaultTexture, X, Y, Canvas->ClipX * 0.7,6 * ResScale,0,0,1,1);
 
 	Y += 10 * ResScale;
 

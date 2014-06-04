@@ -64,7 +64,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 	}
 	else
 	{
-		int32 ResultDamage = FMath::Trunc(Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser));
+		int32 ResultDamage = FMath::TruncToInt(Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser));
 		// TODO: gametype links, etc
 
 		Health -= ResultDamage;
@@ -742,7 +742,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 	return false;
 }
 
-bool AUTCharacter::CanJump() const
+bool AUTCharacter::CanJumpInternal_Implementation() const
 {
 	// @TODO FIXMESTEVE ask to get this mostly moved to CharacterMovement!
 	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && (CharacterMovement->IsMovingOnGround() || Cast<UUTCharacterMovement>(CharacterMovement)->CanMultiJump()) && CharacterMovement->CanEverJump() && !CharacterMovement->bWantsToCrouch;

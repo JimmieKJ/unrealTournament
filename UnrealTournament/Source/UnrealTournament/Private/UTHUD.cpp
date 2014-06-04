@@ -297,9 +297,9 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 			// Draw the background.
 			Canvas->DrawColor = Color;
 			Canvas->DrawColor.A *= GlowOpacity;
-			Canvas->DrawTile(OldHudTexture, X, Y, 0.0, Width * Scale, 47 * Scale, U, 49, UL, 47, EBlendMode::BLEND_Translucent);
+			Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 49, UL, 47, EBlendMode::BLEND_Translucent);
 			Canvas->DrawColor = Color;
-			Canvas->DrawTile(OldHudTexture, X, Y, 0.0, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
+			Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
 
 			if (!bRightAlign)
 			{

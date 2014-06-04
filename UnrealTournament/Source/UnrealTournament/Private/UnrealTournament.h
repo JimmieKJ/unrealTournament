@@ -4,7 +4,6 @@
 #define __UNREALTOURNAMENT_H__
 
 #include "Engine.h"
-#include "EngineKismetLibraryClasses.h"
 #include "ParticleDefinitions.h"
 #include "UTATypes.h"
 #include "UTGameplayStatics.h"

@@ -124,10 +124,11 @@ void AUTGameMode::Reset()
 
 void AUTGameMode::RestartGame()
 {
-	if ( bGameRestarted )
-	{
-		return;
-	}
+	// FIXME 4.2 merge: flag removed
+	//if ( bGameRestarted )
+	//{
+	//	return;
+	//}
 
 
 	if ( EndTime > GetWorld()->TimeSeconds ) // still showing end screen
@@ -224,7 +225,6 @@ bool AUTGameMode::CheckScore(AUTPlayerState* Scorer)
 
 void AUTGameMode::StartMatch()
 {
-	bMatchIsInProgress = true;
 	SetGameStage(EGameStage::GameInProgress);
 
 	for (FActorIterator It(GetWorld()); It; ++It)
@@ -244,7 +244,7 @@ void AUTGameMode::StartMatch()
 
 void AUTGameMode::EndMatch()
 {
-	bMatchIsInProgress = false;
+	Super::EndMatch();
 	UTGameState->bStopCountdown = true;
 	SetGameStage(EGameStage::GameOver);
 	GetWorldTimerManager().SetTimer(this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
@@ -282,7 +282,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, const FString& Reason )
 		SetEndGameFocus(Winner);
 
 		// Allow replication to happen before reporting scores, stats, etc.
-		GetWorldTimerManager().SetTimer(this, &AUTGameMode::PerformEndGameHandling, 1.5f);
+		GetWorldTimerManager().SetTimer(this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
 		bGameEnded = true;
 		EndMatch();
 	}
@@ -424,7 +424,7 @@ bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
 	}
 
 	return ( GetWorld()->GetNetMode() == NM_Standalone && Player != NULL && Player->StartSpot.IsValid() &&
-		(bWaitingToStartMatch || (Player->PlayerState != NULL && Cast<AUTPlayerState>(Player->PlayerState)->bWaitingPlayer)) 
+		(GetMatchState() == MatchState::WaitingToStart || (Player->PlayerState != NULL && Cast<AUTPlayerState>(Player->PlayerState)->bWaitingPlayer))
 		 && (RatePlayerStart(Cast<APlayerStart>(Player->StartSpot.Get()), Player) >= 0.f) );
 }
 
@@ -551,7 +551,7 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 		if (!bDelayedStart)
 		{
 			// start match, or let player enter, immediately
-			if ( bWaitingToStartMatch )
+			if (GetMatchState() == MatchState::WaitingToStart)
 			{
 				StartMatch();
 			}

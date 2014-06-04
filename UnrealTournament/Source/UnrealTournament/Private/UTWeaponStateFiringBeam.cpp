@@ -30,7 +30,7 @@ void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
 			Accumulator += float(DamageInfo.Damage) / GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) * DeltaTime;
 			if (Accumulator >= MinDamage)
 			{
-				int32 AppliedDamage = FMath::Trunc(Accumulator);
+				int32 AppliedDamage = FMath::TruncToInt(Accumulator);
 				FVector FireDir = (Hit.Location - Hit.TraceStart).SafeNormal();
 
 				// TODO: replicated momentum handling

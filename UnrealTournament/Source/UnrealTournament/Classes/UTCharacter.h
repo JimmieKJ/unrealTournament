@@ -238,7 +238,7 @@ class AUTCharacter : public ACharacter
 	UFUNCTION(BlueprintImplementableEvent)
 	bool DodgeOverride(const FVector &DodgeDir, const FVector &DodgeCross);
 
-	virtual bool CanJump() const OVERRIDE;
+	virtual bool CanJumpInternal_Implementation() const OVERRIDE;
 
 	virtual void CheckJumpInput(float DeltaTime) OVERRIDE;
 
