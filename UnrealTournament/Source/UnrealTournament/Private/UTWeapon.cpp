@@ -399,12 +399,17 @@ void AUTWeapon::FireShot()
 	}
 }
 
+bool AUTWeapon::IsFiring() const
+{
+	return CurrentState->IsFiring();
+}
+
 void AUTWeapon::AddAmmo(int32 Amount)
 {
 	Ammo = FMath::Clamp<int32>(Ammo + Amount, 0, MaxAmmo);
 	
 	// trigger weapon switch if necessary
-	if (UTOwner->IsLocallyControlled())
+	if (UTOwner != NULL && UTOwner->IsLocallyControlled())
 	{
 		OnRep_Ammo();
 	}
@@ -419,7 +424,14 @@ void AUTWeapon::OnRep_Ammo()
 			return;
 		}
 	}
-	// TODO: UTOwner->Controller->SwitchToBestWeapon();
+	if (UTOwner != NULL)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
+		if (PC != NULL)
+		{
+			PC->SwitchToBestWeapon();
+		}
+	}
 }
 
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
@@ -451,20 +463,20 @@ FVector AUTWeapon::GetFireStartLoc()
 	}
 	else if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
 	{
-		return UTOwner->GetPawnViewLocation() + GetFireRotation().RotateVector(FireOffset);
+		return UTOwner->GetPawnViewLocation() + GetBaseFireRotation().RotateVector(FireOffset);
 	}
 	else
 	{
 		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-		return UTOwner->GetActorLocation() + GetFireRotation().RotateVector(FireOffset);
+		return UTOwner->GetActorLocation() + GetBaseFireRotation().RotateVector(FireOffset);
 	}
 }
 
-FRotator AUTWeapon::GetFireRotation()
+FRotator AUTWeapon::GetBaseFireRotation()
 {
 	if (UTOwner == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("GetFireRotation(): No Owner (died while firing?)"));
+		UE_LOG(UT, Warning, TEXT("GetBaseFireRotation(): No Owner (died while firing?)"));
 		return FRotator::ZeroRotator;
 	}
 	else
@@ -473,12 +485,31 @@ FRotator AUTWeapon::GetFireRotation()
 	}
 }
 
+FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
+{
+	FRotator BaseAim = GetBaseFireRotation();
+	if (Spread.IsValidIndex(CurrentFireMode) && Spread[CurrentFireMode] > 0.0f)
+	{
+		// add in any spread
+		FRotationMatrix Mat(BaseAim);
+		FVector X, Y, Z;
+		Mat.GetScaledAxes(X, Y, Z);
+		float RandY = FMath::FRand() - 0.5f;
+		float RandZ = FMath::Sqrt(0.5f - FMath::Square(RandY)) * (FMath::FRand() - 0.5f);
+		return (X + RandY * Spread[CurrentFireMode] * Y + RandZ * Spread[CurrentFireMode] * Z).Rotation();
+	}
+	else
+	{
+		return BaseAim;
+	}
+}
+
 void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 {
 	checkSlow(InstantHitInfo.IsValidIndex(CurrentFireMode));
 
-	const FRotator SpawnRotation = GetFireRotation();
 	const FVector SpawnLocation = GetFireStartLoc();
+	const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 	const FVector FireDir = SpawnRotation.Vector();
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
@@ -514,8 +545,8 @@ AUTProjectile* AUTWeapon::FireProjectile()
 		checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
 
 		// try and fire a projectile
-		const FRotator SpawnRotation = GetFireRotation();
 		const FVector SpawnLocation = GetFireStartLoc();
+		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 
 		UTOwner->IncrementFlashCount(CurrentFireMode);
 

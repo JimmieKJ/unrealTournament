@@ -171,7 +171,7 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		{
 			CurWeapon = UTCharacter->GetWeapon();
 		}
-		if (CurWeapon == NULL || (bAutoWeaponSwitch && TestWeapon->Group > CurWeapon->Group))
+		if (CurWeapon == NULL || (bAutoWeaponSwitch && !CurWeapon->IsFiring() && TestWeapon->Group > CurWeapon->Group))
 		{
 			UTCharacter->SwitchWeapon(TestWeapon);
 		}

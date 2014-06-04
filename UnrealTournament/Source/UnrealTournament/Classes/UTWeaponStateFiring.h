@@ -20,7 +20,7 @@ class UUTWeaponStateFiring : public UUTWeaponState
 		return GetOuterAUTWeapon()->GetCurrentFireMode();
 	}
 
-	virtual bool IsFiring() OVERRIDE
+	virtual bool IsFiring() const OVERRIDE
 	{
 		// default is we're firing if we're in this state
 		return true;

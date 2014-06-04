@@ -72,6 +72,9 @@ public:
 	/** time between shots, trigger checks, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon", meta = (ClampMin = "0.1"))
 	TArray<float> FireInterval;
+	/** firing spread (random angle added to shots) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TArray<float> Spread;
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireSound;
@@ -227,9 +230,12 @@ public:
 	/** return start point for weapons fire */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
 	virtual FVector GetFireStartLoc();
-	/** return fire direction for weapons fire */
+	/** return base fire direction for weapons fire (i.e. direction player's weapon is pointing) */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
-	virtual FRotator GetFireRotation();
+	virtual FRotator GetBaseFireRotation();
+	/** return adjusted fire rotation after accounting for spread, aim help, and any other secondary factors affecting aim direction (may include randomized components) */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = "Weapon")
+	FRotator GetAdjustedAim(FVector StartFireLoc);
 
 	/** add (or remove via negative number) the ammo held by the weapon */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -261,6 +267,9 @@ public:
 	{
 		GotoState(ActiveState);
 	}
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool IsFiring() const;
 
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) OVERRIDE;
 

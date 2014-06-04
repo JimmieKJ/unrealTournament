@@ -42,7 +42,7 @@ class UUTWeaponState : public UObject
 	{
 		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->UnequippingState);
 	}
-	virtual bool IsFiring()
+	virtual bool IsFiring() const
 	{
 		return false;
 	}

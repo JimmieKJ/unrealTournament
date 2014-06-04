@@ -40,6 +40,11 @@ void AUTCharacter::BeginPlay()
 	{
 		Health = HealthMax;
 	}
+	BaseEyeHeight = CharacterCameraComponent->RelativeLocation.Z;
+	if (CharacterCameraComponent->RelativeLocation.Size2D() > 0.0f)
+	{
+		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation!"), *GetName());
+	}
 	Super::BeginPlay();
 }
 
