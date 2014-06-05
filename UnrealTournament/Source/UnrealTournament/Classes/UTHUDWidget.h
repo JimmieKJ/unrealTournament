@@ -51,6 +51,9 @@ public:
 	// The opacity of this widget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	float Opacity;
+	
+	// Will be called as soon as the widget is created and tracked by the hud.
+	virtual void InitializeWidget(AUTHUD* Hud);
 
 	// Hide/show this widget.
 	virtual bool IsHidden();
@@ -61,7 +64,7 @@ public:
 
 	// Predraw is called before the main drawing function in order to perform any needed scaling / positioning /etc as
 	// well as cache the canvas and owner.
-	virtual void PreDraw(AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	// The main drawing function
 	virtual void Draw(float DeltaTime);

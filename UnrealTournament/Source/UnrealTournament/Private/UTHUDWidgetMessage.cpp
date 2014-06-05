@@ -8,11 +8,34 @@
 UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	MessageColor = FLinearColor::White;
+}	
+
+void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
+{
+	MessageQueue.AddZeroed(MESSAGE_QUEUE_LENGTH);
+	for (int i=0;i<MessageQueue.Num();i++)
+	{
+		MessageQueue[i].MessageClass = NULL;
+		MessageQueue[i].Text = FText::GetEmpty();
+		MessageQueue[i].OptionalObject = NULL;
+		MessageQueue[i].DisplayFont = NULL;
+		MessageQueue[i].bHasBeenRendered = false;
+		MessageQueue[i].DrawColor = FLinearColor::White;
+		MessageQueue[i].LifeLeft = 0;
+		MessageQueue[i].LifeSpan = 0;
+		MessageQueue[i].MessageCount = 0;
+		MessageQueue[i].MessageIndex = 0;
+	}
+}
+
+void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
+{
+	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
+	AgeMessages(DeltaTime);
 }
 
 void UUTHUDWidgetMessage::Draw(float DeltaTime)
 {
-	AgeMessages(DeltaTime);
 	DrawMessages(DeltaTime);
 }
 
@@ -20,18 +43,16 @@ void UUTHUDWidgetMessage::AgeMessages(float DeltaTime)
 {
 	if (MessageQueue[0].MessageClass == NULL) return;	// Quick out if nothing to render.
 
-	int32 QueueSize = ARRAY_COUNT(MessageQueue);
-
 	// Pass 1 - Precache anything that's needed and age out messages.
 
-	for (int QueueIndex = 0; QueueIndex < QueueSize; QueueIndex++)
+	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		MessageQueue[QueueIndex].bHasBeenRendered = false;
 		if (MessageQueue[QueueIndex].MessageClass != NULL)
 		{
 			if (MessageQueue[QueueIndex].DisplayFont == NULL)
 			{
-				for (int j=QueueIndex; j < QueueSize - 1; j++)
+				for (int j=QueueIndex; j < MessageQueue.Num() - 1; j++)
 				{
 					MessageQueue[j] = MessageQueue[j+1];
 				}
@@ -53,7 +74,7 @@ void UUTHUDWidgetMessage::AgeMessages(float DeltaTime)
 		MessageQueue[QueueIndex].LifeLeft -= DeltaTime;
 		if (MessageQueue[QueueIndex].LifeLeft <= 0.0)
 		{
-			for (int j=QueueIndex; j < QueueSize - 1; j++)
+			for (int j=QueueIndex; j < MessageQueue.Num() - 1; j++)
 			{
 				MessageQueue[j] = MessageQueue[j+1];
 			}
@@ -71,8 +92,7 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 
 	Canvas->Reset();
 
-	int32 QueueSize = ARRAY_COUNT(MessageQueue);
-	for (int QueueIndex = 0; QueueIndex < QueueSize; QueueIndex++)
+	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		// When we hit the empty section of the array, exit out
 		if (MessageQueue[QueueIndex].MessageClass == NULL)
@@ -108,12 +128,11 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 	if (MessageClass == NULL || LocalMessageText.IsEmpty()) return;
 
 	
-	int32 QueueSize = ARRAY_COUNT(MessageQueue);
-	int32 QueueIndex = QueueSize;
+	int32 QueueIndex = MessageQueue.Num();
 	int32 MessageCount = 0;
 	if (GetDefault<UUTLocalMessage>(MessageClass)->bIsUnique)
 	{
-		for (QueueIndex = 0; QueueIndex < MESSAGE_QUEUE_LENGTH; QueueIndex++)
+		for (QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 		{
 			if (MessageQueue[QueueIndex].MessageClass == MessageClass)
 			{
@@ -129,7 +148,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 
 	if (GetDefault<UUTLocalMessage>(MessageClass)->bIsPartiallyUnique)
 	{
-		for (QueueIndex = 0; QueueIndex < MESSAGE_QUEUE_LENGTH; QueueIndex++)
+		for (QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 		{
 			if (MessageQueue[QueueIndex].MessageClass == MessageClass && 
 					MessageClass->GetDefaultObject<UUTLocalMessage>()->PartiallyDuplicates(MessageIndex, MessageQueue[QueueIndex].MessageIndex, OptionalObject, MessageQueue[QueueIndex].OptionalObject) )
@@ -139,9 +158,9 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 		}
 	}
 
-	if (QueueIndex == QueueSize)
+	if (QueueIndex == MessageQueue.Num())
 	{
-		for (QueueIndex = 0; QueueIndex < QueueSize; QueueIndex++)
+		for (QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 		{
 			if (MessageQueue[QueueIndex].MessageClass == NULL)
 			{
@@ -150,9 +169,9 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 		}
 	}
 
-	if (QueueIndex == QueueSize)
+	if (QueueIndex == MessageQueue.Num())
 	{
-		for (QueueIndex = 0; QueueIndex < QueueSize-1; QueueIndex++)
+		for (QueueIndex = 0; QueueIndex < MessageQueue.Num() - 1; QueueIndex++)
 		{
 			MessageQueue[QueueIndex] = MessageQueue[QueueIndex+1];
 		}

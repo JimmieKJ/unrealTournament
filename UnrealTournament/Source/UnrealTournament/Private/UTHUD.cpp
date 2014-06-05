@@ -51,7 +51,7 @@ void AUTHUD::BeginPlay()
 	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());
 	AddHudWidget(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
 
-	DamageIndicators.Init(MAX_DAMAGE_INDICATORS);
+	DamageIndicators.AddZeroed(MAX_DAMAGE_INDICATORS);
 	for (int i=0;i<MAX_DAMAGE_INDICATORS;i++)
 	{
 		DamageIndicators[i].RotationAngle = 0.0f;
@@ -79,6 +79,7 @@ void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 		HudMessageWidgets.Add(MessageWidget->ManagedMessageArea, MessageWidget);
 	}
 
+	Widget->InitializeWidget(this);
 }
 
 void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
@@ -163,7 +164,7 @@ void AUTHUD::DrawHUD()
 			// If we aren't hidden then set the canvas and render..
 			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
 			{
-				HudWidgets[WidgetIndex]->PreDraw(this, Canvas, Center);
+				HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
 				if (!HudWidgets[WidgetIndex]->eventDraw(RenderDelta))
 				{
 					HudWidgets[WidgetIndex]->Draw(RenderDelta);
@@ -354,7 +355,7 @@ void AUTHUD::PawnDamaged(FVector HitLocation, float DamageAmount, TSubclassOf<UD
 void AUTHUD::DrawDamageIndicators()
 {
 	FLinearColor DrawColor = FLinearColor::White;
-	for (int i=0; i < MAX_DAMAGE_INDICATORS; i++)
+	for (int i=0; i < DamageIndicators.Num(); i++)
 	{
 		if (DamageIndicators[i].FadeTime > 0.0f)
 		{

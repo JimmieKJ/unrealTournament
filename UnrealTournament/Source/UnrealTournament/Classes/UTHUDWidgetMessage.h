@@ -11,7 +11,7 @@
 
 const int32 MESSAGE_QUEUE_LENGTH = 8;
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FLocalizedMessageData
 {
 	GENERATED_USTRUCT_BODY()
@@ -103,6 +103,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FLinearColor MessageColor;
 
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 	virtual void Draw(float DeltaTime);
 	virtual void AgeMessages(float DeltaTime);
 	virtual void DrawMessages(float DeltaTime);
@@ -110,11 +111,14 @@ public:
 	// MessageWidgets need to be able to receive local messages from the HUD.  They will be responsible for managing their own messages.
 	virtual void ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject = NULL);
 
+	virtual void InitializeWidget(AUTHUD* Hud);
+
 protected:
 
 	// Since our depth is small, use a static array so that we 
 	// don't have to shrink/grow it.
-	FLocalizedMessageData MessageQueue[MESSAGE_QUEUE_LENGTH];
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	TArray<FLocalizedMessageData> MessageQueue;
 
 	virtual void ClearMessage(FLocalizedMessageData& Message);
 	virtual void AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);

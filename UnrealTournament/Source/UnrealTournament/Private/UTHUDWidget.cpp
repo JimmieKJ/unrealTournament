@@ -15,6 +15,11 @@ UUTHUDWidget::UUTHUDWidget(const class FPostConstructInitializeProperties& PCIP)
 	bMaintainAspectRatio = true;
 }
 
+void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
+{
+}
+
+
 bool UUTHUDWidget::IsHidden()
 {
 	return bHidden;
@@ -25,7 +30,7 @@ void UUTHUDWidget::SetHidden(bool bIsHidden)
 	bHidden = bIsHidden;
 }
 
-void UUTHUDWidget::PreDraw(AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
+void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	UTHUDOwner = InUTHUDOwner;
 	Canvas = InCanvas;

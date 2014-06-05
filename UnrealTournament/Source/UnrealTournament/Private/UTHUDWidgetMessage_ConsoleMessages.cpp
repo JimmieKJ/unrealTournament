@@ -18,10 +18,9 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)
 {
 	Canvas->Reset();
-	int32 QueueSize = ARRAY_COUNT(MessageQueue);
 
 	float Y = 0;
-	int MessageIndex = NumVisibleLines < QueueSize ? NumVisibleLines : QueueSize;
+	int MessageIndex = NumVisibleLines < MessageQueue.Num() ? NumVisibleLines : MessageQueue.Num();
 	while (MessageIndex >= 0)
 	{
 		if (MessageQueue[MessageIndex].MessageClass != NULL)	
