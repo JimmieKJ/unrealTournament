@@ -5,6 +5,12 @@
 
 #include "Engine.h"
 #include "ParticleDefinitions.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
+
+#define COLLISION_PROJECTILE ECC_GameTraceChannel1
+#define COLLISION_TRACE_WEAPON ECC_GameTraceChannel2
+
 #include "UTATypes.h"
 #include "UTGameplayStatics.h"
 #include "UTGameUserSettings.h"
@@ -14,16 +20,12 @@
 #include "UTGameState.h"
 #include "UTHUD.h"
 #include "UTHUDWidget.h"
+#include "UTDamageType.h"
 #include "UTCharacter.h"
 #include "UTPlayerController.h"
 #include "UTProjectile.h"
 #include "UTInventory.h"
 #include "UTWeapon.h"
 #include "UTGameMode.h"
-
-DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
-
-#define COLLISION_PROJECTILE ECC_GameTraceChannel1
-#define COLLISION_TRACE_WEAPON ECC_GameTraceChannel2
 
 #endif

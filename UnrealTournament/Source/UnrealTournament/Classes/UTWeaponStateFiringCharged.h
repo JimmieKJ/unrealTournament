@@ -45,10 +45,16 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 	}
 	virtual void EndFiringSequence(uint8 FireModeNum)
 	{
-		FireShot();
-		bCharging = false;
-		ChargeTime = 0.0f;
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+		if (FireModeNum == GetFireMode())
+		{
+			FireShot();
+			bCharging = false;
+			ChargeTime = 0.0f;
+			if (GetOuterAUTWeapon()->GetCurrentState() == this)
+			{
+				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+			}
+		}
 	}
 	virtual void Tick(float DeltaTime) OVERRIDE
 	{

@@ -186,10 +186,15 @@ class AUTCharacter : public ACharacter
 	virtual void BeginPlay() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
+	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const OVERRIDE
+	{
+		return bTearOff || Super::ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+	}
+
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) OVERRIDE;
 
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
-	virtual void SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEvent);
+	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, const FDamageEvent& DamageEvent);
 
 	/** TEMP blood effect until we have a better hit effects system */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
@@ -208,6 +213,11 @@ class AUTCharacter : public ACharacter
 
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();
+	virtual void TornOff() OVERRIDE
+	{
+		PlayDying();
+	}
+
 	virtual void AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
@@ -271,13 +281,10 @@ protected:
 
 	/** hook to modify damage taken by this Pawn */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageTaken(float& Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
+	void ModifyDamageTaken(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
 	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageCaused(float& Damage, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser);
-
-	virtual float InternalTakeRadialDamage(float Damage, const FRadialDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) OVERRIDE;
-	virtual float InternalTakePointDamage(float Damage, const FPointDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) OVERRIDE;
+	void ModifyDamageCaused(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser);
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
@@ -317,6 +324,13 @@ protected:
 	USoundBase* AmbientSound;
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	UAudioComponent* AmbientSoundComp;
+
+private:
+	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)
+	{
+		UE_LOG(UT, Warning, TEXT("Use TakeDamage() instead"));
+		checkSlow(false);
+	}
 };
 
 inline bool AUTCharacter::IsDead()

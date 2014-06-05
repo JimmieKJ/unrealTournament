@@ -248,6 +248,9 @@ public:
 	virtual void ConsumeAmmo(uint8 FireModeNum);
 	
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL);
+	UFUNCTION(BlueprintCallable, Category = Firing)
+	void K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit);
+	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireProjectile();
 
 	/** returns whether we can meet AmmoCost for the given fire mode */
@@ -287,21 +290,14 @@ public:
 	 */
 	static void InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemComponent*>& MFArray);
 
-	/**
-	 *	This is the root function called by the AUTHUD object.  It passes the call to blueprint and then calls DrawWeaponHud.
-	 *  Native code should override DrawWeaponHud to perform any drawing.
-	 **/
+	inline UUTWeaponState* GetCurrentState()
+	{
+		return CurrentState;
+	}
+
+	/** This is the main entry point to draw on the HUD. By default it draws the crosshair. */
+	UFUNCTION(BlueprintNativeEvent)
 	void DrawHud(AUTHUD* Hud, UCanvas* Canvas);
-
-	/**
-	 *	This is the main entery point for native code to draw on the hud.  By default it draws the crosshair.
-	 **/
-	virtual void DrawWeaponHud(AUTHUD* Hud, UCanvas* Canvas);
-
-	// Hook for blueprint to draw weapon specific information on to the hud.  Should return true if 
-	// it wants to short-circuit the default DrawWeaponHud code.
-	UFUNCTION(BlueprintImplementableEvent)
-	bool eventDrawWeaponHud(AUTHUD* Hud, UCanvas* Canvas);
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")

@@ -524,18 +524,16 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
-		// TODO: replicated momentum handling
-		if (Hit.Component != NULL)
-		{
-			Hit.Component->AddImpulseAtLocation(FireDir * InstantHitInfo[CurrentFireMode].Momentum, Hit.Location);
-		}
-
-		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType), UTOwner->Controller, this);
+		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
 	}
 	if (OutHit != NULL)
 	{
 		*OutHit = Hit;
 	}
+}
+void AUTWeapon::K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit)
+{
+	FireInstantHit(bDealDamage, &OutHit);
 }
 
 AUTProjectile* AUTWeapon::FireProjectile()
@@ -617,20 +615,8 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
 }
 
-void AUTWeapon::DrawHud(AUTHUD* Hud, UCanvas* Canvas)
+void AUTWeapon::DrawHud_Implementation(AUTHUD* Hud, UCanvas* Canvas)
 {
-	// First ask Blueprint to draw the hud.  If it returns TRUE then exit out
-	if (eventDrawWeaponHud(Hud, Canvas))
-	{
-		return;
-	}
-
-	DrawWeaponHud(Hud,Canvas);
-}
-
-void AUTWeapon::DrawWeaponHud(AUTHUD* Hud, UCanvas* Canvas)
-{
-
 	const FVector2D CrossHairCenter(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 	// Draw very simple crosshair

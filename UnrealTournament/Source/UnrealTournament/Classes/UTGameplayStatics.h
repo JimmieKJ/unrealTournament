@@ -28,4 +28,22 @@ class UUTGameplayStatics : public UBlueprintFunctionLibrary
 	*/
 	UFUNCTION(BlueprintCallable, Category = Sound)
 	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector);
+
+	/** Hurt locally authoritative actors within the radius. Uses the Weapon trace channel.
+	 * Also allows passing in momentum (instead of using value hardcoded in damage type - allows for gameplay code to scale, e.g. for a charging weapon)
+	* @param BaseDamage - The base damage to apply, i.e. the damage at the origin.
+	* @param MinimumDamage - Minimum damage (at max radius)
+	* @param BaseMomentumMag - The base momentum (impulse) to apply, scaled the same way damage is and oriented from Origin to the surface of the hit object
+	* @param Origin - Epicenter of the damage area.
+	* @param DamageInnerRadius - Radius of the full damage area, from Origin
+	* @param DamageOuterRadius - Radius of the minimum damage area, from Origin
+	* @param DamageFalloff - Falloff exponent of damage from DamageInnerRadius to DamageOuterRadius
+	* @param DamageTypeClass - Class that describes the damage that was done.
+	* @param IgnoreActors - Actors to never hit; these Actors also don't block the trace that makes sure targets aren't behind a wall, etc. DamageCauser is automatically in this list.
+	* @param DamageCauser - Actor that actually caused the damage (e.g. the grenade that exploded)
+	* @param InstigatedByController - Controller that was responsible for causing this damage (e.g. player who threw the grenade)
+	* @return true if damage was applied to at least one actor.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Game|Damage", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "IgnoreActors"))
+	static bool UTHurtRadius(UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController);
 };

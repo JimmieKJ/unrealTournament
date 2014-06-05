@@ -15,8 +15,8 @@ class AUTProjectile : public AActor
 	/** Projectile movement component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Movement)
 	TSubobjectPtr<class UProjectileMovementComponent> ProjectileMovement;
-	/** additional Z axis speed added to projectile on spawn */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Movement)
+	/** additional Z axis speed added to projectile on spawn - NOTE: blueprint changes only work in defaults or construction script as value is applied to velocity on spawn */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Movement)
 	float TossZ;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)

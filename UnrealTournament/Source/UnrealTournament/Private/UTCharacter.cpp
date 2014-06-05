@@ -56,29 +56,129 @@ void AUTCharacter::Restart()
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	if (IsDead())
+	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
 	{
-		// already dead
-		// TODO: ragdoll impulses, gibbing, etc
-		return Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+		return 0.f;
 	}
 	else
 	{
-		int32 ResultDamage = FMath::TruncToInt(Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser));
-		// TODO: gametype links, etc
+		const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+		const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
 
-		Health -= ResultDamage;
-		SetLastTakeHitInfo(ResultDamage, DamageEvent);
-		if (Health <= 0)
+		int32 ResultDamage = FMath::TruncToInt(Damage);
+		FVector ResultMomentum = UTGetDamageMomentum(DamageEvent, this, EventInstigator);
+		if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
 		{
-			Died(EventInstigator, DamageEvent);
+			bool bScaleMomentum = !DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID) || ((const FUTRadialDamageEvent&)DamageEvent).bScaleMomentum;
+			if (Damage == 0.0f)
+			{
+				if (bScaleMomentum)
+				{
+					// use fake 1.0 damage so we can use the damage scaling code to scale momentum
+					ResultMomentum *= InternalTakeRadialDamage(1.0f, (const FRadialDamageEvent&)DamageEvent, EventInstigator, DamageCauser);
+				}
+			}
+			else
+			{
+				float AdjustedDamage = InternalTakeRadialDamage(Damage, (const FRadialDamageEvent&)DamageEvent, EventInstigator, DamageCauser);
+				if (bScaleMomentum)
+				{
+					ResultMomentum *= Damage / AdjustedDamage;
+				}
+				ResultDamage = FMath::TruncToInt(AdjustedDamage);
+			}
 		}
+		if (!IsDead())
+		{
+			// TODO: gametype links, etc
+			ModifyDamageTaken(ResultDamage, ResultMomentum, DamageEvent, EventInstigator, DamageCauser);
 
+			if (ResultDamage > 0 || !ResultMomentum.IsZero())
+			{
+				if (EventInstigator != NULL && EventInstigator != Controller)
+				{
+					LastHitBy = EventInstigator;
+				}
+
+				if (ResultDamage > 0)
+				{
+					// this is partially copied from AActor::TakeDamage() (just the calls to the various delegates and K2 notifications)
+
+					float ActualDamage = float(ResultDamage); // engine hooks want float
+					// generic damage notifications sent for any damage
+					ReceiveAnyDamage(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
+					OnTakeAnyDamage.Broadcast(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
+					if (EventInstigator != NULL)
+					{
+						EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
+					}
+					if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+					{
+						// point damage event, pass off to helper function
+						FPointDamageEvent* const PointDamageEvent = (FPointDamageEvent*)&DamageEvent;
+
+						// K2 notification for this actor
+						if (ActualDamage != 0.f)
+						{
+							ReceivePointDamage(ActualDamage, DamageTypeCDO, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.ImpactNormal, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, EventInstigator, DamageCauser);
+							OnTakePointDamage.Broadcast(ActualDamage, EventInstigator, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, DamageTypeCDO, DamageCauser);
+						}
+					}
+					else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
+					{
+						// radial damage event, pass off to helper function
+						FRadialDamageEvent* const RadialDamageEvent = (FRadialDamageEvent*)&DamageEvent;
+
+						// K2 notification for this actor
+						if (ActualDamage != 0.f)
+						{
+							FHitResult const& Hit = (RadialDamageEvent->ComponentHits.Num() > 0) ? RadialDamageEvent->ComponentHits[0] : FHitResult();
+							ReceiveRadialDamage(ActualDamage, DamageTypeCDO, RadialDamageEvent->Origin, Hit, EventInstigator, DamageCauser);
+						}
+					}
+				}
+			}
+
+			Health -= ResultDamage;
+			if (UTDamageTypeCDO != NULL && UTDamageTypeCDO->bForceZMomentum)
+			{
+				ResultMomentum.Z = FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size());
+			}
+			// if Z impulse is low enough and currently walking, remove Z impulse to prevent switch to falling physics, preventing lockdown effects
+			else if (CharacterMovement->MovementMode == MOVE_Walking && ResultMomentum.Z < ResultMomentum.Size() * 0.1f)
+			{
+				ResultMomentum.Z = 0.0f;
+			}
+			CharacterMovement->AddMomentum(ResultMomentum, false);
+			SetLastTakeHitInfo(ResultDamage, ResultMomentum, DamageEvent);
+			if (Health <= 0)
+			{
+				Died(EventInstigator, DamageEvent);
+			}
+		}
+		else
+		{
+			FVector HitLocation = Mesh->GetComponentLocation();
+			if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+			{
+				HitLocation = ((const FPointDamageEvent&)DamageEvent).HitInfo.Location;
+			}
+			else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
+			{
+				const FRadialDamageEvent& RadialEvent = (const FRadialDamageEvent&)DamageEvent;
+				if (RadialEvent.ComponentHits.Num() > 0)
+				{
+					HitLocation = RadialEvent.ComponentHits[0].Location;
+				}
+			}
+			Mesh->AddImpulseAtLocation(ResultMomentum, HitLocation);
+		}
+	
 		return float(ResultDamage);
 	}
 }
 
-void AUTCharacter::ModifyDamageTaken_Implementation(float& Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	AUTCharacter* InstigatorChar = NULL;
 	if (DamageCauser != NULL)
@@ -91,32 +191,19 @@ void AUTCharacter::ModifyDamageTaken_Implementation(float& Damage, const FDamage
 	}
 	if (InstigatorChar != NULL && !InstigatorChar->IsDead())
 	{
-		InstigatorChar->ModifyDamageCaused(Damage, DamageEvent, this, EventInstigator, DamageCauser);
+		InstigatorChar->ModifyDamageCaused(Damage, Momentum, DamageEvent, this, EventInstigator, DamageCauser);
 	}
 }
-void AUTCharacter::ModifyDamageCaused_Implementation(float& Damage, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser)
+void AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser)
 {
 	Damage *= DamageScaling;
 }
 
-float AUTCharacter::InternalTakeRadialDamage(float Damage, const FRadialDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
-{
-	float Result = Super::InternalTakeRadialDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
-	ModifyDamageTaken(Result, DamageEvent, EventInstigator, DamageCauser);
-	return Result;
-}
-float AUTCharacter::InternalTakePointDamage(float Damage, const FPointDamageEvent& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
-{
-	float Result = Super::InternalTakePointDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
-	ModifyDamageTaken(Result, DamageEvent, EventInstigator, DamageCauser);
-	return Result;
-}
-
-void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FDamageEvent& DamageEvent)
+void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, const FDamageEvent& DamageEvent)
 {
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
-	LastTakeHitInfo.Momentum = FVector::ZeroVector; // TODO
+	LastTakeHitInfo.Momentum = Momentum;
 
 	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 	{
@@ -175,9 +262,18 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 
 void AUTCharacter::PlayDying()
 {
-	// TODO: ragdoll, et al
-	//		also remember need to do lifespan for replication, not straight destroy
-	Destroy();
+	// TODO: damagetype effects, etc
+	CharacterMovement->ApplyAccumulatedMomentum(0.0f);
+	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Mesh->SetSimulatePhysics(true);
+	Mesh->SetAllBodiesPhysicsBlendWeight(1.0f);
+	Mesh->AddImpulse(GetVelocity(), NAME_None, true);
+	Mesh->DetachFromParent(true);
+	RootComponent = Mesh;
+	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CapsuleComponent->DetachFromParent(false);
+	CapsuleComponent->AttachTo(Mesh);
+	SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
 }
 
 void AUTCharacter::Destroyed()
