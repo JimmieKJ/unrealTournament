@@ -15,6 +15,8 @@ UUTDeathMessage::UUTDeathMessage(const class FPostConstructInitializeProperties&
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;
 
+	Lifetime = 6.0f;
+
 	GenericKillMessage = NSLOCTEXT("UTDeathMessage","GenericKillMessage","{Player1Name} killed {Player2Name}"); //  with {WeaponName} -- Fix when we have proper damage types
 	SuicideKillMessage = NSLOCTEXT("UTDeathMessage","SuicideKillMessage","{Player2Name} Suicided");
 }

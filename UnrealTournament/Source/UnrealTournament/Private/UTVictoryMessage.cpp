@@ -9,6 +9,12 @@
 UUTVictoryMessage::UUTVictoryMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
+
+	bIsUnique = true;
+	Lifetime = 6.0f;
+	MessageArea = FName(TEXT("GameMessages"));
+
+
 	YouHaveWonText = NSLOCTEXT("UTVictoryMessage","YouHaveWonText","You Have Won The Match!");
 	YouHaveLostText = NSLOCTEXT("UTVictoryMessage","YouHaveLostText","You Have Lost The Match!");
 }
