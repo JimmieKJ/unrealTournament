@@ -287,6 +287,22 @@ public:
 	 */
 	static void InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemComponent*>& MFArray);
 
+	/**
+	 *	This is the root function called by the AUTHUD object.  It passes the call to blueprint and then calls DrawWeaponHud.
+	 *  Native code should override DrawWeaponHud to perform any drawing.
+	 **/
+	void DrawHud(AUTHUD* Hud, UCanvas* Canvas);
+
+	/**
+	 *	This is the main entery point for native code to draw on the hud.  By default it draws the crosshair.
+	 **/
+	virtual void DrawWeaponHud(AUTHUD* Hud, UCanvas* Canvas);
+
+	// Hook for blueprint to draw weapon specific information on to the hud.  Should return true if 
+	// it wants to short-circuit the default DrawWeaponHud code.
+	UFUNCTION(BlueprintImplementableEvent)
+	bool eventDrawWeaponHud(AUTHUD* Hud, UCanvas* Canvas);
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;
@@ -301,4 +317,6 @@ protected:
 	TSubobjectPtr<UUTWeaponState> UnequippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> InactiveState;
+
+
 };

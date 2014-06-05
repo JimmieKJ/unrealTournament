@@ -58,9 +58,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
 
-	// This is a test var to test a theory - RELAX!
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	FVector2D CrossHairCenterPoint;
+	/** Crosshair asset pointer */
+	UTexture2D* DefaultCrosshairTex;
 
 	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
 	UPROPERTY()
@@ -70,6 +69,9 @@ public:
 	virtual void BeginPlay();
 
 	virtual void PostInitializeComponents();
+
+	// Creates and adds a hud widget
+	virtual void AddHudWidget(const TCHAR* NewWidgetClassName);
 
 	// Creates and adds a hud widget
 	virtual void AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
@@ -112,9 +114,9 @@ public:
 	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0);
 	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
 
+
+
 private:
-	/** Crosshair asset pointer */
-	UTexture2D* CrosshairTex;
 	UTexture2D* DamageIndicatorTexture;
 };
 

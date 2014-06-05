@@ -18,7 +18,7 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 
 	// Set the crosshair texture
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshairTexObj(TEXT("Texture2D'/Game/RestrictedAssets/Textures/crosshair.crosshair'"));
-	CrosshairTex = CrosshairTexObj.Object;
+	DefaultCrosshairTex = CrosshairTexObj.Object;
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldHudTextureObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	OldHudTexture = OldHudTextureObj.Object;
@@ -28,8 +28,6 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 
 	static ConstructorHelpers::FObjectFinder<UFont> LFont(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack72.fntRobotoBlack72'"));
 	LargeFont = LFont.Object;
-
-	CrossHairCenterPoint = FVector2D(0.5f,0.5f);
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
@@ -51,6 +49,8 @@ void AUTHUD::BeginPlay()
 	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());
 	AddHudWidget(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
 
+	AddHudWidget(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'"));
+
 	DamageIndicators.AddZeroed(MAX_DAMAGE_INDICATORS);
 	for (int i=0;i<MAX_DAMAGE_INDICATORS;i++)
 	{
@@ -65,6 +65,29 @@ void AUTHUD::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
 }
+
+void AUTHUD::AddHudWidget(const TCHAR* NewWidgetClassName)
+{
+	UClass* WidgetClass = LoadClass<UUTHUDWidget>(NULL, NewWidgetClassName, NULL, LOAD_None, NULL);
+
+	if (WidgetClass != NULL)
+	{
+		AddHudWidget(WidgetClass);
+		return;
+	}
+
+	UBlueprint* Blueprint = LoadObject<UBlueprint>(NULL, NewWidgetClassName, NULL, LOAD_None, NULL);
+	if (Blueprint != NULL)
+	{
+		WidgetClass = Blueprint->GeneratedClass;
+		if (WidgetClass != NULL)
+		{
+			AddHudWidget(WidgetClass);
+			return;
+		}
+	}
+}
+
 
 
 void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
@@ -159,6 +182,12 @@ void AUTHUD::DrawHUD()
 		// find center of the Canvas
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
+		// Let the weapon draw if needed...
+		if (UTPlayerOwner != NULL && UTPlayerOwner->GetUTCharacter() != NULL && UTPlayerOwner->GetUTCharacter()->GetWeapon() != NULL)
+		{
+			UTPlayerOwner->GetUTCharacter()->GetWeapon()->DrawHud(this, Canvas);
+		}
+
 		for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
 			// If we aren't hidden then set the canvas and render..
@@ -172,20 +201,6 @@ void AUTHUD::DrawHUD()
 				}
 			}
 		}
-
-
-		const FVector2D CrossHairCenter(Canvas->ClipX * CrossHairCenterPoint.X, Canvas->ClipY * CrossHairCenterPoint.Y);
-
-		// Draw very simple crosshair
-
-		// offset by half the texture's dimensions so that the center of the texture aligns with the center of the Canvas
-		const FVector2D CrosshairDrawPosition( (CrossHairCenter.X - (CrosshairTex->GetSurfaceWidth() * 0.5f)),
-											   (CrossHairCenter.Y - (CrosshairTex->GetSurfaceHeight() * 0.5f)) );
-
-		// draw the crosshair
-		FCanvasTileItem TileItem( CrosshairDrawPosition, CrosshairTex->Resource, FLinearColor::White);
-		TileItem.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem( TileItem );
 
 		DrawDamageIndicators();
 
@@ -306,7 +321,6 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 			{
 				X += FontSizes[Index] * Scale;
 			}
-
 		}
 
 	}
