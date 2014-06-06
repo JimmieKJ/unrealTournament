@@ -289,6 +289,11 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 		Result |= 1;
 	}
 
+	if (bWantsToCrouch)
+	{
+		Result |= 2;
+	}
+
 	if (bPressedDodgeForward)
 	{
 		Result |= (1 << 2);
