@@ -273,7 +273,7 @@ class AUTCharacter : public ACharacter
 	UFUNCTION()
 	void AmbientSoundUpdated();
 
-	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	UFUNCTION(BlueprintPure, Category = PlayerController)
 	virtual APlayerCameraManager* GetPlayerCameraManager();
 
 protected:
