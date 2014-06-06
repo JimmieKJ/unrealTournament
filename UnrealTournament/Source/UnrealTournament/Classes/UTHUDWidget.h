@@ -76,13 +76,12 @@ public:
 
 	virtual void PostDraw(float RenderedTime);
 
-
-
-protected:
-
 	// The UTHUD that owns this widget.  
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	class AUTHUD* UTHUDOwner;
+
+protected:
+
 
 	// if TRUE, this widget will not be rendered
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
@@ -116,7 +115,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	float AspectScale;
 
-
+public:
 	/**
 	 * Draws text on the screen.  You can use the TextHorzPosition and TextVertPosition to justify the text that you are drawing.
 	 * @param Text	The Text to display.

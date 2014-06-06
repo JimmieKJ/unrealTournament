@@ -8,6 +8,7 @@
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 #include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
+#include "UTHUDWidget_WeaponInfo.h"
 #include "UTScoreboard.h"
 
 
@@ -44,6 +45,7 @@ void AUTHUD::BeginPlay()
 	}
 
 	AddHudWidget(UUTHUDWidget_Paperdoll::StaticClass());
+	AddHudWidget(UUTHUDWidget_WeaponInfo::StaticClass());
 	AddHudWidget(UUTHUDWidget_DMPlayerScore::StaticClass());
 	AddHudWidget(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
 	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());

@@ -116,7 +116,7 @@ void UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDra
 
 			if (TextVertAlignment != ETextVertPos::Top)
 			{
-				RenderPos.Y -= TextVertAlignment == ETextVertPos::Bottom ? XL : XL * 0.5f;
+				RenderPos.Y -= TextVertAlignment == ETextVertPos::Bottom ? YL : YL * 0.5f;
 			}
 		}
 

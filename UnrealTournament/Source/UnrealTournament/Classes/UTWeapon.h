@@ -299,6 +299,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawHud(AUTHUD* Hud, UCanvas* Canvas);
 
+	virtual void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;

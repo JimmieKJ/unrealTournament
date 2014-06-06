@@ -9,6 +9,7 @@
 #include "UTWeaponStateInactive.h"
 #include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
+#include "UTHUDWidget.h"
 
 AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.DoNotCreateDefaultSubobject(TEXT("PickupMesh")))
@@ -436,8 +437,6 @@ void AUTWeapon::OnRep_Ammo()
 
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
-	// FIXME: temporarily disabled until we have enough systems going
-	return;
 
 	if (AmmoCost.IsValidIndex(FireModeNum))
 	{
@@ -631,3 +630,10 @@ void AUTWeapon::DrawHud_Implementation(AUTHUD* Hud, UCanvas* Canvas)
 	Canvas->DrawItem( TileItem );
 }
 
+void AUTWeapon::DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
+{
+	UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
+	FString AmmoStr = FString::Printf(TEXT("%i"),Ammo);
+	FText AmmoText = FText::FromString( AmmoStr );
+	WeaponHudWidget->DrawText(AmmoText,0,0,Font, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Bottom);
+}
