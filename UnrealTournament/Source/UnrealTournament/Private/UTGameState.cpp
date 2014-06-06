@@ -8,16 +8,10 @@ AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
 {
 }
 
-void AUTGameState::SetGameStage(EGameStage::Type NewGameStage)
-{
-	CurrentGameStage = NewGameStage;
-}
-
 void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTGameState, CurrentGameStage);
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 
@@ -72,7 +66,6 @@ void AUTGameState::SetTimeLimit(float NewTimeLimit)
 void AUTGameState::SetGoalScore(uint32 NewGoalScore)
 {
 	GoalScore = NewGoalScore;
-
 	ForceNetUpdate();
 }
 

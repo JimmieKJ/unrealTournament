@@ -16,9 +16,6 @@ public:
 	UPROPERTY()
 	AUTGameState* UTGameState;		
 
-	UPROPERTY()
-	TEnumAsByte<EGameStage::Type> CurrentGameStage;
-
 	/** Currently not used, but will be needed later*/
 	UPROPERTY(globalconfig)
 	float GameDifficulty;		
@@ -82,9 +79,6 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Inventory")
 	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
-
-	UFUNCTION()
-	virtual void SetGameStage(EGameStage::Type NewGameStage);
 
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
 	virtual void InitGameState();

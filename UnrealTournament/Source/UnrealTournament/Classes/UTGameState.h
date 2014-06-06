@@ -8,9 +8,6 @@ class AUTGameState : public AGameState
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(Replicated)
-	TEnumAsByte<EGameStage::Type> CurrentGameStage;
-
 	/** If TRUE, then we weapon pick ups to stay on their base */
 	UPROPERTY(Replicated)
 	uint32 bWeaponStay:1;
@@ -48,12 +45,6 @@ class AUTGameState : public AGameState
 	UFUNCTION()
 	virtual void SetGoalScore(uint32 NewGoalScore);
 
-	/**
-	 *	Sets the current game stage.  Should only be called natively via from the current game mode.  
-	 **/
-	virtual void SetGameStage(EGameStage::Type NewGameStage);
-
-
 	/** Called once per second (or so depending on TimeDilation) after RemainingTime() has been replicated */
 	virtual void DefaultTimer();
 
@@ -65,8 +56,6 @@ class AUTGameState : public AGameState
 
 	/** Sorts the Player State Array */
 	virtual void SortPRIArray();
-
-
 };
 
 

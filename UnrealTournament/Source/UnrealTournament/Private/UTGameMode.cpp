@@ -34,20 +34,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
 	GameMessageClass=UUTGameMessage::StaticClass();
-
-	CurrentGameStage = EGameStage::Initializing;
-
 }
-
-void AUTGameMode::SetGameStage(EGameStage::Type NewGameStage)
-{
-	CurrentGameStage = NewGameStage;
-	if (UTGameState != NULL)
-	{
-		UTGameState->SetGameStage(NewGameStage);
-	}
-}
-
 
 // Parse options for this game...
 void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
@@ -83,7 +70,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	// Set goal score to end match.
 	GoalScore = FMath::Max(0,GetIntOption( Options, TEXT("GoalScore"), GoalScore ));
-	SetGameStage(EGameStage::PreGame);
 }
 
 void AUTGameMode::InitGameState()
@@ -95,7 +81,6 @@ void AUTGameMode::InitGameState()
 	{
 		UTGameState->SetGoalScore(GoalScore);
 		UTGameState->SetTimeLimit(TimeLimit);
-		UTGameState->SetGameStage(CurrentGameStage);
 	}
 	else
 	{
@@ -225,8 +210,6 @@ bool AUTGameMode::CheckScore(AUTPlayerState* Scorer)
 
 void AUTGameMode::StartMatch()
 {
-	SetGameStage(EGameStage::GameInProgress);
-
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
 		AActor* TestActor = *It;
@@ -246,7 +229,6 @@ void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
 	UTGameState->bStopCountdown = true;
-	SetGameStage(EGameStage::GameOver);
 	GetWorldTimerManager().SetTimer(this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
@@ -351,14 +333,15 @@ void AUTGameMode::PlayEndOfMatchMessage()
 
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
-	if ( CurrentGameStage == EGameStage::PreGame && Cast<AUTPlayerState>(aPlayer->PlayerState) )
+/*
+	if ( IsMatchInProgress() && Cast<AUTPlayerState>(aPlayer->PlayerState) )
 	{
 		// If we are in the pre-game stage then flag the player as ready to play.  The game starting will be handled in the DefaultTimer() event
 		Cast<AUTPlayerState>(aPlayer->PlayerState)->bReadyToPlay = true;
 		return;
 	}
-
-	if (CurrentGameStage != EGameStage::GameInProgress)
+*/
+	if (!IsMatchInProgress())
 	{
 		return;
 	}
