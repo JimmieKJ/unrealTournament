@@ -14,6 +14,8 @@ UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.5f, 0.0f);				
 
+	FadeTime = 1.0;
+
 	MessageColor = FLinearColor::Red;
 
 	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack36.fntRobotoBlack36'"));
@@ -34,21 +36,6 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
 			DrawCnt++;
 		}
 	}
-}
-
-void UUTHUDWidgetMessage_DeathMessages::DrawMessage(int32 QueueIndex, float X, float Y)
-{
-	MessageQueue[QueueIndex].bHasBeenRendered = true;
-
-	// Fade the Message...
-
-	float Alpha = 1.0;
-	float FadeTime = MessageQueue[QueueIndex].LifeSpan > 2.0f ? MessageQueue[QueueIndex].LifeSpan - 2.0f : MessageQueue[QueueIndex].LifeSpan;
-	if (MessageQueue[QueueIndex].LifeLeft < FadeTime)
-	{
-		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
-	}
-	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, FLinearColor::Black, 1.0f, Alpha, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
 }
 
 void UUTHUDWidgetMessage_DeathMessages::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)

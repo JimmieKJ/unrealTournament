@@ -8,6 +8,7 @@
 UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	MessageColor = FLinearColor::White;
+	FadeTime = 0.0f;
 }	
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
@@ -42,6 +43,8 @@ void UUTHUDWidgetMessage::Draw(float DeltaTime)
 void UUTHUDWidgetMessage::AgeMessages(float DeltaTime)
 {
 	if (MessageQueue[0].MessageClass == NULL) return;	// Quick out if nothing to render.
+
+	if (eventAgeMessage(DeltaTime)) return;	// Quick out if Blueprints ages the message.
 
 	// Pass 1 - Precache anything that's needed and age out messages.
 
@@ -113,7 +116,13 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
-	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+
+	// Fade the Message...
+
+	float Alpha = MessageQueue[QueueIndex].LifeLeft <= FadeTime ? MessageQueue[QueueIndex].LifeLeft / FadeTime : 1.0;
+	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), Alpha, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+
+
 }
 
 void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
@@ -206,4 +215,10 @@ void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTL
 	MessageQueue[QueueIndex].DrawColor = MessageColor;
 	MessageQueue[QueueIndex].DisplayFont = MessageFont == NULL ? GEngine->GetSmallFont() : MessageFont;
 	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
+}
+
+
+float UUTHUDWidgetMessage::GetTextScale(int32 QueueIndex)
+{
+	return 1.0f;
 }

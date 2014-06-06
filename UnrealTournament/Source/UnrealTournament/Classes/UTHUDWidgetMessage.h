@@ -103,6 +103,36 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FLinearColor MessageColor;
 
+	// If true, this text will be drawn with an outline
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+	uint32 bOutlinedText:1;
+
+	// The outline color for this message.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+	FLinearColor OutlineColor;
+
+	// If true, this text will be drawn with an shadow
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+	uint32 bShadowedText:1;
+
+	// The shadow color for this message.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+	FLinearColor ShadowColor;
+	
+	// The shadow direction for this message.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+	FVector2D ShadowDirection;
+
+	// How long should it take for a message to fade out.  Set to 0 and the message will just wink out of
+	// existence.,  
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	float FadeTime;
+
+	// this event will be triggered on blueprints so that they can control the aging of a message.  
+	// return TRUE if you want to bypass the default aging process.
+	UFUNCTION(BlueprintImplementableEvent)
+	bool eventAgeMessage(float DeltaTime);
+
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 	virtual void Draw(float DeltaTime);
 	virtual void AgeMessages(float DeltaTime);
@@ -125,6 +155,9 @@ protected:
 	virtual void LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
 	virtual void DrawMessage(int32 QueueIndex, float X, float Y);
 
+	// returns the text scaling factor for a given message.  Exposed here to make extending
+	// the widget easier.
+	virtual float GetTextScale(int32 QueueIndex);
 
 private:
 
