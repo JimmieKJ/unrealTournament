@@ -892,3 +892,9 @@ void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 		UTCharMov->bPressedDodgeRight = (DodgeFlags == 4);
 	}
 }
+
+APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+	return PC != NULL ? PC->PlayerCameraManager : NULL;
+}

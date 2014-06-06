@@ -466,11 +466,6 @@ void AUTPlayerController::OnHideScores()
 	ToggleScoreboard(false);
 }
 
-APlayerCameraManager* AUTPlayerController::GetPlayerCameraManager()
-{
-	return PlayerCameraManager;
-}
-
 AUTCharacter* AUTPlayerController::GetUTCharacter()
 {
 	return UTCharacter;

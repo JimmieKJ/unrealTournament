@@ -273,6 +273,9 @@ class AUTCharacter : public ACharacter
 	UFUNCTION()
 	void AmbientSoundUpdated();
 
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual APlayerCameraManager* GetPlayerCameraManager();
+
 protected:
 
 	/** multiplier to firing speed */

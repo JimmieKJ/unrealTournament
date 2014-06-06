@@ -63,10 +63,6 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
 
-	UFUNCTION(BlueprintCallable, Category = PlayerController)
-	virtual APlayerCameraManager* GetPlayerCameraManager();
-
-
 protected:
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
