@@ -41,13 +41,16 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
 
+	if (GCompilingBlueprint)
+		return;
+
 	for (int32 i = 0; i < 2; i++)
 	{
 		UUTWeaponStateFiring* NewState = PCIP.CreateDefaultSubobject<UUTWeaponStateFiring, UUTWeaponStateFiring>(this, FName(*FString::Printf(TEXT("FiringState%i"), i)), false, false, false);
 		if (NewState != NULL)
 		{
 			FiringState.Add(NewState);
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 			FiringStateType.Add(UUTWeaponStateFiring::StaticClass());
 #endif
 			FireInterval.Add(1.0f);
@@ -84,9 +87,9 @@ void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemCom
 	}
 }
 
+#if WITH_EDITORONLY_DATA
 void AUTWeapon::ValidateFiringStates()
 {
-#if WITH_EDITORONLY_DATA
 	bool bMadeChanges = false;
 	FiringState.SetNum(FiringStateType.Num());
 	for (int32 i = 0; i < FiringStateType.Num(); i++)
@@ -104,7 +107,7 @@ void AUTWeapon::ValidateFiringStates()
 		}
 		if (FiringState[i] == NULL && FiringStateType[i] != NULL)
 		{
-			FiringState[i] = ConstructObject<UUTWeaponStateFiring>(FiringStateType[i], this);
+			FiringState[i] = ConstructObject<UUTWeaponStateFiring>(FiringStateType[i], this, NAME_None, GetClass()->GetDefaultObject<AUTWeapon>()->FiringState[0]->GetFlags());
 			bMadeChanges = true;
 		}
 	}
@@ -112,9 +115,7 @@ void AUTWeapon::ValidateFiringStates()
 	{
 		FEditorSupportDelegates::UpdateUI.Broadcast();
 	}
-#endif
 }
-#if WITH_EDITORONLY_DATA
 void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -128,9 +129,6 @@ void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 
 void AUTWeapon::BeginPlay()
 {
-	// FIXME: temp until 4.2 merge
-	ValidateFiringStates();
-
 	Super::BeginPlay();
 
 	InstanceMuzzleFlashArray(this, MuzzleFlash);

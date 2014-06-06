@@ -44,11 +44,17 @@ class AUTPickup : public AActor
 	/** one-shot sound played when the pickup respawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	USoundBase* RespawnSound;
+	/** all components with any of these tags will be hidden when the pickup is taken
+	 * if the array is empty, the entire pickup Actor is hidden
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+	TArray<FName> TakenHideTags;
 
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	UMaterialInstanceDynamic* TimerMI;
 
 	virtual void OnConstruction(const FTransform& Transform) OVERRIDE;
+	virtual void BeginPlay() OVERRIDE;
 	virtual void Tick(float DeltaTime) OVERRIDE;
 
 	UFUNCTION()

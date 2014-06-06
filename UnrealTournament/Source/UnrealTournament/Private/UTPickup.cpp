@@ -36,6 +36,7 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 		TimerText->LDMaxDrawDistance = 1024.0f;
 	}
 
+	bActive = true;
 	RespawnTime = 30.0f;
 	bDisplayRespawnTimer = true;
 
@@ -57,8 +58,18 @@ void AUTPickup::OnConstruction(const FTransform& Transform)
 				TimerMI = UMaterialInstanceDynamic::Create(TimerSprite->Elements[0].Material, GetWorld());
 			}
 			TimerSprite->Elements[0].Material = TimerMI;
-			TimerSprite->SetCullDistance(TimerText->LDMaxDrawDistance);
+			TimerSprite->LDMaxDrawDistance = TimerText->LDMaxDrawDistance;
 		}
+	}
+}
+
+void AUTPickup::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (Role == ROLE_Authority && bDelayedSpawn)
+	{
+		StartSleeping();
 	}
 }
 
@@ -86,7 +97,25 @@ void AUTPickup::GiveTo_Implementation(APawn* Target)
 
 void AUTPickup::SetPickupHidden(bool bNowHidden)
 {
-	SetActorHiddenInGame(bNowHidden);
+	if (TakenHideTags.Num() == 0 || RootComponent == NULL)
+	{
+		SetActorHiddenInGame(bNowHidden);
+	}
+	else
+	{
+		TArray<USceneComponent*> Components;
+		RootComponent->GetChildrenComponents(true, Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			for (int32 j = 0; j < TakenHideTags.Num(); j++)
+			{
+				if (Components[i]->ComponentHasTag(TakenHideTags[j]))
+				{
+					Components[i]->SetHiddenInGame(bNowHidden);
+				}
+			}
+		}
+	}
 }
 
 void AUTPickup::StartSleeping_Implementation()

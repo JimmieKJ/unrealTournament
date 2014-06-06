@@ -65,9 +65,18 @@ private:
 	TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
 public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
-#endif
-	// FIXME: temp until 4.2 merge
+	virtual void PreSave() OVERRIDE
+	{
+		Super::PreSave();
+		ValidateFiringStates();
+	}
+	virtual void PostLoad() OVERRIDE
+	{
+		Super::PostLoad();
+		ValidateFiringStates();
+	}
 	void ValidateFiringStates();
+#endif
 
 	/** time between shots, trigger checks, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon", meta = (ClampMin = "0.1"))
@@ -315,6 +324,4 @@ protected:
 	TSubobjectPtr<UUTWeaponState> UnequippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> InactiveState;
-
-
 };

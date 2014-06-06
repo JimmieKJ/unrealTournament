@@ -4,7 +4,7 @@
 
 #include "UTWeaponState.generated.h"
 
-UCLASS(DefaultToInstanced, CustomConstructor, Within=UTWeapon)
+UCLASS(DefaultToInstanced, EditInlineNew, CustomConstructor, Within=UTWeapon)
 class UUTWeaponState : public UObject
 {
 	GENERATED_UCLASS_BODY()
