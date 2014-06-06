@@ -13,10 +13,9 @@ private:
 	AUTCharacter* UTCharacter;
 
 public:
-	FORCEINLINE AUTCharacter* GetUTCharacter()
-	{
-		return UTCharacter;
-	}
+
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual AUTCharacter* GetUTCharacter();
 
 	UPROPERTY()
 	AUTPlayerState* UTPlayerState;
@@ -63,6 +62,9 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
+
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual APlayerCameraManager* GetPlayerCameraManager();
 
 
 protected:
