@@ -225,6 +225,11 @@ void AUTWeapon::ClientRemoved_Implementation()
 {
 	GotoState(InactiveState);
 
+	if (UTOwner != NULL && UTOwner->GetWeapon() == this)
+	{
+		UTOwner->ClientWeaponLost(this);
+	}
+
 	Super::ClientRemoved_Implementation();
 }
 

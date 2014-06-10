@@ -82,7 +82,7 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 
 void AUTPlayerController::SwitchToBestWeapon()
 {
-	if (UTCharacter != NULL)
+	if (UTCharacter != NULL && IsLocalPlayerController())
 	{
 		AUTWeapon* BestWeapon = NULL;
 		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
@@ -109,7 +109,7 @@ void AUTPlayerController::NextWeapon()
 }
 void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {
-	if (UTCharacter != NULL)
+	if (UTCharacter != NULL && IsLocalPlayerController())
 	{
 		if (UTCharacter->GetWeapon() == NULL)
 		{
@@ -164,7 +164,7 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 }
 void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 {
-	if (UTCharacter != NULL)
+	if (UTCharacter != NULL && IsLocalPlayerController())
 	{
 		AUTWeapon* CurWeapon = UTCharacter->GetPendingWeapon();
 		if (CurWeapon == NULL)
@@ -179,7 +179,7 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 }
 void AUTPlayerController::SwitchWeapon(int32 Group)
 {
-	if (UTCharacter != NULL)
+	if (UTCharacter != NULL && IsLocalPlayerController())
 	{
 		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
 		// if it is, then pick next highest slot, or wrap around to lowest if no higher slot

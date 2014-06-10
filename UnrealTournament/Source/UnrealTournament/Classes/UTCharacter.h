@@ -133,6 +133,10 @@ class AUTCharacter : public ACharacter
 	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up */
 	virtual void WeaponChanged();
 
+	/** called when the client's current weapon has been invalidated (removed from inventory, etc) */
+	UFUNCTION(Client, Reliable)
+	void ClientWeaponLost(AUTWeapon* LostWeapon);
+
 	/** replicated weapon firing info */
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoUpdated, Category = "Weapon")
 	uint8 FlashCount;
@@ -300,6 +304,8 @@ protected:
 	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);
+	/** utility to redirect to SwitchToBestWeapon() to the character's Controller (human or AI) */
+	void SwitchToBestWeapon();
 
 	/** spawn/destroy/replace the current weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()

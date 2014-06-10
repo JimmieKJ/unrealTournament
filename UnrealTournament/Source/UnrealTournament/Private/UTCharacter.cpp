@@ -548,18 +548,18 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 			}
 			else
 			{
-				if (!bTearOff)
+				WeaponClass = NULL;
+				UpdateWeaponAttachment();
+			}
+			if (!bTearOff)
+			{
+				if (IsLocallyControlled())
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-					if (PC != NULL)
-					{
-						PC->SwitchToBestWeapon();
-					}
+					SwitchToBestWeapon();
 				}
-				if (Weapon == NULL)
+				else
 				{
-					WeaponClass = NULL;
-					UpdateWeaponAttachment();
+					ClientWeaponLost((AUTWeapon*)InvToRemove);
 				}
 			}
 		}
@@ -713,6 +713,35 @@ void AUTCharacter::WeaponChanged()
 	{
 		// restore current weapon since pending became invalid
 		Weapon->BringUp();
+	}
+}
+
+void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
+{
+	if (IsLocallyControlled() && Weapon == LostWeapon)
+	{
+		Weapon = NULL;
+		if (PendingWeapon == NULL)
+		{
+			SwitchToBestWeapon();
+		}
+		if (PendingWeapon != NULL)
+		{
+			WeaponChanged();
+		}
+	}
+}
+
+void AUTCharacter::SwitchToBestWeapon()
+{
+	if (IsLocallyControlled())
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+		if (PC != NULL)
+		{
+			PC->SwitchToBestWeapon();
+		}
+		// TODO:  bots
 	}
 }
 

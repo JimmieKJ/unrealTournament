@@ -8,7 +8,7 @@
 UUTWeaponStateFiringBeam::UUTWeaponStateFiringBeam(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	MinDamage = 1;
+	MinDamage = 5;
 }
 
 void UUTWeaponStateFiringBeam::FireShot()
@@ -31,6 +31,7 @@ void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
 			if (Accumulator >= MinDamage)
 			{
 				int32 AppliedDamage = FMath::TruncToInt(Accumulator);
+				Accumulator -= AppliedDamage;
 				FVector FireDir = (Hit.Location - Hit.TraceStart).SafeNormal();
 				Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (DamageInfo.Momentum * float(AppliedDamage) / float(DamageInfo.Damage))), GetOuterAUTWeapon()->GetUTOwner()->Controller, GetOuterAUTWeapon());
 			}
