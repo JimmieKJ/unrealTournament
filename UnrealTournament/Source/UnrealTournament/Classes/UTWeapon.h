@@ -178,6 +178,9 @@ public:
 	/** blueprint hook when the trigger is released; called on both client and server */
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnStoppedFiring();
+	/** blueprint hook when the weapon has fired, the refire delay passes, and the user still wants to fire (trigger still down) so the firing loop will repeat */
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnContinuedFiring();
 	/** blueprint hook for pressing one fire mode while another is currently firing (e.g. hold alt, press primary)
 	 * CurrentFireMode == current, OtherFireMode == one just pressed
 	 */

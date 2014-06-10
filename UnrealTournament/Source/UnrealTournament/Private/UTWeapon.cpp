@@ -129,6 +129,10 @@ void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 
 void AUTWeapon::BeginPlay()
 {
+#if WITH_EDITORONLY_DATA
+	ValidateFiringStates();
+#endif
+
 	Super::BeginPlay();
 
 	InstanceMuzzleFlashArray(this, MuzzleFlash);

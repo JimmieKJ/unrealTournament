@@ -40,6 +40,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		}
 		else
 		{
+			GetOuterAUTWeapon()->OnContinuedFiring();
 			bCharging = true;
 		}
 	}

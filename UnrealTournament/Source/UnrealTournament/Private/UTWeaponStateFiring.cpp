@@ -40,6 +40,7 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 	}
 	else
 	{
+		GetOuterAUTWeapon()->OnContinuedFiring();
 		FireShot();
 	}
 }
