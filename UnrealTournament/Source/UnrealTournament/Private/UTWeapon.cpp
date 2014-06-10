@@ -58,9 +58,17 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	}
 }
 
-UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation()
+UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& OverrideScale)
 {
-	return (AttachmentType != NULL) ? AttachmentType.GetDefaultObject()->Mesh.Get() : Super::GetPickupMeshTemplate_Implementation();
+	if (AttachmentType != NULL)
+	{
+		OverrideScale = AttachmentType.GetDefaultObject()->PickupScaleOverride;
+		return AttachmentType.GetDefaultObject()->Mesh.Get();
+	}
+	else
+	{
+		return Super::GetPickupMeshTemplate_Implementation(OverrideScale);
+	}
 }
 
 void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemComponent*>& MFArray)

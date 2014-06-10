@@ -64,7 +64,7 @@ public:
 
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)
-	UMeshComponent* GetPickupMeshTemplate();
+	UMeshComponent* GetPickupMeshTemplate(FVector& OverrideScale);
 
 	/** respawn time for level placed pickups of this type */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)

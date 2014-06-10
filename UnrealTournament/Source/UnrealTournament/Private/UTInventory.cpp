@@ -21,7 +21,7 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 	}
 }
 
-UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation()
+UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation(FVector& OverrideScale)
 {
 	return PickupMesh;
 }

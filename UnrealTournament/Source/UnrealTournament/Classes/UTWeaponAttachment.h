@@ -31,6 +31,9 @@ public:
 	FName AttachSocket;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FVector AttachOffset;
+	/** the attachment Mesh is also used for the pickup; set this override to non-zero to override the scale factor when used that way */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	FVector PickupScaleOverride;
 
 	/** particle system for firing effects (instant hit beam and such)
 	* particles will be sourced at FireOffset and a parameter HitLocation will be set for the target, if applicable

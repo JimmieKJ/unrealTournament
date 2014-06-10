@@ -4,6 +4,12 @@
 #include "UTPickupInventory.h"
 #include "UnrealNetwork.h"
 
+AUTPickupInventory::AUTPickupInventory(const FPostConstructInitializeProperties& PCIP)
+: Super(PCIP)
+{
+	FloatHeight = 50.0f;
+}
+
 void AUTPickupInventory::BeginPlay()
 {
 	AActor::BeginPlay(); // skip UTPickup as SetInventoryType() will handle delayed spawn
@@ -67,7 +73,8 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 	{
 		TakenSound = InventoryType.GetDefaultObject()->PickupSound;
 
-		UMeshComponent* NewMesh = InventoryType.GetDefaultObject()->GetPickupMeshTemplate();
+		FVector OverrideScale(FVector::ZeroVector);
+		UMeshComponent* NewMesh = InventoryType.GetDefaultObject()->GetPickupMeshTemplate(OverrideScale);
 		if (NewMesh == NULL)
 		{
 			if (Mesh != NULL)
@@ -94,12 +101,26 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 				Mesh->AttachParent = NULL;
 				Mesh->AttachChildren.Empty();
 				Mesh->RelativeRotation = FRotator::ZeroRotator;
+				Mesh->RelativeLocation.Z += FloatHeight;
+				if (!OverrideScale.IsZero())
+				{
+					Mesh->SetWorldScale3D(OverrideScale);
+				}
 				if (SkelTemplate != NULL)
 				{
 					((USkeletalMeshComponent*)Mesh)->bForceRefpose = true;
 				}
 				Mesh->RegisterComponent();
 				Mesh->AttachTo(RootComponent);
+				Mesh->SetRelativeLocation(Mesh->GetRelativeTransform().GetLocation() - (Mesh->Bounds.Origin - Mesh->GetComponentToWorld().GetLocation()));
+				// if there's a rotation component, set it up to rotate the pickup mesh
+				TArray<URotatingMovementComponent*> RotationComps;
+				GetComponents<URotatingMovementComponent>(RotationComps);
+				if (RotationComps.Num() > 0)
+				{
+					RotationComps[0]->SetUpdatedComponent(Mesh);
+					RotationComps[0]->PivotTranslation = Mesh->Bounds.Origin - Mesh->GetComponentToWorld().GetLocation();
+				}
 			}
 		}
 	}

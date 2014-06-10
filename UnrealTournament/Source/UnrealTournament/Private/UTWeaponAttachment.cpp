@@ -10,6 +10,8 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 	Mesh->SetOwnerNoSee(true);
 	Mesh->AttachParent = RootComponent;
 	AttachSocket = FName((TEXT("WeaponPoint")));
+
+	PickupScaleOverride = FVector(2.0f, 2.0f, 2.0f);
 }
 
 void AUTWeaponAttachment::BeginPlay()

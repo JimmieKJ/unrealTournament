@@ -3,25 +3,25 @@
 
 #include "UTPickupInventory.generated.h"
 
-UCLASS(Blueprintable, CustomConstructor)
+UCLASS(Blueprintable)
 class AUTPickupInventory : public AUTPickup
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTPickupInventory(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
-	{}
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, ReplicatedUsing=InventoryTypeUpdated, Category = Inventory)
 	TSubclassOf<AUTInventory> InventoryType;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
 	UMeshComponent* Mesh;
 public:
-
 	inline const UMeshComponent* GetMesh()
 	{
 		return Mesh;
 	}
+
+	/** how high the pickup floats (additional Z axis translation applied to pickup mesh) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	float FloatHeight;
 
 	virtual void BeginPlay() OVERRIDE;
 #if WITH_EDITOR

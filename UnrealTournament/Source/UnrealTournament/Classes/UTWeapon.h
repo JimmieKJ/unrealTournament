@@ -157,7 +157,7 @@ public:
 		}
 	}
 
-	virtual UMeshComponent* GetPickupMeshTemplate_Implementation() OVERRIDE;
+	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) OVERRIDE;
 
 	void GotoState(class UUTWeaponState* NewState);
 
