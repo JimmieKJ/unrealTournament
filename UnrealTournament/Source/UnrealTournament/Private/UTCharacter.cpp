@@ -293,6 +293,7 @@ void AUTCharacter::Destroyed()
 	if (WeaponAttachment != NULL)
 	{
 		WeaponAttachment->Destroy();
+		WeaponAttachment = NULL;
 	}
 }
 
@@ -464,11 +465,11 @@ bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type)
 	if (Weapon != NULL)
 	{
 		Amount += Weapon->Ammo;
-		return Amount < Weapon->MaxAmmo;
+		return Amount >= Weapon->MaxAmmo;
 	}
 	else
 	{
-		return Amount < Type.GetDefaultObject()->MaxAmmo;
+		return Amount >= Type.GetDefaultObject()->MaxAmmo;
 	}
 }
 
