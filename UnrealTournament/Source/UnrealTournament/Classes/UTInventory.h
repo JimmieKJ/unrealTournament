@@ -4,7 +4,7 @@
 
 #include "UTInventory.generated.h"
 
-UCLASS(Blueprintable, notplaceable, meta = (ChildCanTick))
+UCLASS(Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
 class AUTInventory : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -80,4 +80,11 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	bool StackPickup(AUTInventory* ContainedInv);
+
+	/** if set, inventory gets the ModifyDamageTaken() function/event when the holder takes damage */
+	UPROPERTY(EditDefaultsOnly, Category = Damage)
+	bool bCallModifyDamageTaken;
+
+	UFUNCTION(BlueprintNativeEvent)
+	void ModifyDamageTaken(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser);
 };

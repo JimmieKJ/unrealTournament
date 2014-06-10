@@ -32,14 +32,7 @@ void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
 			{
 				int32 AppliedDamage = FMath::TruncToInt(Accumulator);
 				FVector FireDir = (Hit.Location - Hit.TraceStart).SafeNormal();
-
-				// TODO: replicated momentum handling
-				if (Hit.Component != NULL)
-				{
-					Hit.Component->AddImpulseAtLocation(FireDir * (DamageInfo.Momentum * float(AppliedDamage) / float(DamageInfo.Damage)), Hit.Location);
-				}
-
-				Hit.Actor->TakeDamage(AppliedDamage, FPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType), GetOuterAUTWeapon()->GetUTOwner()->Controller, GetOuterAUTWeapon());
+				Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (DamageInfo.Momentum * float(AppliedDamage) / float(DamageInfo.Damage))), GetOuterAUTWeapon()->GetUTOwner()->Controller, GetOuterAUTWeapon());
 			}
 		}
 		// beams show a clientside beam target

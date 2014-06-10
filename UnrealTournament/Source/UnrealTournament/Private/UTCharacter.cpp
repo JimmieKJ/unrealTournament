@@ -180,6 +180,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	// check for caused modifiers on instigator
 	AUTCharacter* InstigatorChar = NULL;
 	if (DamageCauser != NULL)
 	{
@@ -192,6 +193,14 @@ void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 	if (InstigatorChar != NULL && !InstigatorChar->IsDead())
 	{
 		InstigatorChar->ModifyDamageCaused(Damage, Momentum, DamageEvent, this, EventInstigator, DamageCauser);
+	}
+	// check inventory
+	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	{
+		if (Inv->bCallModifyDamageTaken)
+		{
+			Inv->ModifyDamageTaken(Damage, Momentum, DamageEvent, EventInstigator, DamageCauser);
+		}
 	}
 }
 void AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser)
@@ -438,6 +447,28 @@ void AUTCharacter::AddAmmo(const FStoredAmmo& AmmoToAdd)
 		{
 			new(SavedAmmo)FStoredAmmo(AmmoToAdd);
 		}
+	}
+}
+
+bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type)
+{
+	int32 Amount = 0;
+	for (int32 i = 0; i < SavedAmmo.Num(); i++)
+	{
+		if (SavedAmmo[i].Type == Type)
+		{
+			Amount += SavedAmmo[i].Amount;
+		}
+	}
+	AUTWeapon* Weapon = FindInventoryType<AUTWeapon>(Type, true);
+	if (Weapon != NULL)
+	{
+		Amount += Weapon->Ammo;
+		return Amount < Weapon->MaxAmmo;
+	}
+	else
+	{
+		return Amount < Type.GetDefaultObject()->MaxAmmo;
 	}
 }
 

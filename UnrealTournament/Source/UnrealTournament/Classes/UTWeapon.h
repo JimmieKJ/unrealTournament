@@ -268,6 +268,9 @@ public:
 	/** returns whether we can meet AmmoCost for the given fire mode */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual bool HasAmmo(uint8 FireModeNum);
+	/** returns whether we have ammo for any fire mode */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual bool HasAnyAmmo();
 
 	/** get interval between shots, including any fire rate modifiers */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")

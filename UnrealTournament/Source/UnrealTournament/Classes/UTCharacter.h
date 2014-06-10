@@ -54,6 +54,10 @@ class AUTCharacter : public ACharacter
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void AddAmmo(const FStoredAmmo& AmmoToAdd);
 
+	/** returns whether the character (via SavedAmmo, active weapon, or both) has the maximum allowed ammo for the passed in weapon */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual bool HasMaxAmmo(TSubclassOf<AUTWeapon> Type);
+
 	inline class AUTInventory* GetInventory()
 	{
 		return InventoryList;

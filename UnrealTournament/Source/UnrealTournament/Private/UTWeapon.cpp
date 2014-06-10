@@ -370,16 +370,19 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
 	{
 		// fire effects
 		static FName NAME_HitLocation(TEXT("HitLocation"));
+		static FName NAME_LocalHitLocation(TEXT("LocalHitLocation"));
 		if (FireEffect.IsValidIndex(CurrentFireMode) && FireEffect[CurrentFireMode] != NULL)
 		{
 			const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (TargetLoc - SpawnLocation).Rotation(), true);
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
+			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));
 		}
 		// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
 		else if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
 		{
 			MuzzleFlash[CurrentFireMode]->SetVectorParameter(NAME_HitLocation, TargetLoc);
+			MuzzleFlash[CurrentFireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[CurrentFireMode]->ComponentToWorld.InverseTransformPositionNoScale(TargetLoc));
 		}
 	}
 }
@@ -420,14 +423,7 @@ void AUTWeapon::AddAmmo(int32 Amount)
 
 void AUTWeapon::OnRep_Ammo()
 {
-	for (int32 i = GetNumFireModes() - 1; i >= 0; i--)
-	{
-		if (HasAmmo(i))
-		{
-			return;
-		}
-	}
-	if (UTOwner != NULL)
+	if (UTOwner != NULL && UTOwner->GetPendingWeapon() == NULL && !HasAnyAmmo())
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 		if (PC != NULL)
@@ -439,7 +435,6 @@ void AUTWeapon::OnRep_Ammo()
 
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
-
 	if (AmmoCost.IsValidIndex(FireModeNum))
 	{
 		AddAmmo(-AmmoCost[FireModeNum]);
@@ -453,6 +448,18 @@ void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 {
 	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo > AmmoCost[FireModeNum]);
+}
+
+bool AUTWeapon::HasAnyAmmo()
+{
+	for (int32 i = GetNumFireModes() - 1; i >= 0; i--)
+	{
+		if (HasAmmo(i))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 FVector AUTWeapon::GetFireStartLoc()

@@ -88,7 +88,7 @@ void AUTPlayerController::SwitchToBestWeapon()
 		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-			if (Weap != NULL)
+			if (Weap != NULL && Weap->HasAnyAmmo())
 			{
 				if (BestWeapon == NULL || Weap->Group > BestWeapon->Group)
 				{
@@ -126,7 +126,7 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 			{
 				AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-				if (Weap != NULL && Weap != UTCharacter->GetWeapon())
+				if (Weap != NULL && Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 				{
 					if (bPrev)
 					{
@@ -189,7 +189,7 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-			if (Weap != NULL && Weap != UTCharacter->GetWeapon())
+			if (Weap != NULL && Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 			{
 				if (Weap->Group == Group)
 				{

@@ -132,3 +132,7 @@ bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
 {
 	return false;
 }
+
+void AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
+{
+}
