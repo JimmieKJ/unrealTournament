@@ -19,6 +19,25 @@ void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
 {
 }
 
+UCanvas* UUTHUDWidget::GetCanvas()
+{
+	return Canvas;
+}
+
+FVector2D UUTHUDWidget::GetRenderPosition()
+{
+	return RenderPosition;
+}
+
+FVector2D UUTHUDWidget::GetRenderSize()
+{
+	return RenderSize;
+}
+
+float UUTHUDWidget::GetRenderScale()
+{
+	return RenderScale;
+}
 
 bool UUTHUDWidget::IsHidden()
 {
@@ -33,6 +52,16 @@ void UUTHUDWidget::SetHidden(bool bIsHidden)
 void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	UTHUDOwner = InUTHUDOwner;
+
+	if (UTHUDOwner != NULL && UTHUDOwner->UTPlayerOwner != NULL)
+	{
+		UTPlayerOwner = UTHUDOwner->UTPlayerOwner;
+		if (UTPlayerOwner != NULL)
+		{
+			UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
+		}
+	}
+
 	Canvas = InCanvas;
 	CanvasCenter = InCanvasCenter;
 
@@ -56,7 +85,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	RenderPosition.Y += (Position.Y * RenderScale) - (RenderSize.Y * Origin.Y);
 }
 
-void UUTHUDWidget::Draw(float DeltaTime)
+void UUTHUDWidget::Draw_Implementation(float DeltaTime)
 {
 }
 
@@ -64,6 +93,8 @@ void UUTHUDWidget::PostDraw(float RenderedTime)
 {
 	LastRenderTime = RenderedTime;
 	Canvas = NULL;
+	UTPlayerOwner = NULL;
+	UTCharacterOwner = NULL;
 }
 
 

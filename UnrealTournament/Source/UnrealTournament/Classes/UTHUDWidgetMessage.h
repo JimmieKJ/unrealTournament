@@ -128,14 +128,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float FadeTime;
 
-	// this event will be triggered on blueprints so that they can control the aging of a message.  
-	// return TRUE if you want to bypass the default aging process.
-	UFUNCTION(BlueprintImplementableEvent)
-	bool eventAgeMessage(float DeltaTime);
-
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
-	virtual void Draw(float DeltaTime);
-	virtual void AgeMessages(float DeltaTime);
+	virtual void Draw_Implementation(float DeltaTime);
+	
+	// This function is called each frame and is used to age out messages in the queue. 
+	UFUNCTION(BlueprintNativeEvent)
+	void AgeMessages(float DeltaTime);
+	
 	virtual void DrawMessages(float DeltaTime);
 
 	// MessageWidgets need to be able to receive local messages from the HUD.  They will be responsible for managing their own messages.

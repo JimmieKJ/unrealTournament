@@ -17,7 +17,7 @@ public:
 	UPROPERTY()
 	UTexture* HudTexture;
 
-	virtual void Draw(float DeltaTime);
+	virtual void Draw_Implementation(float DeltaTime);
 protected:
 
 private:

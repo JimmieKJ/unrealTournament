@@ -63,22 +63,31 @@ public:
 	virtual void SetHidden(bool bIsHidden);
 
 	// Predraw is called before the main drawing function in order to perform any needed scaling / positioning /etc as
-	// well as cache the canvas and owner.
+	// well as cache the canvas and owner.  
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
-	// The main drawing function
-	virtual void Draw(float DeltaTime);
-
-	// This function can be used to override the regular draw system of a HudWidgets.  Return TRUE if you want to
-	// completely short circuit drawing after the Blueprint implemented draw is finished.
-	UFUNCTION(BlueprintImplementableEvent)
-	bool eventDraw(float DeltaTime);
+	// The main drawing function.  When it's called, UTHUDOwner, UTPlayerOwner, UTCharacter and Canvas will all
+	// be valid.  If you are override this event in Blueprint, you should make sure you 
+	// understand the ramifications of calling or not calling the Parent/Super version of this function.
+	UFUNCTION(BlueprintNativeEvent)
+	void Draw(float DeltaTime);
 
 	virtual void PostDraw(float RenderedTime);
 
 	// The UTHUD that owns this widget.  
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	class AUTHUD* UTHUDOwner;
+
+	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
+	class AUTPlayerController* UTPlayerOwner;
+
+	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
+	class AUTCharacter* UTCharacterOwner;
+
+	virtual UCanvas* GetCanvas();
+	virtual FVector2D GetRenderPosition();
+	virtual FVector2D GetRenderSize();
+	virtual float GetRenderScale();
 
 protected:
 

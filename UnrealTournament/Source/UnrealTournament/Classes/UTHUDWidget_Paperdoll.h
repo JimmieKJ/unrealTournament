@@ -17,7 +17,8 @@ public:
 	UPROPERTY()
 	UTexture* PaperDollTexture;
 
-	virtual void Draw(float DeltaTime);
+	virtual void Draw_Implementation(float DeltaTime);
+
 protected:
 
 private:

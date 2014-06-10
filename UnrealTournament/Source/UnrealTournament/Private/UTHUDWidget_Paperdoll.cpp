@@ -17,7 +17,7 @@ UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FPostConstructInitial
 
 }
 
-void UUTHUDWidget_Paperdoll::Draw(float DeltaTime)
+void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 {
 	AUTCharacter* UTC = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
 	if (UTC)

@@ -12,14 +12,15 @@ UUTHUDWidget_WeaponInfo::UUTHUDWidget_WeaponInfo(const class FPostConstructIniti
 
 }
 
-void UUTHUDWidget_WeaponInfo::Draw(float DeltaTime)
+void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 {
+	Super::Draw_Implementation(DeltaTime);
 	if (UTHUDOwner != NULL && UTHUDOwner->UTPlayerOwner != NULL)
 	{
 		AUTCharacter* UTCharacter = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
 		if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL)
 		{
-			UTCharacter->GetWeapon()->DrawWeaponInfo(this, DeltaTime);
+			UTCharacter->GetWeapon()->DrawWeaponInfo(this, UTCharacter, DeltaTime);
 		}
 	}
 }

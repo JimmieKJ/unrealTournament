@@ -69,7 +69,7 @@ FText UUTHUDWidget_DMPlayerLeaderboard::GetPlaceSuffix(int32 Standing)
 	return FText::GetEmpty();
 }
 
-void UUTHUDWidget_DMPlayerLeaderboard::Draw(float DeltaTime)
+void UUTHUDWidget_DMPlayerLeaderboard::Draw_Implementation(float DeltaTime)
 {
 	if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
 	{

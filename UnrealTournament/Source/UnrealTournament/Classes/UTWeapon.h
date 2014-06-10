@@ -307,11 +307,12 @@ public:
 		return CurrentState;
 	}
 
-	/** This is the main entry point to draw on the HUD. By default it draws the crosshair. */
 	UFUNCTION(BlueprintNativeEvent)
-	void DrawHud(AUTHUD* Hud, UCanvas* Canvas);
+	void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta);
 
-	virtual void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
+	UFUNCTION(BlueprintNativeEvent)
+	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta);
+
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")

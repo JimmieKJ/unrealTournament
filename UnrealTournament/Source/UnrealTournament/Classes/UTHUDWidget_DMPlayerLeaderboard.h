@@ -15,7 +15,7 @@ class UUTHUDWidget_DMPlayerLeaderboard : public UUTHUDWidget
 public:
 	virtual void CalcStanding(int32& Standing, int32& Spread);
 	virtual FText GetPlaceSuffix(int32 Standing);
-	virtual void Draw(float DeltaTime);
+	virtual void Draw_Implementation(float DeltaTime);
 
 protected:
 

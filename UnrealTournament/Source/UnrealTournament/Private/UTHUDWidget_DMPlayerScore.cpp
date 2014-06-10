@@ -16,7 +16,7 @@ UUTHUDWidget_DMPlayerScore::UUTHUDWidget_DMPlayerScore(const class FPostConstruc
 	LastScore = 0;
 }
 
-void UUTHUDWidget_DMPlayerScore::Draw(float DeltaTime)
+void UUTHUDWidget_DMPlayerScore::Draw_Implementation(float DeltaTime)
 {
 	if ( UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
 	{

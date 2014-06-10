@@ -9,6 +9,7 @@
 #include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
 #include "UTHUDWidget_WeaponInfo.h"
+#include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTScoreboard.h"
 
 
@@ -33,6 +34,16 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
+	HudWidgetClasses.Add(UUTHUDWidget_Paperdoll::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_WeaponInfo::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_WeaponCrosshair::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerScore::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidgetMessage_DeathMessages::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
+
+	HudWidgetClasses.Add( ResolveHudWidgetByName(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'")));
+
 }
 
 void AUTHUD::BeginPlay()
@@ -44,14 +55,6 @@ void AUTHUD::BeginPlay()
 		AddHudWidget(HudWidgetClasses[WidgetIndex]);
 	}
 
-	AddHudWidget(UUTHUDWidget_Paperdoll::StaticClass());
-	AddHudWidget(UUTHUDWidget_WeaponInfo::StaticClass());
-	AddHudWidget(UUTHUDWidget_DMPlayerScore::StaticClass());
-	AddHudWidget(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
-	AddHudWidget(UUTHUDWidgetMessage_DeathMessages::StaticClass());
-	AddHudWidget(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
-
-	AddHudWidget(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'"));
 
 	DamageIndicators.AddZeroed(MAX_DAMAGE_INDICATORS);
 	for (int i=0;i<MAX_DAMAGE_INDICATORS;i++)
@@ -68,32 +71,35 @@ void AUTHUD::PostInitializeComponents()
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
 }
 
-void AUTHUD::AddHudWidget(const TCHAR* NewWidgetClassName)
+TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceName)
 {
-	UClass* WidgetClass = LoadClass<UUTHUDWidget>(NULL, NewWidgetClassName, NULL, LOAD_None, NULL);
+	UClass* WidgetClass = LoadClass<UUTHUDWidget>(NULL, ResourceName, NULL, LOAD_None, NULL);
 
 	if (WidgetClass != NULL)
 	{
-		AddHudWidget(WidgetClass);
-		return;
+		return WidgetClass;
 	}
 
-	UBlueprint* Blueprint = LoadObject<UBlueprint>(NULL, NewWidgetClassName, NULL, LOAD_None, NULL);
+	UBlueprint* Blueprint = LoadObject<UBlueprint>(NULL, ResourceName, NULL, LOAD_None, NULL);
 	if (Blueprint != NULL)
 	{
 		WidgetClass = Blueprint->GeneratedClass;
 		if (WidgetClass != NULL)
 		{
-			AddHudWidget(WidgetClass);
-			return;
+			return WidgetClass;
 		}
 	}
+
+	return NULL;
 }
 
 
 
 void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 {
+
+	if (NewWidgetClass == NULL) return;
+
 	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass,GetTransientPackage());
 	HudWidgets.Add(Widget);
 
@@ -184,10 +190,10 @@ void AUTHUD::DrawHUD()
 		// find center of the Canvas
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
-		// Let the weapon draw if needed...
-		if (UTPlayerOwner != NULL && UTPlayerOwner->GetUTCharacter() != NULL && UTPlayerOwner->GetUTCharacter()->GetWeapon() != NULL)
+		AUTCharacter* UTCharacterOwner = NULL;
+		if (UTPlayerOwner != NULL)
 		{
-			UTPlayerOwner->GetUTCharacter()->GetWeapon()->DrawHud(this, Canvas);
+			UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
 		}
 
 		for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
@@ -196,11 +202,8 @@ void AUTHUD::DrawHUD()
 			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
 			{
 				HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
-				if (!HudWidgets[WidgetIndex]->eventDraw(RenderDelta))
-				{
-					HudWidgets[WidgetIndex]->Draw(RenderDelta);
-					HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
-				}
+				HudWidgets[WidgetIndex]->Draw(RenderDelta);
+				HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
 			}
 		}
 

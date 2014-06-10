@@ -616,23 +616,21 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
 }
 
-void AUTWeapon::DrawHud_Implementation(AUTHUD* Hud, UCanvas* Canvas)
+void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta)
 {
-	const FVector2D CrossHairCenter(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+	UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex; 		
+	if (CrosshairTexture != NULL)
+	{
+		float W = CrosshairTexture->GetSurfaceWidth();
+		float H = CrosshairTexture->GetSurfaceHeight();
 
-	// Draw very simple crosshair
+		float Scale = WeaponHudWidget->GetRenderScale();
 
-	// offset by half the texture's dimensions so that the center of the texture aligns with the center of the Canvas
-	const FVector2D CrosshairDrawPosition( (CrossHairCenter.X - (Hud->DefaultCrosshairTex->GetSurfaceWidth() * 0.5f)),
-											(CrossHairCenter.Y - (Hud->DefaultCrosshairTex->GetSurfaceHeight() * 0.5f)) );
-
-	// draw the crosshair
-	FCanvasTileItem TileItem( CrosshairDrawPosition, Hud->DefaultCrosshairTex->Resource, FLinearColor::White);
-	TileItem.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem( TileItem );
+		WeaponHudWidget->DrawTexture(CrosshairTexture, 0,0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, FLinearColor::White, FVector2D(0.5f,0.5f));
+	}
 }
 
-void AUTWeapon::DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
+void AUTWeapon::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta)
 {
 	UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
 	FString AmmoStr = FString::Printf(TEXT("%i"),Ammo);

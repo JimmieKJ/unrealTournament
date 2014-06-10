@@ -70,8 +70,8 @@ public:
 
 	virtual void PostInitializeComponents();
 
-	// Creates and adds a hud widget
-	virtual void AddHudWidget(const TCHAR* NewWidgetClassName);
+	// Loads the subclass of a hudwidget using just the resource name.  
+	TSubclassOf<UUTHUDWidget> ResolveHudWidgetByName(const TCHAR* ResourceName);
 
 	// Creates and adds a hud widget
 	virtual void AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
@@ -104,6 +104,7 @@ protected:
 
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
+
 
 public:
 

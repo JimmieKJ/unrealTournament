@@ -32,19 +32,17 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
-	AgeMessages(DeltaTime);
+	AgeMessages_Implementation(DeltaTime);
 }
 
-void UUTHUDWidgetMessage::Draw(float DeltaTime)
+void UUTHUDWidgetMessage::Draw_Implementation(float DeltaTime)
 {
 	DrawMessages(DeltaTime);
 }
 
-void UUTHUDWidgetMessage::AgeMessages(float DeltaTime)
+void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 {
 	if (MessageQueue[0].MessageClass == NULL) return;	// Quick out if nothing to render.
-
-	if (eventAgeMessage(DeltaTime)) return;	// Quick out if Blueprints ages the message.
 
 	// Pass 1 - Precache anything that's needed and age out messages.
 

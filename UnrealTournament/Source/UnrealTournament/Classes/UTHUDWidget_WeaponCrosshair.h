@@ -5,10 +5,10 @@
  *
  **/
 
-#include "UTHUDWidget_WeaponInfo.generated.h"
+#include "UTHUDWidget_WeaponCrosshair.generated.h"
 
 UCLASS()
-class UUTHUDWidget_WeaponInfo : public UUTHUDWidget
+class UUTHUDWidget_WeaponCrosshair : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
