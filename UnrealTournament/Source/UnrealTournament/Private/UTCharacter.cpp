@@ -83,7 +83,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				float AdjustedDamage = InternalTakeRadialDamage(Damage, (const FRadialDamageEvent&)DamageEvent, EventInstigator, DamageCauser);
 				if (bScaleMomentum)
 				{
-					ResultMomentum *= Damage / AdjustedDamage;
+					ResultMomentum *= AdjustedDamage / Damage;
 				}
 				ResultDamage = FMath::TruncToInt(AdjustedDamage);
 			}
