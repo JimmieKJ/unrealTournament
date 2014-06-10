@@ -621,6 +621,16 @@ void AUTWeapon::Destroyed()
 	GotoState(InactiveState);
 }
 
+// hooks meant for subclasses/blueprints, empty by default
+void AUTWeapon::OnStartedFiring_Implementation()
+{}
+void AUTWeapon::OnStoppedFiring_Implementation()
+{}
+void AUTWeapon::OnContinuedFiring_Implementation()
+{}
+void AUTWeapon::OnMultiPress_Implementation(uint8 OtherFireMode)
+{}
+
 void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

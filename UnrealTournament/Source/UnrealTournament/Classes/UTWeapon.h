@@ -172,19 +172,19 @@ public:
 	virtual void BeginFiringSequence(uint8 FireModeNum);
 	virtual void EndFiringSequence(uint8 FireModeNum);
 
-	/** blueprint hook when the firing state starts; called on both client and server */
-	UFUNCTION(BlueprintImplementableEvent)
+	/** hook when the firing state starts; called on both client and server */
+	UFUNCTION(BlueprintNativeEvent)
 	void OnStartedFiring();
-	/** blueprint hook when the trigger is released; called on both client and server */
-	UFUNCTION(BlueprintImplementableEvent)
+	/** hook for the return to active state (was firing, refire timer expired, trigger released and/or out of ammo)  */
+	UFUNCTION(BlueprintNativeEvent)
 	void OnStoppedFiring();
-	/** blueprint hook when the weapon has fired, the refire delay passes, and the user still wants to fire (trigger still down) so the firing loop will repeat */
-	UFUNCTION(BlueprintImplementableEvent)
+	/** hook for when the weapon has fired, the refire delay passes, and the user still wants to fire (trigger still down) so the firing loop will repeat */
+	UFUNCTION(BlueprintNativeEvent)
 	void OnContinuedFiring();
 	/** blueprint hook for pressing one fire mode while another is currently firing (e.g. hold alt, press primary)
 	 * CurrentFireMode == current, OtherFireMode == one just pressed
 	 */
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintNativeEvent)
 	void OnMultiPress(uint8 OtherFireMode);
 
 	/** activates the weapon as part of a weapon switch
