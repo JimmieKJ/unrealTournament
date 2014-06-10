@@ -196,7 +196,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Environments/Skies/OvercastSky_Mat_Inst.uasset" Hash="62843bba993be6f04395e1e7b6edf186790ba4e3" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Environments/Textures/M_Vista_01.uasset" Hash="666d70ae0cb1f6d4928e54db424d9514c957f57d" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Environments/Textures/T_Vista_01.uasset" Hash="9a72bc83ab985368c4fdabf610b72997c79baafa" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_Cloth.uasset" Hash="4c6303785e18069ebc6d1194ba35299c42d04bf2" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_Cloth.uasset" Hash="adcad512adbe544f3a46855d39957d31f55e1908" />
     <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_Gold.uasset" Hash="4269d1a34386948e9eb3f57564d04a09039a3f04" />
     <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_Metal_01.uasset" Hash="d3e0c6a861cfc02d1fa5f0c561bd07efb7c388df" />
     <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_Metal_02.uasset" Hash="2485e962987809e3deae2bb771836d4956381a53" />
@@ -2144,7 +2144,6 @@
     <Blob Hash="4bcde7053ae0666b62b5fc5f6eeb8ab9c286675b" Size="992730" PackHash="2e31f6c37e9019636fa2be29ffc9eb3548659c13" PackOffset="8" />
     <Blob Hash="4bf4c908c583c1c08414e955d70a1cbe9740f0ba" Size="65798" PackHash="313c49fa270940a547015cab7a84e42e6ee19017" PackOffset="1338081" />
     <Blob Hash="4bf89832983894d24a7669b5a08b2e54cfa4cff0" Size="615" PackHash="71ffcc2a62de99665ef9b642cbb7bb3877ffee51" PackOffset="1759579" />
-    <Blob Hash="4c6303785e18069ebc6d1194ba35299c42d04bf2" Size="103905" PackHash="1debb093220ccb914acd9d6edd8a7f837e6432cf" PackOffset="8" />
     <Blob Hash="4c6a14c3bf798775e17853c07ec9288d35be3488" Size="141309" PackHash="167d701fe0919f560dacb695850ab28c2ef8e51b" PackOffset="1587853" />
     <Blob Hash="4c6ae6df19066e430eddcf02887848e6ed1519dd" Size="3368" PackHash="f3178bcd0d9bb26c19e2f6c5aa634306af378ce5" PackOffset="478276" />
     <Blob Hash="4c6ff7af5c4732f91259526f2aac95f4f293a9b9" Size="1722" PackHash="b8fb2f0442bf0c3654753eb93a68e73eac18a807" PackOffset="2095436" />
@@ -2765,6 +2764,7 @@
     <Blob Hash="ad69f8c3de5973ce34efce95c6951691dcde92b5" Size="130769" PackHash="e2e296fcb8915ac53a4de0ca1e2907bf4b3715b6" PackOffset="112821" />
     <Blob Hash="ad7736166dbfc89a8ce594975e778b26ca46359b" Size="81149" PackHash="07afa371ff2a679173564aa9f797361c8a5452db" PackOffset="163907" />
     <Blob Hash="ad8f015f2492a2955dc89452a0eb15a9829d878b" Size="812427" PackHash="fee8879cbed9afe71ef70199e5cf8b0aea5b460e" PackOffset="596508" />
+    <Blob Hash="adcad512adbe544f3a46855d39957d31f55e1908" Size="108267" PackHash="0013c4b44064ad0b7158fffffe0a13c5123834fe" PackOffset="8" />
     <Blob Hash="adf9788b24d30bda396ca1c361babcd39b82b467" Size="1320112" PackHash="2e287bfcf921fe0a9a034f764dee37827fe5b4ff" PackOffset="8" />
     <Blob Hash="ae23498b38f6abb26a88b64919b3c6f0e6867d3d" Size="52878" PackHash="1a022a5ea24e75d884aabb7b40587d1fc4892bae" PackOffset="667389" />
     <Blob Hash="ae522c61308023ac0d7112843ce1109a9a48e403" Size="910" PackHash="71ffcc2a62de99665ef9b642cbb7bb3877ffee51" PackOffset="1805765" />
@@ -3327,6 +3327,7 @@
     <Blob Hash="fff7346a8a91311a72be3b14f7a2f37f7b7810ff" Size="7970765" PackHash="b2fa50fe2bf394675349a3e2542d1c0354c98d79" PackOffset="8" />
   </Blobs>
   <Packs>
+    <Pack Hash="0013c4b44064ad0b7158fffffe0a13c5123834fe" Size="108275" CompressedSize="95862" RemotePath="0-7e0689af3d510735d6a83d6b103323baaa31d95b" />
     <Pack Hash="00b842a223ff7265b11a29aeda9a1b8bb4943615" Size="335390" CompressedSize="310185" RemotePath="0-1a0550cf485c5ae683383bc15e9f7bf380cfcf3b" />
     <Pack Hash="016fe2ab4ff8b9903c3ee6416d1a4a859805dcbd" Size="824726" CompressedSize="524131" RemotePath="0-2be845a68ed108dd1f0b091592c068129b45aa0b" />
     <Pack Hash="04943b85e9dcf478e6e22c1084814da37c2ebf38" Size="1259363" CompressedSize="1181288" RemotePath="0-9b5986352a678ce87a64df106505082654f4f64c" />
