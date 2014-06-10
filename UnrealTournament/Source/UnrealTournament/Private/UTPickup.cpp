@@ -42,6 +42,7 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 
 	SetReplicates(true);
 	bAlwaysRelevant = true;
+	NetUpdateFrequency = 1.0f;
 
 	PrimaryActorTick.bCanEverTick = true;
 }
@@ -148,6 +149,7 @@ void AUTPickup::StartSleeping_Implementation()
 	if (Role == ROLE_Authority)
 	{
 		bActive = false;
+		ForceNetUpdate();
 	}
 }
 void AUTPickup::PlayTakenEffects(bool bReplicate)
@@ -155,6 +157,7 @@ void AUTPickup::PlayTakenEffects(bool bReplicate)
 	if (bReplicate)
 	{
 		bRepTakenEffects = true;
+		ForceNetUpdate();
 	}
 	// TODO: EffectIsRelevant() ?
 	if (GetNetMode() != NM_DedicatedServer)
@@ -190,6 +193,7 @@ void AUTPickup::WakeUp_Implementation()
 	{
 		bActive = true;
 		bRepTakenEffects = false;
+		ForceNetUpdate();
 	}
 }
 void AUTPickup::PlayRespawnEffects()
@@ -237,8 +241,25 @@ void AUTPickup::OnRep_bActive()
 	}
 }
 
+void AUTPickup::OnRep_RespawnTimeRemaining()
+{
+	if (!bActive)
+	{
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUp, RespawnTimeRemaining, false);
+	}
+}
+
+void AUTPickup::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
+{
+	Super::PreReplication(ChangedPropertyTracker);
+
+	RespawnTimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUp);
+}
+
 void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	// warning: we rely on this ordering
 	DOREPLIFETIME_CONDITION(AUTPickup, bActive, COND_None);
+	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);
 }

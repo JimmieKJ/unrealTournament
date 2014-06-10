@@ -72,6 +72,9 @@ public:
 	/** if set, item starts off not being available when placed in the level (must wait RespawnTime from start of match) */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	bool bDelayedSpawn;
+	/** sound played on pickup */
+	UPROPERTY(EditDefaultsOnly, Category = Pickup)
+	USoundBase* PickupSound;
 
 	/** called by pickups when another inventory of same class will be given, allowing the item to simply stack instance values
 	 * instead of spawning a new item

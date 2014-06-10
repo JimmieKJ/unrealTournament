@@ -61,9 +61,12 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 			Mesh->UnregisterComponent();
 			Mesh = NULL;
 		}
+		TakenSound = GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 	}
 	else
 	{
+		TakenSound = InventoryType.GetDefaultObject()->PickupSound;
+
 		UMeshComponent* NewMesh = InventoryType.GetDefaultObject()->GetPickupMeshTemplate();
 		if (NewMesh == NULL)
 		{

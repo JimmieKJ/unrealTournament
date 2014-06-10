@@ -82,4 +82,14 @@ class AUTPickup : public AActor
 	/** sets the hidden state of the pickup - note that this doesn't necessarily mean the whole object (e.g. item mesh but not holder) */
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetPickupHidden(bool bNowHidden);
+
+	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);
+	
+protected:
+	/** used to replicate remaining respawn time to newly joining clients */
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RespawnTimeRemaining)
+	float RespawnTimeRemaining;
+
+	UFUNCTION()
+	virtual void OnRep_RespawnTimeRemaining();
 };
