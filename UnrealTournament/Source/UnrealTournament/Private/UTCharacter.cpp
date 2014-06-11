@@ -27,11 +27,16 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FirstPersonMesh->AttachParent = CharacterCameraComponent;
 	FirstPersonMesh->bCastDynamicShadow = false;
 	FirstPersonMesh->CastShadow = false;
+	FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+
+	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 
 	HealthMax = 100;
 	SuperHealthMax = 199;
 	DamageScaling = 1.0f;
 	FireRateMultiplier = 1.0f;
+
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTCharacter::BeginPlay()
@@ -958,4 +963,43 @@ APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 	return PC != NULL ? PC->PlayerCameraManager : NULL;
+}
+
+void AUTCharacter::PlayFootstep(uint8 FootNum)
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSound, this, SRT_IfSourceNotReplicated);
+	LastFoot = FootNum;
+	LastFootstepTime = GetWorld()->TimeSeconds;
+}
+
+void AUTCharacter::PlayJump()
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_AllButOwner);
+}
+
+void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_AllButOwner);
+}
+
+void AUTCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+}
+
+void AUTCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (Mesh->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !Mesh->bRecentlyRendered)
+	{
+		// TODO: currently using an arbitrary made up interval and scale factor
+		// TODO: for local player in first person, sync to view bob, etc
+		if (CharacterMovement->MovementMode == MOVE_Walking && GetWorld()->TimeSeconds - LastFootstepTime > 0.5f * CharacterMovement->Velocity.Size() / CharacterMovement->MaxWalkSpeed)
+		{
+			PlayFootstep((LastFoot + 1) & 1);
+		}
+	}
 }

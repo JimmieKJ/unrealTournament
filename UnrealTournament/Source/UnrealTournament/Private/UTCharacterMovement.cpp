@@ -227,6 +227,10 @@ bool UUTCharacterMovement::DoJump()
 {
 	if ( IsFalling() ? DoMultiJump() : Super::DoJump())
 	{
+		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
+		{
+			((AUTCharacter*)CharacterOwner)->PlayJump();
+		}
 		bNotifyApex = true;
 		CurrentMultiJumpCount++;
 		return true;

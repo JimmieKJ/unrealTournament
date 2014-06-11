@@ -245,9 +245,11 @@ class AUTCharacter : public ACharacter
 	/** Dodge requested by controller, return whether dodge occurred. */
 	virtual bool Dodge(FVector DodgeDir, FVector DodgeCross);
 
-	/** Dodge just occured in dodge dir, play any sounds/effects desired. */
-	UFUNCTION(BlueprintImplementableEvent)
-	virtual void OnDodge(const FVector &DodgeDir);
+	/** Dodge just occured in dodge dir, play any sounds/effects desired.
+	 * called on server and owning client
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	void OnDodge(const FVector &DodgeDir);
 
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -284,6 +286,27 @@ class AUTCharacter : public ACharacter
 
 	UFUNCTION(BlueprintPure, Category = PlayerController)
 	virtual APlayerCameraManager* GetPlayerCameraManager();
+
+	/** plays a footstep effect; called via animation when anims are active (in vis range and not server), otherwise on interval via Tick() */
+	UFUNCTION(BlueprintCallable, Category = Effects)
+	virtual void PlayFootstep(uint8 FootNum);
+
+	/** play jumping sound/effects; should be called on server and owning client */
+	UFUNCTION(BlueprintCallable, Category = Effects)
+	virtual void PlayJump();
+
+	virtual void Landed(const FHitResult& Hit) OVERRIDE;
+
+	virtual void Tick(float DeltaTime) OVERRIDE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* FootstepSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* LandingSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* JumpSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* DodgeSound;
 
 protected:
 
@@ -339,6 +362,11 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	UAudioComponent* AmbientSoundComp;
 
+	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
+	float LastFootstepTime;
+	/** last FootNum for PlayFootstep(), for alternating when animations are disabled */
+	uint8 LastFoot;
+	
 private:
 	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)
 	{
