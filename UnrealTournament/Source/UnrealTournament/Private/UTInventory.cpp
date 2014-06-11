@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UnrealNetwork.h"
+#include "UTDroppedPickup.h"
 
 AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -19,6 +20,8 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 		PickupMesh->AttachParent = RootComponent;
 		PickupMesh->bAutoRegister = false;
 	}
+
+	DroppedPickupClass = AUTDroppedPickup::StaticClass();
 }
 
 UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation(FVector& OverrideScale)
@@ -111,6 +114,7 @@ void AUTInventory::ClientRemoved_Implementation()
 	eventClientRemoved();
 	SetOwner(NULL);
 	UTOwner = NULL;
+	Instigator = NULL;
 }
 
 void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -121,11 +125,36 @@ void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 
 void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
 {
-	if (UTOwner != NULL)
+	if (Role == ROLE_Authority)
 	{
-		UTOwner->RemoveInventory(this);
+		APawn* FormerInstigator = Instigator;
+
+		if (UTOwner != NULL)
+		{
+			UTOwner->RemoveInventory(this);
+		}
+		Instigator = NULL;
+		SetOwner(NULL);
+		if (DroppedPickupClass != NULL)
+		{
+			FActorSpawnParameters Params;
+			Params.Instigator = FormerInstigator;
+			AUTDroppedPickup* Pickup = GetWorld()->SpawnActor<AUTDroppedPickup>(DroppedPickupClass, StartLocation, TossVelocity.Rotation(), Params);
+			if (Pickup != NULL)
+			{
+				Pickup->Movement->Velocity = TossVelocity;
+				Pickup->SetInventory(this);
+			}
+			else
+			{
+				Destroy();
+			}
+		}
+		else
+		{
+			Destroy();
+		}
 	}
-	Destroy();
 }
 
 bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)

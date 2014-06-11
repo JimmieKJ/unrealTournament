@@ -83,9 +83,10 @@ class AUTCharacter : public ACharacter
 
 	/** toss an inventory item in the direction the player is facing
 	 * (the inventory must have a pickup defined)
+	 * ExtraVelocity is in the reference frame of the character (X is forward)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
-	virtual void TossInventory(AUTInventory* InvToToss);
+	virtual void TossInventory(AUTInventory* InvToToss, FVector ExtraVelocity = FVector::ZeroVector);
 
 	/** discards (generally destroys) all inventory items */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")

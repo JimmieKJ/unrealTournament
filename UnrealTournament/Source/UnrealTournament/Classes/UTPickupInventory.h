@@ -19,6 +19,9 @@ public:
 		return Mesh;
 	}
 
+	/** contains code shared between placed and dropped pickups for initializing Mesh given an InventoryType */
+	static void CreatePickupMesh(AActor* Pickup, UMeshComponent*& PickupMesh, TSubclassOf<AUTInventory> PickupInventoryType, float MeshFloatHeight);
+
 	/** how high the pickup floats (additional Z axis translation applied to pickup mesh) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	float FloatHeight;

@@ -580,7 +580,7 @@ bool AUTCharacter::IsInInventory(const AUTInventory* TestInv) const
 	return false;
 }
 
-void AUTCharacter::TossInventory(AUTInventory* InvToToss)
+void AUTCharacter::TossInventory(AUTInventory* InvToToss, FVector ExtraVelocity)
 {
 	if (InvToToss == NULL)
 	{
@@ -592,7 +592,7 @@ void AUTCharacter::TossInventory(AUTInventory* InvToToss)
 	}
 	else
 	{
-		InvToToss->DropFrom(GetActorLocation() + GetActorRotation().Vector() * GetSimpleCollisionCylinderExtent().X, GetVelocity() + GetActorRotation().RotateVector(FVector(300.0f, 0.0f, 150.0f)));
+		InvToToss->DropFrom(GetActorLocation() + GetActorRotation().Vector() * GetSimpleCollisionCylinderExtent().X, GetVelocity() + GetActorRotation().RotateVector(ExtraVelocity + FVector(300.0f, 0.0f, 150.0f)));
 	}
 }
 

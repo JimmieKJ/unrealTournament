@@ -5,7 +5,7 @@
 #include "UTDeathMessage.h"
 #include "UTGameMessage.h"
 #include "UTVictoryMessage.h"
-
+#include "UTTimedPowerup.h"
 
 AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -187,10 +187,23 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
 	if (UTC != NULL)
 	{
+		// toss weapon
 		if (UTC->GetWeapon() != NULL)
 		{
 			UTC->TossInventory(UTC->GetWeapon());
 		}
+		// toss all powerups
+		AUTInventory* Inv = UTC->GetInventory();
+		while (Inv != NULL)
+		{
+			AUTInventory* NextInv = Inv->GetNext();
+			if (Inv->IsA(AUTTimedPowerup::StaticClass()))
+			{
+				UTC->TossInventory(Inv, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
+			}
+			Inv = NextInv;
+		}
+		// delete the rest
 		UTC->DiscardAllInventory();
 	}
 }

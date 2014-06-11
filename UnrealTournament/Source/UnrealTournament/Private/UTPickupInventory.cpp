@@ -57,73 +57,77 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 	}
 }
 
-void AUTPickupInventory::InventoryTypeUpdated_Implementation()
+void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& PickupMesh, TSubclassOf<AUTInventory> PickupInventoryType, float MeshFloatHeight)
 {
-	if (InventoryType == NULL)
+	if (PickupInventoryType == NULL)
 	{
-		if (Mesh != NULL)
+		if (PickupMesh != NULL)
 		{
-			Mesh->DetachFromParent();
-			Mesh->UnregisterComponent();
-			Mesh = NULL;
+			PickupMesh->DetachFromParent();
+			PickupMesh->UnregisterComponent();
+			PickupMesh = NULL;
 		}
-		TakenSound = GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 	}
 	else
 	{
-		TakenSound = InventoryType.GetDefaultObject()->PickupSound;
-
 		FVector OverrideScale(FVector::ZeroVector);
-		UMeshComponent* NewMesh = InventoryType.GetDefaultObject()->GetPickupMeshTemplate(OverrideScale);
+		UMeshComponent* NewMesh = PickupInventoryType.GetDefaultObject()->GetPickupMeshTemplate(OverrideScale);
 		if (NewMesh == NULL)
 		{
-			if (Mesh != NULL)
+			if (PickupMesh != NULL)
 			{
-				Mesh->DetachFromParent();
-				Mesh->UnregisterComponent();
-				Mesh = NULL;
+				PickupMesh->DetachFromParent();
+				PickupMesh->UnregisterComponent();
+				PickupMesh = NULL;
 			}
 		}
 		else
 		{
 			USkeletalMeshComponent* SkelTemplate = Cast<USkeletalMeshComponent>(NewMesh);
 			UStaticMeshComponent* StaticTemplate = Cast<UStaticMeshComponent>(NewMesh);
-			if ( Mesh == NULL || Mesh->GetClass() != NewMesh->GetClass() || Mesh->Materials != NewMesh->Materials ||
-				(SkelTemplate != NULL && ((USkeletalMeshComponent*)Mesh)->SkeletalMesh != SkelTemplate->SkeletalMesh) ||
-				(StaticTemplate != NULL && ((UStaticMeshComponent*)Mesh)->StaticMesh != StaticTemplate->StaticMesh) )
+			if (PickupMesh == NULL || PickupMesh->GetClass() != NewMesh->GetClass() || PickupMesh->Materials != NewMesh->Materials ||
+				(SkelTemplate != NULL && ((USkeletalMeshComponent*)PickupMesh)->SkeletalMesh != SkelTemplate->SkeletalMesh) ||
+				(StaticTemplate != NULL && ((UStaticMeshComponent*)PickupMesh)->StaticMesh != StaticTemplate->StaticMesh))
 			{
-				if (Mesh != NULL)
+				if (PickupMesh != NULL)
 				{
-					Mesh->DetachFromParent();
-					Mesh->UnregisterComponent();
+					PickupMesh->DetachFromParent();
+					PickupMesh->UnregisterComponent();
 				}
-				Mesh = ConstructObject<UMeshComponent>(NewMesh->GetClass(), this, NAME_None, RF_NoFlags, NewMesh);
-				Mesh->AttachParent = NULL;
-				Mesh->AttachChildren.Empty();
-				Mesh->RelativeRotation = FRotator::ZeroRotator;
-				Mesh->RelativeLocation.Z += FloatHeight;
+				PickupMesh = ConstructObject<UMeshComponent>(NewMesh->GetClass(), Pickup, NAME_None, RF_NoFlags, NewMesh);
+				PickupMesh->AttachParent = NULL;
+				PickupMesh->AttachChildren.Empty();
+				PickupMesh->RelativeRotation = FRotator::ZeroRotator;
+				PickupMesh->RelativeLocation.Z += MeshFloatHeight;
 				if (!OverrideScale.IsZero())
 				{
-					Mesh->SetWorldScale3D(OverrideScale);
+					PickupMesh->SetWorldScale3D(OverrideScale);
 				}
 				if (SkelTemplate != NULL)
 				{
-					((USkeletalMeshComponent*)Mesh)->bForceRefpose = true;
+					((USkeletalMeshComponent*)PickupMesh)->bForceRefpose = true;
 				}
-				Mesh->RegisterComponent();
-				Mesh->AttachTo(RootComponent);
-				Mesh->SetRelativeLocation(Mesh->GetRelativeTransform().GetLocation() - (Mesh->Bounds.Origin - Mesh->GetComponentToWorld().GetLocation()));
+				PickupMesh->RegisterComponent();
+				PickupMesh->AttachTo(Pickup->GetRootComponent());
+				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - (PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation()));
 				// if there's a rotation component, set it up to rotate the pickup mesh
 				TArray<URotatingMovementComponent*> RotationComps;
-				GetComponents<URotatingMovementComponent>(RotationComps);
+				Pickup->GetComponents<URotatingMovementComponent>(RotationComps);
 				if (RotationComps.Num() > 0)
 				{
-					RotationComps[0]->SetUpdatedComponent(Mesh);
-					RotationComps[0]->PivotTranslation = Mesh->Bounds.Origin - Mesh->GetComponentToWorld().GetLocation();
+					RotationComps[0]->SetUpdatedComponent(PickupMesh);
+					RotationComps[0]->PivotTranslation = PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation();
 				}
 			}
 		}
 	}
+}
+
+void AUTPickupInventory::InventoryTypeUpdated_Implementation()
+{
+	CreatePickupMesh(this, Mesh, InventoryType, FloatHeight);
+
+	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 }
 
 void AUTPickupInventory::SetPickupHidden(bool bNowHidden)

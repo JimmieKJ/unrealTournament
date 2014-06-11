@@ -75,6 +75,9 @@ public:
 	/** sound played on pickup */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	USoundBase* PickupSound;
+	/** class used when this item is dropped by its holder */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	TSubclassOf<class AUTDroppedPickup> DroppedPickupClass;
 
 	/** called by pickups when another inventory of same class will be given, allowing the item to simply stack instance values
 	 * instead of spawning a new item

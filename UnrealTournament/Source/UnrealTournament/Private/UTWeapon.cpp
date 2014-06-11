@@ -233,12 +233,12 @@ void AUTWeapon::ClientRemoved_Implementation()
 {
 	GotoState(InactiveState);
 
+	Super::ClientRemoved_Implementation();
+
 	if (UTOwner != NULL && UTOwner->GetWeapon() == this)
 	{
 		UTOwner->ClientWeaponLost(this);
 	}
-
-	Super::ClientRemoved_Implementation();
 }
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
@@ -425,12 +425,15 @@ bool AUTWeapon::IsFiring() const
 
 void AUTWeapon::AddAmmo(int32 Amount)
 {
-	Ammo = FMath::Clamp<int32>(Ammo + Amount, 0, MaxAmmo);
-	
-	// trigger weapon switch if necessary
-	if (UTOwner != NULL && UTOwner->IsLocallyControlled())
+	if (Role == ROLE_Authority)
 	{
-		OnRep_Ammo();
+		Ammo = FMath::Clamp<int32>(Ammo + Amount, 0, MaxAmmo);
+
+		// trigger weapon switch if necessary
+		if (UTOwner != NULL && UTOwner->IsLocallyControlled())
+		{
+			OnRep_Ammo();
+		}
 	}
 }
 
@@ -448,19 +451,22 @@ void AUTWeapon::OnRep_Ammo()
 
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
-	if (AmmoCost.IsValidIndex(FireModeNum))
+	if (Role == ROLE_Authority)
 	{
-		AddAmmo(-AmmoCost[FireModeNum]);
-	}
-	else
-	{
-		UE_LOG(UT, Warning, TEXT("Invalid fire mode %i in %s::ConsumeAmmo()"), int32(FireModeNum), *GetName());
+		if (AmmoCost.IsValidIndex(FireModeNum))
+		{
+			AddAmmo(-AmmoCost[FireModeNum]);
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Invalid fire mode %i in %s::ConsumeAmmo()"), int32(FireModeNum), *GetName());
+		}
 	}
 }
 
 bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 {
-	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo > AmmoCost[FireModeNum]);
+	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo >= AmmoCost[FireModeNum]);
 }
 
 bool AUTWeapon::HasAnyAmmo()

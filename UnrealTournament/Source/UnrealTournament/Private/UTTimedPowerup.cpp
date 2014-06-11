@@ -27,6 +27,19 @@ void AUTTimedPowerup::TimeExpired_Implementation()
 	}
 }
 
+bool AUTTimedPowerup::StackPickup_Implementation(AUTInventory* ContainedInv)
+{
+	if (ContainedInv != NULL)
+	{
+		TimeRemaining += Cast<AUTTimedPowerup>(ContainedInv)->TimeRemaining;
+	}
+	else
+	{
+		TimeRemaining += GetClass()->GetDefaultObject<AUTTimedPowerup>()->TimeRemaining;
+	}
+	return true;
+}
+
 void AUTTimedPowerup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);

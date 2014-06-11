@@ -250,13 +250,13 @@ public:
 	FRotator GetAdjustedAim(FVector StartFireLoc);
 
 	/** add (or remove via negative number) the ammo held by the weapon */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Weapon")
 	virtual void AddAmmo(int32 Amount);
 
 	/** use up AmmoCost units of ammo for the current fire mode
 	 * also handles triggering auto weapon switch if out of ammo
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Weapon")
 	virtual void ConsumeAmmo(uint8 FireModeNum);
 	
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL);

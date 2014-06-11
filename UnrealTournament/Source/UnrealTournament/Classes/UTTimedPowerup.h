@@ -22,4 +22,6 @@ class AUTTimedPowerup : public AUTInventory
 	void TimeExpired();
 
 	virtual void Tick(float DeltaTime);
+
+	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv);
 };
