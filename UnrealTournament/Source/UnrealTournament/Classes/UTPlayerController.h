@@ -63,6 +63,16 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
 
+	/**
+	 *	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun
+	 **/
+	virtual void ServerRestartPlayer_Implementation();
+
+	/**
+	 * Added a check to see if the player's RespawnTimer is > 0
+	 **/
+	virtual bool CanRestartPlayer();
+
 protected:
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */

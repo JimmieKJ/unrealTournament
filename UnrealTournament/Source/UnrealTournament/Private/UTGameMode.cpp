@@ -5,7 +5,15 @@
 #include "UTDeathMessage.h"
 #include "UTGameMessage.h"
 #include "UTVictoryMessage.h"
+
 #include "UTTimedPowerup.h"
+#include "UTCountDownMessage.h"
+
+namespace MatchState
+{
+	const FName CountdownToBegin = FName(TEXT("CountdownToBegin"));
+}
+
 
 AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -30,6 +38,8 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	bUseSeamlessTravel = true;
 	CountDown = 4;
 	bPauseable = false;
+	RespawnWaitTime = 0.0f;
+	bPlayersMustBeReady=false;
 
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
@@ -44,32 +54,19 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	GameDifficulty = FMath::Max(0,GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
 
 	FString InOpt = ParseOption(Options, TEXT("ForceRespawn"));
-	if (!InOpt.IsEmpty())
-	{
-		if (FCString::Stricmp(*InOpt,TEXT("True") )==0 
-			||	FCString::Stricmp(*InOpt,*GTrue.ToString())==0
-			||	FCString::Stricmp(*InOpt,TEXT("Yes"))==0
-			||	FCString::Stricmp(*InOpt,*GYes.ToString())==0)
-		{
-			bForceRespawn = true;
-		}
-		else if(FCString::Stricmp(*InOpt,TEXT("False"))==0
-			||	FCString::Stricmp(*InOpt,*GFalse.ToString())==0
-			||	FCString::Stricmp(*InOpt,TEXT("No"))==0
-			||	FCString::Stricmp(*InOpt,*GNo.ToString())==0)
-		{
-			bForceRespawn = false;
-		}
-		else
-		{
-			bForceRespawn = FCString::Atoi(*InOpt);
-		}
-	}
+	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
+
+	InOpt = ParseOption(Options, TEXT("MustBeReady"));
+	bPlayersMustBeReady = EvalBoolOptions(InOpt, bPlayersMustBeReady);
 
 	TimeLimit = FMath::Max(0,GetIntOption( Options, TEXT("TimeLimit"), TimeLimit ));
 
 	// Set goal score to end match.
 	GoalScore = FMath::Max(0,GetIntOption( Options, TEXT("GoalScore"), GoalScore ));
+
+	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
+	if (bForceRespawn) RespawnWaitTime = 0.0f;
+
 }
 
 void AUTGameMode::InitGameState()
@@ -81,6 +78,8 @@ void AUTGameMode::InitGameState()
 	{
 		UTGameState->SetGoalScore(GoalScore);
 		UTGameState->SetTimeLimit(TimeLimit);
+		UTGameState->RespawnWaitTime = RespawnWaitTime;
+		UTGameState->bPlayerMustBeReady = bPlayersMustBeReady;
 	}
 	else
 	{
@@ -223,6 +222,20 @@ bool AUTGameMode::CheckScore(AUTPlayerState* Scorer)
 
 void AUTGameMode::StartMatch()
 {
+	if (HasMatchStarted())
+	{
+		// Already started
+		return;
+	}
+	SetMatchState(MatchState::CountdownToBegin);
+}
+
+void AUTGameMode::BeginGame()
+{
+	UE_LOG(UT,Log,TEXT("--------------------------"));
+	UE_LOG(UT,Log,TEXT("Game Has Begun "));
+	UE_LOG(UT,Log,TEXT("--------------------------"));
+
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
 		AActor* TestActor = *It;
@@ -235,7 +248,15 @@ void AUTGameMode::StartMatch()
 	}
 
 	GameState->ElapsedTime = 0;
-    Super::StartMatch();
+
+	//Let the game session override the StartMatch function, in case it wants to wait for arbitration
+
+	if (GameSession->HandleStartMatchRequest())
+	{
+		return;
+	}
+
+	SetMatchState(MatchState::InProgress);
 }
 
 void AUTGameMode::EndMatch()
@@ -346,14 +367,15 @@ void AUTGameMode::PlayEndOfMatchMessage()
 
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
-/*
-	if ( IsMatchInProgress() && Cast<AUTPlayerState>(aPlayer->PlayerState) )
+	UE_LOG(UT,Log, TEXT("RestartPlayer %i %i"),UTGameState->HasMatchStarted(),bPlayersMustBeReady);
+	if ( !UTGameState->HasMatchStarted() && bPlayersMustBeReady )
 	{
+		UE_LOG(UT,Log, TEXT("Setting bReadyToPlay to true"));
 		// If we are in the pre-game stage then flag the player as ready to play.  The game starting will be handled in the DefaultTimer() event
 		Cast<AUTPlayerState>(aPlayer->PlayerState)->bReadyToPlay = true;
 		return;
 	}
-*/
+
 	if (!IsMatchInProgress())
 	{
 		return;
@@ -530,7 +552,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 }
 
 /**
- *	We are going to duplicate GameMode's StartNewPlayer because we any to replicate the scoreboard class along with the hud class.  
+ *	We are going to duplicate GameMode's StartNewPlayer because we need to replicate the scoreboard class along with the hud class.  
  *  We are doing this here like this because we are trying to not change engine.  Ultimately the code to create the hud should be
  *  moved to it's own easy to override function instead of being hard-coded in StartNewPlayer
  **/
@@ -547,11 +569,7 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 		if (!bDelayedStart)
 		{
 			// start match, or let player enter, immediately
-			if (GetMatchState() == MatchState::WaitingToStart)
-			{
-				StartMatch();
-			}
-			else
+			if (UTGameState->HasMatchStarted())
 			{
 				RestartPlayer(NewPlayer);
 			}
@@ -565,5 +583,123 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	else
 	{
 		Super::StartNewPlayer(NewPlayer);
+	}
+}
+
+bool AUTGameMode::ReadyToStartMatch()
+{
+	// If bDelayed Start is set, wait for a manual match start
+	if (bDelayedStart)
+	{
+		return false;
+	}
+
+	// By default start when we have > 0 players
+	if (GetMatchState() == MatchState::WaitingToStart)
+	{
+		if (NumPlayers + NumBots > 1)
+		{
+			if (bPlayersMustBeReady)
+			{
+				for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+					if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
+					{
+						return false;					
+					}
+				}
+			}
+
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ *	Overwriting all of these functions to work the way I think it should.  Really, the match state should
+ *  only be in 1 place otherwise it's prone to mismatch errors.  I'm chosen the GameState because it's
+ *  replicated and will be available on clients.
+ **/
+
+bool AUTGameMode::HasMatchStarted() const
+{
+	return UTGameState->HasMatchStarted();
+}
+
+bool AUTGameMode::IsMatchInProgress() const
+{
+	return UTGameState->IsMatchInProgress();
+}
+
+bool AUTGameMode::HasMatchEnded() const
+{
+	return UTGameState->HasMatchEnded();
+}
+
+/**
+ *	I needed to rework the ordering of SetMatchState until it can be corrected in the engine.
+ **/
+void AUTGameMode::SetMatchState(FName NewState)
+{
+	if (MatchState == NewState)
+	{
+		return;
+	}
+
+	MatchState = NewState;
+	if (GameState)
+	{
+		GameState->SetMatchState(NewState);
+	}
+
+	// Call change callbacks
+
+	if (MatchState == MatchState::WaitingToStart)
+	{
+		HandleMatchIsWaitingToStart();
+	}
+	else if (MatchState == MatchState::CountdownToBegin)
+	{
+		HandleCountdownToBegin();
+	}
+	else if (MatchState == MatchState::InProgress)
+	{
+		HandleMatchHasStarted();
+	}
+	else if (MatchState == MatchState::WaitingPostMatch)
+	{
+		HandleMatchHasEnded();
+	}
+	else if (MatchState == MatchState::LeavingMap)
+	{
+		HandleLeavingMap();
+	}
+	else if (MatchState == MatchState::Aborted)
+	{
+		HandleMatchAborted();
+	}
+
+}
+
+void AUTGameMode::HandleCountdownToBegin()
+{
+	CountDown = 5;
+	CheckCountDown();
+}
+
+void AUTGameMode::CheckCountDown()
+{
+	if (CountDown >0)
+	{
+		// Broadcast the localized message saying when the game begins.
+		BroadcastLocalized( this, UUTCountDownMessage::StaticClass(), CountDown, NULL, NULL, NULL);
+		GetWorldTimerManager().SetTimer(this, &AUTGameMode::CheckCountDown, 1.0,false);
+		CountDown--;
+	}
+	else
+	{
+		BeginGame();
 	}
 }

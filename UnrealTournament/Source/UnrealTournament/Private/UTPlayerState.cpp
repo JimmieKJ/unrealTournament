@@ -14,6 +14,10 @@ AUTPlayerState::AUTPlayerState(const class FPostConstructInitializeProperties& P
 	int32 Kills = 0;
 	bOutOfLives = false;
 	int32 Deaths = 0;
+
+	// We want to be ticked.
+	PrimaryActorTick.bCanEverTick = true;
+
 }
 
 
@@ -50,11 +54,41 @@ void AUTPlayerState::IncrementKills(bool bEnemyKill )
 void AUTPlayerState::IncrementDeaths()
 {
 	Deaths += 1;
+	UE_LOG(UT,Log, TEXT("Increment Deaths"));
+
 	SetNetUpdateTime(FMath::Min(NetUpdateTime, GetWorld()->TimeSeconds + 0.3f * FMath::FRand()));
+
+	if (Role == ROLE_Authority)
+	{
+		// Trigger it locally
+		OnDeathsReceived();
+	}
+
 }
 
 void AUTPlayerState::AdjustScore(int ScoreAdjustment)
 {
 	Score += ScoreAdjustment;
 	ForceNetUpdate();
+}
+
+void AUTPlayerState::OnDeathsReceived()
+{
+	UE_LOG(UT,Log, TEXT("OnDeathsReceived %s"), *GetNameSafe(GetWorld()->GetGameState<AUTGameState>()));
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState != NULL)
+	{
+		RespawnTime = UTGameState->RespawnWaitTime;
+	}
+}
+
+void AUTPlayerState::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// If we are waiting to respawn then count down
+	if (RespawnTime > 0.0f)
+	{
+		RespawnTime -= DeltaTime;
+	}
 }

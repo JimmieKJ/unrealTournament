@@ -10,6 +10,7 @@
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
 #include "UTHUDWidget_WeaponInfo.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
+#include "UTHUDWidget_Spectator.h"
 #include "UTScoreboard.h"
 
 
@@ -41,6 +42,7 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidgetMessage_DeathMessages::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_Spectator::StaticClass());
 
 	HudWidgetClasses.Add( ResolveHudWidgetByName(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'")));
 
@@ -244,7 +246,7 @@ FText AUTHUD::TempConvertTime(int Seconds)
 }
 
 
-void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale)
+void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale, bool bOutline)
 {
 
 	FVector2D RenderPos = FVector2D(X,Y);
@@ -263,6 +265,13 @@ void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type Hor
 	}
 
 	FCanvasTextItem TextItem(RenderPos, Text, Font, Color);
+
+	if (bOutline)
+	{
+		TextItem.bOutlined = true;
+		TextItem.OutlineColor = FLinearColor::Black;
+	}
+
 	TextItem.Scale = FVector2D(Scale,Scale);
 	Canvas->DrawItem(TextItem);
 }
@@ -393,4 +402,5 @@ void AUTHUD::DrawDamageIndicators()
 		}
 	}
 }
+
 

@@ -470,3 +470,19 @@ AUTCharacter* AUTPlayerController::GetUTCharacter()
 {
 	return UTCharacter;
 }
+
+void AUTPlayerController::ServerRestartPlayer_Implementation()
+{
+	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted() && UTPlayerState != NULL)
+	{
+		UTPlayerState ->bReadyToPlay = true;
+	}
+
+	Super::ServerRestartPlayer_Implementation();
+
+}
+
+bool AUTPlayerController::CanRestartPlayer()
+{
+	return  Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
+}

@@ -29,14 +29,26 @@ class AUTPlayerState : public APlayerState
 	uint32 bOutOfLives:1;
 
 	/** How many times associated player has died */
-	UPROPERTY(replicated)
+	UPROPERTY(replicated, ReplicatedUsing=OnDeathsReceived)
 	int32 Deaths;
+
+	// How long until this player can repawn.  It's not directly replicated to the clients instead it's set
+	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
+
+	UPROPERTY()
+	float RespawnTime;
+
+	UFUNCTION()
+	void OnDeathsReceived();
+
 
 	UFUNCTION()
 	virtual void SetWaitingPlayer(bool B);
 	virtual void IncrementKills(bool bEnemyKill);
 	virtual void IncrementDeaths();
 	virtual void AdjustScore(int ScoreAdjustment);
+
+	virtual void Tick(float DeltaTime) OVERRIDE;
 };
 
 

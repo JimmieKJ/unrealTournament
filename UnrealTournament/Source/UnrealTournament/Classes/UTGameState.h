@@ -36,6 +36,10 @@ class AUTGameState : public AGameState
 	UPROPERTY(Replicated)
 	uint32 RemainingTime;
 
+	// How long must a player wait before respawning
+	UPROPERTY(Replicated)
+	uint32 RespawnWaitTime;
+
 	UPROPERTY(Replicated)
 	AUTPlayerState* WinnerPlayerState;
 
@@ -56,6 +60,11 @@ class AUTGameState : public AGameState
 
 	/** Sorts the Player State Array */
 	virtual void SortPRIArray();
+
+	/** Returns true if the match state is InProgress or later */
+	virtual bool HasMatchStarted() const;
+
+
 };
 
 

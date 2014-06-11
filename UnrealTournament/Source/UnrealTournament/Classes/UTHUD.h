@@ -105,14 +105,13 @@ protected:
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
 
-
 public:
 
 	// TEMP : Convert seconds to a time string.
 	FText TempConvertTime(int Seconds);
 
 	// TEMP: Until the new Hud system comes online, quickly draw a string to the screen.  This will be replaced soon.
-	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0);
+	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
 	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
 
 
