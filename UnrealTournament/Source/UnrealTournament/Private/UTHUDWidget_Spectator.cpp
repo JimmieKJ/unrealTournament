@@ -26,10 +26,9 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 
 			if (!UTGameState->bPlayerMustBeReady)
 			{
-				return;
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","WaitForMatch","Waiting for Match to Begin");
 			}
-
-			if (UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState->bReadyToPlay)
+			else if (UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState->bReadyToPlay)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","IsReady","You are ready to play");
 			}
