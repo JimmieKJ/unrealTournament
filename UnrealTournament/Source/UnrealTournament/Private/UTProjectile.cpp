@@ -2,7 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTProjectile.h"
-
+#include "UTProjectileMovementComponent.h"
 
 AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCIP) 
 	: Super(PCIP)
@@ -16,7 +16,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	RootComponent = CollisionComp;
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
-	ProjectileMovement = PCIP.CreateDefaultSubobject<UProjectileMovementComponent>(this, TEXT("ProjectileComp"));
+	ProjectileMovement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
 	ProjectileMovement->InitialSpeed = 3000.f;
 	ProjectileMovement->MaxSpeed = 3000.f;

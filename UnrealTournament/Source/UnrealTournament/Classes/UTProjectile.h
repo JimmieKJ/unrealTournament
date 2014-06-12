@@ -45,7 +45,7 @@ class AUTProjectile : public AActor
 
 	virtual void BeginPlay();
 	virtual void TornOff();
-
+	
 	/** turns off projectile ambient effects, collision, physics, etc
 	 * needed because we need a delay between explosion and actor destruction for replication purposes
 	 */
