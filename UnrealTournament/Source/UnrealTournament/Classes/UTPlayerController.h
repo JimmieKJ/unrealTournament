@@ -72,7 +72,7 @@ public:
 	 * Added a check to see if the player's RespawnTimer is > 0
 	 **/
 	virtual bool CanRestartPlayer();
-
+	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner);
 protected:
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */

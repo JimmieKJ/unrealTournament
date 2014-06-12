@@ -227,7 +227,14 @@ void AUTGameMode::StartMatch()
 		// Already started
 		return;
 	}
-	SetMatchState(MatchState::CountdownToBegin);
+	if (GetWorld()->IsPlayInEditor())
+	{
+		SetMatchState(MatchState::InProgress);
+	}
+	else
+	{
+		SetMatchState(MatchState::CountdownToBegin);	
+	}
 }
 
 void AUTGameMode::BeginGame()
@@ -469,6 +476,14 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 	for ( int32 i=RandStart; i<PlayerStarts.Num(); i++ )
 	{
 		APlayerStart* P = PlayerStarts[i];
+
+		if (Cast<APlayerStartPIE>( P ) != NULL )
+		{
+			// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
+			BestStart = P;
+			break;
+		}
+
 		float NewRating = RatePlayerStart(P,Player);
 
 		if ( NewRating >= 30 )
@@ -593,6 +608,8 @@ bool AUTGameMode::ReadyToStartMatch()
 	{
 		return false;
 	}
+
+	if (GetWorld()->IsPlayInEditor()) return true;	// PIE is always ready to start.
 
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
