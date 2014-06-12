@@ -10,8 +10,16 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 		{
 			UE_LOG(UT, Warning, TEXT("UTPlaySound(): No source (SourceActor == None and SoundLoc not specified)"));
 		}
+		else if (SourceActor == NULL && TheWorld == NULL)
+		{
+			UE_LOG(UT, Warning, TEXT("UTPlaySound(): Missing SourceActor"));
+		}
 		else
 		{
+			if (TheWorld == NULL)
+			{
+				TheWorld = SourceActor->GetWorld();
+			}
 			if (RepType >= SRT_MAX)
 			{
 				UE_LOG(UT, Warning, TEXT("UTPlaySound(): Unexpected RepType"));

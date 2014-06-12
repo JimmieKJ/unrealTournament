@@ -26,7 +26,7 @@ class UUTGameplayStatics : public UBlueprintFunctionLibrary
 	* additionally will check that clients will actually be able to hear the sound (don't replicate if out of sound's audible range)
 	* if called on client, always local only
 	*/
-	UFUNCTION(BlueprintCallable, Category = Sound)
+	UFUNCTION(BlueprintCallable, Category = Sound, meta = (HidePin = "TheWorld", DefaultToSelf = "SourceActor", AutoCreateRefTerm = "SoundLoc"))
 	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector);
 
 	/** Hurt locally authoritative actors within the radius. Uses the Weapon trace channel.
