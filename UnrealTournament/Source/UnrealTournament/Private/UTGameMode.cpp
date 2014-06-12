@@ -40,7 +40,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	bPauseable = false;
 	RespawnWaitTime = 0.0f;
 	bPlayersMustBeReady=false;
-
+	MinPlayersToStart=1;
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
 	GameMessageClass=UUTGameMessage::StaticClass();
@@ -63,6 +63,8 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	// Set goal score to end match.
 	GoalScore = FMath::Max(0,GetIntOption( Options, TEXT("GoalScore"), GoalScore ));
+
+	MinPlayersToStart = FMath::Max(1, GetIntOption( Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
 	if (bForceRespawn) RespawnWaitTime = 0.0f;
@@ -614,7 +616,7 @@ bool AUTGameMode::ReadyToStartMatch()
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
-		if (NumPlayers + NumBots > 1)
+		if (NumPlayers + NumBots >= MinPlayersToStart)
 		{
 			if (bPlayersMustBeReady)
 			{

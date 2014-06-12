@@ -260,7 +260,8 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 
 		bTearOff = true; // important to set this as early as possible so IsDead() returns true
 
-		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, (Controller != NULL) ? Controller : Cast<AController>(GetOwner()), this, DamageEvent.DamageTypeClass);
+		// Save off the controller as we will lose it in PawnPendingDestroy.
+		AController* CurrentController = Controller;
 
 		Health = FMath::Min<int32>(Health, 0);
 		if (Controller != NULL)
@@ -269,6 +270,14 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		}
 
 		PlayDying();
+
+		// Notify the game that this player has died.  We do it here to make sure the game can have 
+		// proper control over the view target as UnPossess() will cause the PC to look at itself.
+
+		if (CurrentController != NULL)
+		{
+			GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, CurrentController, this, DamageEvent.DamageTypeClass);
+		}
 
 		return true;
 	}

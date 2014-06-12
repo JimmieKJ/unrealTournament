@@ -53,6 +53,9 @@ public:
 	UPROPERTY()
 	uint32 bPlayersMustBeReady;
 
+	UPROPERTY()
+	int32 MinPlayersToStart;
+
 	// How long a player must wait before respawning.  Set to 0 for no delay.
 	UPROPERTY()
 	uint32 RespawnWaitTime;

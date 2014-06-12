@@ -487,8 +487,3 @@ bool AUTPlayerController::CanRestartPlayer()
 	return  Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
 }
 
-void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
-{
-	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
-	UE_LOG(UT,Log,TEXT("ClientGameEnded: %s %i"), *GetNameSafe(EndGameFocus), bIsWinner);
-}
