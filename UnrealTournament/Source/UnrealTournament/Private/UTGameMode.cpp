@@ -35,12 +35,13 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 	MinRespawnDelay = 1.5f;
-	bUseSeamlessTravel = true;
+	bUseSeamlessTravel = false;
 	CountDown = 4;
 	bPauseable = false;
 	RespawnWaitTime = 0.0f;
 	bPlayersMustBeReady=false;
 	MinPlayersToStart=1;
+	EndScoreboardDelay=2.0f;
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
 	GameMessageClass=UUTGameMessage::StaticClass();
@@ -110,16 +111,9 @@ void AUTGameMode::Reset()
 
 void AUTGameMode::RestartGame()
 {
-	// FIXME 4.2 merge: flag removed
-	//if ( bGameRestarted )
-	//{
-	//	return;
-	//}
-
-
-	if ( EndTime > GetWorld()->TimeSeconds ) // still showing end screen
+	if (HasMatchStarted())
 	{
-		return;
+		Super::RestartGame();
 	}
 }
 
@@ -245,6 +239,13 @@ void AUTGameMode::BeginGame()
 	UE_LOG(UT,Log,TEXT("Game Has Begun "));
 	UE_LOG(UT,Log,TEXT("--------------------------"));
 
+	UE_LOG(UT,Log,TEXT("GameType: %s"), *GetNameSafe(this));
+	UE_LOG(UT,Log,TEXT("Difficulty: %i"), GameDifficulty);
+	UE_LOG(UT,Log,TEXT("GoalScore: %i"), GoalScore);
+	UE_LOG(UT,Log,TEXT("TimeLimit: %f"), TimeLimit);
+	UE_LOG(UT,Log,TEXT("Min # of Players: %i"), MinPlayersToStart);
+	UE_LOG(UT,Log,TEXT("End Delays %f / %f"), EndTimeDelay, EndScoreboardDelay);
+
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
 		AActor* TestActor = *It;
@@ -302,17 +303,68 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, const FString& Reason )
 		}
 
 		UTGameState->WinnerPlayerState = Winner;
-		EndTime = GetWorld()->TimeSeconds + EndTimeDelay;
+		EndTime = GetWorld()->TimeSeconds;
 
 		SetEndGameFocus(Winner);
 
 		// Allow replication to happen before reporting scores, stats, etc.
 		GetWorldTimerManager().SetTimer(this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
 		bGameEnded = true;
+
+		// Setup a timer to pop up the final scoreboard on everyone
+		GetWorldTimerManager().SetTimer(this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
+
+		// Setup a timer to continue to the next map.
+
+		EndTime = GetWorld()->TimeSeconds;
+		GetWorldTimerManager().SetTimer(this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
+
 		EndMatch();
 	}
 }
 
+/**
+ *	NOTE: This is a really simple map list.  It doesn't support multiple maps in the list, etc and is really dumb.  But it
+ *  will work for now.
+ **/
+void AUTGameMode::TravelToNextMap()
+{
+	FString CurrentMapName = GetWorld()->GetMapName();
+
+	int32 MapIndex = -1;
+	for (int i=0;i<MapRotation.Num();i++)
+	{
+		if (MapRotation[i].EndsWith(CurrentMapName))
+		{
+			MapIndex = i;
+			break;
+		}
+	}
+
+	if (MapRotation.Num() > 0)
+	{
+		MapIndex = (MapIndex + 1) % MapRotation.Num();
+		if (MapIndex >=0 && MapIndex < MapRotation.Num())
+		{
+			GetWorld()->ServerTravel(MapRotation[MapIndex],false);
+			return;
+		}
+	}
+
+	RestartGame();	
+}
+
+void AUTGameMode::ShowFinalScoreboard()
+{
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC != NULL)
+		{
+			PC->ClientToggleScoreboard(true);
+		}
+	}
+}
 
 void AUTGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 {
@@ -459,6 +511,8 @@ bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
 AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& IncomingName)
 {
 	AActor* const Best = Super::FindPlayerStart(Player, IncomingName);
+
+	UE_LOG(UT,Log,TEXT("Found Player Start: %s"),*GetNameSafe(Best));
 
 	if (Best)
 	{

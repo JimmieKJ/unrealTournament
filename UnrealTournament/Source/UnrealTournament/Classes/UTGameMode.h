@@ -11,7 +11,7 @@ namespace MatchState
 }
 
 
-UCLASS(minimalapi, dependson=UTGameState)
+UCLASS(minimalapi, dependson=UTGameState, Config=Game)
 class AUTGameMode : public AGameMode
 {
 	GENERATED_UCLASS_BODY()
@@ -28,6 +28,11 @@ public:
 	/** How long to wait after the end of a match before the transition to the new level start */
 	UPROPERTY(globalconfig)
 	float EndTimeDelay;			
+
+	/* How long after the end of the match before we display the scoreboard */
+	UPROPERTY(globalconfig)
+	float EndScoreboardDelay;			
+
 
 	/** If TRUE, force dead players to respawn immediately */
 	UPROPERTY(globalconfig)
@@ -96,6 +101,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Inventory")
 	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
 
+	UPROPERTY(Config)
+	TArray<FString> MapRotation;
+
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
 	virtual void InitGameState();
 	virtual void Reset();
@@ -137,6 +145,9 @@ public:
 
 	virtual void HandleCountdownToBegin();
 	virtual void CheckCountDown();
+
+	virtual void ShowFinalScoreboard();
+	virtual void TravelToNextMap();
 
 protected:
 
