@@ -529,11 +529,3 @@ bool AUTPlayerController::CanRestartPlayer()
 	return  Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
 }
 
-void AUTPlayerController::JoeTest()
-{
-	UUTHUDWidgetMessage* MsgWidget = MyUTHUD->HudMessageWidgets.FindRef(FName(TEXT("DeathMessage")));
-	if (MsgWidget != NULL)
-	{
-		MsgWidget->DumpMessages();
-	}
-}

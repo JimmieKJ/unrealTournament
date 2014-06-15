@@ -42,8 +42,6 @@ void UUTHUDWidgetMessage::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 {
-	if (MessageQueue[0].MessageClass == NULL) return;	// Quick out if nothing to render.
-
 	// Pass 1 - Precache anything that's needed and age out messages.
 
 	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
@@ -98,7 +96,7 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 		// When we hit the empty section of the array, exit out
 		if (MessageQueue[QueueIndex].MessageClass == NULL)
 		{
-			break;
+			continue;
 		}
 
 		// If we were already rendered this frame, don't do it again

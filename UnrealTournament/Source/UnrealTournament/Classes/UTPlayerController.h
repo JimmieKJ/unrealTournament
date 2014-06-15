@@ -89,9 +89,6 @@ public:
 	 **/
 	virtual bool CanRestartPlayer();
 
-	UFUNCTION(exec)
-	virtual void JoeTest();
-
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) OVERRIDE;
 
 protected:
