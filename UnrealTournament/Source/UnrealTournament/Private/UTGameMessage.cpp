@@ -8,7 +8,7 @@
 UUTGameMessage::UUTGameMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	MessageArea = FName(TEXT("GameMessage"));
+	MessageArea = FName(TEXT("GameMessages"));
 
 	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","BEGIN...");
 	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","!!!! OVERTIME !!!!");

@@ -16,6 +16,10 @@ class AUTGameState : public AGameState
 	UPROPERTY(Replicated)
 	uint32 bPlayerMustBeReady:1;
 
+	/** Will be true if we are in overtime */
+	UPROPERTY(Replicated)
+	uint32 bOvertime:1;
+
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated)
 	uint32 GoalScore;
@@ -64,7 +68,7 @@ class AUTGameState : public AGameState
 	/** Returns true if the match state is InProgress or later */
 	virtual bool HasMatchStarted() const;
 
-
+	virtual bool IsMatchInProgress() const;
 };
 
 

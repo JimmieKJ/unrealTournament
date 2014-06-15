@@ -12,6 +12,7 @@
 namespace MatchState
 {
 	const FName CountdownToBegin = FName(TEXT("CountdownToBegin"));
+	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
 }
 
 
@@ -80,7 +81,7 @@ void AUTGameMode::InitGameState()
 	if (UTGameState != NULL)
 	{
 		UTGameState->SetGoalScore(GoalScore);
-		UTGameState->SetTimeLimit(TimeLimit);
+		UTGameState->SetTimeLimit(0);
 		UTGameState->RespawnWaitTime = RespawnWaitTime;
 		UTGameState->bPlayerMustBeReady = bPlayersMustBeReady;
 	}
@@ -89,6 +90,17 @@ void AUTGameMode::InitGameState()
 		UE_LOG(UT,Error, TEXT("UTGameState is NULL %s"), *GameStateClass->GetFullName());
 	}
 }
+
+/**
+ *	DefaultTimer is called once per second and is useful for consistent timed events that don't require to be 
+ *  done every frame.
+ **/
+void AUTGameMode::DefaultTimer()
+{	
+	// Let the game see if it's time to end the match
+	CheckGameTime();
+}
+
 
 void AUTGameMode::Reset()
 {
@@ -106,7 +118,7 @@ void AUTGameMode::Reset()
 		}
 	}
 
-	UTGameState->SetTimeLimit(TimeLimit);
+	UTGameState->SetTimeLimit(0);
 }
 
 void AUTGameMode::RestartGame()
@@ -233,6 +245,14 @@ void AUTGameMode::StartMatch()
 	}
 }
 
+void AUTGameMode::HandleMatchHasStarted()
+{
+	Super::HandleMatchHasStarted();
+	UTGameState->SetTimeLimit(TimeLimit);
+
+	BroadcastLocalized( this, UUTGameMessage::StaticClass(), 0, NULL, NULL, NULL);
+}
+
 void AUTGameMode::BeginGame()
 {
 	UE_LOG(UT,Log,TEXT("--------------------------"));
@@ -283,6 +303,9 @@ void AUTGameMode::EndMatch()
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, const FString& Reason )
 {
+
+	UE_LOG(UT,Log,TEXT("EndGame %s %s"), *GetNameSafe(Winner), *Reason);
+
 	if ( (FCString::Stricmp(*Reason, TEXT("triggered")) == 0) ||
 		 (FCString::Stricmp(*Reason, TEXT("TimeLimit")) == 0) ||
 		 (FCString::Stricmp(*Reason, TEXT("FragLimit")) == 0))
@@ -753,6 +776,21 @@ void AUTGameMode::SetMatchState(FName NewState)
 	{
 		HandleMatchAborted();
 	}
+	else if (MatchState == MatchState::MatchIsInOvertime)
+	{
+		HandleMatchInOvertime();
+	}
+
+}
+
+void AUTGameMode::HandleMatchInOvertime()
+{
+	UTGameState->bOvertime = true;
+	// Send the overtime message....
+
+	BroadcastLocalized( this, UUTGameMessage::StaticClass(), 1, NULL, NULL, NULL);
+
+
 
 }
 
@@ -775,4 +813,54 @@ void AUTGameMode::CheckCountDown()
 	{
 		BeginGame();
 	}
+}
+
+void AUTGameMode::CheckGameTime()
+{
+	if ( IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	{
+		// Game should be over.. look to see if we need to go in to overtime....	
+
+		uint32 bTied = 0;
+		AUTPlayerState* Winner = IsThereAWinner(bTied);
+
+		if (!bAllowOvertime || !bTied)
+		{
+			EndGame(Winner, TEXT("TimeLimit"));			
+		}
+		else if (bAllowOvertime)
+		{
+			SetMatchState(MatchState::MatchIsInOvertime);
+		}
+	
+	}
+}
+
+/**
+ *	Look though the player states and see if we have a winner.  If there is a tie, we return
+ *  NULL so that we can enter overtime.
+ **/
+AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
+{
+	AUTPlayerState* BestPlayer = NULL;
+	float BestScore = 0.0;
+
+	for (int PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
+	{
+		if (UTGameState->PlayerArray[PlayerIdx] != NULL)
+		{
+			if (BestPlayer == NULL || UTGameState->PlayerArray[PlayerIdx]->Score > BestScore)
+			{
+				BestPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+				BestScore = BestPlayer->Score;
+				bTied = 0;
+			}
+			else if (UTGameState->PlayerArray[PlayerIdx]->Score == BestScore)
+			{
+				bTied = 1;
+			}
+		}
+	}
+
+	return BestPlayer;
 }

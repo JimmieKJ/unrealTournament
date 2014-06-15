@@ -8,6 +8,7 @@
 namespace MatchState
 {
 	extern const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
+	extern const FName MatchIsInOvertime;				// The game is in overtime
 }
 
 
@@ -33,6 +34,8 @@ public:
 	UPROPERTY(globalconfig)
 	float EndScoreboardDelay;			
 
+	UPROPERTY(config)
+	uint32 bAllowOvertime:1;
 
 	/** If TRUE, force dead players to respawn immediately */
 	UPROPERTY(globalconfig)
@@ -146,9 +149,15 @@ public:
 	virtual void HandleCountdownToBegin();
 	virtual void CheckCountDown();
 
+	virtual void HandleMatchHasStarted();
+	virtual void HandleMatchInOvertime();
+
 	virtual void ShowFinalScoreboard();
 	virtual void TravelToNextMap();
 
+	virtual void DefaultTimer();
+	virtual void CheckGameTime();
+	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 protected:
 
 	/**
