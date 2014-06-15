@@ -8,6 +8,7 @@
 namespace MatchState
 {
 	extern const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
+	extern const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern const FName MatchIsInOvertime;				// The game is in overtime
 }
 
@@ -150,6 +151,7 @@ public:
 	virtual void CheckCountDown();
 
 	virtual void HandleMatchHasStarted();
+	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime();
 
 	virtual void ShowFinalScoreboard();
@@ -158,6 +160,7 @@ public:
 	virtual void DefaultTimer();
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
+	virtual bool PlayerCanRestart( APlayerController* Player );
 protected:
 
 	/**

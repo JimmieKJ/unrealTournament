@@ -12,6 +12,7 @@
 namespace MatchState
 {
 	const FName CountdownToBegin = FName(TEXT("CountdownToBegin"));
+	const FName MatchEnteringOvertime = FName(TEXT("MatchEnteringOvertime"));
 	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
 }
 
@@ -137,6 +138,10 @@ bool AUTGameMode::IsEnemy(AController * First, AController* Second)
 
 void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
+
+	// Ingore all killing when entering overtime as we kill off players and don't want it affecting their score.
+	if (GetMatchState() == MatchState::MatchEnteringOvertime) return;	
+
 	AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 	AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
 
@@ -304,8 +309,6 @@ void AUTGameMode::EndMatch()
 void AUTGameMode::EndGame(AUTPlayerState* Winner, const FString& Reason )
 {
 
-	UE_LOG(UT,Log,TEXT("EndGame %s %s"), *GetNameSafe(Winner), *Reason);
-
 	if ( (FCString::Stricmp(*Reason, TEXT("triggered")) == 0) ||
 		 (FCString::Stricmp(*Reason, TEXT("TimeLimit")) == 0) ||
 		 (FCString::Stricmp(*Reason, TEXT("FragLimit")) == 0))
@@ -451,10 +454,8 @@ void AUTGameMode::PlayEndOfMatchMessage()
 
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
-	UE_LOG(UT,Log, TEXT("RestartPlayer %i %i"),UTGameState->HasMatchStarted(),bPlayersMustBeReady);
 	if ( !UTGameState->HasMatchStarted() && bPlayersMustBeReady )
 	{
-		UE_LOG(UT,Log, TEXT("Setting bReadyToPlay to true"));
 		// If we are in the pre-game stage then flag the player as ready to play.  The game starting will be handled in the DefaultTimer() event
 		Cast<AUTPlayerState>(aPlayer->PlayerState)->bReadyToPlay = true;
 		return;
@@ -534,9 +535,6 @@ bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
 AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& IncomingName)
 {
 	AActor* const Best = Super::FindPlayerStart(Player, IncomingName);
-
-	UE_LOG(UT,Log,TEXT("Found Player Start: %s"),*GetNameSafe(Best));
-
 	if (Best)
 	{
 		LastStartSpot = Best;
@@ -776,6 +774,10 @@ void AUTGameMode::SetMatchState(FName NewState)
 	{
 		HandleMatchAborted();
 	}
+	else if (MatchState == MatchState::MatchEnteringOvertime)
+	{
+		HandleEnteringOvertime();
+	}
 	else if (MatchState == MatchState::MatchIsInOvertime)
 	{
 		HandleMatchInOvertime();
@@ -783,15 +785,59 @@ void AUTGameMode::SetMatchState(FName NewState)
 
 }
 
+void AUTGameMode::HandleEnteringOvertime()
+{
+	// We are entering overtime, kill off anyone not at the top of the leader board....
+
+	AUTPlayerState* BestPlayer = NULL;
+	AUTPlayerState* KillPlayer = NULL;
+	float BestScore = 0.0;
+
+	for (int PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
+	{
+		if (UTGameState->PlayerArray[PlayerIdx] != NULL)
+		{
+			if (BestPlayer == NULL || UTGameState->PlayerArray[PlayerIdx]->Score > BestScore)
+			{
+				if (BestPlayer != NULL)
+				{
+					KillPlayer = BestPlayer;
+				}
+				BestPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+				BestScore = BestPlayer->Score;
+			}
+			else if (UTGameState->PlayerArray[PlayerIdx]->Score < BestScore)
+			{
+				KillPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+			}
+		}
+
+		if (KillPlayer != NULL)
+		{
+			// No longer the best.. kill him.. KILL HIM NOW!!!!!
+			AController* COwner = Cast<AController> (KillPlayer->GetOwner());
+			if (COwner != NULL && COwner->GetPawn() != NULL)
+			{
+				AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
+				if (UTChar != NULL)
+				{
+					UE_LOG(UT,Log,TEXT("    -- Calling Died"));
+					// Kill off the pawn...
+					UTChar->Died(NULL,FDamageEvent(UUTDamageType::StaticClass()));
+					// Send this character a message/taunt about not making the cut....
+				}
+			}
+
+			KillPlayer = NULL;
+		}
+	}
+	SetMatchState(MatchState::MatchIsInOvertime);
+}
+
 void AUTGameMode::HandleMatchInOvertime()
 {
-	UTGameState->bOvertime = true;
 	// Send the overtime message....
-
 	BroadcastLocalized( this, UUTGameMessage::StaticClass(), 1, NULL, NULL, NULL);
-
-
-
 }
 
 void AUTGameMode::HandleCountdownToBegin()
@@ -828,11 +874,10 @@ void AUTGameMode::CheckGameTime()
 		{
 			EndGame(Winner, TEXT("TimeLimit"));			
 		}
-		else if (bAllowOvertime)
+		else if (bAllowOvertime && !UTGameState->IsMatchInOvertime())
 		{
-			SetMatchState(MatchState::MatchIsInOvertime);
+			SetMatchState(MatchState::MatchEnteringOvertime);
 		}
-	
 	}
 }
 
@@ -863,4 +908,15 @@ AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
 	}
 
 	return BestPlayer;
+}
+
+bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
+{
+	// Can't restart in overtime
+	if (UTGameState->IsMatchInOvertime())
+	{
+		return false;
+	}
+
+	return Super::PlayerCanRestart(Player);
 }

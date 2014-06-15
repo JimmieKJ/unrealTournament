@@ -39,17 +39,26 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 		}
 		else if (!UTGameState->HasMatchEnded())
 		{
-			if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
+
+			if (!UTGameState->IsMatchInOvertime())
 			{
-				FFormatNamedArguments Args;
-				uint32 WaitTime = uint32(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime) + 1;
-				Args.Add("RespawnTime", FText::AsNumber(WaitTime));
-				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
+				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
+				{
+					FFormatNamedArguments Args;
+					uint32 WaitTime = uint32(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime) + 1;
+					Args.Add("RespawnTime", FText::AsNumber(WaitTime));
+					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
+				}
+				else
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnMessage","Press [FIRE] to respawn...");
+				}
 			}
 			else
 			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnMessage","Press [FIRE] to respawn...");
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","Overtime","You didn't make the Cut!");
 			}
+
 		}
 
 

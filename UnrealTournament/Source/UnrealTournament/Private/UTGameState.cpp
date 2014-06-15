@@ -15,7 +15,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);
-	DOREPLIFETIME(AUTGameState, bOvertime);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
@@ -142,6 +141,16 @@ bool AUTGameState::HasMatchStarted() const
 bool AUTGameState::IsMatchInProgress() const
 {
 	if (GetMatchState() == MatchState::InProgress || GetMatchState() == MatchState::MatchIsInOvertime)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool AUTGameState::IsMatchInOvertime() const
+{
+	if (GetMatchState() == MatchState::MatchEnteringOvertime || GetMatchState() == MatchState::MatchIsInOvertime)
 	{
 		return true;
 	}
