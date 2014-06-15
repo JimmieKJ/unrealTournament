@@ -163,8 +163,6 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			AUTWeapon* WraparoundChoice = NULL;
 			int32 CurrentGroup = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon()->Group : UTCharacter->GetWeapon()->Group;
 			int32 CurrentSlot = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon()->GroupSlot : UTCharacter->GetWeapon()->GroupSlot;
-			int32 BestGroup = 0, BestSlot = 0;
-			int32 WrapGroup = 0, WrapSlot = 0;
 			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 			{
 				AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
@@ -173,11 +171,11 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 					if (bPrev)
 					{
 						if ( (Weap->Group < CurrentGroup || (Weap->Group == CurrentGroup && Weap->GroupSlot < CurrentSlot)) &&
-							(Best == NULL || Weap->Group > BestGroup || Weap->GroupSlot > BestSlot) )
+							(Best == NULL || Weap->Group > Best->Group || Weap->GroupSlot > Best->GroupSlot) )
 						{
 							Best = Weap;
 						}
-						if (WraparoundChoice == NULL || Weap->Group > WrapGroup || (Weap->Group == WrapGroup && Weap->GroupSlot > WrapSlot))
+						if (WraparoundChoice == NULL || Weap->Group > WraparoundChoice->Group || (Weap->Group == WraparoundChoice->Group && Weap->GroupSlot > WraparoundChoice->GroupSlot))
 						{
 							WraparoundChoice = Weap;
 						}
@@ -185,11 +183,11 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 					else
 					{
 						if ( (Weap->Group > CurrentGroup || (Weap->Group == CurrentGroup && Weap->GroupSlot > CurrentSlot)) &&
-							(Best == NULL || Weap->Group < BestGroup || Weap->GroupSlot < BestSlot) )
+							(Best == NULL || Weap->Group < Best->Group || Weap->GroupSlot < Best->GroupSlot) )
 						{
 							Best = Weap;
 						}
-						if (WraparoundChoice == NULL || Weap->Group < WrapGroup || (Weap->Group == WrapGroup && Weap->GroupSlot < WrapSlot))
+						if (WraparoundChoice == NULL || Weap->Group < WraparoundChoice->Group || (Weap->Group == WraparoundChoice->Group && Weap->GroupSlot < WraparoundChoice->GroupSlot))
 						{
 							WraparoundChoice = Weap;
 						}

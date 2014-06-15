@@ -63,6 +63,7 @@ void AUTInventory::Removed()
 	Instigator = NULL;
 	SetOwner(NULL);
 	UTOwner = NULL;
+	NextInventory = NULL;
 }
 
 void AUTInventory::CheckPendingClientGivenTo()
@@ -115,6 +116,7 @@ void AUTInventory::ClientRemoved_Implementation()
 	SetOwner(NULL);
 	UTOwner = NULL;
 	Instigator = NULL;
+	NextInventory = NULL;
 }
 
 void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
