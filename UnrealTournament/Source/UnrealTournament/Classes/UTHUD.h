@@ -49,6 +49,9 @@ public:
 	TArray<TSubclassOf<UUTHUDWidget> > HudWidgetClasses;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	class UFont* SmallFont;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* MediumFont;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
@@ -99,6 +102,8 @@ public:
 	virtual void PawnDamaged(FVector HitLocation, float DamageAmount, TSubclassOf<UDamageType> DamageClass);
 	virtual void DrawDamageIndicators();
 
+	virtual class UFont* GetFontFromSizeIndex(int32 FontSize) const;
+
 
 protected:
 
@@ -108,7 +113,7 @@ protected:
 public:
 
 	// TEMP : Convert seconds to a time string.
-	FText TempConvertTime(int Seconds);
+	FText ConvertTime(FText Prefix, FText Suffix, int Seconds) const;
 
 	// TEMP: Until the new Hud system comes online, quickly draw a string to the screen.  This will be replaced soon.
 	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);

@@ -11,6 +11,7 @@
 #include "UTPickupInventory.h"
 #include "UTPickupWeapon.h"
 #include "UTAnnouncer.h"
+#include "UTHUDWidgetMessage.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -510,3 +511,11 @@ bool AUTPlayerController::CanRestartPlayer()
 	return  Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
 }
 
+void AUTPlayerController::JoeTest()
+{
+	UUTHUDWidgetMessage* MsgWidget = MyUTHUD->HudMessageWidgets.FindRef(FName(TEXT("DeathMessage")));
+	if (MsgWidget != NULL)
+	{
+		MsgWidget->DumpMessages();
+	}
+}

@@ -20,11 +20,11 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);
-
+	DOREPLIFETIME(AUTGameState, TimeLimit);
+	
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, TimeLimit, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
 }

@@ -41,15 +41,15 @@ void UUTScoreboard::DrawHeader(float RenderDelta)
 	float Y = Canvas->ClipY * 0.19 - 35 * ResScale;;
 	float X = Canvas->ClipX * 0.15;
 	Canvas->SetDrawColor(23,72,155,200);
-	Canvas->DrawTile(Canvas->DefaultTexture, X, Y - (3 * ResScale), Canvas->ClipX * 0.7,6 * ResScale,0,0,1,1);
+	Canvas->DrawTile(Canvas->DefaultTexture, X, Y - (6 * ResScale), Canvas->ClipX * 0.7,18 * ResScale,0,0,1,1);
 
 	Canvas->DrawColor = FLinearColor::White;
 	Canvas->DrawTile(UTHUDOwner->OldHudTexture, X + 10 * ResScale, Y - 35 * ResScale, 82 * ResScale, 69 * ResScale, 734,190, 82,70);
 
 	// Draw the Time...
 
-	FText TimeElapsed = UTHUDOwner->TempConvertTime(UTGameState->ElapsedTime);
-	UTHUDOwner->TempDrawString( TimeElapsed, Canvas->ClipX * 0.84, Y - (4 * ResScale), ETextHorzPos::Right, ETextVertPos::Bottom, UTHUDOwner->GetFontFromSizeIndex(0), FLinearColor::White);
+	FText TimeElapsed = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->ElapsedTime);
+	UTHUDOwner->TempDrawString( TimeElapsed, Canvas->ClipX * 0.84, Y + (12 * ResScale), ETextHorzPos::Right, ETextVertPos::Bottom, UTHUDOwner->GetFontFromSizeIndex(1), FLinearColor::White);
 }
 
 void UUTScoreboard::DrawPlayers(float RenderDelta)
@@ -83,5 +83,34 @@ void UUTScoreboard::DrawFooter(float RenderDelta)
 	Y += 10 * ResScale;
 
 	UTHUDOwner->TempDrawString(FText::FromString(UTHUDOwner->GetWorld()->GetMapName()), X, Y, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, FLinearColor::White);
+
+	FText Msg = FText::GetEmpty();
+
+	if (UTGameState->IsMatchInProgress())
+	{
+		if (UTGameState->IsMatchInOvertime())
+		{
+			Msg = NSLOCTEXT("UTScoreboard","OvertimeText","-OVERTIME-");
+		}
+		else if (UTGameState->TimeLimit > 0)
+		{
+			Msg = UTHUDOwner->ConvertTime(FText::GetEmpty(), NSLOCTEXT("UTScoreBoard","RemainingPrefix"," : Time Remaining"), UTGameState->RemainingTime);
+
+		}
+	}
+	else if (!UTGameState->HasMatchStarted())
+	{
+		Msg = NSLOCTEXT("UTScoreboard","WaitingToBegin","Waiting For Match to Start!");
+	}
+	else if (!UTGameState->HasMatchEnded())
+	{
+		Msg = NSLOCTEXT("UTScoreboard","MatchOver","Match is Over!");
+	}
+
+	if (!Msg.IsEmpty())
+	{
+		UTHUDOwner->TempDrawString( Msg, Canvas->ClipX * 0.84, Y + (14 * ResScale), ETextHorzPos::Right, ETextVertPos::Bottom, UTHUDOwner->GetFontFromSizeIndex(1), FLinearColor::White);
+	}
+
 }
 

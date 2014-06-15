@@ -141,6 +141,7 @@ public:
 	virtual void ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject = NULL);
 
 	virtual void InitializeWidget(AUTHUD* Hud);
+	virtual void DumpMessages();
 
 protected:
 

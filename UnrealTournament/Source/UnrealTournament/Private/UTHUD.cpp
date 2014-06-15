@@ -26,6 +26,9 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldHudTextureObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	OldHudTexture = OldHudTextureObj.Object;
 
+	static ConstructorHelpers::FObjectFinder<UFont> SFont(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack14.fntRobotoBlack14'"));
+	SmallFont = SFont.Object;
+
 	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/Proto/UI/Fonts/fntRobotoBlack36.fntRobotoBlack36'"));
 	MediumFont = MFont.Object;
 
@@ -72,6 +75,20 @@ void AUTHUD::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
 }
+
+UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
+{
+	switch (FontSizeIndex)
+	{
+		case 0: return GEngine->GetTinyFont();
+		case 1: return SmallFont;
+		case 2: return MediumFont;
+		case 3: return LargeFont;
+	}
+
+	return MediumFont;
+}
+
 
 TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceName)
 {
@@ -220,12 +237,12 @@ void AUTHUD::DrawHUD()
 		if (GameState)
 		{
 			TempDrawString(FText::FromString(TEXT("!! Alpha Prototype !!")), Center.X, 5.0f, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetSmallFont(), FLinearColor::White);
-			TempDrawString( TempConvertTime(GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetMediumFont(), FLinearColor::White);
+			TempDrawString( ConvertTime(FText::GetEmpty(), FText::GetEmpty(), GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetMediumFont(), FLinearColor::White);
 		}
 	}
 }
 
-FText AUTHUD::TempConvertTime(int Seconds)
+FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds) const
 {
 	int Hours = Seconds / 3600;
 	Seconds -= Hours * 3600;
@@ -241,8 +258,10 @@ FText AUTHUD::TempConvertTime(int Seconds)
 	Args.Add(TEXT("Hours"), FText::AsNumber(Hours, &Options));
 	Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
 	Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
+	Args.Add(TEXT("Prefix"), Prefix);
+	Args.Add(TEXT("Suffix"), Suffix);
 
-	return FText::Format( NSLOCTEXT("UTHUD","TIMERHOURS", "{Hours}:{Minutes}:{Seconds}"),Args);
+	return FText::Format( NSLOCTEXT("UTHUD","TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}"),Args);
 }
 
 

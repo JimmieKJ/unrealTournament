@@ -89,6 +89,9 @@ public:
 	 **/
 	virtual bool CanRestartPlayer();
 
+	UFUNCTION(exec)
+	virtual void JoeTest();
+
 protected:
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */

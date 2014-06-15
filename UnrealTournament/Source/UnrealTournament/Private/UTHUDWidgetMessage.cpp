@@ -220,3 +220,18 @@ float UUTHUDWidgetMessage::GetTextScale(int32 QueueIndex)
 {
 	return 1.0f;
 }
+
+void UUTHUDWidgetMessage::DumpMessages()
+{
+	for (int i=0;i<MessageQueue.Num();i++)
+	{
+		if (MessageQueue[i].MessageClass == NULL)
+		{
+			UE_LOG(UT,Log,TEXT("Message %i is NULL"),i);
+		}
+		else
+		{
+			UE_LOG(UT,Log,TEXT("Message %i = %s %s %i %f %f"), i, *GetNameSafe(MessageQueue[i].MessageClass), *MessageQueue[i].Text.ToString(), MessageQueue[i].MessageIndex, MessageQueue[i].LifeSpan, MessageQueue[i].LifeLeft);
+		}
+	}
+}
