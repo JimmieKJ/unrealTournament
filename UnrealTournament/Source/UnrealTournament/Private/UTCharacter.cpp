@@ -260,8 +260,7 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 
 		bTearOff = true; // important to set this as early as possible so IsDead() returns true
 
-		// Save off the controller as we will lose it in PawnPendingDestroy.
-		AController* CurrentController = Controller;
+		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, (Controller != NULL) ? Controller : Cast<AController>(GetOwner()), this, DamageEvent.DamageTypeClass);
 
 		Health = FMath::Min<int32>(Health, 0);
 		if (Controller != NULL)
@@ -270,14 +269,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		}
 
 		PlayDying();
-
-		// Notify the game that this player has died.  We do it here to make sure the game can have 
-		// proper control over the view target as UnPossess() will cause the PC to look at itself.
-
-		if (CurrentController != NULL)
-		{
-			GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, CurrentController, this, DamageEvent.DamageTypeClass);
-		}
 
 		return true;
 	}
@@ -1006,7 +997,8 @@ void AUTCharacter::Tick(float DeltaTime)
 	{
 		// TODO: currently using an arbitrary made up interval and scale factor
 		// TODO: for local player in first person, sync to view bob, etc
-		if (CharacterMovement->MovementMode == MOVE_Walking && GetWorld()->TimeSeconds - LastFootstepTime > 0.5f * CharacterMovement->Velocity.Size() / CharacterMovement->MaxWalkSpeed)
+		float Speed = CharacterMovement->Velocity.Size();
+		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.5f * CharacterMovement->MaxWalkSpeed / Speed)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}

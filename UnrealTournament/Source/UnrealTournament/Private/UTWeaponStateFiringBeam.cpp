@@ -37,7 +37,7 @@ void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
 			}
 		}
 		// beams show a clientside beam target
-		if (GetOuterAUTWeapon()->Role < ROLE_Authority)
+		if (GetOuterAUTWeapon()->Role < ROLE_Authority && GetOuterAUTWeapon()->GetUTOwner() != NULL) // might have lost owner due to TakeDamage() call above!
 		{
 			GetOuterAUTWeapon()->GetUTOwner()->SetFlashLocation(Hit.Location, GetOuterAUTWeapon()->GetCurrentFireMode());
 		}

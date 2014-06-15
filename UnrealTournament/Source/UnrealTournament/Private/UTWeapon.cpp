@@ -155,24 +155,24 @@ void AUTWeapon::BeginPlay()
 
 void AUTWeapon::GotoState(UUTWeaponState* NewState)
 {
-	// FIXME: temp check to try to figure out weapon ending up in firing state with no owner
-	ensure(UTOwner != NULL || NewState == InactiveState);
-
 	if (NewState == NULL || !NewState->IsIn(this))
 	{
 		UE_LOG(UT, Warning, TEXT("Attempt to send %s to invalid state %s"), *GetName(), *GetFullNameSafe(NewState));
 	}
-	else if (CurrentState != NewState)
+	else if (ensureMsgf(UTOwner != NULL || NewState == InactiveState, TEXT("Attempt to send %s to state %s while not owned"), *GetName(), *GetNameSafe(NewState)))
 	{
-		UUTWeaponState* PrevState = CurrentState;
-		if (CurrentState != NULL)
+		if (CurrentState != NewState)
 		{
-			CurrentState->EndState(); // NOTE: may trigger another GotoState() call
-		}
-		if (CurrentState == PrevState)
-		{
-			CurrentState = NewState;
-			CurrentState->BeginState(PrevState); // NOTE: may trigger another GotoState() call
+			UUTWeaponState* PrevState = CurrentState;
+			if (CurrentState != NULL)
+			{
+				CurrentState->EndState(); // NOTE: may trigger another GotoState() call
+			}
+			if (CurrentState == PrevState)
+			{
+				CurrentState = NewState;
+				CurrentState->BeginState(PrevState); // NOTE: may trigger another GotoState() call
+			}
 		}
 	}
 }
@@ -621,6 +621,13 @@ bool AUTWeapon::StackPickup_Implementation(AUTInventory* ContainedInv)
 
 void AUTWeapon::Tick(float DeltaTime)
 {
+	// try to gracefully detect being active with no owner, which should never happen because we should always end up going through Removed() and going to the inactive state
+	if (CurrentState != InactiveState && (UTOwner == NULL || UTOwner->bPendingKillPending) && CurrentState != NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("%s lost Owner while active (state %s"), *GetName(), *GetNameSafe(CurrentState));
+		GotoState(InactiveState);
+	}
+
 	Super::Tick(DeltaTime);
 
 	// apparently things can get ticked before BeginPlay() is called. Seems like bad news...
