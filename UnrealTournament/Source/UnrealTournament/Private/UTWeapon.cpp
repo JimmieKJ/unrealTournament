@@ -155,6 +155,9 @@ void AUTWeapon::BeginPlay()
 
 void AUTWeapon::GotoState(UUTWeaponState* NewState)
 {
+	// FIXME: temp check to try to figure out weapon ending up in firing state with no owner
+	ensure(UTOwner != NULL || NewState == InactiveState);
+
 	if (NewState == NULL || !NewState->IsIn(this))
 	{
 		UE_LOG(UT, Warning, TEXT("Attempt to send %s to invalid state %s"), *GetName(), *GetFullNameSafe(NewState));
