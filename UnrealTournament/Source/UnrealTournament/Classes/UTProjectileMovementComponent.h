@@ -9,7 +9,7 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTProjectileMovementComponent::UUTProjectileMovementComponent(const FPostConstructInitializeProperties& PCIP)
+	UUTProjectileMovementComponent(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 	{}
 
