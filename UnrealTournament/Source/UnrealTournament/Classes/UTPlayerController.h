@@ -92,6 +92,8 @@ public:
 	UFUNCTION(exec)
 	virtual void JoeTest();
 
+	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) OVERRIDE;
+
 protected:
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
@@ -129,6 +131,7 @@ protected:
 	void PrevWeapon();
 	void NextWeapon();
 	virtual void SwitchWeaponInSequence(bool bPrev);
+	UFUNCTION(Exec)
 	virtual void SwitchWeapon(int32 Group);
 
 	/** weapon fire input handling -- NOTE: Just forward to the pawn */

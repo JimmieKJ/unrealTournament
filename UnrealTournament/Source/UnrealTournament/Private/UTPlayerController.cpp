@@ -12,6 +12,7 @@
 #include "UTPickupWeapon.h"
 #include "UTAnnouncer.h"
 #include "UTHUDWidgetMessage.h"
+#include "UTPlayerInput.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -65,6 +66,11 @@ void AUTPlayerController::SetupInputComponent()
 
 void AUTPlayerController::InitInputSystem()
 {
+	if (PlayerInput == NULL)
+	{
+		PlayerInput = ConstructObject<UUTPlayerInput>(UUTPlayerInput::StaticClass(), this);
+	}
+
 	Super::InitInputSystem();
 
 	if (RewardAnnouncerPath.Len() > 0)
@@ -102,6 +108,18 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 {
 	Super::SetPawn(InPawn);
 	UTCharacter = Cast<AUTCharacter>(InPawn);
+}
+
+bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
+{
+	// unfortunately have to go roundabout because this is the only InputKey() that's virtual
+	UUTPlayerInput* Input = Cast<UUTPlayerInput>(PlayerInput);
+	if (Input != NULL)
+	{
+		Input->ExecuteCustomBind(Key, EventType);
+		// ...unsure if we should eat the input on success
+	}
+	return Super::InputKey(Key, EventType, AmountDepressed, bGamepad);
 }
 
 void AUTPlayerController::SwitchToBestWeapon()
