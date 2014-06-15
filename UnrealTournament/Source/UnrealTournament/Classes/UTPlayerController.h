@@ -23,6 +23,22 @@ public:
 	UPROPERTY()
 	class AUTHUD* MyUTHUD;
 
+	// the announcer types are split as we use different voices for the two types;
+	// this allows them independent queues with limited talking over each other, which is better than the long queues that can sometimes happen
+	// more configurability for mods and such doesn't hurt either
+
+	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
+	FString RewardAnnouncerPath;
+	/** announcer for reward announcements (multikill, etc) - only set on client */
+	UPROPERTY(BlueprintReadWrite, Category = Announcer)
+	class UUTAnnouncer* RewardAnnouncer;
+	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
+	FString StatusAnnouncerPath;
+	/** announcer for status announcements (red flag taken, etc) - only set on client */
+	UPROPERTY(BlueprintReadWrite, Category = Announcer)
+	class UUTAnnouncer* StatusAnnouncer;
+	
+	virtual void InitInputSystem() OVERRIDE;
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
 	virtual void SetPawn(APawn* InPawn);

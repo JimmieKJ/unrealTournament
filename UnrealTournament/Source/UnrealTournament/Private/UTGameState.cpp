@@ -1,11 +1,16 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTMultiKillMessage.h"
+#include "UTSpreeMessage.h"
 #include "Net/UnrealNetwork.h"
 
 AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
+	SpreeMessageClass = UUTSpreeMessage::StaticClass();
+	MultiKillDelay = 4.0f;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

@@ -151,7 +151,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 	if ( KilledPlayerState != NULL )
 	{
-		KilledPlayerState->IncrementDeaths();
+		KilledPlayerState->IncrementDeaths(KillerPlayerState);
 		ScoreKill(Killer, KilledPlayer);
 		BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 	}

@@ -42,19 +42,52 @@ void AUTPlayerState::SetWaitingPlayer(bool B)
 	ForceNetUpdate();
 }
 
-void AUTPlayerState::IncrementKills(bool bEnemyKill )
+void AUTPlayerState::IncrementKills(bool bEnemyKill)
 {
-	if ( bEnemyKill )
+	if (bEnemyKill)
 	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
+		{
+			MultiKillLevel++;
+			if (Cast<APlayerController>(GetOwner()) != NULL)
+			{
+				((APlayerController*)GetOwner())->ClientReceiveLocalizedMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+			}
+		}
+		else
+		{
+			MultiKillLevel = 0;
+		}
+		if (Cast<AController>(GetOwner()) != NULL && ((AController*)GetOwner())->GetPawn() != NULL)
+		{
+			Spree++;
+			if (Spree % 5 == 0)
+			{
+				if (GetWorld()->GetAuthGameMode() != NULL)
+				{
+					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / 5, this);
+				}
+			}
+		}
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 	}
 }
 
-void AUTPlayerState::IncrementDeaths()
+void AUTPlayerState::IncrementDeaths(AUTPlayerState* KillerPlayerState)
 {
 	Deaths += 1;
-	UE_LOG(UT,Log, TEXT("Increment Deaths"));
+	// spree has ended
+	if (Spree >= 5 && GetWorld()->GetAuthGameMode() != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / -5, this, KillerPlayerState);
+		}
+	}
+	Spree = 0;
 
 	SetNetUpdateTime(FMath::Min(NetUpdateTime, GetWorld()->TimeSeconds + 0.3f * FMath::FRand()));
 
@@ -66,7 +99,7 @@ void AUTPlayerState::IncrementDeaths()
 
 }
 
-void AUTPlayerState::AdjustScore(int ScoreAdjustment)
+void AUTPlayerState::AdjustScore(int32 ScoreAdjustment)
 {
 	Score += ScoreAdjustment;
 	ForceNetUpdate();

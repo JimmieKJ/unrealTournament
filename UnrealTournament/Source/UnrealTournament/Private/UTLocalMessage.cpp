@@ -10,6 +10,7 @@ UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties&
 	: Super(PCIP)
 {
 	Lifetime = 2.0;
+	MessageArea = FName(TEXT("ConsoleMessage"));
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -27,9 +28,10 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText( LocalMessageText.ToString() );
 		}
 	}
+	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 }
 
-FText UUTLocalMessage::ResolveMessage(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
+FText UUTLocalMessage::ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	FFormatNamedArguments Args;
 	GetArgs(Args, Switch, bTargetsPlayerState1, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
@@ -44,7 +46,6 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 	Args.Add(TEXT("Player2Score"), RelatedPlayerState_2 != NULL ? FText::AsNumber(int32(RelatedPlayerState_2->Score)) : FText::GetEmpty());
 	return;
 }
-
 
 FText UUTLocalMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
@@ -69,3 +70,17 @@ bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject*
 	return (Switch1 == Switch2);
 }
 
+FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	return NAME_None;
+}
+
+bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+{
+	// by default interrupt messages of same type
+	return GetClass() == OtherMessageClass;
+}
+
+void UUTLocalMessage::OnAnnouncementPlayed_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+}

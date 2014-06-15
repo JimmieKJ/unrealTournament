@@ -10,6 +10,7 @@
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
 #include "UTPickupWeapon.h"
+#include "UTAnnouncer.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -59,6 +60,28 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("ShowScores", IE_Pressed, this, &AUTPlayerController::OnShowScores);
 	InputComponent->BindAction("ShowScores", IE_Released, this, &AUTPlayerController::OnHideScores);
+}
+
+void AUTPlayerController::InitInputSystem()
+{
+	Super::InitInputSystem();
+
+	if (RewardAnnouncerPath.Len() > 0)
+	{
+		TSubclassOf<UUTAnnouncer> RewardAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *RewardAnnouncerPath, NULL, 0, NULL);
+		if (RewardAnnouncerClass != NULL && RewardAnnouncerClass.GetDefaultObject()->IsRewardAnnouncer())
+		{
+			RewardAnnouncer = NewObject<UUTAnnouncer>(this, RewardAnnouncerClass);
+		}
+	}
+	if (StatusAnnouncerPath.Len() > 0)
+	{
+		TSubclassOf<UUTAnnouncer> StatusAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *StatusAnnouncerPath, NULL, 0, NULL);
+		if (StatusAnnouncerClass != NULL && StatusAnnouncerClass.GetDefaultObject()->IsStatusAnnouncer())
+		{
+			StatusAnnouncer = NewObject<UUTAnnouncer>(this, StatusAnnouncerClass);
+		}
+	}
 }
 
 /* Cache a copy of the PlayerState cast'd to AUTPlayerState for easy reference.  Do it both here and when the replicated copy of APlayerState arrives in OnRep_PlayerState */

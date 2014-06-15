@@ -10,45 +10,61 @@ class AUTPlayerState : public APlayerState
 	GENERATED_UCLASS_BODY()
 
 	/** Whether this player is waiting to enter match */
-	UPROPERTY(replicated)
+	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	uint32 bWaitingPlayer:1;
 
 	/** Whether this player has confirmed ready to play */
-	UPROPERTY(replicated)
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;
+	/** current multikill level (1 = double, 2 = multi, etc)
+	 * note that the value isn't reset until a new kill comes in
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+	int32 MultiKillLevel;
+
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
+	int32 Spree;
 
 	/** Kills by this player.  Not replicated but calculated client-side */
-	UPROPERTY(replicated)
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	int32 Kills;
 
 	/** Can't respawn once out of lives */
-	UPROPERTY(replicated)
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bOutOfLives:1;
 
 	/** How many times associated player has died */
-	UPROPERTY(replicated, ReplicatedUsing=OnDeathsReceived)
+	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnDeathsReceived, Category = PlayerState)
 	int32 Deaths;
 
 	// How long until this player can repawn.  It's not directly replicated to the clients instead it's set
 	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float RespawnTime;
 
 	UFUNCTION()
 	void OnDeathsReceived();
 
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void IncrementKills(bool bEnemyKill);
-	virtual void IncrementDeaths();
-	virtual void AdjustScore(int ScoreAdjustment);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
+	virtual void IncrementDeaths(AUTPlayerState* KillerPlayerState);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
+	virtual void AdjustScore(int32 ScoreAdjustment);
 
 	virtual void Tick(float DeltaTime) OVERRIDE;
+
+	inline bool IsFemale()
+	{
+		return false; // TODO
+	}
 };
 
 
