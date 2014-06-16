@@ -59,7 +59,7 @@ class AUTWeapon : public AUTInventory
 	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon")
 	TArray<class UUTWeaponStateFiring*> FiringState;
 #if WITH_EDITORONLY_DATA
-private:
+protected:
 	/** class of firing state to use (workaround for editor limitations - editinlinenew doesn't work) */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
