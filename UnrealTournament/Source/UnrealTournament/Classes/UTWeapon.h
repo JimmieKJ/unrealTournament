@@ -157,7 +157,7 @@ public:
 		}
 	}
 
-	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) OVERRIDE;
+	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const OVERRIDE;
 
 	void GotoState(class UUTWeaponState* NewState);
 
@@ -316,6 +316,12 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta);
 
+	/** helper for shared overlay code between UTWeapon and UTWeaponAttachment
+	 * NOTE: can called on default object!
+	 */
+	virtual void UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const;
+	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
+	virtual void UpdateOverlays();
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
@@ -331,4 +337,8 @@ protected:
 	TSubobjectPtr<UUTWeaponState> UnequippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> InactiveState;
+
+	/** overlay mesh for overlay effects */
+	UPROPERTY()
+	USkeletalMeshComponent* OverlayMesh;
 };

@@ -85,7 +85,7 @@ void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherCom
 
 void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Role == ROLE_Authority && TouchedBy->Controller != NULL)
+	if (Role == ROLE_Authority && bActive && TouchedBy->Controller != NULL)
 	{
 		GiveTo(TouchedBy);
 		PlayTakenEffects(true);

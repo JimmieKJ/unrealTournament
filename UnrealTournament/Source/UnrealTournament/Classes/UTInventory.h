@@ -64,7 +64,10 @@ public:
 
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)
-	UMeshComponent* GetPickupMeshTemplate(FVector& OverrideScale);
+	UMeshComponent* GetPickupMeshTemplate(FVector& OverrideScale) const;
+	/** call AddOverlayMaterial() on the GRI to add any character or weapon overlay materials; this registration is required to replicate overlays */
+	UFUNCTION(BlueprintNativeEvent)
+	void AddOverlayMaterials(AUTGameState* GS) const;
 
 	/** respawn time for level placed pickups of this type */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
@@ -93,4 +96,5 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamageTaken(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser);
+
 };

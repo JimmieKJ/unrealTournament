@@ -64,6 +64,11 @@ void AUTWeaponAttachment::DetachFromOwner_Implementation()
 	Mesh->DetachFromParent();
 }
 
+void AUTWeaponAttachment::UpdateOverlays()
+{
+	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayMesh);
+}
+
 void AUTWeaponAttachment::PlayFiringEffects()
 {
 	// stop any firing effects for other firemodes

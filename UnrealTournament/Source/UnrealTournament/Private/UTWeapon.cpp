@@ -58,7 +58,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	}
 }
 
-UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& OverrideScale)
+UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const
 {
 	if (AttachmentType != NULL)
 	{
@@ -329,6 +329,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 	}
 	// register components now
 	Super::RegisterAllComponents();
+	UpdateOverlays();
 }
 
 void AUTWeapon::DetachFromOwner_Implementation()
@@ -682,4 +683,41 @@ void AUTWeapon::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, AUT
 	FString AmmoStr = FString::Printf(TEXT("%i"),Ammo);
 	FText AmmoText = FText::FromString( AmmoStr );
 	WeaponHudWidget->DrawText(AmmoText,0,0,Font, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Bottom);
+}
+
+void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const
+{
+	AUTGameState* GS = WeaponActor->GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL)
+	{
+		UMaterialInterface* TopOverlay = GS->GetFirstOverlay(InOwner->GetWeaponOverlayFlags());
+		if (TopOverlay != NULL)
+		{
+			if (InOverlayMesh == NULL)
+			{
+				InOverlayMesh = ConstructObject<USkeletalMeshComponent>(InMesh->GetClass(), WeaponActor, NAME_None, RF_NoFlags, InMesh, true);
+				InOverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+				InOverlayMesh->SetMasterPoseComponent(InMesh);
+			}
+			if (!InOverlayMesh->IsRegistered())
+			{
+				InOverlayMesh->RegisterComponent();
+				InOverlayMesh->AttachTo(InMesh, NAME_None, EAttachLocation::SnapToTarget);
+				InOverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+			}
+			for (int32 i = 0; i < InOverlayMesh->GetNumMaterials(); i++)
+			{
+				InOverlayMesh->SetMaterial(i, TopOverlay);
+			}
+		}
+		else if (InOverlayMesh != NULL && InOverlayMesh->IsRegistered())
+		{
+			InOverlayMesh->DetachFromParent();
+			InOverlayMesh->UnregisterComponent();
+		}
+	}
+}
+void AUTWeapon::UpdateOverlays()
+{
+	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayMesh);
 }

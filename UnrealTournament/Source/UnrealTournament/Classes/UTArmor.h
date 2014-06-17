@@ -18,6 +18,17 @@ class AUTArmor : public AUTInventory
 	/** whether to also absorb momentum by the same percentage that damage is absorbed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Armor)
 	bool bAbsorbMomentum;
+	/** character overlay applied while this armor is equipped */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	UMaterialInterface* OverlayMaterial;
+
+	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const OVERRIDE
+	{
+		GS->AddOverlayMaterial(OverlayMaterial);
+	}
+
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
+	virtual void Removed() OVERRIDE;
 
 	virtual void ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser);
 

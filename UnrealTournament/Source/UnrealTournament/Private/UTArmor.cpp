@@ -12,6 +12,24 @@ AUTArmor::AUTArmor(const FPostConstructInitializeProperties& PCIP)
 	bCallModifyDamageTaken = true;
 }
 
+void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+
+	if (OverlayMaterial != NULL)
+	{
+		NewOwner->SetCharacterOverlay(OverlayMaterial, true);
+	}
+}
+void AUTArmor::Removed()
+{
+	if (OverlayMaterial != NULL)
+	{
+		GetUTOwner()->SetCharacterOverlay(OverlayMaterial, false);
+	}
+	Super::Removed();
+}
+
 void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (Damage > 0)

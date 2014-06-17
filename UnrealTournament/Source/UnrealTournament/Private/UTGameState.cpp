@@ -27,8 +27,50 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, OverlayMaterials, COND_InitialOnly);
 }
 
+void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay)
+{
+	if (NewOverlay != NULL && Role == ROLE_Authority)
+	{
+		if (NetUpdateTime > 0.0f)
+		{
+			UE_LOG(UT, Warning, TEXT("UTGameState::AddOverlayMaterial() called after startup; may not take effect on clients"));
+		}
+		for (int32 i = 0; i < ARRAY_COUNT(OverlayMaterials); i++)
+		{
+			if (OverlayMaterials[i] == NewOverlay)
+			{
+				return;
+			}
+			else if (OverlayMaterials[i] == NULL)
+			{
+				OverlayMaterials[i] = NewOverlay;
+				return;
+			}
+		}
+		UE_LOG(UT, Warning, TEXT("UTGameState::AddOverlayMaterial(): Ran out of slots, couldn't add %s"), *NewOverlay->GetFullName());
+	}
+}
+
+void AUTGameState::BeginPlay()
+{
+	Super::BeginPlay();
+
+	{
+		TArray<UObject*> AllInventory;
+		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
+		for (int32 i = 0; i < AllInventory.Num(); i++)
+		{
+			if (AllInventory[i]->HasAnyFlags(RF_ClassDefaultObject))
+			{
+				checkSlow(AllInventory[i]->IsA(AUTInventory::StaticClass()));
+				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
+			}
+		}
+	}
+}
 
 void AUTGameState::DefaultTimer()
 {

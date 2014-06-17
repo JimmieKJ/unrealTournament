@@ -77,6 +77,59 @@ class AUTGameState : public AGameState
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInProgress() const;
 	virtual bool IsMatchInOvertime() const;
+
+	virtual void BeginPlay() OVERRIDE;
+
+	/** add an overlay to the OverlayMaterials list */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void AddOverlayMaterial(UMaterialInterface* NewOverlay);
+	/** find an overlay in the OverlayMaterials list, return its index */
+	int32 FindOverlayMaterial(UMaterialInterface* TestOverlay)
+	{
+		for (int32 i = 0; i < ARRAY_COUNT(OverlayMaterials); i++)
+		{
+			if (OverlayMaterials[i] == TestOverlay)
+			{
+				return i;
+			}
+		}
+		return INDEX_NONE;
+	}
+	/** get overlay material from index */
+	UMaterialInterface* GetOverlayMaterial(int32 Index)
+	{
+		if (Index >= 0 && Index < ARRAY_COUNT(OverlayMaterials))
+		{
+			return OverlayMaterials[Index];
+		}
+	}
+	/** returns first active overlay material given the passed in flags */
+	UMaterialInterface* GetFirstOverlay(uint16 Flags)
+	{
+		// early out
+		if (Flags == 0)
+		{
+			return NULL;
+		}
+		else
+		{
+			for (int32 i = 0; i < ARRAY_COUNT(OverlayMaterials); i++)
+			{
+				if (Flags & (1 << i))
+				{
+					return OverlayMaterials[i];
+				}
+			}
+			return NULL;
+		}
+	}
+
+protected:
+	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
+	 * only replicated at startup so set any used materials via BeginPlay()
+	 */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Effects)
+	UMaterialInterface* OverlayMaterials[16];
 };
 
 

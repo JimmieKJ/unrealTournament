@@ -311,6 +311,32 @@ class AUTCharacter : public ACharacter
 	// Controls if we want to see the first or third person meshes
 	void SetMeshVisibility(bool bThirdPersonView);
 
+	/** sets character overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
+	 * multiple overlays can be active at once, but only one will be displayed at a time
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
+	/** uses CharOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
+	UFUNCTION()
+	virtual void UpdateCharOverlays();
+	/** sets weapon overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
+	 * multiple overlays can be active at once, but the default in the weapon code is to only display one at a time
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
+	/** uses WeaponOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
+	UFUNCTION()
+	virtual void UpdateWeaponOverlays();
+
+	inline int16 GetCharOverlayFlags()
+	{
+		return CharOverlayFlags;
+	}
+	inline int16 GetWeaponOverlayFlags()
+	{
+		return WeaponOverlayFlags;
+	}
+
 protected:
 
 	/** multiplier to firing speed */
@@ -372,6 +398,15 @@ protected:
 	
 	virtual void BecomeViewTarget(class APlayerController* PC) OVERRIDE;
 	virtual void EndViewTarget( class APlayerController* PC );
+
+	/** replicated overlays, bits match entries in UTGameState's OverlayMaterials array */
+	UPROPERTY(Replicated, ReplicatedUsing = UpdateCharOverlays)
+	uint16 CharOverlayFlags;
+	UPROPERTY(Replicated, ReplicatedUsing = UpdateWeaponOverlays)
+	uint16 WeaponOverlayFlags;
+	/** mesh with current active overlay material on it (created dynamically when needed) */
+	UPROPERTY()
+	USkeletalMeshComponent* OverlayMesh;
 
 private:
 	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)

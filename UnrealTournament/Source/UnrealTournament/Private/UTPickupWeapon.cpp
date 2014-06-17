@@ -39,7 +39,7 @@ bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
 
 void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Cast<AUTCharacter>(TouchedBy) != NULL)
+	if (bActive && Cast<AUTCharacter>(TouchedBy) != NULL)
 	{
 		if (WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay)
 		{

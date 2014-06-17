@@ -14,6 +14,25 @@ AUTTimedPowerup::AUTTimedPowerup(const FPostConstructInitializeProperties& PCIP)
 	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
 }
 
+void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+
+	ClientSetTimeRemaining(TimeRemaining);
+	if (OverlayMaterial != NULL)
+	{
+		NewOwner->SetWeaponOverlay(OverlayMaterial, true);
+	}
+}
+void AUTTimedPowerup::Removed()
+{
+	if (OverlayMaterial != NULL)
+	{
+		GetUTOwner()->SetWeaponOverlay(OverlayMaterial, false);
+	}
+	Super::Removed();
+}
+
 void AUTTimedPowerup::TimeExpired_Implementation()
 {
 	if (Role == ROLE_Authority)
@@ -37,6 +56,7 @@ bool AUTTimedPowerup::StackPickup_Implementation(AUTInventory* ContainedInv)
 	{
 		TimeRemaining += GetClass()->GetDefaultObject<AUTTimedPowerup>()->TimeRemaining;
 	}
+	ClientSetTimeRemaining(TimeRemaining);
 	return true;
 }
 
@@ -54,9 +74,7 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 	}
 }
 
-void AUTTimedPowerup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void AUTTimedPowerup::ClientSetTimeRemaining_Implementation(float InTimeRemaining)
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME_CONDITION(AUTTimedPowerup, TimeRemaining, COND_InitialOnly);
+	TimeRemaining = InTimeRemaining;
 }

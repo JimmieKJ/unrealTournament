@@ -24,9 +24,13 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 	DroppedPickupClass = AUTDroppedPickup::StaticClass();
 }
 
-UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation(FVector& OverrideScale)
+UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const
 {
 	return PickupMesh;
+}
+
+void AUTInventory::AddOverlayMaterials_Implementation(AUTGameState* GS) const
+{
 }
 
 void AUTInventory::Destroyed()

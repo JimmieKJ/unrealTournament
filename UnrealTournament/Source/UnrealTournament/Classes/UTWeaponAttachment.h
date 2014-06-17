@@ -18,6 +18,9 @@ protected:
 	/** precast of Instigator to UTCharacter */
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	AUTCharacter* UTOwner;
+	/** overlay mesh for overlay effects */
+	UPROPERTY()
+	USkeletalMeshComponent* OverlayMesh;
 public:
 	/** particle component for muzzle flash */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
@@ -59,4 +62,7 @@ public:
 	/** stops any looping fire effects */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StopFiringEffects(bool bIgnoreCurrentMode = false);
+
+	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
+	virtual void UpdateOverlays();
 };

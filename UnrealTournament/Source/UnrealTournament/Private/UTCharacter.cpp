@@ -798,7 +798,7 @@ void AUTCharacter::FireRateChanged()
 	}
 }
 
-void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
+void AUTCharacter::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
 {
 	Super::PreReplication(ChangedPropertyTracker);
 
@@ -819,6 +819,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, DamageScaling, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireRateMultiplier, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSound, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, CharOverlayFlags, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponOverlayFlags, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -998,6 +1000,116 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	Super::Landed(Hit);
 
 	UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+}
+
+void AUTCharacter::SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled)
+{
+	if (Role == ROLE_Authority && NewOverlay != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			int32 Index = GS->FindOverlayMaterial(NewOverlay);
+			if (Index == INDEX_NONE)
+			{
+				UE_LOG(UT, Warning, TEXT("Overlay material %s was not registered"), *NewOverlay->GetFullName());
+			}
+			else
+			{
+				checkSlow(Index < sizeof(CharOverlayFlags * 8));
+				if (bEnabled)
+				{
+					CharOverlayFlags |= (1 << Index);
+				}
+				else
+				{
+					CharOverlayFlags &= ~(1 << Index);
+				}
+				if (GetNetMode() != NM_DedicatedServer)
+				{
+					UpdateCharOverlays();
+				}
+			}
+		}
+	}
+}
+void AUTCharacter::SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnabled)
+{
+	if (Role == ROLE_Authority && NewOverlay != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			int32 Index = GS->FindOverlayMaterial(NewOverlay);
+			if (Index == INDEX_NONE)
+			{
+				UE_LOG(UT, Warning, TEXT("Overlay material %s was not registered"), *NewOverlay->GetFullName());
+			}
+			else
+			{
+				checkSlow(Index < sizeof(WeaponOverlayFlags * 8));
+				if (bEnabled)
+				{
+					WeaponOverlayFlags |= (1 << Index);
+				}
+				else
+				{
+					WeaponOverlayFlags &= ~(1 << Index);
+				}
+				if (GetNetMode() != NM_DedicatedServer)
+				{
+					UpdateWeaponOverlays();
+				}
+			}
+		}
+	}
+}
+
+void AUTCharacter::UpdateCharOverlays()
+{
+	if (CharOverlayFlags == 0)
+	{
+		if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
+		{
+			OverlayMesh->DetachFromParent();
+			OverlayMesh->UnregisterComponent();
+		}
+	}
+	else
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			if (OverlayMesh == NULL)
+			{
+				OverlayMesh = ConstructObject<USkeletalMeshComponent>(Mesh->GetClass(), this, NAME_None, RF_NoFlags, Mesh, true);
+				OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+				OverlayMesh->SetMasterPoseComponent(Mesh);
+			}
+			if (!OverlayMesh->IsRegistered())
+			{
+				OverlayMesh->RegisterComponent();
+				OverlayMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTarget);
+				OverlayMesh->SetRelativeScale3D(FVector(1.015f, 1.015f, 1.015f));
+			}
+			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
+			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
+			{
+				OverlayMesh->SetMaterial(i, FirstOverlay);
+			}
+		}
+	}
+}
+void AUTCharacter::UpdateWeaponOverlays()
+{
+	if (Weapon != NULL)
+	{
+		Weapon->UpdateOverlays();
+	}
+	if (WeaponAttachment != NULL)
+	{
+		WeaponAttachment->UpdateOverlays();
+	}
 }
 
 void AUTCharacter::Tick(float DeltaTime)
