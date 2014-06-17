@@ -195,6 +195,8 @@ class AUTCharacter : public ACharacter
 	virtual void BeginPlay() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
+	virtual void Restart() OVERRIDE;
+
 	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const OVERRIDE
 	{
 		return bTearOff || Super::ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
@@ -271,8 +273,6 @@ class AUTCharacter : public ACharacter
 
 	/** Also call UTCharacterMovement ClearJumpInput() */
 	virtual void ClearJumpInput() OVERRIDE;
-
-	virtual void Restart() OVERRIDE;
 
 	/** sets replicated ambient (looping) sound on this Pawn
 	 * only one ambient sound can be set at a time

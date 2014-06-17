@@ -65,6 +65,19 @@ void AUTCharacter::Restart()
 {
 	Super::Restart();
 	ClearJumpInput();
+
+	// make sure equipped weapon state is synchronized
+	if (IsLocallyControlled())
+	{
+		if (Weapon != NULL)
+		{
+			SwitchWeapon(Weapon);
+		}
+		else
+		{
+			SwitchToBestWeapon();
+		}
+	}
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)

@@ -631,8 +631,8 @@ void AUTWeapon::Tick(float DeltaTime)
 
 	Super::Tick(DeltaTime);
 
-	// apparently things can get ticked before BeginPlay() is called. Seems like bad news...
-	if (CurrentState != NULL && CurrentState != InactiveState)
+	// note that this relies on us making BeginPlay() always called before first tick; see UUTGameEngine::LoadMap()
+	if (CurrentState != InactiveState)
 	{
 		CurrentState->Tick(DeltaTime);
 	}
