@@ -205,3 +205,7 @@ bool AUTGameState::IsMatchInOvertime() const
 	return false;
 }
 
+void AUTGameState::OnWinnerReceived()
+{
+}
+

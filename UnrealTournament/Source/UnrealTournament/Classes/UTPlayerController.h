@@ -97,8 +97,15 @@ public:
 	virtual bool IsBehindView();
 	virtual void SetCameraMode( FName NewCamMode );
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) OVERRIDE;
+	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) OVERRIDE;
+
+	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
+
 
 protected:
+
+	// If set, this will be the final viewtarget this pawn can see.
+	AActor* FinalViewTarget;
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
 	UPROPERTY()

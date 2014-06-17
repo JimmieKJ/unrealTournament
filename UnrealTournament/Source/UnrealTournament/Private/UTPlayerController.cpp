@@ -553,7 +553,7 @@ void AUTPlayerController::ClientSetCameraMode_Implementation( FName NewCamMode )
 		PlayerCameraManager->CameraStyle = NewCamMode;
 	}
 
-	if (UTCharacter != NULL)
+	if (UTCharacter != NULL && IsLocalPlayerController())
 	{
 		UTCharacter->SetMeshVisibility(NewCamMode == FName(TEXT("FreeCam")));
 	}
@@ -568,4 +568,24 @@ void AUTPlayerController::SetCameraMode( FName NewCamMode )
 		ClientSetCameraMode( NewCamMode );
 	}
 }
+
+void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
+{
+	FinalViewTarget = EndGameFocus;
+	BehindView(true);
+	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
+}
+
+void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
+{
+	UE_LOG(UT,Log,TEXT("SetViewTarget %s [%s]"), *GetNameSafe(NewViewTarget), *GetNameSafe(FinalViewTarget));
+	if (FinalViewTarget != NULL)
+	{
+		NewViewTarget = FinalViewTarget;
+	}
+
+	Super::SetViewTarget(NewViewTarget, TransitionParams);
+}
+
+
 

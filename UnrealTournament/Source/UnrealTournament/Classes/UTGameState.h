@@ -48,8 +48,11 @@ class AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 RespawnWaitTime;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnWinnerReceived, Category = GameState)
 	AUTPlayerState* WinnerPlayerState;
+
+	UFUNCTION()
+	virtual void OnWinnerReceived();
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
 	virtual void SetTimeLimit(float NewTimeLimit);
