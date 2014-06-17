@@ -14,6 +14,19 @@ class UUTVictoryMessage : public UUTLocalMessage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText YouHaveLostText;
 
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const OVERRIDE
+	{
+		Super::ClientReceive(ClientData);
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+		if (PC != NULL && PC->StatusAnnouncer != NULL)
+		{
+			PC->StatusAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+		}
+	}
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const OVERRIDE
+	{
+		return (Switch == 0) ? FName(TEXT("WonMatch")) : FName(TEXT("LostMatch"));
+	}
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const OVERRIDE;
 };
 
