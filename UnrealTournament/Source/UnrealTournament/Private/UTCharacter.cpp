@@ -276,18 +276,21 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 
 void AUTCharacter::PlayDying()
 {
+	SetAmbientSound(NULL);
+
 	// TODO: damagetype effects, etc
 	CharacterMovement->ApplyAccumulatedMomentum(0.0f);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Mesh->SetSimulatePhysics(true);
 	Mesh->SetAllBodiesPhysicsBlendWeight(1.0f);
-	Mesh->AddImpulse(GetVelocity(), NAME_None, true);
 	Mesh->DetachFromParent(true);
 	RootComponent = Mesh;
 	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CapsuleComponent->DetachFromParent(false);
 	CapsuleComponent->AttachTo(Mesh);
 	SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
+
+	Mesh->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity * FVector(1.0f, 1.0f, 0.5f), false); // gravity doesn't seem to be the same magnitude for ragdolls...
 }
 
 void AUTCharacter::Destroyed()
