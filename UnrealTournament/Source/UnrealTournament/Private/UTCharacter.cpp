@@ -23,11 +23,11 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
 	FirstPersonMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
-	FirstPersonMesh->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
+	FirstPersonMesh->SetOnlyOwnerSee(true);
 	FirstPersonMesh->AttachParent = CharacterCameraComponent;
+	FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPersonMesh->bCastDynamicShadow = false;
 	FirstPersonMesh->CastShadow = false;
-	FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 
@@ -37,6 +37,14 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FireRateMultiplier = 1.0f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
+}
+
+void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
+{
+	FirstPersonMesh->SetOwnerNoSee(bThirdPersonView);
+
+	Mesh->SetVisibility(bThirdPersonView);
+	Mesh->SetOwnerNoSee(!bThirdPersonView);
 }
 
 void AUTCharacter::BeginPlay()
@@ -1005,5 +1013,32 @@ void AUTCharacter::Tick(float DeltaTime)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}
+	}
+}
+
+void AUTCharacter::BecomeViewTarget(class APlayerController* PC)
+{
+	Super::BecomeViewTarget(PC);
+
+	if (PC != NULL)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+		if (UTPC != NULL)
+		{
+			UE_LOG(UT,Log,TEXT("BecomeViewTarget %i"),UTPC->IsBehindView());
+			SetMeshVisibility(UTPC->IsBehindView());
+			return;
+		}
+	}
+
+	SetMeshVisibility(true);
+}
+
+void AUTCharacter::EndViewTarget( class APlayerController* PC )
+{
+	Super::EndViewTarget(PC);
+	if (PC != NULL && PC->IsLocalController())
+	{
+		SetMeshVisibility(true);
 	}
 }

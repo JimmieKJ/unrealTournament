@@ -37,7 +37,7 @@ public:
 	/** announcer for status announcements (red flag taken, etc) - only set on client */
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* StatusAnnouncer;
-	
+
 	virtual void InitInputSystem() OVERRIDE;
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
@@ -90,6 +90,13 @@ public:
 	virtual bool CanRestartPlayer();
 
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) OVERRIDE;
+
+	UFUNCTION(exec)
+	virtual void BehindView(bool bWantBehindView);
+
+	virtual bool IsBehindView();
+	virtual void SetCameraMode( FName NewCamMode );
+	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) OVERRIDE;
 
 protected:
 

@@ -13,6 +13,7 @@
 #include "UTAnnouncer.h"
 #include "UTHUDWidgetMessage.h"
 #include "UTPlayerInput.h"
+#include "UTPlayerCameraManager.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -28,6 +29,9 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	LastTapRightTime = -10.f;
 	LastTapForwardTime = -10.f;
 	LastTapBackTime = -10.f;
+
+	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
+
 }
 
 void AUTPlayerController::SetupInputComponent()
@@ -525,5 +529,43 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 bool AUTPlayerController::CanRestartPlayer()
 {
 	return  Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
+}
+
+
+void AUTPlayerController::BehindView(bool bWantBehindView)
+{
+	SetCameraMode( (bWantBehindView ? FName(TEXT("FreeCam")) : FName(TEXT("Default"))));
+}
+
+bool AUTPlayerController::IsBehindView()
+{
+	if (PlayerCameraManager != NULL)
+	{
+		return PlayerCameraManager->CameraStyle == FName(TEXT("FreeCam"));
+	}
+	return false;
+}
+
+void AUTPlayerController::ClientSetCameraMode_Implementation( FName NewCamMode )
+{
+	if (PlayerCameraManager)
+	{
+		PlayerCameraManager->CameraStyle = NewCamMode;
+	}
+
+	if (UTCharacter != NULL)
+	{
+		UTCharacter->SetMeshVisibility(NewCamMode == FName(TEXT("FreeCam")));
+	}
+}
+
+void AUTPlayerController::SetCameraMode( FName NewCamMode )
+{
+	ClientSetCameraMode_Implementation(NewCamMode);
+	
+	if ( GetNetMode() == NM_DedicatedServer )
+	{
+		ClientSetCameraMode( NewCamMode );
+	}
 }
 

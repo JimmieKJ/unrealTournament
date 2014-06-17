@@ -308,6 +308,9 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DodgeSound;
 
+	// Controls if we want to see the first or third person meshes
+	void SetMeshVisibility(bool bThirdPersonView);
+
 protected:
 
 	/** multiplier to firing speed */
@@ -367,6 +370,9 @@ protected:
 	/** last FootNum for PlayFootstep(), for alternating when animations are disabled */
 	uint8 LastFoot;
 	
+	virtual void BecomeViewTarget(class APlayerController* PC) OVERRIDE;
+	virtual void EndViewTarget( class APlayerController* PC );
+
 private:
 	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)
 	{
