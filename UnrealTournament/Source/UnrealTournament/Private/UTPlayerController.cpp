@@ -73,17 +73,17 @@ void AUTPlayerController::InitInputSystem()
 
 	Super::InitInputSystem();
 
-	if (RewardAnnouncerPath.Len() > 0)
+	if (RewardAnnouncerPath.ClassName.Len() > 0)
 	{
-		TSubclassOf<UUTAnnouncer> RewardAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *RewardAnnouncerPath, NULL, 0, NULL);
+		TSubclassOf<UUTAnnouncer> RewardAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *RewardAnnouncerPath.ClassName, NULL, 0, NULL);
 		if (RewardAnnouncerClass != NULL && RewardAnnouncerClass.GetDefaultObject()->IsRewardAnnouncer())
 		{
 			RewardAnnouncer = NewObject<UUTAnnouncer>(this, RewardAnnouncerClass);
 		}
 	}
-	if (StatusAnnouncerPath.Len() > 0)
+	if (StatusAnnouncerPath.ClassName.Len() > 0)
 	{
-		TSubclassOf<UUTAnnouncer> StatusAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *StatusAnnouncerPath, NULL, 0, NULL);
+		TSubclassOf<UUTAnnouncer> StatusAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *StatusAnnouncerPath.ClassName, NULL, 0, NULL);
 		if (StatusAnnouncerClass != NULL && StatusAnnouncerClass.GetDefaultObject()->IsStatusAnnouncer())
 		{
 			StatusAnnouncer = NewObject<UUTAnnouncer>(this, StatusAnnouncerClass);

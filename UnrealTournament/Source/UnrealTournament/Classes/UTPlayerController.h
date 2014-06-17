@@ -28,12 +28,12 @@ public:
 	// more configurability for mods and such doesn't hurt either
 
 	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
-	FString RewardAnnouncerPath;
+	FStringClassReference RewardAnnouncerPath;
 	/** announcer for reward announcements (multikill, etc) - only set on client */
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* RewardAnnouncer;
 	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
-	FString StatusAnnouncerPath;
+	FStringClassReference StatusAnnouncerPath;
 	/** announcer for status announcements (red flag taken, etc) - only set on client */
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* StatusAnnouncer;
