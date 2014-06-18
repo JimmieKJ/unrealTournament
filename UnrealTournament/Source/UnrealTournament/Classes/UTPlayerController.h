@@ -101,6 +101,16 @@ public:
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
+	// A quick function so I don't have to keep adding one when I want to test something.  @REMOVEME: Before the final version
+	UFUNCTION(exec)
+	virtual void DebugTest();
+
+	/**
+	 *	We override player tick to keep updating the player's rotation when the game is over.
+	 **/
+	virtual void PlayerTick(float DeltaTime);
+
+
 
 protected:
 
@@ -181,6 +191,7 @@ protected:
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();
+
 };
 
 

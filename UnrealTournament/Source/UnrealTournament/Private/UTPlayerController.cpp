@@ -263,7 +263,10 @@ void AUTPlayerController::OnFire()
 {
 	if (UTCharacter != NULL)
 	{
-		UTCharacter->StartFire(0);
+		if (StateName == NAME_Playing)
+		{
+			UTCharacter->StartFire(0);
+		}
 	}
 	else
 	{
@@ -282,7 +285,10 @@ void AUTPlayerController::OnAltFire()
 {
 	if (UTCharacter != NULL)
 	{
-		UTCharacter->StartFire(1);
+		if (StateName == NAME_Playing)
+		{
+			UTCharacter->StartFire(1);
+		}
 	}
 }
 void AUTPlayerController::OnStopAltFire()
@@ -490,8 +496,6 @@ void AUTPlayerController::ClientSetHUDAndScoreboard_Implementation(TSubclassOf<c
 
 	ClientSetHUD_Implementation(NewHUDClass);
 
-	UE_LOG(UT,Log,TEXT("ClientSetHUDAndScoreboard: %s %s"),*GetNameSafe(NewScoreboardClass), *GetNameSafe(MyHUD));
-
 	MyUTHUD = Cast<AUTHUD>(MyHUD);
 	if (MyUTHUD != NULL && NewScoreboardClass != NULL)
 	{
@@ -571,6 +575,7 @@ void AUTPlayerController::SetCameraMode( FName NewCamMode )
 
 void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
+	ChangeState(FName(TEXT("GameOver")));
 	FinalViewTarget = EndGameFocus;
 	BehindView(true);
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
@@ -578,7 +583,6 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
 {
-	UE_LOG(UT,Log,TEXT("SetViewTarget %s [%s]"), *GetNameSafe(NewViewTarget), *GetNameSafe(FinalViewTarget));
 	if (FinalViewTarget != NULL)
 	{
 		NewViewTarget = FinalViewTarget;
@@ -587,5 +591,18 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 }
 
+// LEAVE ME for quick debug commands when we need them.
+void AUTPlayerController::DebugTest()
+{
+	UE_LOG(UT,Log,TEXT("DEBUG"));
+}
 
+void AUTPlayerController::PlayerTick( float DeltaTime )
+{
+	Super::PlayerTick(DeltaTime);
+	if (StateName == FName(TEXT("GameOver")))
+	{
+		UpdateRotation(DeltaTime);
+	}
+}
 

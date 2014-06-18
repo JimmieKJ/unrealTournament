@@ -1148,9 +1148,8 @@ void AUTCharacter::BecomeViewTarget(class APlayerController* PC)
 	if (PC != NULL)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
-		if (UTPC != NULL && UTPC->IsLocalController())
+		if (UTPC != NULL && UTPC->IsLocalController() && UTPC->GetUTCharacter() == this)
 		{
-			UE_LOG(UT,Log,TEXT("BecomeViewTarget %i"),UTPC->IsBehindView());
 			SetMeshVisibility(UTPC->IsBehindView());
 			return;
 		}
