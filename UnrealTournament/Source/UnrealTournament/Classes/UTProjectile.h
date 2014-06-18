@@ -49,11 +49,15 @@ class AUTProjectile : public AActor
 	/** turns off projectile ambient effects, collision, physics, etc
 	 * needed because we need a delay between explosion and actor destruction for replication purposes
 	 */
+	UFUNCTION(BlueprintCallable, Category = Projectile)
 	virtual void ShutDown();
+	/** blueprint hook for shutdown in case any blueprint-created effects need to be turned off */
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnShutdown();
 
 	/** called when projectile hits something */
-	UFUNCTION(BlueprintCallable, Category = Projectile)
-	virtual void ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
+	void ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
 	UFUNCTION()
 	virtual void OnStop(const FHitResult& Hit);
 	UFUNCTION()
@@ -61,8 +65,8 @@ class AUTProjectile : public AActor
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-	UFUNCTION(BlueprintCallable, Category = Projectile)
-	virtual void Explode(const FVector& HitLocation, const FVector& HitNormal);
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
+	void Explode(const FVector& HitLocation, const FVector& HitNormal);
 
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level

@@ -4,7 +4,7 @@
 
 void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc)
 {
-	if (TheSound != NULL)
+	if (TheSound != NULL && !GExitPurge)
 	{
 		if (SourceActor == NULL && SoundLoc.IsZero())
 		{
@@ -13,6 +13,10 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 		else if (SourceActor == NULL && TheWorld == NULL)
 		{
 			UE_LOG(UT, Warning, TEXT("UTPlaySound(): Missing SourceActor"));
+		}
+		else if (TheWorld == NULL && SourceActor->GetWorld() == NULL)
+		{
+			UE_LOG(UT, Warning, TEXT("UTPlaySound(): Source isn't in a world"));
 		}
 		else
 		{

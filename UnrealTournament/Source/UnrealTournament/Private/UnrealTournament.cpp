@@ -33,3 +33,15 @@ void FUTModule::StartupModule()
 {
 }
 #endif
+
+bool IsLoopingParticleSystem(const UParticleSystem* PSys)
+{
+	for (int32 i = 0; i < PSys->Emitters.Num(); i++)
+	{
+		if (PSys->Emitters[i]->GetLODLevel(0)->RequiredModule->EmitterLoops <= 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}

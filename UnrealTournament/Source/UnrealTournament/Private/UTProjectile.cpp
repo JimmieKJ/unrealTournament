@@ -72,7 +72,7 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 	bCanHitInstigator = true;
 }
 
-void AUTProjectile::ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
+void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
 	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds))
@@ -97,7 +97,7 @@ void AUTProjectile::ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherCom
 	}
 }
 
-void AUTProjectile::Explode(const FVector& HitLocation, const FVector& HitNormal)
+void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal)
 {
 	if (!bExploded)
 	{
@@ -122,12 +122,33 @@ void AUTProjectile::Explode(const FVector& HitLocation, const FVector& HitNormal
 
 void AUTProjectile::ShutDown()
 {
-	SetLifeSpan(0.2f);
 	CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	ProjectileMovement->SetActive(false);
-	SetActorHiddenInGame(true);
+	// hide components that aren't particle systems; deactivate particle systems so they die off naturally
+	bool bFoundParticles = false;
+	TArray<USceneComponent*> Components;
+	GetComponents<USceneComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
+		if (PSC != NULL)
+		{
+			PSC->DeactivateSystem();
+			PSC->bAutoDestroy = true;
+			bFoundParticles = true;
+		}
+		else
+		{
+			Components[i]->SetHiddenInGame(true);
+			Components[i]->SetVisibility(false);
+		}
+	}
+	// if some particles remain, defer destruction a bit to give them time to die on their own
+	SetLifeSpan((bFoundParticles && GetNetMode() != NM_DedicatedServer) ? 2.0f : 0.2f);
+
+	OnShutdown();
+
 	bExploded = true;
-	// TODO: remove effects, sounds
 }
 
 void AUTProjectile::TornOff()

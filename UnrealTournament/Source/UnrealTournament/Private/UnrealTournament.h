@@ -28,4 +28,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTWeapon.h"
 #include "UTGameMode.h"
 
+/** utility to find out if a particle system loops */
+extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);
+
 #endif

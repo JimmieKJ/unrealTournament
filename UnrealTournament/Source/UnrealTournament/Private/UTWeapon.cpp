@@ -370,7 +370,7 @@ void AUTWeapon::PlayFiringEffects()
 		{
 			// if we detect a looping particle system, then don't reactivate it
 			if ( !MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->Template->Emitters[0] == NULL ||
-				MuzzleFlash[CurrentFireMode]->Template->Emitters[0]->GetLODLevel(0)->RequiredModule->EmitterLoops > 0 )
+				IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template) )
 			{
 				MuzzleFlash[CurrentFireMode]->ActivateSystem();
 			}
