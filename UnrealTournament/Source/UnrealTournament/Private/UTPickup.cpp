@@ -262,4 +262,5 @@ void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	// warning: we rely on this ordering
 	DOREPLIFETIME_CONDITION(AUTPickup, bActive, COND_None);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTPickup, bRepTakenEffects, COND_None);
 }
