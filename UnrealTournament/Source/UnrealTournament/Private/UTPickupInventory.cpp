@@ -57,6 +57,47 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 	}
 }
 
+/** recursively instance anything attached to the pickup mesh template */
+static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes)
+{
+	for (int32 i = 0; i < NativeCompList.Num(); i++)
+	{
+		if (NativeCompList[i]->AttachParent == CurrentAttachment)
+		{
+			USceneComponent* NewComp = ConstructObject<USceneComponent>(NativeCompList[i]->GetClass(), Pickup, NAME_None, RF_NoFlags, NativeCompList[i]);
+			NewComp->AttachParent = NULL;
+			NewComp->AttachChildren.Empty();
+			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
+			if (Prim != NULL)
+			{
+				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			}
+			NewComp->RegisterComponent();
+			NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
+			// recurse
+			CreatePickupMeshAttachments(Pickup, NewComp, NativeCompList[i]->GetFName(), NativeCompList, BPNodes);
+		}
+	}
+	for (int32 i = 0; i < BPNodes.Num(); i++)
+	{
+		if (BPNodes[i]->ComponentTemplate != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName)
+		{
+			USceneComponent* NewComp = ConstructObject<USceneComponent>(BPNodes[i]->ComponentTemplate->GetClass(), Pickup, NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
+			NewComp->AttachParent = NULL;
+			NewComp->AttachChildren.Empty();
+			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
+			if (Prim != NULL)
+			{
+				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			}
+			NewComp->RegisterComponent();
+			NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
+			// recurse
+			CreatePickupMeshAttachments(Pickup, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
+		}
+	}
+}
+
 void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& PickupMesh, TSubclassOf<AUTInventory> PickupInventoryType, float MeshFloatHeight)
 {
 	if (PickupInventoryType == NULL)
@@ -119,6 +160,24 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 					RotationComps[0]->SetUpdatedComponent(PickupMesh);
 					RotationComps[0]->PivotTranslation = PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation();
 				}
+
+				// see if the pickup mesh has any attached children we should also instance
+				TArray<USceneComponent*> NativeCompList;
+				PickupInventoryType.GetDefaultObject()->GetComponents<USceneComponent>(NativeCompList);
+				TArray<USCS_Node*> ConstructionNodes;
+				{
+					TArray<const UBlueprintGeneratedClass*> ParentBPClassStack;
+					UBlueprintGeneratedClass::GetGeneratedClassesHierarchy(PickupInventoryType, ParentBPClassStack);
+					for (int32 i = ParentBPClassStack.Num() - 1; i >= 0; i--)
+					{
+						const UBlueprintGeneratedClass* CurrentBPGClass = ParentBPClassStack[i];
+						if (CurrentBPGClass->SimpleConstructionScript)
+						{
+							ConstructionNodes += CurrentBPGClass->SimpleConstructionScript->GetAllNodes();
+						}
+					}
+				}
+				CreatePickupMeshAttachments(Pickup, PickupMesh, NewMesh->GetFName(), NativeCompList, ConstructionNodes);
 			}
 		}
 	}
@@ -135,7 +194,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 {
 	if (Mesh != NULL)
 	{
-		Mesh->SetHiddenInGame(bNowHidden);
+		Mesh->SetHiddenInGame(bNowHidden, true);
 		// if previously there was no InventoryType or no Mesh then the whole Actor might have been hidden
 		SetActorHiddenInGame(false);
 	}

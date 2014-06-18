@@ -57,6 +57,7 @@ void AUTWeaponAttachment::AttachToOwner_Implementation()
 {
 	Mesh->SetRelativeLocation(AttachOffset);
 	Mesh->AttachTo(UTOwner->Mesh, AttachSocket);
+	UpdateOverlays();
 }
 
 void AUTWeaponAttachment::DetachFromOwner_Implementation()
@@ -67,6 +68,24 @@ void AUTWeaponAttachment::DetachFromOwner_Implementation()
 void AUTWeaponAttachment::UpdateOverlays()
 {
 	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayMesh);
+}
+
+void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
+{
+	if (NewSkin != NULL)
+	{
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		{
+			Mesh->SetMaterial(i, NewSkin);
+		}
+	}
+	else
+	{
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		{
+			Mesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTWeaponAttachment>()->Mesh->GetMaterial(i));
+		}
+	}
 }
 
 void AUTWeaponAttachment::PlayFiringEffects()

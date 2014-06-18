@@ -323,6 +323,9 @@ public:
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();
 
+	/** set main skin override for the weapon, NULL to restore to default */
+	virtual void SetSkin(UMaterialInterface* NewSkin);
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;

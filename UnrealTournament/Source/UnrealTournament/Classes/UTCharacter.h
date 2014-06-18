@@ -192,6 +192,10 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitTime;
 
+	/** indicates character is (mostly) invisible so AI only sees at short range, homing effects can't target the character, etc */
+	UPROPERTY(BlueprintReadWrite, Category = Pawn)
+	bool bInvisible;
+
 	virtual void BeginPlay() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
@@ -337,6 +341,17 @@ class AUTCharacter : public ACharacter
 		return WeaponOverlayFlags;
 	}
 
+	/** sets full body material override
+	 * only one at a time is allowed
+	 * pass NULL to restore default skin
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetSkin(UMaterialInterface* NewSkin);
+
+	/** apply skin in ReplicatedBodyMaterial or restore to default if it's NULL */
+	UFUNCTION()
+	virtual void UpdateSkin();
+
 protected:
 
 	/** multiplier to firing speed */
@@ -407,6 +422,10 @@ protected:
 	/** mesh with current active overlay material on it (created dynamically when needed) */
 	UPROPERTY()
 	USkeletalMeshComponent* OverlayMesh;
+
+	/** replicated character material override */
+	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
+	UMaterialInterface* ReplicatedBodyMaterial;
 
 private:
 	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)

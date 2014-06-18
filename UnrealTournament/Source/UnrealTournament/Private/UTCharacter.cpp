@@ -834,6 +834,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSound, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CharOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponOverlayFlags, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -1122,6 +1123,40 @@ void AUTCharacter::UpdateWeaponOverlays()
 	if (WeaponAttachment != NULL)
 	{
 		WeaponAttachment->UpdateOverlays();
+	}
+}
+
+void AUTCharacter::SetSkin(UMaterialInterface* NewSkin)
+{
+	ReplicatedBodyMaterial = NewSkin;
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UpdateSkin();
+	}
+}
+void AUTCharacter::UpdateSkin()
+{
+	if (ReplicatedBodyMaterial != NULL)
+	{
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		{
+			Mesh->SetMaterial(i, ReplicatedBodyMaterial);
+		}
+	}
+	else
+	{
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		{
+			Mesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->GetMaterial(i));
+		}
+	}
+	if (Weapon != NULL)
+	{
+		Weapon->SetSkin(ReplicatedBodyMaterial);
+	}
+	if (WeaponAttachment != NULL)
+	{
+		WeaponAttachment->SetSkin(ReplicatedBodyMaterial);
 	}
 }
 

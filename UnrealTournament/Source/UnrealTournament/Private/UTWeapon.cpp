@@ -329,7 +329,10 @@ void AUTWeapon::AttachToOwner_Implementation()
 	}
 	// register components now
 	Super::RegisterAllComponents();
-	UpdateOverlays();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UpdateOverlays();
+	}
 }
 
 void AUTWeapon::DetachFromOwner_Implementation()
@@ -720,4 +723,22 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 void AUTWeapon::UpdateOverlays()
 {
 	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayMesh);
+}
+
+void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
+{
+	if (NewSkin != NULL)
+	{
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		{
+			Mesh->SetMaterial(i, NewSkin);
+		}
+	}
+	else
+	{
+		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		{
+			Mesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTWeapon>()->Mesh->GetMaterial(i));
+		}
+	}
 }
