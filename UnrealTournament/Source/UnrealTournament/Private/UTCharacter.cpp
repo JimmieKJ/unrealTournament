@@ -35,6 +35,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	SuperHealthMax = 199;
 	DamageScaling = 1.0f;
 	FireRateMultiplier = 1.0f;
+	bSpawnProtectionEligible = true;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -80,6 +81,12 @@ void AUTCharacter::Restart()
 	}
 }
 
+void AUTCharacter::DeactivateSpawnProtection()
+{
+	bSpawnProtectionEligible = false;
+	// TODO: visual effect
+}
+
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
@@ -116,8 +123,13 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 		}
 		if (!IsDead())
 		{
-			// TODO: gametype links, etc
 			ModifyDamageTaken(ResultDamage, ResultMomentum, DamageEvent, EventInstigator, DamageCauser);
+			// note that we split the gametype query out so that the game mode always gets last chance
+			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (Game != NULL)
+			{
+				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, DamageEvent, DamageCauser);
+			}
 
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
@@ -259,10 +271,21 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodEffect, LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
+	}
+}
+
+void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
+{
+	if (Role == ROLE_Authority)
+	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-		if (PC != NULL && PC->MyUTHUD != NULL)
+		if (PC != NULL)
 		{
-			PC->MyUTHUD->PawnDamaged(GetActorLocation() + LastTakeHitInfo.RelHitLocation, LastTakeHitInfo.Damage, LastTakeHitInfo.DamageType);
+			PC->NotifyTakeHit(InstigatedBy, Damage, Momentum, DamageEvent);
+		}
+		else
+		{
+			// TODO: bots
 		}
 	}
 }

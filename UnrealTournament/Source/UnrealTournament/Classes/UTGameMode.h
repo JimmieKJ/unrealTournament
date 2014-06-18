@@ -102,8 +102,11 @@ public:
 	UPROPERTY(Config)
 	FStringClassReference ScoreboardClassName;
 
-	UPROPERTY(EditAnywhere, Category = "Inventory")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rules)
+	float SpawnProtectionTime;
 
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
@@ -161,6 +164,9 @@ public:
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 	virtual bool PlayerCanRestart( APlayerController* Player );
+
+	UFUNCTION(BlueprintNativeEvent)
+	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FDamageEvent& DamageEvent, AActor* DamageCauser);
 protected:
 
 	/**

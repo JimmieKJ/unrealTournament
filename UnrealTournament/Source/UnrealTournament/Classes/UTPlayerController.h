@@ -110,7 +110,10 @@ public:
 	 **/
 	virtual void PlayerTick(float DeltaTime);
 
-
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
+	UFUNCTION(Client, Unreliable)
+	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamgaeType);
 
 protected:
 

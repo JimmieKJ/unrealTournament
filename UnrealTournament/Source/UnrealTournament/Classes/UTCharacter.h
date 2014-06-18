@@ -196,6 +196,12 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(BlueprintReadWrite, Category = Pawn)
 	bool bInvisible;
 
+	/** whether spawn protection may potentially be applied (still must meet time since spawn check in UTGameMode)
+	 * set to false after firing weapon or any other action that is considered offensive
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	bool bSpawnProtectionEligible;
+
 	virtual void BeginPlay() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
@@ -207,6 +213,9 @@ class AUTCharacter : public ACharacter
 	}
 
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) OVERRIDE;
+
+	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit */
+	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
 	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, const FDamageEvent& DamageEvent);
@@ -232,6 +241,8 @@ class AUTCharacter : public ACharacter
 	{
 		PlayDying();
 	}
+
+	virtual void DeactivateSpawnProtection();
 
 	virtual void AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd);
 

@@ -409,6 +409,7 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
 
 void AUTWeapon::FireShot()
 {
+	UTOwner->DeactivateSpawnProtection();
 	ConsumeAmmo(CurrentFireMode);
 
 	if (!FireShotOverride())
