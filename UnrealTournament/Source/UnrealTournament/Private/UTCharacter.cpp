@@ -131,13 +131,13 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 		}
 		if (!IsDead())
 		{
-			ModifyDamageTaken(ResultDamage, ResultMomentum, DamageEvent, EventInstigator, DamageCauser);
-			// note that we split the gametype query out so that the game mode always gets last chance
+			// note that we split the gametype query out so that it's always in a consistent place
 			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 			if (Game != NULL)
 			{
 				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, DamageEvent, DamageCauser);
 			}
+			ModifyDamageTaken(ResultDamage, ResultMomentum, DamageEvent, EventInstigator, DamageCauser);
 
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
