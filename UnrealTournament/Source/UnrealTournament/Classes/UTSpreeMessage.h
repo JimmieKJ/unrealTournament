@@ -48,8 +48,8 @@ class UUTSpreeMessage : public UUTLocalMessage
 
 		EndedAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "EndedAnnouncementText[0]", "{Player1Name}'s killing spree was ended by {Player2Name}."));
 
-		EndedSuicideMaleAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "EndedAnnouncementText[0]", "{Player1Name} was looking pretty good until he killed himself!"));
-		EndedSuicideFemaleAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "EndedAnnouncementText[0]", "{Player1Name} was looking pretty good until she killed herself!"));
+		EndedSuicideMaleAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "EndedSuicideMaleAnnouncementText[0]", "{Player1Name} was looking pretty good until he killed himself!"));
+		EndedSuicideFemaleAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "EndedSuicideFemaleAnnouncementText[0]", "{Player1Name} was looking pretty good until she killed herself!"));
 
 		Importance = 0.8f;
 		bIsSpecial = true;

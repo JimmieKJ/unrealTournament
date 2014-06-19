@@ -238,11 +238,13 @@ void AUTWeapon::ClientRemoved_Implementation()
 	GotoState(InactiveState);
 	DetachFromOwner();
 
+	AUTCharacter* OldOwner = UTOwner;
+
 	Super::ClientRemoved_Implementation();
 
-	if (UTOwner != NULL && UTOwner->GetWeapon() == this)
+	if (OldOwner != NULL && OldOwner->GetWeapon() == this)
 	{
-		UTOwner->ClientWeaponLost(this);
+		OldOwner->ClientWeaponLost(this);
 	}
 }
 
