@@ -781,13 +781,16 @@ void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
 	if (IsLocallyControlled() && Weapon == LostWeapon)
 	{
 		Weapon = NULL;
-		if (PendingWeapon == NULL)
+		if (!IsDead())
 		{
-			SwitchToBestWeapon();
-		}
-		if (PendingWeapon != NULL)
-		{
-			WeaponChanged();
+			if (PendingWeapon == NULL)
+			{
+				SwitchToBestWeapon();
+			}
+			if (PendingWeapon != NULL)
+			{
+				WeaponChanged();
+			}
 		}
 	}
 }
