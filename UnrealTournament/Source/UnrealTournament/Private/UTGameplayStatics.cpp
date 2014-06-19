@@ -35,9 +35,9 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 			if (TheWorld->GetNetMode() != NM_Standalone && TheWorld->GetNetDriver() != NULL)
 			{
 				APlayerController* TopOwner = NULL;
-				for (AActor* TestActor = SourceActor; TestActor != NULL && TopOwner != NULL; TestActor = TestActor->GetOwner())
+				for (AActor* TestActor = SourceActor; TestActor != NULL && TopOwner == NULL; TestActor = TestActor->GetOwner())
 				{
-					TopOwner = Cast<APlayerController>(TopOwner);
+					TopOwner = Cast<APlayerController>(TestActor);
 				}
 
 				for (int32 i = 0; i < TheWorld->GetNetDriver()->ClientConnections.Num(); i++)
@@ -57,8 +57,12 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 						case SRT_IfSourceNotReplicated:
 							bShouldReplicate = TheWorld->GetNetDriver()->ClientConnections[i]->ActorChannels.Find(SourceActor) == NULL;
 							break;
+						case SRT_None:
+							bShouldReplicate = false;
+							break;
 						default:
 							// should be impossible
+							UE_LOG(UT, Warning, TEXT("UTPlaySound(): Unhandled sound replication type %i"), int32(RepType));
 							bShouldReplicate = true;
 							break;
 						}

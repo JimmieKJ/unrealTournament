@@ -205,6 +205,12 @@ class AUTCharacter : public ACharacter
 	virtual void BeginPlay() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
+	virtual void PossessedBy(AController* NewController) OVERRIDE
+	{
+		// TODO: shouldn't base class do this? APawn::Unpossessed() still does SetOwner(NULL)...
+		SetOwner(NewController);
+		Super::PossessedBy(NewController);
+	}
 	virtual void Restart() OVERRIDE;
 
 	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const OVERRIDE
