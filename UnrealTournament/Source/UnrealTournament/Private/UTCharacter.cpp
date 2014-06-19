@@ -36,6 +36,9 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	DamageScaling = 1.0f;
 	FireRateMultiplier = 1.0f;
 	bSpawnProtectionEligible = true;
+	MaxSafeFallSpeed = 2000.0f;
+	FallingDamageFactor = 100.0f;
+	CrushingDamageFactor = 20.0f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -92,6 +95,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
 	{
 		return 0.f;
+	}
+	else if (Damage < 0.0f)
+	{
+		UE_LOG(UT, Warning, TEXT("TakeDamage() called with damage %i of type %s... use HealDamage() to add health"), int32(Damage), *DamageEvent.DamageTypeClass->GetName());
+		return 0.0f;
 	}
 	else
 	{
@@ -1034,9 +1042,53 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 
 void AUTCharacter::Landed(const FHitResult& Hit)
 {
+	// cause crushing damage if we fell on another character
+	if (Cast<AUTCharacter>(Hit.Actor.Get()) != NULL)
+	{
+		float Damage = CrushingDamageFactor * CharacterMovement->Velocity.Z / -100.0f;
+		if (Damage >= 1.0f)
+		{
+			FUTPointDamageEvent DamageEvent(Damage, Hit, -CharacterMovement->Velocity.SafeNormal(), UUTDamageType::StaticClass());
+			Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
+		}
+	}
+
+	if (Role == ROLE_Authority)
+	{
+		MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
+	}
+
+	TakeFallingDamage(Hit);
+
 	Super::Landed(Hit);
 
+	LastHitBy = NULL;
+
 	UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+}
+
+void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
+{
+	if (Role == ROLE_Authority)
+	{
+		float FallingSpeed = CharacterMovement->Velocity.Z;
+		if (FallingSpeed < -1.f * MaxSafeFallSpeed)
+		{
+			/* TODO: water
+			if (IsTouchingWaterVolume())
+			{
+				FallingSpeed += 100.f;
+			}*/
+			if (FallingSpeed < -1.f * MaxSafeFallSpeed)
+			{
+				FUTPointDamageEvent DamageEvent(-100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDamageType::StaticClass());
+				if (DamageEvent.Damage >= 1.0f)
+				{
+					TakeDamage(DamageEvent.Damage, DamageEvent, Controller, this);
+				}
+			}
+		}
+	}
 }
 
 void AUTCharacter::SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled)

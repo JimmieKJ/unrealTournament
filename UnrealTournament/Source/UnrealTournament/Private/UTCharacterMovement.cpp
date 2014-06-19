@@ -35,7 +35,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	LandingStepUp = 30.f;
 	LandingAssistBoost = 400.f;
 	bJumpAssisted = false;
-	MaxSafeFallSpeed = -1800.f;
 	CrouchedSpeedMultiplier = 0.4f;
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 3;
@@ -192,34 +191,6 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		bJustLanded = bUpdateEyeHeight;
 	}
 	RecalculateBaseEyeHeight();
-}
-
-void AUTCharacter::TakeFallingDamage()
-{
-	UUTCharacterMovement* MyMovement = Cast<UUTCharacterMovement>(CharacterMovement);
-	if (MyMovement)
-	{
-		float FallingSpeed = MyMovement->Velocity.Z;
-		if (FallingSpeed < -0.5f * MyMovement->MaxSafeFallSpeed)
-		{
-			if (Role == ROLE_Authority)
-			{
-				if (FallingSpeed < -1.f * MyMovement->MaxSafeFallSpeed)
-				{
-					if (IsTouchingWaterVolume())
-					{
-						FallingSpeed += 100.f;
-					}
-					if (FallingSpeed < -1.f * MyMovement->MaxSafeFallSpeed)
-					{
-						virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser);
-						FPointDamageEvent DamageEvent(DamageAmount, Hit, -ActorForward, UDamageType::StaticClass());
-						TakeDamage(-100.f * (FallingSpeed + MyMovement->MaxSafeFallSpeed) / MyMovement->MaxSafeFallSpeed, FDamageEvent(FallingDamageType), NULL, NULL);
-					}
-				}
-			}
-		}
-	}
 }
 */
 
@@ -601,7 +572,7 @@ void UUTCharacterMovement::NotifyJumpApex()
 void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 {
 	// Only try jump assist once, and not while still going up, and not if falling too fast
-	if (bJumpAssisted || (Velocity.Z > 0.f) || (Velocity.Z < MaxSafeFallSpeed))
+	if (bJumpAssisted || (Velocity.Z > 0.f) || (Cast<AUTCharacter>(CharacterOwner) != NULL && Velocity.Z < ((AUTCharacter*)CharacterOwner)->MaxSafeFallSpeed))
 	{
 		return;
 	}

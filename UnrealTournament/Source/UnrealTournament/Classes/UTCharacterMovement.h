@@ -187,13 +187,6 @@ public:
 	virtual void NotifyJumpApex() OVERRIDE;
 
 	//=========================================
-	// Falling Damage
-
-	/** Landing at faster than this velocity results in notification to character (and possible damage) */
-	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Safe Fall Speed"))
-		float MaxSafeFallSpeed;
-
-	//=========================================
 	// Networking
 
 	/** Return world time on client, CurrentClientTimeStamp on server */
