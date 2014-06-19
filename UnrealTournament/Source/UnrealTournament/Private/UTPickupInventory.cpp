@@ -151,14 +151,15 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				}
 				PickupMesh->RegisterComponent();
 				PickupMesh->AttachTo(Pickup->GetRootComponent());
-				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - (PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation()));
+				FVector Offset = Pickup->GetRootComponent()->ComponentToWorld.InverseTransformVectorNoScale(PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation());
+				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - Offset);
 				// if there's a rotation component, set it up to rotate the pickup mesh
 				TArray<URotatingMovementComponent*> RotationComps;
 				Pickup->GetComponents<URotatingMovementComponent>(RotationComps);
 				if (RotationComps.Num() > 0)
 				{
 					RotationComps[0]->SetUpdatedComponent(PickupMesh);
-					RotationComps[0]->PivotTranslation = PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation();
+					RotationComps[0]->PivotTranslation = Offset;
 				}
 
 				// see if the pickup mesh has any attached children we should also instance

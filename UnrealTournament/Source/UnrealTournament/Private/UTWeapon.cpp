@@ -229,12 +229,14 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 void AUTWeapon::Removed()
 {
 	GotoState(InactiveState);
+	DetachFromOwner();
 
 	Super::Removed();
 }
 void AUTWeapon::ClientRemoved_Implementation()
 {
 	GotoState(InactiveState);
+	DetachFromOwner();
 
 	Super::ClientRemoved_Implementation();
 

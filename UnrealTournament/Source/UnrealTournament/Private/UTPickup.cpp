@@ -31,6 +31,7 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 	if (TimerText != NULL)
 	{
 		TimerText->Text = TEXT("30");
+		TimerText->SetAbsolute(false, true, false);
 		TimerText->SetHiddenInGame(true);
 		TimerText->AttachParent = (TimerSprite != NULL) ? TimerSprite : RootComponent;
 		TimerText->LDMaxDrawDistance = 1024.0f;
