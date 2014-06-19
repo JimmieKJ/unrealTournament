@@ -53,6 +53,9 @@ class AUTPickup : public AActor
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	UMaterialInstanceDynamic* TimerMI;
 
+#if WITH_EDITOR
+	virtual void PostEditMove(bool bFinished);
+#endif
 	virtual void OnConstruction(const FTransform& Transform) OVERRIDE;
 	virtual void BeginPlay() OVERRIDE;
 	virtual void Tick(float DeltaTime) OVERRIDE;
