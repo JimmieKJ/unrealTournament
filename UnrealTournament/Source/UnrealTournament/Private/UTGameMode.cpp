@@ -596,19 +596,20 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 
 float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 {
-	float Score = 20;
+	float Score = 30.0f;
 
-	AActor* LastSpot = (Player && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
-	if ( (P == LastStartSpot) || (LastSpot != NULL && P == LastSpot) )
+	AActor* LastSpot = (Player != NULL && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
+	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot))
 	{
 		// avoid re-using starts
 		Score -= 15.0f;
 	}
 
-	bool bTwoPlayerGame = ( NumPlayers + NumBots == 2 );
+	bool bTwoPlayerGame = (NumPlayers + NumBots == 2);
 
 	if (Player != NULL)
 	{
+		FVector StartLoc = P->GetActorLocation();
 		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 		{
 			AController* OtherController = *Iterator;
@@ -616,27 +617,29 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 			if ( OtherCharacter && OtherCharacter->PlayerState )
 			{
-				if ( (FMath::Abs(P->GetActorLocation().Z - OtherCharacter->GetActorLocation().Z) < P->CapsuleComponent->GetScaledCapsuleHalfHeight() + OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight())
-					&& ((P->GetActorLocation() - OtherCharacter->GetActorLocation()).Size2D() < P->CapsuleComponent->GetScaledCapsuleRadius() + OtherCharacter->CapsuleComponent->GetScaledCapsuleRadius()) )
+				if ( FMath::Abs(StartLoc.Z - OtherCharacter->GetActorLocation().Z) < P->CapsuleComponent->GetScaledCapsuleHalfHeight() + OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()
+					&& (StartLoc - OtherCharacter->GetActorLocation()).Size2D() < P->CapsuleComponent->GetScaledCapsuleRadius() + OtherCharacter->CapsuleComponent->GetScaledCapsuleRadius() )
 				{
 					// overlapping - would telefrag
-					return -10;
+					return -10.f;
 				}
 
-				float NextDist = (OtherCharacter->GetActorLocation() - P->GetActorLocation()).Size();
+				float NextDist = (OtherCharacter->GetActorLocation() - StartLoc).Size();
 				static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
 
 				if ( NextDist < 3000.0f && 
-						!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation()+FVector(0.f,0.f,OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), P->GetActorLocation(), ECC_WorldStatic, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
+					!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
 				{
-					Score -= (5 - 0.001f*NextDist);
+					Score -= (5.f - 0.001f * NextDist);
 				}
-				else if ( bTwoPlayerGame )
+				else if (bTwoPlayerGame)
 				{
 					// in 2 player game, look for any visibility
 					Score += FMath::Min(2.f,0.001f*NextDist);
-					if ( !GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation(), P->GetActorLocation(), ECC_WorldStatic, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
-						Score -= 5;
+					if (!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation(), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
+					{
+						Score -= 5.f;
+					}
 				}
 			}
 		}
