@@ -42,9 +42,9 @@ void AUTJumpBoots::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	Super::GivenTo(NewOwner, bAutoActivate);
 	AdjustOwner(false);
 }
-void AUTJumpBoots::ClientGivenTo_Implementation(bool bAutoActivate)
+void AUTJumpBoots::ClientGivenTo_Internal(bool bAutoActivate)
 {
-	Super::ClientGivenTo_Implementation(bAutoActivate);
+	Super::ClientGivenTo_Internal(bAutoActivate);
 	if (Role < ROLE_Authority)
 	{
 		AdjustOwner(false);

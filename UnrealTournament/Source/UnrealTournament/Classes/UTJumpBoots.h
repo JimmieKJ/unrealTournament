@@ -24,7 +24,7 @@ class AUTJumpBoots : public AUTInventory
 	virtual void AdjustOwner(bool bRemoveBonus);
 
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
-	virtual void ClientGivenTo_Implementation(bool bAutoActivate) OVERRIDE;
+	virtual void ClientGivenTo_Internal(bool bAutoActivate) OVERRIDE;
 	virtual void Removed() OVERRIDE;
 	virtual void ClientRemoved_Implementation() OVERRIDE;
 	virtual void OwnerEvent_Implementation(FName EventName) OVERRIDE;
