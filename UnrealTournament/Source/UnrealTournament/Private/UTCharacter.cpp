@@ -667,6 +667,17 @@ void AUTCharacter::DiscardAllInventory()
 	}
 }
 
+void AUTCharacter::InventoryEvent(FName EventName)
+{
+	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	{
+		if (Inv->bCallOwnerEvent)
+		{
+			Inv->OwnerEvent(EventName);
+		}
+	}
+}
+
 void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 {
 	if (NewWeapon != NULL)
@@ -1064,6 +1075,9 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	TakeFallingDamage(Hit);
 
 	Super::Landed(Hit);
+
+	static FName NAME_Landed(TEXT("Landed"));
+	InventoryEvent(NAME_Landed);
 
 	LastHitBy = NULL;
 

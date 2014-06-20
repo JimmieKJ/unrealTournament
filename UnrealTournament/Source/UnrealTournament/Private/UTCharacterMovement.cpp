@@ -215,6 +215,11 @@ bool UUTCharacterMovement::DoMultiJump()
 	if (CharacterOwner)
 	{
 		Velocity.Z = MultiJumpImpulse;
+		if (CharacterOwner->IsA(AUTCharacter::StaticClass()))
+		{
+			static FName NAME_MultiJump(TEXT("MultiJump"));
+			((AUTCharacter*)CharacterOwner)->InventoryEvent(NAME_MultiJump);
+		}
 		return true;
 	}
 

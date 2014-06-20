@@ -19,6 +19,8 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
 	AUTCharacter* UTOwner;
 
+	virtual void PostInitProperties() OVERRIDE;
+
 	/** called when this inventory item has been given to the specified character */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
 	void eventGivenTo(AUTCharacter* NewOwner, bool bAutoActivate);
@@ -91,10 +93,15 @@ public:
 	bool StackPickup(AUTInventory* ContainedInv);
 
 	/** if set, inventory gets the ModifyDamageTaken() function/event when the holder takes damage */
-	UPROPERTY(EditDefaultsOnly, Category = Damage)
-	bool bCallModifyDamageTaken;
+	UPROPERTY(EditDefaultsOnly, Category = Events)
+	uint32 bCallModifyDamageTaken : 1;
+	/** if set, receive OwnerEvent() calls for various holder events (jump, land, fire, etc) */
+	UPROPERTY(EditDefaultsOnly, Category = Events)
+	uint32 bCallOwnerEvent : 1;
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamageTaken(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser);
 
+	UFUNCTION(BlueprintNativeEvent)
+	void OwnerEvent(FName EventName);
 };

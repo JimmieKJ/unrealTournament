@@ -416,7 +416,7 @@ void AUTWeapon::FireShot()
 	UTOwner->DeactivateSpawnProtection();
 	ConsumeAmmo(CurrentFireMode);
 
-	if (!FireShotOverride())
+	if (!FireShotOverride() && GetUTOwner() != NULL) // script event may kill user
 	{
 		if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 		{
@@ -427,6 +427,11 @@ void AUTWeapon::FireShot()
 			FireInstantHit();
 		}
 		PlayFiringEffects();
+	}
+	if (GetUTOwner() != NULL)
+	{
+		static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
+		GetUTOwner()->InventoryEvent(NAME_FiredWeapon);
 	}
 }
 
@@ -572,12 +577,23 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 }
 void AUTWeapon::K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit)
 {
-	FireInstantHit(bDealDamage, &OutHit);
+	if (GetUTOwner() != NULL)
+	{
+		FireInstantHit(bDealDamage, &OutHit);
+	}
+	else
+	{
+		FFrame::KismetExecutionMessage(*FString::Printf(TEXT("%s::FireInstantHit(): Weapon is not owned (owner died while script was running?)"), *GetName()), ELogVerbosity::Warning);
+	}
 }
 
 AUTProjectile* AUTWeapon::FireProjectile()
 {
-	if (Role == ROLE_Authority)
+	if (GetUTOwner() == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("%s::FireProjectile(): Weapon is not owned (owner died during firing sequence)"));
+	}
+	else if (Role == ROLE_Authority)
 	{
 		checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
 

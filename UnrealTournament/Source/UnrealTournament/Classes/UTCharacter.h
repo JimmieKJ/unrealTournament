@@ -92,6 +92,10 @@ class AUTCharacter : public ACharacter
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void DiscardAllInventory();
 
+	/** call to propagate a named character event (jumping, firing, etc) to all inventory items with bCallOwnerEvent = true */
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void InventoryEvent(FName EventName);
+
 	/** switches weapons; handles client/server sync, safe to call on either side */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void SwitchWeapon(AUTWeapon* NewWeapon);

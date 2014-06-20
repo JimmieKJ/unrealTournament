@@ -24,6 +24,28 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 	DroppedPickupClass = AUTDroppedPickup::StaticClass();
 }
 
+void AUTInventory::PostInitProperties()
+{
+	Super::PostInitProperties();
+	// attempt to set defaults for event early outs based on whether the class has implemented them
+	// note that this only works for blueprints, C++ classes need to manually set
+	if (Cast<UBlueprintGeneratedClass>(GetClass()) != NULL)
+	{
+		if (!bCallModifyDamageTaken)
+		{
+			static FName NAME_ModifyDamageTaken(TEXT("ModifyDamageTaken"));
+			UFunction* Func = FindFunction(NAME_ModifyDamageTaken);
+			bCallModifyDamageTaken = (Func != NULL && Func->Script.Num() > 0);
+		}
+		if (!bCallOwnerEvent)
+		{
+			static FName NAME_OwnerEvent(TEXT("OwnerEvent"));
+			UFunction* Func = FindFunction(NAME_OwnerEvent);
+			bCallOwnerEvent = (Func != NULL && Func->Script.Num() > 0);
+		}
+	}
+}
+
 UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const
 {
 	return PickupMesh;
@@ -169,5 +191,9 @@ bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
 }
 
 void AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
+{
+}
+
+void AUTInventory::OwnerEvent_Implementation(FName EventName)
 {
 }

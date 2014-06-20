@@ -19,6 +19,7 @@ AUTDroppedPickup::AUTDroppedPickup(const FPostConstructInitializeProperties& PCI
 	InitialLifeSpan = 15.0f;
 
 	SetReplicates(true);
+	bReplicateMovement = true;
 }
 
 void AUTDroppedPickup::BeginPlay()

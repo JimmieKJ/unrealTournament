@@ -16,6 +16,11 @@ void UUTWeaponStateFiringBeam::FireShot()
 	// consume ammo but don't fire from here
 	GetOuterAUTWeapon()->PlayFiringEffects();
 	GetOuterAUTWeapon()->ConsumeAmmo(GetOuterAUTWeapon()->GetCurrentFireMode());
+	if (GetUTOwner() != NULL)
+	{
+		static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
+		GetUTOwner()->InventoryEvent(NAME_FiredWeapon);
+	}
 }
 
 void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
