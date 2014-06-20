@@ -78,6 +78,9 @@ class AUTPickup : public AActor
 	void StartSleeping();
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Pickup)
 	void WakeUp();
+	/** used for the timer-based call to WakeUp() so clients can perform different behavior to handle possible sync issues */
+	UFUNCTION()
+	void WakeUpTimer();
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void PlayTakenEffects(bool bReplicate);
 	UFUNCTION(BlueprintCallable, Category = Pickup)

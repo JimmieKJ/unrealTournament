@@ -14,6 +14,9 @@ class AUTTimedPowerup : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
 	float TimeRemaining;
 
+	/** sound played on an interval for the last few seconds to indicate time is running out */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	USoundBase* PowerupFadingSound;
 	/** sound played on the current owner when the duration runs out */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	USoundBase* PowerupOverSound;
@@ -28,6 +31,9 @@ class AUTTimedPowerup : public AUTInventory
 
 	UFUNCTION(Reliable, Client)
 	void ClientSetTimeRemaining(float InTimeRemaining);
+
+	UFUNCTION()
+	virtual void PlayFadingSound();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void TimeExpired();

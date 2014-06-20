@@ -139,7 +139,7 @@ void AUTPickup::StartSleeping_Implementation()
 	SetActorEnableCollision(false);
 	if (RespawnTime > 0.0f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUp, RespawnTime, false);
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUpTimer, RespawnTime, false);
 		if (TimerSprite != NULL && TimerSprite->Elements.Num() > 0)
 		{
 			if (TimerMI != NULL)
@@ -191,7 +191,7 @@ void AUTPickup::WakeUp_Implementation()
 {
 	SetPickupHidden(false);
 	SetActorEnableCollision(true);
-	GetWorld()->GetTimerManager().ClearTimer(this, &AUTPickup::WakeUp);
+	GetWorld()->GetTimerManager().ClearTimer(this, &AUTPickup::WakeUpTimer);
 
 	PrimaryActorTick.SetTickFunctionEnable(GetClass()->GetDefaultObject<AUTPickup>()->PrimaryActorTick.bStartWithTickEnabled);
 	if (TimerSprite != NULL)
@@ -210,6 +210,27 @@ void AUTPickup::WakeUp_Implementation()
 		ForceNetUpdate();
 	}
 }
+void AUTPickup::WakeUpTimer()
+{
+	if (Role == ROLE_Authority)
+	{
+		WakeUp();
+	}
+	else
+	{
+		// it's possible we're out of sync, so set up a state that indicates the pickup should respawn any time now, but isn't yet available
+		if (TimerMI != NULL)
+		{
+			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 0.99f);
+		}
+		if (TimerText != NULL)
+		{
+			//TimerText->SetText(TEXT("1")); // FIXME: not exposed in dll
+			TimerText->Text = TEXT("1");
+			TimerText->MarkRenderStateDirty();
+		}
+	}
+}
 void AUTPickup::PlayRespawnEffects()
 {
 	// TODO: EffectIsRelevant() ?
@@ -224,15 +245,16 @@ void AUTPickup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (RespawnTime > 0.0f && !bActive)
+	UWorld* World = GetWorld();
+	if (RespawnTime > 0.0f && !bActive && World->GetTimerManager().IsTimerActive(this, &AUTPickup::WakeUpTimer))
 	{
 		if (TimerMI != NULL)
 		{
-			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 1.0f - GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUp) / RespawnTime);
+			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 1.0f - World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer) / RespawnTime);
 		}
 		if (TimerText != NULL)
 		{
-			FString NewText = FString::Printf(TEXT("%i"), int32(GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUp)));
+			FString NewText = FString::Printf(TEXT("%i"), FMath::Ceil(World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer)));
 			if (NewText != TimerText->Text)
 			{
 				//TimerText->SetText(NewText); // FIXME: not exposed in dll
@@ -259,7 +281,7 @@ void AUTPickup::OnRep_RespawnTimeRemaining()
 {
 	if (!bActive)
 	{
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUp, RespawnTimeRemaining, false);
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUpTimer, RespawnTimeRemaining, false);
 	}
 }
 
@@ -267,7 +289,7 @@ void AUTPickup::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTrack
 {
 	Super::PreReplication(ChangedPropertyTracker);
 
-	RespawnTimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUp);
+	RespawnTimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer);
 }
 
 void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
