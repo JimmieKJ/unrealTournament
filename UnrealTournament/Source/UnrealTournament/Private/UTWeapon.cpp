@@ -592,6 +592,7 @@ AUTProjectile* AUTWeapon::FireProjectile()
 	if (GetUTOwner() == NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("%s::FireProjectile(): Weapon is not owned (owner died during firing sequence)"));
+		return NULL;
 	}
 	else if (Role == ROLE_Authority)
 	{

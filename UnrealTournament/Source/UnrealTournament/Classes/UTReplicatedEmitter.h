@@ -19,6 +19,9 @@ class AUTReplicatedEmitter : public AActor
 		PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("Particles"));
 		InitialLifeSpan = 10.0f;
 		DedicatedServerLifeSpan = 0.5f;
+
+		SetReplicates(true);
+		bReplicateMovement = true;
 	}
 
 	UPROPERTY(VisibleDefaultsOnly, Category = Emitter)
