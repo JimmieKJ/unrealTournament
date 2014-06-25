@@ -686,11 +686,15 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Human/Textures/T_CH_TwinSouls_MHead03_N01_V01_SK1.uasset" Hash="64bab6205e886aedbe48c67b312bf73c60efec7d" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Human/Textures/T_CH_TwinSouls_MHead03_OM01_V01_SK1.uasset" Hash="b99156016c7acded5d4a973d64a9af4af18e921c" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Human/Textures/T_CH_TwinSouls_MHead03_SP01_V01_SK1.uasset" Hash="6731dd34f10495a8112ce8375a618d978302e747" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Glasses_RefractiveBits.uasset" Hash="bf86512886906ee7d92bd78da32cd1289414ac2c" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Glasses_RefractiveBits_Inst.uasset" Hash="8dee51d59a05bd90e8de79a40ed3674864ae303c" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_MalcolmBody_Opti.uasset" Hash="d6fc490e578e47eb71c2529f9cccf6f4f58d01f5" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Malcom_Body.uasset" Hash="83fb949f1ca708d0be72d91188b57854468c58d3" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Malcom_Body_MaterialLayers.uasset" Hash="5c007fe08891c271fdb734836b3270736b669b84" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Malcom_Body_MaterialLayers_Blk.uasset" Hash="8014b69fa6d9b38e4288ea86969e9ee7c1039795" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Malcom_Eye.uasset" Hash="ef9700c4d1c02170407bf41cc14ddcbe568c32b6" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Malcom_Glasses.uasset" Hash="0ecddc338b9e01a93dc124dd2659dd0d7d0248ea" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Malcom_Glasses_Inst.uasset" Hash="2cbdc6b82089d321db4992dc3b2d78685bd5b281" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Materials/M_Malcom_head.uasset" Hash="d092e95049eac148e3e3a0fa5a23d9e934309892" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Meshes/SK_CH_Immortals_Malcolm_Cine.uasset" Hash="22ce5bc8ff4cfb23ea6ae6852a0ac343d5c5f915" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Characters/Malcom/Textures/carbonfiberpattern01.uasset" Hash="dd75c45c5dec7eb7f3bc5daa1922f3e2e9ef34dd" />
@@ -1809,6 +1813,7 @@
     <Blob Hash="0e3033ad5a341193b224472c89149116a7c92470" Size="121215" PackHash="7b8e3b14b37c8cd272693ec847a8784321e963b5" PackOffset="8" />
     <Blob Hash="0e89bc5411ef1123ab58e41af18658ee35d8ea3c" Size="6355" PackHash="b3a00ae60262987b8384fdc80b3911cfc3813659" PackOffset="2089455" />
     <Blob Hash="0ea0bee8ebcc4108e7832d712ca7a57fd652220d" Size="39414" PackHash="68fe082c6b4dd8d98f26fc0954ff8b62cb8cb946" PackOffset="1147899" />
+    <Blob Hash="0ecddc338b9e01a93dc124dd2659dd0d7d0248ea" Size="110105" PackHash="056d4c228036bc6e050d518d3bf894bbb09b4a74" PackOffset="138709" />
     <Blob Hash="0ee9d0b475066b1999557751fe828d89886531c3" Size="54521" PackHash="8779564f61b885ed02c9032b62bdd03e59af935c" PackOffset="1111057" />
     <Blob Hash="0eec67e1fa5e0e0ae374756e1867a85b3ab07bb3" Size="6203" PackHash="8311a6dba4b1e7ff37fee032145513591c21991a" PackOffset="1048283" />
     <Blob Hash="0f0a6f761377126198e9f9bda793b2f5fd9995f2" Size="118727" PackHash="ae3149b4dfa3919a168221e3352d18b1d7555334" PackOffset="749185" />
@@ -2027,6 +2032,7 @@
     <Blob Hash="2c3bf0976c294e234ea2c40a8c54725470ade5b8" Size="114377" PackHash="ae3149b4dfa3919a168221e3352d18b1d7555334" PackOffset="185896" />
     <Blob Hash="2cacc95cb301cf530f1f84b3b1286b1106a61674" Size="136381" PackHash="25d7c6fc5ca5251e2881d595d9b28e9821150543" PackOffset="1217460" />
     <Blob Hash="2cb217943418ded769387bacb8f64fae4e5fd73c" Size="116521" PackHash="7b8e3b14b37c8cd272693ec847a8784321e963b5" PackOffset="453455" />
+    <Blob Hash="2cbdc6b82089d321db4992dc3b2d78685bd5b281" Size="107110" PackHash="056d4c228036bc6e050d518d3bf894bbb09b4a74" PackOffset="248814" />
     <Blob Hash="2cc2017f1d082497cf50ced383eb0323fbaefa3c" Size="12249" PackHash="68fe082c6b4dd8d98f26fc0954ff8b62cb8cb946" PackOffset="765932" />
     <Blob Hash="2ccad98b95295d38bcf357b44d1c3d4a3c0d3bb2" Size="177755" PackHash="2b0d2613fbaafbe889c56c0b46baf9e07ce33a10" PackOffset="1534763" />
     <Blob Hash="2cd55328f03ea371d9631a3ae3ec2dd0898b2834" Size="8981" PackHash="500ed1c2098942d19591662fca9a7bb28705d96a" PackOffset="2065682" />
@@ -2690,6 +2696,7 @@
     <Blob Hash="8db50f1b7a36c656d12b11e367bf0398ca8e4624" Size="30776" PackHash="e2e296fcb8915ac53a4de0ca1e2907bf4b3715b6" PackOffset="987544" />
     <Blob Hash="8dd08b40220044301be2efd11eefd6a6e36d8077" Size="128821" PackHash="8036a9eee7638d98917e45a3468e0e3251ae69b3" PackOffset="1835059" />
     <Blob Hash="8dd545c06478f687d8cd1a7768cf64d26ccd9e04" Size="120363" PackHash="500ed1c2098942d19591662fca9a7bb28705d96a" PackOffset="1085174" />
+    <Blob Hash="8dee51d59a05bd90e8de79a40ed3674864ae303c" Size="74752" PackHash="056d4c228036bc6e050d518d3bf894bbb09b4a74" PackOffset="63957" />
     <Blob Hash="8df49aadc88a43d91a3688daff4d3d40552a17a2" Size="29758" PackHash="e6a0c0b4ce9b0d955345f4951c6c065def790c56" PackOffset="144736" />
     <Blob Hash="8e001fbc2fa6f8cee1f00d5711f67ce4f9cd3d7c" Size="39145" PackHash="8779564f61b885ed02c9032b62bdd03e59af935c" PackOffset="825361" />
     <Blob Hash="8e03b6fa5fc2ced9d865357a3f4ceb05867f6d25" Size="65544" PackHash="43a54e311a5bf61e0838d11e350e75dc17795d61" PackOffset="157651" />
@@ -3011,6 +3018,7 @@
     <Blob Hash="bf416aca63c6caa84a22cd11a148b093767a60be" Size="62799" PackHash="4f46b5cae93ce421cddeaed648a7859cba3abe60" PackOffset="1757546" />
     <Blob Hash="bf60104cd618f03adfe68ccefb0a0a0595bc8e64" Size="76798" PackHash="ae3149b4dfa3919a168221e3352d18b1d7555334" PackOffset="431707" />
     <Blob Hash="bf648eee4f1fddcd2ea2c6cd76b8e3fa3bde11c9" Size="77420" PackHash="8a91431c0cbab3607beb2eece55c0c7411f03866" PackOffset="1103346" />
+    <Blob Hash="bf86512886906ee7d92bd78da32cd1289414ac2c" Size="63949" PackHash="056d4c228036bc6e050d518d3bf894bbb09b4a74" PackOffset="8" />
     <Blob Hash="bfc81588ff71bba1ce137b379bf394ba08a492fe" Size="1667393" PackHash="1e0fdf3cdc114b8bfaee97e3063dc1890a91a236" PackOffset="8" />
     <Blob Hash="bfc8319fe726cc847bb6a513189e9d71422f7080" Size="76244" PackHash="c487452b814dae8f569569d60405d3d18eeb620a" PackOffset="1417244" />
     <Blob Hash="c01699dfc7b8e99e741ab0f3ff05999e8b77e8e1" Size="1300" PackHash="b8fb2f0442bf0c3654753eb93a68e73eac18a807" PackOffset="2091466" />
@@ -3455,6 +3463,7 @@
     <Pack Hash="016fe2ab4ff8b9903c3ee6416d1a4a859805dcbd" Size="824726" CompressedSize="524131" RemotePath="0-2be845a68ed108dd1f0b091592c068129b45aa0b" />
     <Pack Hash="04943b85e9dcf478e6e22c1084814da37c2ebf38" Size="1259363" CompressedSize="1181288" RemotePath="0-9b5986352a678ce87a64df106505082654f4f64c" />
     <Pack Hash="04d7f835704aca0c26cb16bc9cc8fda329ebc790" Size="5203923" CompressedSize="5204113" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
+    <Pack Hash="056d4c228036bc6e050d518d3bf894bbb09b4a74" Size="355924" CompressedSize="341470" RemotePath="0-c0cceedc3218d6912a2a346a1f118fd32311f053" />
     <Pack Hash="05e4e2c3da3c60fd0c1896815dc41f257e4fd70c" Size="339583" CompressedSize="293690" RemotePath="0-c46866bb9e5c322ad3caef0774eac4736a3c286d" />
     <Pack Hash="06734e96e5b9902232a982e8110a23622258c918" Size="4043369" CompressedSize="4043208" RemotePath="0-c9221ebfb2203cbaf8b1432bdcc43f6bedc5b8f5" />
     <Pack Hash="0714f09f90401afd6f58eebc5af1174b38ce7516" Size="2096725" CompressedSize="2081262" RemotePath="0-12d1a1cf14c51702833792ddfb07eb766d559045" />
