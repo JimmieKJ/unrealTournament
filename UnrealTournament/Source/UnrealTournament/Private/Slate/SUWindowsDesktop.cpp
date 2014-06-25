@@ -4,17 +4,11 @@
 #include "../Public/UTLocalPlayer.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
-
-TSharedPtr<FSlateGameResources> SUWindowsDesktop::DesktopArt = NULL;
+#include "SUWindowsStyle.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
-
-	if(!DesktopArt.IsValid())
-	{
-		DesktopArt = FSlateGameResources::New("/Game/RestrictedAssets/Slate","/Game/RestrictedAssets/Slate");
-	}
 
 	TWeakPtr<SMenuAnchor> MenuAnchorPtr;
 		
@@ -24,7 +18,7 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
-			.MaxHeight(32)
+			.MaxHeight(26)
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SOverlay)
@@ -35,7 +29,7 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Fill)
 					[
 						SNew(SImage)
-						.Image(DesktopArt->GetBrush("/Game/RestrictedAssets/Slate/UTBrush_Widow"))
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
 					]
 				]
 				+SOverlay::Slot()
@@ -43,12 +37,13 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
 					.AutoWidth()
+					.Padding(FMargin(10.0f,0.0f,0.0f,0.0f))
 					.HAlign(HAlign_Fill)
 					[
 						SAssignNew(FileHeader, SComboButton)
-						.ContentPadding(FMargin(10.0f, 5.0f))
 						.Method(SMenuAnchor::UseCurrentWindow)
 						.HasDownArrow(false)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
 						.ButtonContent()
 						[
 							SNew(STextBlock)
@@ -80,11 +75,13 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 
 					+SHorizontalBox::Slot()
 					.AutoWidth()
+					.Padding(FMargin(10.0f,0.0f,0.0f,0.0f))
 					.HAlign(HAlign_Fill)
 					[
 						SAssignNew(OptionsHeader, SComboButton)
 						.Method(SMenuAnchor::UseCurrentWindow)
 						.HasDownArrow(false)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
 						.ButtonContent()
 						[
 							SNew(STextBlock)
@@ -97,7 +94,7 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 							.AutoHeight()
 							[
 								SNew(SButton)
-								.ContentPadding(FMargin(10.0f, 5.0f))
+								.ContentPadding(FMargin(40.0f, 5.0f))
 								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Video", "Video").ToString())
 								.OnClicked(this, &SUWindowsDesktop::OnVideoOptionsClicked)
 							]
@@ -202,7 +199,6 @@ FReply SUWindowsDesktop::OnMouseButtonDown( const FGeometry& MyGeometry, const F
 
 FReply SUWindowsDesktop::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if ( FileHeader.IsValid() ) FileHeader->SetIsOpen(false,false);
 	CloseMenus();
 	return FReply::Handled();
 }

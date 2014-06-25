@@ -79,6 +79,8 @@ public:
 	// Creates and adds a hud widget
 	virtual void AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
+	UUTHUDWidget* FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass);
+
 	// We override PostRender so that we can cache bunch of vars that need caching.
 	virtual void PostRender();
 

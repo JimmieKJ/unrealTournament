@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
 #include "Slate/SUWindowsDesktop.h"
+#include "Slate/SUWindowsStyle.h"
 
 
 UUTLocalPlayer::UUTLocalPlayer(const class FPostConstructInitializeProperties& PCIP)
@@ -24,6 +25,7 @@ FString UUTLocalPlayer::GetNickname() const
 
 void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID)
 {
+	SUWindowsStyle::Initialize();
 	Super::PlayerAdded(InViewportClient, InControllerID);
 }
 

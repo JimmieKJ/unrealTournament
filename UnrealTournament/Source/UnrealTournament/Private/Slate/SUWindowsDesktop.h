@@ -40,7 +40,6 @@ private:
 	virtual FReply OnControlOptionsClicked();
 
 
-	static TSharedPtr<FSlateGameResources> DesktopArt;
 	virtual bool SupportsKeyboardFocus() const OVERRIDE;
 	virtual FReply OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent ) OVERRIDE;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent ) OVERRIDE;

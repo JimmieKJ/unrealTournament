@@ -133,6 +133,19 @@ void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	Widget->InitializeWidget(this);
 }
 
+UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass)
+{
+	for (int i=0;i<HudWidgets.Num();i++)
+	{
+		if (HudWidgets[i]->GetClass() == SearchWidgetClass)
+		{
+			return HudWidgets[i];
+		}
+	}
+	return NULL;
+}
+
+
 void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
 {
 	MyUTScoreboard = ConstructObject<UUTScoreboard>(NewScoreboardClass, GetTransientPackage());
@@ -397,6 +410,10 @@ void AUTHUD::PawnDamaged(FVector HitLocation, float DamageAmount, TSubclassOf<UD
 
 		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
 		DamageIndicators[BestIndex].RotationAngle = FinalAng;
+
+//		UUTHUDWidget_WeaponCrosshair* CrossHairWidget =
+	
+
 	}
 }
 

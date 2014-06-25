@@ -25,6 +25,5 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 				.Text(FText::FromString("Hello, Slate!"))
 			]
 		];
-
 }
 
