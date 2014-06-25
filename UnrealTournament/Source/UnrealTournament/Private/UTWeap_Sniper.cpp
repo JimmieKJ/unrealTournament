@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTWeap_Sniper.h"
 #include "UTProj_Sniper.h"
+#include "UTWeaponState.h"
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateZooming.h"
 
