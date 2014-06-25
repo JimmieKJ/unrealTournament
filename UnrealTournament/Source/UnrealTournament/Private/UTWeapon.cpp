@@ -623,7 +623,7 @@ float AUTWeapon::GetRefireTime(uint8 FireModeNum)
 		float Result = FireInterval[FireModeNum];
 		if (UTOwner != NULL)
 		{
-			Result *= UTOwner->GetFireRateMultiplier();
+			Result /= UTOwner->GetFireRateMultiplier();
 		}
 		return FMath::Max<float>(0.01f, Result);
 	}
