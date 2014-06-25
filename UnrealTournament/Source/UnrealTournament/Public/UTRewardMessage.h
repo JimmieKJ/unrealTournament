@@ -8,7 +8,7 @@ class UUTRewardMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTRewardMessage::UUTRewardMessage(const FPostConstructInitializeProperties& PCIP)
+	UUTRewardMessage(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 	{
 		MessageArea = FName(TEXT("DeathMessage"));
