@@ -122,6 +122,10 @@ public:
 	UFUNCTION(exec)
 	virtual void ShowMenu();
 
+	/** blueprint hook */
+	UFUNCTION(BlueprintCallable, Category = Message)
+	void K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

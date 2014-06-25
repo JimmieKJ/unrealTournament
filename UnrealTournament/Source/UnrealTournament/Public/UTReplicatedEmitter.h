@@ -8,7 +8,7 @@
  * on dedicated servers, the effect will not play but the Actor should still be spawned and will stay alive long enough to send to current clients\
  * the emitter defaults to being based on its Owner, so that the Base can effectively be passed as part of the spawn parameters
  */
-UCLASS(BlueprintType, CustomConstructor, Abstract)
+UCLASS(Blueprintable, CustomConstructor, Abstract)
 class AUTReplicatedEmitter : public AActor
 {
 	GENERATED_UCLASS_BODY()

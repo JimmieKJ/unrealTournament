@@ -39,4 +39,17 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	{
 		// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
 	}
+
+	/** called when the owner starts a pending fire for this mode (pressed button but may or may not move to this state yet)
+	 * this function is called even if another fire mode is in use
+	 * NOTE: the weapon is *not* in this state! This is intended for modes that can do something while another mode is active (e.g. zooming)
+	 */
+	virtual void PendingFireStarted()
+	{}
+	/** called when the owner stops a pending fire for this mode (released button regardless of whether they're actually firing this mode)
+	* this function is called even if another fire mode is in use
+	* NOTE: the weapon is *not* in this state! This is intended for modes that can do something while another mode is active (e.g. zooming)
+	*/
+	virtual void PendingFireStopped()
+	{}
 };

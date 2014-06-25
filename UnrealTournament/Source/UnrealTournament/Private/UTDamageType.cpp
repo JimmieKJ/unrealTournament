@@ -5,6 +5,10 @@
 UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	// hack to allow blueprint damagetypes to have an event graph
+	// TODO: disabled at the moment as blueprints have all kinds of issues interacting with functions on default objects due to implicit variable creation
+	//GetClass()->ClassFlags &= ~CLASS_Const;
+
 	DamageImpulse = 50000.0f;
 	DestructibleImpulse = 50000.0f;
 	bForceZMomentum = true;
@@ -63,4 +67,8 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 		DamageEvent.GetBestHitInfo(HitActor, EventInstigator, HitInfo, MomentumDir);
 		return MomentumDir * DamageType.GetDefaultObject()->DamageImpulse;
 	}
+}
+
+void UUTDamageType::ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const
+{
 }

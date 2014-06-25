@@ -286,6 +286,8 @@ public:
 		GotoState(ActiveState);
 	}
 
+	void GotoFireMode(uint8 NewFireMode);
+
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool IsFiring() const;
 

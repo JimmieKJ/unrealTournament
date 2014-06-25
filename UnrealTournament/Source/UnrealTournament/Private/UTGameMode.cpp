@@ -153,6 +153,11 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 	if ( KilledPlayerState != NULL )
 	{
 		KilledPlayerState->IncrementDeaths(KillerPlayerState);
+		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+		if (UTDamage != NULL)
+		{
+			UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
+		}
 		ScoreKill(Killer, KilledPlayer);
 		BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 	}

@@ -177,6 +177,15 @@ void AUTWeapon::GotoState(UUTWeaponState* NewState)
 	}
 }
 
+void AUTWeapon::GotoFireMode(uint8 NewFireMode)
+{
+	if (FiringState.IsValidIndex(NewFireMode))
+	{
+		CurrentFireMode = NewFireMode;
+		GotoState(FiringState[NewFireMode]);
+	}
+}
+
 void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 {
 	Super::GivenTo(NewOwner, bAutoActivate);
@@ -267,6 +276,10 @@ bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
 void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, true);
+	if (FiringState.IsValidIndex(FireModeNum))
+	{
+		FiringState[FireModeNum]->PendingFireStarted();
+	}
 	CurrentState->BeginFiringSequence(FireModeNum);
 	if (CurrentState->IsFiring() && CurrentFireMode != FireModeNum)
 	{
@@ -293,6 +306,10 @@ bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum)
 void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, false);
+	if (FiringState.IsValidIndex(FireModeNum))
+	{
+		FiringState[FireModeNum]->PendingFireStopped();
+	}
 	CurrentState->EndFiringSequence(FireModeNum);
 }
 

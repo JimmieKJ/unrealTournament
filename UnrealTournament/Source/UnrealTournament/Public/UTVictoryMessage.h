@@ -8,10 +8,10 @@ class UUTVictoryMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FText YouHaveWonText;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FText YouHaveLostText;
 
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const OVERRIDE

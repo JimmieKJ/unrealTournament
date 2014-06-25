@@ -31,11 +31,17 @@ void AUTInventory::PostInitProperties()
 	// note that this only works for blueprints, C++ classes need to manually set
 	if (Cast<UBlueprintGeneratedClass>(GetClass()) != NULL)
 	{
-		if (!bCallModifyDamageTaken)
+		if (!bCallDamageEvents)
 		{
 			static FName NAME_ModifyDamageTaken(TEXT("ModifyDamageTaken"));
+			static FName NAME_PreventHeadShot(TEXT("PreventHeadShot"));
 			UFunction* Func = FindFunction(NAME_ModifyDamageTaken);
-			bCallModifyDamageTaken = (Func != NULL && Func->Script.Num() > 0);
+			bCallDamageEvents = (Func != NULL && Func->Script.Num() > 0);
+			if (!bCallDamageEvents)
+			{
+				Func = FindFunction(NAME_PreventHeadShot);
+				bCallDamageEvents = (Func != NULL && Func->Script.Num() > 0);
+			}
 		}
 		if (!bCallOwnerEvent)
 		{
@@ -192,6 +198,11 @@ bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
 
 void AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
 {
+}
+
+bool AUTInventory::PreventHeadShot_Implementation(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor)
+{
+	return false;
 }
 
 void AUTInventory::OwnerEvent_Implementation(FName EventName)

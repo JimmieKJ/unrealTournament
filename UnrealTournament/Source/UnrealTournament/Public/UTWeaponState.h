@@ -19,6 +19,11 @@ class UUTWeaponState : public UObject
 		return GetOuterAUTWeapon()->GetUTOwner();
 	}
 
+	virtual UWorld* GetWorld() const OVERRIDE
+	{
+		return GetOuterAUTWeapon()->GetWorld();
+	}
+
 	virtual void BeginState(const UUTWeaponState* PrevState)
 	{}
 	virtual void EndState()

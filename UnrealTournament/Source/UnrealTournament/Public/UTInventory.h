@@ -92,15 +92,20 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	bool StackPickup(AUTInventory* ContainedInv);
 
-	/** if set, inventory gets the ModifyDamageTaken() function/event when the holder takes damage */
+	/** if set, inventory gets the ModifyDamageTaken() and PreventHeadShot() functions/events when the holder takes damage */
 	UPROPERTY(EditDefaultsOnly, Category = Events)
-	uint32 bCallModifyDamageTaken : 1;
+	uint32 bCallDamageEvents : 1;
 	/** if set, receive OwnerEvent() calls for various holder events (jump, land, fire, etc) */
 	UPROPERTY(EditDefaultsOnly, Category = Events)
 	uint32 bCallOwnerEvent : 1;
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamageTaken(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser);
+	/** return true to prevent an incoming head shot
+	* if bConsumeArmor is true, prevention should also consume the item (or a charge or whatever mechanic of degradation is being used)
+	*/
+	UFUNCTION(BlueprintNativeEvent)
+	bool PreventHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void OwnerEvent(FName EventName);

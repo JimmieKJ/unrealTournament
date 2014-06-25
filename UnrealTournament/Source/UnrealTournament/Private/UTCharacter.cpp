@@ -39,6 +39,10 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	MaxSafeFallSpeed = 2000.0f;
 	FallingDamageFactor = 100.0f;
 	CrushingDamageFactor = 20.0f;
+	HeadScale = 1.0f;
+	HeadRadius = 9.0f;
+	HeadHeight = 5.0f;
+	HeadBone = FName(TEXT("b_Head"));
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -88,6 +92,46 @@ void AUTCharacter::DeactivateSpawnProtection()
 {
 	bSpawnProtectionEligible = false;
 	// TODO: visual effect
+}
+
+void AUTCharacter::SetHeadScale(float NewHeadScale)
+{
+	HeadScale = NewHeadScale;
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		HeadScaleUpdated();
+	}
+}
+
+void AUTCharacter::HeadScaleUpdated()
+{
+	// TODO
+}
+
+bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor)
+{
+	// force mesh update if necessary
+	if (!Mesh->ShouldTickPose())
+	{
+		Mesh->TickAnimation(0.0f);
+		Mesh->RefreshBoneTransforms();
+		Mesh->UpdateComponentToWorld();
+	}
+	FVector HeadLocation = Mesh->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
+	bool bHeadShot = FMath::PointDistToLine(HeadLocation, ShotDirection, HitLocation) < HeadRadius * HeadScale * WeaponHeadScaling;
+	if (bHeadShot)
+	{
+		// check for inventory items that prevent headshots
+		for (AUTInventory* Inv = GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		{
+			if (Inv->bCallDamageEvents && Inv->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
+			{
+				bHeadShot = false;
+				break;
+			}
+		}
+	}
+	return bHeadShot;
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -243,7 +287,7 @@ void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 	// check inventory
 	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
 	{
-		if (Inv->bCallModifyDamageTaken)
+		if (Inv->bCallDamageEvents)
 		{
 			Inv->ModifyDamageTaken(Damage, Momentum, DamageEvent, EventInstigator, DamageCauser);
 		}
@@ -880,6 +924,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CharOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)

@@ -177,6 +177,19 @@ class AUTCharacter : public ACharacter
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	int32 SuperHealthMax;
 
+	/** head bone/socket for headshots */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+	FName HeadBone;
+	/** head Z offset from head bone */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+	float HeadHeight;
+	/** radius around head location that counts as headshot at 1.0 head scaling */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+	float HeadRadius;
+	/** head scale factor (generally for use at runtime) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, ReplicatedUsing = HeadScaleUpdated, Category = Pawn)
+	float HeadScale;
+
 	/** multiplier to damage caused by this Pawn */
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Pawn)
 	float DamageScaling;
@@ -223,6 +236,19 @@ class AUTCharacter : public ACharacter
 	}
 
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) OVERRIDE;
+
+	/** checks for a head shot - called by weapons with head shot bonuses
+	* returns true if it's a head shot, false if a miss or if some armor effect prevents head shots
+	* if bConsumeArmor is true, the first item that prevents an otherwise valid head shot will be consumed
+	*/
+	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor);
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	void SetHeadScale(float NewHeadScale);
+	
+	/** apply HeadScale to mesh */
+	UFUNCTION()
+	virtual void HeadScaleUpdated();
 
 	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit */
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);

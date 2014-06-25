@@ -4,7 +4,7 @@
 
 #include "UTLocalMessage.generated.h"
 
-UCLASS(BlueprintType, Abstract, NotPlaceable)
+UCLASS(Blueprintable, Abstract, NotPlaceable)
 class UUTLocalMessage : public ULocalMessage
 {
 	GENERATED_UCLASS_BODY()

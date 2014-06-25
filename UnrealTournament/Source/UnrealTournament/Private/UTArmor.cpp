@@ -9,7 +9,7 @@ AUTArmor::AUTArmor(const FPostConstructInitializeProperties& PCIP)
 {
 	ArmorAmount = 50;
 	AbsorptionPct = 0.333f;
-	bCallModifyDamageTaken = true;
+	bCallDamageEvents = true;
 }
 
 void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)

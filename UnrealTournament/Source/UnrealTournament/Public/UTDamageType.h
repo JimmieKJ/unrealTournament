@@ -59,6 +59,10 @@ class UUTDamageType : public UDamageType
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	bool bForceZMomentum;
+
+	/** called on the server when a player is killed by this damagetype */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreKill(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const;
 };
 
 /** return the base momentum for the given damage event (before radial damage and any other modifiers) */
