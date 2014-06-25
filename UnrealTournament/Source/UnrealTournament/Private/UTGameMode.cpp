@@ -5,9 +5,9 @@
 #include "UTDeathMessage.h"
 #include "UTGameMessage.h"
 #include "UTVictoryMessage.h"
-
 #include "UTTimedPowerup.h"
 #include "UTCountDownMessage.h"
+#include "UTMutator.h"
 
 namespace MatchState
 {
@@ -50,12 +50,34 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	GameMessageClass=UUTGameMessage::StaticClass();
 }
 
+void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
+{
+	P_FINISH;
+
+	// WARNING: 'this' is actually an AActor! Only do AActor things!
+	if (bWantsInitialize && !IsA(ALevelScriptActor::StaticClass()) && !IsA(AUTMutator::StaticClass()))
+	{
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		// a few type checks being AFTER the CheckRelevance() call is intentional; want mutators to be able to modify, but not outright destroy
+		if (Game != NULL && Game != this && !Game->CheckRelevance((AActor*)this) && !IsA(APlayerController::StaticClass()))
+		{
+			Destroy();
+		}
+	}
+}
+
 // Parse options for this game...
 void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
+	// HACK: workaround to inject CheckRelevance() into the BeginPlay sequence
+	UFunction* Func = AActor::GetClass()->FindFunctionByName(FName(TEXT("ReceiveBeginPlay")));
+	Func->FunctionFlags |= FUNC_Native;
+	Func->SetNativeFunc((Native)&AUTGameMode::BeginPlayMutatorHack);
+
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	GameDifficulty = FMath::Max(0,GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
+	GameDifficulty = FMath::Max(0, GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
 
 	FString InOpt = ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
@@ -71,8 +93,82 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	MinPlayersToStart = FMath::Max(1, GetIntOption( Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
-	if (bForceRespawn) RespawnWaitTime = 0.0f;
+	if (bForceRespawn)
+	{
+		RespawnWaitTime = 0.0f;
+	}
 
+	InOpt = ParseOption(Options, TEXT("Mutator"));
+	if (InOpt.Len() > 0)
+	{
+		UE_LOG(UT, Log, TEXT("Mutators: %s"), *InOpt);
+		while (InOpt.Len() > 0)
+		{
+			FString LeftOpt;
+			int32 Pos = InOpt.Find(TEXT(","));
+			if (Pos > 0)
+			{
+				LeftOpt = InOpt.Left(Pos);
+				InOpt = InOpt.Right(InOpt.Len() - Pos - 1);
+			}
+			else
+			{
+				LeftOpt = InOpt;
+				InOpt.Empty();
+			}
+			AddMutator(LeftOpt);
+		}
+	}
+}
+
+void AUTGameMode::AddMutator(const FString& MutatorPath)
+{
+	TSubclassOf<AUTMutator> MutClass = LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, 0, NULL);
+	if (MutClass != NULL && AllowMutator(MutClass))
+	{
+		AUTMutator* NewMut = GetWorld()->SpawnActor<AUTMutator>(MutClass);
+		if (NewMut != NULL)
+		{
+			NewMut->Init(OptionsString);
+			if (BaseMutator == NULL)
+			{
+				BaseMutator = NewMut;
+			}
+			else
+			{
+				BaseMutator->AddMutator(NewMut);
+			}
+		}
+	}
+}
+
+bool AUTGameMode::AllowMutator(TSubclassOf<AUTMutator> MutClass)
+{
+	const AUTMutator* DefaultMut = MutClass.GetDefaultObject();
+
+	for (AUTMutator* Mut = BaseMutator; Mut != NULL; Mut = Mut->NextMutator)
+	{
+		if (Mut->GetClass() == MutClass)
+		{
+			// already have this exact mutator
+			UE_LOG(UT, Log, TEXT("Rejected mutator %s - already have one"), *MutClass->GetPathName());
+			return false;
+		}
+		for (int32 i = 0; i < Mut->GroupNames.Num(); i++)
+		{
+			for (int32 j = 0; j < DefaultMut->GroupNames.Num(); j++)
+			{
+				if (Mut->GroupNames[i] == DefaultMut->GroupNames[j])
+				{
+					// group conflict
+					UE_LOG(UT, Log, TEXT("Rejected mutator %s - already have mutator %s with group %s"), *MutClass->GetPathName(), *Mut->GetPathName(), *Mut->GroupNames[i].ToString());
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 void AUTGameMode::InitGameState()
@@ -91,6 +187,17 @@ void AUTGameMode::InitGameState()
 	{
 		UE_LOG(UT,Error, TEXT("UTGameState is NULL %s"), *GameStateClass->GetFullName());
 	}
+}
+
+APlayerController* AUTGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+{
+	FString ModdedPortal = Portal;
+	FString ModdedOptions = Options;
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ModifyLogin(ModdedPortal, ModdedOptions);
+	}
+	return Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
 }
 
 /**
@@ -458,6 +565,9 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	}
 }
 
+// workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to spawn inventory unless it's called from RestartPlayer()
+static bool bSetPlayerDefaultsSpawnInventory = false;
+
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
 	if ( !UTGameState->HasMatchStarted() && bPlayersMustBeReady )
@@ -472,7 +582,9 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		return;
 	}
 
+	bSetPlayerDefaultsSpawnInventory = true;
 	Super::RestartPlayer(aPlayer);
+	bSetPlayerDefaultsSpawnInventory = false;
 }
 
 /* 
@@ -483,10 +595,18 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 {
 	Super::SetPlayerDefaults(PlayerPawn);
 
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
-	if ( UTCharacter != NULL && UTCharacter->GetInventory() == NULL )
+	if (bSetPlayerDefaultsSpawnInventory)
 	{
-		UTCharacter->AddDefaultInventory(DefaultInventory);
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
+		if (UTCharacter != NULL && UTCharacter->GetInventory() == NULL)
+		{
+			UTCharacter->AddDefaultInventory(DefaultInventory);
+		}
+	}
+
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ModifyPlayer(PlayerPawn);
 	}
 }
 
@@ -937,4 +1057,32 @@ void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, 
 	{
 		Damage = 0;
 	}
+}
+
+bool AUTGameMode::CheckRelevance_Implementation(AActor* Other)
+{
+	if (BaseMutator == NULL)
+	{
+		return true;
+	}
+	else
+	{
+		bool bPreventModify = false;
+		bool bForceKeep = BaseMutator->AlwaysKeep(Other, bPreventModify);
+		if (bForceKeep && bPreventModify)
+		{
+			return true;
+		}
+		else
+		{
+			return (BaseMutator->CheckRelevance(Other) || bForceKeep);
+		}
+	}
+}
+
+void AUTGameMode::SetWorldGravity(float NewGravity)
+{
+	AWorldSettings* Settings = GetWorld()->GetWorldSettings();
+	Settings->bWorldGravitySet = true;
+	Settings->WorldGravityZ = NewGravity;
 }

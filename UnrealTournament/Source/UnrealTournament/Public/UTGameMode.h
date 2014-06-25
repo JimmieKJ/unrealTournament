@@ -54,7 +54,7 @@ public:
 	UPROPERTY()
 	uint32 bGameEnded:1;    
 
-	/** Will be TRUE if this is a test game */
+	/** Will be TRUE if this is a team game */
 	UPROPERTY()
 	uint32 bTeamGame:1;
 
@@ -66,7 +66,7 @@ public:
 	int32 MinPlayersToStart;
 
 	// How long a player must wait before respawning.  Set to 0 for no delay.
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Rules)
 	uint32 RespawnWaitTime;
 
 	/** TRUE if we have started the count down to the match starting */
@@ -111,8 +111,15 @@ public:
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
 
+	/** first mutator; mutators are a linked list */
+	UPROPERTY(BlueprintReadOnly, Category = Mutator)
+	class AUTMutator* BaseMutator;
+
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
+	/** add a mutator by string path name */
+	virtual void AddMutator(const FString& MutatorPath);
 	virtual void InitGameState();
+	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) OVERRIDE;
 	virtual void Reset();
 	virtual void RestartGame();
 	virtual void BeginGame();
@@ -133,7 +140,7 @@ public:
 
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
-	virtual void SetPlayerDefaults(APawn* PlayerPawn);
+	virtual void SetPlayerDefaults(APawn* PlayerPawn) OVERRIDE;
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
@@ -167,7 +174,20 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FDamageEvent& DamageEvent, AActor* DamageCauser);
+
+	/** used to modify, remove, and replace Actors. Return false to destroy the passed in Actor. Default implementation queries mutators.
+	 * note that certain critical Actors such as PlayerControllers can't be destroyed, but we'll still call this code path to allow mutators
+	 * to change properties on them
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	bool CheckRelevance(AActor* Other);
+
+	/** changes world gravity to the specified value */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = World)
+	void SetWorldGravity(float NewGravity);
 protected:
+	/** checks whether the mutator is allowed in this gametype and doesn't conflict with any existing mutators */
+	virtual bool AllowMutator(TSubclassOf<AUTMutator> MutClass);
 
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
@@ -197,6 +217,9 @@ protected:
 		return Default;
 	}
 
+private:
+	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
+	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
 };
 
 

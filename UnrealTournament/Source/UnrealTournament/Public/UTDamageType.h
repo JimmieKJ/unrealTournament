@@ -58,7 +58,11 @@ class UUTDamageType : public UDamageType
 	 * however, this causes a juggle/lockdown effect if many hits are applied rapidly
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
-	bool bForceZMomentum;
+	uint32 bForceZMomentum : 1;
+
+	/** if set kills with this damage type always gib the target (unless hard disabled by client option) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = DamageType)
+	uint32 bAlwaysGibs : 1;
 
 	/** called on the server when a player is killed by this damagetype */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)

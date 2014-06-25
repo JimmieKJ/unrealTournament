@@ -58,6 +58,19 @@ void AUTGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// HACK: temporary workaround for replicated world gravity getting clobbered on client
+	if (GetNetMode() == NM_Client)
+	{
+		if (GetWorld()->GetWorldSettings()->WorldGravityZ != 0.0f)
+		{
+			GetWorld()->GetWorldSettings()->bWorldGravitySet = true;
+		}
+		else
+		{
+			GetWorld()->GetWorldSettings()->GetGravityZ();
+		}
+	}
+
 	{
 		TArray<UObject*> AllInventory;
 		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
