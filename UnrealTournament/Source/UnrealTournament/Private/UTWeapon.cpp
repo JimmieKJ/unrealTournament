@@ -41,9 +41,6 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
 
-	if (GCompilingBlueprint)
-		return;
-
 	for (int32 i = 0; i < 2; i++)
 	{
 		UUTWeaponStateFiring* NewState = PCIP.CreateDefaultSubobject<UUTWeaponStateFiring, UUTWeaponStateFiring>(this, FName(*FString::Printf(TEXT("FiringState%i"), i)), false, false, false);
