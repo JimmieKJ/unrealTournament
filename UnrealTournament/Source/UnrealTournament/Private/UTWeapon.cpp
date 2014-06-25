@@ -688,7 +688,7 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
 }
 
-void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta)
+void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
 	UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex; 		
 	if (CrosshairTexture != NULL)
@@ -702,7 +702,7 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 	}
 }
 
-void AUTWeapon::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta)
+void AUTWeapon::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
 	UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
 	FString AmmoStr = FString::Printf(TEXT("%i"),Ammo);

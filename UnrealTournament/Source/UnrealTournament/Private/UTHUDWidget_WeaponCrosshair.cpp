@@ -16,7 +16,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		AUTCharacter* UTCharacter = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
 		if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL)
 		{
-			UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, UTCharacter, DeltaTime);
+			UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
 		}
 	}
 }

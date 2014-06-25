@@ -20,7 +20,7 @@ void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 		AUTCharacter* UTCharacter = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
 		if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL)
 		{
-			UTCharacter->GetWeapon()->DrawWeaponInfo(this, UTCharacter, DeltaTime);
+			UTCharacter->GetWeapon()->DrawWeaponInfo(this, DeltaTime);
 		}
 	}
 }

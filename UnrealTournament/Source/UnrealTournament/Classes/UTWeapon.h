@@ -311,10 +311,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintNativeEvent)
-	void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta);
+	void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
 	UFUNCTION(BlueprintNativeEvent)
-	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, AUTCharacter* UTInstigator, float RenderDelta);
+	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
 	/** helper for shared overlay code between UTWeapon and UTWeaponAttachment
 	 * NOTE: can called on default object!

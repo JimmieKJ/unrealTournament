@@ -94,3 +94,13 @@ void AUTTimedPowerup::ClientSetTimeRemaining_Implementation(float InTimeRemainin
 {
 	TimeRemaining = InTimeRemaining;
 }
+
+void AUTTimedPowerup::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size)
+{
+	if (HUDIcon.Texture != NULL)
+	{
+		// icon left aligned, time remaining right aligned
+		Widget->DrawTexture(HUDIcon.Texture, Pos.X, Pos.Y, Size.X * 0.45f, Size.Y, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL);
+		Widget->DrawText(FText::AsNumber(FMath::CeilToInt(TimeRemaining)), (Pos.X + Size.X) / Widget->GetRenderScale(), Pos.Y / Widget->GetRenderScale(), GEngine->GetMediumFont(), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+	}
+}

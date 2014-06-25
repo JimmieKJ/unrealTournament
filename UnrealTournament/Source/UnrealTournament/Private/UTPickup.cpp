@@ -254,7 +254,7 @@ void AUTPickup::Tick(float DeltaTime)
 		}
 		if (TimerText != NULL)
 		{
-			FString NewText = FString::Printf(TEXT("%i"), FMath::Ceil(World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer)));
+			FString NewText = FString::Printf(TEXT("%i"), FMath::CeilToInt(World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer)));
 			if (NewText != TimerText->Text)
 			{
 				//TimerText->SetText(NewText); // FIXME: not exposed in dll

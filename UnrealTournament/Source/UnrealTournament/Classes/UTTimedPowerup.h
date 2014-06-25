@@ -23,6 +23,9 @@ class AUTTimedPowerup : public AUTInventory
 	/** overlay material added to the player's weapon while this powerup is in effect */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
+	/** icon for drawing time remaining on the HUD */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+	FCanvasIcon HUDIcon;
 
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const OVERRIDE
 	{
@@ -44,4 +47,6 @@ class AUTTimedPowerup : public AUTInventory
 
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
 	virtual void Removed() OVERRIDE;
+
+	virtual void DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size) OVERRIDE;
 };

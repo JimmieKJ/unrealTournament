@@ -197,3 +197,7 @@ void AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 void AUTInventory::OwnerEvent_Implementation(FName EventName)
 {
 }
+
+void AUTInventory::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size)
+{
+}

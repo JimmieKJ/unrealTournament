@@ -104,4 +104,10 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent)
 	void OwnerEvent(FName EventName);
+
+	/** draws any relevant HUD that should be drawn whenever this item is held
+	 * NOTE: not called by default, generally a HUD widget will call this for item types that are relevant for its area
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	void DrawInventoryHUD(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size);
 };
