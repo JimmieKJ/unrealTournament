@@ -57,6 +57,11 @@ void AUTProjectile::BeginPlay()
 	}
 }
 
+void AUTProjectile::PostNetReceiveVelocity(const FVector& NewVelocity)
+{
+	ProjectileMovement->Velocity = NewVelocity;
+}
+
 void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	FHitResult Hit;

@@ -69,6 +69,11 @@ void AUTCharacter::BeginPlay()
 	Super::BeginPlay();
 }
 
+void AUTCharacter::RecalculateBaseEyeHeight()
+{
+	BaseEyeHeight = CharacterCameraComponent->RelativeLocation.Z;
+}
+
 void AUTCharacter::Restart()
 {
 	Super::Restart();

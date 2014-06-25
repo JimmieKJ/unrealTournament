@@ -46,6 +46,8 @@ class AUTProjectile : public AActor
 	virtual void BeginPlay();
 	virtual void TornOff();
 	
+	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) OVERRIDE;
+
 	/** turns off projectile ambient effects, collision, physics, etc
 	 * needed because we need a delay between explosion and actor destruction for replication purposes
 	 */

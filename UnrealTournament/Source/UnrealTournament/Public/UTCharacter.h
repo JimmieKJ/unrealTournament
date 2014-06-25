@@ -325,6 +325,8 @@ class AUTCharacter : public ACharacter
 	/** Also call UTCharacterMovement ClearJumpInput() */
 	virtual void ClearJumpInput() OVERRIDE;
 
+	virtual void RecalculateBaseEyeHeight() OVERRIDE;
+
 	/** sets replicated ambient (looping) sound on this Pawn
 	 * only one ambient sound can be set at a time
 	 * pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
