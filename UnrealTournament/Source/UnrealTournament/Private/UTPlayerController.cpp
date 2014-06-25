@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTHud.h"
+#include "UTLocalPlayer.h"
 #include "UTPlayerState.h"
 #include "UTPlayerController.h"
 #include "UTCharacterMovement.h"
@@ -14,6 +15,8 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTPlayerInput.h"
 #include "UTPlayerCameraManager.h"
+
+#include "../Private/Slate/SUWMessageBox.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -66,6 +69,8 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("ShowScores", IE_Pressed, this, &AUTPlayerController::OnShowScores);
 	InputComponent->BindAction("ShowScores", IE_Released, this, &AUTPlayerController::OnHideScores);
+
+	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTPlayerController::ShowMenu);
 }
 
 void AUTPlayerController::InitInputSystem()
@@ -620,10 +625,20 @@ void AUTPlayerController::NotifyTakeHit_Implementation(AController* InstigatedBy
 	}
 	ClientNotifyTakeHit(InstigatedByState, Damage, Momentum, RelHitLocation, DamageEvent.DamageTypeClass);
 }
+
 void AUTPlayerController::ClientNotifyTakeHit_Implementation(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamageType)
 {
 	if (MyUTHUD != NULL)
 	{
 		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : FVector::ZeroVector) + RelHitLocation, Damage, DamageType);
 	}
+}
+void AUTPlayerController::ShowMenu()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
+	{
+		LP->ShowMenu();
+	}
+
 }

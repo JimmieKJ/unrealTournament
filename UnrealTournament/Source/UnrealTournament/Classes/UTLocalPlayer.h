@@ -13,7 +13,14 @@ class UUTLocalPlayer : public ULocalPlayer
 
 public:
 	virtual FString GetNickname() const;
+	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
+
+	virtual void ShowMenu();
+	virtual void HideMenu();
+
 protected:
+
+	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;	
 };
 
 
