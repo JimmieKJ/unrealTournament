@@ -7,9 +7,8 @@ UUTHUDWidget_Powerups::UUTHUDWidget_Powerups(const class FPostConstructInitializ
 : Super(PCIP)
 {
 	Position = FVector2D(-5.0f, -5.0f);
-	Size = FVector2D(200.0f, 160.0f);
+	Size = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(1.0f, 0.5f);
-	Origin = FVector2D(1.0f, 0.5f);
 	MaxPowerupSize = FVector2D(1.0f, 0.333f);
 }
 
@@ -21,39 +20,28 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 		AUTCharacter* UTCharacter = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
 		if (UTCharacter != NULL)
 		{
-			// calculate size
-			FVector2D RelativeSize(0.f, 0.f);
 			int32 Count = 0;
+			FVector2D TotalSize;
 			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 			{
-				if (Inv->IsA(AUTTimedPowerup::StaticClass()))
+				AUTTimedPowerup* PowerUp = Cast<AUTTimedPowerup>(Inv);
+				if (PowerUp != NULL)
 				{
-					RelativeSize += MaxPowerupSize;
+					TotalSize.Y += PowerUp->HUDIcon.VL;
+					TotalSize.X = FMath::Max<float>(PowerUp->HUDIcon.UL, TotalSize.X);
 					Count++;
 				}
 			}
-			if (RelativeSize.X > 1.0f || RelativeSize.Y > 1.0f)
-			{
-				RelativeSize /= FMath::Max<float>(RelativeSize.X, RelativeSize.Y);
-			}
-			RelativeSize /= Count;
 
-			FVector2D CurrentPos(0.f, 0.f);
-			FVector2D ItemSize(RelativeSize * GetRenderSize());
+			FVector2D CurrentPos(0.f, TotalSize.X * -0.5);
 			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 			{
-				if (Inv->IsA(AUTTimedPowerup::StaticClass()))
+				AUTTimedPowerup* PowerUp = Cast<AUTTimedPowerup>(Inv);
+				if (PowerUp != NULL)
 				{
+					FVector2D ItemSize = FVector2D(PowerUp->HUDIcon.UL, PowerUp->HUDIcon.VL);
 					Inv->DrawInventoryHUD(this, CurrentPos, ItemSize);
-					// advance in rows or columns depending on settings
-					if (RelativeSize.X >= RelativeSize.Y)
-					{
-						CurrentPos.Y += ItemSize.Y;
-					}
-					else
-					{
-						CurrentPos.X += ItemSize.X;
-					}
+					CurrentPos.Y += ItemSize.Y;
 				}
 			}
 		}

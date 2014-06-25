@@ -99,8 +99,18 @@ void AUTTimedPowerup::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVec
 {
 	if (HUDIcon.Texture != NULL)
 	{
+
+		FText Text = FText::AsNumber(FMath::CeilToInt(TimeRemaining));
+
+		UFont* MediumFont = Widget->UTHUDOwner->MediumFont;
+		float Xl, YL;
+		Widget->GetCanvas()->StrLen(MediumFont, FString(TEXT("000")), Xl, YL);
+
+		// Draws the Timer first 
+		Widget->DrawText(Text, 0, Pos.Y + (Size.Y * 0.5f) , Widget->UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+
 		// icon left aligned, time remaining right aligned
-		Widget->DrawTexture(HUDIcon.Texture, Pos.X, Pos.Y, Size.X * 0.45f, Size.Y, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL);
-		Widget->DrawText(FText::AsNumber(FMath::CeilToInt(TimeRemaining)), (Pos.X + Size.X) / Widget->GetRenderScale(), Pos.Y / Widget->GetRenderScale(), GEngine->GetMediumFont(), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+		Widget->DrawTexture(HUDIcon.Texture, Xl * -1, Pos.Y, Size.X, Size.Y, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL,1.0, FLinearColor::White, FVector2D(1.0,0.0));
+
 	}
 }
