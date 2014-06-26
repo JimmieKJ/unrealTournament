@@ -647,3 +647,9 @@ void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> 
 {
 	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
+
+uint8 AUTPlayerController::GetTeamNum() const
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	return (PS != NULL && PS->Team != NULL) ? PS->Team->TeamIndex : 255;
+}

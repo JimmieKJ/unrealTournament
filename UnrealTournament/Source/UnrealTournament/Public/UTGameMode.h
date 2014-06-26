@@ -13,7 +13,7 @@ namespace MatchState
 }
 
 
-UCLASS(minimalapi, dependson=UTGameState, Config=Game)
+UCLASS(MinimalAPI, DependsOn = UTGameState, Config = Game, Abstract)
 class AUTGameMode : public AGameMode
 {
 	GENERATED_UCLASS_BODY()

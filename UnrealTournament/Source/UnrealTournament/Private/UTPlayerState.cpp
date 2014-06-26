@@ -20,7 +20,6 @@ AUTPlayerState::AUTPlayerState(const class FPostConstructInitializeProperties& P
 
 }
 
-
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -30,10 +29,20 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
-
+	DOREPLIFETIME(AUTPlayerState, Team);
 }
 
-
+void AUTPlayerState::NotifyTeamChanged_Implementation()
+{
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* P = Cast<AUTCharacter>(*It);
+		if (P != NULL && P->PlayerState == this)
+		{
+			P->NotifyTeamChanged();
+		}
+	}
+}
 
 void AUTPlayerState::SetWaitingPlayer(bool B)
 {

@@ -28,9 +28,16 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			HealthFlashOpacity = 1.0f;
 		}
 
+		FLinearColor BGColor = FLinearColor::White;
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			BGColor = PS->Team->TeamColor;
+		}
+
 		LastHealth = Health;
-		DrawTexture(PaperDollTexture, 0,0, 205.0f, 111.0f, 10.0f, 53.0f, 205.0f, 111.0f);
-		DrawTexture(PaperDollTexture, 0,0, 64.0f, 111.0, 1.0f, 223.0f, 64.0f, 111.0f);
+		DrawTexture(PaperDollTexture, 0,0, 205.0f, 111.0f, 10.0f, 53.0f, 205.0f, 111.0f, 1.0f, BGColor);
+		DrawTexture(PaperDollTexture, 0,0, 64.0f, 111.0, 1.0f, 223.0f, 64.0f, 111.0f, 1.0f, BGColor);
 
 		int32 ArmorAmt = 0;
 		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())

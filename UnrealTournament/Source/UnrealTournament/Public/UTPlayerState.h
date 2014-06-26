@@ -9,6 +9,10 @@ class AUTPlayerState : public APlayerState
 {
 	GENERATED_UCLASS_BODY()
 
+	/** player's team if we're playing a team game */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
+	class AUTTeamInfo* Team;
+
 	/** Whether this player is waiting to enter match */
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	uint32 bWaitingPlayer:1;
@@ -49,6 +53,8 @@ class AUTPlayerState : public APlayerState
 	UFUNCTION()
 	void OnDeathsReceived();
 
+	UFUNCTION(BlueprintNativeEvent)
+	void NotifyTeamChanged();
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);

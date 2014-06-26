@@ -1,0 +1,216 @@
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+#include "UnrealTournament.h"
+#include "UTTeamGameMode.h"
+#include "UTTeamInfo.h"
+#include "UTTeamPlayerStart.h"
+
+UUTTeamInterface::UUTTeamInterface(const FPostConstructInitializeProperties& PCIP)
+: Super(PCIP)
+{
+}
+
+AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
+: Super(PCIP)
+{
+	NumTeams = 2;
+	bBalanceTeams = true;
+	new(TeamColors) FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
+	new(TeamColors) FLinearColor(0.1f, 0.1f, 1.0f, 1.0f);
+	new(TeamColors) FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
+	new(TeamColors) FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
+	TeamMomentumPct = 0.3f;
+}
+
+void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+
+	if (bAllowURLTeamCountOverride)
+	{
+		NumTeams = GetIntOption(Options, TEXT("NumTeams"), NumTeams);
+	}
+	NumTeams = FMath::Max<uint8>(NumTeams, 2);
+
+	if (TeamClass == NULL)
+	{
+		TeamClass = AUTTeamInfo::StaticClass();
+	}
+	for (uint8 i = 0; i < NumTeams; i++)
+	{
+		AUTTeamInfo* NewTeam = GetWorld()->SpawnActor<AUTTeamInfo>(TeamClass);
+		NewTeam->TeamIndex = i;
+		if (TeamColors.IsValidIndex(i))
+		{
+			NewTeam->TeamColor = TeamColors[i];
+		}
+		Teams.Add(NewTeam);
+		checkSlow(Teams[i] == NewTeam);
+	}
+}
+
+void AUTTeamGameMode::InitGameState()
+{
+	Super::InitGameState();
+	Cast<AUTGameState>(GameState)->Teams = Teams;
+}
+
+APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+{
+	APlayerController* PC = Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
+
+	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
+	{
+		uint8 DesiredTeam = uint8(FMath::Clamp<int32>(GetIntOption(Options, TEXT("Team"), 255), 0, 255));
+		ChangeTeam(PC, DesiredTeam, false);
+	}
+
+	return PC;
+}
+
+bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
+{
+	if (Player == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
+		if (PS == NULL || PS->bOnlySpectator)
+		{
+			return false;
+		}
+		else
+		{
+			bool bForceTeam = false;
+			if (!Teams.IsValidIndex(NewTeam))
+			{
+				bForceTeam = true;
+			}
+			else if (bBalanceTeams)
+			{
+				for (int32 i = 0; i < Teams.Num(); i++)
+				{
+					// don't allow switching to a team with more players, or equal players if the player is on a team now
+					if (i != NewTeam && Teams[i]->GetSize() - ((PS->Team != NULL && PS->Team->TeamIndex == i) ? 1 : 0)  < Teams[NewTeam]->GetSize())
+					{
+						bForceTeam = true;
+						break;
+					}
+				}
+			}
+			if (bForceTeam)
+			{
+				NewTeam = PickBalancedTeam(PS, NewTeam);
+			}
+
+			if (Teams.IsValidIndex(NewTeam) && (PS->Team == NULL || PS->Team->TeamIndex != NewTeam))
+			{
+				if (PS->Team != NULL)
+				{
+					PS->Team->RemoveFromTeam(Player);
+				}
+				Teams[NewTeam]->AddToTeam(Player);
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+	}
+}
+
+uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
+{
+	TArray< AUTTeamInfo*, TInlineAllocator<4> > BestTeams;
+	int32 BestSize = -1;
+
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		int32 TestSize = Teams[i]->GetSize();
+		if (Teams[i] == PS->Team)
+		{
+			// player will be leaving this team so count it's size as post-departure
+			TestSize--;
+		}
+		if (BestTeams.Num() == 0 || TestSize < BestSize)
+		{
+			BestTeams.Empty();
+			BestTeams.Add(Teams[i]);
+			BestSize = TestSize;
+		}
+		else if (TestSize == BestSize)
+		{
+			BestTeams.Add(Teams[i]);
+		}
+	}
+
+	for (int32 i = 0; i < BestTeams.Num(); i++)
+	{
+		if (BestTeams[i]->TeamIndex == RequestedTeam)
+		{
+			return RequestedTeam;
+		}
+	}
+
+	return BestTeams[FMath::RandHelper(BestTeams.Num())]->TeamIndex;
+}
+
+void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FDamageEvent& DamageEvent, AActor* DamageCauser)
+{
+	if (Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))
+	{
+		Damage *= TeamDamagePct;
+		Momentum *= TeamMomentumPct;
+	}
+	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, DamageEvent, DamageCauser);
+}
+
+float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
+{
+	if (bUseTeamStarts && Player != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
+		if (PS != NULL && PS->Team != NULL && (Cast<AUTTeamPlayerStart>(P) == NULL || ((AUTTeamPlayerStart*)P)->TeamNum != PS->Team->TeamIndex))
+		{
+			// return low positive rating so it can be used as a last resort
+			return 1.0f;
+		}
+	}
+	return Super::RatePlayerStart(P, Player);
+}
+
+bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
+{
+	AUTTeamInfo* PotentialWinner = NULL;
+	bool bTie = false;
+	int32 BestScore = GoalScore - 1;
+
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		if (Teams[i]->Score > GoalScore)
+		{
+			if (Teams[i]->Score == BestScore)
+			{
+				bTie = true;
+			}
+			else if (Teams[i]->Score > BestScore)
+			{
+				PotentialWinner = Teams[i];
+				BestScore = Teams[i]->Score;
+				bTie = false;
+			}
+		}
+	}
+
+	if (!bTie && PotentialWinner != NULL)
+	{
+		EndGame(Scorer, TEXT("scorelimit"));
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}

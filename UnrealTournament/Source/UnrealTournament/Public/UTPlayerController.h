@@ -4,7 +4,7 @@
 #include "UTPlayerController.generated.h"
 
 UCLASS(dependson=UTCharacter, dependson=UTPlayerState, config=Game)
-class AUTPlayerController : public APlayerController
+class AUTPlayerController : public APlayerController, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -125,6 +125,8 @@ public:
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)
 	void K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
+
+	virtual uint8 GetTeamNum() const;
 
 protected:
 

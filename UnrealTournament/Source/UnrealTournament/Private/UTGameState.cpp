@@ -71,6 +71,19 @@ void AUTGameState::BeginPlay()
 		}
 	}
 
+	if (GetNetMode() == NM_Client)
+	{
+		// hook up any TeamInfos that were received prior
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTTeamInfo* Team = Cast<AUTTeamInfo>(*It);
+			if (Team != NULL)
+			{
+				Team->ReceivedTeamIndex();
+			}
+		}
+	}
+
 	{
 		TArray<UObject*> AllInventory;
 		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
@@ -111,9 +124,32 @@ void AUTGameState::DefaultTimer()
 	}
 }
 
-bool AUTGameState::OnSameTeam(class APlayerState* Player1, class APlayerState* Player2)
+bool AUTGameState::OnSameTeam(const AActor* Actor1, const AActor* Actor2)
 {
-	return false;
+	const IUTTeamInterface* TeamInterface1 = InterfaceCast<IUTTeamInterface>(Actor1);
+	const IUTTeamInterface* TeamInterface2 = InterfaceCast<IUTTeamInterface>(Actor2);
+	if (TeamInterface1 == NULL || TeamInterface2 == NULL)
+	{
+		return false;
+	}
+	else if (TeamInterface1->IsFriendlyToAll() || TeamInterface2->IsFriendlyToAll())
+	{
+		return true;
+	}
+	else
+	{
+		uint8 TeamNum1 = TeamInterface1->GetTeamNum();
+		uint8 TeamNum2 = TeamInterface2->GetTeamNum();
+
+		if (TeamNum1 == 255 || TeamNum2 == 255)
+		{
+			return false;
+		}
+		else
+		{
+			return TeamNum1 == TeamNum2;
+		}
+	}
 }
 
 void AUTGameState::SetTimeLimit(float NewTimeLimit)

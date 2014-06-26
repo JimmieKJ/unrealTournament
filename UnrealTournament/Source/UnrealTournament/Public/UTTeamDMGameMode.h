@@ -1,0 +1,19 @@
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+#pragma once
+
+#include "UTTeamDMGameMode.generated.h"
+
+UCLASS()
+class AUTTeamDMGameMode : public AUTTeamGameMode
+{
+	GENERATED_UCLASS_BODY()
+
+	/** whether to reduce team score for team kills */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = TeamDM)
+	bool bScoreTeamKills;
+	/** whether to reduce team score for suicides */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = TeamDM)
+	bool bScoreSuicides;
+
+	virtual void ScoreKill(AController* Killer, AController* Other) OVERRIDE;
+};

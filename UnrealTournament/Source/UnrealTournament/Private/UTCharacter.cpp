@@ -67,6 +67,8 @@ void AUTCharacter::BeginPlay()
 		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation!"), *GetName());
 	}
 	Super::BeginPlay();
+
+	BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
 }
 
 void AUTCharacter::RecalculateBaseEyeHeight()
@@ -325,7 +327,7 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, con
 
 void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
-	if (GetNetMode() != NM_DedicatedServer)
+	if (GetNetMode() != NM_DedicatedServer && LastTakeHitInfo.Damage > 0)
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodEffect, LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
 	}
@@ -1341,5 +1343,47 @@ void AUTCharacter::EndViewTarget( class APlayerController* PC )
 	if (PC != NULL && PC->IsLocalController())
 	{
 		SetMeshVisibility(true);
+	}
+}
+
+uint8 AUTCharacter::GetTeamNum() const
+{
+	const IUTTeamInterface* TeamInterface = InterfaceCast<IUTTeamInterface>(Controller);
+	if (TeamInterface != NULL)
+	{
+		return TeamInterface->GetTeamNum();
+	}
+	else
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		return (PS != NULL && PS->Team != NULL) ? PS->Team->TeamIndex : 255;
+	}
+}
+
+void AUTCharacter::PossessedBy(AController* NewController)
+{
+	// TODO: shouldn't base class do this? APawn::Unpossessed() still does SetOwner(NULL)...
+	SetOwner(NewController);
+
+	Super::PossessedBy(NewController);
+	NotifyTeamChanged();
+}
+
+void AUTCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+	if (PlayerState != NULL)
+	{
+		NotifyTeamChanged();
+	}
+}
+
+void AUTCharacter::NotifyTeamChanged()
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL && PS->Team != NULL && BodyMI != NULL)
+	{
+		static FName NAME_TeamColor(TEXT("TeamColor"));
+		BodyMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
 	}
 }

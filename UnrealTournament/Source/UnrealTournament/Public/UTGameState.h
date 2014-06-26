@@ -8,6 +8,10 @@ class AUTGameState : public AGameState
 {
 	GENERATED_UCLASS_BODY()
 
+	/** teams, if the game type has them */
+	UPROPERTY(BlueprintReadOnly, Category = GameState)
+	TArray<AUTTeamInfo*> Teams;
+
 	/** If TRUE, then we weapon pick ups to stay on their base */
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bWeaponStay:1;
@@ -65,7 +69,7 @@ class AUTGameState : public AGameState
 
 	/** Determines if a player is on the same team */
 	UFUNCTION(BlueprintCallable, Category = GameState)
-	virtual bool OnSameTeam(class APlayerState* Player1, class APlayerState* Player2);
+	virtual bool OnSameTeam(const AActor* Actor1, const AActor* Actor2);
 
 	/** Determines if 2 PlayerStates are in score order */
 	virtual bool InOrder( class AUTPlayerState* P1, class AUTPlayerState* P2 );

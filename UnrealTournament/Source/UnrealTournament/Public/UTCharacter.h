@@ -35,7 +35,7 @@ struct FStoredAmmo
 };
 
 UCLASS(config=Game)
-class AUTCharacter : public ACharacter
+class AUTCharacter : public ACharacter, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -222,12 +222,7 @@ class AUTCharacter : public ACharacter
 	virtual void BeginPlay() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
-	virtual void PossessedBy(AController* NewController) OVERRIDE
-	{
-		// TODO: shouldn't base class do this? APawn::Unpossessed() still does SetOwner(NULL)...
-		SetOwner(NewController);
-		Super::PossessedBy(NewController);
-	}
+	virtual void PossessedBy(AController* NewController) OVERRIDE;
 	virtual void Restart() OVERRIDE;
 
 	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const OVERRIDE
@@ -414,6 +409,11 @@ class AUTCharacter : public ACharacter
 	UFUNCTION()
 	virtual void UpdateSkin();
 
+	virtual uint8 GetTeamNum() const;
+
+	virtual void OnRep_PlayerState() OVERRIDE;
+	virtual void NotifyTeamChanged();
+
 protected:
 
 	/** multiplier to firing speed */
@@ -488,6 +488,10 @@ protected:
 	/** replicated character material override */
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
 	UMaterialInterface* ReplicatedBodyMaterial;
+
+	/** runtime material instance for setting body material parameters (team color, etc) */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	UMaterialInstanceDynamic* BodyMI;
 
 private:
 	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)
