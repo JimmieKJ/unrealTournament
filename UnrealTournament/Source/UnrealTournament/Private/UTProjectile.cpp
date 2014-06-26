@@ -80,7 +80,9 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
-	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds))
+	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds)
+		// projectiles that are shootable always win against projectiles that are not
+		&& (Cast<AUTProjectile>(OtherActor) == NULL || OtherComp->GetCollisionObjectType() == COLLISION_PROJECTILE_SHOOTABLE || OtherComp->GetCollisionResponseToChannel(COLLISION_PROJECTILE) > ECR_Ignore) )
 	{
 		if (OtherActor != NULL)
 		{
@@ -90,6 +92,12 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 		ImpactedActor = OtherActor;
 		Explode(HitLocation, HitNormal);
 		ImpactedActor = NULL;
+
+		if (Cast<AUTProjectile>(OtherActor) != NULL)
+		{
+			// since we'll probably be destroyed or lose collision here, make sure we trigger the other projectile so shootable projectiles colliding is consistent (both explode)
+			((AUTProjectile*)OtherActor)->ProcessHit(this, CollisionComp, HitLocation, -HitNormal);
+		}
 	}
 }
 
