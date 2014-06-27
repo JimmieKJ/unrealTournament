@@ -37,7 +37,7 @@ class AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TSubclassOf<class AUTWeaponAttachment> AttachmentType;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing=OnRep_Ammo, Category = "Weapon")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_Ammo, Category = "Weapon")
 	int32 Ammo;
 	/** handles weapon switch when out of ammo, etc
 	 * NOTE: called on server if owner is locally controlled, on client only when owner is remote
@@ -62,7 +62,7 @@ class AUTWeapon : public AUTInventory
 protected:
 	/** class of firing state to use (workaround for editor limitations - editinlinenew doesn't work) */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
+		TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
 public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
 	virtual void PreSave() OVERRIDE
@@ -101,7 +101,7 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
-	
+
 	/** first person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TSubobjectPtr<USkeletalMeshComponent> Mesh;
@@ -258,7 +258,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Weapon")
 	virtual void ConsumeAmmo(uint8 FireModeNum);
-	
+
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL);
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	void K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit);
@@ -300,6 +300,18 @@ public:
 
 	virtual void Destroyed() OVERRIDE;
 
+	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) OVERRIDE
+	{
+		if (!HasAnyAmmo())
+		{
+			Destroy();
+		}
+		else
+		{
+			Super::DropFrom(StartLocation, TossVelocity);
+		}
+	}
+
 	/** we added an editor tool to allow the user to set the MuzzleFlash entries to a component created in the blueprint components view,
 	 * but the resulting instances won't be automatically set...
 	 * so we need to manually hook it all up
@@ -330,7 +342,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icon")
 	FTextureUVs IconCoordinates;
-
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
