@@ -24,15 +24,15 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FPostConstructInitial
 	BounceWeaponScale=1.5;
 	SelectedWeaponScale=1.35;
 
-	CellWidth = 96;		
-	CellHeight = 64;	
+	CellWidth = 72;		
+	CellHeight = 48;	
 
-	AmmoBarOffset = FVector2D(25.0f,-24.0f);
-	AmmoBarSize = FVector2D(45.0f,12.0f);
-	SlotOffset = FVector2D(12.0f, -20.0f);
+	AmmoBarOffset = FVector2D(18.0f,-18.0f);
+	AmmoBarSize = FVector2D(34.0f, 9.0f);
+	SlotOffset = FVector2D(9.0f, -15.0f);
 	for (int i=0;i<10;i++) CurrentWeaponScale[i] = 1.0f;
 
-	MaxIconSize = FVector2D(128, 96);
+	MaxIconSize = FVector2D(80, 56);
 
 }
 
