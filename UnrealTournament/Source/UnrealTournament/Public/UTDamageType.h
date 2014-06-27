@@ -60,13 +60,23 @@ class UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	uint32 bForceZMomentum : 1;
 
-	/** if set kills with this damage type always gib the target (unless hard disabled by client option) */
+	/** if dead Pawn's health <= this value than it gibs (unless hard disabled by client option)
+	 * set to a positive number to never gib (since dead Pawns can't have positive health)
+	 * set to a large negative number to always gib
+	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = DamageType)
-	uint32 bAlwaysGibs : 1;
+	int32 GibHealthThreshold;
+	/** if the damage of the fatal blow exceeds this value than the Pawn gibs (unless hard disabled by client option) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = DamageType)
+	int32 GibDamageThreshold;
 
 	/** called on the server when a player is killed by this damagetype */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreKill(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const;
+
+	/** called on clients for dead characters killed by this damagetype to decide if they should gib instead of ragdoll */
+	UFUNCTION(BlueprintNativeEvent)
+	bool ShouldGib(AUTCharacter* Victim) const;
 };
 
 /** return the base momentum for the given damage event (before radial damage and any other modifiers) */

@@ -12,6 +12,8 @@ UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 	DamageImpulse = 50000.0f;
 	DestructibleImpulse = 50000.0f;
 	bForceZMomentum = true;
+	GibHealthThreshold = -50;
+	GibDamageThreshold = 99;
 }
 
 FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitActor, const AController* EventInstigator)
@@ -71,4 +73,9 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 
 void UUTDamageType::ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const
 {
+}
+
+bool UUTDamageType::ShouldGib_Implementation(AUTCharacter* Victim) const
+{
+	return (Victim->Health <= GibHealthThreshold || Victim->LastTakeHitInfo.Damage >= GibDamageThreshold);
 }
