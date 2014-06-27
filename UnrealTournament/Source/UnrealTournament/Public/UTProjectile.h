@@ -39,6 +39,8 @@ class AUTProjectile : public AActor
 	// TODO: we should encapsulate all explosion aspects in a single struct
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	UParticleSystem* ExplosionEffect;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	USoundBase* ExplosionSound;
 
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;

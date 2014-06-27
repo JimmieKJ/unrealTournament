@@ -147,6 +147,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			bTearOff = true;
 		}
 		bExploded = true;
+		UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 		if (GetNetMode() != NM_DedicatedServer)
 		{
 			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
@@ -157,9 +158,9 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 
 void AUTProjectile::ShutDown()
 {
-	CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SetActorEnableCollision(false);
 	ProjectileMovement->SetActive(false);
-	// hide components that aren't particle systems; deactivate particle systems so they die off naturally
+	// hide components that aren't particle systems; deactivate particle systems so they die off naturally; stop ambient sounds
 	bool bFoundParticles = false;
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
@@ -174,8 +175,16 @@ void AUTProjectile::ShutDown()
 		}
 		else
 		{
-			Components[i]->SetHiddenInGame(true);
-			Components[i]->SetVisibility(false);
+			UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
+			if (Audio != NULL)
+			{
+				Audio->Stop();
+			}
+			else
+			{
+				Components[i]->SetHiddenInGame(true);
+				Components[i]->SetVisibility(false);
+			}
 		}
 	}
 	// if some particles remain, defer destruction a bit to give them time to die on their own
