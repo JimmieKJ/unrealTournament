@@ -39,3 +39,32 @@ namespace ETextVertPos
 		MAX,
 	};
 }
+
+USTRUCT(BlueprintType)
+struct FTextureUVs
+{
+
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TextureUVs)
+	float U;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TextureUVs)
+	float V;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TextureUVs)
+	float UL;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TextureUVs)
+	float VL;
+
+	FTextureUVs() : U(0), V(0), UL(0), VL(0){};
+
+	FTextureUVs(float inU, float inV, float inUL, float inVL)
+		: U(inU)
+		, V(inV)
+		, UL(inUL)
+		, VL(inVL)
+	{};
+
+};

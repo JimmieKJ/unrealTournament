@@ -328,6 +328,10 @@ public:
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icon")
+	FTextureUVs IconCoordinates;
+
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;

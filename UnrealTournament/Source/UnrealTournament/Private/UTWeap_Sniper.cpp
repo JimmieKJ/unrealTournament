@@ -16,6 +16,8 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 	{
 		FiringStateType[1] = UUTWeaponStateZooming::StaticClass();
 	}
+
+	IconCoordinates = FTextureUVs(726,532,165,51);
 }
 
 AUTProjectile* AUTWeap_Sniper::FireProjectile()

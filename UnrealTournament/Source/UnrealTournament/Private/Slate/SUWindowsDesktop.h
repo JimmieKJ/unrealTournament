@@ -26,7 +26,7 @@ class SUWindowsDesktop : public SCompoundWidget
 
 public:
 	TSharedPtr<SComboButton> FileHeader;			// A Ptr to the File Button of the UI so we can add childen on the fly later
-	TSharedPtr<SComboButton> OptionsHeader;		// A Ptr to the Options Button on the UI so we can add children on the fly
+	TSharedPtr<SComboButton> OptionsHeader;			// A Ptr to the Options Button on the UI so we can add children on the fly
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
@@ -38,7 +38,6 @@ private:
 	virtual FReply OnVideoOptionsClicked();
 	virtual FReply OnAudioOptionsClicked();
 	virtual FReply OnControlOptionsClicked();
-
 
 	virtual bool SupportsKeyboardFocus() const OVERRIDE;
 	virtual FReply OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent ) OVERRIDE;

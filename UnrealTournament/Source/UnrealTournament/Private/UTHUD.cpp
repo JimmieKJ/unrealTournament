@@ -11,6 +11,7 @@
 #include "UTHUDWidget_WeaponInfo.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTHUDWidget_Spectator.h"
+#include "UTHUDWidget_WeaponBar.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
 
@@ -47,6 +48,7 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	HudWidgetClasses.Add(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_Spectator::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_Powerups::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_WeaponBar::StaticClass());
 
 	HudWidgetClasses.Add( ResolveHudWidgetByName(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'")));
 
