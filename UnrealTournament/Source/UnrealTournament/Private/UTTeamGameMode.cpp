@@ -159,7 +159,7 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 
 void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FDamageEvent& DamageEvent, AActor* DamageCauser)
 {
-	if (Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))
+	if (InstigatedBy != NULL && InstigatedBy != Injured->Controller && Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))
 	{
 		Damage *= TeamDamagePct;
 		Momentum *= TeamMomentumPct;
