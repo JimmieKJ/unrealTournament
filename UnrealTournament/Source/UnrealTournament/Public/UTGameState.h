@@ -28,6 +28,9 @@ class AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 TimeLimit;
 
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
+	uint32 bTeamGame:1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	TSubclassOf<UUTLocalMessage> MultiKillMessageClass;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)

@@ -185,6 +185,16 @@ public:
 	/** changes world gravity to the specified value */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = World)
 	void SetWorldGravity(float NewGravity);
+
+	/** set or change a player's team
+	 * NewTeam is a request, not a guarantee (game mode may force balanced teams, for example)
+	 */
+	UFUNCTION(BlueprintCallable, Category = TeamGame)
+	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
+	/** pick the best team to place this player to keep the teams as balanced as possible
+	 * passed in team number is used as tiebreaker if the teams would be just as balanced either way
+	 */
+
 protected:
 	/** checks whether the mutator is allowed in this gametype and doesn't conflict with any existing mutators */
 	virtual bool AllowMutator(TSubclassOf<AUTMutator> MutClass);

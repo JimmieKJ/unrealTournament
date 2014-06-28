@@ -163,6 +163,11 @@ protected:
 	UPROPERTY(config, BlueprintReadOnly, Category = Weapon)
 	bool bAutoWeaponSwitch;
 
+	UFUNCTION(exec)
+	virtual void ChangeTeam(uint8 NewTeamIndex);
+
+	UFUNCTION(exec)
+	virtual void Suicide();
 
 	/** weapon selection */
 	void PrevWeapon();

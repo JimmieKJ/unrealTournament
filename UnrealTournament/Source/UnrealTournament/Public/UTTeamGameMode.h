@@ -44,11 +44,8 @@ class AUTTeamGameMode : public AUTGameMode
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) OVERRIDE;
 	virtual bool CheckScore(AUTPlayerState* Scorer) OVERRIDE;
 
-	/** set or change a player's team
-	 * NewTeam is a request, not a guarantee (game mode may force balanced teams, for example)
-	 */
-	UFUNCTION(BlueprintCallable, Category = TeamGame)
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
+
 	/** pick the best team to place this player to keep the teams as balanced as possible
 	 * passed in team number is used as tiebreaker if the teams would be just as balanced either way
 	 */

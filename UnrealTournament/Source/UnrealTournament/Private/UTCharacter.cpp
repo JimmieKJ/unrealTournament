@@ -6,6 +6,8 @@
 #include "UTProjectile.h"
 #include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
+#include "UTDmgType_Suicide.h"
+#include "UTDmgType_SwitchTeam.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -1386,4 +1388,18 @@ void AUTCharacter::NotifyTeamChanged()
 		static FName NAME_TeamColor(TEXT("TeamColor"));
 		BodyMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
 	}
+}
+
+void AUTCharacter::PlayerChangedTeam()
+{
+	FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
+	FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0,0,0), UUTDmgType_SwitchTeam::StaticClass());
+	Died(NULL, FakeDamageEvent);
+}
+
+void AUTCharacter::PlayerSuicide()
+{
+	FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
+	FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0,0,0),UUTDmgType_Suicide::StaticClass());
+	Died(NULL, FakeDamageEvent);
 }

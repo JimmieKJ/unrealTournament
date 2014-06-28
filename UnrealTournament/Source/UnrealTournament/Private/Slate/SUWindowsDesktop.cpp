@@ -34,6 +34,10 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 				]
 				+SOverlay::Slot()
 				[
+
+
+
+
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
 					.AutoWidth()
@@ -73,6 +77,47 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 						]
 					]
 
+
+
+
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(10.0f,0.0f,0.0f,0.0f))
+					.HAlign(HAlign_Fill)
+					[
+						SAssignNew(OptionsHeader, SComboButton)
+						.Method(SMenuAnchor::UseCurrentWindow)
+						.HasDownArrow(false)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
+						.ButtonContent()
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_Team","Team").ToString())
+						]
+						.MenuContent()
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ContentPadding(FMargin(10.0f, 5.0f))
+								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Team_RedTeam", "Change to Red Team").ToString())
+								.OnClicked(this, &SUWindowsDesktop::OnChangeTeam, 0)
+							]
+
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ContentPadding(FMargin(10.0f, 5.0f))
+								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Team_BlueTeam", "Change to Blue Team").ToString())
+								.OnClicked(this, &SUWindowsDesktop::OnChangeTeam, 1)
+							]
+						]
+					]
+
+
 					+SHorizontalBox::Slot()
 					.AutoWidth()
 					.Padding(FMargin(10.0f,0.0f,0.0f,0.0f))
@@ -94,7 +139,7 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 							.AutoHeight()
 							[
 								SNew(SButton)
-								.ContentPadding(FMargin(40.0f, 5.0f))
+								.ContentPadding(FMargin(10.0f, 5.0f))
 								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Video", "Video").ToString())
 								.OnClicked(this, &SUWindowsDesktop::OnVideoOptionsClicked)
 							]
@@ -118,6 +163,7 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 							]
 
 						]
+			
 					]
 
 				]
@@ -127,12 +173,7 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 			.AutoHeight()
 			.HAlign(HAlign_Fill)
 			[
-				SNew(STextBlock)
-				.ShadowColorAndOpacity(FLinearColor::Black)
-				.ColorAndOpacity(FLinearColor::White)
-				.ShadowOffset(FIntPoint(-1, 1))
-				.Font(FSlateFontInfo("Veranda", 16)) 
-				.Text(FText::FromString("Second Line...."))
+				SNew(SCanvas)
 			]
 		];
 }
@@ -237,6 +278,19 @@ FReply SUWindowsDesktop::OnAudioOptionsClicked()
 FReply SUWindowsDesktop::OnControlOptionsClicked()
 {
 	if ( OptionsHeader.IsValid() ) OptionsHeader->SetIsOpen(false,false);
+	CloseMenus();
+	return FReply::Handled();
+}
+
+FReply SUWindowsDesktop::OnChangeTeam(int32 NewTeamIndex)
+{
+	
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
+	{
+		PlayerOwner->PlayerController->ConsoleCommand(FString::Printf(TEXT("changeteam %i"), NewTeamIndex));
+	}
+
+
 	CloseMenus();
 	return FReply::Handled();
 }

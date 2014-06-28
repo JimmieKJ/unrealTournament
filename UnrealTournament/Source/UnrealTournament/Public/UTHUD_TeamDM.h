@@ -7,4 +7,8 @@ UCLASS()
 class AUTHUD_TeamDM : public AUTHUD
 {
 	GENERATED_UCLASS_BODY()
+
+public:
+	virtual FLinearColor GetBaseHUDColor();
+
 };

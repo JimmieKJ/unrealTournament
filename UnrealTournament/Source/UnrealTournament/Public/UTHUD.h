@@ -106,6 +106,11 @@ public:
 
 	virtual class UFont* GetFontFromSizeIndex(int32 FontSize) const;
 
+	/**
+	 *	@Returns the base color for this hud.  All HUD widgets will start with this.
+	 **/
+	virtual FLinearColor GetBaseHUDColor();
+
 
 protected:
 

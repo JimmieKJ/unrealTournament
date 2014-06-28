@@ -39,6 +39,8 @@ private:
 	virtual FReply OnAudioOptionsClicked();
 	virtual FReply OnControlOptionsClicked();
 
+	virtual FReply OnChangeTeam(int32 NewTeamIndex);
+
 	virtual bool SupportsKeyboardFocus() const OVERRIDE;
 	virtual FReply OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent ) OVERRIDE;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent ) OVERRIDE;
@@ -46,6 +48,7 @@ private:
 
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) OVERRIDE;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) OVERRIDE;
+
 
 };
 

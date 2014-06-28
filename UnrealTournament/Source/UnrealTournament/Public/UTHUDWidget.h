@@ -51,7 +51,11 @@ public:
 	// The opacity of this widget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	float Opacity;
-	
+
+	// The opacity of this widget
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
+	uint32 bIgnoreHUDBaseColor:1;
+
 	// Will be called as soon as the widget is created and tracked by the hud.
 	virtual void InitializeWidget(AUTHUD* Hud);
 
@@ -88,6 +92,11 @@ public:
 	virtual FVector2D GetRenderPosition();
 	virtual FVector2D GetRenderSize();
 	virtual float GetRenderScale();
+
+	// Sets the visibility of this widget
+	UFUNCTION(BlueprintCallable, Category="Widgets")
+	virtual FLinearColor ApplyHUDColor(FLinearColor DrawColor);
+
 
 protected:
 

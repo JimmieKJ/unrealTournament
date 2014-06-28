@@ -414,6 +414,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	virtual void OnRep_PlayerState() OVERRIDE;
 	virtual void NotifyTeamChanged();
 
+	virtual void PlayerChangedTeam();
+	virtual void PlayerSuicide();
+
 protected:
 
 	/** multiplier to firing speed */

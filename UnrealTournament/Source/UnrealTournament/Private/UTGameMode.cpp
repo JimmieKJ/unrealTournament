@@ -182,6 +182,7 @@ void AUTGameMode::InitGameState()
 		UTGameState->SetTimeLimit(0);
 		UTGameState->RespawnWaitTime = RespawnWaitTime;
 		UTGameState->bPlayerMustBeReady = bPlayersMustBeReady;
+		UTGameState->bTeamGame = bTeamGame;
 	}
 	else
 	{
@@ -265,7 +266,11 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		{
 			UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 		}
-		ScoreKill(Killer, KilledPlayer);
+
+		if (UTDamage == NULL || !UTDamage.GetDefaultObject()->bDontCountForKills)
+		{
+			ScoreKill(Killer, KilledPlayer);
+		}
 		BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 	}
 
@@ -1085,4 +1090,10 @@ void AUTGameMode::SetWorldGravity(float NewGravity)
 	AWorldSettings* Settings = GetWorld()->GetWorldSettings();
 	Settings->bWorldGravitySet = true;
 	Settings->WorldGravityZ = NewGravity;
+}
+
+bool AUTGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
+{
+	// By default, we don't do anything.
+	return true;
 }

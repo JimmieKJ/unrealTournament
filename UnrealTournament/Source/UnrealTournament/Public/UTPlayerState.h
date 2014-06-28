@@ -71,6 +71,10 @@ class AUTPlayerState : public APlayerState
 	{
 		return false; // TODO
 	}
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
+
 };
 
 

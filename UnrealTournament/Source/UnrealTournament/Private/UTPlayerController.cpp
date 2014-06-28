@@ -653,3 +653,25 @@ uint8 AUTPlayerController::GetTeamNum() const
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	return (PS != NULL && PS->Team != NULL) ? PS->Team->TeamIndex : 255;
 }
+
+void AUTPlayerController::ChangeTeam(uint8 NewTeamIndex)
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL)
+	{
+		PS->ServerRequestChangeTeam(NewTeamIndex);
+	}
+}
+
+void AUTPlayerController::Suicide()
+{
+	if (GetPawn() != NULL)
+	{
+		AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
+		if (Char != NULL)
+		{
+			Char->PlayerSuicide();
+		}
+	}
+
+}

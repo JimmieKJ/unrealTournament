@@ -19,6 +19,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
 	new(TeamColors) FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
 	new(TeamColors) FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
 	TeamMomentumPct = 0.3f;
+	bTeamGame = true;
 }
 
 void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

@@ -134,3 +134,29 @@ void AUTPlayerState::Tick(float DeltaTime)
 		RespawnTime -= DeltaTime;
 	}
 }
+
+
+void AUTPlayerState::ServerRequestChangeTeam_Implementation(uint8 NewTeamIndex)
+{
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Game != NULL && Game->bTeamGame)
+	{
+		AController* Controller =  Cast<AController>( GetOwner() );
+		if (Controller != NULL)
+		{
+			// NOTE: We need a "Can the player change team" function
+
+			AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+			if (Pawn != NULL)
+			{
+				Pawn->PlayerChangedTeam();
+			}
+
+			Game->ChangeTeam(Controller, NewTeamIndex, true);
+		}
+	}
+}
+bool AUTPlayerState::ServerRequestChangeTeam_Validate(uint8 FireModeNum)
+{
+	return true;
+}
