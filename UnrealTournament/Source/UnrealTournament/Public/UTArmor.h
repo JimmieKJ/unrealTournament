@@ -22,6 +22,10 @@ class AUTArmor : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
 
+	/** Hold a descriptive tag that describes what type of armor this is.   Used by the paper doll to display the various icons for this armor */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Armor)
+	FName ArmorType;
+
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const OVERRIDE
 	{
 		GS->AddOverlayMaterial(OverlayMaterial);

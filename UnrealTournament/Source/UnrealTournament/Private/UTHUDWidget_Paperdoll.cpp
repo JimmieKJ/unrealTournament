@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Paperdoll.h"
+#include "UTJumpBoots.h"
 
 UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
@@ -40,13 +41,52 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		DrawTexture(PaperDollTexture, 0,0, 64.0f, 111.0, 1.0f, 223.0f, 64.0f, 111.0f, 1.0f, BGColor);
 
 		int32 ArmorAmt = 0;
+		bool bHasShieldBelt = false;
+		bool bHasThighPads = false;
+		bool bHasChest = false;
+		bool bHasHelmet = false;
+		bool bHasJumpBoots = false;
 		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
 			AUTArmor* Armor = Cast<AUTArmor>(Inv);
 			if (Armor != NULL)
 			{
 				ArmorAmt += Armor->ArmorAmount;
+
+				if (Armor->ArmorType == FName(TEXT("ShieldBelt"))) bHasShieldBelt = true;
+				if (Armor->ArmorType == FName(TEXT("ThighPads"))) bHasThighPads = true;
+				if (Armor->ArmorType == FName(TEXT("FlakVest"))) bHasChest = true;
+				if (Armor->ArmorType == FName(TEXT("Helmet"))) bHasHelmet = true;
 			}
+			else if (Cast<AUTJumpBoots>(Inv) != NULL)
+			{
+				bHasJumpBoots = true;
+			}
+		}
+
+		if (bHasShieldBelt)
+		{
+			DrawTexture(PaperDollTexture, 0,0, 64.0f, 111.0, 67.0f, 223.0f, 64.0f, 111.0f, 1.0f, BGColor);
+		}
+
+		if (bHasThighPads)
+		{
+			DrawTexture(PaperDollTexture, 12,53, 40.0f, 28.0, 135.0f, 263.0f, 40.0f, 28.0f, 1.0f, BGColor);
+		}
+
+		if (bHasChest)
+		{
+			DrawTexture(PaperDollTexture, 10,16, 44.0f, 25.0, 133.0f, 221.0f, 44.0f, 25.0f, 1.0f, BGColor);
+		}
+
+		if (bHasHelmet)
+		{
+			DrawTexture(PaperDollTexture, 20,-2, 23.0f, 25.0, 192.0f, 265.0f, 23.0f, 25.0f, 1.0f, BGColor);
+		}
+
+		if (bHasJumpBoots)
+		{
+			DrawTexture(PaperDollTexture, 5,84, 54.0f, 25.0, 222.0f, 263.0f, 54.0f, 25.0f, 1.0f, BGColor);
 		}
 
 		DrawTexture(PaperDollTexture, 58.0f, 26.0f, 26.0f, 33.0f, 233.0f, 67.0f, 26.0f, 33.0f);
