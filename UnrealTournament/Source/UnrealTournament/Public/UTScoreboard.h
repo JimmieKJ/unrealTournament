@@ -38,8 +38,8 @@ public:
 	virtual void DrawScoreboard(float RenderDelta);
 
 protected:
-	virtual void DrawHeader(float RenderDelta);
-	virtual void DrawPlayers(float RenderDelta);
-	virtual void DrawFooter(float RenderDelta);
+	virtual void DrawHeader(float RenderDelta, float X, float Y, float ClipX, float ClipY);
+	virtual void DrawPlayers(float RenderDelta, float X, float Y, float ClipX, float ClipY, int32 TeamFilter = -1);
+	virtual void DrawFooter(float RenderDelta, float X, float Y, float ClipX, float ClipY);
 };
 

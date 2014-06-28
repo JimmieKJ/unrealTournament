@@ -16,7 +16,6 @@ void UUTScoreboard::DrawScoreboard(float RenderDelta)
 		return;
 	}
 
-
 	// Calculate any scaling if needed by looking at the height of everything.  NOTE: we 
 
 	float xl;
@@ -31,58 +30,62 @@ void UUTScoreboard::DrawScoreboard(float RenderDelta)
 	CellHeight *= CellScale;
 	ResScale = Canvas->ClipY / 720.0;
 
-	DrawHeader(RenderDelta);
-	DrawPlayers(RenderDelta);
-	DrawFooter(RenderDelta);
+	DrawHeader(RenderDelta, 0, 0, Canvas->ClipX, Canvas->ClipY);
+	DrawPlayers(RenderDelta, 0, Canvas->ClipY * 0.15, Canvas->ClipX, Canvas->ClipY);
+	DrawFooter(RenderDelta, 0, 0, Canvas->ClipX, Canvas->ClipY);
 }
 
-void UUTScoreboard::DrawHeader(float RenderDelta)
+void UUTScoreboard::DrawHeader(float RenderDelta, float X, float Y, float ClipX, float ClipY)
 {
-	float Y = Canvas->ClipY * 0.19 - 35 * ResScale;;
-	float X = Canvas->ClipX * 0.15;
+	float DrawY = Y + ClipY * 0.11 - 35 * ResScale;
+	float DrawX = X + ClipX * 0.15;
+
 	Canvas->SetDrawColor(23,72,155,200);
-	Canvas->DrawTile(Canvas->DefaultTexture, X, Y - (6 * ResScale), Canvas->ClipX * 0.7,18 * ResScale,0,0,1,1);
+	Canvas->DrawTile(Canvas->DefaultTexture, DrawX, DrawY - (6 * ResScale), ClipX * 0.7, 18 * ResScale,0,0,1,1);
 
 	Canvas->DrawColor = FLinearColor::White;
-	Canvas->DrawTile(UTHUDOwner->OldHudTexture, X + 10 * ResScale, Y - 35 * ResScale, 82 * ResScale, 69 * ResScale, 734,190, 82,70);
+	Canvas->DrawTile(UTHUDOwner->OldHudTexture, DrawX + 10 * ResScale, DrawY - 35 * ResScale, 82 * ResScale, 69 * ResScale, 734,190, 82,70);
 
 	// Draw the Time...
 
 	FText TimeElapsed = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->ElapsedTime);
-	UTHUDOwner->TempDrawString( TimeElapsed, Canvas->ClipX * 0.84, Y + (12 * ResScale), ETextHorzPos::Right, ETextVertPos::Bottom, UTHUDOwner->GetFontFromSizeIndex(1), FLinearColor::White);
+	UTHUDOwner->TempDrawString( TimeElapsed, X + ClipX * 0.85, DrawY + (12 * ResScale), ETextHorzPos::Right, ETextVertPos::Bottom, UTHUDOwner->GetFontFromSizeIndex(1), FLinearColor::White);
 }
 
-void UUTScoreboard::DrawPlayers(float RenderDelta)
+void UUTScoreboard::DrawPlayers(float RenderDelta, float X, float Y, float ClipX, float ClipY, int32 TeamFilter)
 {
-	float NameX = Canvas->ClipX * 0.18;
-	float ScoreX = Canvas->ClipX * 0.8;
-	float Y = Canvas->ClipY * 0.2;
+	float NameX = X + ClipX * 0.15;
+	float ScoreX = X + ClipX * 0.8;
+	float DrawY = Y;
 
 	for (int i=0;i<UTGameState->PlayerArray.Num();i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (PS)
 		{
-			FLinearColor DrawColor =  (PS == UTHUDOwner->UTPlayerOwner->UTPlayerState ? FLinearColor::Yellow : FLinearColor :: White);
-			UTHUDOwner->TempDrawString(FText::FromString( PS->PlayerName), NameX, Y, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale);
-			UTHUDOwner->TempDrawNumber(PS->Score, ScoreX, Y,DrawColor, 0.0f, CellScale, 0, true);
-			UTHUDOwner->TempDrawString(FText::FromString( FString::Printf(TEXT("Kills: %i"),PS->Kills)), ScoreX + 2, Y, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale * 0.5f);
-			UTHUDOwner->TempDrawString(FText::FromString( FString::Printf(TEXT("Deaths: %i"),PS->Deaths)), ScoreX + 2, Y + (CellHeight * 0.5), ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale * 0.5f);
-			Y += CellHeight;
+			if (TeamFilter < 0 || (PS->Team != NULL && PS->Team->GetTeamNum() == TeamFilter))
+			{
+				FLinearColor DrawColor =  (PS == UTHUDOwner->UTPlayerOwner->UTPlayerState ? FLinearColor::Yellow : FLinearColor :: White);
+				UTHUDOwner->TempDrawString(FText::FromString( PS->PlayerName), NameX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale);
+				UTHUDOwner->TempDrawNumber(PS->Score, ScoreX, DrawY,DrawColor, 0.0f, CellScale, 0, true);
+				UTHUDOwner->TempDrawString(FText::FromString( FString::Printf(TEXT("Kills: %i"),PS->Kills)), ScoreX + 2, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale * 0.5f);
+				UTHUDOwner->TempDrawString(FText::FromString( FString::Printf(TEXT("Deaths: %i"),PS->Deaths)), ScoreX + 2, DrawY + (CellHeight * 0.5), ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale * 0.5f);
+				DrawY += CellHeight;
+			}
 		}
 	}
 }
 
-void UUTScoreboard::DrawFooter(float RenderDelta)
+void UUTScoreboard::DrawFooter(float RenderDelta, float X, float Y, float ClipX, float ClipY)
 {
-	float Y = Canvas->ClipY * 0.81 * ResScale;;
-	float X = Canvas->ClipX * 0.15;
+	float DrawY = Y + ClipY * 0.91 * ResScale;;
+	float DrawX = X + ClipX * 0.15;
 	Canvas->SetDrawColor(23,72,155,200);
-	Canvas->DrawTile(Canvas->DefaultTexture, X, Y, Canvas->ClipX * 0.7,6 * ResScale,0,0,1,1);
+	Canvas->DrawTile(Canvas->DefaultTexture, DrawX, DrawY, ClipX * 0.7,6 * ResScale,0,0,1,1);
 
-	Y += 10 * ResScale;
+	DrawY += 10 * ResScale;
 
-	UTHUDOwner->TempDrawString(FText::FromString(UTHUDOwner->GetWorld()->GetMapName()), X, Y, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, FLinearColor::White);
+	UTHUDOwner->TempDrawString(FText::FromString(UTHUDOwner->GetWorld()->GetMapName()), DrawX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, FLinearColor::White);
 
 	FText Msg = FText::GetEmpty();
 
@@ -109,7 +112,7 @@ void UUTScoreboard::DrawFooter(float RenderDelta)
 
 	if (!Msg.IsEmpty())
 	{
-		UTHUDOwner->TempDrawString( Msg, Canvas->ClipX * 0.84, Y + (14 * ResScale), ETextHorzPos::Right, ETextVertPos::Bottom, UTHUDOwner->GetFontFromSizeIndex(1), FLinearColor::White);
+		UTHUDOwner->TempDrawString( Msg, X + ClipX * 0.84, DrawY + (14 * ResScale), ETextHorzPos::Right, ETextVertPos::Bottom, UTHUDOwner->GetFontFromSizeIndex(1), FLinearColor::White);
 	}
 
 }
