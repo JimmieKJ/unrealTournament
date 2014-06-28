@@ -7,6 +7,8 @@
 
 UUTHUDWidget::UUTHUDWidget(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
+	bIgnoreHUDBaseColor = false;
+
 	Opacity = 1.0f;
 	Origin = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.0f, 0.0f);
@@ -183,7 +185,6 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 
 void UUTHUDWidget::DrawTexture(UTexture* Texture, float X, float Y, float Width, float Height, float U, float V, float UL, float VL, float DrawOpacity, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)
 {
-
 	float ImageAspectScale = Height > 0 ? Width / Height : 0.0f;
 
 	if (Texture && Texture->Resource )
@@ -239,4 +240,13 @@ void UUTHUDWidget::DrawMaterial( UMaterialInterface* Material, float X, float Y,
 		Canvas->DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
 		Canvas->DrawItem( MaterialItem );
 	}
+}
+
+FLinearColor UUTHUDWidget::ApplyHUDColor(FLinearColor DrawColor)
+{
+	if (!bIgnoreHUDBaseColor)
+	{
+		DrawColor *= UTHUDOwner->GetBaseHUDColor();
+	}
+	return DrawColor;
 }

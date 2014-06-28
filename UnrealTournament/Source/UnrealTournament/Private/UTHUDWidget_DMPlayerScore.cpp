@@ -26,7 +26,7 @@ void UUTHUDWidget_DMPlayerScore::Draw_Implementation(float DeltaTime)
 		if (Score != LastScore) ScoreFlashOpacity = 1.0f;
 		LastScore = Score;
 
-		DrawTexture(HudTexture, 0.0f,0.0f, 114.0f,43.0f, 375.0f,396.0f,114.0f,43.0f,1.0f);
+		DrawTexture(HudTexture, 0.0f,0.0f, 114.0f,43.0f, 375.0f,396.0f,114.0f,43.0f,1.0f,ApplyHUDColor(FLinearColor::White));
 		UTHUDOwner->TempDrawNumber(Score, RenderPosition.X + 22 * RenderScale , RenderPosition.Y + 7 * RenderScale , FLinearColor::Yellow, ScoreFlashOpacity,RenderScale * 0.5f,3.0f);
 		DrawText(FText::Format(NSLOCTEXT("UTHUD","Deaths","{0} Deaths"), FText::AsNumber(Deaths)), 114.0f, 46.0f, UTHUDOwner->GetFontFromSizeIndex(0), 1.0f, 1.0f, FLinearColor::White,  ETextHorzPos::Right);
 	

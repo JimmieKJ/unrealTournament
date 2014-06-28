@@ -9,3 +9,18 @@ AUTHUD_TeamDM::AUTHUD_TeamDM(const FPostConstructInitializeProperties& PCIP)
 {
 	HudWidgetClasses.Add(UUTHUDWidget_TeamScore::StaticClass());
 }
+
+
+FLinearColor AUTHUD_TeamDM::GetBaseHUDColor()
+{
+	FLinearColor TeamColor = Super::GetBaseHUDColor();
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+	if (PS != NULL && PS->Team != NULL)
+	{
+		TeamColor = PS->Team->TeamColor;
+	}
+
+
+	return TeamColor;
+}

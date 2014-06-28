@@ -29,12 +29,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			HealthFlashOpacity = 1.0f;
 		}
 
-		FLinearColor BGColor = FLinearColor::White;
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
-		if (PS != NULL && PS->Team != NULL)
-		{
-			BGColor = PS->Team->TeamColor;
-		}
+		FLinearColor BGColor = ApplyHUDColor(FLinearColor::White);
 
 		LastHealth = Health;
 		DrawTexture(PaperDollTexture, 0,0, 205.0f, 111.0f, 10.0f, 53.0f, 205.0f, 111.0f, 1.0f, BGColor);
@@ -66,27 +61,27 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 
 		if (bHasShieldBelt)
 		{
-			DrawTexture(PaperDollTexture, 0,0, 64.0f, 111.0, 67.0f, 223.0f, 64.0f, 111.0f, 1.0f, BGColor);
+			DrawTexture(PaperDollTexture, 0,0, 64.0f, 111.0, 67.0f, 223.0f, 64.0f, 111.0f, 1.0f);
 		}
 
 		if (bHasThighPads)
 		{
-			DrawTexture(PaperDollTexture, 12,53, 40.0f, 28.0, 135.0f, 263.0f, 40.0f, 28.0f, 1.0f, BGColor);
+			DrawTexture(PaperDollTexture, 12,53, 40.0f, 28.0, 135.0f, 263.0f, 40.0f, 28.0f, 1.0f);
 		}
 
 		if (bHasChest)
 		{
-			DrawTexture(PaperDollTexture, 10,16, 44.0f, 25.0, 133.0f, 221.0f, 44.0f, 25.0f, 1.0f, BGColor);
+			DrawTexture(PaperDollTexture, 10,16, 44.0f, 25.0, 133.0f, 221.0f, 44.0f, 25.0f, 1.0f);
 		}
 
 		if (bHasHelmet)
 		{
-			DrawTexture(PaperDollTexture, 20,-2, 23.0f, 25.0, 192.0f, 265.0f, 23.0f, 25.0f, 1.0f, BGColor);
+			DrawTexture(PaperDollTexture, 20,-2, 23.0f, 25.0, 192.0f, 265.0f, 23.0f, 25.0f, 1.0f);
 		}
 
 		if (bHasJumpBoots)
 		{
-			DrawTexture(PaperDollTexture, 5,84, 54.0f, 25.0, 222.0f, 263.0f, 54.0f, 25.0f, 1.0f, BGColor);
+			DrawTexture(PaperDollTexture, 5,84, 54.0f, 25.0, 222.0f, 263.0f, 54.0f, 25.0f, 1.0f);
 		}
 
 		DrawTexture(PaperDollTexture, 58.0f, 26.0f, 26.0f, 33.0f, 233.0f, 67.0f, 26.0f, 33.0f);

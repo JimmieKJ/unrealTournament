@@ -442,4 +442,8 @@ void AUTHUD::DrawDamageIndicators()
 	}
 }
 
+FLinearColor AUTHUD::GetBaseHUDColor()
+{
+	return FLinearColor::White;
+}
 

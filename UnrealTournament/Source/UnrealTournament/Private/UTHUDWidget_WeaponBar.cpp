@@ -41,6 +41,9 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	AUTCharacter* UTC = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
 	if (UTC)
 	{
+
+		FLinearColor HudColor = ApplyHUDColor(FLinearColor::White);
+
 		AUTWeapon *WeaponList[10];
 		for (int i=0;i<10;i++) WeaponList[i] = NULL;
 
@@ -148,9 +151,9 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 				if (i == SelectedWeaponIndex)
 				{
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,248,69,49);
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,148,69,49);
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,248,69,49);
+					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,248,69,49,1.0, HudColor);
+					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,148,69,49,1.0, HudColor);
+					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,248,69,49,1.0, HudColor);
 					
 					// Draw ammo bar ticks...
 
@@ -161,15 +164,15 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				}
 				else
 				{
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,148,69,49,0.6f);
+					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,148,69,49,0.6f,HudColor);
 					if (i == PrevWeaponIndex)
 					{
-						DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,97,69,49,0.6f);
+						DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,97,69,49,0.6f,HudColor);
 					}
 						
 					if (i == NextWeaponIndex)
 					{
-						DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,148,69,49,0.6f);
+						DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,148,69,49,0.6f,HudColor);
 					}
 			
 				}
