@@ -21,24 +21,17 @@ class SUWindowsDesktop : public SCompoundWidget
 	 **/
 	virtual void OnMenuOpened();
 	virtual void OnMenuClosed();
-
 	virtual void CloseMenus();
 
-public:
-	TSharedPtr<SComboButton> FileHeader;			// A Ptr to the File Button of the UI so we can add childen on the fly later
-	TSharedPtr<SComboButton> OptionsHeader;			// A Ptr to the Options Button on the UI so we can add children on the fly
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 
 	TSharedPtr<class SWidget> GameViewportWidget;
-	
-	virtual FReply OnOpenClicked();
-	virtual FReply OnExitClicked();
-	virtual FReply OnVideoOptionsClicked();
-	virtual FReply OnAudioOptionsClicked();
-	virtual FReply OnControlOptionsClicked();
+	TSharedPtr<class SHorizontalBox> MenuBar;
 
+
+	virtual FReply OnMenuConsoleCommand(FString Command);
 	virtual FReply OnChangeTeam(int32 NewTeamIndex);
 
 	virtual bool SupportsKeyboardFocus() const OVERRIDE;
@@ -49,6 +42,10 @@ private:
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) OVERRIDE;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) OVERRIDE;
 
+	virtual TSharedRef<SWidget> BuildMenuBar();
 
+	virtual void BuildFileSubMenu();
+	virtual void BuildGameSubMenu();
+	virtual void BuildOptionsSubMenu();
 };
 

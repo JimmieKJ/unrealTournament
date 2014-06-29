@@ -50,6 +50,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	GameMessageClass=UUTGameMessage::StaticClass();
 }
 
+
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 {
 	P_FINISH;
@@ -1096,4 +1097,9 @@ bool AUTGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast
 {
 	// By default, we don't do anything.
 	return true;
+}
+
+TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
+{
+	return AUTGameSession::StaticClass();
 }

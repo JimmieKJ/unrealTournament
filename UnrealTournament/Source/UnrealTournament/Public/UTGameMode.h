@@ -195,6 +195,8 @@ public:
 	 * passed in team number is used as tiebreaker if the teams would be just as balanced either way
 	 */
 
+	virtual TSubclassOf<class AGameSession> GetGameSessionClass() const;
+
 protected:
 	/** checks whether the mutator is allowed in this gametype and doesn't conflict with any existing mutators */
 	virtual bool AllowMutator(TSubclassOf<AUTMutator> MutClass);
