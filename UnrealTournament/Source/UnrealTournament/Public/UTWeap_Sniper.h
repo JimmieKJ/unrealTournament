@@ -17,4 +17,11 @@ class AUTWeap_Sniper : public AUTWeapon
 	float RunningHeadshotScale;
 
 	virtual AUTProjectile* FireProjectile();
+
+	/**
+	 *	Override HasAnyAmmo so that it only takes the first ammocost in to consideration so that we can switch away when it's out of ammo.
+	 **/
+	virtual bool HasAnyAmmo();
+
+
 };
