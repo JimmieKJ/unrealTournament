@@ -29,11 +29,14 @@ public:
 
 	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
 	FStringClassReference RewardAnnouncerPath;
+
 	/** announcer for reward announcements (multikill, etc) - only set on client */
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* RewardAnnouncer;
+
 	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
 	FStringClassReference StatusAnnouncerPath;
+
 	/** announcer for status announcements (red flag taken, etc) - only set on client */
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* StatusAnnouncer;
@@ -50,6 +53,7 @@ public:
 	 * SoundPlayer may be NULL
 	 */
 	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed);
+
 	/** plays a heard sound locally
 	 * SoundPlayer may be NULL for an unattached sound
 	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
@@ -79,14 +83,10 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
 
-	/**
-	 *	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun
-	 **/
+	/**	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun	 **/
 	virtual void ServerRestartPlayer_Implementation();
 
-	/**
-	 * Added a check to see if the player's RespawnTimer is > 0
-	 **/
+	/**  Added a check to see if the player's RespawnTimer is > 0	 **/
 	virtual bool CanRestartPlayer();
 
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) OVERRIDE;
@@ -101,13 +101,15 @@ public:
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
+	// TEMP FIXMESTEVE - change gravity and update all jump properties to keep same jump heights etc.
+	UFUNCTION(exec)
+	virtual void SetGravity(float NewGravity);
+
 	// A quick function so I don't have to keep adding one when I want to test something.  @REMOVEME: Before the final version
 	UFUNCTION(exec)
 	virtual void DebugTest();
 
-	/**
-	 *	We override player tick to keep updating the player's rotation when the game is over.
-	 **/
+	/**	We override player tick to keep updating the player's rotation when the game is over.	 **/
 	virtual void PlayerTick(float DeltaTime);
 
 
@@ -116,9 +118,7 @@ public:
 	UFUNCTION(Client, Unreliable)
 	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamgaeType);
 
-	/**
-	 *	Will popup the in-game menu
-	 **/
+	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec)
 	virtual void ShowMenu();
 
@@ -140,6 +140,7 @@ protected:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	float BaseTurnRate;
+
 	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	float BaseLookUpRate;
@@ -181,20 +182,24 @@ protected:
 	virtual void OnStopFire();
 	virtual void OnAltFire();
 	virtual void OnStopAltFire();
+
 	/** Handles moving forward/backward */
 	virtual void MoveForward(float Val);
 	/** Handles stafing movement, left and right */
 	virtual void MoveRight(float Val);
+
 	/**
 	* Called via input to turn at a given rate.
 	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
 	*/
 	virtual void TurnAtRate(float Rate);
+
 	/**
 	* Called via input to turn look up/down at a given rate.
 	* @param Rate	This is a normalized rate, i.e. 1.0 means 100% of desired turn rate
 	*/
 	virtual void LookUpAtRate(float Rate);
+
 	/** called to set the jump flag from input */
 	virtual void Jump();
 

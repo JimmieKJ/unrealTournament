@@ -37,6 +37,14 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 }
 
+void AUTPlayerController::SetGravity(float NewGravity)
+{
+	if (GetPawn() && Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent()))
+	{
+		Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent())->SetGravityScale(NewGravity);
+	}
+}
+
 void AUTPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();

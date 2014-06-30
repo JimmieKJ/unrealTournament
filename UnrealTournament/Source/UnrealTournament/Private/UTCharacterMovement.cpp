@@ -7,39 +7,78 @@
 UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	JumpZVelocity = 720.f;
 	MaxWalkSpeed = 900.f;
-	DodgeImpulseHorizontal = 1300.f;
-	DodgeImpulseVertical = 500.f;
-	WallDodgeImpulseHorizontal = 1300.f;
-	WallDodgeImpulseVertical = 240.f;
-	WallDodgeSecondImpulseVertical = 0.f;
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -1000.f;
-	MaxAdditiveDodgeJumpSpeed = 850.f;
+	MaxAdditiveDodgeJumpSpeed = 850.f;  // 10000.f
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
-	MaxMultiJumpZSpeed = 100.f;
 	MultiJumpImpulse = 500.f;
 	DodgeLandingSpeedFactor = 0.1f;
 	DodgeResetInterval = 0.35f;
 	WallDodgeResetInterval = 0.2f;
 	DodgeResetTime = 0.f;
-	SprintSpeed = 1200.f;
+	SprintSpeed = 1250.f;
 	bIsDodging = false;
 	bIsSprinting = false;
 	SprintAccel = 100.f;
 	AutoSprintDelayInterval = 2.f;
 	SprintStartTime = 0.f;
-	LandingStepUp = 30.f;
+	LandingStepUp = 50.f;
 	LandingAssistBoost = 400.f;
 	bJumpAssisted = false;
 	CrouchedSpeedMultiplier = 0.4f;
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 3;
-	WallDodgeMinNormal = 0.5f;
-	DodgeMaxHorizontalVelocity = 1500.f;
+	WallDodgeMinNormal = 0.5f;  // 0.f
+	AirControl = 0.35f;
+	MaxStepHeight = 50.f;
+	SetWalkableFloorZ(0.695f); 
+	MaxAcceleration = 4000.f; // default was 2048, UT3 was 4464.6
+	GravityScale = 2.f;
+	DodgeImpulseHorizontal = 1300.f;
+	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.15f
+
+	MaxMultiJumpZSpeed = 200.f;
+	JumpZVelocity = 660.f;
+	WallDodgeSecondImpulseVertical = 0.f;
+	DodgeImpulseVertical = 500.f;
+	WallDodgeImpulseHorizontal = 1300.f; 
+	WallDodgeImpulseVertical = 400.f; 
+
+	SetGravityScale(2.2f);
+}
+
+void UUTCharacterMovement::SetGravityScale(float NewGravityScale)
+{
+	float JumpZScaling = FMath::Sqrt(NewGravityScale / GravityScale);
+	MaxMultiJumpZSpeed *= JumpZScaling;
+	JumpZVelocity *= JumpZScaling;
+	WallDodgeSecondImpulseVertical *= JumpZScaling;
+	DodgeImpulseVertical *= JumpZScaling;
+	WallDodgeImpulseHorizontal *= JumpZScaling;
+	WallDodgeImpulseVertical *= JumpZScaling;
+	GravityScale = NewGravityScale;
+}
+
+void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+{
+	bIsSprinting = (CharacterOwner && CharacterOwner->IsLocallyControlled()) ? CanSprint() : bIsSprinting;
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+}
+
+bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
+{
+	if (!HasValidData())
+	{
+		return false;
+	}
+
+	bool bRealSprinting = bIsSprinting;
+	bool bResult = Super::ClientUpdatePositionAfterServerUpdate();
+	bIsSprinting = bRealSprinting;
+	return bResult;
 }
 
 bool UUTCharacterMovement::CanDodge()
@@ -124,7 +163,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 
 float UUTCharacterMovement::GetModifiedMaxAcceleration() const
 {
-	return (CanSprint() && (Velocity.SizeSquared() > MaxWalkSpeed*MaxWalkSpeed)) ? SprintAccel : Super::GetModifiedMaxAcceleration();
+	return (bIsSprinting && (Velocity.SizeSquared() > MaxWalkSpeed*MaxWalkSpeed)) ? SprintAccel : Super::GetModifiedMaxAcceleration();
 }
 
 bool UUTCharacterMovement::CanSprint() const
@@ -134,7 +173,7 @@ bool UUTCharacterMovement::CanSprint() const
 
 float UUTCharacterMovement::GetMaxSpeed() const
 {
-	return CanSprint() ? SprintSpeed : Super::GetMaxSpeed();
+	return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
 }
 
 void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration)
@@ -250,6 +289,10 @@ FSavedMovePtr FNetworkPredictionData_Client_UTChar::AllocateNewMove()
 
 bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const
 {
+	if (bSavedIsSprinting != ((FSavedMove_UTCharacter*)&NewMove)->bSavedIsSprinting)
+	{
+		return false;
+	}
 	bool bPressedDodge = bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight;
 	bool bNewPressedDodge = ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight;
 	if (bPressedDodge || bNewPressedDodge)
@@ -291,6 +334,11 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 		Result |= (4 << 2);
 	}
 
+	if (bSavedIsSprinting)
+	{
+		Result |= (5 << 2);
+	}
+
 	return Result;
 }
 
@@ -301,6 +349,7 @@ void FSavedMove_UTCharacter::Clear()
 	bPressedDodgeBack = false;
 	bPressedDodgeLeft = false;
 	bPressedDodgeRight = false;
+	bSavedIsSprinting = false;
 }
 
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
@@ -313,6 +362,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeBack = UTCharMov->bPressedDodgeBack;
 		bPressedDodgeLeft = UTCharMov->bPressedDodgeLeft;
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
+		bSavedIsSprinting = UTCharMov->bIsSprinting;
 	}
 }
 

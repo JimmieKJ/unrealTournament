@@ -9,6 +9,11 @@ class UUTCharacterMovement : public UCharacterMovementComponent
 	GENERATED_UCLASS_BODY()
 
 public:
+
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+
+	virtual bool ClientUpdatePositionAfterServerUpdate() override;
+
 	//=========================================
 	// DODGING
 	/** Dodge impulse in XY plane */
@@ -186,6 +191,9 @@ public:
 	/** Check for landing assist */
 	virtual void NotifyJumpApex() OVERRIDE;
 
+	// FIXME REMOVE
+	void SetGravityScale(float NewGravityScale);
+
 	//=========================================
 	// Networking
 
@@ -210,6 +218,7 @@ public:
 	bool bPressedDodgeBack;
 	bool bPressedDodgeLeft;
 	bool bPressedDodgeRight;
+	bool bSavedIsSprinting;
 
 	virtual void Clear() OVERRIDE;
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) OVERRIDE;
