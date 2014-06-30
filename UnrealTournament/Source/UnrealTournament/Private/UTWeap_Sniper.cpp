@@ -12,9 +12,11 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 	SlowHeadshotScale = 1.75f;
 	RunningHeadshotScale = 0.8f;
 	ProjClass.Insert(AUTProj_Sniper::StaticClass(), 0);
-	if (FiringStateType.Num() > 1)
+	if (FiringState.Num() > 1)
 	{
+#if WITH_EDITORONLY_DATA
 		FiringStateType[1] = UUTWeaponStateZooming::StaticClass();
+#endif
 	}
 
 	IconCoordinates = FTextureUVs(726,532,165,51);

@@ -12,7 +12,7 @@
 #include "UTHUDWidget.h"
 
 AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.DoNotCreateDefaultSubobject(TEXT("PickupMesh")))
+: Super(PCIP.DoNotCreateDefaultSubobject(TEXT("PickupMesh0")))
 {
 	AmmoCost.Add(1);
 	AmmoCost.Add(1);
