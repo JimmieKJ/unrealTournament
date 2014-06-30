@@ -4,18 +4,26 @@
 
 #include "UTProjectileMovementComponent.generated.h"
 
-UCLASS(CustomConstructor, ClassGroup = Movement, meta = (BlueprintSpawnableComponent))
+UCLASS(ClassGroup = Movement, meta = (BlueprintSpawnableComponent))
 class UUTProjectileMovementComponent : public UProjectileMovementComponent
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTProjectileMovementComponent(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
-	{}
-
 	/** linear acceleration in the direction of current velocity */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	float AccelRate;
+
+	/** additional components that should be moved along with the main UpdatedComponent. Defaults to all colliding children of UpdatedComponent.
+	 * closest blocking hit of all components is used for blocking collision
+	 *
+	 * Ultimately this is a workaround for UPrimitiveComponent::MoveComponent() not sweeping children.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = MovementComponent)
+	TArray<UPrimitiveComponent*> AddlUpdatedComponents;
+
+	virtual void InitializeComponent() OVERRIDE;
+
+	virtual bool MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit);
 
 	virtual FVector CalculateVelocity(FVector OldVelocity, float DeltaTime)
 	{

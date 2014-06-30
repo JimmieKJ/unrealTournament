@@ -96,7 +96,24 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 		if (Cast<AUTProjectile>(OtherActor) != NULL)
 		{
 			// since we'll probably be destroyed or lose collision here, make sure we trigger the other projectile so shootable projectiles colliding is consistent (both explode)
-			((AUTProjectile*)OtherActor)->ProcessHit(this, CollisionComp, HitLocation, -HitNormal);
+
+			UPrimitiveComponent* MyCollider = CollisionComp;
+			if (CollisionComp == NULL || CollisionComp->GetCollisionObjectType() != COLLISION_PROJECTILE_SHOOTABLE)
+			{
+				// our primary collision component isn't the shootable one; try to find one that is
+				TArray<UPrimitiveComponent*> Components;
+				GetComponents<UPrimitiveComponent>(Components);
+				for (int32 i = 0; i < Components.Num(); i++)
+				{
+					if (Components[i]->GetCollisionObjectType() == COLLISION_PROJECTILE_SHOOTABLE)
+					{
+						MyCollider = Components[i];
+						break;
+					}
+				}
+			}
+
+			((AUTProjectile*)OtherActor)->ProcessHit(this, MyCollider, HitLocation, -HitNormal);
 		}
 	}
 }
