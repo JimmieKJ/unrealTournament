@@ -220,6 +220,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	bool bSpawnProtectionEligible;
 
 	virtual void BeginPlay() OVERRIDE;
+	virtual void PostInitializeComponents() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
 
 	virtual void PossessedBy(AController* NewController) OVERRIDE;

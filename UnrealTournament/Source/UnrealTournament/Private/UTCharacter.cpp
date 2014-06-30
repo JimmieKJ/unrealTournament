@@ -59,7 +59,7 @@ void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
 
 void AUTCharacter::BeginPlay()
 {
-	if (Health == 0)
+	if (Health == 0 && Role == ROLE_Authority)
 	{
 		Health = HealthMax;
 	}
@@ -69,7 +69,11 @@ void AUTCharacter::BeginPlay()
 		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation!"), *GetName());
 	}
 	Super::BeginPlay();
+}
 
+void AUTCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
 	BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
 }
 
