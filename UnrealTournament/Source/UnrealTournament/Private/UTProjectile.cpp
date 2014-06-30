@@ -186,6 +186,8 @@ void AUTProjectile::ShutDown()
 		UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
 		if (PSC != NULL)
 		{
+			// tick the particles one last time for e.g. SpawnPerUnit effects (particularly noticeable improvement for fast moving projectiles)
+			PSC->TickComponent(0.0f, LEVELTICK_All, NULL);
 			PSC->DeactivateSystem();
 			PSC->bAutoDestroy = true;
 			bFoundParticles = true;
