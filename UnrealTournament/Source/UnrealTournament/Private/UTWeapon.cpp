@@ -502,14 +502,23 @@ bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 
 bool AUTWeapon::HasAnyAmmo()
 {
+	bool bHadCost = false;
+
+	// only consider zero cost firemodes as having ammo if they all have no cost
+	// the assumption here is that for most weapons with an ammo-using firemode,
+	// any that don't use ammo are support firemodes that can't function effectively without the other one
 	for (int32 i = GetNumFireModes() - 1; i >= 0; i--)
 	{
-		if (HasAmmo(i))
+		if (AmmoCost[i] > 0)
 		{
-			return true;
+			bHadCost = true;
+			if (HasAmmo(i))
+			{
+				return true;
+			}
 		}
 	}
-	return false;
+	return !bHadCost;
 }
 
 FVector AUTWeapon::GetFireStartLoc()

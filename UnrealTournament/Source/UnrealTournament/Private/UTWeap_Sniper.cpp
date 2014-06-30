@@ -38,9 +38,3 @@ AUTProjectile* AUTWeap_Sniper::FireProjectile()
 	}
 	return SniperProj;
 }
-
-bool AUTWeap_Sniper::HasAnyAmmo()
-{
-	// Only care about normal fire since alt-fire is zoom
-	return HasAmmo(0);
-}
