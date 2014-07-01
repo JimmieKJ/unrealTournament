@@ -14,7 +14,6 @@ UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 	bForceZMomentum = true;
 	GibHealthThreshold = -50;
 	GibDamageThreshold = 99;
-	bDontCountForKills = false;
 }
 
 FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitActor, const AController* EventInstigator)
