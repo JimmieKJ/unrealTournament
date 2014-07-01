@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTWeaponStateFiring.h"
+
 #include "UTWeaponStateZooming.generated.h"
 
 USTRUCT()

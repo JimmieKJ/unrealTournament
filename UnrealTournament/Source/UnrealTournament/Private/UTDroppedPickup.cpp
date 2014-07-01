@@ -3,6 +3,7 @@
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
 #include "UTDroppedPickup.h"
+#include "UnrealNetwork.h"
 
 AUTDroppedPickup::AUTDroppedPickup(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)

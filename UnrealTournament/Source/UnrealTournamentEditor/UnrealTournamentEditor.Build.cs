@@ -6,6 +6,9 @@ public class UnrealTournamentEditor : ModuleRules
 {
     public UnrealTournamentEditor(TargetInfo Target)
 	{
+        bFasterWithoutUnity = true;
+        MinFilesUsingPrecompiledHeaderOverride = 1;
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UnrealEd", "Slate", "SlateCore", "UnrealTournament" });
 	}
 }

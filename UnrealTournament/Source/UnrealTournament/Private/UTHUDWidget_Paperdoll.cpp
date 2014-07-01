@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Paperdoll.h"
 #include "UTJumpBoots.h"
+#include "UTArmor.h"
 
 UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {

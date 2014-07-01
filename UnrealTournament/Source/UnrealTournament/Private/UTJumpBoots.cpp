@@ -2,6 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTJumpBoots.h"
 #include "UTReplicatedEmitter.h"
+#include "UTCharacterMovement.h"
+#include "UnrealNetwork.h"
 
 AUTJumpBoots::AUTJumpBoots(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)

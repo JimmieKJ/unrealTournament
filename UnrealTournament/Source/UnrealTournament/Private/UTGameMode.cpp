@@ -8,6 +8,7 @@
 #include "UTTimedPowerup.h"
 #include "UTCountDownMessage.h"
 #include "UTMutator.h"
+#include "UTScoreboard.h"
 
 namespace MatchState
 {

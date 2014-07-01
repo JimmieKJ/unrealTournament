@@ -1,7 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UTHUDWidget_WeaponInfo.h"
+#include "UTHUDWidget_WeaponCrosshair.h"
 
 UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {

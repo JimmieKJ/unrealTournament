@@ -1,6 +1,8 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
+#include "UTScoreboard.h"
+
 #include "UTHUD.generated.h"
 
 const uint32 MAX_DAMAGE_INDICATORS = 3;		// # of damage indicators on the screen at any one time
