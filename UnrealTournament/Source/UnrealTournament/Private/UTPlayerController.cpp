@@ -16,8 +16,6 @@
 #include "UTPlayerInput.h"
 #include "UTPlayerCameraManager.h"
 
-#include "../Private/Slate/SUWMessageBox.h"
-
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
@@ -610,6 +608,7 @@ void AUTPlayerController::DebugTest()
 	UE_LOG(UT,Log,TEXT("DEBUG"));
 }
 
+
 void AUTPlayerController::PlayerTick( float DeltaTime )
 {
 	Super::PlayerTick(DeltaTime);
@@ -650,6 +649,16 @@ void AUTPlayerController::ShowMenu()
 	}
 
 }
+
+void AUTPlayerController::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, UObject* Host, FName ResultFunction)
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
+	{
+		LP->ShowMessage(MessageTitle, MessageText, Buttons, Host, ResultFunction);
+	}	
+}
+
 
 void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {

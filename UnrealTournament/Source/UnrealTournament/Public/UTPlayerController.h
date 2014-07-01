@@ -109,9 +109,10 @@ public:
 	UFUNCTION(exec)
 	virtual void DebugTest();
 
-	/**	We override player tick to keep updating the player's rotation when the game is over.	 **/
+	/**
+	 *	We override player tick to keep updating the player's rotation when the game is over.
+	 **/
 	virtual void PlayerTick(float DeltaTime);
-
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
@@ -121,6 +122,9 @@ public:
 	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec)
 	virtual void ShowMenu();
+
+	UFUNCTION()
+	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, UObject* Host, FName ResultFunction);
 
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)
@@ -217,8 +221,6 @@ protected:
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();
-
-	TSharedPtr<class SUTMessageBox> MessageBox;
 
 };
 

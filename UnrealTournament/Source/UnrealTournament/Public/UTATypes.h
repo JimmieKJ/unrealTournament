@@ -3,6 +3,16 @@
 
 #include "UTATypes.generated.h"
 
+// Const defines for Dialogs
+const uint16 UTDIALOG_BUTTON_OK = 0x0001;			
+const uint16 UTDIALOG_BUTTON_CANCEL = 0x0002;
+const uint16 UTDIALOG_BUTTON_YES = 0x0004;
+const uint16 UTDIALOG_BUTTON_NO = 0x0008;
+const uint16 UTDIALOG_BUTTON_HELP = 0x0010;
+const uint16 UTDIALOG_BUTTON_RECONNECT = 0x0020;
+const uint16 UTDIALOG_BUTTON_EXIT = 0x0040;
+const uint16 UTDIALOG_BUTTON_QUIT = 0x0080;
+
 UENUM()
 namespace EGameStage
 {
@@ -68,3 +78,6 @@ struct FTextureUVs
 	{};
 
 };
+
+DECLARE_DELEGATE_OneParam(FDialogResultDelegate, uint16);
+

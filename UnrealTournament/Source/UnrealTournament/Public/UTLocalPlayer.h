@@ -18,9 +18,15 @@ public:
 	virtual void ShowMenu();
 	virtual void HideMenu();
 
+	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons,  UObject* Host, FName ResultFunction);
+	virtual void MessageBoxDialogResult(uint16 ButtonID);
+
 protected:
 
+	FDialogResultDelegate OnDialogResult;
+
 	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;	
+	TSharedPtr<class SUWMessageBox> MessageBoxWidget;
 };
 
 
