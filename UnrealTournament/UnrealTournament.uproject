@@ -16,6 +16,11 @@
 			"Name": "UnrealTournament",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "UnrealTournamentEditor",
+			"Type": "Developer",
+			"LoadingPhase": "Default"
 		}
 	],
 	"EpicSampleNameHash": "0"

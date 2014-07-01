@@ -1,8 +1,6 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if WITH_EDITOR
-
 #include "UTLoadMap.h"
 
 #include "Editor/UnrealEd/Classes/Editor/UnrealEdEngine.h"
@@ -19,5 +17,3 @@ class UUTUnrealEdEngine : public UUnrealEdEngine
 
 	UT_LOADMAP_DEFINITION()
 };
-
-#endif

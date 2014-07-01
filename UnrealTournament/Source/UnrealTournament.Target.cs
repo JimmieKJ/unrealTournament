@@ -21,5 +21,19 @@ public class UnrealTournamentTarget : TargetRules
 		)
 	{
 		OutExtraModuleNames.Add("UnrealTournament");
+        if (UEBuildConfiguration.bBuildEditor)
+        {
+            OutExtraModuleNames.Add("UnrealTournamentEditor");
+        }
 	}
+
+    public override void SetupGlobalEnvironment(
+        TargetInfo Target,
+        ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
+        ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
+        )
+    {
+        // Turn on shipping logging, this will only apply to monolithic builds
+        UEBuildConfiguration.bUseLoggingInShipping = true;
+    }
 }
