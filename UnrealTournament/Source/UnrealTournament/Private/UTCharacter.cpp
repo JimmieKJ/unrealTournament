@@ -7,7 +7,7 @@
 #include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
 #include "UTDmgType_Suicide.h"
-#include "UTDmgType_SwitchTeam.h"
+#include "UTDmgType_Fell.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -365,6 +365,12 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 	}
 	else
 	{
+		// if this is an environmental death then refer to the previous killer so that they receive credit (knocked into lava pits, etc)
+		if (DamageEvent.DamageTypeClass != NULL && DamageEvent.DamageTypeClass.GetDefaultObject()->bCausedByWorld && (EventInstigator == NULL || EventInstigator == Controller) && LastHitBy != NULL)
+		{
+			EventInstigator = LastHitBy;
+		}
+
 		// TODO: GameInfo::PreventDeath()
 
 		bTearOff = true; // important to set this as early as possible so IsDead() returns true
@@ -1157,7 +1163,7 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 			}*/
 			if (FallingSpeed < -1.f * MaxSafeFallSpeed)
 			{
-				FUTPointDamageEvent DamageEvent(-100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDamageType::StaticClass());
+				FUTPointDamageEvent DamageEvent(-100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
 				if (DamageEvent.Damage >= 1.0f)
 				{
 					TakeDamage(DamageEvent.Damage, DamageEvent, Controller, this);
@@ -1397,9 +1403,7 @@ void AUTCharacter::NotifyTeamChanged()
 
 void AUTCharacter::PlayerChangedTeam()
 {
-	FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
-	FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0,0,0), UUTDmgType_SwitchTeam::StaticClass());
-	Died(NULL, FakeDamageEvent);
+	PlayerSuicide();
 }
 
 void AUTCharacter::PlayerSuicide()

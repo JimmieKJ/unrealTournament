@@ -248,41 +248,38 @@ bool AUTGameMode::IsEnemy(AController * First, AController* Second)
 
 void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
-
-	// Ingore all killing when entering overtime as we kill off players and don't want it affecting their score.
-	if (GetMatchState() == MatchState::MatchEnteringOvertime) return;	
-
-	AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
-	AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
-
-	UE_LOG(UT,Log,TEXT("Player Killed: %s killed %s"), (KillerPlayerState != NULL ? *KillerPlayerState->PlayerName : TEXT("NULL")), (KilledPlayerState != NULL ? *KilledPlayerState->PlayerName : TEXT("NULL")));
-
-	bool const bEnemyKill = IsEnemy(Killer, KilledPlayer);
-
-	if ( KilledPlayerState != NULL )
+	// Ignore all killing when entering overtime as we kill off players and don't want it affecting their score.
+	if (GetMatchState() != MatchState::MatchEnteringOvertime)
 	{
-		KilledPlayerState->IncrementDeaths(KillerPlayerState);
-		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
-		if (UTDamage != NULL)
-		{
-			UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
-		}
+		AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
+		AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
 
-		if (UTDamage == NULL || !UTDamage.GetDefaultObject()->bDontCountForKills)
+		UE_LOG(UT, Log, TEXT("Player Killed: %s killed %s"), (KillerPlayerState != NULL ? *KillerPlayerState->PlayerName : TEXT("NULL")), (KilledPlayerState != NULL ? *KilledPlayerState->PlayerName : TEXT("NULL")));
+
+		bool const bEnemyKill = IsEnemy(Killer, KilledPlayer);
+
+		if (KilledPlayerState != NULL)
 		{
+			KilledPlayerState->IncrementDeaths(KillerPlayerState);
+			TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+			if (UTDamage != NULL)
+			{
+				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
+			}
+
 			ScoreKill(Killer, KilledPlayer);
+			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 		}
-		BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
-	}
 
-	DiscardInventory(KilledPawn, Killer);
-	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
+		DiscardInventory(KilledPawn, Killer);
+		NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
 
-	// Force Respawn 
+		// Force Respawn 
 
-	if (KilledPlayer && bForceRespawn)
-	{
-		RestartPlayer(KilledPlayer);
+		if (KilledPlayer && bForceRespawn)
+		{
+			RestartPlayer(KilledPlayer);
+		}
 	}
 }
 

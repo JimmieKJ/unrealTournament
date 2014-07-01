@@ -60,11 +60,6 @@ class UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	uint32 bForceZMomentum : 1;
 
-	/** If true, killing someone with this damage type doesn't affect their score */
-	UPROPERTY()
-	uint32 bDontCountForKills : 1;
-
-
 	/** if dead Pawn's health <= this value than it gibs (unless hard disabled by client option)
 	 * set to a positive number to never gib (since dead Pawns can't have positive health)
 	 * set to a large negative number to always gib
