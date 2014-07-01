@@ -3,6 +3,8 @@
 
 #include "UTPlayerController.generated.h"
 
+class UUTAnnouncer;
+
 UCLASS(dependson=UTCharacter, dependson=UTPlayerState, config=Game)
 class AUTPlayerController : public APlayerController, public IUTTeamInterface
 {

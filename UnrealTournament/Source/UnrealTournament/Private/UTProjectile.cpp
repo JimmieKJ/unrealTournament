@@ -75,6 +75,17 @@ void AUTProjectile::OnStop(const FHitResult& Hit)
 void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
 	bCanHitInstigator = true;
+
+	// Spawn bounce effect
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BounceEffect, ImpactResult.Location, ImpactResult.ImpactNormal.Rotation(), true);
+	}
+	// Play bounce sound
+	if (BounceSound != NULL)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false);
+	}
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
@@ -124,25 +135,26 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 	if (DamageParams.OuterRadius > 0.0f)
 	{
 		FUTRadialDamageEvent Event;
-		Event.Params = DamageParams;
-		Event.Params.MinimumDamage = DamageParams.BaseDamage; // force full damage for direct hit
+		Event.BaseMomentumMag = Momentum;
+		Event.Params = GetDamageParams(OtherActor, HitLocation, Event.BaseMomentumMag);
+		Event.Params.MinimumDamage = Event.Params.BaseDamage; // force full damage for direct hit
 		Event.DamageTypeClass = MyDamageType;
 		Event.Origin = HitLocation;
-		Event.BaseMomentumMag = Momentum;
 		new(Event.ComponentHits) FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
 		Event.ComponentHits[0].TraceStart = HitLocation - GetVelocity();
 		Event.ComponentHits[0].TraceEnd = HitLocation + GetVelocity();
-		OtherActor->TakeDamage(DamageParams.BaseDamage, Event, InstigatorController, this);
+		OtherActor->TakeDamage(Event.Params.BaseDamage, Event, InstigatorController, this);
 	}
 	else
 	{
 		FUTPointDamageEvent Event;
-		Event.Damage = DamageParams.BaseDamage;
+		float AdjustedMomentum = Momentum;
+		Event.Damage = GetDamageParams(OtherActor, HitLocation, AdjustedMomentum).BaseDamage;
 		Event.DamageTypeClass = MyDamageType;
 		Event.HitInfo = FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
 		Event.ShotDirection = GetVelocity().SafeNormal();
-		Event.Momentum = Event.ShotDirection * Momentum;
-		OtherActor->TakeDamage(DamageParams.BaseDamage, Event, InstigatorController, this);
+		Event.Momentum = Event.ShotDirection * AdjustedMomentum;
+		OtherActor->TakeDamage(Event.Damage, Event, InstigatorController, this);
 	}
 }
 
@@ -150,14 +162,16 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 {
 	if (!bExploded)
 	{
-		if (DamageParams.OuterRadius > 0.0f)
+		float AdjustedMomentum = Momentum;
+		FRadialDamageParams AdjustedDamageParams = GetDamageParams(NULL, HitLocation, AdjustedMomentum);
+		if (AdjustedDamageParams.OuterRadius > 0.0f)
 		{
 			TArray<AActor*> IgnoreActors;
 			if (ImpactedActor != NULL)
 			{
 				IgnoreActors.Add(ImpactedActor);
 			}
-			UUTGameplayStatics::UTHurtRadius(this, DamageParams.BaseDamage, DamageParams.MinimumDamage, Momentum, HitLocation, DamageParams.InnerRadius, DamageParams.OuterRadius, DamageParams.DamageFalloff, MyDamageType, IgnoreActors, this, InstigatorController);
+			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff, MyDamageType, IgnoreActors, this, InstigatorController);
 		}
 		if (Role == ROLE_Authority)
 		{
@@ -224,4 +238,10 @@ void AUTProjectile::TornOff()
 	{
 		Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 	}
+}
+
+FRadialDamageParams AUTProjectile::GetDamageParams_Implementation(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const
+{
+	OutMomentum = Momentum;
+	return DamageParams;
 }

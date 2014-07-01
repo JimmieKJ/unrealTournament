@@ -42,6 +42,17 @@ class AUTProjectile : public AActor
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	USoundBase* ExplosionSound;
 
+	/** Bounce effect */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	UParticleSystem* BounceEffect;
+	/** Sound played when projectile bounces off wall */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	USoundBase* BounceSound;
+
+	/** return base damage and momentum; OtherActor is set for direct hits and NULL when invoking radial damage (explosion) */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
+	FRadialDamageParams GetDamageParams(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const;
+
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
 

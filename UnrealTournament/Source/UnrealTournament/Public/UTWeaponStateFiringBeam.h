@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTWeaponStateFiring.h"
+
 #include "UTWeaponStateFiringBeam.generated.h"
 
 UCLASS()
