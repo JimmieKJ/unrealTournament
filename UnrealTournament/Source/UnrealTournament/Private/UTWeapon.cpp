@@ -696,7 +696,7 @@ void AUTWeapon::Tick(float DeltaTime)
 		CurrentState->Tick(DeltaTime);
 
 		// if weapon is up in first person, view bob with movement
-		if (Mesh && UTOwner)
+		if (Mesh && UTOwner && UTOwner->IsLocallyControlled())
 		{
 			if ( FirstPMeshOffset.IsZero() )
 			{

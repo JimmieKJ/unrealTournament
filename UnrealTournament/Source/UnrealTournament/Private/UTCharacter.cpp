@@ -38,7 +38,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	DamageScaling = 1.0f;
 	FireRateMultiplier = 1.0f;
 	bSpawnProtectionEligible = true;
-	MaxSafeFallSpeed = 2000.0f;
+	MaxSafeFallSpeed = 2400.0f;
 	FallingDamageFactor = 100.0f;
 	CrushingDamageFactor = 20.0f;
 	HeadScale = 1.0f;
@@ -173,28 +173,21 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	{
 		float Speed = CharacterMovement->Velocity.Size();
 		BobTime += (Speed > 20.f)
-			? DeltaTime * (WeaponBreathingBobRate + WeaponRunningBobRate*Speed/CharacterMovement->GetMaxSpeed())
+			? DeltaTime * (WeaponBreathingBobRate + WeaponRunningBobRate*Speed/CharacterMovement->MaxWalkSpeed)
 			: WeaponBreathingBobRate*DeltaTime;
 		DesiredJumpBob *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
 		CurrentWeaponBob.X = 0.f;
 		CurrentWeaponBob.Y = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Y*Speed * FMath::Sin(8.f*BobTime);
 		CurrentWeaponBob.Z = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Z*Speed * FMath::Sin(16.f*BobTime);
+
+		// play footstep sounds when weapon changes bob direction if walking
+		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::Floor(0.5f + 8.f*BobTime/PI) != FMath::Floor(0.5f + 8.f*(BobTime+DeltaTime)/PI)))
+		{
+			PlayFootstep((LastFoot + 1) & 1);
+		}
 	}
 	CurrentJumpBob = (1.f - InterpTime)*CurrentJumpBob + InterpTime*DesiredJumpBob;
 	return CurrentWeaponBob.Y*Y + (CurrentWeaponBob.Z + CurrentJumpBob)*Z;
-
-	/*
-	if ((Physics == PHYS_Walking) && (VSizeSq(Velocity) > 100) && IsFirstPerson())
-	{
-		m = int(0.5 * Pi + 9.0 * OldBobTime / Pi);
-		n = int(0.5 * Pi + 9.0 * BobTime / Pi);
-
-		if ((m != n) && !bIsWalking && !bIsCrouched)
-		{
-			ActuallyPlayFootStepSound(0);
-		}
-	}
-	*/
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -1378,12 +1371,12 @@ void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (Mesh->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !Mesh->bRecentlyRendered)
+	if (Mesh->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !Mesh->bRecentlyRendered && !IsLocallyControlled())
 	{
 		// TODO: currently using an arbitrary made up interval and scale factor
 		// TODO: for local player in first person, sync to view bob, etc
 		float Speed = CharacterMovement->Velocity.Size();
-		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.3f * CharacterMovement->MaxWalkSpeed / Speed)
+		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.35f * CharacterMovement->MaxWalkSpeed / Speed)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}
