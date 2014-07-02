@@ -54,6 +54,11 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	WeaponRunningBobRate = 0.8f;
 	WeaponJumpBobInterpRate = 10.f;
 	WeaponLandBobDecayRate = 12.f;
+	EyeOffset = FVector(0.f, 0.f, 0.f);
+	TargetEyeOffset = EyeOffset;
+	EyeOffsetInterpRate = 12.f;
+	EyeOffsetDecayRate = 12.f;
+	EyeOffsetLandBob = -180.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -187,7 +192,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		}
 	}
 	CurrentJumpBob = (1.f - InterpTime)*CurrentJumpBob + InterpTime*DesiredJumpBob;
-	return CurrentWeaponBob.Y*Y + (CurrentWeaponBob.Z + CurrentJumpBob)*Z;
+	return CurrentWeaponBob.Y*Y + (CurrentWeaponBob.Z + CurrentJumpBob)*Z + EyeOffset;
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -1152,6 +1157,11 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 	LastFootstepTime = GetWorld()->TimeSeconds;
 }
 
+FVector AUTCharacter::GetPawnViewLocation() const
+{
+	return GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + EyeOffset;
+}
+
 void AUTCharacter::PlayJump()
 {
 	DesiredJumpBob = WeaponJumpBob;
@@ -1181,10 +1191,11 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
 	}
 
-	// bob weapon on landing
+	// bob weapon and viewpoint on landing
 	if (CharacterMovement->Velocity.Z < -200.f)
 	{
 		DesiredJumpBob = WeaponLandBob;
+		TargetEyeOffset.Z = EyeOffsetLandBob;
 	}
 
 	TakeFallingDamage(Hit);
@@ -1381,6 +1392,11 @@ void AUTCharacter::Tick(float DeltaTime)
 			PlayFootstep((LastFoot + 1) & 1);
 		}
 	}
+
+	// update eyeheight locally
+	float InterpTime = FMath::Min(1.f, EyeOffsetInterpRate*DeltaTime);
+	EyeOffset = (1.f - InterpTime)*EyeOffset + InterpTime*TargetEyeOffset;
+	TargetEyeOffset *= FMath::Max(0.f, 1.f - EyeOffsetDecayRate*DeltaTime);
 }
 
 void AUTCharacter::BecomeViewTarget(class APlayerController* PC)

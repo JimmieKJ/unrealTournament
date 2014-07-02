@@ -463,12 +463,33 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	/** How fast to decay out Land bob offset. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
-		float WeaponLandBobDecayRate;
+	float WeaponLandBobDecayRate;
+
+	/** Current Eye position offset from base view position - interpolates toward TargetEyeOffset. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	FVector EyeOffset;
+
+	/** Target Eye position offset from base view position. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	FVector TargetEyeOffset;
+
+	/** How fast EyeOffset interpolates to TargetEyeOffset. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float EyeOffsetInterpRate;
+
+	/** How fast TargetEyeOffset decays. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float EyeOffsetDecayRate;
+
+	/** Jump Landing target view bob magnitude. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+		float EyeOffsetLandBob;
 
 	/** Returns offset to add to first person mesh for weapon bob. */
 	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
-	//--------------------------
 
+	virtual FVector GetPawnViewLocation() const override;
+	//--------------------------
 
 protected:
 
