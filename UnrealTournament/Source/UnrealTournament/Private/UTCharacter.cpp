@@ -46,6 +46,15 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	HeadHeight = 5.0f;
 	HeadBone = FName(TEXT("b_Head"));
 
+	BobTime = 0.f;
+	WeaponBobMagnitude = FVector(0.f, 0.002f, 0.0015f);
+	WeaponJumpBob = -7.f;
+	WeaponLandBob = 18.f;
+	WeaponBreathingBobRate = 0.2f;
+	WeaponRunningBobRate = 0.8f;
+	WeaponJumpBobInterpRate = 10.f;
+	WeaponLandBobDecayRate = 12.f;
+
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
@@ -145,6 +154,47 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 		}
 	}
 	return bHeadShot;
+}
+
+FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
+{
+	FRotationMatrix RotMatrix = FRotationMatrix(GetViewRotation());
+	FVector X = RotMatrix.GetScaledAxis(EAxis::X);
+	FVector Y = RotMatrix.GetScaledAxis(EAxis::Y);
+	FVector Z = RotMatrix.GetScaledAxis(EAxis::Z);
+
+	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
+	if (!CharacterMovement || CharacterMovement->IsFalling() || !MyWeapon)
+	{
+		BobTime = 0.f;
+		CurrentWeaponBob = (1.f - InterpTime)*CurrentWeaponBob + InterpTime*CurrentWeaponBob;
+	}
+	else
+	{
+		float Speed = CharacterMovement->Velocity.Size();
+		BobTime += (Speed > 20.f)
+			? DeltaTime * (WeaponBreathingBobRate + WeaponRunningBobRate*Speed/CharacterMovement->GetMaxSpeed())
+			: WeaponBreathingBobRate*DeltaTime;
+		DesiredJumpBob *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
+		CurrentWeaponBob.X = 0.f;
+		CurrentWeaponBob.Y = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Y*Speed * FMath::Sin(8.f*BobTime);
+		CurrentWeaponBob.Z = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Z*Speed * FMath::Sin(16.f*BobTime);
+	}
+	CurrentJumpBob = (1.f - InterpTime)*CurrentJumpBob + InterpTime*DesiredJumpBob;
+	return CurrentWeaponBob.Y*Y + (CurrentWeaponBob.Z + CurrentJumpBob)*Z;
+
+	/*
+	if ((Physics == PHYS_Walking) && (VSizeSq(Velocity) > 100) && IsFirstPerson())
+	{
+		m = int(0.5 * Pi + 9.0 * OldBobTime / Pi);
+		n = int(0.5 * Pi + 9.0 * BobTime / Pi);
+
+		if ((m != n) && !bIsWalking && !bIsCrouched)
+		{
+			ActuallyPlayFootStepSound(0);
+		}
+	}
+	*/
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -1111,6 +1161,7 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 
 void AUTCharacter::PlayJump()
 {
+	DesiredJumpBob = WeaponJumpBob;
 	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_AllButOwner);
 }
 
@@ -1135,6 +1186,12 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	if (Role == ROLE_Authority)
 	{
 		MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
+	}
+
+	// bob weapon on landing
+	if (CharacterMovement->Velocity.Z < -200.f)
+	{
+		DesiredJumpBob = WeaponLandBob;
 	}
 
 	TakeFallingDamage(Hit);

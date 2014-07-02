@@ -28,6 +28,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 
 	BringUpTime = 0.5f;
 	PutDownTime = 0.5f;
+	WeaponBobScaling = 1.f;
 
 	bFPFireFromCenter = true;
 	FireOffset = FVector(75.0f, 0.0f, 0.0f);
@@ -40,6 +41,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
+	FirstPMeshOffset = FVector(0.f);
 
 	for (int32 i = 0; i < 2; i++)
 	{
@@ -239,6 +241,7 @@ void AUTWeapon::Removed()
 
 	Super::Removed();
 }
+
 void AUTWeapon::ClientRemoved_Implementation()
 {
 	GotoState(InactiveState);
@@ -262,14 +265,17 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 		ServerStartFire(FireModeNum);
 	}
 }
+
 void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum)
 {
 	BeginFiringSequence(FireModeNum);
 }
+
 bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
 {
 	return true;
 }
+
 void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, true);
@@ -292,14 +298,17 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 		ServerStopFire(FireModeNum);
 	}
 }
+
 void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum)
 {
 	EndFiringSequence(FireModeNum);
 }
+
 bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum)
 {
 	return true;
 }
+
 void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, false);
@@ -316,6 +325,7 @@ void AUTWeapon::BringUp()
 
 	CurrentState->BringUp();
 }
+
 bool AUTWeapon::PutDown()
 {
 	if (eventPreventPutDown())
@@ -402,6 +412,7 @@ void AUTWeapon::StopFiringEffects()
 		MuzzleFlash[CurrentFireMode]->DeactivateSystem();
 	}
 }
+
 void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
 {
 	if (GetNetMode() != NM_DedicatedServer)
@@ -683,6 +694,17 @@ void AUTWeapon::Tick(float DeltaTime)
 	if (CurrentState != InactiveState)
 	{
 		CurrentState->Tick(DeltaTime);
+
+		// if weapon is up in first person, view bob with movement
+		if (Mesh && UTOwner)
+		{
+			if ( FirstPMeshOffset.IsZero() )
+			{
+				FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
+			}
+			Mesh->SetRelativeLocation(FirstPMeshOffset);
+			Mesh->SetWorldLocation(Mesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(DeltaTime, this));
+		}
 	}
 }
 

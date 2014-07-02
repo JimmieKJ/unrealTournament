@@ -125,6 +125,7 @@ public:
 	/** equip anims */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* BringUpAnim;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* PutDownAnim;
 
@@ -142,6 +143,14 @@ public:
 	/** whether this weapon stays around by default when someone picks it up (i.e. multiple people can pick up from the same spot without waiting for respawn time) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	bool bWeaponStay;
+
+	/** Base offset of first person mesh, cached from offset set up in blueprint. */
+	UPROPERTY()
+	FVector FirstPMeshOffset;
+
+	/** Scaling for 1st person weapon bob */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
+	float WeaponBobScaling;
 
 	virtual void BeginPlay() OVERRIDE;
 	virtual void RegisterAllComponents() OVERRIDE

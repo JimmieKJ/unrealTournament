@@ -418,6 +418,58 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	virtual void PlayerChangedTeam();
 	virtual void PlayerSuicide();
 
+	//--------------------------
+	// Weapon Bob
+
+	/** Current 1st person weapon deflection due to running bob. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	FVector CurrentWeaponBob;
+
+	/** Max 1st person weapon bob deflection with axes based on player view */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	FVector WeaponBobMagnitude;
+
+	/** Z deflection of first person weapon when player jumps */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float WeaponJumpBob;
+
+	/** Z deflection of first person weapon when player lands */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float WeaponLandBob;
+
+	/** Desired 1st person weapon deflection due to jumping. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float DesiredJumpBob;
+
+	/* Current jump bob (interpolating to DesiredJumpBob)*/
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float CurrentJumpBob;
+
+	/** Time used for weapon bob sinusoids, reset on landing. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float BobTime;
+
+	/** Rate of weapon bob when standing still. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float WeaponBreathingBobRate;
+
+	/** Rate of weapon bob when running. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float WeaponRunningBobRate;
+
+	/** How fast to interpolate to Jump/Land bob offset. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	float WeaponJumpBobInterpRate;
+
+	/** How fast to decay out Land bob offset. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+		float WeaponLandBobDecayRate;
+
+	/** Returns offset to add to first person mesh for weapon bob. */
+	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
+	//--------------------------
+
+
 protected:
 
 	/** multiplier to firing speed */
