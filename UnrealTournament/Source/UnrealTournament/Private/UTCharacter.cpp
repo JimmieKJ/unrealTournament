@@ -58,7 +58,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = 12.f;
-	EyeOffsetLandBob = -180.f;
+	EyeOffsetLandBob = -160.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -1163,6 +1163,18 @@ FVector AUTCharacter::GetPawnViewLocation() const
 	return GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + EyeOffset;
 }
 
+void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
+{
+	if (bFindCameraComponentWhenViewTarget && CharacterCameraComponent && CharacterCameraComponent->bIsActive)
+	{
+		CharacterCameraComponent->GetCameraView(DeltaTime, OutResult);
+		OutResult.Location += EyeOffset;
+		return;
+	}
+
+	GetActorEyesViewPoint(OutResult.Location, OutResult.Rotation);
+}
+
 void AUTCharacter::PlayJump()
 {
 	DesiredJumpBob = WeaponJumpBob;
@@ -1398,6 +1410,11 @@ void AUTCharacter::Tick(float DeltaTime)
 	float InterpTime = FMath::Min(1.f, EyeOffsetInterpRate*DeltaTime);
 	EyeOffset = (1.f - InterpTime)*EyeOffset + InterpTime*TargetEyeOffset;
 	TargetEyeOffset *= FMath::Max(0.f, 1.f - EyeOffsetDecayRate*DeltaTime);
+/*
+	if (CharacterMovement && ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f))
+	{
+		UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
+	}*/
 }
 
 void AUTCharacter::BecomeViewTarget(class APlayerController* PC)

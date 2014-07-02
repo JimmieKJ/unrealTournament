@@ -43,6 +43,20 @@ void AUTPlayerController::SetGravity(float NewGravity)
 	}
 }
 
+
+FVector AUTPlayerController::GetFocalLocation() const
+{
+	if (GetPawnOrSpectator())
+	{
+		return GetPawnOrSpectator()->GetPawnViewLocation();
+	}
+	else
+	{
+		return GetSpawnLocation();
+	}
+}
+
+
 void AUTPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();

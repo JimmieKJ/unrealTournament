@@ -9,6 +9,5 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitial
 {
 	FreeCamOffset = FVector(-256,0,90);
 	bUseClientSideCameraUpdates = false;
-	CameraStyle = FName(TEXT("FirstPerson"));
 }
 

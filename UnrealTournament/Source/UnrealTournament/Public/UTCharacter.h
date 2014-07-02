@@ -489,6 +489,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
 
 	virtual FVector GetPawnViewLocation() const override;
+
+	virtual void CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult) override;
+
 	//--------------------------
 
 protected:

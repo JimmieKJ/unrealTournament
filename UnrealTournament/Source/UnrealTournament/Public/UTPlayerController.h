@@ -104,6 +104,8 @@ public:
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
+	virtual FVector GetFocalLocation() const override;
+
 	// TEMP FIXMESTEVE - change gravity and update all jump properties to keep same jump heights etc.
 	UFUNCTION(exec)
 	virtual void SetGravity(float NewGravity);
