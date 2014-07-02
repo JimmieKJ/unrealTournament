@@ -301,6 +301,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				ResultMomentum.Z = 0.0f;
 			}
 			CharacterMovement->AddMomentum(ResultMomentum, false);
+			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, DamageEvent);
 			SetLastTakeHitInfo(ResultDamage, ResultMomentum, DamageEvent);
 			if (Health <= 0)
 			{
