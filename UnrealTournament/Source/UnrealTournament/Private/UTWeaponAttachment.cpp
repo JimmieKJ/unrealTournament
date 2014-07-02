@@ -9,6 +9,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
 	Mesh->SetOwnerNoSee(true);
 	Mesh->AttachParent = RootComponent;
+	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	AttachSocket = FName((TEXT("WeaponPoint")));
 
 	PickupScaleOverride = FVector(2.0f, 2.0f, 2.0f);

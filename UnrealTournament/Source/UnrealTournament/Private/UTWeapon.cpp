@@ -41,6 +41,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
+	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPMeshOffset = FVector(0.f);
 
 	for (int32 i = 0; i < 2; i++)
