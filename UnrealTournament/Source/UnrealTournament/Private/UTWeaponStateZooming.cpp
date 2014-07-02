@@ -26,10 +26,13 @@ void UUTWeaponStateZooming::PendingFireStarted()
 	if (bIsZoomed)
 	{
 		bIsZoomed = false;
-		APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
-		if (Camera != NULL)
+		if (GetUTOwner()->IsLocallyControlled())
 		{
-			Camera->UnlockFOV();
+			APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
+			if (Camera != NULL)
+			{
+				Camera->UnlockFOV();
+			}
 		}
 	}
 	else
@@ -58,11 +61,28 @@ void UUTWeaponStateZooming::EndFiringSequence(uint8 FireModeNum)
 	GetOuterAUTWeapon()->GotoActiveState();
 }
 
+void UUTWeaponStateZooming::OwnerLostWeapon()
+{
+	if (bIsZoomed && GetUTOwner()->IsLocallyControlled())
+	{
+		bIsZoomed = false;
+		APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
+		if (Camera != NULL)
+		{
+			Camera->UnlockFOV();
+		}
+	}
+}
+
 void UUTWeaponStateZooming::TickZoom(float DeltaTime)
 {
-	APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
-	if (Camera != NULL)
+	// only mess with the FOV on the client; it doesn't matter to networking and is easier to maintain
+	if (GetUTOwner()->IsLocallyControlled())
 	{
-		Camera->SetFOV(Camera->DefaultFOV - (Camera->DefaultFOV - MinFOV) * FMath::Min<float>((GetWorld()->TimeSeconds - StartZoomTime) / ZoomTime, 1.0f));
+		APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
+		if (Camera != NULL)
+		{
+			Camera->SetFOV(Camera->DefaultFOV - (Camera->DefaultFOV - MinFOV) * FMath::Min<float>((GetWorld()->TimeSeconds - StartZoomTime) / ZoomTime, 1.0f));
+		}
 	}
 }

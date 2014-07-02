@@ -236,6 +236,10 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 
 void AUTWeapon::Removed()
 {
+	for (int32 i = 0; i < FiringState.Num(); i++)
+	{
+		FiringState[i]->OwnerLostWeapon();
+	}
 	GotoState(InactiveState);
 	DetachFromOwner();
 
@@ -244,6 +248,13 @@ void AUTWeapon::Removed()
 
 void AUTWeapon::ClientRemoved_Implementation()
 {
+	if (Role < ROLE_Authority)
+	{
+		for (int32 i = 0; i < FiringState.Num(); i++)
+		{
+			FiringState[i]->OwnerLostWeapon();
+		}
+	}
 	GotoState(InactiveState);
 	DetachFromOwner();
 
@@ -696,9 +707,9 @@ void AUTWeapon::Tick(float DeltaTime)
 		CurrentState->Tick(DeltaTime);
 
 		// if weapon is up in first person, view bob with movement
-		if (Mesh && UTOwner && UTOwner->IsLocallyControlled())
+		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled())
 		{
-			if ( FirstPMeshOffset.IsZero() )
+			if (FirstPMeshOffset.IsZero())
 			{
 				FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
 			}

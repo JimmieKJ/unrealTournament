@@ -181,7 +181,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		CurrentWeaponBob.Z = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Z*Speed * FMath::Sin(16.f*BobTime);
 
 		// play footstep sounds when weapon changes bob direction if walking
-		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::Floor(0.5f + 8.f*BobTime/PI) != FMath::Floor(0.5f + 8.f*(BobTime+DeltaTime)/PI)))
+		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime/PI) != FMath::FloorToInt(0.5f + 8.f*(BobTime+DeltaTime)/PI)))
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}
@@ -1458,7 +1458,10 @@ void AUTCharacter::PlayerChangedTeam()
 
 void AUTCharacter::PlayerSuicide()
 {
-	FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
-	FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0,0,0),UUTDmgType_Suicide::StaticClass());
-	Died(NULL, FakeDamageEvent);
+	if (Role == ROLE_Authority)
+	{
+		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
+		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_Suicide::StaticClass());
+		Died(NULL, FakeDamageEvent);
+	}
 }

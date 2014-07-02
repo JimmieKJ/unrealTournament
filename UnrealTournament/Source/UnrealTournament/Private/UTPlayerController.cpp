@@ -125,6 +125,17 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 	UTCharacter = Cast<AUTCharacter>(InPawn);
 }
 
+void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
+{
+	Super::ClientRestart_Implementation(NewPawn);
+
+	// make sure we don't have leftover zoom
+	if (PlayerCameraManager != NULL)
+	{
+		PlayerCameraManager->UnlockFOV();
+	}
+}
+
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// unfortunately have to go roundabout because this is the only InputKey() that's virtual
@@ -683,7 +694,12 @@ void AUTPlayerController::ChangeTeam(uint8 NewTeamIndex)
 
 void AUTPlayerController::Suicide()
 {
-	if (GetPawn() != NULL)
+	ServerSuicide();
+}
+void AUTPlayerController::ServerSuicide_Implementation()
+{
+	// throttle suicides to avoid spamming to grief own team in TDM
+	if (GetPawn() != NULL && (GetWorld()->TimeSeconds - GetPawn()->CreationTime > 10.0f || GetWorld()->WorldType == EWorldType::PIE || GetNetMode() == NM_Standalone))
 	{
 		AUTCharacter* Char = Cast<AUTCharacter>(GetPawn());
 		if (Char != NULL)
@@ -691,5 +707,8 @@ void AUTPlayerController::Suicide()
 			Char->PlayerSuicide();
 		}
 	}
-
+}
+bool AUTPlayerController::ServerSuicide_Validate()
+{
+	return true;
 }

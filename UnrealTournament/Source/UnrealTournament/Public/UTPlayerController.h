@@ -48,6 +48,7 @@ public:
 	virtual void OnRep_PlayerState();
 	virtual void SetPawn(APawn* InPawn);
 	virtual void SetupInputComponent() OVERRIDE;
+	virtual void ClientRestart_Implementation(APawn* NewPawn) OVERRIDE;
 
 	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
 
@@ -175,6 +176,8 @@ protected:
 
 	UFUNCTION(exec)
 	virtual void Suicide();
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSuicide();
 
 	/** weapon selection */
 	void PrevWeapon();

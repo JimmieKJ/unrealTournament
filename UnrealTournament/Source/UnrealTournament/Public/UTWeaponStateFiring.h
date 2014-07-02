@@ -54,4 +54,10 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	*/
 	virtual void PendingFireStopped()
 	{}
+
+	/** called when the owner of the weapon is about to lose it (weapon destroyed, owner killed, weapon dropped, etc)
+	 * GetUTOwner() is still valid here
+	 **/
+	virtual void OwnerLostWeapon()
+	{}
 };

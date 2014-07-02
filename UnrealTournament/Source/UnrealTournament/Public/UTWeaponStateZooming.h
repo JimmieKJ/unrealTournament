@@ -48,6 +48,7 @@ public:
 	virtual void PendingFireStopped() OVERRIDE;
 	virtual void BeginFiringSequence(uint8 FireModeNum) OVERRIDE;
 	virtual void EndFiringSequence(uint8 FireModeNum) OVERRIDE;
+	virtual void OwnerLostWeapon() OVERRIDE;
 
 	virtual void TickZoom(float DeltaTime);
 };
