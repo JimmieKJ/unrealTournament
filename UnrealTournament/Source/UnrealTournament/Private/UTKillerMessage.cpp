@@ -12,7 +12,9 @@ UUTKillerMessage::UUTKillerMessage(const class FPostConstructInitializePropertie
 	bIsSpecial = true;
 	bIsUnique = true;
 	MessageArea = FName(TEXT("DeathMessage"));
+	StyleTag = FName(TEXT("Killer"));
 	YouKilledText = NSLOCTEXT("UTKillerMessage","YouKilledText","You killed {Player2Name}");
+
 }
 
 FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const

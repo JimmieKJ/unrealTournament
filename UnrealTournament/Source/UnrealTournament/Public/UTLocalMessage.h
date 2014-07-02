@@ -10,8 +10,12 @@ class UUTLocalMessage : public ULocalMessage
 	GENERATED_UCLASS_BODY()
 
 	/** Message area on HUD (index into UTHUD.MessageOffset[]) */
-	UPROPERTY(EditDefaultsOnly, Category = Message)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FName MessageArea;
+
+	/** Can be used by a message zone to stylize an incoming localized message */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+	FName StyleTag;
 
 	// How much weight should be given to this message.  The MessageWidget will
 	// use this number to determine how important the message is. Range is 0-1.

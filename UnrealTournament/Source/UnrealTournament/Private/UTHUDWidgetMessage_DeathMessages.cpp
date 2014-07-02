@@ -43,13 +43,18 @@ void UUTHUDWidgetMessage_DeathMessages::LayoutMessage(int32 QueueIndex, TSubclas
 	MessageQueue[QueueIndex].DisplayFont = MessageFont == NULL ? GEngine->GetSmallFont() : MessageFont;
 	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
 
+	FName MessageStyle = MessageClass->GetDefaultObject<UUTLocalMessage>()->StyleTag;
 
-	if (MessageClass == UUTVictimMessage::StaticClass() && MessageIndex < 1)
+	if ( MessageStyle == FName(TEXT("Spree")))
 	{
-		MessageQueue[QueueIndex].DrawColor = FLinearColor::White;
+		MessageQueue[QueueIndex].DrawColor = FLinearColor::Yellow;
+	}
+	else if (MessageStyle == FName(TEXT("Victim")))
+	{
+		MessageQueue[QueueIndex].DrawColor = FLinearColor::Red;
 	}
 	else
 	{
-		MessageQueue[QueueIndex].DrawColor = FLinearColor::Red;
+		MessageQueue[QueueIndex].DrawColor = FLinearColor::White;
 	}
 }

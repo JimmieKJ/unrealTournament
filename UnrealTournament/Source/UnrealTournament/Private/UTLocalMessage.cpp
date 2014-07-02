@@ -11,6 +11,7 @@ UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties&
 {
 	Lifetime = 2.0;
 	MessageArea = FName(TEXT("ConsoleMessage"));
+	StyleTag = FName(TEXT("Default"));
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -47,7 +48,7 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 
 
 	UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
-	if (DamageTypeClass != NULL)
+	if (DamageTypeClass != NULL && DamageTypeClass->IsChildOf(UUTDamageType::StaticClass()))
 	{
 		UUTDamageType* DamageType = DamageTypeClass->GetDefaultObject<UUTDamageType>();			
 		if (DamageType != NULL)

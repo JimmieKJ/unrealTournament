@@ -30,6 +30,7 @@ class UUTSpreeMessage : public UUTLocalMessage
 		: Super(PCIP)
 	{
 		MessageArea = FName(TEXT("DeathMessage"));
+		StyleTag = FName(TEXT("Spree"));
 
 		OwnerAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OwnerAnnouncementText[0]", "Killing Spree!"));
 		OwnerAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OwnerAnnouncementText[1]", "Rampage!"));

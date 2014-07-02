@@ -62,7 +62,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 FText UUTDeathMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
 	UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
-	if (DamageTypeClass != NULL)
+	if (DamageTypeClass != NULL && DamageTypeClass->IsChildOf(UUTDamageType::StaticClass()))
 	{
 		UUTDamageType* DamageType = DamageTypeClass->GetDefaultObject<UUTDamageType>();			
 		if (Switch == 1)	// Suicide
