@@ -16,9 +16,6 @@ UUTDeathMessage::UUTDeathMessage(const class FPostConstructInitializeProperties&
 	bIsSpecial = false;
 
 	Lifetime = 6.0f;
-
-	GenericKillMessage = NSLOCTEXT("UTDeathMessage","GenericKillMessage","{Player1Name} killed {Player2Name}"); //  with {WeaponName} -- Fix when we have proper damage types
-	SuicideKillMessage = NSLOCTEXT("UTDeathMessage","SuicideKillMessage","{Player2Name} Suicided");
 }
 
 void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -62,20 +59,19 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	Super::ClientReceive(ClientData);
 }
 
-void UUTDeathMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
-{
-	Super::GetArgs(Args, Switch, bTargetsPlayerState1, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
-
-	// Add code here to look at the damage type passed in via OptionalObject and set the (WeaponName) args.  In the future,
-	// we'll need to add support for vehicle damage types as well.
-}
-
 FText UUTDeathMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
-	switch(Switch)
+	UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
+	if (DamageTypeClass != NULL)
 	{
-		case 0 : return GenericKillMessage;
-		case 1 : return SuicideKillMessage;
+		UUTDamageType* DamageType = DamageTypeClass->GetDefaultObject<UUTDamageType>();			
+		if (Switch == 1)	// Suicide
+		{
+			// We don't have a switch yet in the PRI for male vs Female..... so just use the mail for now.
+			return DamageType->MaleSuicideMessage;
+		}
+		return DamageType->ConsoleDeathMessage;
 	}
+
 	return FText::GetEmpty();	
 }

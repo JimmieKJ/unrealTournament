@@ -44,6 +44,17 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 	Args.Add(TEXT("Player1Score"), RelatedPlayerState_1 != NULL ? FText::AsNumber(int32(RelatedPlayerState_1->Score)) : FText::GetEmpty());
 	Args.Add(TEXT("Player2Name"), RelatedPlayerState_2 != NULL ? FText::FromString(RelatedPlayerState_2->PlayerName) : FText::GetEmpty());
 	Args.Add(TEXT("Player2Score"), RelatedPlayerState_2 != NULL ? FText::AsNumber(int32(RelatedPlayerState_2->Score)) : FText::GetEmpty());
+
+
+	UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
+	if (DamageTypeClass != NULL)
+	{
+		UUTDamageType* DamageType = DamageTypeClass->GetDefaultObject<UUTDamageType>();			
+		if (DamageType != NULL)
+		{
+			Args.Add(TEXT("WeaponName"), DamageType->AssociatedWeaponName);
+		}
+	}
 	return;
 }
 

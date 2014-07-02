@@ -14,6 +14,11 @@ UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 	bForceZMomentum = true;
 	GibHealthThreshold = -50;
 	GibDamageThreshold = 99;
+
+	ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages","GenericConsoleDeathMessage","{Player1Name} killed {Player2Name} with {WeaponName}");
+	MaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericMaleSuicideMessage","{Player2Name} kill himself with the {WeaponName}");
+	FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericFemaleSuicideMessage","{Player2Name} kill herself with the {WeaponName}");
+	AssociatedWeaponName = NSLOCTEXT("UTDeathMessages","EnvironmentMessage","Environmental");
 }
 
 FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitActor, const AController* EventInstigator)

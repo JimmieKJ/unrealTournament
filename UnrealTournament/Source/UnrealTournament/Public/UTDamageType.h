@@ -77,6 +77,22 @@ class UUTDamageType : public UDamageType
 	/** called on clients for dead characters killed by this damagetype to decide if they should gib instead of ragdoll */
 	UFUNCTION(BlueprintNativeEvent)
 	bool ShouldGib(AUTCharacter* Victim) const;
+
+	/** This is the console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+	FText ConsoleDeathMessage;
+
+	/** This is the male suicide console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+	FText MaleSuicideMessage;
+
+	/** This is the female suciide console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+	FText FemaleSuicideMessage;
+
+	/** this is the name that will be used for the {WeaponName} message option*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+	FText AssociatedWeaponName;
 };
 
 /** return the base momentum for the given damage event (before radial damage and any other modifiers) */

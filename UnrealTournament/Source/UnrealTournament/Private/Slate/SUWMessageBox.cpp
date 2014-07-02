@@ -8,7 +8,6 @@
 void SUWMessageBox::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
-
 	FVector2D ViewportSize;
 	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
 
@@ -64,7 +63,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					.VAlign(VAlign_Bottom)
-					.HAlign(HAlign_Fill)
+					.HAlign(HAlign_Right)
 					.Padding(5.0f,5.0f,5.0f,5.0f)
 					[
 						BuildButtonBar(InArgs._ButtonsMask)
@@ -75,37 +74,44 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 		];
 }
 
-void SUWMessageBox::BuildButton(TSharedPtr<SHorizontalBox> Bar, FText ButtonText, uint16 ButtonID)
+void SUWMessageBox::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText, uint16 ButtonID, uint32 &ButtonCount)
 {
 	if (Bar.IsValid())
 	{
-		Bar->AddSlot()
-			.HAlign(HAlign_Right)
-			.Padding(0.0f,0.0f,5.0f,0.0f)
+		Bar->AddSlot(ButtonCount,0)
+			.HAlign(HAlign_Fill)
+//			.Padding(0.0f,0.0f,5.0f,0.0f)
 			[
 				SNew(SButton)
+				.HAlign(HAlign_Center)
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 				.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 				.Text(ButtonText.ToString())
 				.OnClicked(this, &SUWMessageBox::OnButtonClick, ButtonID)
 			];
+
+		ButtonCount++;
 	};
 }
 
 TSharedRef<class SWidget> SUWMessageBox::BuildButtonBar(uint16 ButtonMask)
 {
-	TSharedPtr<SHorizontalBox> Bar;
-	SAssignNew(Bar, SHorizontalBox);
+	uint32 ButtonCount = 0;
+
+	TSharedPtr<SUniformGridPanel> Bar;
+	SAssignNew(Bar,SUniformGridPanel)
+		.SlotPadding(FMargin(0.0f,0.0f, 10.0f, 10.0f));
+
 	if ( Bar.IsValid() )
 	{
-		if (ButtonMask & UTDIALOG_BUTTON_OK) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","OKButton","OK"), UTDIALOG_BUTTON_OK);
-		if (ButtonMask & UTDIALOG_BUTTON_CANCEL) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","CancelButton","Cancel"), UTDIALOG_BUTTON_CANCEL);
-		if (ButtonMask & UTDIALOG_BUTTON_YES) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","YesButton","Yes"), UTDIALOG_BUTTON_YES);
-		if (ButtonMask & UTDIALOG_BUTTON_NO) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","NoButton","No"), UTDIALOG_BUTTON_NO);
-		if (ButtonMask & UTDIALOG_BUTTON_HELP) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","HelpButton","Help"), UTDIALOG_BUTTON_HELP);
-		if (ButtonMask & UTDIALOG_BUTTON_RECONNECT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","ReconnectButton","Reconnect"), UTDIALOG_BUTTON_RECONNECT);
-		if (ButtonMask & UTDIALOG_BUTTON_EXIT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","ExitButton","Exit"), UTDIALOG_BUTTON_EXIT);
-		if (ButtonMask & UTDIALOG_BUTTON_QUIT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","QuitButton","Quit"), UTDIALOG_BUTTON_QUIT);
+		if (ButtonMask & UTDIALOG_BUTTON_OK) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","OKButton","OK"), UTDIALOG_BUTTON_OK,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_CANCEL) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","CancelButton","Cancel"), UTDIALOG_BUTTON_CANCEL,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_YES) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","YesButton","Yes"), UTDIALOG_BUTTON_YES,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_NO) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","NoButton","No"), UTDIALOG_BUTTON_NO,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_HELP) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","HelpButton","Help"), UTDIALOG_BUTTON_HELP,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_RECONNECT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","ReconnectButton","Reconnect"), UTDIALOG_BUTTON_RECONNECT,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_EXIT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","ExitButton","Exit"), UTDIALOG_BUTTON_EXIT,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_QUIT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","QuitButton","Quit"), UTDIALOG_BUTTON_QUIT,ButtonCount);
 	}
 
 	return Bar.ToSharedRef();

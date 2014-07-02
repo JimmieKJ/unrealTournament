@@ -24,8 +24,9 @@ private:
 	TSharedPtr<class SWidget> GameViewportWidget;
 	TSharedPtr<class SCanvas> Canvas;
 
+
 	TSharedRef<class SWidget> BuildButtonBar(uint16 ButtonMask);
-	void BuildButton(TSharedPtr<SHorizontalBox> Bar, FText ButtonText, uint16 ButtonID);
+	void BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText, uint16 ButtonID, uint32 &ButtonCount);
 	virtual FReply OnButtonClick(uint16 ButtonID);	
 
 
