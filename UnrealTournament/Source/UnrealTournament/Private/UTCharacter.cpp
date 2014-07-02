@@ -58,6 +58,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = 12.f;
+	EyeOffsetDodgeLandBob = -60.f;
 	EyeOffsetLandBob = -160.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -1077,6 +1078,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 	{
 		if ( DodgeOverride(DodgeDir, DodgeCross) )
 		{
+			// blueprint handled dodge attempt
 			return true;
 		}
 		if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->PerformDodge(DodgeDir, DodgeCross))
@@ -1208,7 +1210,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	if (CharacterMovement->Velocity.Z < -200.f)
 	{
 		DesiredJumpBob = WeaponLandBob;
-		TargetEyeOffset.Z = EyeOffsetLandBob;
+		TargetEyeOffset.Z = (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->bIsDodging) ? EyeOffsetDodgeLandBob : EyeOffsetLandBob;
 	}
 
 	TakeFallingDamage(Hit);
@@ -1410,7 +1412,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	float InterpTime = FMath::Min(1.f, EyeOffsetInterpRate*DeltaTime);
 	EyeOffset = (1.f - InterpTime)*EyeOffset + InterpTime*TargetEyeOffset;
 	TargetEyeOffset *= FMath::Max(0.f, 1.f - EyeOffsetDecayRate*DeltaTime);
-/*
+	/*
 	if (CharacterMovement && ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f))
 	{
 		UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());

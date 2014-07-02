@@ -485,6 +485,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 		float EyeOffsetLandBob;
 
+	/** Dodge Landing target view bob magnitude. */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+		float EyeOffsetDodgeLandBob;
+
 	/** Returns offset to add to first person mesh for weapon bob. */
 	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
 
