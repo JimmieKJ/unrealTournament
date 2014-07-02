@@ -59,7 +59,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	EyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = 12.f;
 	EyeOffsetDodgeLandBob = -60.f;
-	EyeOffsetLandBob = -160.f;
+	EyeOffsetLandBob = -150.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }

@@ -335,8 +335,7 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	{
 		Result |= (4 << 2);
 	}
-
-	if (bSavedIsSprinting)
+	else if (bSavedIsSprinting)
 	{
 		Result |= (5 << 2);
 	}
