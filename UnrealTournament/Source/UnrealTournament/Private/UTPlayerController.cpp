@@ -417,7 +417,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 		// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
 		GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
 	}
-	else if (!SoundLocation.IsZero())
+	else if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
 	{
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, bIsOccluded ? 0.5f : 1.0f);
 	}

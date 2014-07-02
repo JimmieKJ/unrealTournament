@@ -211,7 +211,11 @@ void AUTProjectile::ShutDown()
 			UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
 			if (Audio != NULL)
 			{
-				Audio->Stop();
+				// only stop looping (ambient) sounds - note that the just played explosion sound may be encountered here
+				if (Audio->Sound != NULL && Audio->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
+				{
+					Audio->Stop();
+				}
 			}
 			else
 			{
