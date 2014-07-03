@@ -47,7 +47,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	HeadBone = FName(TEXT("b_Head"));
 
 	BobTime = 0.f;
-	WeaponBobMagnitude = FVector(0.f, 0.002f, 0.0015f);
+	WeaponBobMagnitude = FVector(0.f, 0.0012f, 0.0009f);
 	WeaponJumpBob = -7.f;
 	WeaponLandBob = 18.f;
 	WeaponBreathingBobRate = 0.2f;
@@ -58,8 +58,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = 12.f;
-	EyeOffsetDodgeLandBob = -60.f;
-	EyeOffsetLandBob = -150.f;
+	EyeOffsetLandBob = -160.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -1209,8 +1208,11 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	// bob weapon and viewpoint on landing
 	if (CharacterMovement->Velocity.Z < -200.f)
 	{
-		DesiredJumpBob = WeaponLandBob;
-		TargetEyeOffset.Z = (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->bIsDodging) ? EyeOffsetDodgeLandBob : EyeOffsetLandBob;
+		DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - 100.f) / 700.f);
+		if (CharacterMovement->Velocity.Z < -300.f)
+		{
+			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - 245.f) / 700.f);
+		}
 	}
 
 	TakeFallingDamage(Hit);
