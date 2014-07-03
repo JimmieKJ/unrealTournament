@@ -177,6 +177,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	else
 	{
 		float Speed = CharacterMovement->Velocity.Size();
+		float LastBobTime = BobTime;
 		BobTime += (Speed > 20.f)
 			? DeltaTime * (WeaponBreathingBobRate + WeaponRunningBobRate*Speed/CharacterMovement->MaxWalkSpeed)
 			: WeaponBreathingBobRate*DeltaTime;
@@ -186,7 +187,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		CurrentWeaponBob.Z = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Z*Speed * FMath::Sin(16.f*BobTime);
 
 		// play footstep sounds when weapon changes bob direction if walking
-		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime/PI) != FMath::FloorToInt(0.5f + 8.f*(BobTime+DeltaTime)/PI)))
+		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI)))
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}
