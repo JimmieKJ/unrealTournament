@@ -47,7 +47,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	HeadBone = FName(TEXT("b_Head"));
 
 	BobTime = 0.f;
-	WeaponBobMagnitude = FVector(0.f, 0.0012f, 0.0009f);
+	WeaponBobMagnitude = FVector(0.f, 0.0010f, 0.0007f);
 	WeaponJumpBob = -7.f;
 	WeaponLandBob = 18.f;
 	WeaponBreathingBobRate = 0.2f;
