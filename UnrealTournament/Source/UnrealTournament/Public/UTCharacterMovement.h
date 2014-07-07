@@ -14,6 +14,11 @@ public:
 
 	virtual bool ClientUpdatePositionAfterServerUpdate() override;
 
+	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
+
+	UPROPERTY()
+	float AvgSpeed;
+
 	//=========================================
 	// DODGING
 	/** Dodge impulse in XY plane */

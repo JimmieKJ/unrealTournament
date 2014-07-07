@@ -52,6 +52,20 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SetGravityScale(2.2f);
 }
 
+void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
+{
+	if (CharacterOwner == NULL)
+	{
+		return;
+	}
+
+	Canvas->SetDrawColor(255, 255, 255);
+	UFont* RenderFont = GEngine->GetSmallFont();
+	FString T = FString::Printf(TEXT("AVERAGE SPEED %f"), AvgSpeed);
+	Canvas->DrawText(RenderFont, T, 4.0f, YPos);
+	YPos += YL;
+}
+
 void UUTCharacterMovement::SetGravityScale(float NewGravityScale)
 {
 	float JumpZScaling = FMath::Sqrt(NewGravityScale / GravityScale);
@@ -68,6 +82,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 {
 	bIsSprinting = (CharacterOwner && CharacterOwner->IsLocallyControlled()) ? CanSprint() : bIsSprinting;
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 }
 
 bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
@@ -621,6 +636,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 void UUTCharacterMovement::NotifyJumpApex()
 {
+	if (Cast<AUTCharacter>(CharacterOwner))
+	{
+		Cast<AUTCharacter>(CharacterOwner)->NotifyJumpApex();
+	}
 	FindValidLandingSpot(UpdatedComponent->GetComponentLocation());
 	Super::NotifyJumpApex();
 }
