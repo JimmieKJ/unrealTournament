@@ -25,5 +25,9 @@ UUTCheatManager::UUTCheatManager(const class FPostConstructInitializeProperties&
 
 void UUTCheatManager::AllAmmo()
 {
-
+	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (MyPawn)
+	{
+		MyPawn->AllAmmo();
+	}
 }

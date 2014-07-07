@@ -58,6 +58,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual bool HasMaxAmmo(TSubclassOf<AUTWeapon> Type);
 
+	// Cheat, only works if called server side
+	void AllAmmo();
+
 	inline class AUTInventory* GetInventory()
 	{
 		return InventoryList;

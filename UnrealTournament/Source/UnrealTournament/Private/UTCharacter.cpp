@@ -646,6 +646,19 @@ bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type)
 	}
 }
 
+void AUTCharacter::AllAmmo()
+{
+	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	{
+		AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
+		if (Weap)
+		{
+			Weap->AddAmmo(Weap->MaxAmmo);
+		}
+	}
+
+}
+
 AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass)
 {
 	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
