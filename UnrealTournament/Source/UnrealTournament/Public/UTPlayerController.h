@@ -128,8 +128,7 @@ public:
 	UFUNCTION(exec)
 	virtual void ShowMenu();
 
-	UFUNCTION()
-	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, UObject* Host, FName ResultFunction);
+	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
 
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)

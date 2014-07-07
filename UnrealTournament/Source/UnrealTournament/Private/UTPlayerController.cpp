@@ -620,7 +620,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 void AUTPlayerController::DebugTest()
 {
 	UE_LOG(UT,Log,TEXT("DEBUG"));
-	Cast<UUTLocalPlayer>(Player)->ShowMessage(NSLOCTEXT("TestNS","TestA","Caption"), NSLOCTEXT("TestNS","TestB","This is a test"),UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL | UTDIALOG_BUTTON_RECONNECT, this, NAME_None);
+	Cast<UUTLocalPlayer>(Player)->ShowMessage(NSLOCTEXT("TestNS","TestA","Caption"), NSLOCTEXT("TestNS","TestB","This is a test"),UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL | UTDIALOG_BUTTON_RECONNECT);
 }
 
 
@@ -665,12 +665,12 @@ void AUTPlayerController::ShowMenu()
 
 }
 
-void AUTPlayerController::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, UObject* Host, FName ResultFunction)
+void AUTPlayerController::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		LP->ShowMessage(MessageTitle, MessageText, Buttons, Host, ResultFunction);
+		LP->ShowMessage(MessageTitle, MessageText, Buttons, Callback);
 	}	
 }
 

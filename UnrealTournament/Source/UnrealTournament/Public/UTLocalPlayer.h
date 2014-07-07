@@ -1,10 +1,9 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "Slate/SUWMessageBox.h"
+
 #include "UTLocalPlayer.generated.h"
-
-/** Defines the current state of the game. */
-
 
 UCLASS()
 class UUTLocalPlayer : public ULocalPlayer
@@ -18,15 +17,18 @@ public:
 	virtual void ShowMenu();
 	virtual void HideMenu();
 
-	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons,  UObject* Host, FName ResultFunction);
-	virtual void MessageBoxDialogResult(uint16 ButtonID);
+	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
+
+	/** utilities for opening and closing dialogs */
+	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog);
+	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
 
 protected:
 
-	FDialogResultDelegate OnDialogResult;
-
 	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;	
-	TSharedPtr<class SUWMessageBox> MessageBoxWidget;
+
+	/** stores a reference to open dialogs so they don't get destroyed */
+	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
 };
 
 

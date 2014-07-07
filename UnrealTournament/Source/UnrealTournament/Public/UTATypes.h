@@ -79,5 +79,3 @@ struct FTextureUVs
 
 };
 
-DECLARE_DELEGATE_OneParam(FDialogResultDelegate, uint16);
-

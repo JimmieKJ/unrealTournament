@@ -7,9 +7,12 @@
 
 void SUWMessageBox::Construct(const FArguments& InArgs)
 {
-	PlayerOwner = InArgs._PlayerOwner;
+	SUWDialog::Construct(SUWDialog::FArguments().PlayerOwner(InArgs._PlayerOwner));
+
+	OnDialogResult = InArgs._OnDialogResult;
+
 	FVector2D ViewportSize;
-	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
 
 	FVector2D WindowSize = FVector2D(250, 150);	// PICK OUT OF MY BUTT -- Should look fine :)
 	FVector2D WindowPosition = FVector2D( (ViewportSize.X * 0.5), (ViewportSize.Y * 0.5));
@@ -119,64 +122,9 @@ TSharedRef<class SWidget> SUWMessageBox::BuildButtonBar(uint16 ButtonMask)
 
 FReply SUWMessageBox::OnButtonClick(uint16 ButtonID)
 {
-	PlayerOwner->MessageBoxDialogResult(ButtonID);
+	GetPlayerOwner()->CloseDialog(SharedThis(this));
+	OnDialogResult.ExecuteIfBound(ButtonID);
 	return FReply::Handled();
 
-}
-
-/******************** ALL OF THE HACKS NEEDED TO MAINTAIN WINDOW FOCUS *********************************/
-	
-void SUWMessageBox::OnDialogOpened()
-{
-	GameViewportWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
-	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
-}
-
-void SUWMessageBox::OnDialogClosed()
-{
-	FSlateApplication::Get().SetKeyboardFocus(GameViewportWidget);
-}
-
-
-bool SUWMessageBox::SupportsKeyboardFocus() const
-{
-	return true;
-}
-
-FReply SUWMessageBox::OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent )
-{
-	return FReply::Handled()
-				.ReleaseMouseCapture()
-				.LockMouseToWidget(SharedThis(this));
-
-}
-
-FReply SUWMessageBox::OnKeyUp( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent )
-{
-	if (InKeyboardEvent.GetKey() == EKeys::Escape)
-	{
-		return FReply::Handled();
-	}
-	else
-	{
-		return FReply::Unhandled();
-	}
-}
-
-
-FReply SUWMessageBox::OnKeyDown( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent )
-{
-	return FReply::Handled();
-}
-
-
-FReply SUWMessageBox::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
-{
-	return FReply::Handled();
-}
-
-FReply SUWMessageBox::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
-{
-	return FReply::Handled();
 }
 

@@ -5,6 +5,7 @@
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
+#include "SUWSystemSettingsDialog.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
@@ -226,7 +227,39 @@ void SUWindowsDesktop::BuildGameSubMenu()
 
 void SUWindowsDesktop::BuildOptionsSubMenu()
 {
-	return;
+	TSharedPtr<SComboButton> DropDownButton = NULL;
+
+	SAssignNew(DropDownButton, SComboButton)
+		.Method(SMenuAnchor::UseCurrentWindow)
+		.HasDownArrow(false)
+		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
+		.ButtonContent()
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options", "Options").ToString())
+		];
+
+	DropDownButton->SetMenuContent
+	(
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
+			.OnClicked(this, &SUWindowsDesktop::OpenSystemSettings)
+		]
+	);
+
+	MenuBar->AddSlot()
+		.AutoWidth()
+		.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+		.HAlign(HAlign_Fill)
+		[
+			DropDownButton.ToSharedRef()
+		];
 }
 
 /****************************** [ Other ] *****************************************/
@@ -248,13 +281,9 @@ bool SUWindowsDesktop::SupportsKeyboardFocus() const
 	return true;
 }
 
-
-
 FReply SUWindowsDesktop::OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent )
 {
-	return FReply::Handled()
-				.ReleaseMouseCapture()
-				.LockMouseToWidget(SharedThis(this));
+	return FReply::Handled().ReleaseMouseCapture();
 
 }
 
@@ -277,7 +306,6 @@ void SUWindowsDesktop::CloseMenus()
 	{
 		PlayerOwner->HideMenu();
 	}
-
 }
 
 
@@ -310,6 +338,12 @@ FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 	}
 
 	CloseMenus();
+	return FReply::Handled();
+}
+FReply SUWindowsDesktop::OpenSystemSettings()
+{
+	CloseMenus();
+	PlayerOwner->OpenDialog(SNew(SUWSystemSettingsDialog).PlayerOwner(PlayerOwner));
 	return FReply::Handled();
 }
 

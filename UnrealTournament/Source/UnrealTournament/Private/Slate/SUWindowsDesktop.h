@@ -23,16 +23,16 @@ class SUWindowsDesktop : public SCompoundWidget
 	virtual void OnMenuClosed();
 	virtual void CloseMenus();
 
-
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 
+protected:
 	TSharedPtr<class SWidget> GameViewportWidget;
 	TSharedPtr<class SHorizontalBox> MenuBar;
 
-
 	virtual FReply OnMenuConsoleCommand(FString Command);
 	virtual FReply OnChangeTeam(int32 NewTeamIndex);
+	virtual FReply OpenSystemSettings();
 
 	virtual bool SupportsKeyboardFocus() const OVERRIDE;
 	virtual FReply OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent ) OVERRIDE;
