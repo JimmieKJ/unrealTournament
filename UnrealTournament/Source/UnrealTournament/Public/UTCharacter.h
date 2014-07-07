@@ -315,6 +315,8 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual void CheckJumpInput(float DeltaTime) OVERRIDE;
 
+	virtual void NotifyJumpApex();
+
 	/** Handles moving forward/backward */
 	virtual void MoveForward(float Val);
 

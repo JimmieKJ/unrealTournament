@@ -172,7 +172,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	if (!CharacterMovement || CharacterMovement->IsFalling() || !MyWeapon)
 	{
 		BobTime = 0.f;
-		CurrentWeaponBob = (1.f - InterpTime)*CurrentWeaponBob + InterpTime*CurrentWeaponBob;
+		CurrentWeaponBob = (1.f - InterpTime)*CurrentWeaponBob;
 	}
 	else
 	{
@@ -194,6 +194,11 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	}
 	CurrentJumpBob = (1.f - InterpTime)*CurrentJumpBob + InterpTime*DesiredJumpBob;
 	return CurrentWeaponBob.Y*Y + (CurrentWeaponBob.Z + CurrentJumpBob)*Z + EyeOffset;
+}
+
+void AUTCharacter::NotifyJumpApex()
+{
+	DesiredJumpBob = 0.f;
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
