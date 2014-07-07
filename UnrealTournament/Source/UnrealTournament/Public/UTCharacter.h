@@ -312,6 +312,12 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual void CheckJumpInput(float DeltaTime) OVERRIDE;
 
+	/** Handles moving forward/backward */
+	virtual void MoveForward(float Val);
+
+	/** Handles stafing movement, left and right */
+	virtual void MoveRight(float Val);
+
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
 
 	virtual void SetBase(UPrimitiveComponent* NewBase, bool bNotifyActor=true) OVERRIDE;

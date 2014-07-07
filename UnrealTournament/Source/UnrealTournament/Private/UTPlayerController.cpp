@@ -15,6 +15,7 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTPlayerInput.h"
 #include "UTPlayerCameraManager.h"
+#include "UTCheatManager.h"
 
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -32,6 +33,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	LastTapBackTime = -10.f;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
+	CheatClass = UUTCheatManager::StaticClass();
 
 }
 
@@ -334,36 +336,23 @@ void AUTPlayerController::OnStopAltFire()
 		UTCharacter->StopFire(1);
 	}
 }
+
 void AUTPlayerController::MoveForward(float Value)
 {
-	if (Value != 0.0f && GetPawn() != NULL)
+	if (Value != 0.0f && UTCharacter != NULL)
 	{
-		// find out which way is forward
-		const FRotator Rotation = GetControlRotation();
-		FRotator YawRotation(0, Rotation.Yaw, 0);
-
-		// Get forward vector
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-
-		// add movement in that direction
-		GetPawn()->AddMovementInput(Direction, Value);
+		UTCharacter->MoveForward(Value);
 	}
 }
+
 void AUTPlayerController::MoveRight(float Value)
 {
-	if (Value != 0.0f && GetPawn() != NULL)
+	if (Value != 0.0f && UTCharacter != NULL)
 	{
-		// find out which way is right
-		const FRotator Rotation = GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
-
-		// Get right vector
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
-		// add movement in that direction
-		GetPawn()->AddMovementInput(Direction, Value);
+		UTCharacter->MoveRight(Value);
 	}
 }
+
 void AUTPlayerController::TurnAtRate(float Rate)
 {
 	if (GetPawn() != NULL)

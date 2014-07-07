@@ -1,0 +1,29 @@
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+
+#include "UnrealTournament.h"
+#include "UTHud.h"
+#include "UTLocalPlayer.h"
+#include "UTPlayerState.h"
+#include "UTPlayerController.h"
+#include "UTCharacterMovement.h"
+#include "ActiveSound.h"
+#include "AudioDevice.h"
+#include "UTPickup.h"
+#include "UTPickupInventory.h"
+#include "UTPickupWeapon.h"
+#include "UTAnnouncer.h"
+#include "UTHUDWidgetMessage.h"
+#include "UTPlayerInput.h"
+#include "UTPlayerCameraManager.h"
+#include "UTCheatManager.h"
+
+
+UUTCheatManager::UUTCheatManager(const class FPostConstructInitializeProperties& PCIP)
+	: Super(PCIP)
+{
+}
+
+void UUTCheatManager::AllAmmo()
+{
+
+}

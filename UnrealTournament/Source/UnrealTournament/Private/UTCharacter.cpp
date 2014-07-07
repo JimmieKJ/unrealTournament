@@ -1099,7 +1099,16 @@ bool AUTCharacter::CanJumpInternal_Implementation() const
 
 void AUTCharacter::CheckJumpInput(float DeltaTime)
 {
-	if (bPressedJump)
+	if (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Flying))
+	{
+		// find out which way is up
+		const FRotator Rotation = GetControlRotation();
+		FRotator ForwardRotation = FRotator(0, Rotation.Yaw, 0);
+
+		// Get up vector and add movement in that direction
+		AddMovementInput(FRotationMatrix(ForwardRotation).GetUnitAxis(EAxis::Z), 1.f);
+	}
+	else if (bPressedJump)
 	{
 		DoJump(bClientUpdating);
 	}
@@ -1131,6 +1140,31 @@ void AUTCharacter::ClearJumpInput()
 	}
 }
 
+void AUTCharacter::MoveForward(float Value)
+{
+	if (Value != 0.0f)
+	{
+		// find out which way is forward
+		const FRotator Rotation = GetControlRotation();
+		FRotator YawRotation = (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Flying)) ? Rotation : FRotator(0, Rotation.Yaw, 0);
+
+		// add movement in forward direction
+		AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X), Value);
+	}
+}
+
+void AUTCharacter::MoveRight(float Value)
+{
+	if (Value != 0.0f)
+	{
+		// find out which way is right
+		const FRotator Rotation = GetControlRotation();
+		const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+		// add movement in right direction
+		AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y), Value);
+	}
+}
 void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);
