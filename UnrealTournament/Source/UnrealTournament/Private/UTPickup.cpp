@@ -51,8 +51,11 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 void AUTPickup::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	// need to adjust the text transform to get the proper screen facing effect 
-	TimerText->SetRelativeRotation(FRotator(0.0f, -GetActorRotation().Yaw, 0.f));
+
+	// backwards compatibility; force values on existing instances
+	TimerText->SetAbsolute(false, true, false);
+	TimerText->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+
 	if (GetWorld()->IsGameWorld())
 	{
 		// due to editor limitations the TimerSprite gets set via the blueprint construction script - initialize its material instance here
@@ -74,7 +77,7 @@ void AUTPickup::PostEditMove(bool bFinished)
 	Super::PostEditMove(bFinished);
 
 	// need to adjust the text transform to get the proper screen facing effect 
-	TimerText->SetRelativeRotation(FRotator(0.0f, -GetActorRotation().Yaw, 0.f));
+	TimerText->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
 }
 #endif
 
