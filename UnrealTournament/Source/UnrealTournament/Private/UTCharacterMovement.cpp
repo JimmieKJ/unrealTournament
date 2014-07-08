@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
 
+const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
 UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -31,8 +32,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CrouchedSpeedMultiplier = 0.4f;
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 3;
-	WallDodgeMinNormal = 0.5f;  // 0.f
+	WallDodgeMinNormal = 0.5f;  
 	AirControl = 0.35f;
+	bAllowSlopeDodgeBoost = false;
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 4000.f; // default was 2048, UT3 was 4464.6
@@ -42,7 +44,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxStepHeight = 50.0f;
 	CrouchedHalfHeight = 48.0f;
 
-	MaxMultiJumpZSpeed = 200.f;
+	MaxMultiJumpZSpeed = 250.f;
 	JumpZVelocity = 660.f;
 	WallDodgeSecondImpulseVertical = 0.f;
 	DodgeImpulseVertical = 500.f;
@@ -385,6 +387,47 @@ FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() 
 	return ClientPredictionData;
 }
 
+FVector UUTCharacterMovement::ComputeSlideVector(const FVector& InDelta, const float Time, const FVector& Normal, const FHitResult& Hit) const
+{
+	const bool bFalling = IsFalling();
+	FVector Delta = InDelta;
+
+	// Don't make impacts on the upper hemisphere feel so much like a capsule
+	if (bFalling && Delta.Z > 0.f)
+	{
+		if (Hit.Normal.Z < KINDA_SMALL_NUMBER)
+		{
+			float PawnRadius, PawnHalfHeight;
+			CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
+			const float UpperHemisphereZ = UpdatedComponent->GetComponentLocation().Z + PawnHalfHeight - PawnRadius;
+			if (Hit.ImpactPoint.Z > UpperHemisphereZ + KINDA_SMALL_NUMBER && IsWithinEdgeTolerance(Hit.Location, Hit.ImpactPoint, PawnRadius))
+			{
+				Delta = AdjustUpperHemisphereImpact(Delta, Hit);
+			}
+		}
+	}
+
+	FVector Result = UMovementComponent::ComputeSlideVector(Delta, Time, Normal, Hit);
+
+	// prevent boosting up slopes
+	if (bFalling && Result.Z > 0.f)
+	{
+		if (Delta.Z < 0.f && (Hit.ImpactNormal.Z < MAX_STEP_SIDE_Z))
+		{
+			// We were moving downward, but a slide was going to send us upward. We want to aim
+			// straight down for the next move to make sure we get the most upward-facing opposing normal.
+			Result = FVector(0.f, 0.f, Delta.Z);
+		}
+		else if (!bAllowSlopeDodgeBoost)
+		{
+			// @TODO FIXMESTEVE - make this a virtual function in super class so just change this part
+			Result.Z = FMath::Min(Result.Z, Delta.Z * Time);
+		}
+	}
+
+	return Result;
+}
+
 /** @TODO FIXMESTEVE - physfalling copied from base version and edited.  At some point should probably add some hooks to base version and use those instead. */
 void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 {
@@ -399,7 +442,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	FHitResult Hit(1.f);
 	if (!HasRootMotion())
 	{
-		// test for slope to avoid using air control to climb walls @TODO FIXMESTEVE USE THIS FOR landing assist also? - if no aircontrol and trace hit nothing, skip landing assist
+		// test for slope to avoid using air control to climb walls 
 		float TickAirControl = AirControl;
 		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
 		{

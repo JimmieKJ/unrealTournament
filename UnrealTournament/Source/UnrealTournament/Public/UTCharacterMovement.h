@@ -98,6 +98,10 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Is Dodging"))
 	bool bIsDodging;
 
+	/** Value 0.0 to 1.0 affecfts amount of slope dodge possible. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly)
+	bool bAllowSlopeDodgeBoost;
+
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
 	bool bPressedDodgeForward;
 	bool bPressedDodgeBack;
@@ -109,6 +113,9 @@ public:
 
 	/** Clear dodging input related flags */
 	void ClearJumpInput();
+
+	/** Optionally allow slope dodge */
+	virtual FVector ComputeSlideVector(const FVector& Delta, const float Time, const FVector& Normal, const FHitResult& Hit) const override;
 
 	//=========================================
 	// MULTIJUMP
