@@ -80,6 +80,7 @@ void UUTCharacterMovement::SetGravityScale(float NewGravityScale)
 
 void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	OldZ = CharacterOwner ? CharacterOwner->GetActorLocation().Z : 0.f;
 	bIsSprinting = (CharacterOwner && CharacterOwner->IsLocallyControlled()) ? CanSprint() : bIsSprinting;
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
@@ -235,20 +236,6 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 
 	StartNewPhysics(remainingTime, Iterations);
 }
-
-/*
-void AUTCharacter::Landed(const FHitResult& Hit)
-{
-	TakeFallingDamage();
-	OnLanded(Hit);
-	if (GetVelocity().Z < -200.f)
-	{
-		OldZ = GetActorLocation().Z;
-		bJustLanded = bUpdateEyeHeight;
-	}
-	RecalculateBaseEyeHeight();
-}
-*/
 
 bool UUTCharacterMovement::DoJump()
 {

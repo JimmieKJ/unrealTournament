@@ -16,8 +16,13 @@ public:
 
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
+	/** Smoothed speed */
 	UPROPERTY()
 	float AvgSpeed;
+
+	/** Last Z position when standing on ground - used for eyeheight smoothing */
+	UPROPERTY()
+	float OldZ;
 
 	//=========================================
 	// DODGING

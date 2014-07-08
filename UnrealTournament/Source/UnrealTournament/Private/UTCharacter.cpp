@@ -1267,6 +1267,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - 245.f) / 700.f);
 		}
 	}
+	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
 
 	TakeFallingDamage(Hit);
 
@@ -1463,10 +1464,26 @@ void AUTCharacter::Tick(float DeltaTime)
 		}
 	}
 
-	// update eyeheight locally
+	// update eyeoffset 
+	if (CharacterMovement->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativePosition(RelativeMovement.MovementBase))
+	{
+		// smooth up/down stairs
+		EyeOffset.Z += (Cast<UUTCharacterMovement>(CharacterMovement)->OldZ - GetActorLocation().Z);
+
+		// avoid clipping
+		EyeOffset.Z = FMath::Min(EyeOffset.Z, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight); // @TODO FIXMESTEVE CONSIDER CLIP PLANE -12.f);
+	}
+
+	// decay offset
 	float InterpTime = FMath::Min(1.f, EyeOffsetInterpRate*DeltaTime);
 	EyeOffset = (1.f - InterpTime)*EyeOffset + InterpTime*TargetEyeOffset;
+	if (EyeOffset.Z > 0.f)
+	{
+		// faster decay if positive
+		EyeOffset.Z = (1.f - InterpTime)*EyeOffset.Z + InterpTime*TargetEyeOffset.Z;
+	}
 	TargetEyeOffset *= FMath::Max(0.f, 1.f - EyeOffsetDecayRate*DeltaTime);
+
 	/*
 	if (CharacterMovement && ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f))
 	{
