@@ -276,6 +276,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 {
 	if (!bExploded)
 	{
+		bExploded = true;
 		float AdjustedMomentum = Momentum;
 		FRadialDamageParams AdjustedDamageParams = GetDamageParams(NULL, HitLocation, AdjustedMomentum);
 		if (AdjustedDamageParams.OuterRadius > 0.0f)
@@ -292,7 +293,6 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			bTearOff = true;
 			bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
 		}
-		bExploded = true;
 		UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 		if (GetNetMode() != NM_DedicatedServer)
 		{
