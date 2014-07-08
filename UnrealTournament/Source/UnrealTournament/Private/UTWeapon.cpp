@@ -551,14 +551,50 @@ FVector AUTWeapon::GetFireStartLoc()
 		UE_LOG(UT, Warning, TEXT("GetFireStartLoc(): No Owner (died while firing?)"));
 		return FVector::ZeroVector;
 	}
-	else if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
-	{
-		return UTOwner->GetPawnViewLocation() + GetBaseFireRotation().RotateVector(FireOffset);
-	}
 	else
 	{
-		// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-		return UTOwner->GetActorLocation() + GetBaseFireRotation().RotateVector(FireOffset);
+		FVector BaseLoc;
+		if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
+		{
+			BaseLoc = UTOwner->GetPawnViewLocation();
+		}
+		else
+		{
+			BaseLoc = UTOwner->GetActorLocation();
+		}
+		if (FireOffset.IsZero())
+		{
+			return BaseLoc;
+		}
+		else
+		{
+			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
+			FVector FinalLoc = BaseLoc + GetBaseFireRotation().RotateVector(FireOffset);
+			// trace back towards Instigator's collision, then trace from there to desired location, checking for intervening world geometry
+			FCollisionShape Collider;
+			if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL && ProjClass[CurrentFireMode].GetDefaultObject()->CollisionComp != NULL)
+			{
+				Collider = FCollisionShape::MakeSphere(ProjClass[CurrentFireMode].GetDefaultObject()->CollisionComp->GetUnscaledSphereRadius());
+			}
+			else
+			{
+				Collider = FCollisionShape::MakeSphere(0.0f);
+			}
+			{
+				FHitResult Hit;
+				if (UTOwner->CapsuleComponent->SweepComponent(Hit, BaseLoc, FinalLoc, Collider, false))
+				{
+					BaseLoc = Hit.Location;
+				}
+			}
+			FCollisionQueryParams Params(FName(TEXT("WeaponStartLoc")), false);
+			FHitResult Hit;
+			if (GetWorld()->SweepSingle(Hit, FinalLoc, BaseLoc, FQuat::Identity, COLLISION_TRACE_WEAPON, Collider, Params))
+			{
+				FinalLoc = Hit.Location - (FinalLoc - BaseLoc).SafeNormal();
+			}
+			return FinalLoc;
+		}
 	}
 }
 
