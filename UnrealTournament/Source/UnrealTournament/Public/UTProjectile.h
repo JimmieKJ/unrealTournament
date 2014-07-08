@@ -53,13 +53,31 @@ class AUTProjectile : public AActor
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	FRadialDamageParams GetDamageParams(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const;
 
+	/** this is used with SendInitialReplication() to force projectiles to be initially replicated prior to initial physics,
+	 * which fixes most cases of projectiles never appearing on clients (because they got blown up before ever being sent)
+	 * we use a special tick function instead of BeginPlay() so that COND_Initial replication conditions continue to work as expected
+	 */
+	FActorTickFunction InitialReplicationTick;
+
+	/** send initial replication to all clients for which the projectile is relevant, called via InitialReplicationTick */
+	void SendInitialReplication();
+
+	/** set to force bReplicatedMovement for the next replication pass; this is used with SendInitialReplication() to make sure the client receives the post-physics location in addition
+	 * to spawning with the pre-physics location
+	 */
+	bool bForceNextRepMovement;
+
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
 
 	virtual void BeginPlay();
 	virtual void TornOff();
 	
+	virtual void PostNetReceiveLocation() OVERRIDE;
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) OVERRIDE;
+	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
+
+	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) OVERRIDE;
 
 	/** turns off projectile ambient effects, collision, physics, etc
 	 * needed because we need a delay between explosion and actor destruction for replication purposes

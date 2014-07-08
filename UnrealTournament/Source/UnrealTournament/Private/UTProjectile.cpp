@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTProjectile.h"
 #include "UTProjectileMovementComponent.h"
+#include "UnrealNetwork.h"
 
 AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCIP) 
 	: Super(PCIP)
@@ -35,6 +36,11 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	SetReplicates(true);
 	bNetTemporary = false;
 	bReplicateInstigator = true;
+
+	InitialReplicationTick.bCanEverTick = true;
+	InitialReplicationTick.bTickEvenWhenPaused = true;
+	InitialReplicationTick.SetTickFunctionEnable(true);
+	ProjectileMovement->PrimaryComponentTick.AddPrerequisite(this, InitialReplicationTick);
 }
 
 void AUTProjectile::BeginPlay()
@@ -45,7 +51,7 @@ void AUTProjectile::BeginPlay()
 	}
 
 	Super::BeginPlay();
-	
+
 	if (Instigator != NULL)
 	{
 		InstigatorController = Instigator->Controller;
@@ -54,6 +60,114 @@ void AUTProjectile::BeginPlay()
 	if (Role == ROLE_Authority)
 	{
 		ProjectileMovement->Velocity.Z += TossZ;
+
+		UNetDriver* NetDriver = GetNetDriver();
+		if (NetDriver != NULL && NetDriver->IsServer())
+		{
+			InitialReplicationTick.Target = this;
+			InitialReplicationTick.RegisterTickFunction(GetLevel());
+		}
+	}
+}
+
+void AUTProjectile::SendInitialReplication()
+{
+	// force immediate replication for projectiles with extreme speed or radial effects
+	// this prevents clients from being hit by invisible projectiles in almost all cases, because it'll exist locally before it has even been moved
+	UNetDriver* NetDriver = GetNetDriver();
+	if (NetDriver != NULL && NetDriver->IsServer() && !bPendingKillPending && (ProjectileMovement->Velocity.Size() >= 7500.0f || DamageParams.OuterRadius > 0.0f))
+	{
+		NetDriver->ReplicationFrame++;
+		for (int32 i = 0; i < NetDriver->ClientConnections.Num(); i++)
+		{
+			if (NetDriver->ClientConnections[i]->State == USOCK_Open && NetDriver->ClientConnections[i]->PlayerController != NULL && NetDriver->ClientConnections[i]->IsNetReady(0))
+			{
+				AActor* ViewTarget = NetDriver->ClientConnections[i]->PlayerController->GetViewTarget();
+				if (ViewTarget == NULL)
+				{
+					ViewTarget = NetDriver->ClientConnections[i]->PlayerController;
+				}
+				FVector ViewLocation = ViewTarget->GetActorLocation();
+				{
+					FRotator ViewRotation = NetDriver->ClientConnections[i]->PlayerController->GetControlRotation();
+					NetDriver->ClientConnections[i]->PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+				}
+				if (IsNetRelevantFor(NetDriver->ClientConnections[i]->PlayerController, ViewTarget, ViewLocation))
+				{
+					UActorChannel* Ch = NetDriver->ClientConnections[i]->ActorChannels.FindRef(this);
+					if (Ch == NULL)
+					{
+						// can't - protected: if (NetDriver->IsLevelInitializedForActor(this, NetDriver->ClientConnections[i]))
+						if (NetDriver->ClientConnections[i]->ClientWorldPackageName == GetWorld()->GetOutermost()->GetFName() && NetDriver->ClientConnections[i]->ClientHasInitializedLevelFor(this))
+						{
+							Ch = (UActorChannel *)NetDriver->ClientConnections[i]->CreateChannel(CHTYPE_Actor, 1);
+							if (Ch != NULL)
+							{
+								Ch->SetChannelActor(this);
+							}
+						}
+					}
+					if (Ch != NULL && Ch->OpenPacketId.First == INDEX_NONE)
+					{
+						// bIsReplicatingActor being true should be impossible but let's be sure
+						if (!Ch->bIsReplicatingActor)
+						{
+							Ch->ReplicateActor();
+
+							// force a replicated location update at the end of the frame after the physics as well
+							bForceNextRepMovement = true;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void AUTProjectile::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
+{
+	if (&ThisTickFunction == &InitialReplicationTick)
+	{
+		SendInitialReplication();
+		InitialReplicationTick.UnRegisterTickFunction();
+	}
+	else
+	{
+		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
+	}
+}
+
+void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
+{
+	if (bForceNextRepMovement)
+	{
+		GatherCurrentMovement();
+		DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, true);
+		bForceNextRepMovement = false;
+	}
+	else
+	{
+		Super::PreReplication(ChangedPropertyTracker);
+	}
+}
+
+void AUTProjectile::PostNetReceiveLocation()
+{
+	Super::PostNetReceiveLocation();
+
+	// tick particle systems for e.g. SpawnPerUnit trails
+	if (!bTearOff && !bExploded) // if torn off ShutDown() will do this
+	{
+		TArray<USceneComponent*> Components;
+		GetComponents<USceneComponent>(Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
+			if (PSC != NULL)
+			{
+				PSC->TickComponent(0.0f, LEVELTICK_All, NULL);
+			}
+		}
 	}
 }
 
@@ -176,6 +290,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 		if (Role == ROLE_Authority)
 		{
 			bTearOff = true;
+			bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
 		}
 		bExploded = true;
 		UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
