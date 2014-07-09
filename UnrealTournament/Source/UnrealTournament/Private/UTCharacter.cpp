@@ -297,9 +297,13 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 
 			Health -= ResultDamage;
-			if (UTDamageTypeCDO != NULL && UTDamageTypeCDO->bForceZMomentum)
+			if (UTDamageTypeCDO != NULL)
 			{
-				ResultMomentum.Z = FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size());
+				ResultMomentum.Z = UTDamageTypeCDO->bForceZMomentum ? FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size()) : ResultMomentum.Z;
+				if (Controller && (EventInstigator == Controller))
+				{
+					ResultMomentum *= UTDamageTypeCDO->SelfMomentumBoost;
+				}
 			}
 			// if Z impulse is low enough and currently walking, remove Z impulse to prevent switch to falling physics, preventing lockdown effects
 			else if (CharacterMovement->MovementMode == MOVE_Walking && ResultMomentum.Z < ResultMomentum.Size() * 0.1f)

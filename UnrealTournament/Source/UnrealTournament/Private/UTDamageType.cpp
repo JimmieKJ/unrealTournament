@@ -9,6 +9,7 @@ UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 	// TODO: disabled at the moment as blueprints have all kinds of issues interacting with functions on default objects due to implicit variable creation
 	//GetClass()->ClassFlags &= ~CLASS_Const;
 
+	SelfMomentumBoost = 1.f;
 	DamageImpulse = 50000.0f;
 	DestructibleImpulse = 50000.0f;
 	bForceZMomentum = true;
