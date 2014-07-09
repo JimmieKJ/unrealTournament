@@ -35,6 +35,14 @@ public:
 	/** time to reach minimum FOV from default */
 	UPROPERTY(EditDefaultsOnly, Category = Zoom)
 	float ZoomTime;
+	/** material to draw over the player's view when zoomed
+	 * the material can use the parameter 'TeamColor' to receive the player's team color in team games (won't be changed in FFA modes)
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	UMaterialInterface* OverlayMat;
+	/** material instance for e.g. team coloring */
+	UPROPERTY()
+	UMaterialInstanceDynamic* OverlayMI;
 
 	virtual bool IsFiring() const OVERRIDE
 	{
@@ -48,7 +56,8 @@ public:
 	virtual void PendingFireStopped() OVERRIDE;
 	virtual void BeginFiringSequence(uint8 FireModeNum) OVERRIDE;
 	virtual void EndFiringSequence(uint8 FireModeNum) OVERRIDE;
-	virtual void OwnerLostWeapon() OVERRIDE;
+	virtual void WeaponBecameInactive() OVERRIDE;
+	virtual bool DrawHUD(UCanvas* C) OVERRIDE;
 
 	virtual void TickZoom(float DeltaTime);
 };

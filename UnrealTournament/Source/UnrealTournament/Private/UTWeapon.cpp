@@ -237,10 +237,6 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 
 void AUTWeapon::Removed()
 {
-	for (int32 i = 0; i < FiringState.Num(); i++)
-	{
-		FiringState[i]->OwnerLostWeapon();
-	}
 	GotoState(InactiveState);
 	DetachFromOwner();
 
@@ -249,15 +245,11 @@ void AUTWeapon::Removed()
 
 void AUTWeapon::ClientRemoved_Implementation()
 {
-	if (Role < ROLE_Authority)
-	{
-		for (int32 i = 0; i < FiringState.Num(); i++)
-		{
-			FiringState[i]->OwnerLostWeapon();
-		}
-	}
 	GotoState(InactiveState);
-	DetachFromOwner();
+	if (Role < ROLE_Authority) // already happened on authority in Removed()
+	{
+		DetachFromOwner();
+	}
 
 	AUTCharacter* OldOwner = UTOwner;
 
@@ -377,6 +369,10 @@ void AUTWeapon::AttachToOwner_Implementation()
 
 void AUTWeapon::DetachFromOwner_Implementation()
 {
+	for (int32 i = 0; i < FiringState.Num(); i++)
+	{
+		FiringState[i]->WeaponBecameInactive();
+	}
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->DetachFromParent();
@@ -783,15 +779,24 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 
 void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
-	UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex; 		
-	if (CrosshairTexture != NULL)
+	bool bDrawCrosshair = true;
+	for (int32 i = 0; i < FiringState.Num(); i++)
 	{
-		float W = CrosshairTexture->GetSurfaceWidth();
-		float H = CrosshairTexture->GetSurfaceHeight();
+		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget->GetCanvas()) && bDrawCrosshair;
+	}
 
-		float Scale = WeaponHudWidget->GetRenderScale();
+	if (bDrawCrosshair)
+	{
+		UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
+		if (CrosshairTexture != NULL)
+		{
+			float W = CrosshairTexture->GetSurfaceWidth();
+			float H = CrosshairTexture->GetSurfaceHeight();
 
-		WeaponHudWidget->DrawTexture(CrosshairTexture, 0,0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, FLinearColor::White, FVector2D(0.5f,0.5f));
+			float Scale = WeaponHudWidget->GetRenderScale();
+
+			WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		}
 	}
 }
 

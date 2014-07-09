@@ -55,9 +55,17 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	virtual void PendingFireStopped()
 	{}
 
-	/** called when the owner of the weapon is about to lose it (weapon destroyed, owner killed, weapon dropped, etc)
-	 * GetUTOwner() is still valid here
-	 **/
-	virtual void OwnerLostWeapon()
+	/** called immediately after the weapon goes inactive (user switches away, drops it, etc)
+	 * called on all fire modes of the weapon regardless of whether they were in use
+	 */
+	virtual void WeaponBecameInactive()
 	{}
+
+	/** draw additional HUD displays; called for all the active weapon's firemodes regardless of firing or not 
+	 * return whether the weapon's standard crosshair should still be drawn
+	 */
+	virtual bool DrawHUD(UCanvas* C)
+	{
+		return true;
+	}
 };

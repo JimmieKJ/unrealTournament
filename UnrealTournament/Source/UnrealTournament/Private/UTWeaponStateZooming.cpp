@@ -61,7 +61,7 @@ void UUTWeaponStateZooming::EndFiringSequence(uint8 FireModeNum)
 	GetOuterAUTWeapon()->GotoActiveState();
 }
 
-void UUTWeaponStateZooming::OwnerLostWeapon()
+void UUTWeaponStateZooming::WeaponBecameInactive()
 {
 	if (bIsZoomed && GetUTOwner()->IsLocallyControlled())
 	{
@@ -71,6 +71,38 @@ void UUTWeaponStateZooming::OwnerLostWeapon()
 		{
 			Camera->UnlockFOV();
 		}
+	}
+}
+
+bool UUTWeaponStateZooming::DrawHUD(UCanvas* C)
+{
+	if (bIsZoomed && OverlayMat != NULL)
+	{
+		if (OverlayMI == NULL)
+		{
+			OverlayMI = UMaterialInstanceDynamic::Create(OverlayMat, this);
+		}
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GetUTOwner()->PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			static FName NAME_TeamColor(TEXT("TeamColor"));
+			OverlayMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+		}
+		FCanvasTileItem Item(FVector2D(0.0f, 0.0f), OverlayMI->GetRenderProxy(false), FVector2D(C->ClipX, C->ClipY));
+		// expand X axis size to be widest supported aspect ratio (16:9)
+		float OrigSizeX = Item.Size.X;
+		Item.Size.X = FMath::Max<float>(Item.Size.X, Item.Size.Y * 16.0f / 9.0f);
+		Item.Position.X -= (Item.Size.X - OrigSizeX) * 0.5f;
+		Item.UV0 = FVector2D(0.0f, 0.0f);
+		Item.UV1 = FVector2D(1.0f, 1.0f);
+		C->DrawItem(Item);
+
+		// temp until there's a decent crosshair in the material
+		return true;
+	}
+	else
+	{
+		return true;
 	}
 }
 
