@@ -21,6 +21,7 @@ AUTDroppedPickup::AUTDroppedPickup(const FPostConstructInitializeProperties& PCI
 
 	SetReplicates(true);
 	bReplicateMovement = true;
+	NetUpdateFrequency = 1.0f;
 }
 
 void AUTDroppedPickup::BeginPlay()

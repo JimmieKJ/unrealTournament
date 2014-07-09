@@ -32,6 +32,10 @@ public:
 	TSubobjectPtr<UMovementComponent> Movement;
 
 	virtual void BeginPlay() OVERRIDE;
+	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) OVERRIDE
+	{
+		Movement->Velocity = NewVelocity;
+	}
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Inventory)
 	virtual void SetInventory(AUTInventory* NewInventory);
