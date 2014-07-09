@@ -26,26 +26,27 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SprintAccel = 100.f;
 	AutoSprintDelayInterval = 2.f;
 	SprintStartTime = 0.f;
-	LandingStepUp = 50.f;
-	LandingAssistBoost = 400.f;
+	LandingStepUp = 40.f;
+	LandingAssistBoost = 380.f;
 	bJumpAssisted = false;
 	CrouchedSpeedMultiplier = 0.4f;
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 3;
 	WallDodgeMinNormal = 0.5f;  
 	AirControl = 0.35f;
-	bAllowSlopeDodgeBoost = false;
+	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 4000.f; // default was 2048, UT3 was 4464.6
 	GravityScale = 2.f;
 	DodgeImpulseHorizontal = 1300.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.15f
-	MaxStepHeight = 50.0f;
+	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 48.0f;
+	SlopeDodgeExponent = 4.3f;
 
 	MaxMultiJumpZSpeed = 250.f;
-	JumpZVelocity = 660.f;
+	JumpZVelocity = 700.f;
 	WallDodgeSecondImpulseVertical = 0.f;
 	DodgeImpulseVertical = 500.f;
 	WallDodgeImpulseHorizontal = 1300.f; 
@@ -418,7 +419,11 @@ FVector UUTCharacterMovement::ComputeSlideVector(const FVector& InDelta, const f
 			// straight down for the next move to make sure we get the most upward-facing opposing normal.
 			Result = FVector(0.f, 0.f, Delta.Z);
 		}
-		else if (!bAllowSlopeDodgeBoost)
+		else if (bAllowSlopeDodgeBoost)
+		{
+			Result.Z *= (1.f - FMath::Pow(Normal.Z, SlopeDodgeExponent));
+		}
+		else
 		{
 			// @TODO FIXMESTEVE - make this a virtual function in super class so just change this part
 			Result.Z = FMath::Min(Result.Z, Delta.Z * Time);

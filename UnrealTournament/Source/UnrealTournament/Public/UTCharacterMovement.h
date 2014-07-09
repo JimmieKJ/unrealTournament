@@ -98,9 +98,13 @@ public:
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
 
-	/** Value 0.0 to 1.0 affecfts amount of slope dodge possible. */
+	/** Enables slope dodge boost. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly)
 	bool bAllowSlopeDodgeBoost;
+
+	/** Affects amount of slope dodge possible. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly)
+	float SlopeDodgeExponent;
 
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
 	bool bPressedDodgeForward;
