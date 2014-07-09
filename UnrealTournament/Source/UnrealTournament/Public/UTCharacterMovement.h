@@ -87,7 +87,7 @@ public:
 		float DodgeMaxHorizontalVelocity;
 
 	/** World time when another dodge can be attempted. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Reset Time"))
+	UPROPERTY(Category = "Dodging", BlueprintReadWrite)
 		float DodgeResetTime;
 
 	/** If falling, verify can wall dodge.  The cause character to dodge. */
@@ -95,7 +95,7 @@ public:
 	bool PerformDodge(FVector &DodgeDir, FVector &DodgeCross);
 
 	/** True during a dodge. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly, meta = (DisplayName = "Is Dodging"))
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
 
 	/** Value 0.0 to 1.0 affecfts amount of slope dodge possible. */
@@ -125,7 +125,7 @@ public:
 	int32 MaxMultiJumpCount;
 
 	/** Current count of multijumps. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Current Multijump Count"))
+	UPROPERTY(Category = "Multijump", BlueprintReadWrite, meta = (DisplayName = "Current Multijump Count"))
 	int32 CurrentMultiJumpCount;
 
 	/** Whether to allow multijumps during a dodge. */
@@ -166,7 +166,7 @@ public:
 		float SprintAccel;
 
 	/** World time when sprinting can start. */
-	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Sprint Start Time"))
+	UPROPERTY(Category = "Autosprint", BlueprintReadWrite, meta = (DisplayName = "Sprint Start Time"))
 		float SprintStartTime;
 
 	/** True when sprinting. */

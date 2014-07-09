@@ -34,7 +34,7 @@ struct FStoredAmmo
 	int32 Amount;
 };
 
-UCLASS(config=Game)
+UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoExposure,LensFlares,AmbientOcclusion,DepthOfField,MotionBlur,Misc,ScreenSpaceReflections,Bloom,SceneColor,Film,AmbientCubemap,AgentPhysics,Attachment,Avoidance,PlanarMovement,AI,Replication,Input,Actor,Tags,GlobalIllumination))
 class AUTCharacter : public ACharacter, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
@@ -461,19 +461,19 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	float BobTime;
 
 	/** Rate of weapon bob when standing still. */
-	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float WeaponBreathingBobRate;
 
 	/** Rate of weapon bob when running. */
-	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float WeaponRunningBobRate;
 
 	/** How fast to interpolate to Jump/Land bob offset. */
-	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float WeaponJumpBobInterpRate;
 
 	/** How fast to decay out Land bob offset. */
-	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float WeaponLandBobDecayRate;
 
 	/** Current Eye position offset from base view position - interpolates toward TargetEyeOffset. */
@@ -485,16 +485,16 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	FVector TargetEyeOffset;
 
 	/** How fast EyeOffset interpolates to TargetEyeOffset. */
-	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float EyeOffsetInterpRate;
 
 	/** How fast TargetEyeOffset decays. */
-	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float EyeOffsetDecayRate;
 
 	/** Jump Landing target view bob magnitude. */
-	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
-		float EyeOffsetLandBob;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float EyeOffsetLandBob;
 
 	/** Returns offset to add to first person mesh for weapon bob. */
 	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
