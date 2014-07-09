@@ -13,6 +13,8 @@ const uint16 UTDIALOG_BUTTON_RECONNECT = 0x0020;
 const uint16 UTDIALOG_BUTTON_EXIT = 0x0040;
 const uint16 UTDIALOG_BUTTON_QUIT = 0x0080;
 
+DECLARE_DELEGATE_OneParam(FDialogResultDelegate, uint16);
+
 UENUM()
 namespace EGameStage
 {

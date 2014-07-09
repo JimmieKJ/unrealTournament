@@ -4,8 +4,6 @@
 #include "Slate.h"
 #include "SUWDialog.h"
 
-DECLARE_DELEGATE_OneParam(FDialogResultDelegate, uint16);
-
 class SUWMessageBox : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWMessageBox)
