@@ -4,7 +4,6 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWindowsStyle.h"
-#include "../../Slate/Private/Widgets/Views/SListPanel.h"
 #include "UTPlayerInput.h"
 #include "Scalability.h"
 
