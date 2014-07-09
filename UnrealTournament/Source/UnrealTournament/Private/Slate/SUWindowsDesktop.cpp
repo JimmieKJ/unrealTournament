@@ -6,6 +6,7 @@
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
 #include "SUWSystemSettingsDialog.h"
+#include "SUWInputBox.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
@@ -124,6 +125,15 @@ void SUWindowsDesktop::BuildFileSubMenu()
 				];
 			}
 
+			(*Menu).AddSlot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_ConnectIP", "Connect To IP").ToString())
+				.OnClicked(this, &SUWindowsDesktop::OnConnectIP)
+			];
 
 			(*Menu).AddSlot()
 			.AutoHeight()
@@ -332,9 +342,9 @@ FReply SUWindowsDesktop::OnChangeTeam(int32 NewTeamIndex)
 }
 FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 {
-	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
+	if (PlayerOwner.IsValid())
 	{
-		PlayerOwner->PlayerController->ConsoleCommand(Command);
+		PlayerOwner->ViewportClient->ConsoleCommand(Command);
 	}
 
 	CloseMenus();
@@ -342,8 +352,25 @@ FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 }
 FReply SUWindowsDesktop::OpenSystemSettings()
 {
-	CloseMenus();
 	PlayerOwner->OpenDialog(SNew(SUWSystemSettingsDialog).PlayerOwner(PlayerOwner));
 	return FReply::Handled();
 }
-
+FReply SUWindowsDesktop::OnConnectIP()
+{
+	PlayerOwner->OpenDialog(
+							SNew(SUWInputBox)
+							.OnDialogResult(this, &SUWindowsDesktop::ConnectIPDialogResult)
+							.PlayerOwner(PlayerOwner)
+							.MessageTitle(FText::FromString(TEXT("Connect to IP")))
+							.MessageText(FText::FromString(TEXT("Enter address to connect to:")))
+							);
+	return FReply::Handled();
+}
+void SUWindowsDesktop::ConnectIPDialogResult(const FString& InputText, bool bCancelled)
+{
+	if (!bCancelled && InputText.Len() > 0 && PlayerOwner.IsValid())
+	{
+		FString AdjustedText = InputText.Replace(TEXT("://"), TEXT(""));
+		PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *InputText));
+	}
+}
