@@ -67,7 +67,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	Canvas = InCanvas;
 	CanvasCenter = InCanvasCenter;
 
-	AspectScale = Size.Y > 0 ? Size.X / Size.Y : 0;
+	AspectScale = Size.Y > 0 ? Size.X / Size.Y : 1.0;
 
 	// Figure out the initial position.
 
