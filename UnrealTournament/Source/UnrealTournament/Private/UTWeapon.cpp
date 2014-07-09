@@ -383,7 +383,7 @@ void AUTWeapon::DetachFromOwner_Implementation()
 
 void AUTWeapon::PlayFiringEffects()
 {
-	if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL)
+	if (UTOwner != NULL)
 	{
 		// try and play the sound if specified
 		if (FireSound.IsValidIndex(CurrentFireMode) && FireSound[CurrentFireMode] != NULL)
@@ -391,24 +391,27 @@ void AUTWeapon::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[CurrentFireMode], UTOwner, SRT_AllButOwner);
 		}
 
-		// try and play a firing animation if specified
-		if (FireAnimation.IsValidIndex(CurrentFireMode) && FireAnimation[CurrentFireMode] != NULL)
+		if (GetNetMode() != NM_DedicatedServer)
 		{
-			UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
-			if (AnimInstance != NULL)
+			// try and play a firing animation if specified
+			if (FireAnimation.IsValidIndex(CurrentFireMode) && FireAnimation[CurrentFireMode] != NULL)
 			{
-				AnimInstance->Montage_Play(FireAnimation[CurrentFireMode], 1.f);
+				UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+				if (AnimInstance != NULL)
+				{
+					AnimInstance->Montage_Play(FireAnimation[CurrentFireMode], 1.f);
+				}
 			}
-		}
 
-		// muzzle flash
-		if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
-		{
-			// if we detect a looping particle system, then don't reactivate it
-			if ( !MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->Template->Emitters[0] == NULL ||
-				IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template) )
+			// muzzle flash
+			if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
 			{
-				MuzzleFlash[CurrentFireMode]->ActivateSystem();
+				// if we detect a looping particle system, then don't reactivate it
+				if ( !MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->Template->Emitters[0] == NULL ||
+					IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template) )
+				{
+					MuzzleFlash[CurrentFireMode]->ActivateSystem();
+				}
 			}
 		}
 	}
