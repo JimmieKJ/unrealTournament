@@ -355,10 +355,15 @@ FReply SUWindowsDesktop::OpenSystemSettings()
 	PlayerOwner->OpenDialog(SNew(SUWSystemSettingsDialog).PlayerOwner(PlayerOwner));
 	return FReply::Handled();
 }
+
+/** last input to connect IP dialog */
+static FString LastIP;
+
 FReply SUWindowsDesktop::OnConnectIP()
 {
 	PlayerOwner->OpenDialog(
 							SNew(SUWInputBox)
+							.DefaultInput(LastIP)
 							.OnDialogResult(this, &SUWindowsDesktop::ConnectIPDialogResult)
 							.PlayerOwner(PlayerOwner)
 							.MessageTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
@@ -371,6 +376,7 @@ void SUWindowsDesktop::ConnectIPDialogResult(const FString& InputText, bool bCan
 	if (!bCancelled && InputText.Len() > 0 && PlayerOwner.IsValid())
 	{
 		FString AdjustedText = InputText.Replace(TEXT("://"), TEXT(""));
-		PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *InputText));
+		LastIP = AdjustedText;
+		PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
 	}
 }
