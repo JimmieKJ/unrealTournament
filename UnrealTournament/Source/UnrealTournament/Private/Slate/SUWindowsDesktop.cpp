@@ -361,8 +361,8 @@ FReply SUWindowsDesktop::OnConnectIP()
 							SNew(SUWInputBox)
 							.OnDialogResult(this, &SUWindowsDesktop::ConnectIPDialogResult)
 							.PlayerOwner(PlayerOwner)
-							.MessageTitle(FText::FromString(TEXT("Connect to IP")))
-							.MessageText(FText::FromString(TEXT("Enter address to connect to:")))
+							.MessageTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
+							.MessageText(NSLOCTEXT("SUWindowsDesktop", "ConnecToIPDesc", "Enter address to connect to:"))
 							);
 	return FReply::Handled();
 }

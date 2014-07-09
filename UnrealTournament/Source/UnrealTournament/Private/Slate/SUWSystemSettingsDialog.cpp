@@ -82,10 +82,10 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 
 	// find current and available engine scalability options
 	Scalability::FQualityLevels QualitySettings = GEngine->GetGameUserSettings()->ScalabilityQuality;
-	GeneralScalabilityList.Add(MakeShareable(new FString(TEXT("Low"))));
-	GeneralScalabilityList.Add(MakeShareable(new FString(TEXT("Medium"))));
-	GeneralScalabilityList.Add(MakeShareable(new FString(TEXT("High"))));
-	GeneralScalabilityList.Add(MakeShareable(new FString(TEXT("Epic"))));
+	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsLow", "Low").ToString())));
+	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsMedium", "Medium").ToString())));
+	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsHigh", "High").ToString())));
+	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsEpic", "Epic").ToString())));
 	QualitySettings.TextureQuality = FMath::Clamp<int32>(QualitySettings.TextureQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.ShadowQuality = FMath::Clamp<int32>(QualitySettings.ShadowQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.PostProcessQuality = FMath::Clamp<int32>(QualitySettings.PostProcessQuality, 0, GeneralScalabilityList.Num() - 1);
@@ -116,7 +116,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(STextBlock)
 						.ColorAndOpacity(FLinearColor::Black)
-						.Text(FString(TEXT("Resolution:")))
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution:").ToString())
 					]
 					+ SHorizontalBox::Slot()
 					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -149,7 +149,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(STextBlock)
 						.ColorAndOpacity(FLinearColor::Black)
-						.Text(FString(TEXT("Fullscreen")))
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
 					]
 				]
 				+ SVerticalBox::Slot()
@@ -164,7 +164,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(STextBlock)
 						.ColorAndOpacity(FLinearColor::Black)
-						.Text(FString(TEXT("Mouse Sensitivity")))
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "MouseSensitivity", "Mouse Sensitivity").ToString())
 					]
 					+ SHorizontalBox::Slot()
 					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -191,13 +191,13 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(STextBlock)
 						.ColorAndOpacity(FLinearColor::Black)
-						.Text(FString(TEXT("Mouse Smoothing")))
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "MouseSmoothing", "Mouse Smoothing").ToString())
 					]
 				]
-				+ AddGeneralScalabilityWidget(TEXT("Texture Detail"), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
-				+ AddGeneralScalabilityWidget(TEXT("Shadow Quality"), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
-				+ AddGeneralScalabilityWidget(TEXT("Effects Quality"), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
-				+ AddGeneralScalabilityWidget(TEXT("Post Process Quality"), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
+				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
+				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
+				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
+				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
 				+ SVerticalBox::Slot()
 				.AutoHeight()
 				.VAlign(VAlign_Bottom)
@@ -212,7 +212,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-						.Text(FString(TEXT("OK")))
+						.Text(NSLOCTEXT("SUWMessageBox", "OKButton", "OK").ToString())
 						.OnClicked(this, &SUWSystemSettingsDialog::OKClick)
 					]
 					+ SUniformGridPanel::Slot(1, 0)
@@ -221,7 +221,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-						.Text(FString(TEXT("Cancel")))
+						.Text(NSLOCTEXT("SUWMessageBox", "CancelButton", "Cancel").ToString())
 						.OnClicked(this, &SUWSystemSettingsDialog::CancelClick)
 					]
 				]
