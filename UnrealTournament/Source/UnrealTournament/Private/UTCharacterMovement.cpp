@@ -104,10 +104,6 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 
 bool UUTCharacterMovement::CanDodge()
 {
-	if ((GetCurrentMovementTime() <= DodgeResetTime) && CharacterOwner && !CharacterOwner->IsLocallyControlled())
-	{
-		UE_LOG(UT, Warning, TEXT("Fail Dodge movetime %f dodge reset %f can jump %d"), GetCurrentMovementTime(), DodgeResetTime, (IsMovingOnGround() || IsFalling()));
-	}
 	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (GetCurrentMovementTime() > DodgeResetTime);
 }
 
@@ -124,7 +120,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		if (CurrentWallDodgeCount >= MaxWallDodges)
 		{
-			UE_LOG(UT, Warning, TEXT("Exceeded max wall dodges with %d"), CurrentWallDodgeCount);
 			return false;
 		}
 		// if falling, check if can perform wall dodge
@@ -157,10 +152,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			DodgeCross = ((NewDodgeCross | DodgeCross) < 0.f) ? -1.f*NewDodgeCross : NewDodgeCross;
 		}
 		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
-		if ((GetCurrentMovementTime() <= DodgeResetTime) && CharacterOwner && !CharacterOwner->IsLocallyControlled())
-		{
-			UE_LOG(UT, Warning, TEXT("Perform wall dodge reset time %f can jump %d"), DodgeResetTime);
-		}
 		CurrentWallDodgeCount++;
 		HorizontalImpulse = WallDodgeImpulseHorizontal;
 	}
