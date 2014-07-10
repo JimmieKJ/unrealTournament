@@ -232,6 +232,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/RewardAnnouncerMale.uasset" Hash="1948880599f46c54625769a08fb95788d371610f" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/StatusAnnouncerMale.uasset" Hash="9b6bee873607103f69cff3d2918d127d626bc597" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WeaponBase.uasset" Hash="1ec86f9d736e58368a3cddf05e8816bb600cc59a" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Jim/JimUTCharacter.uasset" Hash="d4d1846bcd141fce9a5375905730893a230d6498" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/Camerashake2.uasset" Hash="807d9170f74c2f83afc548ae1128c29496f6dbfb" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/CameraShakeTest.uasset" Hash="3ddcc99fc9c2282d3fba04a2eb95d3e062b45aa8" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitEffect.uasset" Hash="8e33faec720c9278fd0e2a0d626a5ca3133466e2" />
@@ -252,7 +253,6 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Nick/PulseShot/PulseShot_Hit.uasset" Hash="66c8c6bd2dd09e09075ac57dfb867a369067f334" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Nick/PulseShot/PulseShot_Projectile.uasset" Hash="365e01f61bb77c8a699a4319b7a3c19d20ab3518" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Nick/PulseShot/PulseShotEffect.uasset" Hash="c780893a0ed7eafcc87f946231738aa1217dfd49" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Steve/JimUTCharacter.uasset" Hash="d4d1846bcd141fce9a5375905730893a230d6498" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Steve/SteveUTCharacter.uasset" Hash="faa615ae3315ca41d6764017bafd6e767d4413e9" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Blueprints/WIP/Steve/SteveUTCharacter_Heavy.uasset" Hash="4ae41255547246b69874dc39d02f7f5274bd6349" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Character/HeroFPP.uasset" Hash="1db085ab4bdafd65b112f7d1d5cb8fa155c4b178" />
@@ -4223,7 +4223,7 @@
     <Pack Hash="f30111d997d4e78efa5da271729fe904eac605ec" Size="11640087" CompressedSize="11641563" RemotePath="0-39f49121bd6abc99a91d9f59afef61ac2aec1ecf" />
     <Pack Hash="f3178bcd0d9bb26c19e2f6c5aa634306af378ce5" Size="858450" CompressedSize="652026" RemotePath="0-1ec2f87ec320d39b25a6c97ef0235891b9b6dfd7" />
     <Pack Hash="f53e7eef56d6a46fe3da03db7f576336fb896cd6" Size="480813" CompressedSize="323022" RemotePath="0-71457ec1e6dfc43f831667e06657171360d5a339" />
-    <Pack Hash="f64d51d30113cd8e848a8bb248ffa9276547b0fb" Size="61473" CompressedSize="56571" RemotePath="0-e593d352f13091fcce3512b5c0984f28d2f5fb3d" />
+    <Pack Hash="f64d51d30113cd8e848a8bb248ffa9276547b0fb" Size="61473" CompressedSize="56571" RemotePath="0-de487421962fef9da4c36173b1bb7492e48d3a2b" />
     <Pack Hash="f67a5ec032e01286552a3d5b58f707bce163fd3c" Size="1868901" CompressedSize="1790639" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
     <Pack Hash="f7a9172f67f67adc1f1ac24bb07efb52f6fb7e85" Size="2731313" CompressedSize="2730695" RemotePath="0-006b51e23c49c72b236dc297c6bcf443e66abddd" />
     <Pack Hash="f7c79c5a9904ccfb89f1396799bdf1cdeee335e4" Size="2096110" CompressedSize="1424966" RemotePath="0-4341d3729f18acc7a648715fac4587475ba3bc0e" />
