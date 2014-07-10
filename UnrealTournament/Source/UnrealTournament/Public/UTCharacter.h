@@ -492,6 +492,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float EyeOffsetDecayRate;
 
+	/** Jump target view bob magnitude. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+		float EyeOffsetJumpBob;
+
 	/** Jump Landing target view bob magnitude. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float EyeOffsetLandBob;

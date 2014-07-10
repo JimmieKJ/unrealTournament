@@ -31,7 +31,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	bJumpAssisted = false;
 	CrouchedSpeedMultiplier = 0.4f;
 	CurrentWallDodgeCount = 0;
-	MaxWallDodges = 3;
+	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f;  
 	AirControl = 0.35f;
 	bAllowSlopeDodgeBoost = true;
@@ -234,10 +234,6 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		{
 			Velocity *= DodgeLandingSpeedFactor;
 			DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
-			if ((GetCurrentMovementTime() <= DodgeResetTime) && CharacterOwner && !CharacterOwner->IsLocallyControlled())
-			{
-				UE_LOG(UT, Warning, TEXT("Perform wall dodge reset time %f can jump %d"), DodgeResetTime);
-			}
 			bIsDodging = false;
 		}
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;

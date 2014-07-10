@@ -47,18 +47,19 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	HeadBone = FName(TEXT("b_Head"));
 
 	BobTime = 0.f;
-	WeaponBobMagnitude = FVector(0.f, 0.0010f, 0.0007f);
-	WeaponJumpBob = -7.f;
-	WeaponLandBob = 18.f;
+	WeaponBobMagnitude = FVector(0.f, 0.9f, 0.45f);
+	WeaponJumpBob = -5.f;
+	WeaponLandBob = 14.f;
 	WeaponBreathingBobRate = 0.2f;
 	WeaponRunningBobRate = 0.8f;
-	WeaponJumpBobInterpRate = 10.f;
-	WeaponLandBobDecayRate = 12.f;
+	WeaponJumpBobInterpRate = 8.f;
+	WeaponLandBobDecayRate = 8.f;
 	EyeOffset = FVector(0.f, 0.f, 0.f);
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = 12.f;
-	EyeOffsetLandBob = -160.f;
+	EyeOffsetJumpBob = 20.f;
+	EyeOffsetLandBob = -120.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -178,13 +179,12 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	{
 		float Speed = CharacterMovement->Velocity.Size();
 		float LastBobTime = BobTime;
-		BobTime += (Speed > 20.f)
-			? DeltaTime * (WeaponBreathingBobRate + WeaponRunningBobRate*Speed/CharacterMovement->MaxWalkSpeed)
-			: WeaponBreathingBobRate*DeltaTime;
+		float BobFactor = (WeaponBreathingBobRate + WeaponRunningBobRate*Speed / CharacterMovement->MaxWalkSpeed);
+		BobTime += DeltaTime * BobFactor;
 		DesiredJumpBob *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
 		CurrentWeaponBob.X = 0.f;
-		CurrentWeaponBob.Y = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Y*Speed * FMath::Sin(8.f*BobTime);
-		CurrentWeaponBob.Z = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Z*Speed * FMath::Sin(16.f*BobTime);
+		CurrentWeaponBob.Y = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Y*BobFactor * FMath::Sin(8.f*BobTime);
+		CurrentWeaponBob.Z = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Z*BobFactor * FMath::Sin(16.f*BobTime);
 
 		// play footstep sounds when weapon changes bob direction if walking
 		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI)))
@@ -1236,6 +1236,7 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 void AUTCharacter::PlayJump()
 {
 	DesiredJumpBob = WeaponJumpBob;
+	TargetEyeOffset.Z = EyeOffsetJumpBob;
 	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_AllButOwner);
 }
 
