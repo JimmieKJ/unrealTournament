@@ -122,7 +122,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 
 	if (IsFalling())
 	{
-		if (CurrentWallDodgeCount > MaxWallDodges)
+		if (CurrentWallDodgeCount >= MaxWallDodges)
 		{
 			UE_LOG(UT, Warning, TEXT("Exceeded max wall dodges with %d"), CurrentWallDodgeCount);
 			return false;
