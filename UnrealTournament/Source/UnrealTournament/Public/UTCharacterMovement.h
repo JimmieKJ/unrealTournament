@@ -218,10 +218,16 @@ public:
 	//=========================================
 	// Networking
 
+	/** Time server is using for this move, from timestamp passed by client */
+	UPROPERTY()
+	float CurrentServerMoveTime;
+
 	/** Return world time on client, CurrentClientTimeStamp on server */
 	virtual float GetCurrentMovementTime() const;
 
-	virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const OVERRIDE;
+	virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const override;
+
+	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 };
 
 // Networking support

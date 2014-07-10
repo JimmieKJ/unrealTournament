@@ -104,7 +104,7 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 
 bool UUTCharacterMovement::CanDodge()
 {
-	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (GetCurrentMovementTime() > DodgeResetTime);
+	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (CharacterOwner && CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > DodgeResetTime));
 }
 
 bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
@@ -151,7 +151,10 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			FVector NewDodgeCross = (DodgeDir ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
 			DodgeCross = ((NewDodgeCross | DodgeCross) < 0.f) ? -1.f*NewDodgeCross : NewDodgeCross;
 		}
-		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
+		if (!CharacterOwner->bClientUpdating)
+		{
+			DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
+		}
 		CurrentWallDodgeCount++;
 		HorizontalImpulse = WallDodgeImpulseHorizontal;
 	}
@@ -189,7 +192,7 @@ float UUTCharacterMovement::GetModifiedMaxAcceleration() const
 
 bool UUTCharacterMovement::CanSprint() const
 {
-	return CharacterOwner && IsMovingOnGround() && !IsCrouching() && (GetCurrentMovementTime() > SprintStartTime);
+	return CharacterOwner && IsMovingOnGround() && !IsCrouching() && (CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > SprintStartTime));
 }
 
 float UUTCharacterMovement::GetMaxSpeed() const
@@ -199,18 +202,33 @@ float UUTCharacterMovement::GetMaxSpeed() const
 
 void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration)
 {
-	SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+	if (CharacterOwner && !CharacterOwner->bClientUpdating)
+	{
+		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+	}
 	Super::ApplyVelocityBraking(DeltaTime, Friction, BrakingDeceleration);
 }
 
 float UUTCharacterMovement::GetCurrentMovementTime() const
 {
-	if ((CharacterOwner->Role == ROLE_Authority) && !CharacterOwner->IsLocallyControlled())
+	return ((CharacterOwner->Role == ROLE_Authority) && !CharacterOwner->IsLocallyControlled())
+		? CurrentServerMoveTime
+		: CharacterOwner->GetWorld()->GetTimeSeconds();
+}
+
+void UUTCharacterMovement::MoveAutonomous
+(
+float ClientTimeStamp,
+float DeltaTime,
+uint8 CompressedFlags,
+const FVector& NewAccel
+)
+{
+	if (HasValidData())
 	{
-		FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
-		return ServerData ? ServerData->CurrentClientTimeStamp : CharacterOwner->GetWorld()->GetTimeSeconds();
+		CurrentServerMoveTime = ClientTimeStamp;
 	}
-	return CharacterOwner->GetWorld()->GetTimeSeconds();
+	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
 
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
@@ -224,10 +242,16 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		if (bIsDodging)
 		{
 			Velocity *= DodgeLandingSpeedFactor;
-			DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
+			if (!CharacterOwner->bClientUpdating)
+			{
+				DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
+			}
 			bIsDodging = false;
 		}
-		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+		if (!CharacterOwner->bClientUpdating)
+		{
+			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+		}
 	}
 	bJumpAssisted = false;
 	CurrentMultiJumpCount = 0;
