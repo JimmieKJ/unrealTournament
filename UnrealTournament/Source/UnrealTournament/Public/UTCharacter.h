@@ -449,19 +449,23 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	/** Z deflection of first person weapon when player jumps */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
-	float WeaponJumpBob;
+	FVector WeaponJumpBob;
+
+	/** deflection of first person weapon when player dodges */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	FVector WeaponDodgeBob;
 
 	/** Z deflection of first person weapon when player lands */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
-	float WeaponLandBob;
+	FVector WeaponLandBob;
 
 	/** Desired 1st person weapon deflection due to jumping. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
-	float DesiredJumpBob;
+	FVector DesiredJumpBob;
 
 	/* Current jump bob (interpolating to DesiredJumpBob)*/
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
-	float CurrentJumpBob;
+	FVector CurrentJumpBob;
 
 	/** Time used for weapon bob sinusoids, reset on landing. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)

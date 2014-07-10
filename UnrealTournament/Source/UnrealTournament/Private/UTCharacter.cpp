@@ -47,19 +47,20 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	HeadBone = FName(TEXT("b_Head"));
 
 	BobTime = 0.f;
-	WeaponBobMagnitude = FVector(0.f, 0.9f, 0.45f);
-	WeaponJumpBob = -5.f;
-	WeaponLandBob = 14.f;
+	WeaponBobMagnitude = FVector(0.f, 0.8f, 0.4f);
+	WeaponJumpBob = FVector(0.f, 0.f, -4.f);
+	WeaponDodgeBob = FVector(0.f, 8.f, -4.f);
+	WeaponLandBob = FVector(0.f, 0.f, 10.5f);
 	WeaponBreathingBobRate = 0.2f;
 	WeaponRunningBobRate = 0.8f;
 	WeaponJumpBobInterpRate = 8.f;
-	WeaponLandBobDecayRate = 8.f;
+	WeaponLandBobDecayRate = 6.f;
 	EyeOffset = FVector(0.f, 0.f, 0.f);
 	TargetEyeOffset = EyeOffset;
-	EyeOffsetInterpRate = 12.f;
-	EyeOffsetDecayRate = 12.f;
+	EyeOffsetInterpRate = 10.f;
+	EyeOffsetDecayRate = 8.f;
 	EyeOffsetJumpBob = 20.f;
-	EyeOffsetLandBob = -120.f;
+	EyeOffsetLandBob = -110.f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -176,7 +177,6 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	if (!CharacterMovement || CharacterMovement->IsFalling() || !MyWeapon)
 	{
 		BobTime = 0.f;
-		CurrentWeaponBob = (1.f - InterpTime)*CurrentWeaponBob;
 	}
 	else
 	{
@@ -196,12 +196,12 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		}
 	}
 	CurrentJumpBob = (1.f - InterpTime)*CurrentJumpBob + InterpTime*DesiredJumpBob;
-	return CurrentWeaponBob.Y*Y + (CurrentWeaponBob.Z + CurrentJumpBob)*Z + EyeOffset;
+	return (CurrentWeaponBob.Y+CurrentJumpBob.Y)*Y + (CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + EyeOffset;
 }
 
 void AUTCharacter::NotifyJumpApex()
 {
-	DesiredJumpBob = 0.f;
+	DesiredJumpBob = FVector(0.f);
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -1259,6 +1259,19 @@ void AUTCharacter::PlayJump()
 
 void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 {
+	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
+	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+	FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+
+	DesiredJumpBob = WeaponDodgeBob;
+	if ((Y | DodgeDir) > 0.6f)
+	{
+		DesiredJumpBob.Y *= -1.f;
+	}
+	else if ((Y | DodgeDir) > -0.6f)
+	{
+		DesiredJumpBob.Y = 0.f;
+	}
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_AllButOwner);
 }
 
@@ -1279,6 +1292,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	{
 		MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
 	}
+	DesiredJumpBob = FVector(0.f);
 
 	// bob weapon and viewpoint on landing
 	if (CharacterMovement->Velocity.Z < -200.f)
