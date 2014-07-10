@@ -52,6 +52,7 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 
 	HudWidgetClasses.Add( ResolveHudWidgetByName(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'")));
 
+	LastConfirmedHitTime = -100.0f;
 }
 
 void AUTHUD::BeginPlay()
@@ -375,7 +376,7 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 	}
 }
 
-void AUTHUD::PawnDamaged(FVector HitLocation, float DamageAmount, TSubclassOf<UDamageType> DamageClass)
+void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass)
 {
 	// Calculate the rotation 	
 	AUTCharacter* UTC = UTPlayerOwner->GetUTCharacter();
@@ -439,6 +440,19 @@ void AUTHUD::DrawDamageIndicators()
 
 			DamageIndicators[i].FadeTime -= RenderDelta;
 		}
+	}
+}
+
+void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner))
+	{
+		LastConfirmedHitTime = GetWorld()->TimeSeconds;
+	}
+	else
+	{
+		// TODO: team damage - draw "don't do that!" indicator? but need to make sure enemy hitconfirms have priority
 	}
 }
 

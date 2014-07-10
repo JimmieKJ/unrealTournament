@@ -74,10 +74,11 @@ void UUTWeaponStateZooming::WeaponBecameInactive()
 	}
 }
 
-bool UUTWeaponStateZooming::DrawHUD(UCanvas* C)
+bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 {
 	if (bIsZoomed && OverlayMat != NULL)
 	{
+		UCanvas* C = WeaponHudWidget->GetCanvas();
 		if (OverlayMI == NULL)
 		{
 			OverlayMI = UMaterialInstanceDynamic::Create(OverlayMat, this);

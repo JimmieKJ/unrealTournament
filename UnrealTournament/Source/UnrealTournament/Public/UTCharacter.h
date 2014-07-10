@@ -380,6 +380,13 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	USoundBase* JumpSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DodgeSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* PainSound;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+	float LastPainSoundTime;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	float MinPainSoundInterval;
 
 	// Controls if we want to see the first or third person meshes
 	void SetMeshVisibility(bool bThirdPersonView);

@@ -2,7 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTGameplayStatics.h"
 
-void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc)
+void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener)
 {
 	if (TheSound != NULL && !GExitPurge)
 	{
@@ -69,7 +69,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 
 						if (bShouldReplicate)
 						{
-							PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed);
+							PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
 						}
 					}
 				}
@@ -80,7 +80,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 				if (PC != NULL && PC->IsLocalPlayerController())
 				{
-					PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed);
+					PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
 				}
 			}
 		}

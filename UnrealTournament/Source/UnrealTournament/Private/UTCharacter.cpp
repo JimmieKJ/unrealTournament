@@ -61,6 +61,9 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	EyeOffsetJumpBob = 20.f;
 	EyeOffsetLandBob = -120.f;
 
+	MinPainSoundInterval = 0.35f;
+	LastPainSoundTime = -100.0f;
+
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
@@ -402,6 +405,20 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 {
 	if (Role == ROLE_Authority)
 	{
+		AUTPlayerController* InstigatedByPC = Cast<AUTPlayerController>(InstigatedBy);
+		if (InstigatedByPC != NULL)
+		{
+			InstigatedByPC->ClientNotifyCausedHit(this, Damage);
+		}
+
+		// we do the sound here instead of via PlayTakeHitEffects() so it uses RPCs instead of variable replication which is higher priority
+		// (at small bandwidth cost)
+		if (GetWorld()->TimeSeconds - LastPainSoundTime >= MinPainSoundInterval)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC);
+			LastPainSoundTime = GetWorld()->TimeSeconds;
+		}
+
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 		if (PC != NULL)
 		{

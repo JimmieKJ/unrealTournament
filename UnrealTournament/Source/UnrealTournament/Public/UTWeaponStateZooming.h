@@ -57,7 +57,7 @@ public:
 	virtual void BeginFiringSequence(uint8 FireModeNum) OVERRIDE;
 	virtual void EndFiringSequence(uint8 FireModeNum) OVERRIDE;
 	virtual void WeaponBecameInactive() OVERRIDE;
-	virtual bool DrawHUD(UCanvas* C) OVERRIDE;
+	virtual bool DrawHUD(class UUTHUDWidget* WeaponHudWidget) OVERRIDE;
 
 	virtual void TickZoom(float DeltaTime);
 };

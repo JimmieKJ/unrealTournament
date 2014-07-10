@@ -336,6 +336,10 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
+	/** returns crosshair color taking into account user settings, red flash on hit, etc */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	FLinearColor GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const;
+
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 

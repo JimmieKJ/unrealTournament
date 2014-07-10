@@ -66,6 +66,10 @@ public:
 	/** Crosshair asset pointer */
 	UTexture2D* DefaultCrosshairTex;
 
+	/** last time we hit an enemy in LOS */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	float LastConfirmedHitTime;
+
 	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;
@@ -103,8 +107,11 @@ public:
 	
 	UTexture2D* OldHudTexture;
 
-	virtual void PawnDamaged(FVector HitLocation, float DamageAmount, TSubclassOf<UDamageType> DamageClass);
+	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass);
 	virtual void DrawDamageIndicators();
+
+	/** called when PlayerOwner caused damage to HitPawn */
+	virtual void CausedDamage(APawn* HitPawn, int32 Damage);
 
 	virtual class UFont* GetFontFromSizeIndex(int32 FontSize) const;
 

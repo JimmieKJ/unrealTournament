@@ -386,7 +386,7 @@ void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, cons
 	}
 }
 
-void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed)
+void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume)
 {
 	bool bIsOccluded = false;
 	if (SoundPlayer == this || (GetViewTarget() != NULL && InSoundCue->IsAudible(SoundLocation, GetViewTarget()->GetActorLocation(), (SoundPlayer != NULL) ? SoundPlayer : this, bIsOccluded, true)))
@@ -394,39 +394,73 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 		// we don't want to replicate the location if it's the same as Actor location (so the sound gets played attached to the Actor), but we must if the source Actor isn't relevant
 		UNetConnection* Conn = Cast<UNetConnection>(Player);
 		FVector RepLoc = (SoundPlayer != NULL && SoundPlayer->GetActorLocation() == SoundLocation && (Conn == NULL || Conn->ActorChannels.Contains(SoundPlayer))) ? FVector::ZeroVector : SoundLocation;
-		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bIsOccluded);
+		ClientHearSound(InSoundCue, SoundPlayer, RepLoc, bStopWhenOwnerDestroyed, bIsOccluded, bAmplifyVolume);
 	}
 }
 
-void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded)
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded, bool bAmplifyVolume)
 {
-	if (SoundPlayer == this || SoundPlayer == GetViewTarget())
+	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
-		// no attenuation/spatialization, full volume
-		FActiveSound NewActiveSound;
-		NewActiveSound.World = GetWorld();
-		NewActiveSound.Sound = TheSound;
+		if (SoundPlayer == this || SoundPlayer == GetViewTarget())
+		{
+			// no attenuation/spatialization, full volume
+			FActiveSound NewActiveSound;
+			NewActiveSound.World = GetWorld();
+			NewActiveSound.Sound = TheSound;
 
-		NewActiveSound.VolumeMultiplier = 1.0f;
-		NewActiveSound.PitchMultiplier = 1.0f;
+			NewActiveSound.VolumeMultiplier = 1.0f;
+			NewActiveSound.PitchMultiplier = 1.0f;
 
-		NewActiveSound.RequestedStartTime = 0.0f;
+			NewActiveSound.RequestedStartTime = 0.0f;
 
-		NewActiveSound.bLocationDefined = false;
-		NewActiveSound.bIsUISound = false;
-		NewActiveSound.bHasAttenuationSettings = false;
-		NewActiveSound.bAllowSpatialization = false;
+			NewActiveSound.bLocationDefined = false;
+			NewActiveSound.bIsUISound = false;
+			NewActiveSound.bHasAttenuationSettings = false;
+			NewActiveSound.bAllowSpatialization = false;
 
-		// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
-		GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
-	}
-	else if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
-	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, bIsOccluded ? 0.5f : 1.0f);
-	}
-	else if (SoundPlayer != NULL)
-	{
-		UGameplayStatics::PlaySoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, bIsOccluded ? 0.5f : 1.0f);
+			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
+			GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
+		}
+		else
+		{
+			USoundAttenuation* AttenuationOverride = NULL;
+			if (bAmplifyVolume)
+			{
+				// the UGameplayStatics functions copy the FAttenuationSettings by value so no need to create more than one, just reuse
+				static USoundAttenuation* OverrideObj = [](){ USoundAttenuation* Result = NewObject<USoundAttenuation>(); Result->AddToRoot(); return Result; }();
+
+				AttenuationOverride = OverrideObj;
+				const FAttenuationSettings* DefaultAttenuation = TheSound->GetAttenuationSettingsToApply();
+				if (DefaultAttenuation != NULL)
+				{
+					AttenuationOverride->Attenuation = *DefaultAttenuation;
+				}
+				// set minimum volume
+				// we're assuming that the radius was already checked via HearSound() and thus this won't cause hearing the audio level-wide
+				AttenuationOverride->Attenuation.dBAttenuationAtMax = 30.0f;
+				// move sound closer
+				AActor* ViewTarget = GetViewTarget();
+				if (ViewTarget != NULL)
+				{
+					if (SoundLocation.IsZero())
+					{
+						SoundLocation = SoundPlayer->GetActorLocation();
+					}
+					FVector SoundOffset = GetViewTarget()->GetActorLocation() - SoundLocation;
+					SoundLocation = SoundLocation + SoundOffset * FMath::Min<float>(SoundOffset.Size() * 0.25f, 2000.0f);
+				}
+			}
+			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
+			if (!SoundLocation.IsZero() && (SoundPlayer == NULL || SoundLocation != SoundPlayer->GetActorLocation()))
+			{
+				UGameplayStatics::PlaySoundAtLocation(GetWorld(), TheSound, SoundLocation, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
+			}
+			else if (SoundPlayer != NULL)
+			{
+				UGameplayStatics::PlaySoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
+			}
+		}
 	}
 }
 
@@ -655,6 +689,30 @@ void AUTPlayerController::ClientNotifyTakeHit_Implementation(APlayerState* Insti
 		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : FVector::ZeroVector) + RelHitLocation, Damage, DamageType);
 	}
 }
+
+void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, int32 Damage)
+{
+	// by default we only show HUD hitconfirms for hits that the player could conceivably see (i.e. target is in LOS)
+	if (HitPawn != NULL && HitPawn->GetRootComponent() != NULL && GetPawn() != NULL && MyUTHUD != NULL)
+	{
+		float VictimLastRenderTime = -1.0f;
+		TArray<USceneComponent*> Components;
+		HitPawn->GetRootComponent()->GetChildrenComponents(true, Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Components[i]);
+			if (Prim != NULL)
+			{
+				VictimLastRenderTime = FMath::Max<float>(VictimLastRenderTime, Prim->LastRenderTime);
+			}
+		}
+		if (GetWorld()->TimeSeconds - VictimLastRenderTime < 0.5f)
+		{
+			MyUTHUD->CausedDamage(HitPawn, Damage);
+		}
+	}
+}
+
 void AUTPlayerController::ShowMenu()
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);

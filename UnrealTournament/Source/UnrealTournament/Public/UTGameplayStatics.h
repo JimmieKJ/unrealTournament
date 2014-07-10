@@ -25,9 +25,10 @@ class UUTGameplayStatics : public UBlueprintFunctionLibrary
 	/** plays a sound with optional replication parameters
 	* additionally will check that clients will actually be able to hear the sound (don't replicate if out of sound's audible range)
 	* if called on client, always local only
+	* @param AmpedListener - amplify volume of the sound for this player; used for e.g. making hit sounds louder for player that caused the hit
 	*/
 	UFUNCTION(BlueprintCallable, Category = Sound, meta = (HidePin = "TheWorld", DefaultToSelf = "SourceActor", AutoCreateRefTerm = "SoundLoc"))
-	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector);
+	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector, class AUTPlayerController* AmpedListener = NULL);
 
 	/** Hurt locally authoritative actors within the radius. Uses the Weapon trace channel.
 	 * Also allows passing in momentum (instead of using value hardcoded in damage type - allows for gameplay code to scale, e.g. for a charging weapon)

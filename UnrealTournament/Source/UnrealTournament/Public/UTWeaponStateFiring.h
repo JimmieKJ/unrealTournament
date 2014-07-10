@@ -64,7 +64,7 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	/** draw additional HUD displays; called for all the active weapon's firemodes regardless of firing or not 
 	 * return whether the weapon's standard crosshair should still be drawn
 	 */
-	virtual bool DrawHUD(UCanvas* C)
+	virtual bool DrawHUD(class UUTHUDWidget* WeaponHudWidget)
 	{
 		return true;
 	}

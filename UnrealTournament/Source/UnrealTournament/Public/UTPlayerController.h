@@ -55,14 +55,14 @@ public:
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
 	 * SoundPlayer may be NULL
 	 */
-	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed);
+	virtual void HearSound(USoundBase* InSoundCue, AActor* SoundPlayer, const FVector& SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume);
 
 	/** plays a heard sound locally
 	 * SoundPlayer may be NULL for an unattached sound
 	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
 	 */
 	UFUNCTION(client, unreliable)
-	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded);
+	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
 
 	virtual void SwitchToBestWeapon();
 
@@ -123,6 +123,11 @@ public:
 	void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 	UFUNCTION(Client, Unreliable)
 	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamgaeType);
+	/** notification that we successfully hit HitPawn
+	 * note that HitPawn may be NULL if it is not currently relevant to the client
+	 */
+	UFUNCTION(Client, Unreliable)
+	void ClientNotifyCausedHit(APawn* HitPawn, int32 Damage);
 
 	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec)

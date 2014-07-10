@@ -780,12 +780,23 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
 }
 
+FLinearColor AUTWeapon::GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const
+{
+	FLinearColor CrosshairColor(FLinearColor::White);
+	float TimeSinceHit = GetWorld()->TimeSeconds - WeaponHudWidget->UTHUDOwner->LastConfirmedHitTime;
+	if (TimeSinceHit < 0.4f)
+	{
+		CrosshairColor = FMath::Lerp<FLinearColor>(FLinearColor::Red, CrosshairColor, FMath::Lerp<float>(0.f, 1.f, FMath::Pow((GetWorld()->TimeSeconds - WeaponHudWidget->UTHUDOwner->LastConfirmedHitTime) / 0.4f, 2.0f)));
+	}
+	return CrosshairColor;
+}
+
 void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
 	bool bDrawCrosshair = true;
 	for (int32 i = 0; i < FiringState.Num(); i++)
 	{
-		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget->GetCanvas()) && bDrawCrosshair;
+		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget) && bDrawCrosshair;
 	}
 
 	if (bDrawCrosshair)
@@ -798,7 +809,7 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 
 			float Scale = WeaponHudWidget->GetRenderScale();
 
-			WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
 		}
 	}
 }
