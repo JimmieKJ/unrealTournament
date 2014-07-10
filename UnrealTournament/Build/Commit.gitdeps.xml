@@ -8,7 +8,7 @@
     <File Name="UnrealTournament/Content/Collections/Ammo Pickups.collection" Hash="acea19f530c61b1820b3b10b90f066cec4a41766" />
     <File Name="UnrealTournament/Content/Collections/Health Pickups.collection" Hash="91694588247847250c8a831c3c9d3d73ea0257d3" />
     <File Name="UnrealTournament/Content/Collections/Weapons and Powerups.collection" Hash="b6ede9d4c107f4173acd50980c25cf4c8370874c" />
-    <File Name="UnrealTournament/Content/Maps/Example_Map.umap" Hash="6b1343cc5519f9e4bd4cf116cd13f4bc37b83b30" />
+    <File Name="UnrealTournament/Content/Maps/Example_Map.umap" Hash="2bca2b425cc73953ccd22c35cd29f546abdf0fec" />
     <File Name="UnrealTournament/Content/Maps/WIP/DM-CurseTest.umap" Hash="dc21304046fce18090c81eb9a68fbf9ae6b65e31" />
     <File Name="UnrealTournament/Content/Maps/WIP/DM-DeckTest.umap" Hash="02b6416e5b3720ec341b34a8d755e0bc22649d31" />
     <File Name="UnrealTournament/Content/Maps/WIP/DM-NickTest1.umap" Hash="11f4b7da18c1e6c209e3f7d7e968216d747f753f" />
@@ -2324,6 +2324,7 @@
     <Blob Hash="2b59b01769f45c17e38a26302a6e29aed0941342" Size="76653" PackHash="4c2537272583ead1a93d6ba13fde7258f07bbc61" PackOffset="1432352" />
     <Blob Hash="2b5d2b85eec25eca51f3bbc58a9bb7908fbf46a6" Size="44419" PackHash="c2211aa3e7d029129c69190105cb60621efa80fc" PackOffset="596679" />
     <Blob Hash="2b7aea4bd7bc6fc9e50f9c6ce09c93761254b79a" Size="3348" PackHash="4f46b5cae93ce421cddeaed648a7859cba3abe60" PackOffset="828162" />
+    <Blob Hash="2bca2b425cc73953ccd22c35cd29f546abdf0fec" Size="9635582" PackHash="8a2a922223abc2ad383be5533cc516f9b844e917" PackOffset="8" />
     <Blob Hash="2bd9cd30dc17d0d9df7cfd79ec0b0c8ad601fa1e" Size="19256" PackHash="46609291019d82133938faefb98d79cda546b215" PackOffset="213529" />
     <Blob Hash="2be0ea1eae4f6bb60376455dc8caaae021edb159" Size="6439" PackHash="06b494fe8b2276888246b3555a5e667e06b3e819" PackOffset="502255" />
     <Blob Hash="2be12a2c062b9b4a0ce8531349d859fd588836ec" Size="85945" PackHash="68fe082c6b4dd8d98f26fc0954ff8b62cb8cb946" PackOffset="1581185" />
@@ -2826,7 +2827,6 @@
     <Blob Hash="6ac9da8b6e5e110ef856a780f699149b8849b8fe" Size="144959" PackHash="e2e296fcb8915ac53a4de0ca1e2907bf4b3715b6" PackOffset="1365078" />
     <Blob Hash="6af7d58c98dfddd6031960c0d4057b59c8297228" Size="72620" PackHash="f8f172400a01e5eeb5e07cc5a9479132992a31e3" PackOffset="738574" />
     <Blob Hash="6afdcc6a744407254b0e8457424e5f4e6b0246b4" Size="2673" PackHash="15c21ca691a98fceb34bddf2bf0f0420a0ccced7" PackOffset="2074639" />
-    <Blob Hash="6b1343cc5519f9e4bd4cf116cd13f4bc37b83b30" Size="9609507" PackHash="565096a0703b03458a3aa9f4d952b59c8b43495d" PackOffset="8" />
     <Blob Hash="6b212302684c67a685464129bc2dcd555e8b7d94" Size="232669" PackHash="8cf918b20ea37f2350f6de907dc2cd7d1d9cd0c8" PackOffset="222765" />
     <Blob Hash="6b2f4aa828a66f4e7991aa6367ba6d018ad471b0" Size="69666" PackHash="b2e6aa0155c87ff436c73f542c1bbb9865ec34d5" PackOffset="271386" />
     <Blob Hash="6b3a98622bc31c6b3f07ca718286505882172ae7" Size="297061" PackHash="2e287bfcf921fe0a9a034f764dee37827fe5b4ff" PackOffset="1320120" />
@@ -4056,7 +4056,6 @@
     <Pack Hash="546c56392de04c57250a92afd29cf94c3e316a05" Size="2095832" CompressedSize="2061166" RemotePath="0-55100ed9ed8f5030b804413c654743d53917e31c" />
     <Pack Hash="54a96ce8aee5aa3908cc8e32f94cefc94338ce0e" Size="5942477" CompressedSize="5942770" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
     <Pack Hash="560a60dd8c9f593df9375a601efadd0ab633cf55" Size="2097025" CompressedSize="1834880" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
-    <Pack Hash="565096a0703b03458a3aa9f4d952b59c8b43495d" Size="9609515" CompressedSize="6640792" RemotePath="0-aefce56f4977b48ed3536db133f70ec7a206a387" />
     <Pack Hash="5666b47a9629a553943b907786d1efc0ab893de0" Size="2084535" CompressedSize="1640511" RemotePath="0-5f84c61026f54bf286018df6f5fd2e18df9ec64b" />
     <Pack Hash="582436461b5dedcb6d382da7e9fd63d714188e99" Size="2096157" CompressedSize="1814839" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
     <Pack Hash="58381754c9585f04676f75dbdd4404704182eee6" Size="1474245" CompressedSize="1332871" RemotePath="0-fae7cfa2d4264757f22d1f36d1c6e2afde2ebd65" />
@@ -4111,6 +4110,7 @@
     <Pack Hash="89d557016b9dba77efab152df674eb7021ac8a73" Size="1382966" CompressedSize="1382536" RemotePath="0-c12fc9adcc3986a88baff74dd8b985a18c861f2e" />
     <Pack Hash="89deea75bcf889a04c333db13b6a2c51143f8e4c" Size="3357881" CompressedSize="3357626" RemotePath="0-39f49121bd6abc99a91d9f59afef61ac2aec1ecf" />
     <Pack Hash="8a28fb1b8737bc37066f0d635277a61a5885927a" Size="2096949" CompressedSize="1815385" RemotePath="0-12d1a1cf14c51702833792ddfb07eb766d559045" />
+    <Pack Hash="8a2a922223abc2ad383be5533cc516f9b844e917" Size="9635590" CompressedSize="6643296" RemotePath="0-71c681067df11b68099b73b76a874aaef356f099" />
     <Pack Hash="8a91431c0cbab3607beb2eece55c0c7411f03866" Size="2068548" CompressedSize="1749403" RemotePath="0-6cc8f05871a2c5e8b181372028f4adce8d086c07" />
     <Pack Hash="8aeb221a11e02296c198c2410b362fe55b852474" Size="2096384" CompressedSize="1903386" RemotePath="0-005048ea0ee6981da164799c3dface09c463ef8f" />
     <Pack Hash="8b6e87c139a81e0a06432dccb7612902582d5441" Size="2090880" CompressedSize="1281681" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
