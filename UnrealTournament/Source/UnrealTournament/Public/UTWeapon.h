@@ -148,6 +148,10 @@ public:
 	UPROPERTY()
 	FVector FirstPMeshOffset;
 
+	/** Base relative rotation of first person mesh, cached from offset set up in blueprint. */
+	UPROPERTY()
+	FRotator FirstPMeshRotation;
+
 	/** Scaling for 1st person weapon bob */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float WeaponBobScaling;
@@ -356,6 +360,44 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icon")
 	FTextureUVs IconCoordinates;
 
+	//*********
+	// Rotation Lag/Lead
+
+	/** Previous frame's weapon rotation */
+	UPROPERTY()
+	FRotator LastRotation;
+
+	/** Saved values used for lagging weapon rotation */
+	UPROPERTY()
+		float	OldRotDiff[2];
+	UPROPERTY()
+		float	OldLeadMag[2];
+	UPROPERTY()
+		float	OldMaxDiff[2];
+
+	/** How fast Weapon Rotation offsets */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
+		float	RotChgSpeed; 
+
+	/** How fast Weapon Rotation returns */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
+		float	ReturnChgSpeed;
+
+	/** Max Weapon Rotation Yaw offset */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
+		float	MaxYawLag;
+
+	/** Max Weapon Rotation Pitch offset */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
+		float	MaxPitchLag;
+
+	/** @return whether the weapon's rotation is allowed to lag behind the holder's rotation */
+	virtual bool ShouldLagRot();
+
+	/** Lag a component of weapon rotation behind player's rotation. */
+	virtual float LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int Index);
+
+	//*********
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;

@@ -43,6 +43,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	Mesh->AttachParent = RootComponent;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPMeshOffset = FVector(0.f);
+	FirstPMeshRotation = FRotator(0.f, 0.f, 0.f);
 
 	for (int32 i = 0; i < 2; i++)
 	{
@@ -56,6 +57,11 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 			FireInterval.Add(1.0f);
 		}
 	}
+
+	RotChgSpeed = 3.f;
+	ReturnChgSpeed = 3.f;
+	MaxYawLag = 4.4f;
+	MaxPitchLag = 3.3f; 
 }
 
 UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const
@@ -726,6 +732,58 @@ bool AUTWeapon::StackPickup_Implementation(AUTInventory* ContainedInv)
 	return true;
 }
 
+bool AUTWeapon::ShouldLagRot()
+{
+	return true;
+}
+
+float AUTWeapon::LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int Index)
+{
+	// check if NewValue is clockwise from LastValue
+	NewValue = FMath::UnwindDegrees(NewValue);
+	LastValue = FMath::UnwindDegrees(LastValue);
+
+	float LeadMag = 0.f;
+	float RotDiff = NewValue - LastValue;
+	if ((RotDiff == 0.f) || (OldRotDiff[Index] == 0.f))
+	{
+		LeadMag = ShouldLagRot() ? OldLeadMag[Index] : 0.f;
+		if ((RotDiff == 0.f) && (OldRotDiff[Index] == 0.f))
+		{
+			OldMaxDiff[Index] = 0.f;
+		}
+	}
+	else if ((RotDiff > 0.f) == (OldRotDiff[Index] > 0.f))
+	{
+		if (ShouldLagRot())
+		{
+			MaxDiff = FMath::Min(1.f, FMath::Abs(RotDiff) / (66.f * DeltaTime)) * MaxDiff;
+			if (OldMaxDiff[Index] != 0.f)
+			{
+				MaxDiff = FMath::Max(OldMaxDiff[Index], MaxDiff);
+			}
+
+			OldMaxDiff[Index] = MaxDiff;
+			LeadMag = (NewValue > LastValue) ? -1.f * MaxDiff : MaxDiff;
+		}
+		LeadMag = (DeltaTime < 1.f / RotChgSpeed)
+					? LeadMag = (1.f- RotChgSpeed*DeltaTime)*OldLeadMag[Index] + RotChgSpeed*DeltaTime*LeadMag
+					: LeadMag = 0.f;
+	}
+	else
+	{
+		OldMaxDiff[Index] = 0.f;
+		if (DeltaTime < 1.f/ReturnChgSpeed)
+		{
+			LeadMag = (1.f - ReturnChgSpeed*DeltaTime)*OldLeadMag[Index] + ReturnChgSpeed*DeltaTime*LeadMag;
+		}
+	}
+	OldLeadMag[Index] = LeadMag;
+	OldRotDiff[Index] = RotDiff;
+
+	return LeadMag;
+}
+
 void AUTWeapon::Tick(float DeltaTime)
 {
 	// try to gracefully detect being active with no owner, which should never happen because we should always end up going through Removed() and going to the inactive state
@@ -748,9 +806,23 @@ void AUTWeapon::Tick(float DeltaTime)
 			if (FirstPMeshOffset.IsZero())
 			{
 				FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
+				FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
 			}
 			Mesh->SetRelativeLocation(FirstPMeshOffset);
 			Mesh->SetWorldLocation(Mesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(DeltaTime, this));
+
+			FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f,0.f,0.f);
+			FRotator FinalRotation = NewRotation;
+
+			// Add some rotation leading
+			if (UTOwner && UTOwner->Controller)
+			{
+				FinalRotation.Yaw = LagWeaponRotation(NewRotation.Yaw, LastRotation.Yaw, DeltaTime, MaxYawLag, 0);
+				FinalRotation.Pitch = LagWeaponRotation(NewRotation.Pitch, LastRotation.Pitch, DeltaTime, MaxPitchLag, 1);
+				FinalRotation.Roll = NewRotation.Roll;
+			}
+			LastRotation = NewRotation;
+			Mesh->SetRelativeRotation(FinalRotation + FirstPMeshRotation);
 		}
 	}
 }
