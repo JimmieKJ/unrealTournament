@@ -8,6 +8,7 @@
 #include "UnrealNetwork.h"
 #include "UTDmgType_Suicide.h"
 #include "UTDmgType_Fell.h"
+#include "UTJumpBoots.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -62,6 +63,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	EyeOffsetDecayRate = 8.f;
 	EyeOffsetJumpBob = 20.f;
 	EyeOffsetLandBob = -110.f;
+	EyeOffsetLandBobThreshold =-1500.0f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -1330,9 +1332,10 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	if (CharacterMovement->Velocity.Z < -200.f)
 	{
 		DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - 100.f) / 700.f);
-		if (CharacterMovement->Velocity.Z < -300.f)
+		if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold) //-300.f)
 		{
-			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - 245.f) / 700.f);
+			UE_LOG(UT,Log,TEXT("Z=%f"),CharacterMovement->Velocity.Z);
+			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - EyeOffsetLandBobThreshold) / 700.f);
 		}
 	}
 	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
