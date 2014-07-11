@@ -8,6 +8,7 @@
 #include "UnrealNetwork.h"
 #include "UTDmgType_Suicide.h"
 #include "UTDmgType_Fell.h"
+#include "UTDmgType_FallingCrush.h"
 #include "UTJumpBoots.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -42,7 +43,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	bSpawnProtectionEligible = true;
 	MaxSafeFallSpeed = 2400.0f;
 	FallingDamageFactor = 100.0f;
-	CrushingDamageFactor = 20.0f;
+	CrushingDamageFactor = 2.0f;
 	HeadScale = 1.0f;
 	HeadRadius = 9.0f;
 	HeadHeight = 5.0f;
@@ -1317,7 +1318,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		float Damage = CrushingDamageFactor * CharacterMovement->Velocity.Z / -100.0f;
 		if (Damage >= 1.0f)
 		{
-			FUTPointDamageEvent DamageEvent(Damage, Hit, -CharacterMovement->Velocity.SafeNormal(), UUTDamageType::StaticClass());
+			FUTPointDamageEvent DamageEvent(Damage, Hit, -CharacterMovement->Velocity.SafeNormal(), UUTDmgType_FallingCrush::StaticClass());
 			Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
 		}
 	}
