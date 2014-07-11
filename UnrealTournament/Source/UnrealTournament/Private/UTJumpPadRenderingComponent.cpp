@@ -32,7 +32,7 @@ public:
 	{
 		static const float LINE_THICKNESS = 20;
 		static const int32 NUM_DRAW_LINES = 16;
-		static const float FALL_DAMAGE_VELOCITY = 4000.0f; //Change this to match fall dmg velocity... if there will be
+		static const float FALL_DAMAGE_VELOCITY = GetDefault<AUTCharacter>()->MaxSafeFallSpeed; // TODO: find default pawn class and pull from that
 
 		FVector Start = JumpPadLocation;
 		float TimeTick = JumpTime / NUM_DRAW_LINES;

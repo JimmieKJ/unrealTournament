@@ -59,6 +59,8 @@ protected:
 	/** Overridden to launch PendingJumpActors */
 	virtual void Tick(float DeltaTime) OVERRIDE;
 
+	virtual void CheckForErrors() OVERRIDE;
+
 	/** returns whether the given Actor can be launched by this jumppad */
 	UFUNCTION(BlueprintNativeEvent)
 	bool CanLaunch(AActor* TestActor);
