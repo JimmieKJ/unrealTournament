@@ -32,6 +32,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FirstPersonMesh->CastShadow = false;
 
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	HealthMax = 100;
 	SuperHealthMax = 199;
@@ -379,14 +380,21 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, con
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
 	LastTakeHitInfo.Momentum = Momentum;
 
+	FVector NewRelHitLocation;
 	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 	{
-		LastTakeHitInfo.RelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetActorLocation();
+		NewRelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetActorLocation();
 	}
 	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
-		LastTakeHitInfo.RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetActorLocation();
+		NewRelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetActorLocation();
 	}
+	// make sure there's a difference from the last time so replication happens
+	if ((NewRelHitLocation - LastTakeHitInfo.RelHitLocation).IsNearlyZero(1.0f))
+	{
+		NewRelHitLocation.Z += 1.0f;
+	}
+	LastTakeHitInfo.RelHitLocation = NewRelHitLocation;
 
 	LastTakeHitTime = GetWorld()->TimeSeconds;
 			
@@ -472,7 +480,9 @@ void AUTCharacter::PlayDying()
 	// TODO: damagetype effects, etc
 	CharacterMovement->ApplyAccumulatedMomentum(0.0f);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Mesh->UpdateKinematicBonesToPhysics(true);
 	Mesh->SetSimulatePhysics(true);
+	Mesh->RefreshBoneTransforms();
 	Mesh->SetAllBodiesPhysicsBlendWeight(1.0f);
 	Mesh->DetachFromParent(true);
 	RootComponent = Mesh;
@@ -481,7 +491,17 @@ void AUTCharacter::PlayDying()
 	CapsuleComponent->AttachTo(Mesh);
 	SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
 
-	Mesh->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity * FVector(1.0f, 1.0f, 0.5f), false); // gravity doesn't seem to be the same magnitude for ragdolls...
+	if (bDeferredReplicatedMovement)
+	{
+		OnRep_ReplicatedMovement();
+		// OnRep_ReplicatedMovement() will only apply to the root body but in this case we want to apply to all bodies
+		Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance(NAME_None)->GetUnrealWorldVelocity());
+		bDeferredReplicatedMovement = false;
+	}
+	else
+	{
+		Mesh->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity * FVector(1.0f, 1.0f, 0.5f), false); // gravity doesn't seem to be the same magnitude for ragdolls...
+	}
 }
 
 void AUTCharacter::Destroyed()
@@ -575,7 +595,7 @@ void AUTCharacter::SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode)
 	// make sure two consecutive shots don't set the same FlashLocation as that will prevent replication and thus clients won't see the shot
 	FlashLocation = ((FlashLocation - InFlashLoc).SizeSquared() >= 1.0f) ? InFlashLoc : (InFlashLoc + FVector(0.0f, 0.0f, 1.0f));
 	// we reserve the zero vector to stop firing, so make sure we aren't setting a value that would replicate that way
-	if (FlashLocation.SizeSquared() < 1.0f)
+	if (FlashLocation.IsNearlyZero(1.0f))
 	{
 		FlashLocation.Z += 1.1f;
 	}
@@ -1005,6 +1025,18 @@ void AUTCharacter::FireRateChanged()
 	if (Weapon != NULL)
 	{
 		Weapon->UpdateTiming();
+	}
+}
+
+void AUTCharacter::OnRep_ReplicatedMovement()
+{
+	if (bTearOff && (RootComponent == NULL || !RootComponent->IsSimulatingPhysics()))
+	{
+		bDeferredReplicatedMovement = true;
+	}
+	else
+	{
+		Super::OnRep_ReplicatedMovement();
 	}
 }
 

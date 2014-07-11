@@ -21,6 +21,12 @@ void UUTProjectileMovementComponent::InitializeComponent()
 			if (Prim != NULL && Prim->GetCollisionEnabled())
 			{
 				AddlUpdatedComponents.Add(Prim);
+				// if code hasn't manually set an overlap event, mirror the setting of the parent
+				if (!Prim->OnComponentBeginOverlap.IsBound() && !Prim->OnComponentEndOverlap.IsBound())
+				{
+					Prim->OnComponentBeginOverlap = UpdatedComponent->OnComponentBeginOverlap;
+					Prim->OnComponentEndOverlap = UpdatedComponent->OnComponentEndOverlap;
+				}
 			}
 		}
 	}
@@ -29,7 +35,7 @@ void UUTProjectileMovementComponent::InitializeComponent()
 bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit)
 {
 	// if we have no extra components or we don't need to sweep, use the default behavior
-	if (AddlUpdatedComponents.Num() == 0 || UpdatedComponent == NULL || !bSweep)
+	if (AddlUpdatedComponents.Num() == 0 || UpdatedComponent == NULL || !bSweep || Delta.IsNearlyZero())
 	{
 		return Super::MoveUpdatedComponent(Delta, NewRotation, bSweep, OutHit);
 	}
@@ -72,6 +78,10 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 		bool bGotHit = EarliestHit.bBlockingHit;
 		for (int32 i = 0; i < AddlUpdatedComponents.Num(); i++)
 		{
+			// hack so InternalSetWorldLocationAndRotation() counts the component as moved (which will also clobber this hacked value)
+			// otherwise it will pull the updated transform from the parent above and think nothing has happened, which prevents overlaps from working
+			AddlUpdatedComponents[i]->RelativeLocation.Z += 0.1f;
+
 			FHitResult NewHit;
 			AddlUpdatedComponents[i]->MoveComponent(Delta, AddlUpdatedComponents[i]->ComponentToWorld.GetRotation().Rotator() + RotChange, bSweep, &NewHit, MoveComponentFlags);
 			if (NewHit.bBlockingHit)

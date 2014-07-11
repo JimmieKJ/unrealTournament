@@ -222,6 +222,11 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	bool bSpawnProtectionEligible;
 
+	/** set temporarily during client reception of replicated properties because replicated position and switches to ragdoll may be processed out of the desired order 
+	 * when set, OnRep_ReplicatedMovement() will be called after switching to ragdoll
+	 */
+	bool bDeferredReplicatedMovement;
+
 	virtual void BeginPlay() OVERRIDE;
 	virtual void PostInitializeComponents() OVERRIDE;
 	virtual void Destroyed() OVERRIDE;
@@ -324,6 +329,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	virtual void MoveRight(float Val);
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
+	virtual void OnRep_ReplicatedMovement() OVERRIDE;
 
 	virtual void SetBase(UPrimitiveComponent* NewBase, bool bNotifyActor=true) OVERRIDE;
 
@@ -505,7 +511,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	/** Jump target view bob magnitude. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
-		float EyeOffsetJumpBob;
+	float EyeOffsetJumpBob;
 
 	/** Jump Landing target view bob magnitude. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
