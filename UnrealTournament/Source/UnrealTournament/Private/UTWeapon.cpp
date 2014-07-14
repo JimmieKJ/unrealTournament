@@ -503,6 +503,7 @@ void AUTWeapon::OnRep_Ammo()
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 		if (PC != NULL)
 		{
+			UE_LOG(UT, Warning, TEXT("********** %s ran out of ammo for %s"), *GetName(), *PC->GetHumanReadableName());
 			PC->SwitchToBestWeapon();
 		}
 	}
