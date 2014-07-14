@@ -1127,7 +1127,6 @@ namespace UTMovementBaseUtility
 	}
 }
 
-
 void AUTCharacter::SetBase( UPrimitiveComponent* NewBaseComponent, bool bNotifyPawn )
 {
 	UPrimitiveComponent* OldBase = MovementBase;
@@ -1143,7 +1142,7 @@ void AUTCharacter::SetBase( UPrimitiveComponent* NewBaseComponent, bool bNotifyP
 
 bool AUTCharacter::CanDodge() const
 {
-	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->CanDodge(); 
+	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->CanDodge() && (CharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
 }
 
 bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
@@ -1158,7 +1157,6 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->PerformDodge(DodgeDir, DodgeCross))
 		{
 			OnDodge(DodgeDir);
-			// @TODO FIXMESTEVE need to cause falling damage based on pre-dodge falling Velocity.Z if was falling
 			return true;
 		}
 	}
@@ -1220,7 +1218,8 @@ void AUTCharacter::MoveForward(float Value)
 	{
 		// find out which way is forward
 		const FRotator Rotation = GetControlRotation();
-		FRotator YawRotation = (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Flying)) ? Rotation : FRotator(0, Rotation.Yaw, 0);
+		// @TODO FIXMESTEVE need CharacterMovement method that retursns if forward is full freedom or horizontal only
+		FRotator YawRotation = (CharacterMovement && ((CharacterMovement->MovementMode == MOVE_Flying) || (CharacterMovement->MovementMode == MOVE_Swimming))) ? Rotation : FRotator(0, Rotation.Yaw, 0);
 
 		// add movement in forward direction
 		AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X), Value);
