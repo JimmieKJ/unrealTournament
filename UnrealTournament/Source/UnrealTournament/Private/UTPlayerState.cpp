@@ -116,7 +116,6 @@ void AUTPlayerState::AdjustScore(int32 ScoreAdjustment)
 
 void AUTPlayerState::OnDeathsReceived()
 {
-	UE_LOG(UT,Log, TEXT("OnDeathsReceived %s"), *GetNameSafe(GetWorld()->GetGameState<AUTGameState>()));
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState != NULL)
 	{
