@@ -50,6 +50,10 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Second Impulse Vertical"))
 		float WallDodgeSecondImpulseVertical;
 
+	/** Grace negative velocity which is zeroed before adding walldodgeimpulse */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Second Impulse Vertical"))
+		float WallDodgeGraceVelocityZ;
+
 	/** Minimum Normal of Wall Dodge from wall (1.0 is 90 degrees, 0.0 is along wall, 0.7 is 45 degrees). */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Min Normal"))
 		float WallDodgeMinNormal;
@@ -119,7 +123,7 @@ public:
 	void ClearJumpInput();
 
 	/** Optionally allow slope dodge */
-	virtual FVector ComputeSlideVector(const FVector& Delta, const float Time, const FVector& Normal, const FHitResult& Hit) const override;
+	virtual FVector ComputeSlideVectorUT(const float DeltaTime, const FVector& Delta, const float Time, const FVector& Normal, const FHitResult& Hit);
 
 	//=========================================
 	// MULTIJUMP

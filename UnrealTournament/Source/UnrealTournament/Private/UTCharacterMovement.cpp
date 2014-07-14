@@ -10,7 +10,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 {
 	MaxWalkSpeed = 900.f;
 	WallDodgeTraceDist = 50.f;
-	MinAdditiveDodgeFallSpeed = -1000.f;
+	MinAdditiveDodgeFallSpeed = -2400.f;  // same as UTCharacter->MaxSafeFallSpeed - @TODO FIXMESTEVE probably get rid of this property
 	MaxAdditiveDodgeJumpSpeed = 850.f;  // 10000.f
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
@@ -33,11 +33,12 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f;  
+	WallDodgeGraceVelocityZ = -250.f;
 	AirControl = 0.35f;
 	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 4000.f; // default was 2048, UT3 was 4464.6
+	MaxAcceleration = 4500.f; // default was 2048, UT3 was 4464.6, UT was 5041.2
 	GravityScale = 2.f;
 	DodgeImpulseHorizontal = 1300.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.15f
@@ -47,7 +48,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 	MaxMultiJumpZSpeed = 250.f;
 	JumpZVelocity = 700.f;
-	WallDodgeSecondImpulseVertical = 0.f;
+	WallDodgeSecondImpulseVertical = 250.f;
 	DodgeImpulseVertical = 500.f;
 	WallDodgeImpulseHorizontal = 1300.f; 
 	WallDodgeImpulseVertical = 400.f; 
@@ -172,6 +173,11 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	else if ((VelocityZ < MaxAdditiveDodgeJumpSpeed) && (VelocityZ > MinAdditiveDodgeFallSpeed))
 	{
 		float CurrentWallImpulse = (CurrentWallDodgeCount < 2) ? WallDodgeImpulseVertical : WallDodgeSecondImpulseVertical;
+
+		if ((VelocityZ < 0.f) && (VelocityZ > WallDodgeGraceVelocityZ))
+		{
+			VelocityZ = 0.f;
+		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);
 	}
 	else
@@ -412,7 +418,8 @@ FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() 
 	return ClientPredictionData;
 }
 
-FVector UUTCharacterMovement::ComputeSlideVector(const FVector& InDelta, const float Time, const FVector& Normal, const FHitResult& Hit) const
+/** @TODO FIXMESTEVE - update super class with this? */
+FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const FVector& InDelta, const float Time, const FVector& Normal, const FHitResult& Hit)
 {
 	const bool bFalling = IsFalling();
 	FVector Delta = InDelta;
@@ -437,11 +444,20 @@ FVector UUTCharacterMovement::ComputeSlideVector(const FVector& InDelta, const f
 	// prevent boosting up slopes
 	if (bFalling && Result.Z > 0.f)
 	{
+		float PawnRadius, PawnHalfHeight;
+		CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
 		if (Delta.Z < 0.f && (Hit.ImpactNormal.Z < MAX_STEP_SIDE_Z))
 		{
 			// We were moving downward, but a slide was going to send us upward. We want to aim
 			// straight down for the next move to make sure we get the most upward-facing opposing normal.
 			Result = FVector(0.f, 0.f, Delta.Z);
+		}
+		else if ((CharacterOwner->GetActorLocation() - Hit.ImpactPoint).Size2D() < 0.93f * PawnRadius)
+		{
+			// don't allow skipping up on bottom of capsule hits
+			Result.Z = FMath::Min(Result.Z, Delta.Z * Time);
+			Result.Z = FMath::Min(Result.Z, Velocity.Z*DeltaTime);
+			bJustTeleported = true;
 		}
 		else if (bAllowSlopeDodgeBoost)
 		{
@@ -599,7 +615,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 				const FVector OldHitNormal = Hit.Normal;
 				const FVector OldHitImpactNormal = Hit.ImpactNormal;
-				FVector Delta = ComputeSlideVector(Adjusted, 1.f - Hit.Time, OldHitNormal, Hit);
+				FVector Delta = ComputeSlideVectorUT(timeTick * (1.f - Hit.Time), Adjusted, 1.f - Hit.Time, OldHitNormal, Hit);
 
 				if ((Delta | Adjusted) > 0.f)
 				{
@@ -737,5 +753,6 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 			Cast<AUTCharacter>(CharacterOwner)->OnLandingAssist();
 		}
 		Velocity.Z = LandingAssistBoost; 
+		UE_LOG(UT, Warning, TEXT("LANDING ASSIST BOOST"));
 	}
 }
