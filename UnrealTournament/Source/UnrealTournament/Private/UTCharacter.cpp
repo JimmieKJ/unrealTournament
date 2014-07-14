@@ -52,7 +52,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	BobTime = 0.f;
 	WeaponBobMagnitude = FVector(0.f, 0.8f, 0.4f);
 	WeaponJumpBob = FVector(0.f, 0.f, -4.f);
-	WeaponDodgeBob = FVector(0.f, 8.f, -4.f);
+	WeaponDodgeBob = FVector(0.f, 6.f, -2.5f);
 	WeaponLandBob = FVector(0.f, 0.f, 10.5f);
 	WeaponBreathingBobRate = 0.2f;
 	WeaponRunningBobRate = 0.8f;
@@ -64,7 +64,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	EyeOffsetDecayRate = 8.f;
 	EyeOffsetJumpBob = 20.f;
 	EyeOffsetLandBob = -110.f;
-	EyeOffsetLandBobThreshold =-1500.0f;
+	EyeOffsetLandBobThreshold = -300.f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -1332,10 +1332,9 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	if (CharacterMovement->Velocity.Z < -200.f)
 	{
 		DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - 100.f) / 700.f);
-		if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold) //-300.f)
+		if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold)
 		{
-			UE_LOG(UT,Log,TEXT("Z=%f"),CharacterMovement->Velocity.Z);
-			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - EyeOffsetLandBobThreshold) / 700.f);
+			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / 700.f);
 		}
 	}
 	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
