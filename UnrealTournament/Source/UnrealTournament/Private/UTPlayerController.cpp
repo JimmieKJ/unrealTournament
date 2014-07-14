@@ -674,7 +674,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 }
 
-void AUTPlayerController::NotifyTakeHit_Implementation(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
+void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
 	APlayerState* InstigatedByState = (InstigatedBy != NULL) ? InstigatedBy->PlayerState : NULL;
 	FVector RelHitLocation(FVector::ZeroVector);

@@ -119,10 +119,9 @@ public:
 	 **/
 	virtual void PlayerTick(float DeltaTime);
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamgaeType);
+	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamageType);
 	/** notification that we successfully hit HitPawn
 	 * note that HitPawn may be NULL if it is not currently relevant to the client
 	 */
@@ -140,6 +139,9 @@ public:
 	void K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
 
 	virtual uint8 GetTeamNum() const;
+
+	UPROPERTY(GlobalConfig, BlueprintReadOnly, Category = Weapon)
+	bool bAutoWeaponSwitch;
 
 protected:
 
@@ -173,9 +175,6 @@ protected:
 
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapBackTime;
-
-	UPROPERTY(config, BlueprintReadOnly, Category = Weapon)
-	bool bAutoWeaponSwitch;
 
 	UFUNCTION(exec)
 	virtual void ChangeTeam(uint8 NewTeamIndex);
