@@ -772,7 +772,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 				float NextDist = (OtherCharacter->GetActorLocation() - StartLoc).Size();
 				static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
 
-				if ( NextDist < 3000.0f && 
+				if ( NextDist < 3000.0f && !UTGameState->OnSameTeam(Player, OtherController) &&
 					!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
 				{
 					Score -= (5.f - 0.001f * NextDist);

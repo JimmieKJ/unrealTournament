@@ -855,7 +855,7 @@ void AUTCharacter::InventoryEvent(FName EventName)
 
 void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 {
-	if (NewWeapon != NULL)
+	if (NewWeapon != NULL && !IsDead())
 	{
 		if (Role <= ROLE_SimulatedProxy)
 		{
