@@ -39,21 +39,19 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 4500.f; // default was 2048, UT3 was 4464.6, UT was 5041.2
-	GravityScale = 2.f;
-	DodgeImpulseHorizontal = 1300.f;
-	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.15f
+	GravityScale = 2.2f;
+	DodgeImpulseHorizontal = 1350.f;
+	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 48.0f;
 	SlopeDodgeExponent = 4.3f;
 
-	MaxMultiJumpZSpeed = 250.f;
-	JumpZVelocity = 700.f;
-	WallDodgeSecondImpulseVertical = 250.f;
-	DodgeImpulseVertical = 500.f;
-	WallDodgeImpulseHorizontal = 1300.f; 
-	WallDodgeImpulseVertical = 400.f; 
-
-	SetGravityScale(2.2f);
+	MaxMultiJumpZSpeed = 280.f;
+	JumpZVelocity = 730.f;
+	WallDodgeSecondImpulseVertical = 260.f;
+	DodgeImpulseVertical = 525.f;
+	WallDodgeImpulseHorizontal = 1350.f; 
+	WallDodgeImpulseVertical = 420.f; 
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
