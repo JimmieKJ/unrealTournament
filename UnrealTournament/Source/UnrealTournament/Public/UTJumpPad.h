@@ -54,12 +54,11 @@ protected:
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
+	virtual void CheckForErrors() OVERRIDE;
 #endif // WITH_EDITOR
 
 	/** Overridden to launch PendingJumpActors */
 	virtual void Tick(float DeltaTime) OVERRIDE;
-
-	virtual void CheckForErrors() OVERRIDE;
 
 	/** returns whether the given Actor can be launched by this jumppad */
 	UFUNCTION(BlueprintNativeEvent)

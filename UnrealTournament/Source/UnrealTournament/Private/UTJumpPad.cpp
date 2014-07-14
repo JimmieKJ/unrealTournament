@@ -52,40 +52,6 @@ void AUTJumpPad::Tick(float DeltaTime)
 	}
 }
 
-void AUTJumpPad::CheckForErrors()
-{
-	Super::CheckForErrors();
-
-	FVector JumpVelocity = CalculateJumpVelocity(this);
-	// figure out default game mode from which we will derive the default character
-	TSubclassOf<AGameMode> GameClass = GetWorld()->GetWorldSettings()->DefaultGameMode;
-	if (GameClass == NULL)
-	{
-		// horrible config hack around unexported function UGameMapsSettings::GetGlobalDefaultGameMode()
-		FString GameClassPath;
-		GConfig->GetString(TEXT("/Script/EngineSettings.GameMapsSettings"), TEXT("GlobalDefaultGameMode"), GameClassPath, GEngineIni);
-		GameClass = LoadClass<AGameMode>(NULL, *GameClassPath, NULL, 0, NULL);
-	}
-	const ACharacter* DefaultChar = (GameClass != NULL) ? Cast<ACharacter>(GameClass.GetDefaultObject()->DefaultPawnClass.GetDefaultObject()) : GetDefault<AUTCharacter>();
-	if (DefaultChar != NULL && DefaultChar->CharacterMovement != NULL)
-	{
-		JumpVelocity *= FMath::Sqrt(DefaultChar->CharacterMovement->GravityScale);
-	}
-	// check if velocity is faster than physics will allow
-	APhysicsVolume* PhysVolume = (RootComponent != NULL) ? RootComponent->GetPhysicsVolume() : GetWorld()->GetDefaultPhysicsVolume();
-	if (JumpVelocity.Size() > PhysVolume->TerminalVelocity)
-	{
-		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
-		Arguments.Add(TEXT("Speed"), FText::AsNumber(JumpVelocity.Size()));
-		Arguments.Add(TEXT("TerminalVelocity"), FText::AsNumber(PhysVolume->TerminalVelocity));
-		FMessageLog("MapCheck").Warning()
-			->AddToken(FUObjectToken::Create(this))
-			->AddToken(FTextToken::Create(FText::Format(NSLOCTEXT("UTJumpPad", "TerminalVelocityWarning", "{ActorName} : Jump pad speed on default character would be {Speed} but terminal velocity is {TerminalVelocity}!"), Arguments)))
-			->AddToken(FMapErrorToken::Create(FName(TEXT("JumpPadTerminalVelocity"))));
-	}
-}
-
 bool AUTJumpPad::CanLaunch_Implementation(AActor* TestActor)
 {
 	return (Cast<ACharacter>(TestActor) != NULL && TestActor->Role >= ROLE_AutonomousProxy);
@@ -145,6 +111,39 @@ void AUTJumpPad::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 	if (PropertyChangedEvent.Property && IsNavigationRelevant() && GetWorld() && GetWorld()->GetNavigationSystem())
 	{
 		GetWorld()->GetNavigationSystem()->UpdateNavOctree(this);
+	}
+}
+void AUTJumpPad::CheckForErrors()
+{
+	Super::CheckForErrors();
+
+	FVector JumpVelocity = CalculateJumpVelocity(this);
+	// figure out default game mode from which we will derive the default character
+	TSubclassOf<AGameMode> GameClass = GetWorld()->GetWorldSettings()->DefaultGameMode;
+	if (GameClass == NULL)
+	{
+		// horrible config hack around unexported function UGameMapsSettings::GetGlobalDefaultGameMode()
+		FString GameClassPath;
+		GConfig->GetString(TEXT("/Script/EngineSettings.GameMapsSettings"), TEXT("GlobalDefaultGameMode"), GameClassPath, GEngineIni);
+		GameClass = LoadClass<AGameMode>(NULL, *GameClassPath, NULL, 0, NULL);
+	}
+	const ACharacter* DefaultChar = (GameClass != NULL) ? Cast<ACharacter>(GameClass.GetDefaultObject()->DefaultPawnClass.GetDefaultObject()) : GetDefault<AUTCharacter>();
+	if (DefaultChar != NULL && DefaultChar->CharacterMovement != NULL)
+	{
+		JumpVelocity *= FMath::Sqrt(DefaultChar->CharacterMovement->GravityScale);
+	}
+	// check if velocity is faster than physics will allow
+	APhysicsVolume* PhysVolume = (RootComponent != NULL) ? RootComponent->GetPhysicsVolume() : GetWorld()->GetDefaultPhysicsVolume();
+	if (JumpVelocity.Size() > PhysVolume->TerminalVelocity)
+	{
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
+		Arguments.Add(TEXT("Speed"), FText::AsNumber(JumpVelocity.Size()));
+		Arguments.Add(TEXT("TerminalVelocity"), FText::AsNumber(PhysVolume->TerminalVelocity));
+		FMessageLog("MapCheck").Warning()
+			->AddToken(FUObjectToken::Create(this))
+			->AddToken(FTextToken::Create(FText::Format(NSLOCTEXT("UTJumpPad", "TerminalVelocityWarning", "{ActorName} : Jump pad speed on default character would be {Speed} but terminal velocity is {TerminalVelocity}!"), Arguments)))
+			->AddToken(FMapErrorToken::Create(FName(TEXT("JumpPadTerminalVelocity"))));
 	}
 }
 #endif // WITH_EDITOR
