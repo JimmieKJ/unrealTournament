@@ -77,7 +77,7 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 			{
 				MessageQueue[j] = MessageQueue[j+1];
 			}
-			ClearMessage(MessageQueue[QueueIndex]);
+			ClearMessage(MessageQueue[MessageQueue.Num() - 1]);
 			QueueIndex--;
 			continue;
 		}

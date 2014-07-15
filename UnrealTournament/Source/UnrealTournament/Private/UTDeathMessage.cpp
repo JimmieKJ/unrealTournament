@@ -67,8 +67,8 @@ FText UUTDeathMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APla
 		UUTDamageType* DamageType = DamageTypeClass->GetDefaultObject<UUTDamageType>();			
 		if (Switch == 1)	// Suicide
 		{
-			// We don't have a switch yet in the PRI for male vs Female..... so just use the mail for now.
-			return DamageType->MaleSuicideMessage;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+			return (PS != NULL && PS->IsFemale()) ? DamageType->FemaleSuicideMessage : DamageType->MaleSuicideMessage;
 		}
 		return DamageType->ConsoleDeathMessage;
 	}

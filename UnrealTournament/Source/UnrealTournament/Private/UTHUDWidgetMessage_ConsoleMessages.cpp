@@ -38,3 +38,13 @@ void UUTHUDWidgetMessage_ConsoleMessages::DrawMessage(int32 QueueIndex, float X,
 	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, FVector2D(2,2), FLinearColor::Black, 1.0f, 1.0f, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Left, ETextVertPos::Top);
 }
 
+void UUTHUDWidgetMessage_ConsoleMessages::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	Super::LayoutMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+
+	AUTPlayerState* InstigatorPS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+	if (InstigatorPS != NULL && InstigatorPS->Team != NULL)
+	{
+		MessageQueue[QueueIndex].DrawColor = FMath::LerpStable(InstigatorPS->Team->TeamColor, FLinearColor::White, 0.1f);
+	}
+}
