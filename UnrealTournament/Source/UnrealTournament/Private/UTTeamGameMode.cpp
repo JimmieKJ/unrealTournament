@@ -190,7 +190,7 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 
 	for (int32 i = 0; i < Teams.Num(); i++)
 	{
-		if (Teams[i]->Score > GoalScore)
+		if (Teams[i]->Score >= GoalScore)
 		{
 			if (Teams[i]->Score == BestScore)
 			{
@@ -207,7 +207,7 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 
 	if (!bTie && PotentialWinner != NULL)
 	{
-		EndGame(Scorer, TEXT("scorelimit"));
+		EndGame(Scorer, TEXT("fraglimit")); // TODO: rework 'reason'
 		return true;
 	}
 	else
