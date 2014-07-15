@@ -521,6 +521,18 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float EyeOffsetLandBobThreshold;
 
+	/** Jump Landing target weapon bob Velocity threshold. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float WeaponLandBobThreshold;
+
+	/** Get Max weapon land bob deflection at landing velocity Z of FullWeaponLandBobVelZ+WeaponLandBobThreshold */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float FullWeaponLandBobVelZ;
+
+	/** Get Max eye offset land bob deflection at landing velocity Z of FullEyeOffsetLandBobVelZ+EyeOffsetLandBobThreshold */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float FullEyeOffsetLandBobVelZ;
+
 	/** Returns offset to add to first person mesh for weapon bob. */
 	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
 

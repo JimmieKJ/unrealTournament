@@ -143,6 +143,20 @@ public:
 	UPROPERTY(GlobalConfig, BlueprintReadOnly, Category = Weapon)
 	bool bAutoWeaponSwitch;
 
+	/** Global scaling for weapon bob. */
+	UPROPERTY(EditAnywhere, Category = WeaponBob)
+	float WeaponBobGlobalScaling;
+
+	/** Global scaling for eye offset. */
+	UPROPERTY(EditAnywhere, Category = WeaponBob)
+	float EyeOffsetGlobalScaling;
+
+	UFUNCTION(exec)
+	virtual void SetEyeOffsetScaling(float NewScaling);
+
+	UFUNCTION(exec)
+	virtual void SetWeaponBobScaling(float NewScaling);
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

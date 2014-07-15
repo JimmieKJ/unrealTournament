@@ -35,6 +35,8 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
 
+	WeaponBobGlobalScaling = 1.f;
+	EyeOffsetGlobalScaling = 1.f;
 }
 
 void AUTPlayerController::SetGravity(float NewGravity)
@@ -45,6 +47,15 @@ void AUTPlayerController::SetGravity(float NewGravity)
 	}
 }
 
+void AUTPlayerController::SetEyeOffsetScaling(float NewScaling)
+{
+	EyeOffsetGlobalScaling = NewScaling;
+}
+
+void AUTPlayerController::SetWeaponBobScaling(float NewScaling)
+{
+	WeaponBobGlobalScaling = NewScaling;
+}
 
 FVector AUTPlayerController::GetFocalLocation() const
 {

@@ -51,20 +51,23 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	BobTime = 0.f;
 	WeaponBobMagnitude = FVector(0.f, 0.8f, 0.4f);
-	WeaponJumpBob = FVector(0.f, 0.f, -4.f);
+	WeaponJumpBob = FVector(0.f, 0.f, -3.6f);
 	WeaponDodgeBob = FVector(0.f, 6.f, -2.5f);
 	WeaponLandBob = FVector(0.f, 0.f, 10.5f);
 	WeaponBreathingBobRate = 0.2f;
 	WeaponRunningBobRate = 0.8f;
-	WeaponJumpBobInterpRate = 8.f;
-	WeaponLandBobDecayRate = 6.f;
+	WeaponJumpBobInterpRate = 6.5f;
+	WeaponLandBobDecayRate = 5.f;
 	EyeOffset = FVector(0.f, 0.f, 0.f);
 	TargetEyeOffset = EyeOffset;
-	EyeOffsetInterpRate = 10.f;
-	EyeOffsetDecayRate = 8.f;
+	EyeOffsetInterpRate = 9.f;
+	EyeOffsetDecayRate = 7.f;
 	EyeOffsetJumpBob = 20.f;
 	EyeOffsetLandBob = -110.f;
-	EyeOffsetLandBobThreshold = -300.f;
+	EyeOffsetLandBobThreshold = 300.f;
+	WeaponLandBobThreshold = 100.f;
+	FullWeaponLandBobVelZ = 900.f;
+	FullEyeOffsetLandBobVelZ = 750.f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -190,8 +193,8 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		BobTime += DeltaTime * BobFactor;
 		DesiredJumpBob *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
 		CurrentWeaponBob.X = 0.f;
-		CurrentWeaponBob.Y = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Y*BobFactor * FMath::Sin(8.f*BobTime);
-		CurrentWeaponBob.Z = MyWeapon->WeaponBobScaling * WeaponBobMagnitude.Z*BobFactor * FMath::Sin(16.f*BobTime);
+		CurrentWeaponBob.Y = WeaponBobMagnitude.Y*BobFactor * FMath::Sin(8.f*BobTime);
+		CurrentWeaponBob.Z = WeaponBobMagnitude.Z*BobFactor * FMath::Sin(16.f*BobTime);
 
 		// play footstep sounds when weapon changes bob direction if walking
 		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI)))
@@ -200,7 +203,9 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		}
 	}
 	CurrentJumpBob = (1.f - InterpTime)*CurrentJumpBob + InterpTime*DesiredJumpBob;
-	return (CurrentWeaponBob.Y+CurrentJumpBob.Y)*Y + (CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + EyeOffset;
+	float WeaponBobGlobalScaling = MyWeapon->WeaponBobScaling * (Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->WeaponBobGlobalScaling : 1.f);
+	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
+	return WeaponBobGlobalScaling*(CurrentWeaponBob.Y + CurrentJumpBob.Y)*Y + WeaponBobGlobalScaling*(CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + EyeOffsetGlobalScaling*EyeOffset;
 }
 
 void AUTCharacter::NotifyJumpApex()
@@ -1269,7 +1274,8 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 
 FVector AUTCharacter::GetPawnViewLocation() const
 {
-	return GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + EyeOffset;
+	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
+	return GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + EyeOffsetGlobalScaling*EyeOffset;
 }
 
 void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
@@ -1277,7 +1283,8 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 	if (bFindCameraComponentWhenViewTarget && CharacterCameraComponent && CharacterCameraComponent->bIsActive)
 	{
 		CharacterCameraComponent->GetCameraView(DeltaTime, OutResult);
-		OutResult.Location += EyeOffset;
+		float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
+		OutResult.Location += EyeOffsetGlobalScaling*EyeOffset;
 		return;
 	}
 
@@ -1329,13 +1336,13 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	DesiredJumpBob = FVector(0.f);
 
 	// bob weapon and viewpoint on landing
-	if (CharacterMovement->Velocity.Z < -200.f)
+	if (CharacterMovement->Velocity.Z < WeaponLandBobThreshold)
 	{
-		DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - 100.f) / 700.f);
-		if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold)
-		{
-			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / 700.f);
-		}
+		DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - WeaponLandBobThreshold) / FullWeaponLandBobVelZ);
+	}
+	if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold)
+	{
+		TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
 	}
 	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
 
