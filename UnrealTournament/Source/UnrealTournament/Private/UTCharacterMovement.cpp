@@ -720,7 +720,7 @@ void UUTCharacterMovement::NotifyJumpApex()
 void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 {
 	// Only try jump assist once, and not while still going up, and not if falling too fast
-	if (bJumpAssisted || (Velocity.Z > 0.f) || (Cast<AUTCharacter>(CharacterOwner) != NULL && Velocity.Z < ((AUTCharacter*)CharacterOwner)->MaxSafeFallSpeed))
+	if (bJumpAssisted || (Velocity.Z > 0.f) || (Cast<AUTCharacter>(CharacterOwner) != NULL && Velocity.Z < -1.f*((AUTCharacter*)CharacterOwner)->MaxSafeFallSpeed))
 	{
 		return;
 	}
@@ -751,6 +751,6 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 			Cast<AUTCharacter>(CharacterOwner)->OnLandingAssist();
 		}
 		Velocity.Z = LandingAssistBoost; 
-		UE_LOG(UT, Warning, TEXT("LANDING ASSIST BOOST"));
+		//UE_LOG(UT, Warning, TEXT("LANDING ASSIST BOOST"));
 	}
 }
