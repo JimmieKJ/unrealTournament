@@ -68,6 +68,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	WeaponLandBobThreshold = 100.f;
 	FullWeaponLandBobVelZ = 900.f;
 	FullEyeOffsetLandBobVelZ = 750.f;
+	WeaponDirChangeDeflection = 5.f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -209,6 +210,17 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		float BobFactor = (WeaponBreathingBobRate + WeaponRunningBobRate*Speed / CharacterMovement->MaxWalkSpeed);
 		BobTime += DeltaTime * BobFactor;
 		DesiredJumpBob *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
+		if ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f)
+		{
+			if ((CharacterMovement->GetCurrentAcceleration() | Y) > 0.7f)
+			{
+				DesiredJumpBob.Y = -1.f*WeaponDirChangeDeflection;
+			}
+			else if ((CharacterMovement->GetCurrentAcceleration() | Y) < -0.7f)
+			{
+				DesiredJumpBob.Y = WeaponDirChangeDeflection;
+			}
+		}
 		CurrentWeaponBob.X = 0.f;
 		CurrentWeaponBob.Y = WeaponBobMagnitude.Y*BobFactor * FMath::Sin(8.f*BobTime);
 		CurrentWeaponBob.Z = WeaponBobMagnitude.Z*BobFactor * FMath::Sin(16.f*BobTime);

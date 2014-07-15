@@ -493,6 +493,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float WeaponLandBobDecayRate;
 
+	/** Get Max eye offset land bob deflection at landing velocity Z of FullEyeOffsetLandBobVelZ+EyeOffsetLandBobThreshold */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float WeaponDirChangeDeflection;
+
 	/** Current Eye position offset from base view position - interpolates toward TargetEyeOffset. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 	FVector EyeOffset;

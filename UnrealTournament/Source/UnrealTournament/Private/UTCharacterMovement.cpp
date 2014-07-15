@@ -11,7 +11,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxWalkSpeed = 900.f;
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -2400.f;  // same as UTCharacter->MaxSafeFallSpeed - @TODO FIXMESTEVE probably get rid of this property
-	MaxAdditiveDodgeJumpSpeed = 850.f;  // 10000.f
+	MaxAdditiveDodgeJumpSpeed = 850.f;  
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
