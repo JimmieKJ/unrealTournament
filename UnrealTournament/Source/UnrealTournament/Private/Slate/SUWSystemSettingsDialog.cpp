@@ -46,6 +46,11 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 		];
 }
 
+FString SUWSystemSettingsDialog::GetFOVLabelText(int32 FOVAngle)
+{
+	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
+}
+
 void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
 	MouseSensitivityRange = FVector2D(0.01f, 0.15f);
@@ -199,6 +204,44 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
 				+ SVerticalBox::Slot()
+				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
+					[
+						SNew(SBox)
+						.HAlign(HAlign_Center)
+						.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
+						.Content()
+						[
+							SAssignNew(FOVLabel, STextBlock)
+							.ColorAndOpacity(FLinearColor::Black)
+							.Text(GetFOVLabelText(int(GetDefault<AUTPlayerController>()->ConfigDefaultFOV)))
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
+						.Content()
+						[
+							SAssignNew(FOV, SSlider)
+							.OnValueChanged(this, &SUWSystemSettingsDialog::OnFOVChange)
+							.Orientation(Orient_Horizontal)
+							.Value((GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN))
+						]
+					]
+				]
+				+ SVerticalBox::Slot()
 				.AutoHeight()
 				.VAlign(VAlign_Bottom)
 				.HAlign(HAlign_Right)
@@ -229,6 +272,11 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 		];
 }
 
+void SUWSystemSettingsDialog::OnFOVChange(float NewValue)
+{
+	FOVLabel->SetText(GetFOVLabelText(FMath::TruncToInt(NewValue * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN)));
+}
+
 FReply SUWSystemSettingsDialog::OKClick()
 {
 	// mouse sensitivity
@@ -257,6 +305,19 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+	// FOV
+	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+	if (PC != NULL)
+	{
+		PC->FOV(NewFOV);
+	}
+	else
+	{
+		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->ConfigDefaultFOV = NewFOV;
+		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
+	}
+
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
 }

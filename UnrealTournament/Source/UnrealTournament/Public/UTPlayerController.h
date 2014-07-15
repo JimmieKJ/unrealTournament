@@ -3,6 +3,10 @@
 
 #include "UTPlayerController.generated.h"
 
+// range user is allowed to configure FOV angle
+#define FOV_CONFIG_MIN 80.0f
+#define FOV_CONFIG_MAX 105.0f
+
 class UUTAnnouncer;
 
 UCLASS(dependson=UTCharacter, dependson=UTPlayerState, config=Game)
@@ -144,11 +148,11 @@ public:
 	bool bAutoWeaponSwitch;
 
 	/** Global scaling for weapon bob. */
-	UPROPERTY(EditAnywhere, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = WeaponBob)
 	float WeaponBobGlobalScaling;
 
 	/** Global scaling for eye offset. */
-	UPROPERTY(EditAnywhere, Category = WeaponBob)
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = WeaponBob)
 	float EyeOffsetGlobalScaling;
 
 	UFUNCTION(exec)
@@ -156,6 +160,13 @@ public:
 
 	UFUNCTION(exec)
 	virtual void SetWeaponBobScaling(float NewScaling);
+
+	/** user configurable FOV setting */
+	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
+	float ConfigDefaultFOV;
+
+	virtual void SpawnPlayerCameraManager() OVERRIDE;
+	virtual void FOV(float NewFOV) OVERRIDE;
 
 protected:
 

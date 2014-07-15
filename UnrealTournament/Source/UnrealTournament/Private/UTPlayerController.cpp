@@ -37,6 +37,8 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 	WeaponBobGlobalScaling = 1.f;
 	EyeOffsetGlobalScaling = 1.f;
+
+	ConfigDefaultFOV = 90.0f;
 }
 
 void AUTPlayerController::SetGravity(float NewGravity)
@@ -152,6 +154,19 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 {
 	Super::SetPawn(InPawn);
 	UTCharacter = Cast<AUTCharacter>(InPawn);
+
+	// apply FOV angle if dead/spectating
+	if (GetPawn() == NULL && IsLocalPlayerController() && PlayerCameraManager != NULL)
+	{
+		FOV(ConfigDefaultFOV);
+	}
+}
+
+void AUTPlayerController::SpawnPlayerCameraManager()
+{
+	Super::SpawnPlayerCameraManager();
+	// init configured FOV angle
+	FOV(ConfigDefaultFOV);
 }
 
 void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
@@ -162,6 +177,19 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	if (PlayerCameraManager != NULL)
 	{
 		PlayerCameraManager->UnlockFOV();
+	}
+}
+
+void AUTPlayerController::FOV(float NewFOV)
+{
+	if (NewFOV != ConfigDefaultFOV)
+	{
+		ConfigDefaultFOV = FMath::Clamp<float>(NewFOV, FOV_CONFIG_MIN, FOV_CONFIG_MAX);
+		if (GetPawn() != NULL)
+		{
+			Suicide();
+		}
+		SaveConfig();
 	}
 }
 

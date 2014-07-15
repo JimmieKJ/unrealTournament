@@ -25,6 +25,8 @@ protected:
 	TSharedPtr<STextBlock> SelectedPPQuality;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > EffectQuality;
 	TSharedPtr<STextBlock> SelectedEffectQuality;
+	TSharedPtr<SSlider> FOV;
+	TSharedPtr<STextBlock> FOVLabel;
 
 	/** range of values passed to PlayerInput->SetMouseSensitivity() which will be normalized to 0.0 - 1.0 for the slider widget */
 	FVector2D MouseSensitivityRange;
@@ -37,6 +39,9 @@ protected:
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnFOVChange(float NewValue);
+
+	FString GetFOVLabelText(int32 FOVAngle);
 
 	SVerticalBox::FSlot& AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue);
 };
