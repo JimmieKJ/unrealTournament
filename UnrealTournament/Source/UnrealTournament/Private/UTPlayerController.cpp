@@ -77,6 +77,8 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAxis("MoveForward", this, &AUTPlayerController::MoveForward);
 	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
+	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
+	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
 
 	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
@@ -372,6 +374,7 @@ void AUTPlayerController::TurnAtRate(float Rate)
 		AddYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 	}
 }
+
 void AUTPlayerController::LookUpAtRate(float Rate)
 {
 	if (GetPawn() != NULL)
@@ -380,11 +383,28 @@ void AUTPlayerController::LookUpAtRate(float Rate)
 		AddPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
 	}
 }
+
 void AUTPlayerController::Jump()
 {
 	if (GetCharacter() != NULL)
 	{
 		GetCharacter()->bPressedJump = true;
+	}
+}
+
+void AUTPlayerController::Crouch()
+{
+	if (GetCharacter() != NULL)
+	{
+		GetCharacter()->Crouch(false);
+	}
+}
+
+void AUTPlayerController::UnCrouch()
+{
+	if (GetCharacter() != NULL)
+	{
+		GetCharacter()->UnCrouch(false);
 	}
 }
 

@@ -52,6 +52,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeImpulseVertical = 525.f;
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 420.f; 
+
+	NavAgentProps.bCanCrouch = true;
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)

@@ -231,6 +231,9 @@ protected:
 	/** called to set the jump flag from input */
 	virtual void Jump();
 
+	virtual void Crouch();
+	virtual void UnCrouch();
+
 	/** Handler for a touch input beginning. */
 	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
 
