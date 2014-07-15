@@ -540,6 +540,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual void CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult) override;
 
+	virtual void OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust) override;
+
+	virtual void OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust) override;
+
 	//--------------------------
 
 protected:

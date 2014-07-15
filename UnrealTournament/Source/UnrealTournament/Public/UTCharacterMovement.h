@@ -51,7 +51,7 @@ public:
 		float WallDodgeSecondImpulseVertical;
 
 	/** Grace negative velocity which is zeroed before adding walldodgeimpulse */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Second Impulse Vertical"))
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite)
 		float WallDodgeGraceVelocityZ;
 
 	/** Minimum Normal of Wall Dodge from wall (1.0 is 90 degrees, 0.0 is along wall, 0.7 is 45 degrees). */

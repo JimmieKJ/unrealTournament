@@ -108,6 +108,23 @@ void AUTCharacter::RecalculateBaseEyeHeight()
 	BaseEyeHeight = CharacterCameraComponent->RelativeLocation.Z;
 }
 
+void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
+{
+	float OldEyeHeight = BaseEyeHeight + BaseTranslationOffset.Z;
+	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
+	EyeOffset = EyeOffset + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
+}
+
+void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
+{
+	float OldEyeHeight = BaseEyeHeight + BaseTranslationOffset.Z;
+	UE_LOG(UT, Warning, TEXT("OldEyeHeight %f from BaseTrans %f"), OldEyeHeight, BaseTranslationOffset.Z);
+	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
+	EyeOffset = EyeOffset + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
+	UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f from BaseTrans %f"), BaseEyeHeight + BaseTranslationOffset.Z, BaseTranslationOffset.Z);
+}
+
+
 void AUTCharacter::Restart()
 {
 	Super::Restart();
