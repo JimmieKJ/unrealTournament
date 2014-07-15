@@ -75,8 +75,15 @@ class UUTSpreeMessage : public UUTLocalMessage
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const OVERRIDE
 	{
-		// Switch is spree level + 1
-		return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch - 1, 0, AnnouncementNames.Num() - 1)] : NAME_None;
+		if (Switch > 0)
+		{
+			// Switch is spree level + 1
+			return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch - 1, 0, AnnouncementNames.Num() - 1)] : NAME_None;
+		}
+		else
+		{
+			return NAME_None;
+		}
 	}
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const OVERRIDE
 	{
