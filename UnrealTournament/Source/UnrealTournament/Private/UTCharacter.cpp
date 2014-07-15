@@ -989,7 +989,7 @@ void AUTCharacter::WeaponChanged()
 		PendingWeapon = NULL;
 		Weapon->BringUp();
 	}
-	else
+	else if (Weapon != NULL)
 	{
 		// restore current weapon since pending became invalid
 		Weapon->BringUp();
