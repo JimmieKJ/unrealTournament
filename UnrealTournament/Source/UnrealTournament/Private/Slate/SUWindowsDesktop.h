@@ -34,6 +34,7 @@ protected:
 	virtual FReply OnConnectIP();
 	virtual void ConnectIPDialogResult(const FString& InputText, bool bCancelled);
 	virtual FReply OnChangeTeam(int32 NewTeamIndex);
+	virtual FReply OpenPlayerSettings();
 	virtual FReply OpenSystemSettings();
 
 	virtual bool SupportsKeyboardFocus() const OVERRIDE;

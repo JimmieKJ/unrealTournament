@@ -182,14 +182,17 @@ void AUTPlayerController::SwitchToBestWeapon()
 	if (UTCharacter != NULL && IsLocalPlayerController())
 	{
 		AUTWeapon* BestWeapon = NULL;
+		float BestPriority = 0.0f;
 		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
 			if (Weap != NULL && Weap->HasAnyAmmo())
 			{
-				if (BestWeapon == NULL || Weap->Group > BestWeapon->Group)
+				float TestPriority = Weap->GetAutoSwitchPriority();
+				if (TestPriority > BestPriority)
 				{
 					BestWeapon = Weap;
+					BestPriority = TestPriority;
 				}
 			}
 		}
@@ -266,7 +269,7 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		{
 			CurWeapon = UTCharacter->GetWeapon();
 		}
-		if (CurWeapon == NULL || (bAutoWeaponSwitch && !CurWeapon->IsFiring() && TestWeapon->Group > CurWeapon->Group))
+		if (CurWeapon == NULL || (bAutoWeaponSwitch && !CurWeapon->IsFiring() && TestWeapon->GetAutoSwitchPriority() > CurWeapon->GetAutoSwitchPriority()))
 		{
 			UTCharacter->SwitchWeapon(TestWeapon);
 		}

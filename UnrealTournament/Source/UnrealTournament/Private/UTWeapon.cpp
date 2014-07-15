@@ -64,6 +64,13 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	MaxPitchLag = 3.3f; 
 }
 
+void AUTWeapon::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	DisplayName = FText::FromName(GetClass()->GetFName());
+}
+
 UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const
 {
 	if (AttachmentType != NULL)
@@ -226,7 +233,7 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
 			if (Weap != NULL && Weap->Group == Group)
 			{
-				Group = FMath::Max<int32>(Group, Weap->Group + 1);
+				GroupSlot = FMath::Max<int32>(GroupSlot, Weap->GroupSlot + 1);
 			}
 		}
 	}
@@ -265,6 +272,11 @@ void AUTWeapon::ClientRemoved_Implementation()
 	{
 		OldOwner->ClientWeaponLost(this);
 	}
+}
+
+float AUTWeapon::GetAutoSwitchPriority()
+{
+	return (AutoSwitchPriority > 0.0f) ? AutoSwitchPriority : (float(Group) + float(GroupSlot) * 0.01f);
 }
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
@@ -554,7 +566,7 @@ FVector AUTWeapon::GetFireStartLoc()
 {
 	if (UTOwner == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("GetFireStartLoc(): No Owner (died while firing?)"));
+		UE_LOG(UT, Warning, TEXT("%s::GetFireStartLoc(): No Owner (died while firing?)"), *GetName());
 		return FVector::ZeroVector;
 	}
 	else
@@ -608,7 +620,7 @@ FRotator AUTWeapon::GetBaseFireRotation()
 {
 	if (UTOwner == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("GetBaseFireRotation(): No Owner (died while firing?)"));
+		UE_LOG(UT, Warning, TEXT("%s::GetBaseFireRotation(): No Owner (died while firing?)"), *GetName());
 		return FRotator::ZeroRotator;
 	}
 	else

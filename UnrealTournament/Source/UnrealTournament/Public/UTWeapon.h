@@ -23,7 +23,7 @@ struct FInstantHitDamageInfo
 	{}
 };
 
-UCLASS(Blueprintable, Abstract, NotPlaceable)
+UCLASS(Blueprintable, Abstract, NotPlaceable, Config = Game)
 class AUTWeapon : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
@@ -140,6 +140,17 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Weapon")
 	int32 GroupSlot;
 
+	/** user set priority for auto switching and switch to best weapon functionality
+	 * this value only has meaning on clients
+	 */
+	UPROPERTY(Config, BlueprintReadOnly, Category = "Weapon")
+	float AutoSwitchPriority;
+
+	/** return priority for human player auto weapon switch (on pickup if enabled, or switch to best weapon key)
+	 * highest value weapon is selected
+	 */
+	float GetAutoSwitchPriority();
+
 	/** whether this weapon stays around by default when someone picks it up (i.e. multiple people can pick up from the same spot without waiting for respawn time) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	bool bWeaponStay;
@@ -156,6 +167,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float WeaponBobScaling;
 
+	virtual void PostInitProperties() OVERRIDE;
 	virtual void BeginPlay() OVERRIDE;
 	virtual void RegisterAllComponents() OVERRIDE
 	{
@@ -359,6 +371,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icon")
 	FTextureUVs IconCoordinates;
+
+	/** human readable localized name for the weapon */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FText DisplayName;
 
 	//*********
 	// Rotation Lag/Lead

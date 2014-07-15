@@ -6,6 +6,7 @@
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
 #include "SUWSystemSettingsDialog.h"
+#include "SUWPlayerSettingsDialog.h"
 #include "SUWInputBox.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
@@ -258,6 +259,15 @@ void SUWindowsDesktop::BuildOptionsSubMenu()
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings").ToString())
+			.OnClicked(this, &SUWindowsDesktop::OpenPlayerSettings)
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
 			.OnClicked(this, &SUWindowsDesktop::OpenSystemSettings)
 		]
@@ -348,6 +358,11 @@ FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 	}
 
 	CloseMenus();
+	return FReply::Handled();
+}
+FReply SUWindowsDesktop::OpenPlayerSettings()
+{
+	PlayerOwner->OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner));
 	return FReply::Handled();
 }
 FReply SUWindowsDesktop::OpenSystemSettings()
