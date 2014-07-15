@@ -16,7 +16,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
 	MultiJumpImpulse = 500.f;
-	DodgeLandingSpeedFactor = 0.1f;
+	DodgeLandingSpeedFactor = 0.2f;
 	DodgeResetInterval = 0.35f;
 	WallDodgeResetInterval = 0.2f;
 	DodgeResetTime = 0.f;
