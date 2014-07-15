@@ -27,6 +27,14 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		GetOuterAUTWeapon()->OnStartedFiring();
 		bCharging = true;
 	}
+	virtual void EndState() OVERRIDE
+	{
+		if (bCharging)
+		{
+			EndFiringSequence(GetFireMode());
+		}
+		Super::EndState();
+	}
 	virtual void UpdateTiming() OVERRIDE
 	{
 		if (!bCharging)
