@@ -38,7 +38,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 4500.f; // default was 2048, UT3 was 4464.6, UT was 5041.2
+	MaxAcceleration = 4000.f; // default was 2048, UT3 was 4464.6, UT was 5041.2
 	BrakingDecelerationWalking = 4500.f;
 	GravityScale = 2.2f;
 	DodgeImpulseHorizontal = 1350.f;
