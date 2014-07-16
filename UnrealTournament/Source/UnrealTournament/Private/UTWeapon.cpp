@@ -116,19 +116,21 @@ void AUTWeapon::ValidateFiringStates()
 	for (int32 i = 0; i < FiringStateType.Num(); i++)
 	{
 		// don't allow setting None
+		EObjectFlags OldFlags = RF_NoFlags;
 		if (FiringStateType[i] == NULL)
 		{
 			FiringStateType[i] = UUTWeaponStateFiring::StaticClass();
 		}
 		if (FiringState[i] != NULL && FiringState[i]->GetClass() != FiringStateType[i])
 		{
+			OldFlags = FiringState[i]->GetFlags();
 			FiringState[i]->MarkPendingKill();
 			FiringState[i] = NULL;
 			bMadeChanges = true;
 		}
 		if (FiringState[i] == NULL && FiringStateType[i] != NULL)
 		{
-			FiringState[i] = ConstructObject<UUTWeaponStateFiring>(FiringStateType[i], this, NAME_None, GetClass()->GetDefaultObject<AUTWeapon>()->FiringState[0]->GetFlags());
+			FiringState[i] = ConstructObject<UUTWeaponStateFiring>(FiringStateType[i], this, NAME_None, OldFlags);
 			bMadeChanges = true;
 		}
 	}
