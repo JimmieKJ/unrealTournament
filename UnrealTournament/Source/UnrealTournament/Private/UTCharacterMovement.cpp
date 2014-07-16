@@ -445,6 +445,7 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 	// prevent boosting up slopes
 	if (bFalling && Result.Z > 0.f)
 	{
+		// @TODO FIXMESTEVE - make this a virtual function in super class so just change this part
 		float PawnRadius, PawnHalfHeight;
 		CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
 		if (Delta.Z < 0.f && (Hit.ImpactNormal.Z < MAX_STEP_SIDE_Z))
@@ -453,21 +454,28 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 			// straight down for the next move to make sure we get the most upward-facing opposing normal.
 			Result = FVector(0.f, 0.f, Delta.Z);
 		}
-		else if ((CharacterOwner->GetActorLocation() - Hit.ImpactPoint).Size2D() < 0.93f * PawnRadius)
-		{
-			// don't allow skipping up on bottom of capsule hits
-			Result.Z = FMath::Min(Result.Z, Delta.Z * Time);
-			Result.Z = FMath::Min(Result.Z, Velocity.Z*DeltaTime);
-			bJustTeleported = true;
-		}
-		else if (bAllowSlopeDodgeBoost)
+		else if (bAllowSlopeDodgeBoost && ((CharacterOwner->GetActorLocation() - Hit.ImpactPoint).Size2D() > 0.93f * PawnRadius))
 		{
 			Result.Z *= (1.f - FMath::Pow(Normal.Z, SlopeDodgeExponent));
 		}
 		else
 		{
-			// @TODO FIXMESTEVE - make this a virtual function in super class so just change this part
-			Result.Z = FMath::Min(Result.Z, Delta.Z * Time);
+			// Don't move any higher than we originally intended.
+			const float ZLimit = Delta.Z * Time;
+			if (Result.Z > ZLimit && ZLimit > KINDA_SMALL_NUMBER)
+			{
+				FVector SlideResult = Result;
+
+				// Rescale the entire vector (not just the Z component) otherwise we change the direction and likely head right back into the impact.
+				const float UpPercent = ZLimit / Result.Z;
+				Result *= UpPercent;
+
+				// Make remaining portion of original result horizontal and parallel to impact normal.
+				const FVector RemainderXY = (SlideResult - Result) * FVector(1.f, 1.f, 0.f);
+				const FVector NormalXY = Normal.SafeNormal2D();
+				const FVector Adjust = Super::ComputeSlideVector(RemainderXY, 1.f, NormalXY, Hit);
+				Result += Adjust;
+			}
 		}
 	}
 
