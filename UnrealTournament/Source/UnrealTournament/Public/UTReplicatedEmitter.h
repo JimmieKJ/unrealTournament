@@ -1,6 +1,8 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UnrealNetwork.h"
+
 #include "UTReplicatedEmitter.generated.h"
 
 /** temporary one-shot emitter that is replicated to clients
@@ -8,7 +10,7 @@
  * on dedicated servers, the effect will not play but the Actor should still be spawned and will stay alive long enough to send to current clients\
  * the emitter defaults to being based on its Owner, so that the Base can effectively be passed as part of the spawn parameters
  */
-UCLASS(Blueprintable, CustomConstructor, Abstract)
+UCLASS(Blueprintable, CustomConstructor, Abstract, Meta=(ChildCanTick))
 class AUTReplicatedEmitter : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -17,14 +19,17 @@ class AUTReplicatedEmitter : public AActor
 	: Super(PCIP)
 	{
 		PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("Particles"));
+		PSC->OnSystemFinished.BindDynamic(this, &AUTReplicatedEmitter::OnParticlesFinished);
+		RootComponent = PSC;
 		InitialLifeSpan = 10.0f;
 		DedicatedServerLifeSpan = 0.5f;
 
 		SetReplicates(true);
 		bReplicateMovement = true;
+		bNetTemporary = true;
 	}
 
-	UPROPERTY(VisibleDefaultsOnly, Category = Emitter)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Emitter)
 	TSubobjectPtr<UParticleSystemComponent> PSC;
 	/** lifespan when in dedicated server mode - basically how long it's worthwhile to consider sending the effect to clients before it's obsolete */
 	UPROPERTY(EditDefaultsOnly, Category = Emitter)
@@ -47,13 +52,60 @@ class AUTReplicatedEmitter : public AActor
 
 	virtual void RegisterAllComponents() OVERRIDE
 	{
-		if (GetOwner() != NULL)
+		// we do this via PostActorCreated() so we don't attach our component to ourselves just to reattach it later in spawning
+	}
+
+	virtual void PostActorCreated() OVERRIDE
+	{
+		if (GetOwner() != NULL && bAttachToOwnerMesh)
 		{
-			AttachRootComponentToActor(GetOwner(), BaseSocketName, EAttachLocation::SnapToTarget);
+			ACharacter* C = Cast<ACharacter>(GetOwner());
+			AttachRootComponentTo((C != NULL) ? C->Mesh : GetOwner()->GetRootComponent(), BaseSocketName, EAttachLocation::SnapToTarget);
 		}
 		if (GetNetMode() != NM_DedicatedServer)
 		{
 			Super::RegisterAllComponents();
 		}
+
+		Super::PostActorCreated();
 	}
+
+	virtual void PreInitializeComponents() OVERRIDE
+	{
+		Super::PreInitializeComponents();
+
+		// we can't do this above because if the blueprint does something with a BP or construction script component, the script would overwrite changes
+		// this spot is after the construction script so should be OK
+		if (RootComponent->AttachParent != NULL)
+		{
+			OnAttachedTo(RootComponent->AttachParent);
+		}
+	}
+
+	UFUNCTION()
+	virtual void OnParticlesFinished(UParticleSystemComponent* FinishedPSC)
+#if CPP // hack around UHT fail
+	{
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			Destroy();
+		}
+	}
+#else
+	;
+#endif
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
+	void OnAttachedTo(USceneComponent* BaseComponent);
+
+	virtual void OnRep_AttachmentReplication()
+	{
+		Super::OnRep_AttachmentReplication();
+
+		if (RootComponent->AttachParent != NULL)
+		{
+			OnAttachedTo(RootComponent->AttachParent);
+		}
+	}
+
 };
