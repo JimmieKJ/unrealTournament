@@ -58,7 +58,10 @@ void AUTWeaponAttachment::AttachToOwner_Implementation()
 {
 	Mesh->SetRelativeLocation(AttachOffset);
 	Mesh->AttachTo(UTOwner->Mesh, AttachSocket);
+	Mesh->bRecentlyRendered = UTOwner->Mesh->bRecentlyRendered;
+	Mesh->LastRenderTime = UTOwner->Mesh->LastRenderTime;
 	UpdateOverlays();
+	SetSkin(UTOwner->GetSkin());
 }
 
 void AUTWeaponAttachment::DetachFromOwner_Implementation()

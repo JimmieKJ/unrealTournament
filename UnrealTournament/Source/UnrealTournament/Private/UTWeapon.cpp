@@ -376,12 +376,18 @@ void AUTWeapon::AttachToOwner_Implementation()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->AttachTo(UTOwner->FirstPersonMesh);
+		if (Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
+		{
+			Mesh->LastRenderTime = GetWorld()->TimeSeconds;
+			Mesh->bRecentlyRendered = true;
+		}
 	}
 	// register components now
 	Super::RegisterAllComponents();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UpdateOverlays();
+		SetSkin(UTOwner->GetSkin());
 	}
 }
 

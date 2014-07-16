@@ -1618,7 +1618,7 @@ void AUTCharacter::BecomeViewTarget(class APlayerController* PC)
 void AUTCharacter::EndViewTarget( class APlayerController* PC )
 {
 	Super::EndViewTarget(PC);
-	if (PC != NULL && PC->IsLocalController())
+	if (PC != NULL && (PC->Player == NULL || PC->IsLocalController()))
 	{
 		SetMeshVisibility(true);
 	}

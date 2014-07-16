@@ -429,6 +429,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetSkin(UMaterialInterface* NewSkin);
+	inline UMaterialInterface* GetSkin()
+	{
+		return ReplicatedBodyMaterial;
+	}
 
 	/** apply skin in ReplicatedBodyMaterial or restore to default if it's NULL */
 	UFUNCTION()
