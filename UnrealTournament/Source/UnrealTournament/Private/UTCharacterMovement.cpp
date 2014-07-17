@@ -45,7 +45,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 48.0f;
-	SlopeDodgeExponent = 4.3f;
+	SlopeDodgeScaling = 1.f;
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
@@ -454,9 +454,9 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 			// straight down for the next move to make sure we get the most upward-facing opposing normal.
 			Result = FVector(0.f, 0.f, Delta.Z);
 		}
-		else if (bAllowSlopeDodgeBoost && ((CharacterOwner->GetActorLocation() - Hit.ImpactPoint).Size2D() > 0.93f * PawnRadius))
+		else if (bAllowSlopeDodgeBoost && (((CharacterOwner->GetActorLocation() - Hit.ImpactPoint).Size2D() > 0.93f * PawnRadius) || (Hit.ImpactNormal.Z > 0.2f))) // @TODO FIXMESTEVE tweak magic numbers
 		{
-			Result.Z *= (1.f - FMath::Pow(Normal.Z, SlopeDodgeExponent));
+			Result.Z *= SlopeDodgeScaling;
 		}
 		else
 		{

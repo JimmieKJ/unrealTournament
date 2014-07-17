@@ -108,7 +108,7 @@ public:
 
 	/** Affects amount of slope dodge possible. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly)
-	float SlopeDodgeExponent;
+	float SlopeDodgeScaling;
 
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
 	bool bPressedDodgeForward;
