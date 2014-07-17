@@ -73,11 +73,11 @@ class AUTProjectile : public AActor
 	virtual void BeginPlay();
 	virtual void TornOff();
 	
-	virtual void PostNetReceiveLocation() OVERRIDE;
-	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) OVERRIDE;
-	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
+	virtual void PostNetReceiveLocation() override;
+	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
+	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 
-	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) OVERRIDE;
+	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 
 	/** turns off projectile ambient effects, collision, physics, etc
 	 * needed because we need a delay between explosion and actor destruction for replication purposes
@@ -99,7 +99,7 @@ class AUTProjectile : public AActor
 	UFUNCTION()
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity);
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	void Explode(const FVector& HitLocation, const FVector& HitNormal);

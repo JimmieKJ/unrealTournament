@@ -43,8 +43,8 @@ class AUTPickupWeapon : public AUTPickupInventory
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	bool IsTaken(APawn* TestPawn);
 
-	virtual void BeginPlay() OVERRIDE;
-	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType) OVERRIDE;
+	virtual void BeginPlay() override;
+	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType) override;
 
-	virtual void ProcessTouch_Implementation(APawn* TouchedBy) OVERRIDE;
+	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
 };

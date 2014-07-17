@@ -64,13 +64,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 		TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
 public:
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
-	virtual void PreSave() OVERRIDE
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PreSave() override
 	{
 		Super::PreSave();
 		ValidateFiringStates();
 	}
-	virtual void PostLoad() OVERRIDE
+	virtual void PostLoad() override
 	{
 		Super::PostLoad();
 		ValidateFiringStates();
@@ -167,9 +167,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float WeaponBobScaling;
 
-	virtual void PostInitProperties() OVERRIDE;
-	virtual void BeginPlay() OVERRIDE;
-	virtual void RegisterAllComponents() OVERRIDE
+	virtual void PostInitProperties() override;
+	virtual void BeginPlay() override;
+	virtual void RegisterAllComponents() override
 	{
 		// don't register in game by default for perf, we'll manually call Super from AttachToOwner()
 		if (GetWorld()->WorldType == EWorldType::Editor || GetWorld()->WorldType == EWorldType::Preview)
@@ -182,7 +182,7 @@ public:
 		}
 	}
 
-	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const OVERRIDE;
+	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const override;
 
 	void GotoState(class UUTWeaponState* NewState);
 
@@ -237,11 +237,11 @@ public:
 		return FMath::Min3(255, FiringState.Num(), FireInterval.Num());
 	}
 
-	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
-	virtual void ClientGivenTo_Internal(bool bAutoActivate) OVERRIDE;
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual void ClientGivenTo_Internal(bool bAutoActivate) override;
 
-	virtual void Removed() OVERRIDE;
-	virtual void ClientRemoved_Implementation() OVERRIDE;
+	virtual void Removed() override;
+	virtual void ClientRemoved_Implementation() override;
 
 	/** fires a shot and consumes ammo */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -316,16 +316,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool IsFiring() const;
 
-	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) OVERRIDE;
+	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 
 	/** update any timers and such due to a weapon timing change; for example, a powerup that changes firing speed */
 	virtual void UpdateTiming();
 
-	virtual void Tick(float DeltaTime) OVERRIDE;
+	virtual void Tick(float DeltaTime) override;
 
-	virtual void Destroyed() OVERRIDE;
+	virtual void Destroyed() override;
 
-	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) OVERRIDE
+	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override
 	{
 		if (!HasAnyAmmo())
 		{

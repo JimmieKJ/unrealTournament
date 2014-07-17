@@ -19,7 +19,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
 	AUTCharacter* UTOwner;
 
-	virtual void PostInitProperties() OVERRIDE;
+	virtual void PostInitProperties() override;
 
 	/** called when this inventory item has been given to the specified character */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
@@ -43,7 +43,7 @@ protected:
 	void eventClientRemoved();
 
 	void CheckPendingClientGivenTo();
-	virtual void OnRep_Instigator() OVERRIDE;
+	virtual void OnRep_Instigator() override;
 
 	uint32 bPendingClientGivenTo : 1;
 	uint32 bPendingAutoActivate : 1;
@@ -62,7 +62,7 @@ public:
 		return UTOwner;
 	}
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity);
-	virtual void Destroyed() OVERRIDE;
+	virtual void Destroyed() override;
 
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)

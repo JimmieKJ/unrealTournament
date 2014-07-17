@@ -227,19 +227,19 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	 */
 	bool bDeferredReplicatedMovement;
 
-	virtual void BeginPlay() OVERRIDE;
-	virtual void PostInitializeComponents() OVERRIDE;
-	virtual void Destroyed() OVERRIDE;
+	virtual void BeginPlay() override;
+	virtual void PostInitializeComponents() override;
+	virtual void Destroyed() override;
 
-	virtual void PossessedBy(AController* NewController) OVERRIDE;
-	virtual void Restart() OVERRIDE;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void Restart() override;
 
-	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const OVERRIDE
+	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const override
 	{
 		return bTearOff || Super::ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 	}
 
-	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) OVERRIDE;
+	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	/** checks for a head shot - called by weapons with head shot bonuses
 	* returns true if it's a head shot, false if a miss or if some armor effect prevents head shots
@@ -277,7 +277,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();
-	virtual void TornOff() OVERRIDE
+	virtual void TornOff() override
 	{
 		PlayDying();
 	}
@@ -316,9 +316,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION(BlueprintImplementableEvent)
 	bool DodgeOverride(const FVector &DodgeDir, const FVector &DodgeCross);
 
-	virtual bool CanJumpInternal_Implementation() const OVERRIDE;
+	virtual bool CanJumpInternal_Implementation() const override;
 
-	virtual void CheckJumpInput(float DeltaTime) OVERRIDE;
+	virtual void CheckJumpInput(float DeltaTime) override;
 
 	virtual void NotifyJumpApex();
 
@@ -328,17 +328,17 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** Handles stafing movement, left and right */
 	virtual void MoveRight(float Val);
 
-	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) OVERRIDE;
-	virtual void OnRep_ReplicatedMovement() OVERRIDE;
+	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
+	virtual void OnRep_ReplicatedMovement() override;
 
-	virtual void SetBase(UPrimitiveComponent* NewBase, bool bNotifyActor=true) OVERRIDE;
+	virtual void SetBase(UPrimitiveComponent* NewBase, bool bNotifyActor=true) override;
 
-	virtual void UpdateFromCompressedFlags(uint8 Flags) OVERRIDE;
+	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 
 	/** Also call UTCharacterMovement ClearJumpInput() */
-	virtual void ClearJumpInput() OVERRIDE;
+	virtual void ClearJumpInput() override;
 
-	virtual void RecalculateBaseEyeHeight() OVERRIDE;
+	virtual void RecalculateBaseEyeHeight() override;
 
 	/** sets replicated ambient (looping) sound on this Pawn
 	 * only one ambient sound can be set at a time
@@ -374,9 +374,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void TakeFallingDamage(const FHitResult& Hit);
 
-	virtual void Landed(const FHitResult& Hit) OVERRIDE;
+	virtual void Landed(const FHitResult& Hit) override;
 
-	virtual void Tick(float DeltaTime) OVERRIDE;
+	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* FootstepSound;
@@ -440,7 +440,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual uint8 GetTeamNum() const;
 
-	virtual void OnRep_PlayerState() OVERRIDE;
+	virtual void OnRep_PlayerState() override;
 	virtual void NotifyTeamChanged();
 
 	virtual void PlayerChangedTeam();
@@ -613,7 +613,7 @@ protected:
 	/** last FootNum for PlayFootstep(), for alternating when animations are disabled */
 	uint8 LastFoot;
 	
-	virtual void BecomeViewTarget(class APlayerController* PC) OVERRIDE;
+	virtual void BecomeViewTarget(class APlayerController* PC) override;
 	virtual void EndViewTarget( class APlayerController* PC );
 
 	/** replicated overlays, bits match entries in UTGameState's OverlayMaterials array */

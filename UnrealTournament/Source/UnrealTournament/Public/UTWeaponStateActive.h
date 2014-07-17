@@ -13,6 +13,6 @@ class UUTWeaponStateActive : public UUTWeaponState
 	: Super(PCIP)
 	{}
 
-	virtual void BeginState(const UUTWeaponState* PrevState) OVERRIDE;
-	virtual void BeginFiringSequence(uint8 FireModeNum) OVERRIDE;
+	virtual void BeginState(const UUTWeaponState* PrevState) override;
+	virtual void BeginFiringSequence(uint8 FireModeNum) override;
 };

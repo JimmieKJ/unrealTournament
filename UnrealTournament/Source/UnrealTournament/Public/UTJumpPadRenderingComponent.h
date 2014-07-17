@@ -10,13 +10,13 @@ class UUTJumpPadRenderingComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 	// Begin UPrimitiveComponent Interface
-	virtual FPrimitiveSceneProxy* CreateSceneProxy() OVERRIDE;
+	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 
 	/** Should recreate proxy one very update */
-	virtual bool ShouldRecreateProxyOnUpdateTransform() const OVERRIDE{ return true; }
+	virtual bool ShouldRecreateProxyOnUpdateTransform() const override{ return true; }
 	// End UPrimitiveComponent Interface
 
 	// Begin USceneComponent Interface
-	virtual FBoxSphereBounds CalcBounds(const FTransform &LocalToWorld) const OVERRIDE;
+	virtual FBoxSphereBounds CalcBounds(const FTransform &LocalToWorld) const override;
 	// End USceneComponent Interface
 };

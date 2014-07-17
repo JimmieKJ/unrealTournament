@@ -352,7 +352,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				ResultMomentum.Z = 0.0f;
 			}
-			CharacterMovement->AddMomentum(ResultMomentum, false);
+			CharacterMovement->AddImpulse(ResultMomentum, false);
 			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, DamageEvent);
 			SetLastTakeHitInfo(ResultDamage, ResultMomentum, DamageEvent);
 			if (Health <= 0)
@@ -516,9 +516,9 @@ void AUTCharacter::PlayDying()
 	SetAmbientSound(NULL);
 
 	// TODO: damagetype effects, etc
-	CharacterMovement->ApplyAccumulatedMomentum(0.0f);
+	CharacterMovement->ApplyAccumulatedForces(0.0f);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	Mesh->UpdateKinematicBonesToPhysics(true);
+	Mesh->UpdateKinematicBonesToPhysics(true, true);
 	Mesh->SetSimulatePhysics(true);
 	Mesh->RefreshBoneTransforms();
 	Mesh->SetAllBodiesPhysicsBlendWeight(1.0f);

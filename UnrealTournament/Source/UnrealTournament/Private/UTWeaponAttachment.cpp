@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeaponAttachment.h"
+#include "Particles/ParticleSystemComponent.h"
 
 AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)

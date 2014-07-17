@@ -68,7 +68,7 @@ class AUTProj_BioShot : public AUTProjectile
 	void OnLanded();
 
 	/**Overridden to do the landing*/
-	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) OVERRIDE;
+	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
 
 	/**Explode on recieving any damage*/
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser);

@@ -49,7 +49,7 @@ class UUTAnnouncer : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual class UWorld* GetWorld() const OVERRIDE
+	virtual class UWorld* GetWorld() const override
 	{
 		return GetOuter()->GetWorld();
 	}

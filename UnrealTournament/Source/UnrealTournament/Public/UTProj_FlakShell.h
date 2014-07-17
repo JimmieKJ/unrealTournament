@@ -27,5 +27,5 @@ class AUTProj_FlakShell : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 	TSubclassOf<AUTProjectile> ShardClass;
 
-	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal) OVERRIDE;
+	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal) override;
 };

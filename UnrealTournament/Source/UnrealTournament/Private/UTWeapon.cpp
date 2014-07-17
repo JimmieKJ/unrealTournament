@@ -10,6 +10,8 @@
 #include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
 #include "UTHUDWidget.h"
+#include "EditorSupportDelegates.h"
+#include "Particles/ParticleSystemComponent.h"
 
 AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.DoNotCreateDefaultSubobject(TEXT("PickupMesh0")))
@@ -98,7 +100,7 @@ void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemCom
 			{
 				for (int32 k = 0; k < MFArray.Num(); k++)
 				{
-					if (ConstructionNodes[j]->ComponentTemplate == MFArray[k])
+					if (Cast<UParticleSystemComponent>(ConstructionNodes[j]->ComponentTemplate) == MFArray[k])
 					{
 						MFArray[k] = Cast<UParticleSystemComponent>((UObject*)FindObjectWithOuter(Weap, ConstructionNodes[j]->ComponentTemplate->GetClass(), ConstructionNodes[j]->VariableName));
 					}

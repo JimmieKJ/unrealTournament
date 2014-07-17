@@ -23,7 +23,7 @@ public:
 	/** Last Z position when standing on ground - used for eyeheight smoothing */
 	UPROPERTY()
 	float OldZ;
-
+	
 	//=========================================
 	// DODGING
 	/** Dodge impulse in XY plane */
@@ -148,9 +148,9 @@ public:
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump impulse (vertical)"))
 	float MultiJumpImpulse;
 
-	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) OVERRIDE;
+	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) override;
 
-	virtual bool DoJump() OVERRIDE;
+	virtual bool DoJump() override;
 
 	/** Perform a multijump */
 	virtual bool DoMultiJump();
@@ -182,16 +182,16 @@ public:
 		bool bIsSprinting;
 
 	/** Reset sprint start if braking. */
-	virtual void ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration) OVERRIDE;
+	virtual void ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration) override;
 
 	/** Support for sprint acceleration. */
-	virtual float GetModifiedMaxAcceleration() const OVERRIDE;
+	virtual float GetModifiedMaxAcceleration() const override;
 
 	/** Return true if character can sprint right now */
 	virtual bool CanSprint() const;
 
 	/** Return SprintSpeed if CanSprint(). */
-	virtual float GetMaxSpeed() const OVERRIDE;
+	virtual float GetMaxSpeed() const override;
 
 	//=========================================
 	// Landing Assist
@@ -208,13 +208,13 @@ public:
 	UPROPERTY(Category = "LandingAssist", BlueprintReadOnly, meta = (DisplayName = "Jump Assisted"))
 		bool bJumpAssisted;
 
-	virtual void PhysFalling(float deltaTime, int32 Iterations) OVERRIDE;
+	virtual void PhysFalling(float deltaTime, int32 Iterations) override;
 
 	/** Return true if found a landing assist spot, and add LandingAssistBoost */
 	virtual void FindValidLandingSpot(const FVector& CapsuleLocation);
 
 	/** Check for landing assist */
-	virtual void NotifyJumpApex() OVERRIDE;
+	virtual void NotifyJumpApex() override;
 
 	// FIXME REMOVE
 	void SetGravityScale(float NewGravityScale);
@@ -251,10 +251,10 @@ public:
 	bool bPressedDodgeRight;
 	bool bSavedIsSprinting;
 
-	virtual void Clear() OVERRIDE;
-	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) OVERRIDE;
-	virtual uint8 GetCompressedFlags() const OVERRIDE;
-	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const OVERRIDE;
+	virtual void Clear() override;
+	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;
+	virtual uint8 GetCompressedFlags() const override;
+	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const override;
 };
 
 
@@ -264,7 +264,7 @@ public:
 	typedef FNetworkPredictionData_Client_Character Super;
 
 	/** Allocate a new saved move. Subclasses should override this if they want to use a custom move class. */
-	virtual FSavedMovePtr AllocateNewMove() OVERRIDE;
+	virtual FSavedMovePtr AllocateNewMove() override;
 };
 
 

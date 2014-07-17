@@ -31,8 +31,8 @@ public:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	TSubobjectPtr<UMovementComponent> Movement;
 
-	virtual void BeginPlay() OVERRIDE;
-	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) OVERRIDE
+	virtual void BeginPlay() override;
+	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override
 	{
 		Movement->Velocity = NewVelocity;
 	}
@@ -43,7 +43,7 @@ public:
 	void InventoryTypeUpdated();
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);

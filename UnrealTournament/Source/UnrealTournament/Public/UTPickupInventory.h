@@ -26,9 +26,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	float FloatHeight;
 
-	virtual void BeginPlay() OVERRIDE;
+	virtual void BeginPlay() override;
 #if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
 	UFUNCTION(BlueprintCallable, Category = Pickup)
@@ -36,7 +36,7 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void InventoryTypeUpdated();
 
-	virtual void ProcessTouch_Implementation(APawn* TouchedBy) OVERRIDE;
-	virtual void GiveTo_Implementation(APawn* Target) OVERRIDE;
-	virtual void SetPickupHidden(bool bNowHidden) OVERRIDE;
+	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
+	virtual void GiveTo_Implementation(APawn* Target) override;
+	virtual void SetPickupHidden(bool bNowHidden) override;
 };

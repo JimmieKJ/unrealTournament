@@ -26,13 +26,13 @@ class AUTArmor : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Armor)
 	FName ArmorType;
 
-	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const OVERRIDE
+	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{
 		GS->AddOverlayMaterial(OverlayMaterial);
 	}
 
-	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
-	virtual void Removed() OVERRIDE;
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual void Removed() override;
 
 	virtual void ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser);
 

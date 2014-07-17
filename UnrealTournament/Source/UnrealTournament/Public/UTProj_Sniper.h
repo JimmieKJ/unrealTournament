@@ -25,7 +25,7 @@ class AUTProj_Sniper : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	TSubclassOf<UDamageType> HeadshotDamageType;
 
-	virtual void DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) OVERRIDE
+	virtual void DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override
 	{
 		if (HeadshotDamageMult <= 1.0f)
 		{

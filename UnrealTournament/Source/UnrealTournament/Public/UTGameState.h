@@ -88,7 +88,7 @@ class AUTGameState : public AGameState
 	virtual bool IsMatchInProgress() const;
 	virtual bool IsMatchInOvertime() const;
 
-	virtual void BeginPlay() OVERRIDE;
+	virtual void BeginPlay() override;
 
 	/** add an overlay to the OverlayMaterials list */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)

@@ -24,13 +24,13 @@ class AUTWeap_BioRifle : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float GlobConsumeTime;
 
-	virtual void OnStartedFiring_Implementation() OVERRIDE;
-	virtual void OnContinuedFiring_Implementation() OVERRIDE;
-	virtual void OnStoppedFiring_Implementation() OVERRIDE;
+	virtual void OnStartedFiring_Implementation() override;
+	virtual void OnContinuedFiring_Implementation() override;
+	virtual void OnStoppedFiring_Implementation() override;
 
 	virtual void StartCharge();
 
-	virtual void FireShot() OVERRIDE;
+	virtual void FireShot() override;
 
 	virtual void IncreaseGlobStrength();
 	virtual void ClearGlobStrength();

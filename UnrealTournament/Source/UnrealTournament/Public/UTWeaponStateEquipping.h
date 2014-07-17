@@ -17,8 +17,8 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 	// set to amount of equip time that elapsed when exiting early, i.e. to go back down
 	float PartialEquipTime;
 
-	virtual void BeginState(const UUTWeaponState* PrevState) OVERRIDE;
-	virtual void EndState() OVERRIDE
+	virtual void BeginState(const UUTWeaponState* PrevState) override;
+	virtual void EndState() override
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateEquipping::BringUpFinished);
 	}
@@ -28,7 +28,7 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 		GetOuterAUTWeapon()->GotoActiveState();
 	}
 
-	virtual void PutDown() OVERRIDE
+	virtual void PutDown() override
 	{
 		PartialEquipTime = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(this, &UUTWeaponStateEquipping::BringUpFinished);
 		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->UnequippingState);

@@ -4,6 +4,8 @@
 #include "UTProjectile.h"
 #include "UTProjectileMovementComponent.h"
 #include "UnrealNetwork.h"
+#include "Engine/ActorChannel.h"
+#include "Particles/ParticleSystemComponent.h"
 
 AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCIP) 
 	: Super(PCIP)
@@ -176,7 +178,7 @@ void AUTProjectile::PostNetReceiveVelocity(const FVector& NewVelocity)
 	ProjectileMovement->Velocity = NewVelocity;
 }
 
-void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	FHitResult Hit;
 	OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));

@@ -9,7 +9,7 @@
 
 class UUTAnnouncer;
 
-UCLASS(dependson=UTCharacter, dependson=UTPlayerState, config=Game)
+UCLASS(config=Game)
 class AUTPlayerController : public APlayerController, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
@@ -47,12 +47,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* StatusAnnouncer;
 
-	virtual void InitInputSystem() OVERRIDE;
+	virtual void InitInputSystem() override;
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
 	virtual void SetPawn(APawn* InPawn);
-	virtual void SetupInputComponent() OVERRIDE;
-	virtual void ClientRestart_Implementation(APawn* NewPawn) OVERRIDE;
+	virtual void SetupInputComponent() override;
+	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 
 	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
 
@@ -96,15 +96,15 @@ public:
 	/**  Added a check to see if the player's RespawnTimer is > 0	 **/
 	virtual bool CanRestartPlayer();
 
-	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) OVERRIDE;
+	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
 
 	UFUNCTION(exec)
 	virtual void BehindView(bool bWantBehindView);
 
 	virtual bool IsBehindView();
 	virtual void SetCameraMode( FName NewCamMode );
-	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) OVERRIDE;
-	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) OVERRIDE;
+	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
+	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
@@ -165,8 +165,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
 	float ConfigDefaultFOV;
 
-	virtual void SpawnPlayerCameraManager() OVERRIDE;
-	virtual void FOV(float NewFOV) OVERRIDE;
+	virtual void SpawnPlayerCameraManager() override;
+	virtual void FOV(float NewFOV) override;
 
 protected:
 

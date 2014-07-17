@@ -19,8 +19,8 @@ class UUTWeaponStateFiringBeam : public UUTWeaponStateFiring
 	UPROPERTY(BlueprintReadWrite, Category = Damage)
 	float Accumulator;
 
-	virtual void FireShot() OVERRIDE;
-	virtual void EndState() OVERRIDE
+	virtual void FireShot() override;
+	virtual void EndState() override
 	{
 		Accumulator = 0.0f;
 		Super::EndState();
@@ -33,5 +33,5 @@ class UUTWeaponStateFiringBeam : public UUTWeaponStateFiring
 			GetOuterAUTWeapon()->GotoActiveState();
 		}
 	}
-	virtual void Tick(float DeltaTime) OVERRIDE;
+	virtual void Tick(float DeltaTime) override;
 };

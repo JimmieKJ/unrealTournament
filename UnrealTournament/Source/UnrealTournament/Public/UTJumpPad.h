@@ -53,12 +53,12 @@ protected:
 #endif
 
 #if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) OVERRIDE;
-	virtual void CheckForErrors() OVERRIDE;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void CheckForErrors() override;
 #endif // WITH_EDITOR
 
 	/** Overridden to launch PendingJumpActors */
-	virtual void Tick(float DeltaTime) OVERRIDE;
+	virtual void Tick(float DeltaTime) override;
 
 	/** returns whether the given Actor can be launched by this jumppad */
 	UFUNCTION(BlueprintNativeEvent)
@@ -68,13 +68,13 @@ protected:
 	void Launch(AActor* Actor);
 
 	// BEGIN INavRelevantActorInterface
-	virtual bool UpdateNavigationRelevancy() OVERRIDE;
-	virtual bool GetNavigationRelevantData(struct FNavigationRelevantData& Data) const OVERRIDE;
+	virtual bool UpdateNavigationRelevancy() override;
+	virtual bool GetNavigationRelevantData(struct FNavigationRelevantData& Data) const override;
 	// END INavRelevantActorInterface
 
 	// BEGIN INavLinkHostInterface
-	virtual bool GetNavigationLinksClasses(TArray<TSubclassOf<class UNavLinkDefinition> >& OutClasses) const OVERRIDE;
-	virtual bool GetNavigationLinksArray(TArray<FNavigationLink>& OutLink, TArray<FNavigationSegmentLink>& OutSegments) const OVERRIDE;
+	virtual bool GetNavigationLinksClasses(TArray<TSubclassOf<class UNavLinkDefinition> >& OutClasses) const override;
+	virtual bool GetNavigationLinksArray(TArray<FNavigationLink>& OutLink, TArray<FNavigationSegmentLink>& OutSegments) const override;
 	// END INavLinkHostInterface
 
 	/** The Nav link between the Jump pad and the Target */

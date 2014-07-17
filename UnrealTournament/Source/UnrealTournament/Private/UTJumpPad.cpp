@@ -5,6 +5,9 @@
 #include "MessageLog.h"
 #include "UObjectToken.h"
 #include "MapErrors.h"
+#include "AI/Navigation/NavAreas/NavArea_Default.h"
+#include "AI/NavigationSystemHelpers.h"
+#include "AI/NavigationOctree.h"
 
 AUTJumpPad::AUTJumpPad(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)

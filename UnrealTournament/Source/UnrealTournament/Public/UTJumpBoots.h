@@ -23,10 +23,10 @@ class AUTJumpBoots : public AUTInventory
 	/** apply/remove the effect from UTOwner */
 	virtual void AdjustOwner(bool bRemoveBonus);
 
-	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
-	virtual void ClientGivenTo_Internal(bool bAutoActivate) OVERRIDE;
-	virtual void Removed() OVERRIDE;
-	virtual void ClientRemoved_Implementation() OVERRIDE;
-	virtual void OwnerEvent_Implementation(FName EventName) OVERRIDE;
-	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) OVERRIDE;
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual void ClientGivenTo_Internal(bool bAutoActivate) override;
+	virtual void Removed() override;
+	virtual void ClientRemoved_Implementation() override;
+	virtual void OwnerEvent_Implementation(FName EventName) override;
+	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 };

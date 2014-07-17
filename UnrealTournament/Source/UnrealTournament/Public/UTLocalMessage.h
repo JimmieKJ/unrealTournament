@@ -45,7 +45,7 @@ class UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const OVERRIDE;
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnClientReceive(APlayerController* LocalPC, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const;
 	UFUNCTION(BlueprintNativeEvent)

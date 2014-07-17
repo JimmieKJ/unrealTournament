@@ -21,7 +21,7 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 	UPROPERTY(BlueprintReadOnly, Category = MovementComponent)
 	TArray<UPrimitiveComponent*> AddlUpdatedComponents;
 
-	virtual void InitializeComponent() OVERRIDE;
+	virtual void InitializeComponent() override;
 
 	virtual bool MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit);
 

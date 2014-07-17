@@ -36,7 +36,7 @@ class UUTMultiKillMessage : public UUTLocalMessage
 		Lifetime = 4.0f;
 	}
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const OVERRIDE
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		Super::ClientReceive(ClientData);
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
@@ -45,12 +45,12 @@ class UUTMultiKillMessage : public UUTLocalMessage
 			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 		}
 	}
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const OVERRIDE
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
 		// Switch is MultiKillLevel - 1 (e.g. 0 is double kill)
 		return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch, 0, AnnouncementNames.Num() - 1)] : NAME_None;
 	}
-	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const OVERRIDE
+	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
 		return AnnouncementText.Num() > 0 ? AnnouncementText[FMath::Clamp<int32>(Switch, 0, AnnouncementText.Num() - 1)] : FText();
 	}

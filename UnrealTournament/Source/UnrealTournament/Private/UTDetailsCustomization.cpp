@@ -1,7 +1,9 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
+#include "Slate.h"
 #include "UTDetailsCustomization.h"
 #include "UTWeaponAttachment.h"
+#include "Particles/ParticleSystemComponent.h"
 #if WITH_EDITOR
 #include "Editor/PropertyEditor/Public/DetailCategoryBuilder.h"
 #include "Editor/PropertyEditor/Public/IDetailPropertyRow.h"

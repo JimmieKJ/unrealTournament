@@ -29,7 +29,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	LandingStepUp = 40.f;
 	LandingAssistBoost = 380.f;
 	bJumpAssisted = false;
-	CrouchedSpeedMultiplier = 0.4f;
+	CrouchedSpeedMultiplier_DEPRECATED = 0.4f;
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f;  

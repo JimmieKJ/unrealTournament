@@ -24,7 +24,7 @@ public:
 		return MakeShareable(new FUTDetailsCustomization);
 	}
 
-	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailLayout) OVERRIDE;
+	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailLayout) override;
 
 	void OnPropChanged(const FPropertyChangedEvent& Event);
 };

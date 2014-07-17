@@ -44,9 +44,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
 
-	virtual void BeginPlay() OVERRIDE;
-	virtual void RegisterAllComponents() OVERRIDE;
-	virtual void Destroyed() OVERRIDE;
+	virtual void BeginPlay() override;
+	virtual void RegisterAllComponents() override;
+	virtual void Destroyed() override;
 
 	UFUNCTION(BlueprintNativeEvent)
 	void AttachToOwner();

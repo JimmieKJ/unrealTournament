@@ -19,6 +19,6 @@ class AUTPickupHealth : public AUTPickup
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Pickup)
 	int32 GetHealMax(AUTCharacter* P);
 
-	virtual void ProcessTouch_Implementation(APawn* TouchedBy) OVERRIDE;
-	virtual void GiveTo_Implementation(APawn* Target) OVERRIDE;
+	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
+	virtual void GiveTo_Implementation(APawn* Target) override;
 };

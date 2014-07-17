@@ -27,7 +27,7 @@ AUTProjectile* AUTWeap_Sniper::FireProjectile()
 	AUTProj_Sniper* SniperProj = Cast<AUTProj_Sniper>(Super::FireProjectile());
 	if (SniperProj != NULL)
 	{
-		if (GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->CharacterMovement->MaxWalkSpeed * GetUTOwner()->CharacterMovement->CrouchedSpeedMultiplier)
+		if (GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->CharacterMovement->MaxWalkSpeed * GetUTOwner()->CharacterMovement->CrouchedSpeedMultiplier_DEPRECATED)
 		{
 			SniperProj->HeadScaling *= SlowHeadshotScale;
 		}

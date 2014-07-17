@@ -33,7 +33,7 @@ class AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
 	float DamageAttenuationDelay;
 
-	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) OVERRIDE;
-	virtual FRadialDamageParams GetDamageParams_Implementation(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const OVERRIDE;
-	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) OVERRIDE;
+	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
+	virtual FRadialDamageParams GetDamageParams_Implementation(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const override;
+	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
 };

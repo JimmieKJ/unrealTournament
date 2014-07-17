@@ -15,5 +15,5 @@ class AUTTeamDMGameMode : public AUTTeamGameMode
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = TeamDM)
 	bool bScoreSuicides;
 
-	virtual void ScoreKill(AController* Killer, AController* Other) OVERRIDE;
+	virtual void ScoreKill(AController* Killer, AController* Other) override;
 };

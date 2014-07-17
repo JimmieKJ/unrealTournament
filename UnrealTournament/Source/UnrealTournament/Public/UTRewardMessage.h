@@ -24,7 +24,7 @@ class UUTRewardMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FName Announcement;
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const OVERRIDE
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		Super::ClientReceive(ClientData);
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
@@ -33,11 +33,11 @@ class UUTRewardMessage : public UUTLocalMessage
 			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 		}
 	}
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const OVERRIDE
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
 		return Announcement;
 	}
-	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const OVERRIDE
+	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override
 	{
 		return MessageText;
 	}

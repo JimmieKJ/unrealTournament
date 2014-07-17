@@ -4,7 +4,7 @@
 
 class FUTModule : public FDefaultGameModuleImpl
 {
-	virtual void StartupModule() OVERRIDE;
+	virtual void StartupModule() override;
 };
 
 IMPLEMENT_PRIMARY_GAME_MODULE(FUTModule, UnrealTournament, "UnrealTournament");
@@ -14,6 +14,7 @@ DEFINE_LOG_CATEGORY(UT);
 // init editor hooks
 #if WITH_EDITOR
 
+#include "Slate.h"
 #include "UTDetailsCustomization.h"
 
 void FUTModule::StartupModule()
@@ -33,6 +34,9 @@ void FUTModule::StartupModule()
 {
 }
 #endif
+
+#include "Particles/ParticleSystemComponent.h"
+#include "Particles/ParticleModuleRequired.h"
 
 bool IsLoopingParticleSystem(const UParticleSystem* PSys)
 {

@@ -13,7 +13,7 @@ namespace MatchState
 }
 
 
-UCLASS(MinimalAPI, DependsOn = UTGameState, Config = Game, Abstract)
+UCLASS(MinimalAPI, Config = Game, Abstract)
 class AUTGameMode : public AGameMode
 {
 	GENERATED_UCLASS_BODY()
@@ -119,7 +119,7 @@ public:
 	/** add a mutator by string path name */
 	virtual void AddMutator(const FString& MutatorPath);
 	virtual void InitGameState();
-	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) OVERRIDE;
+	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
 	virtual void RestartGame();
 	virtual void BeginGame();
@@ -140,7 +140,7 @@ public:
 
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
-	virtual void SetPlayerDefaults(APawn* PlayerPawn) OVERRIDE;
+	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 

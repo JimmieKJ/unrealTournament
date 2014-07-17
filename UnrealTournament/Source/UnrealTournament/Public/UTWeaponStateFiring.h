@@ -22,7 +22,7 @@ class UUTWeaponStateFiring : public UUTWeaponState
 		return GetOuterAUTWeapon()->GetCurrentFireMode();
 	}
 
-	virtual bool IsFiring() const OVERRIDE
+	virtual bool IsFiring() const override
 	{
 		// default is we're firing if we're in this state
 		return true;
@@ -31,13 +31,13 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	/** called to fire the shot and consume ammo */
 	virtual void FireShot();
 
-	virtual void BeginState(const UUTWeaponState* PrevState) OVERRIDE;
-	virtual void EndState() OVERRIDE;
-	virtual void UpdateTiming() OVERRIDE;
+	virtual void BeginState(const UUTWeaponState* PrevState) override;
+	virtual void EndState() override;
+	virtual void UpdateTiming() override;
 	/** called after the refire delay to see what we should do next (generally, fire or go back to active state) */
 	virtual void RefireCheckTimer();
 
-	virtual void PutDown() OVERRIDE
+	virtual void PutDown() override
 	{
 		// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
 	}

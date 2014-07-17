@@ -56,9 +56,9 @@ class AUTPickup : public AActor
 #if WITH_EDITOR
 	virtual void PostEditMove(bool bFinished);
 #endif
-	virtual void OnConstruction(const FTransform& Transform) OVERRIDE;
-	virtual void BeginPlay() OVERRIDE;
-	virtual void Tick(float DeltaTime) OVERRIDE;
+	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
 	virtual void OnRep_bActive();
@@ -66,7 +66,7 @@ class AUTPickup : public AActor
 	void ReplicatedTakenEffects();
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);

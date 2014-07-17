@@ -61,7 +61,7 @@ class UUTSpreeMessage : public UUTLocalMessage
 		Lifetime = 4.0f;
 	}
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const OVERRIDE
+	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		Super::ClientReceive(ClientData);
 		if (ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
@@ -73,7 +73,7 @@ class UUTSpreeMessage : public UUTLocalMessage
 			}
 		}
 	}
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const OVERRIDE
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
 		if (Switch > 0)
 		{
@@ -85,7 +85,7 @@ class UUTSpreeMessage : public UUTLocalMessage
 			return NAME_None;
 		}
 	}
-	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const OVERRIDE
+	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
 		// positive switch is spree level + 1
 		// negative switch is ended spree level - 1

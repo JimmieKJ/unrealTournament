@@ -40,7 +40,8 @@ void AUTDroppedPickup::EnableInstigatorTouch()
 		GetOverlappingActors(Overlaps, APawn::StaticClass());
 		if (Overlaps.Contains(Instigator))
 		{
-			OnOverlapBegin(Instigator, Instigator->GetMovementComponent()->UpdatedComponent, 0);
+			FHitResult UnusedHitResult;
+			OnOverlapBegin(Instigator, Instigator->GetMovementComponent()->UpdatedComponent, 0, false, UnusedHitResult);
 		}
 	}
 }
@@ -57,7 +58,7 @@ void AUTDroppedPickup::InventoryTypeUpdated_Implementation()
 	AUTPickupInventory::CreatePickupMesh(this, Mesh, InventoryType, 0.0f);
 }
 
-void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(this, &AUTDroppedPickup::EnableInstigatorTouch))
 	{

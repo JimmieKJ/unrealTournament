@@ -18,7 +18,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 	bool bCharging;
 	float ChargeTime;
 
-	virtual void BeginState(const UUTWeaponState* PrevState) OVERRIDE
+	virtual void BeginState(const UUTWeaponState* PrevState) override
 	{
 		if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
 		{
@@ -27,7 +27,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		GetOuterAUTWeapon()->OnStartedFiring();
 		bCharging = true;
 	}
-	virtual void EndState() OVERRIDE
+	virtual void EndState() override
 	{
 		if (bCharging)
 		{
@@ -35,14 +35,14 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		}
 		Super::EndState();
 	}
-	virtual void UpdateTiming() OVERRIDE
+	virtual void UpdateTiming() override
 	{
 		if (!bCharging)
 		{
 			Super::UpdateTiming();
 		}
 	}
-	virtual void RefireCheckTimer() OVERRIDE
+	virtual void RefireCheckTimer() override
 	{
 		if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
 		{
@@ -67,7 +67,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 			}
 		}
 	}
-	virtual void Tick(float DeltaTime) OVERRIDE
+	virtual void Tick(float DeltaTime) override
 	{
 		if (bCharging)
 		{

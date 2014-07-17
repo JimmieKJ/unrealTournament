@@ -35,7 +35,7 @@ class AUTTeamInfo : public AInfo, public IUTTeamInterface
 		return TeamMembers.Num();
 	}
 
-	virtual uint8 GetTeamNum() const OVERRIDE
+	virtual uint8 GetTeamNum() const override
 	{
 		return TeamIndex;
 	}

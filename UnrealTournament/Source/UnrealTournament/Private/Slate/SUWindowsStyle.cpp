@@ -2,6 +2,7 @@
 
 #include "../UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
+#include "Slate.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsStyle.h"
 

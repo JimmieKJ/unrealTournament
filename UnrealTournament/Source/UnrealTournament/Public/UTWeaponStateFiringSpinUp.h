@@ -35,12 +35,12 @@ protected:
 	float ShotTimeRemaining;
 
 public:
-	virtual void BeginState(const UUTWeaponState* PrevState) OVERRIDE;
-	virtual void EndState() OVERRIDE;
-	virtual void UpdateTiming() OVERRIDE;
+	virtual void BeginState(const UUTWeaponState* PrevState) override;
+	virtual void EndState() override;
+	virtual void UpdateTiming() override;
 	/** called after the refire delay to see what we should do next (generally, fire or go back to active state) */
 	virtual void RefireCheckTimer();
-	virtual void Tick(float DeltaTime) OVERRIDE;
+	virtual void Tick(float DeltaTime) override;
 
 	/** sets NextShotTime for the next shot, taking into account warmup if we're still in that phase */
 	virtual void IncrementShotTimer();

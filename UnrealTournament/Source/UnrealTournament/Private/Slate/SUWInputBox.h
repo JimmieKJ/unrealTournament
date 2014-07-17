@@ -30,7 +30,7 @@ protected:
 	FInputBoxResultDelegate OnDialogResult;
 	FInputBoxFilterDelegate TextFilter;
 	
-	virtual void OnDialogOpened() OVERRIDE;
+	virtual void OnDialogOpened() override;
 
 	TSharedRef<class SWidget> BuildButtonBar();
 	void BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText, uint16 ButtonID, uint32& ButtonCount);

@@ -65,7 +65,7 @@ class AUTPlayerState : public APlayerState
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void AdjustScore(int32 ScoreAdjustment);
 
-	virtual void Tick(float DeltaTime) OVERRIDE;
+	virtual void Tick(float DeltaTime) override;
 
 	inline bool IsFemale()
 	{

@@ -61,7 +61,7 @@ class AUTProj_BioGlob: public AUTProj_BioShot
 	void MergeWithGlob(int32 AdditionalGlobStrength);
 
 	/** Overridden to Merge Globs and noclip globlings */
-	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) OVERRIDE;
+	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
 
 	/** The projectile type that will spawn when (GlobStrength > MaxRestingGlobStrength) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)

@@ -13,7 +13,7 @@ struct FZoomTickFunction : public FTickFunction
 
 	class UUTWeaponStateZooming* ZoomState;
 
-	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) OVERRIDE;
+	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	virtual FString DiagnosticMessage();
 };
@@ -44,20 +44,20 @@ public:
 	UPROPERTY()
 	UMaterialInstanceDynamic* OverlayMI;
 
-	virtual bool IsFiring() const OVERRIDE
+	virtual bool IsFiring() const override
 	{
 		return false;
 	}
 
-	virtual void BeginState(const UUTWeaponState* PrevState) OVERRIDE
+	virtual void BeginState(const UUTWeaponState* PrevState) override
 	{}
 
-	virtual void PendingFireStarted() OVERRIDE;
-	virtual void PendingFireStopped() OVERRIDE;
-	virtual void BeginFiringSequence(uint8 FireModeNum) OVERRIDE;
-	virtual void EndFiringSequence(uint8 FireModeNum) OVERRIDE;
-	virtual void WeaponBecameInactive() OVERRIDE;
-	virtual bool DrawHUD(class UUTHUDWidget* WeaponHudWidget) OVERRIDE;
+	virtual void PendingFireStarted() override;
+	virtual void PendingFireStopped() override;
+	virtual void BeginFiringSequence(uint8 FireModeNum) override;
+	virtual void EndFiringSequence(uint8 FireModeNum) override;
+	virtual void WeaponBecameInactive() override;
+	virtual bool DrawHUD(class UUTHUDWidget* WeaponHudWidget) override;
 
 	virtual void TickZoom(float DeltaTime);
 };

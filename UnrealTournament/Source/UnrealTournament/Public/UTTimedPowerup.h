@@ -27,7 +27,7 @@ class AUTTimedPowerup : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	FCanvasIcon HUDIcon;
 
-	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const OVERRIDE
+	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{
 		GS->AddOverlayMaterial(OverlayMaterial);
 	}
@@ -45,8 +45,8 @@ class AUTTimedPowerup : public AUTInventory
 
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv);
 
-	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) OVERRIDE;
-	virtual void Removed() OVERRIDE;
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual void Removed() override;
 
-	virtual void DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size) OVERRIDE;
+	virtual void DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size) override;
 };

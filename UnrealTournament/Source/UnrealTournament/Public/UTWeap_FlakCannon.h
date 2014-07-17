@@ -55,5 +55,5 @@ class AUTWeap_FlakCannon : public AUTWeapon
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon")
 	FRotator GetFireRotationForMultiShot(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation);
 
-	virtual AUTProjectile* FireProjectile() OVERRIDE;
+	virtual AUTProjectile* FireProjectile() override;
 };

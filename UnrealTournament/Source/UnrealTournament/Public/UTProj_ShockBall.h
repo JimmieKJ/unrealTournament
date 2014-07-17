@@ -40,7 +40,7 @@ class AUTProj_ShockBall : public AUTProjectile
 	void OnComboExplode();
 
 	/** Overridden to do the combo */
-	virtual void ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser) OVERRIDE;
+	virtual void ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser) override;
 
 	/** Overridden to play explosion sound */
 	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal);
