@@ -159,3 +159,24 @@ bool AUTPlayerState::ServerRequestChangeTeam_Validate(uint8 FireModeNum)
 {
 	return true;
 }
+
+void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL)
+	{
+		PS->Team = Team;
+	}
+}
+void AUTPlayerState::OverrideWith(APlayerState* PlayerState)
+{
+	Super::OverrideWith(PlayerState);
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL)
+	{
+		// note that we don't need to call Add/RemoveFromTeam() here as that happened when Team was assigned to the passed in PlayerState
+		Team = PS->Team;
+	}
+}

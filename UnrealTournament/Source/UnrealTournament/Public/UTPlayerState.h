@@ -75,6 +75,8 @@ class AUTPlayerState : public APlayerState
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
 
+	virtual void CopyProperties(APlayerState* PlayerState) override;
+	virtual void OverrideWith(APlayerState* PlayerState) override;
 };
 
 
