@@ -16,6 +16,15 @@ public:
 
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
+	virtual FVector GetImpartedMovementBaseVelocity() const override;
+
+
+	/** @TODO FIXMESTEVE remove when we get UE4 4.4
+	* Determine whether we should try to find a valid landing spot after an impact with an invalid one (based on the Hit result).
+	* For example, landing on the lower portion of the capsule on the edge of geometry may be a walkable surface, but could have reported an unwalkable impact normal.
+	*/
+	virtual bool ShouldCheckForValidLandingSpot(const float DeltaTime, const FVector& Delta, const FHitResult& Hit) const;
+
 	/** Smoothed speed */
 	UPROPERTY()
 	float AvgSpeed;
@@ -185,7 +194,7 @@ public:
 	virtual void ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration) override;
 
 	/** Support for sprint acceleration. */
-	virtual float GetModifiedMaxAcceleration() const override;
+	virtual float GetMaxAcceleration() const override;
 
 	/** Return true if character can sprint right now */
 	virtual bool CanSprint() const;

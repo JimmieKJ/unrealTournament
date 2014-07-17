@@ -11,7 +11,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxWalkSpeed = 900.f;
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -2400.f;  // same as UTCharacter->MaxSafeFallSpeed - @TODO FIXMESTEVE probably get rid of this property
-	MaxAdditiveDodgeJumpSpeed = 850.f;  
+	MaxAdditiveDodgeJumpSpeed = 800.f;  
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
@@ -30,10 +30,11 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	LandingAssistBoost = 380.f;
 	bJumpAssisted = false;
 	CrouchedSpeedMultiplier_DEPRECATED = 0.4f;
+	MaxWalkSpeedCrouched = 360.f;
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f;  
-	WallDodgeGraceVelocityZ = -250.f;
+	WallDodgeGraceVelocityZ = -400.f;
 	AirControl = 0.35f;
 	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
@@ -104,6 +105,24 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 	return bResult;
 }
 
+FVector UUTCharacterMovement::GetImpartedMovementBaseVelocity() const
+{
+	FVector Result = Super::GetImpartedMovementBaseVelocity();
+
+	if (!Result.IsZero())
+	{
+		// clamp total velocity to GroundSpeed+JumpZ+Imparted total
+		float XYSpeed = ((Result.X == 0.f) && (Result.Y == 0.f)) ? 0.f : Result.Size2D();
+		float MaxSpeedSq = FMath::Square(MaxWalkSpeed + Result.Size2D()) + FMath::Square(JumpZVelocity + Result.Z);
+		if ((Velocity + Result).SizeSquared() > MaxSpeedSq)
+		{
+			Result = (Velocity + Result).SafeNormal() * FMath::Sqrt(MaxSpeedSq) - Velocity;
+		}
+	}
+
+	return Result;
+}
+
 bool UUTCharacterMovement::CanDodge()
 {
 	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (CharacterOwner && CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > DodgeResetTime));
@@ -157,8 +176,13 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		{
 			DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 		}
-		CurrentWallDodgeCount++;
 		HorizontalImpulse = WallDodgeImpulseHorizontal;
+		CurrentWallDodgeCount++;
+	}
+	else if (!GetImpartedMovementBaseVelocity().IsZero())
+	{
+		// lift jump counts as wall dodge
+		CurrentWallDodgeCount++;
 	}
 
 	// perform the dodge
@@ -192,9 +216,9 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	return true;
 }
 
-float UUTCharacterMovement::GetModifiedMaxAcceleration() const
+float UUTCharacterMovement::GetMaxAcceleration() const
 {
-	return (bIsSprinting && (Velocity.SizeSquared() > MaxWalkSpeed*MaxWalkSpeed)) ? SprintAccel : Super::GetModifiedMaxAcceleration();
+	return (bIsSprinting && (Velocity.SizeSquared() > MaxWalkSpeed*MaxWalkSpeed)) ? SprintAccel : Super::GetMaxAcceleration();
 }
 
 bool UUTCharacterMovement::CanSprint() const
@@ -487,7 +511,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 {
 	// Bound final 2d portion of velocity
 	const float Speed2d = Velocity.Size2D();
-	const float BoundSpeed = FMath::Max(Speed2d, GetModifiedMaxSpeed() * AnalogInputModifier);
+	const float BoundSpeed = FMath::Max(Speed2d, GetMaxSpeed() * AnalogInputModifier);
 
 	//bound acceleration, falling object has minimal ability to impact acceleration
 	FVector FallAcceleration = Acceleration;
@@ -501,7 +525,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
 		{
 			const float TestWalkTime = FMath::Max(deltaTime, 0.05f);
-			const FVector TestWalk = ((TickAirControl * GetModifiedMaxAcceleration() * FallAcceleration.SafeNormal() + FVector(0.f, 0.f, GetGravityZ())) * TestWalkTime + Velocity) * TestWalkTime;
+			const FVector TestWalk = ((TickAirControl * GetMaxAcceleration() * FallAcceleration.SafeNormal() + FVector(0.f, 0.f, GetGravityZ())) * TestWalkTime + Velocity) * TestWalkTime;
 			if (!TestWalk.IsZero())
 			{
 				static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
@@ -524,7 +548,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			}
 		}
 
-		float MaxAccel = GetModifiedMaxAcceleration() * TickAirControl;
+		float MaxAccel = GetMaxAcceleration() * TickAirControl;
 
 		// Boost maxAccel to increase player's control when falling
 		if ((Speed2d < 10.f) && (TickAirControl > 0.f) && (TickAirControl <= 0.05f)) //allow initial burst
@@ -598,30 +622,37 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			if (IsValidLandingSpot(UpdatedComponent->GetComponentLocation(), Hit))
 			{
 				remainingTime += timeTick * (1.f - Hit.Time);
-				if (!bJustTeleported && (Hit.Time > 0.1f) && (Hit.Time * timeTick > 0.003f))
-				{
-					Velocity = (CharacterOwner->GetActorLocation() - OldLocation) / (timeTick * Hit.Time);
-				}
 				ProcessLanded(Hit, remainingTime, Iterations);
 				return;
 			}
 			else
 			{
+				// See if we can convert a normally invalid landing spot (based on the hit result) to a usable one.
+				if (!Hit.bStartPenetrating && ShouldCheckForValidLandingSpot(timeTick, Adjusted, Hit))
+				{
+					const FVector PawnLocation = UpdatedComponent->GetComponentLocation();
+					FFindFloorResult FloorResult;
+					FindFloor(PawnLocation, FloorResult, false);
+					if (FloorResult.IsWalkableFloor() && IsValidLandingSpot(PawnLocation, FloorResult.HitResult))
+					{
+						remainingTime += timeTick * (1.f - Hit.Time);
+						ProcessLanded(FloorResult.HitResult, remainingTime, Iterations);
+						return;
+					}
+				}
 				if (!bSkipLandingAssist)
 				{
 					FindValidLandingSpot(UpdatedComponent->GetComponentLocation());
 				}
 				HandleImpact(Hit, deltaTime, Adjusted);
 
-				if (Acceleration.SizeSquared2D() > 0.f)
+				// If we've changed physics mode, abort.
+				if (!HasValidData() || !IsFalling())
 				{
-					// If we've changed physics mode, abort.
-					if (!HasValidData() || !IsFalling())
-					{
-						return;
-					}
+					return;
 				}
 
+				const float FirstHitPercent = Hit.Time;
 				const FVector OldHitNormal = Hit.Normal;
 				const FVector OldHitImpactNormal = Hit.ImpactNormal;
 				FVector Delta = ComputeSlideVectorUT(timeTick * (1.f - Hit.Time), Adjusted, 1.f - Hit.Time, OldHitNormal, Hit);
@@ -638,7 +669,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 							return;
 						}
 
-						HandleImpact(Hit, timeTick, Delta);
+						HandleImpact(Hit, timeTick * (1.f - FirstHitPercent), Delta);
 
 						// If we've changed physics mode, abort.
 						if (!HasValidData() || !IsFalling())
@@ -717,6 +748,23 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		}
 	}
 }
+
+bool UUTCharacterMovement::ShouldCheckForValidLandingSpot(const float DeltaTime, const FVector& Delta, const FHitResult& Hit) const
+{
+	// See if we hit an edge of a surface on the lower portion of the capsule.
+	// In this case the normal will not equal the impact normal, and a downward sweep may find a walkable surface on top of the edge.
+	if (Hit.Normal.Z > KINDA_SMALL_NUMBER && !Hit.Normal.Equals(Hit.ImpactNormal))
+	{
+		const FVector PawnLocation = UpdatedComponent->GetComponentLocation();
+		if (IsWithinEdgeTolerance(PawnLocation, Hit.ImpactPoint, CharacterOwner->CapsuleComponent->GetScaledCapsuleRadius()))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 
 void UUTCharacterMovement::NotifyJumpApex()
 {
