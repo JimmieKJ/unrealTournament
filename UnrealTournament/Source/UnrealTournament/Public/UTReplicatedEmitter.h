@@ -27,7 +27,7 @@ class AUTReplicatedEmitter : public AActor
 	UPROPERTY(EditDefaultsOnly, Category = Emitter)
 	FName BaseSocketName;
 
-	virtual void PostInitializeComponents() OVERRIDE
+	virtual void PostInitializeComponents() override
 	{
 		if (GetNetMode() == NM_DedicatedServer)
 		{
@@ -36,12 +36,12 @@ class AUTReplicatedEmitter : public AActor
 		Super::PostInitializeComponents();
 	}
 
-	virtual void RegisterAllComponents() OVERRIDE
+	virtual void RegisterAllComponents() override
 	{
 		// we do this via PostActorCreated() so we don't attach our component to ourselves just to reattach it later in spawning
 	}
 
-	virtual void PostActorCreated() OVERRIDE
+	virtual void PostActorCreated() override
 	{
 		if (GetOwner() != NULL && bAttachToOwnerMesh)
 		{
@@ -56,7 +56,7 @@ class AUTReplicatedEmitter : public AActor
 		Super::PostActorCreated();
 	}
 
-	virtual void PreInitializeComponents() OVERRIDE
+	virtual void PreInitializeComponents() override
 	{
 		Super::PreInitializeComponents();
 

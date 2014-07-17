@@ -4,7 +4,7 @@
 #include "UTReplicatedEmitter.h"
 #include "Particles/ParticleSystemComponent.h"
 
-AUTReplicatedEmitter(const FPostConstructInitializeProperties& PCIP)
+AUTReplicatedEmitter::AUTReplicatedEmitter(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
 	PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("Particles"));
