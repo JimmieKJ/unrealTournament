@@ -10,25 +10,11 @@
  * on dedicated servers, the effect will not play but the Actor should still be spawned and will stay alive long enough to send to current clients\
  * the emitter defaults to being based on its Owner, so that the Base can effectively be passed as part of the spawn parameters
  */
-UCLASS(Blueprintable, CustomConstructor, Abstract, Meta=(ChildCanTick))
+UCLASS(Blueprintable, Abstract, Meta=(ChildCanTick))
 class AUTReplicatedEmitter : public AActor
 {
 	GENERATED_UCLASS_BODY()
-
-	AUTReplicatedEmitter(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
-	{
-		PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("Particles"));
-		PSC->OnSystemFinished.BindDynamic(this, &AUTReplicatedEmitter::OnParticlesFinished);
-		RootComponent = PSC;
-		InitialLifeSpan = 10.0f;
-		DedicatedServerLifeSpan = 0.5f;
-
-		SetReplicates(true);
-		bReplicateMovement = true;
-		bNetTemporary = true;
-	}
-
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Emitter)
 	TSubobjectPtr<UParticleSystemComponent> PSC;
 	/** lifespan when in dedicated server mode - basically how long it's worthwhile to consider sending the effect to clients before it's obsolete */
