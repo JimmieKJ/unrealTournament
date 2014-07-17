@@ -343,7 +343,7 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 		while (Inv != NULL)
 		{
 			AUTInventory* NextInv = Inv->GetNext();
-			if (Inv->IsA(AUTTimedPowerup::StaticClass()))
+			if (Inv->bAlwaysDropOnDeath)
 			{
 				UTC->TossInventory(Inv, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
 			}

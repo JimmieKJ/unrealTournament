@@ -193,7 +193,6 @@ void AUTPickup::ReplicatedTakenEffects()
 void AUTPickup::WakeUp_Implementation()
 {
 	SetPickupHidden(false);
-	SetActorEnableCollision(true);
 	GetWorld()->GetTimerManager().ClearTimer(this, &AUTPickup::WakeUpTimer);
 
 	PrimaryActorTick.SetTickFunctionEnable(GetClass()->GetDefaultObject<AUTPickup>()->PrimaryActorTick.bStartWithTickEnabled);
@@ -212,6 +211,9 @@ void AUTPickup::WakeUp_Implementation()
 		bRepTakenEffects = false;
 		ForceNetUpdate();
 	}
+
+	// last so if a player is already touching we're fully ready to act on it
+	SetActorEnableCollision(true);
 }
 void AUTPickup::WakeUpTimer()
 {

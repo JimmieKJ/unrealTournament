@@ -77,6 +77,9 @@ public:
 	/** if set, item starts off not being available when placed in the level (must wait RespawnTime from start of match) */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	bool bDelayedSpawn;
+	/** if set, item is always dropped when its holder dies if uses/charges/etc remain */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Inventory)
+	bool bAlwaysDropOnDeath;
 	/** sound played on pickup */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	USoundBase* PickupSound;
