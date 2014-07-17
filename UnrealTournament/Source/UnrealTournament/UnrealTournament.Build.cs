@@ -9,7 +9,7 @@ public class UnrealTournament : ModuleRules
         bFasterWithoutUnity = true;
         MinFilesUsingPrecompiledHeaderOverride = 1;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "RHI", "Slate", "SlateCore" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "RHI", "Slate", "SlateCore", "SlateRHIRenderer" });
         if (Target.Type == TargetRules.TargetType.Editor)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd" });
