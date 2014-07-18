@@ -10,20 +10,7 @@
     <File Name="UnrealTournament/Content/Collections/Health Pickups.collection" Hash="91694588247847250c8a831c3c9d3d73ea0257d3" />
     <File Name="UnrealTournament/Content/Collections/Weapons and Powerups.collection" Hash="6a1447a786d2a119b11a16f9ddb53602fa648cc3" />
     <File Name="UnrealTournament/Content/Maps/Example_Map.umap" Hash="4be4880bc59b0e296d5a6a133ecf2c21fc867066" />
-    <File Name="UnrealTournament/Content/Maps/WIP/CTF-FaceTest.umap" Hash="d49cf6c746d05bc4cf8b702d08f50f24957af225" />
-    <File Name="UnrealTournament/Content/Maps/WIP/CTF-TestMap.umap" Hash="fc05df9077589efaa4d92ba7aa1f249c7bc68639" />
-    <File Name="UnrealTournament/Content/Maps/WIP/DM-DeckTest.umap" Hash="d9a8a50787602e1dcb5770d0f468197260cfc632" />
-    <File Name="UnrealTournament/Content/Maps/WIP/DM-NickTest1.umap" Hash="11f4b7da18c1e6c209e3f7d7e968216d747f753f" />
-    <File Name="UnrealTournament/Content/Maps/WIP/DM-ScaleTest.umap" Hash="60e71a09b7b8f20cc87a61f4fed02a3d78889c98" />
-    <File Name="UnrealTournament/Content/Maps/WIP/DM-Test_A01.umap" Hash="2496a2d8a050c111d62bb55cbaa22f695e0c667e" />
-    <File Name="UnrealTournament/Content/Maps/WIP/DM-Test_B01.umap" Hash="674130fc831fa221a62143a8a5c847ee84c7aaca" />
-    <File Name="UnrealTournament/Content/Maps/WIP/DM-Test_C04.umap" Hash="ff9689c877e76a487e43d3f0d6318bc972588ed4" />
     <File Name="UnrealTournament/Content/Maps/WIP/DM-Test_DE_01.umap" Hash="063ecdcdf86e63eea5ff2ab3ff7457296f229459" />
-    <File Name="UnrealTournament/Content/Maps/WIP/DM-Test_F08.umap" Hash="3e21f5168ecca45905c26916e530717de804622a" />
-    <File Name="UnrealTournament/Content/Maps/WIP/Nick_test_Map.umap" Hash="3c0928fd966a064140c697d939afe010ea1a79a9" />
-    <File Name="UnrealTournament/Content/Maps/WIP/Paul_Space.umap" Hash="6eaa3a5308d68f948c82477004f5b01bb619d3b2" />
-    <File Name="UnrealTournament/Content/Maps/WIP/Paul_Vis.umap" Hash="51a84d64d2151b2a120c138ac836aa9102a96b19" />
-    <File Name="UnrealTournament/Content/Maps/WIP/SlopeTest.umap" Hash="a6a634365f7bad800b904a985b3a509f3fdbef7b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Animations/FPP_Fire.uasset" Hash="b189db77dad4e829eae744fb25d89db6e45204c5" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Animations/FPP_Fire_Montage.uasset" Hash="8ad892bc41e26880378f2f92528f05ab4b62bcc5" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Animations/FPP_Idle.uasset" Hash="27167e54cc770150c9f535d48ff12409e4f71efa" />
@@ -501,6 +488,20 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Environments/VisTest/Meshes/test_trim.uasset" Hash="9e052f26ee447f22c2b38b2d5338b68d3a142f26" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Environments/VisTest/Meshes/test_upper.uasset" Hash="d54d28d1faab72149196430457b084c4a7b437e9" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Maps/JM_Test.umap" Hash="16cf1d65c9732cd38846129ced9eea174aafaade" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/CTF-FaceTest.umap" Hash="d49cf6c746d05bc4cf8b702d08f50f24957af225" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/CTF-TestMap.umap" Hash="fc05df9077589efaa4d92ba7aa1f249c7bc68639" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-DeckTest.umap" Hash="d9a8a50787602e1dcb5770d0f468197260cfc632" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-NickTest1.umap" Hash="11f4b7da18c1e6c209e3f7d7e968216d747f753f" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-ScaleTest.umap" Hash="60e71a09b7b8f20cc87a61f4fed02a3d78889c98" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-Test_A01.umap" Hash="2496a2d8a050c111d62bb55cbaa22f695e0c667e" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-Test_B01.umap" Hash="674130fc831fa221a62143a8a5c847ee84c7aaca" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-Test_C04.umap" Hash="ff9689c877e76a487e43d3f0d6318bc972588ed4" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-Test_DE_01.umap" Hash="063ecdcdf86e63eea5ff2ab3ff7457296f229459" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/DM-Test_F08.umap" Hash="3e21f5168ecca45905c26916e530717de804622a" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/Nick_test_Map.umap" Hash="3c0928fd966a064140c697d939afe010ea1a79a9" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/Paul_Space.umap" Hash="6eaa3a5308d68f948c82477004f5b01bb619d3b2" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/Paul_Vis.umap" Hash="51a84d64d2151b2a120c138ac836aa9102a96b19" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Maps/WIP/SlopeTest.umap" Hash="a6a634365f7bad800b904a985b3a509f3fdbef7b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_BlackChrome.uasset" Hash="eb5749cc3e85cea6df4eed513ad3d2421b2ad9fb" />
     <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_CarbonFiber1.uasset" Hash="b2c757ce50968025f4065fc6b51a1b72bd0fecb9" />
     <File Name="UnrealTournament/Content/RestrictedAssets/MaterialLayers/ML_Cloth.uasset" Hash="a43e6b8d89d53445e332fc11e350ed6ecf2c8413" />
