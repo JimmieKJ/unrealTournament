@@ -965,7 +965,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			{
 				InOverlayMesh->RegisterComponent();
 				InOverlayMesh->AttachTo(InMesh, NAME_None, EAttachLocation::SnapToTarget);
-				InOverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+				InOverlayMesh->SetWorldScale3D(InMesh->GetComponentScale());
 			}
 			for (int32 i = 0; i < InOverlayMesh->GetNumMaterials(); i++)
 			{

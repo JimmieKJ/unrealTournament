@@ -89,6 +89,14 @@ void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
 		OverlayMesh->SetVisibility(bThirdPersonView);
 		OverlayMesh->SetOwnerNoSee(!bThirdPersonView);
 	}
+	if (WeaponAttachment != NULL && WeaponAttachment->Mesh != NULL)
+	{
+		WeaponAttachment->Mesh->SetOwnerNoSee(!bThirdPersonView);
+	}
+	if (Weapon != NULL && Weapon->Mesh != NULL)
+	{
+		Weapon->Mesh->SetOwnerNoSee(bThirdPersonView);
+	}
 }
 
 void AUTCharacter::BeginPlay()
