@@ -187,13 +187,24 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 	UE_LOG(LogUTProjectile, Verbose, TEXT("%s::OnOverlapBegin OtherActor:%s bFromSweep:%d"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"), int32(bFromSweep));
 
 	FHitResult Hit;
-	OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
+
+	if (bFromSweep)
+	{
+		Hit = SweepResult;
+	}
+	else
+	{
+		OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
+	}
+
 	ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
 }
+
 void AUTProjectile::OnStop(const FHitResult& Hit)
 {
 	ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
 }
+
 void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
 	bCanHitInstigator = true;
