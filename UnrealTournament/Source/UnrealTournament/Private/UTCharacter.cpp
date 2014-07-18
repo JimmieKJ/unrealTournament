@@ -82,6 +82,11 @@ void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
 
 	Mesh->SetVisibility(bThirdPersonView);
 	Mesh->SetOwnerNoSee(!bThirdPersonView);
+	if (OverlayMesh != NULL)
+	{
+		OverlayMesh->SetVisibility(bThirdPersonView);
+		OverlayMesh->SetOwnerNoSee(!bThirdPersonView);
+	}
 }
 
 void AUTCharacter::BeginPlay()
@@ -1503,6 +1508,15 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->SetRelativeScale3D(FVector(1.015f, 1.015f, 1.015f));
 			}
 			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
+			// apply team color, if applicable
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS != NULL && PS->Team != NULL)
+			{
+				UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
+				static FName NAME_TeamColor(TEXT("TeamColor"));
+				MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+				FirstOverlay = MID;
+			}
 			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 			{
 				OverlayMesh->SetMaterial(i, FirstOverlay);
