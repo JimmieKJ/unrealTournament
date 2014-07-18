@@ -776,7 +776,7 @@ void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, i
 				VictimLastRenderTime = FMath::Max<float>(VictimLastRenderTime, Prim->LastRenderTime);
 			}
 		}
-		if (GetWorld()->TimeSeconds - VictimLastRenderTime < 0.5f)
+		if (GetWorld()->TimeSeconds - VictimLastRenderTime < 0.15f)
 		{
 			MyUTHUD->CausedDamage(HitPawn, Damage);
 		}
