@@ -90,7 +90,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				[
 					SAssignNew(AutoWeaponSwitch, SCheckBox)
 					.ForegroundColor(FLinearColor::Black)
-					.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch)
+					.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 					.Content()
 					[
 						SNew(STextBlock)

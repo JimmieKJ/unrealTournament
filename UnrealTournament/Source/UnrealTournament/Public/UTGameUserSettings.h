@@ -1,10 +1,8 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTAudioSettings.h"
 #include "UTGameUserSettings.generated.h"
-
-/** Defines the current state of the game. */
-
 
 UCLASS()
 class UUTGameUserSettings : public UGameUserSettings
@@ -20,6 +18,9 @@ public:
 	virtual FString GetPlayerName();
 	virtual void SetPlayerName(FString NewPlayerName);
 
+	virtual void SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue);
+	virtual float GetSoundClassVolume(EUTSoundClass::Type Category);
+
 protected:
 	UPROPERTY(config)
 	FString PlayerName;
@@ -27,8 +28,6 @@ protected:
 	UPROPERTY(config)
 	uint32 UTVersion;
 
+	UPROPERTY(config)
+	float SoundClassVolumes[EUTSoundClass::MAX];
 };
-
-
-
-

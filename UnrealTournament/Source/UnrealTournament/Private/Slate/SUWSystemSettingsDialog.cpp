@@ -46,6 +46,43 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 		];
 }
 
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FString& Desc, TSharedPtr<SSlider>& SliderWidget, float SettingValue)
+{
+	FVector2D ViewportSize;
+	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+
+	return 
+		SVerticalBox::Slot()
+		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(Desc)
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
+				.Content()
+				[
+					SAssignNew(SliderWidget, SSlider)
+					.Orientation(Orient_Horizontal)
+					.Value(SettingValue)
+				]
+			]
+		];
+}
+
 FString SUWSystemSettingsDialog::GetFOVLabelText(int32 FOVAngle)
 {
 	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
@@ -86,7 +123,8 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 	}
 
 	// find current and available engine scalability options
-	Scalability::FQualityLevels QualitySettings = GEngine->GetGameUserSettings()->ScalabilityQuality;
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
 	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsLow", "Low").ToString())));
 	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsMedium", "Medium").ToString())));
 	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsHigh", "High").ToString())));
@@ -149,7 +187,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				[
 					SAssignNew(Fullscreen, SCheckBox)
 					.ForegroundColor(FLinearColor::Black)
-					.IsChecked(GetPlayerOwner()->ViewportClient->IsFullScreenViewport())
+					.IsChecked(GetPlayerOwner()->ViewportClient->IsFullScreenViewport() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 					.Content()
 					[
 						SNew(STextBlock)
@@ -191,7 +229,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				[
 					SAssignNew(MouseSmoothing, SCheckBox)
 					.ForegroundColor(FLinearColor::Black)
-					.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing)
+					.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 					.Content()
 					[
 						SNew(STextBlock)
@@ -204,7 +242,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+				.Padding(0.0f, 10.0f, 0.0f, 10.0f)
 				.AutoHeight()
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Center)
@@ -241,6 +279,10 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						]
 					]
 				]
+				+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), SoundVolumes[EUTSoundClass::Master], UserSettings->GetSoundClassVolume(EUTSoundClass::Master))
+				+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), SoundVolumes[EUTSoundClass::Music], UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
+				+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), SoundVolumes[EUTSoundClass::SFX], UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
+				+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), SoundVolumes[EUTSoundClass::Voice], UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
 				+ SVerticalBox::Slot()
 				.AutoHeight()
 				.VAlign(VAlign_Bottom)
@@ -279,6 +321,12 @@ void SUWSystemSettingsDialog::OnFOVChange(float NewValue)
 
 FReply SUWSystemSettingsDialog::OKClick()
 {
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	// sound settings
+	for (int32 i = 0; i < ARRAY_COUNT(SoundVolumes); i++)
+	{
+		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
+	}
 	// mouse sensitivity
 	float NewSensitivity = MouseSensitivity->GetValue() * (MouseSensitivityRange.Y - MouseSensitivityRange.X) + MouseSensitivityRange.X;
 	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
@@ -296,7 +344,6 @@ FReply SUWSystemSettingsDialog::OKClick()
 	InputSettings->bEnableMouseSmoothing = MouseSmoothing->IsChecked();
 	InputSettings->SaveConfig();
 	// engine scalability
-	UGameUserSettings* UserSettings = GEngine->GetGameUserSettings();
 	UserSettings->ScalabilityQuality.TextureQuality = GeneralScalabilityList.Find(TextureRes->GetSelectedItem());
 	UserSettings->ScalabilityQuality.ShadowQuality = GeneralScalabilityList.Find(ShadowQuality->GetSelectedItem());
 	UserSettings->ScalabilityQuality.PostProcessQuality = GeneralScalabilityList.Find(PPQuality->GetSelectedItem());

@@ -15,6 +15,10 @@ namespace EUTGameUserSettingsVersion
 UUTGameUserSettings::UUTGameUserSettings(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
+	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
 }
 
 bool UUTGameUserSettings::IsVersionValid()
@@ -33,6 +37,10 @@ void UUTGameUserSettings::SetToDefaults()
 {
 	Super::SetToDefaults();
 	PlayerName = TEXT("Player");
+	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
 }
 
 void UUTGameUserSettings::ApplySettings()
@@ -52,6 +60,10 @@ void UUTGameUserSettings::ApplySettings()
 		break;
 	}
 
+	for (int32 i = 0; i < ARRAY_COUNT(SoundClassVolumes); i++)
+	{
+		SetSoundClassVolume(EUTSoundClass::Type(i), SoundClassVolumes[i]);
+	}
 }
 
 void UUTGameUserSettings::SetPlayerName(FString NewPlayerName)
@@ -63,3 +75,21 @@ FString UUTGameUserSettings::GetPlayerName()
 {
 	return PlayerName;
 }
+
+void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)
+{
+	if (Category < ARRAY_COUNT(SoundClassVolumes))
+	{
+		SoundClassVolumes[Category] = NewValue;
+		UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+		if (AudioSettings)
+		{
+			AudioSettings->SetSoundClassVolume(Category, NewValue);
+		}
+	}
+}
+float UUTGameUserSettings::GetSoundClassVolume(EUTSoundClass::Type Category)
+{
+	return (Category < ARRAY_COUNT(SoundClassVolumes)) ? SoundClassVolumes[Category] : 0.0f;
+}
+

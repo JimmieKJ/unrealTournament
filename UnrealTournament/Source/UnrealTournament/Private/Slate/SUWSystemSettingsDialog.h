@@ -3,6 +3,7 @@
 
 #include "Slate.h"
 #include "SUWDialog.h"
+#include "UTAudioSettings.h"
 
 class SUWSystemSettingsDialog : public SUWDialog
 {
@@ -15,6 +16,7 @@ protected:
 	TSharedPtr<SCheckBox> Fullscreen;
 	TSharedPtr<SSlider> MouseSensitivity;
 	TSharedPtr<SCheckBox> MouseSmoothing;
+	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	/** list of display values for general scalability setting that are all set the same way (e.g. low/medium/high) */
 	TArray< TSharedPtr<FString> > GeneralScalabilityList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > TextureRes;
@@ -44,4 +46,5 @@ protected:
 	FString GetFOVLabelText(int32 FOVAngle);
 
 	SVerticalBox::FSlot& AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue);
+	SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FString& Desc, TSharedPtr<SSlider>& SliderWidget, float SettingValue);
 };
