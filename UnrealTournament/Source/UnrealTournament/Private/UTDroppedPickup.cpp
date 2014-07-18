@@ -16,6 +16,7 @@ AUTDroppedPickup::AUTDroppedPickup(const FPostConstructInitializeProperties& PCI
 
 	Movement = PCIP.CreateDefaultSubobject<UProjectileMovementComponent>(this, TEXT("Movement"));
 	Movement->UpdatedComponent = Collision;
+	Movement->OnProjectileStop.AddDynamic(this, &AUTDroppedPickup::PhysicsStopped);
 
 	InitialLifeSpan = 15.0f;
 
@@ -56,6 +57,15 @@ void AUTDroppedPickup::SetInventory(AUTInventory* NewInventory)
 void AUTDroppedPickup::InventoryTypeUpdated_Implementation()
 {
 	AUTPickupInventory::CreatePickupMesh(this, Mesh, InventoryType, 0.0f);
+}
+
+void AUTDroppedPickup::PhysicsStopped(const FHitResult& ImpactResult)
+{
+	// if we landed on a mover, attach to it
+	if (ImpactResult.Component != NULL && ImpactResult.Component->Mobility == EComponentMobility::Movable)
+	{
+		Collision->AttachTo(ImpactResult.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+	}
 }
 
 void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

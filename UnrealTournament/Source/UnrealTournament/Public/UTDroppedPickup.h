@@ -29,7 +29,7 @@ public:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	TSubobjectPtr<UCapsuleComponent> Collision;
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	TSubobjectPtr<UMovementComponent> Movement;
+	TSubobjectPtr<UProjectileMovementComponent> Movement;
 
 	virtual void BeginPlay() override;
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override
@@ -44,6 +44,8 @@ public:
 
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION()
+	virtual void PhysicsStopped(const FHitResult& ImpactResult);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);
