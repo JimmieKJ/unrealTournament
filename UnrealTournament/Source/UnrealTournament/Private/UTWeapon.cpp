@@ -13,6 +13,8 @@
 #include "EditorSupportDelegates.h"
 #include "Particles/ParticleSystemComponent.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
+
 AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.DoNotCreateDefaultSubobject(TEXT("PickupMesh0")))
 {
@@ -676,6 +678,8 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 
 void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 {
+	UE_LOG(LogUTWeapon, Verbose, TEXT("%s::FireInstantHit()"), *GetName());
+
 	checkSlow(InstantHitInfo.IsValidIndex(CurrentFireMode));
 
 	const FVector SpawnLocation = GetFireStartLoc();
@@ -715,9 +719,11 @@ void AUTWeapon::K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit)
 
 AUTProjectile* AUTWeapon::FireProjectile()
 {
+	UE_LOG(LogUTWeapon, Verbose, TEXT("%s::FireProjectile()"), *GetName());
+
 	if (GetUTOwner() == NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("%s::FireProjectile(): Weapon is not owned (owner died during firing sequence)"));
+		UE_LOG(LogUTWeapon, Warning, TEXT("%s::FireProjectile(): Weapon is not owned (owner died during firing sequence)"), *GetName());
 		return NULL;
 	}
 	else if (Role == ROLE_Authority)

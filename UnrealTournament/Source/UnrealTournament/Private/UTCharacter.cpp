@@ -14,6 +14,8 @@
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
 
+DEFINE_LOG_CATEGORY_STATIC(LogUTCharacter, Log, All);
+
 AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
@@ -250,13 +252,15 @@ void AUTCharacter::NotifyJumpApex()
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	UE_LOG(LogUTCharacter, Verbose, TEXT("TakeDamage() %d %s"), int32(Damage), *DamageEvent.DamageTypeClass->GetName());
+
 	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
 	{
 		return 0.f;
 	}
 	else if (Damage < 0.0f)
 	{
-		UE_LOG(UT, Warning, TEXT("TakeDamage() called with damage %i of type %s... use HealDamage() to add health"), int32(Damage), *DamageEvent.DamageTypeClass->GetName());
+		UE_LOG(LogUTCharacter, Warning, TEXT("TakeDamage() called with damage %i of type %s... use HealDamage() to add health"), int32(Damage), *DamageEvent.DamageTypeClass->GetName());
 		return 0.0f;
 	}
 	else
@@ -606,9 +610,11 @@ void AUTCharacter::AmbientSoundUpdated()
 
 void AUTCharacter::StartFire(uint8 FireModeNum)
 {
+	UE_LOG(LogUTCharacter, Verbose, TEXT("StartFire %d"), FireModeNum);
+
 	if (!IsLocallyControlled())
 	{
-		UE_LOG(UT, Warning, TEXT("StartFire() can only be called on the owning client"));
+		UE_LOG(LogUTCharacter, Warning, TEXT("StartFire() can only be called on the owning client"));
 	}
 	else if (Weapon != NULL)
 	{
@@ -620,7 +626,7 @@ void AUTCharacter::StopFire(uint8 FireModeNum)
 {
 	if (!IsLocallyControlled())
 	{
-		UE_LOG(UT, Warning, TEXT("StopFire() can only be called on the owning client"));
+		UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
 	}
 	else if (Weapon != NULL)
 	{

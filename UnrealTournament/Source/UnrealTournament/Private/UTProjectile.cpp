@@ -7,6 +7,8 @@
 #include "Engine/ActorChannel.h"
 #include "Particles/ParticleSystemComponent.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
+
 AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCIP) 
 	: Super(PCIP)
 {
@@ -47,6 +49,8 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 
 void AUTProjectile::BeginPlay()
 {
+	UE_LOG(LogUTProjectile, VeryVerbose, TEXT("%s::BeginPlay()"), *GetName());
+
 	if (SpawnInstigator != NULL)
 	{
 		Instigator = SpawnInstigator;
@@ -180,6 +184,8 @@ void AUTProjectile::PostNetReceiveVelocity(const FVector& NewVelocity)
 
 void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	UE_LOG(LogUTProjectile, Verbose, TEXT("%s::OnOverlapBegin OtherActor:%s bFromSweep:%d"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"), int32(bFromSweep));
+
 	FHitResult Hit;
 	OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
 	ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
@@ -206,6 +212,8 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	UE_LOG(LogUTProjectile, Verbose, TEXT("%s::ProcessHit OtherActor:%s"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
+
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
 	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds)
 		// projectiles that are shootable always win against projectiles that are not
