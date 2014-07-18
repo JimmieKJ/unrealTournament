@@ -687,11 +687,17 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	const FVector FireDir = SpawnRotation.Vector();
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
+	//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
+	//DrawDebugLine(GetWorld(), SpawnLocation, EndTrace, FColor::Green, true);
+
 	FHitResult Hit;
 	if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
 	{
 		Hit.Location = EndTrace;
 	}
+	
+	//DrawDebugSphere(GetWorld(), Hit.Location, 10, 10, FColor::Red, true);
+
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
@@ -733,6 +739,8 @@ AUTProjectile* AUTWeapon::FireProjectile()
 		// try and fire a projectile
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+
+		//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
 
 		UTOwner->IncrementFlashCount(CurrentFireMode);
 
