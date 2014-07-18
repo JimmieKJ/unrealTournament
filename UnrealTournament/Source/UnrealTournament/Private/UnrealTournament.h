@@ -30,6 +30,8 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTInventory.h"
 #include "UTWeapon.h"
 #include "UTGameSession.h"
+#include "UTGameObjective.h"
+#include "UTCarriedObject.h"
 #include "UTGameMode.h"
 
 /** utility to find out if a particle system loops */

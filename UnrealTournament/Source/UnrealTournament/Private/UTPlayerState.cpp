@@ -180,3 +180,35 @@ void AUTPlayerState::OverrideWith(APlayerState* PlayerState)
 		Team = PS->Team;
 	}
 }
+
+void AUTPlayerState::OnCarriedObjectChanged()
+{
+	SetCarriedObject(CarriedObject);
+}
+
+void AUTPlayerState::SetCarriedObject(AUTCarriedObject* NewCarriedObject)
+{
+	if (Role == ROLE_Authority)
+	{
+		CarriedObject = NewCarriedObject;
+		ForceNetUpdate();
+	}
+}
+
+void AUTPlayerState::ClearCarriedObject(AUTCarriedObject* OldCarriedObject)
+{
+	if (Role == ROLE_Authority)
+	{
+		if (CarriedObject == OldCarriedObject)
+		{
+			CarriedObject = NULL;
+			ForceNetUpdate();
+		}
+	}
+}
+
+uint8 AUTPlayerState::GetTeamNum() const
+{
+	return (Team != NULL) ? Team->GetTeamNum() : 255;
+}
+

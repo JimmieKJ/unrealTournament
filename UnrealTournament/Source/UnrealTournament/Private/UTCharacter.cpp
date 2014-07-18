@@ -10,6 +10,7 @@
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_FallingCrush.h"
 #include "UTJumpBoots.h"
+#include "UTCTFFlag.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -517,6 +518,14 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, (Controller != NULL) ? Controller : Cast<AController>(GetOwner()), this, DamageEvent.DamageTypeClass);
 
 		Health = FMath::Min<int32>(Health, 0);
+
+		// Drop any carried objects when you die.
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS != NULL && PS->CarriedObject != NULL)
+		{
+			PS->CarriedObject->Drop(EventInstigator);
+		}
+
 		if (Controller != NULL)
 		{
 			Controller->PawnPendingDestroy(this);
@@ -1714,4 +1723,66 @@ void AUTCharacter::PlayerSuicide()
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_Suicide::StaticClass());
 		Died(NULL, FakeDamageEvent);
 	}
+}
+
+bool AUTCharacter::CanPickupObject(AUTCarriedObject* PendingObject)
+{
+	return GetCarriedObject() == NULL && Controller != NULL && !bTearOff && !IsDead();
+}
+
+AUTCarriedObject* AUTCharacter::GetCarriedObject()
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL && PS->CarriedObject != NULL)
+	{
+		return PS->CarriedObject;
+	}
+	return NULL;
+}
+
+
+/** This is only here for legacy. */
+void AUTCharacter::DropFlag()
+{
+	DropCarriedObject();
+}
+
+void AUTCharacter::DropCarriedObject()
+{
+	ServerDropCarriedObject();
+}
+
+
+void AUTCharacter::ServerDropCarriedObject_Implementation()
+{
+	AUTCarriedObject* Obj = GetCarriedObject();
+	if (Obj != NULL)
+	{
+		Obj->Drop(NULL);
+	}
+}
+
+bool AUTCharacter::ServerDropCarriedObject_Validate()
+{
+	return true;
+}
+
+void AUTCharacter::UseCarriedObject()
+{
+	ServerUseCarriedObject();
+}
+
+
+void AUTCharacter::ServerUseCarriedObject_Implementation()
+{
+	AUTCarriedObject* Obj = GetCarriedObject();
+	if (Obj != NULL)
+	{
+		Obj->Use();
+	}
+}
+
+bool AUTCharacter::ServerUseCarriedObject_Validate()
+{
+	return true;
 }

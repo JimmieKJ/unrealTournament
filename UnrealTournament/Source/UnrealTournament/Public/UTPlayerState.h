@@ -50,11 +50,25 @@ class AUTPlayerState : public APlayerState
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float RespawnTime;
 
+	/** The currently held object */
+	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnCarriedObjectChanged, Category = PlayerState)
+	class AUTCarriedObject* CarriedObject;
+
 	UFUNCTION()
 	void OnDeathsReceived();
 
 	UFUNCTION(BlueprintNativeEvent)
 	void NotifyTeamChanged();
+
+	UFUNCTION()
+	void OnCarriedObjectChanged();
+
+	UFUNCTION()
+	virtual void SetCarriedObject(AUTCarriedObject* NewCarriedObject);
+
+	UFUNCTION()
+	virtual void ClearCarriedObject(AUTCarriedObject* OldCarriedObject);
+
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);
@@ -77,6 +91,11 @@ class AUTPlayerState : public APlayerState
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;
+
+	// Returns the team number of the team that owns this object
+	UFUNCTION()
+	virtual uint8 GetTeamNum() const;
+
 };
 
 

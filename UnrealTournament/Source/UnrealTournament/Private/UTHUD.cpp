@@ -6,9 +6,8 @@
 #include "UTHUDWidget_Paperdoll.h"
 #include "UTHUDWidgetMessage_DeathMessages.h"
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
-#include "UTHUDWidget_DMPlayerScore.h"
-#include "UTHUDWidget_DMPlayerLeaderboard.h"
 #include "UTHUDWidget_WeaponInfo.h"
+#include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_WeaponBar.h"
@@ -42,13 +41,12 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	HudWidgetClasses.Add(UUTHUDWidget_Paperdoll::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_WeaponInfo::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_WeaponCrosshair::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerScore::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidgetMessage_DeathMessages::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_Spectator::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_Powerups::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_WeaponBar::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerScore::StaticClass());
 
 	HudWidgetClasses.Add( ResolveHudWidgetByName(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'")));
 
@@ -248,7 +246,6 @@ void AUTHUD::DrawHUD()
 		/**
 		 * This is all TEMP code.  It will be replaced with a new hud system shortly but I 
 		 * needed a way to display some data.  
-		 **/
 
 		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 		if (GameState)
@@ -256,6 +253,9 @@ void AUTHUD::DrawHUD()
 			TempDrawString(FText::FromString(TEXT("!! Alpha Prototype !!")), Center.X, 5.0f, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetSmallFont(), FLinearColor::White);
 			TempDrawString( ConvertTime(FText::GetEmpty(), FText::GetEmpty(), GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetMediumFont(), FLinearColor::White);
 		}
+
+		**/
+
 	}
 }
 

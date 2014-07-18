@@ -39,9 +39,9 @@ class AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float MultiKillDelay;
 
-	// If true, we will stop counting down time
+	// If true, we will stop the game clock
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
-	uint32 bStopCountdown:1;
+	uint32 bStopGameClock:1;
 
 	// Used to sync the time on clients to the server. -- See DefaultTimer()
 	UPROPERTY(Replicated)
@@ -58,14 +58,21 @@ class AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnWinnerReceived, Category = GameState)
 	AUTPlayerState* WinnerPlayerState;
 
+	/** Holds the team of the winning team */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	AUTTeamInfo* WinningTeam;
+
 	UFUNCTION()
 	virtual void OnWinnerReceived();
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
-	virtual void SetTimeLimit(float NewTimeLimit);
+	virtual void SetTimeLimit(uint32 NewTimeLimit);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
 	virtual void SetGoalScore(uint32 NewGoalScore);
+
+	UFUNCTION()
+	virtual void SetWinner(AUTPlayerState* NewWinner);
 
 	/** Called once per second (or so depending on TimeDilation) after RemainingTime() has been replicated */
 	virtual void DefaultTimer();

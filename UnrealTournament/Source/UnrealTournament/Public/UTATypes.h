@@ -81,3 +81,10 @@ struct FTextureUVs
 
 };
 
+namespace CarriedObjectState
+{
+	const FName Home = FName(TEXT("Home"));
+	const FName Held = FName(TEXT("Held"));
+	const FName Dropped = FName(TEXT("Dropped"));
+}
+

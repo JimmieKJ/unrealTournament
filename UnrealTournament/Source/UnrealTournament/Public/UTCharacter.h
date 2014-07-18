@@ -560,6 +560,19 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	//--------------------------
 
+	/**
+	 *	@returns true if this 
+	 **/
+	virtual bool CanPickupObject(AUTCarriedObject* PendingObject);
+
+	
+	/**
+	 *	@return the current object carried by this pawn
+	 **/
+	UFUNCTION()
+	virtual AUTCarriedObject* GetCarriedObject();
+
+
 protected:
 
 	/** multiplier to firing speed */
@@ -638,6 +651,25 @@ protected:
 	/** runtime material instance for setting body material parameters (team color, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	UMaterialInstanceDynamic* BodyMI;
+
+	/** legacy command for dropping the flag.  Just redirects to UseCarriedObject */
+	UFUNCTION(Exec)
+	virtual void DropFlag();
+
+	/** uses the current carried object */
+	UFUNCTION(exec)
+	virtual void DropCarriedObject();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerDropCarriedObject();
+
+	/** uses the current carried object */
+	UFUNCTION(exec)
+	virtual void UseCarriedObject();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerUseCarriedObject();
+
 
 private:
 	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)

@@ -19,6 +19,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
+	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);
 	DOREPLIFETIME(AUTGameState, TimeLimit);
 	DOREPLIFETIME(AUTGameState, bTeamGame);
@@ -112,14 +113,14 @@ void AUTGameState::DefaultTimer()
 		}
 	}
 
-	if (RemainingTime > 0 && !bStopCountdown)
+	if (RemainingTime > 0 && !bStopGameClock && IsMatchInProgress())
 	{
 		RemainingTime--;
 		if (GetWorld()->GetNetMode() != NM_Client)
 		{
 			if (RemainingTime % 60 == 0)
 			{
-				RemainingMinute	 = RemainingTime;
+				RemainingMinute	= RemainingTime;
 			}
 		}
 	}
@@ -153,11 +154,11 @@ bool AUTGameState::OnSameTeam(const AActor* Actor1, const AActor* Actor2)
 	}
 }
 
-void AUTGameState::SetTimeLimit(float NewTimeLimit)
+void AUTGameState::SetTimeLimit(uint32 NewTimeLimit)
 {
 	TimeLimit = NewTimeLimit;
-	RemainingTime = 60.0f * TimeLimit;
-	RemainingMinute = RemainingTime;
+	RemainingTime = TimeLimit;
+	RemainingMinute = TimeLimit;
 
 	ForceNetUpdate();
 }
@@ -167,6 +168,14 @@ void AUTGameState::SetGoalScore(uint32 NewGoalScore)
 	GoalScore = NewGoalScore;
 	ForceNetUpdate();
 }
+
+void AUTGameState::SetWinner(AUTPlayerState* NewWinner)
+{
+	WinnerPlayerState = NewWinner;
+	WinningTeam	= NewWinner->Team;
+	ForceNetUpdate();
+}
+
 
 /**
   * returns true if P1 should be sorted before P2

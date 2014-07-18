@@ -89,6 +89,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	bPlayersMustBeReady = EvalBoolOptions(InOpt, bPlayersMustBeReady);
 
 	TimeLimit = FMath::Max(0,GetIntOption( Options, TEXT("TimeLimit"), TimeLimit ));
+	TimeLimit *= 60;
 
 	// Set goal score to end match.
 	GoalScore = FMath::Max(0,GetIntOption( Options, TEXT("GoalScore"), GoalScore ));
@@ -208,6 +209,27 @@ void AUTGameMode::InitGameState()
 		UE_LOG(UT,Error, TEXT("UTGameState is NULL %s"), *GameStateClass->GetFullName());
 	}
 }
+
+void AUTGameMode::PreInitializeComponents()
+{
+	Super::PreInitializeComponents();
+
+	// Because of the behavior changes to PostBeginPlay() this really has to go here as PreInitializeCompoennts is sort of the UE4 PBP even
+	// though PBP still exists.  It can't go in InitGame() or InitGameState() because team info needed for team locked GameObjectives are not
+	// setup at that point.
+
+	for (TActorIterator<AUTGameObjective> ObjIt(GetWorld()); ObjIt; ++ObjIt)
+	{
+		ObjIt->InitializeObjective();	
+		GameObjectiveInitialized(*ObjIt);
+	}
+}
+
+void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
+{
+	// Allow subclasses to track game objectives as they are initialized
+}
+
 
 APlayerController* AUTGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
@@ -360,7 +382,7 @@ bool AUTGameMode::CheckScore(AUTPlayerState* Scorer)
 	{
 		if ( (GoalScore > 0) && (Scorer->Score >= GoalScore) )
 		{
-			EndGame(Scorer,TEXT("fraglimit"));
+			EndGame(Scorer,FName(TEXT("fraglimit")));
 		}
 	}
 	return true;
@@ -431,7 +453,6 @@ void AUTGameMode::BeginGame()
 void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
-	UTGameState->bStopCountdown = true;
 	GetWorldTimerManager().SetTimer(this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
@@ -440,47 +461,41 @@ void AUTGameMode::EndMatch()
 	}
 }
 
-void AUTGameMode::EndGame(AUTPlayerState* Winner, const FString& Reason )
+void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 {
 
-	if ( (FCString::Stricmp(*Reason, TEXT("triggered")) == 0) ||
-		 (FCString::Stricmp(*Reason, TEXT("TimeLimit")) == 0) ||
-		 (FCString::Stricmp(*Reason, TEXT("FragLimit")) == 0))
+	// If we don't have a winner, then go and find one
+	if (Winner == NULL)
 	{
-
-		// If we don't have a winner, then go and find one
-		if (Winner == NULL)
+		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 		{
-			for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+			AController* Controller = *Iterator;
+			AUTPlayerState* CPS = Cast<AUTPlayerState> (Controller->PlayerState);
+			if ( CPS && ((Winner == NULL) || (CPS->Score >= Winner->Score)) )
 			{
-				AController* Controller = *Iterator;
-				AUTPlayerState* CPS = Cast<AUTPlayerState> (Controller->PlayerState);
-				if ( CPS && ((Winner == NULL) || (CPS->Score >= Winner->Score)) )
-				{
-					Winner = CPS;
-				}
+				Winner = CPS;
 			}
 		}
-
-		UTGameState->WinnerPlayerState = Winner;
-		EndTime = GetWorld()->TimeSeconds;
-
-		SetEndGameFocus(Winner);
-
-		// Allow replication to happen before reporting scores, stats, etc.
-		GetWorldTimerManager().SetTimer(this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
-		bGameEnded = true;
-
-		// Setup a timer to pop up the final scoreboard on everyone
-		GetWorldTimerManager().SetTimer(this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
-
-		// Setup a timer to continue to the next map.
-
-		EndTime = GetWorld()->TimeSeconds;
-		GetWorldTimerManager().SetTimer(this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
-
-		EndMatch();
 	}
+
+	UTGameState->SetWinner(Winner);
+	EndTime = GetWorld()->TimeSeconds;
+
+	SetEndGameFocus(Winner);
+
+	// Allow replication to happen before reporting scores, stats, etc.
+	GetWorldTimerManager().SetTimer(this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
+	bGameEnded = true;
+
+	// Setup a timer to pop up the final scoreboard on everyone
+	GetWorldTimerManager().SetTimer(this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
+
+	// Setup a timer to continue to the next map.
+
+	EndTime = GetWorld()->TimeSeconds;
+	GetWorldTimerManager().SetTimer(this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
+
+	EndMatch();
 }
 
 /**
@@ -528,6 +543,8 @@ void AUTGameMode::ShowFinalScoreboard()
 
 void AUTGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 {
+	if (Winner == NULL) return; // It's possible to call this with Winner == NULL if timelimit is hit with noone on the server
+
 	EndGameFocus = Cast<AController>(Winner->GetOwner())->GetPawn();
 	if ( (EndGameFocus == NULL) && (Cast<AController>(Winner->GetOwner()) != NULL) )
 	{
@@ -567,7 +584,7 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 
 bool AUTGameMode::IsAWinner(AUTPlayerController* PC)
 {
-	return ( PC != NULL && ( PC->UTPlayerState->bOnlySpectator || PC->UTPlayerState == UTGameState->WinnerPlayerState));
+	return ( PC != NULL && PC->UTPlayerState != NULL && ( PC->UTPlayerState->bOnlySpectator || PC->UTPlayerState == UTGameState->WinnerPlayerState));
 }
 
 void AUTGameMode::PlayEndOfMatchMessage()
@@ -1022,10 +1039,12 @@ void AUTGameMode::CheckGameTime()
 
 		if (!bAllowOvertime || !bTied)
 		{
-			EndGame(Winner, TEXT("TimeLimit"));			
+			EndGame(Winner, FName(TEXT("TimeLimit")));			
 		}
 		else if (bAllowOvertime && !UTGameState->IsMatchInOvertime())
 		{
+			// Stop the clock in Overtime. 
+			UTGameState->bStopGameClock = true;
 			SetMatchState(MatchState::MatchEnteringOvertime);
 		}
 	}
@@ -1117,4 +1136,9 @@ bool AUTGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast
 TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 {
 	return AUTGameSession::StaticClass();
+}
+
+void AUTGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+{
+	UE_LOG(UT,Log,TEXT("ScoreObject %s by %s (%s) %s"), *GetNameSafe(GameObject), *GetNameSafe(HolderPawn), *GetNameSafe(Holder), *Reason.ToString());
 }

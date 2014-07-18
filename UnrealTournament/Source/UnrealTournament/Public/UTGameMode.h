@@ -127,10 +127,11 @@ public:
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void ScoreKill(AController* Killer, AController* Other);
+	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
 	virtual bool IsAWinner(AUTPlayerController* PC);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
-	virtual void EndGame(AUTPlayerState* Winner, const FString& Reason);
+	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
 	virtual void StartMatch();
 	virtual void EndMatch();
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
@@ -196,6 +197,8 @@ public:
 	 */
 
 	virtual TSubclassOf<class AGameSession> GetGameSessionClass() const;
+	
+	virtual void PreInitializeComponents() override;
 
 protected:
 	/** checks whether the mutator is allowed in this gametype and doesn't conflict with any existing mutators */
@@ -228,6 +231,8 @@ protected:
 		}
 		return Default;
 	}
+
+	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
 
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
