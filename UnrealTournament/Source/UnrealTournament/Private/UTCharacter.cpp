@@ -11,6 +11,7 @@
 #include "UTDmgType_FallingCrush.h"
 #include "UTJumpBoots.h"
 #include "UTCTFFlag.h"
+#include "Particles/ParticleSystemComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -459,9 +460,21 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, con
 
 void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
-	if (GetNetMode() != NM_DedicatedServer && LastTakeHitInfo.Damage > 0)
+	if (GetNetMode() != NM_DedicatedServer && LastTakeHitInfo.Damage > 0 && BloodEffect != NULL)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodEffect, LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
+		// we want ourselves as the Outer for OwnerNoSee checks yet not attached to us, so the GameplayStatics functions don't get the job done
+		UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+		PSC->bAutoDestroy = true;
+		PSC->SecondsBeforeInactive = 0.0f;
+		PSC->bAutoActivate = false;
+		PSC->SetTemplate(BloodEffect);
+		PSC->bOverrideLODMethod = false;
+		PSC->RegisterComponentWithWorld(GetWorld());
+		PSC->SetAbsolute(true, true, true);
+		PSC->SetOwnerNoSee(true); // FIXME: !IsFirstPerson()
+		PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
+		PSC->SetRelativeScale3D(FVector(1.f));
+		PSC->ActivateSystem(true);
 	}
 }
 
