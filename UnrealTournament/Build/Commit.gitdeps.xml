@@ -4,7 +4,6 @@
     <File Name="UnrealTournament/Binaries/ServerLaunch.exe" Hash="f5f2b06d97920fa8daa9a826f7343b27a8c04d65" />
     <File Name="UnrealTournament/Binaries/Win64/UE4Editor-UnrealTournament.dll" Hash="451b2ede5fa4c1971efb27ffd674a3ef814eb4df" />
     <File Name="UnrealTournament/Binaries/Win64/UE4Editor-UnrealTournamentEditor.dll" Hash="b8c7f13621ffbafb78afce2decbc6581afcd79b3" />
-    <File Name="UnrealTournament/Content/Blueprints/BaseUTCharacter_Enum.uasset" Hash="2aaaf2a787719d0f764dc79682991a6ebd0477c5" />
     <File Name="UnrealTournament/Content/Collections/Ammo Pickups.collection" Hash="acea19f530c61b1820b3b10b90f066cec4a41766" />
     <File Name="UnrealTournament/Content/Collections/CTF.collection" Hash="f215bb5b7da43d295a67052452ea726aa8aae342" />
     <File Name="UnrealTournament/Content/Collections/Health Pickups.collection" Hash="91694588247847250c8a831c3c9d3d73ea0257d3" />
@@ -2488,7 +2487,6 @@
     <Blob Hash="2a4b96457e86087ef848f5031388b079673e68f4" Size="197283" PackHash="f7c79c5a9904ccfb89f1396799bdf1cdeee335e4" PackOffset="1122900" />
     <Blob Hash="2a5fa98edb1d2a2bc61b81423b765a4eb2b24e44" Size="62871" PackHash="04943b85e9dcf478e6e22c1084814da37c2ebf38" PackOffset="66263" />
     <Blob Hash="2a64ec812c55e52b5da503a55e1936251b346ecd" Size="42062" PackHash="d11276e1215a852bb688db8f9bf4c01e050ba577" PackOffset="1115879" />
-    <Blob Hash="2aaaf2a787719d0f764dc79682991a6ebd0477c5" Size="458" PackHash="c97fc0c2c4f49a3a562095af47a1ad1044baa000" PackOffset="8" />
     <Blob Hash="2aae97e4e179f1b08e800a68603a9c14982cde95" Size="99724" PackHash="6d4db4f58b910080fb889bd870682366f43eae4d" PackOffset="637029" />
     <Blob Hash="2acf6aaece27b71e9b766ffc9400752ba6351392" Size="67492" PackHash="599f3854c46c622ecd92278b94a88e7b8b2e8930" PackOffset="1207690" />
     <Blob Hash="2b1a7348fd7245e98da53e14b530b69d62aaab41" Size="26316" PackHash="d364e4c92cd19e90ee85e616d07d5aba83c04250" PackOffset="2033502" />
