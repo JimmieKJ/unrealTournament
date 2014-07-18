@@ -16,7 +16,7 @@ UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties&
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
-	FText LocalMessageText = GetDefault<UUTLocalMessage>(GetClass())->ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
+	FText LocalMessageText = ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 	if ( !LocalMessageText.IsEmpty() )
 	{
 		if ( Cast<AUTHUD>(ClientData.LocalPC->MyHUD) != NULL )

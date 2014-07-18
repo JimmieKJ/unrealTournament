@@ -55,7 +55,14 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		}
 	}
 
-	// Also recieve the console message side of this.
+	// add the message to the console's output history
+	ULocalPlayer* LP = Cast<ULocalPlayer>(ClientData.LocalPC->Player);
+	if (LP != NULL && LP->ViewportClient != NULL && LP->ViewportClient->ViewportConsole != NULL)
+	{
+		LP->ViewportClient->ViewportConsole->OutputText(ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject).ToString());
+	}
+
+	// Also receive the console message side of this.
 	Super::ClientReceive(ClientData);
 }
 
