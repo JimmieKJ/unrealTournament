@@ -61,6 +61,12 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	// Cheat, only works if called server side
 	void AllAmmo();
 
+	// Cheat, only works if called server side
+	void UnlimitedAmmo();
+
+	UPROPERTY(replicated)
+	bool bUnlimitedAmmo;
+
 	inline class AUTInventory* GetInventory()
 	{
 		return InventoryList;

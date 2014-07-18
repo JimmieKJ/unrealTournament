@@ -533,6 +533,14 @@ void AUTWeapon::OnRep_Ammo()
 
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	// cheat
+	if (UTOwner && UTOwner->bUnlimitedAmmo)
+	{
+		return;
+	}
+#endif
+
 	if (Role == ROLE_Authority)
 	{
 		if (AmmoCost.IsValidIndex(FireModeNum))
@@ -548,6 +556,14 @@ void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 
 bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	// cheat
+	if (UTOwner && UTOwner->bUnlimitedAmmo)
+	{
+		return true;
+	}
+#endif
+
 	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo >= AmmoCost[FireModeNum]);
 }
 

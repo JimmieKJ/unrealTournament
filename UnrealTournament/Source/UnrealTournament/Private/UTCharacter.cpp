@@ -737,6 +737,7 @@ bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type)
 
 void AUTCharacter::AllAmmo()
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
 	{
 		AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
@@ -745,7 +746,12 @@ void AUTCharacter::AllAmmo()
 			Weap->AddAmmo(Weap->MaxAmmo);
 		}
 	}
+#endif
+}
 
+void AUTCharacter::UnlimitedAmmo()
+{
+	bUnlimitedAmmo = !bUnlimitedAmmo;
 }
 
 AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass)
@@ -1108,6 +1114,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bUnlimitedAmmo, COND_OwnerOnly);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)

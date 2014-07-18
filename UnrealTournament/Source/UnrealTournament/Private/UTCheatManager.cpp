@@ -31,3 +31,17 @@ void UUTCheatManager::AllAmmo()
 		MyPawn->AllAmmo();
 	}
 }
+
+void UUTCheatManager::UnlimitedAmmo()
+{
+	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (MyPawn)
+	{
+		MyPawn->UnlimitedAmmo();
+	}
+}
+
+void UUTCheatManager::ua()
+{
+	UnlimitedAmmo();
+}
