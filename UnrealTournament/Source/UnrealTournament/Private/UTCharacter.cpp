@@ -1703,10 +1703,27 @@ void AUTCharacter::OnRep_PlayerState()
 void AUTCharacter::NotifyTeamChanged()
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS != NULL && PS->Team != NULL && BodyMI != NULL)
+	if (PS != NULL && BodyMI != NULL)
 	{
 		static FName NAME_TeamColor(TEXT("TeamColor"));
-		BodyMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+		if (PS->Team != NULL)
+		{
+			BodyMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+		}
+		else
+		{
+			// in FFA games, let the local player decide the team coloring
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC != NULL && PC->FFAPlayerColor.A > 0.0f)
+				{
+					BodyMI->SetVectorParameterValue(NAME_TeamColor, PC->FFAPlayerColor);
+					// NOTE: no splitscreen support, first player wins
+					break;
+				}
+			}
+		}
 	}
 }
 

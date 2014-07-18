@@ -168,6 +168,10 @@ public:
 	virtual void SpawnPlayerCameraManager() override;
 	virtual void FOV(float NewFOV) override;
 
+	/** desired "team" color for players in FFA games */
+	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Display)
+	FLinearColor FFAPlayerColor;
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

@@ -39,6 +39,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	EyeOffsetGlobalScaling = 1.f;
 
 	ConfigDefaultFOV = 90.0f;
+	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
 }
 
 void AUTPlayerController::SetGravity(float NewGravity)

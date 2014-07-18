@@ -15,11 +15,18 @@ protected:
 	TArray<UClass*> WeaponList;
 	TSharedPtr< SListView<UClass*> > WeaponPriorities;
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
+	FLinearColor SelectedPlayerColor;
 
 	FReply OKClick();
 	FReply CancelClick();
 	FReply WeaponPriorityUp();
 	FReply WeaponPriorityDown();
+	FReply PlayerColorClicked(const FGeometry& Geometry, const FPointerEvent& Event);
+	FLinearColor GetSelectedPlayerColor() const
+	{
+		return SelectedPlayerColor;
+	}
+	void PlayerColorChanged(FLinearColor NewValue);
 	void OnNameTextChanged(const FText& NewText);
 	TSharedRef<ITableRow> GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
 	// find/load weapon class and add to WeaponList
