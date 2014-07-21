@@ -8,6 +8,9 @@ const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the ve
 UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	// @TODO FIXMESTEVE increase this to hour+ for release version
+	// MinTimeBetweenTimeStampResets = 30.f;
+
 	MaxWalkSpeed = 900.f;
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -2400.f;  // same as UTCharacter->MaxSafeFallSpeed - @TODO FIXMESTEVE probably get rid of this property
@@ -34,7 +37,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f;  
-	WallDodgeGraceVelocityZ = -400.f;
+	WallDodgeGraceVelocityZ = -600.f;
 	AirControl = 0.35f;
 	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
@@ -125,6 +128,10 @@ FVector UUTCharacterMovement::GetImpartedMovementBaseVelocity() const
 
 bool UUTCharacterMovement::CanDodge()
 {
+	if (GetCurrentMovementTime() < DodgeResetTime)
+	{
+		//UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+	}
 	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (CharacterOwner && CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > DodgeResetTime));
 }
 
@@ -175,6 +182,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		if (!CharacterOwner->bClientUpdating)
 		{
 			DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
+			//UE_LOG(UT, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 		}
 		HorizontalImpulse = WallDodgeImpulseHorizontal;
 		CurrentWallDodgeCount++;
@@ -199,7 +207,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		float CurrentWallImpulse = (CurrentWallDodgeCount < 2) ? WallDodgeImpulseVertical : WallDodgeSecondImpulseVertical;
 
-		if ((VelocityZ < 0.f) && (VelocityZ > WallDodgeGraceVelocityZ))
+		if ((CurrentWallDodgeCount < 2) && (VelocityZ < 0.f) && (VelocityZ > WallDodgeGraceVelocityZ))
 		{
 			VelocityZ = 0.f;
 		}
@@ -257,6 +265,13 @@ const FVector& NewAccel
 {
 	if (HasValidData())
 	{
+		//UE_LOG(UT, Warning, TEXT("Set server move time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
+		if (CurrentServerMoveTime > ClientTimeStamp + 0.5f*MinTimeBetweenTimeStampResets)
+		{
+			// client timestamp rolled over, so roll over our movement timers
+			DodgeResetTime -= MinTimeBetweenTimeStampResets;
+			SprintStartTime -= MinTimeBetweenTimeStampResets;
+		}
 		CurrentServerMoveTime = ClientTimeStamp;
 	}
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
@@ -276,6 +291,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 			if (!CharacterOwner->bClientUpdating)
 			{
 				DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
+				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
 			bIsDodging = false;
 		}
