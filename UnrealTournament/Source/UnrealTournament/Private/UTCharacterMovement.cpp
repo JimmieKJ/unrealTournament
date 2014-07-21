@@ -49,7 +49,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 48.0f;
-	SlopeDodgeScaling = 1.f;
+	SlopeDodgeScaling = 0.9f;
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
