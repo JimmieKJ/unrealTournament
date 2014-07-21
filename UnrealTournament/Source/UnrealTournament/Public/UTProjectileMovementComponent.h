@@ -12,6 +12,9 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 	/** linear acceleration in the direction of current velocity */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	float AccelRate;
+	/** explicit acceleration vector (additive with AccelRate) */
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = Projectile)
+	FVector Acceleration;
 
 	/** additional components that should be moved along with the main UpdatedComponent. Defaults to all colliding children of UpdatedComponent.
 	 * closest blocking hit of all components is used for blocking collision
@@ -27,7 +30,7 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 
 	virtual FVector CalculateVelocity(FVector OldVelocity, float DeltaTime)
 	{
-		OldVelocity += OldVelocity.SafeNormal() * AccelRate * DeltaTime;
+		OldVelocity += OldVelocity.SafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
 		return Super::CalculateVelocity(OldVelocity, DeltaTime);
 	}
 };

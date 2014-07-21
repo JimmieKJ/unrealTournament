@@ -1,0 +1,68 @@
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+
+#include "UnrealTournament.h"
+#include "UTProj_RocketSpiral.h"
+#include "UTProjectileMovementComponent.h"
+#include "UnrealNetwork.h"
+
+AUTProj_RocketSpiral::AUTProj_RocketSpiral(const class FPostConstructInitializeProperties& PCIP)
+	: Super(PCIP)
+{
+	FlockRadius = 12.0f;
+	FlockStiffness = -40.0f;
+	FlockMaxForce = 600.0f;
+	FlockCurlForce = 450.0f;
+}
+
+void AUTProj_RocketSpiral::BeginPlay()
+{
+	Super::BeginPlay();
+
+	GetWorldTimerManager().SetTimer(this, &AUTProj_RocketSpiral::UpdateSpiral, 0.1f, true);
+}
+
+void AUTProj_RocketSpiral::UpdateSpiral()
+{
+	UUTProjectileMovementComponent* UTProjMovement = Cast<UUTProjectileMovementComponent>(ProjectileMovement);
+	if (UTProjMovement != NULL)
+	{
+		// initialize Dir, if necessary
+		if (InitialDir.IsZero())
+		{
+			InitialDir = UTProjMovement->Velocity.SafeNormal();
+		}
+
+		UTProjMovement->Velocity = UTProjMovement->InitialSpeed * (InitialDir * 0.5 * UTProjMovement->InitialSpeed + UTProjMovement->Velocity).SafeNormal();
+
+		// Work out force between flock to add madness
+		for (int32 i = 0; i < 2; i++)
+		{
+			if (Flock[i] != NULL)
+			{
+				// Attract if distance between rockets is over 2*FlockRadius, repulse if below.
+				FVector ForceDir = Flock[i]->GetActorLocation() - GetActorLocation();
+				float ForceMag = FlockStiffness * ((2.0f * FlockRadius) - ForceDir.Size());
+				UTProjMovement->Acceleration = ForceDir.SafeNormal() * FMath::Min(ForceMag, FlockMaxForce);
+
+				// Vector 'curl'
+				FVector CurlDir = FVector::CrossProduct(Flock[i]->ProjectileMovement->Velocity, ForceDir);
+				if (bCurl == Flock[i]->bCurl)
+				{
+					UTProjMovement->Acceleration += CurlDir.SafeNormal() * FlockCurlForce;
+				}
+				else
+				{
+					UTProjMovement->Acceleration -= CurlDir.SafeNormal() * FlockCurlForce;
+				}
+			}
+		}
+	}
+}
+
+void AUTProj_RocketSpiral::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(AUTProj_RocketSpiral, Flock, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTProj_RocketSpiral, bCurl, COND_InitialOnly);
+}

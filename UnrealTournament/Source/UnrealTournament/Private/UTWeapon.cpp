@@ -191,6 +191,7 @@ void AUTWeapon::GotoState(UUTWeaponState* NewState)
 			{
 				CurrentState = NewState;
 				CurrentState->BeginState(PrevState); // NOTE: may trigger another GotoState() call
+				StateChanged();
 			}
 		}
 	}

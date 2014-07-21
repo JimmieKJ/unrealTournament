@@ -185,6 +185,11 @@ public:
 	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const override;
 
 	void GotoState(class UUTWeaponState* NewState);
+	/** notification of state change (CurrentState is new state)
+	 * if a state change triggers another state change (i.e. within BeginState()/EndState()) this function will only be called once, when CurrentState is the final state
+	 */
+	virtual void StateChanged()
+	{}
 
 	/** firing entry point */
 	virtual void StartFire(uint8 FireModeNum);

@@ -47,4 +47,22 @@ class UUTGameplayStatics : public UBlueprintFunctionLibrary
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game|Damage", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "IgnoreActors"))
 	static bool UTHurtRadius(UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController);
+
+	/** select visible controlled enemy Pawn for which direction from StartLoc is closest to FireDir and within aiming cone/distance constraints
+	 * commonly used for autoaim, homing locks, etc
+	 * @param AskingC - Controller that is looking for a target; may not be NULL
+	 * @param StartLoc - start location of fire (instant hit trace start, projectile spawn loc, etc)
+	 * @param FireDir - fire direction
+	 * @param MinAim - minimum dot product of directions that can be returned (maximum 0)
+	 * @param MaxRange - maximum range to search
+	 * @param TargetClass - optional subclass of Pawn to look for; default is all pawns
+	 * @param BestAim - if specified, filled with actual dot product of returned target
+	 * @param BestDist - if specified, filled with actual distance to returned target
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Game|Targeting")
+	static APawn* PickBestAimTarget(AController* AskingC, FVector StartLoc, FVector FireDir, float MinAim, float MaxRange, TSubclassOf<APawn> TargetClass = NULL
+#if CPP // hack: UHT doesn't support this (or any 'optional out' type construct)
+	, float* BestAim = NULL, float* BestDist = NULL
+#endif
+	);
 };
