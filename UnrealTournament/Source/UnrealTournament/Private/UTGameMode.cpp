@@ -77,6 +77,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	Func->FunctionFlags |= FUNC_Native;
 	Func->SetNativeFunc((Native)&AUTGameMode::BeginPlayMutatorHack);
 
+	UE_LOG(UT,Log,TEXT("==============="));
+	UE_LOG(UT,Log,TEXT("  Init Game"));
+	UE_LOG(UT,Log,TEXT("==============="));
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
@@ -423,7 +426,7 @@ void AUTGameMode::BeginGame()
 	UE_LOG(UT,Log,TEXT("GameType: %s"), *GetNameSafe(this));
 	UE_LOG(UT,Log,TEXT("Difficulty: %i"), GameDifficulty);
 	UE_LOG(UT,Log,TEXT("GoalScore: %i"), GoalScore);
-	UE_LOG(UT,Log,TEXT("TimeLimit: %f"), TimeLimit);
+	UE_LOG(UT,Log,TEXT("TimeLimit: %i"), TimeLimit);
 	UE_LOG(UT,Log,TEXT("Min # of Players: %i"), MinPlayersToStart);
 	UE_LOG(UT,Log,TEXT("End Delays %f / %f"), EndTimeDelay, EndScoreboardDelay);
 

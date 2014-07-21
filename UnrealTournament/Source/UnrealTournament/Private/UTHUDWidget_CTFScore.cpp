@@ -27,6 +27,11 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 	AUTCTFGameState* CGS = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
 	if (CGS != NULL)
 	{
+		//HACK: temp fix. Seems like the hud is trying to draw when the teams havn't fully replicated
+		if ((CGS->Teams.Num() != 2) || (CGS->Teams[0] == NULL)  || (CGS->Teams[1] == NULL))
+		{
+			return;
+		}
 		// Draw the Red Score...
 		UTHUDOwner->TempDrawNumber(CGS->Teams[0]->Score, RenderPosition.X - (157 * RenderScale * RedScale) , 10 * RenderScale * RedScale, FLinearColor::Yellow, 1.0,RenderScale * RedScale * 0.75);
 	

@@ -15,4 +15,5 @@ class AUTCTFFlag : public AUTCarriedObject
 
 	virtual bool CanBePickedUpBy(AUTCharacter* Character);
 	virtual void Score(FName Reason);
+	virtual void Destroyed() override;
 };

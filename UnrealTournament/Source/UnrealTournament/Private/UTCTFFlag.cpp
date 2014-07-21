@@ -40,3 +40,8 @@ void AUTCTFFlag::Score(FName Reason)
 	Super::Score(Reason);
 	SendHome();
 }
+
+void AUTCTFFlag::Destroyed()
+{
+	Super::Destroyed();
+}

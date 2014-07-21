@@ -1702,6 +1702,16 @@ uint8 AUTCharacter::GetTeamNum() const
 	}
 }
 
+FLinearColor AUTCharacter::GetTeamColor() const
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL && PS->Team != NULL)
+	{
+		return PS->Team->TeamColor;
+	}
+	return FLinearColor::White;
+}
+
 void AUTCharacter::PossessedBy(AController* NewController)
 {
 	// TODO: shouldn't base class do this? APawn::Unpossessed() still does SetOwner(NULL)...

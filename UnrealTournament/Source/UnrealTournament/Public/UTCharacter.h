@@ -444,7 +444,11 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION()
 	virtual void UpdateSkin();
 
+	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual uint8 GetTeamNum() const;
+
+	UFUNCTION(BlueprintCallable, Category = Team)
+	virtual FLinearColor GetTeamColor() const;
 
 	virtual void OnRep_PlayerState() override;
 	virtual void NotifyTeamChanged();
@@ -651,11 +655,11 @@ protected:
 	/** runtime material instance for setting body material parameters (team color, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	UMaterialInstanceDynamic* BodyMI;
-
+public:
 	/** legacy command for dropping the flag.  Just redirects to UseCarriedObject */
 	UFUNCTION(Exec)
 	virtual void DropFlag();
-
+protected:
 	/** uses the current carried object */
 	UFUNCTION(exec)
 	virtual void DropCarriedObject();
@@ -683,4 +687,5 @@ inline bool AUTCharacter::IsDead()
 {
 	return bTearOff || bPendingKillPending;
 }
+
 

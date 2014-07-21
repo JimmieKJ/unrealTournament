@@ -351,7 +351,7 @@ void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 void AUTWeapon::BringUp()
 {
 	AttachToOwner();
-
+	OnBringUp();
 	CurrentState->BringUp();
 }
 

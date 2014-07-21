@@ -39,6 +39,7 @@ class AUTCTFGameMode : public AUTTeamGameMode
 	virtual void StartHalftime();
 	virtual void FreezePlayers();
 	virtual void FocusOnBestPlayer();
+	virtual void RestartPlayer(AController* aPlayer);
 
 protected:
 

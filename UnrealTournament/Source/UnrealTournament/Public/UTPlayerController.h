@@ -216,6 +216,9 @@ protected:
 	/** weapon selection */
 	void PrevWeapon();
 	void NextWeapon();
+	void ToggleTranslocator();
+	int32 PreviousWeaponGroup;
+
 	virtual void SwitchWeaponInSequence(bool bPrev);
 	UFUNCTION(Exec)
 	virtual void SwitchWeapon(int32 Group);

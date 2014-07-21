@@ -15,6 +15,11 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	bAllowOvertime=true;
 	bOldSchool = false;
 	OvertimeDuration=5;
+	bUseTeamStarts = true;
+
+	//Add the translocator here for now :(
+	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("Blueprint'/Game/UserContent/Translocator/BP_Translocator.BP_Translocator_C'"));
+	DefaultInventory.Add(WeapTranslocator.Object);
 }
 
 void AUTCTFGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
@@ -79,8 +84,13 @@ void AUTCTFGameMode::CheckGameTime()
 	{
 		Super::CheckGameTime();
 	}
-	else
+	else if (CTFGameState->IsMatchInProgress())
 	{
+/*
+		UE_LOG(UT,Log,TEXT("================"));
+		UE_LOG(UT,Log,TEXT("CheckGameTime: %i %i"), CTFGameState->TimeLimit, CTFGameState->RemainingTime);
+		UE_LOG(UT,Log,TEXT("================"));
+*/
 		if (!CTFGameState->bHalftime)
 		{
 			if (CTFGameState->RemainingTime <= 0)
@@ -219,3 +229,8 @@ void AUTCTFGameMode::FocusOnBestPlayer()
 	}
 }
 
+void AUTCTFGameMode::RestartPlayer(AController* aPlayer)
+{
+	if (CTFGameState != NULL && CTFGameState->bHalftime) return;
+	Super::RestartPlayer(aPlayer);
+}

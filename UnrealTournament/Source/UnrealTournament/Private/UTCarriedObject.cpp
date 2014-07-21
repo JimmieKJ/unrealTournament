@@ -169,6 +169,11 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 	}
 
+	// Turn off movement on this actor
+
+	MovementComponent->StopMovementImmediately();
+	MovementComponent->SetUpdatedComponent(NULL);
+
 	// Track the pawns that have held this.  It's to be used for scoring
 	Holders.AddUnique(Holder);
 
@@ -182,6 +187,9 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	Holder->SetCarriedObject(this);
 	HoldingPawn->MakeNoise(2.0);
 	ChangeState(CarriedObjectState::Held);
+
+
+
 }
 
 void AUTCarriedObject::NoLongerHeld()
@@ -213,7 +221,7 @@ void AUTCarriedObject::NoLongerHeld()
 	{
 		FRotator Dir = LastHoldingPawn->Health > 0 ? LastHoldingPawn->GetActorRotation() : FRotator(0, 0, 0);
 		SetActorLocationAndRotation(LastHoldingPawn->GetActorLocation(), Dir);
-		MovementComponent->Velocity = (0.5f * LastHoldingPawn->GetMovementComponent()->Velocity) + (654.0f * Dir.Vector()) + 218.0f * (0.5f + FMath::FRand()) + FMath::VRand();
+		MovementComponent->Velocity = (0.5f * LastHoldingPawn->GetMovementComponent()->Velocity) + (900.0f * Dir.Vector()) + 218.0f * (0.5f + FMath::FRand()) + FMath::VRand();
 		MovementComponent->SetUpdatedComponent(Collision);
 	}
 
