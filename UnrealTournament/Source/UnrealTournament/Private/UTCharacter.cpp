@@ -182,6 +182,12 @@ void AUTCharacter::HeadScaleUpdated()
 	// TODO
 }
 
+static TAutoConsoleVariable<int32> CVarDebugHeadshots(
+	TEXT("p.DebugHeadshots"),
+	0,
+	TEXT("Debug headshot traces"),
+	ECVF_Default);
+
 bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor)
 {
 	// force mesh update if necessary
@@ -193,6 +199,20 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 	}
 	FVector HeadLocation = Mesh->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
 	bool bHeadShot = FMath::PointDistToLine(HeadLocation, ShotDirection, HitLocation) < HeadRadius * HeadScale * WeaponHeadScaling;
+
+	if (CVarDebugHeadshots.GetValueOnGameThread() != 0)
+	{
+		DrawDebugLine(GetWorld(), HitLocation + (ShotDirection * 1000.f), HitLocation - (ShotDirection * 1000.f), FColor::White, true);
+		if (bHeadShot)
+		{
+			DrawDebugSphere(GetWorld(), HeadLocation, HeadRadius * HeadScale * WeaponHeadScaling, 10, FColor::Green, true);
+		}
+		else
+		{
+			DrawDebugSphere(GetWorld(), HeadLocation, HeadRadius * HeadScale * WeaponHeadScaling, 10, FColor::Red, true);
+		}
+	}
+
 	if (bHeadShot)
 	{
 		// check for inventory items that prevent headshots
@@ -358,6 +378,8 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 
 			Health -= ResultDamage;
+			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage"), *GetName(), ResultDamage);
+
 			if (UTDamageTypeCDO != NULL)
 			{
 				ResultMomentum.Z = UTDamageTypeCDO->bForceZMomentum ? FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size()) : ResultMomentum.Z;
