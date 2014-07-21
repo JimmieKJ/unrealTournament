@@ -8,17 +8,17 @@
 AUTProj_RocketSpiral::AUTProj_RocketSpiral(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	FlockRadius = 12.0f;
+	FlockRadius = 24.0f;
 	FlockStiffness = -40.0f;
-	FlockMaxForce = 600.0f;
-	FlockCurlForce = 450.0f;
+	FlockMaxForce = 1200.0f;
+	FlockCurlForce = 900.0f;
 }
 
 void AUTProj_RocketSpiral::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GetWorldTimerManager().SetTimer(this, &AUTProj_RocketSpiral::UpdateSpiral, 0.1f, true);
+	GetWorldTimerManager().SetTimer(this, &AUTProj_RocketSpiral::UpdateSpiral, 0.05f, true);
 }
 
 void AUTProj_RocketSpiral::UpdateSpiral()
@@ -35,7 +35,7 @@ void AUTProj_RocketSpiral::UpdateSpiral()
 		UTProjMovement->Velocity = UTProjMovement->InitialSpeed * (InitialDir * 0.5 * UTProjMovement->InitialSpeed + UTProjMovement->Velocity).SafeNormal();
 
 		// Work out force between flock to add madness
-		for (int32 i = 0; i < 2; i++)
+		for (int32 i = ARRAY_COUNT(Flock) - 1; i >= 0; i--)
 		{
 			if (Flock[i] != NULL)
 			{
@@ -54,6 +54,7 @@ void AUTProj_RocketSpiral::UpdateSpiral()
 				{
 					UTProjMovement->Acceleration -= CurlDir.SafeNormal() * FlockCurlForce;
 				}
+				break;
 			}
 		}
 	}

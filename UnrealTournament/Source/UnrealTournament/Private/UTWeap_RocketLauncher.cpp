@@ -26,7 +26,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FPostConstructInitial
 
 	bLockedOnTarget = false;
 	LockCheckTime = 0.1f;
-	LockRange = 1600.0f;
+	LockRange = 16000.0f;
 	LockAcquireTime = 1.1f;
 	LockTolerance = 0.2f;
 	LockedTarget = NULL;
@@ -258,6 +258,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 
 	const FVector SpawnLocation = GetFireStartLoc();
 	FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+	FRotationMatrix SpawnRotMat(SpawnRotation);
 
 	FActorSpawnParameters Params;
 	Params.Instigator = UTOwner;
@@ -292,8 +293,12 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				//Spiral needs rockets centered but seeking needs to be at the BarrelRadius
 				if (HasLockedTarget())
 				{
-					FVector Up = FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z);
+					FVector Up = SpawnRotMat.GetUnitAxis(EAxis::Z);
 					SpreadLoc = SpawnLocation + (Up * BarrelRadius);
+				}
+				else
+				{
+					SpreadLoc = SpawnLocation - 2.0f * ((FMath::Sin(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Y) - (FMath::Cos(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Z)) - SpawnRotMat.GetUnitAxis(EAxis::X) * 8.0f * FMath::FRand();
 				}
 
 				SeekerList.Add(GetWorld()->SpawnActor<AUTProjectile>(RocketProjClass, SpreadLoc, SpawnRotation, Params));
@@ -308,11 +313,14 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				AUTProj_RocketSpiral* Rocket = Cast<AUTProj_RocketSpiral>(SeekerList[i]);
 				if (Rocket != NULL)
 				{
-					Rocket->bCurl = (i != 0);
+					Rocket->bCurl = (i % 2 == 1);
 					int32 FlockId = 0;
-					for (int32 j = 0; j < SeekerList.Num() && j < ARRAY_COUNT(Rocket->Flock); j++)
+					for (int32 j = 0; j < SeekerList.Num() && FlockId < ARRAY_COUNT(Rocket->Flock); j++)
 					{
-						Rocket->Flock[FlockId++] = Cast<AUTProj_RocketSpiral>(SeekerList[j]);
+						if (i != j)
+						{
+							Rocket->Flock[FlockId++] = Cast<AUTProj_RocketSpiral>(SeekerList[j]);
+						}
 					}
 				}
 			}
@@ -361,7 +369,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 
 void AUTWeap_RocketLauncher::StateChanged()
 {
-	if (CurrentState != InactiveState && CurrentState != EquippingState && CurrentState != UnequippingState)
+	if (Role == ROLE_Authority && CurrentState != InactiveState && CurrentState != EquippingState && CurrentState != UnequippingState)
 	{
 		GetWorldTimerManager().SetTimer(this, &AUTWeap_RocketLauncher::UpdateLock, LockCheckTime, true);
 	}
@@ -508,7 +516,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		float Scale = WeaponHudWidget->GetRenderScale() * CrosshairScale;
 
 		float DegreesPerRocket = 360.0f / MaxLoadedRockets;
-		float CrosshairRot = DegreesPerRocket * (NumLoadedRockets>1) ? NumLoadedRockets : 0;
+		float CrosshairRot = DegreesPerRocket * ((NumLoadedRockets > 1) ? NumLoadedRockets : 0);
 
 		if (NumLoadedRockets < MaxLoadedRockets)
 		{

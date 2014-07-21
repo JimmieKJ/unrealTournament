@@ -37,6 +37,19 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
 	}
 
+	virtual void EndState() override
+	{
+		Super::EndState();
+
+		// the super will only fire if there are rockets charged up, so we need to make sure to clear everything in case the loading never got that far
+		ChargeTime = 0.0f;
+		bCharging = false;
+		RocketLauncher->NumLoadedRockets = 0;
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::RefireCheckTimer);
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer);
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
+	}
+
 	virtual void LoadTimer()
 	{
 		RocketLauncher->EndLoadRocket();
@@ -45,19 +58,18 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		if (RocketLauncher->NumLoadedRockets >= RocketLauncher->MaxLoadedRockets || !RocketLauncher->HasAmmo(GetFireMode()))
 		{
 			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer, RocketLauncher->GracePeriod, false);
-			return;
 		}
-
 		//Fire delay for shooting one alternate rocket
-		if (!bCharging)
+		else if (!bCharging)
 		{
 			EndFiringSequence(GetFireMode());
-			return;
 		}
+		else
+		{
+			RocketLauncher->BeginLoadRocket();
 
-		RocketLauncher->BeginLoadRocket();
-
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
+		}
 	}
 
 	virtual void RefireCheckTimer() override
