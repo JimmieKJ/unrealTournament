@@ -751,23 +751,30 @@ void AUTCharacter::AddAmmo(const FStoredAmmo& AmmoToAdd)
 
 bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type)
 {
-	int32 Amount = 0;
-	for (int32 i = 0; i < SavedAmmo.Num(); i++)
+	if (Type != NULL)
 	{
-		if (SavedAmmo[i].Type == Type)
+		int32 Amount = 0;
+		for (int32 i = 0; i < SavedAmmo.Num(); i++)
 		{
-			Amount += SavedAmmo[i].Amount;
+			if (SavedAmmo[i].Type == Type)
+			{
+				Amount += SavedAmmo[i].Amount;
+			}
 		}
-	}
-	AUTWeapon* Weapon = FindInventoryType<AUTWeapon>(Type, true);
-	if (Weapon != NULL)
-	{
-		Amount += Weapon->Ammo;
-		return Amount >= Weapon->MaxAmmo;
+		AUTWeapon* Weapon = FindInventoryType<AUTWeapon>(Type, true);
+		if (Weapon != NULL)
+		{
+			Amount += Weapon->Ammo;
+			return Amount >= Weapon->MaxAmmo;
+		}
+		else
+		{
+			return Amount >= Type.GetDefaultObject()->MaxAmmo;
+		}
 	}
 	else
 	{
-		return Amount >= Type.GetDefaultObject()->MaxAmmo;
+		return true; // kinda arbitrary but this will make pickups more obviously broken
 	}
 }
 
