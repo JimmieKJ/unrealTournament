@@ -16,7 +16,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 	FullChargeTime = 2.5f;
 	MinChargePct = 0.3f;
 	SelfDamageScale = 0.3f;
-	SelfForceScale = -1.2f;
+	SelfForceScale = -1.0f;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
