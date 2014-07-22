@@ -7,6 +7,7 @@
 #include "UTVictoryMessage.h"
 #include "UTTimedPowerup.h"
 #include "UTCountDownMessage.h"
+#include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "UTScoreboard.h"
 
@@ -350,6 +351,12 @@ void AUTGameMode::ScoreKill(AController* Killer, AController* Other)
 			KillerPlayerState->IncrementKills(true);
 			CheckScore(KillerPlayerState);
 		}
+
+		if (!bFirstBloodOccurred)
+		{
+			BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, NULL, NULL, NULL);
+			bFirstBloodOccurred = true;
+		}
 	}
 }
 
@@ -399,6 +406,7 @@ void AUTGameMode::StartMatch()
 		// Already started
 		return;
 	}
+	
 	if (GetWorld()->IsPlayInEditor())
 	{
 		SetMatchState(MatchState::InProgress);
@@ -414,6 +422,7 @@ void AUTGameMode::HandleMatchHasStarted()
 	Super::HandleMatchHasStarted();
 	UTGameState->SetTimeLimit(TimeLimit);
 
+	bFirstBloodOccurred = false;
 	BroadcastLocalized( this, UUTGameMessage::StaticClass(), 0, NULL, NULL, NULL);
 }
 

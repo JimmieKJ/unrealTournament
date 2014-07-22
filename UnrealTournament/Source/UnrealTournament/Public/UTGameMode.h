@@ -58,6 +58,9 @@ public:
 	UPROPERTY()
 	uint32 bTeamGame:1;
 
+	UPROPERTY()
+	bool bFirstBloodOccurred;
+
 	/** If true, players will have to all be ready before the match will begin */
 	UPROPERTY()
 	uint32 bPlayersMustBeReady;
