@@ -78,6 +78,15 @@ public:
 	void ValidateFiringStates();
 #endif
 
+	virtual void Serialize(FArchive& Ar) override
+	{
+		// prevent AutoSwitchPriority from being serialized using non-config paths
+		// without this any local user setting will get pushed to blueprints and then override other users' configuration
+		float SavedSwitchPriority = AutoSwitchPriority;
+		Super::Serialize(Ar);
+		AutoSwitchPriority = SavedSwitchPriority;
+	}
+
 	/** time between shots, trigger checks, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon", meta = (ClampMin = "0.1"))
 	TArray<float> FireInterval;
@@ -143,7 +152,7 @@ public:
 	/** user set priority for auto switching and switch to best weapon functionality
 	 * this value only has meaning on clients
 	 */
-	UPROPERTY(Config, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(Config, Transient, BlueprintReadOnly, Category = "Weapon")
 	float AutoSwitchPriority;
 
 	/** return priority for human player auto weapon switch (on pickup if enabled, or switch to best weapon key)
