@@ -30,7 +30,7 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 
 	virtual void PutDown() override
 	{
-		PartialEquipTime = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(this, &UUTWeaponStateEquipping::BringUpFinished);
+		PartialEquipTime = FMath::Max(0.001f, GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(this, &UUTWeaponStateEquipping::BringUpFinished));
 		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->UnequippingState);
 	}
 };
