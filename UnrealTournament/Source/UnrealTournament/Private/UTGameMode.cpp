@@ -254,6 +254,18 @@ void AUTGameMode::DefaultTimer()
 {	
 	// Let the game see if it's time to end the match
 	CheckGameTime();
+
+	if (bForceRespawn)
+	{
+		for (auto It = GetWorld()->GetControllerIterator(); It; ++It)
+		{
+			AController* Controller = *It;
+			if (Controller->IsInState(NAME_Inactive))
+			{
+				RestartPlayer(Controller);
+			}
+		}
+	}
 }
 
 
@@ -317,13 +329,6 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 		DiscardInventory(KilledPawn, Killer);
 		NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
-
-		// Force Respawn 
-
-		if (KilledPlayer && bForceRespawn)
-		{
-			RestartPlayer(KilledPlayer);
-		}
 	}
 }
 
