@@ -282,8 +282,6 @@ void AUTCharacter::NotifyJumpApex()
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	UE_LOG(LogUTCharacter, Verbose, TEXT("TakeDamage() %d %s"), int32(Damage), *DamageEvent.DamageTypeClass->GetName());
-
 	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
 	{
 		return 0.f;
@@ -295,6 +293,8 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 	}
 	else
 	{
+		UE_LOG(LogUTCharacter, Verbose, TEXT("%s::TakeDamage() %d %s"), *GetName(), int32(Damage), *DamageEvent.DamageTypeClass->GetName());
+
 		const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
 		const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
 
@@ -378,7 +378,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 
 			Health -= ResultDamage;
-			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage"), *GetName(), ResultDamage);
+			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 
 			if (UTDamageTypeCDO != NULL)
 			{
