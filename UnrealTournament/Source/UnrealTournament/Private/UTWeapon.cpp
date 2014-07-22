@@ -688,16 +688,11 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	const FVector FireDir = SpawnRotation.Vector();
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
-	//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
-	//DrawDebugLine(GetWorld(), SpawnLocation, EndTrace, FColor::Green, true);
-
 	FHitResult Hit;
 	if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
 	{
 		Hit.Location = EndTrace;
 	}
-	
-	//DrawDebugSphere(GetWorld(), Hit.Location, 10, 10, FColor::Red, true);
 
 	if (Role == ROLE_Authority)
 	{
@@ -714,7 +709,11 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 }
 void AUTWeapon::K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit)
 {
-	if (GetUTOwner() != NULL)
+	if (!InstantHitInfo.IsValidIndex(CurrentFireMode))
+	{
+		FFrame::KismetExecutionMessage(*FString::Printf(TEXT("%s::FireInstantHit(): Fire mode %i doesn't have instant hit info"), *GetName(), int32(CurrentFireMode)), ELogVerbosity::Warning);
+	}
+	else if (GetUTOwner() != NULL)
 	{
 		FireInstantHit(bDealDamage, &OutHit);
 	}
