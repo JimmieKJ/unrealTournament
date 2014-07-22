@@ -84,8 +84,11 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 							}
 						}
 					}
+					if (UTOwner != NULL && !UTOwner->IsDead())
+					{
+						Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage * DamageMult, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage * DamageMult, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum * DamageMult), UTOwner->Controller, this);
+					}
 				}
-				Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage * DamageMult, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage * DamageMult, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum * DamageMult), UTOwner->Controller, this);
 			}
 			else if (Hit.Component != NULL)
 			{

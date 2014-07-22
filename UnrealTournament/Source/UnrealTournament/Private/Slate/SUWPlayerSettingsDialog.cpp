@@ -137,6 +137,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper.BP_Sniper_C"));
 	AddWeapon(TEXT("/Game/UserContent/BioRifle/BP_BioRifle.BP_BioRifle_C"));
 	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.BP_RocketLauncher_C"));
+	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/ImpactHammer/BP_ImpactHammer.BP_ImpactHammer_C"));
 
 	struct FWeaponListSort
 	{
