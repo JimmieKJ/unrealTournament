@@ -263,6 +263,7 @@ protected:
 	void OnTapRight();
 	void OnTapForward();
 	void OnTapBack();
+	void OnSingleTapDodge();
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();

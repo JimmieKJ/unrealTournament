@@ -88,6 +88,8 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("TapForward", IE_Pressed, this, &AUTPlayerController::OnTapForward);
 	InputComponent->BindAction("TapBack", IE_Pressed, this, &AUTPlayerController::OnTapBack);
 
+	InputComponent->BindAction("SingleTapDodge", IE_Pressed, this, &AUTPlayerController::OnSingleTapDodge);
+
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
@@ -555,6 +557,42 @@ bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBac
 		MyCharMovement->bPressedDodgeRight = bRight;
 	}
 	return false;
+}
+
+void AUTPlayerController::OnSingleTapDodge()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? Cast<UUTCharacterMovement>(UTCharacter->CharacterMovement) : NULL;
+	if (MyCharMovement)
+	{
+		// base dodge direction on current acceleration, only in cardinal directions.  
+		// If two directions pressed, dodge to the side
+		MyCharMovement->bPressedDodgeForward = false;
+		MyCharMovement->bPressedDodgeBack = false;
+		MyCharMovement->bPressedDodgeLeft = false;
+		MyCharMovement->bPressedDodgeRight = false;
+
+		FRotator TurnRot(0.f, UTCharacter->GetActorRotation().Yaw, 0.f);
+		FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+		FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
+		FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+
+		if ((MyCharMovement->GetCurrentAcceleration() | Y) > 0.5f)
+		{
+			MyCharMovement->bPressedDodgeRight = true;
+		}
+		else if ((MyCharMovement->GetCurrentAcceleration() | Y) < -0.5f)
+		{
+			MyCharMovement->bPressedDodgeLeft = true;
+		}
+		else if ((MyCharMovement->GetCurrentAcceleration() | X) >= 0.f)
+		{
+			MyCharMovement->bPressedDodgeForward = true;
+		}
+		else
+		{
+			MyCharMovement->bPressedDodgeBack = true;
+		}
+	}
 }
 
 void AUTPlayerController::OnTapForward()
