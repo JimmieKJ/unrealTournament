@@ -24,7 +24,7 @@ class UUTFirstBloodMessage : public UUTLocalMessage
 		MessageArea = FName(TEXT("DeathMessage"));
 
 		FirstBloodLocalText = NSLOCTEXT("UTFirstBloodMessage", "FirstBloodLocalText", "First Blood!");
-		FirstBloodRemoteText = NSLOCTEXT("UTFirstBloodMessage", "FirstBloodRemoteText", "{Player1Name} got First Blood!");
+		FirstBloodRemoteText = NSLOCTEXT("UTFirstBloodMessage", "FirstBloodRemoteText", "{Player1Name} drew First Blood!");
 
 		AnnouncementNames.Add(TEXT("FirstBlood"));
 
