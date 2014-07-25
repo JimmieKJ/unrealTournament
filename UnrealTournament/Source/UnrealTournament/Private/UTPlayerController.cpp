@@ -74,7 +74,6 @@ FVector AUTPlayerController::GetFocalLocation() const
 	}
 }
 
-
 void AUTPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -90,7 +89,8 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("TapForward", IE_Pressed, this, &AUTPlayerController::OnTapForward);
 	InputComponent->BindAction("TapBack", IE_Pressed, this, &AUTPlayerController::OnTapBack);
 
-	InputComponent->BindAction("SingleTapDodge", IE_Pressed, this, &AUTPlayerController::OnSingleTapDodge);
+	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
+	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -551,7 +551,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? Cast<UUTCharacterMovement>(UTCharacter->CharacterMovement) : NULL;
-	if (MyCharMovement && (GetWorld()->GetTimeSeconds() - LastTapTime < MaxDodgeClickTime))
+	if (MyCharMovement && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxDodgeClickTime)))
 	{
 		MyCharMovement->bPressedDodgeForward = bForward;
 		MyCharMovement->bPressedDodgeBack = bBack;
@@ -599,6 +599,16 @@ void AUTPlayerController::OnSingleTapDodge()
 			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Back"));
 		}
 	}
+}
+
+void AUTPlayerController::HoldDodge()
+{
+	bIsHoldingDodge = true;
+}
+
+void AUTPlayerController::ReleaseDodge()
+{
+	bIsHoldingDodge = false;
 }
 
 void AUTPlayerController::OnTapForward()

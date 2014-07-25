@@ -205,6 +205,10 @@ protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapBackTime;
 
+	/** If true, holding dodge modifier key down, single tap of movement key causes dodge. */
+	UPROPERTY(BluePrintReadOnly, Category = Dodging)
+	bool bIsHoldingDodge;
+
 	UFUNCTION(exec)
 	virtual void ChangeTeam(uint8 NewTeamIndex);
 
@@ -264,6 +268,8 @@ protected:
 	void OnTapForward();
 	void OnTapBack();
 	void OnSingleTapDodge();
+	void HoldDodge();
+	void ReleaseDodge();
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();
