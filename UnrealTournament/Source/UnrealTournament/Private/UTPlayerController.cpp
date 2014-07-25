@@ -17,6 +17,8 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
+
 AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
@@ -579,18 +581,22 @@ void AUTPlayerController::OnSingleTapDodge()
 		if ((MyCharMovement->GetCurrentAcceleration() | Y) > 0.5f)
 		{
 			MyCharMovement->bPressedDodgeRight = true;
+			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Right"));
 		}
 		else if ((MyCharMovement->GetCurrentAcceleration() | Y) < -0.5f)
 		{
 			MyCharMovement->bPressedDodgeLeft = true;
+			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Left"));
 		}
 		else if ((MyCharMovement->GetCurrentAcceleration() | X) >= 0.f)
 		{
 			MyCharMovement->bPressedDodgeForward = true;
+			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Forward"));
 		}
 		else
 		{
 			MyCharMovement->bPressedDodgeBack = true;
+			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Back"));
 		}
 	}
 }
