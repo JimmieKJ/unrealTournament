@@ -1078,19 +1078,27 @@ void AUTCharacter::WeaponChanged()
 
 void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
 {
-	if (IsLocallyControlled() && Weapon == LostWeapon)
+	if (IsLocallyControlled())
 	{
-		Weapon = NULL;
-		if (!IsDead())
+		if (Weapon == LostWeapon)
 		{
-			if (PendingWeapon == NULL)
+			Weapon = NULL;
+			if (!IsDead())
 			{
-				SwitchToBestWeapon();
+				if (PendingWeapon == NULL)
+				{
+					SwitchToBestWeapon();
+				}
+				if (PendingWeapon != NULL)
+				{
+					WeaponChanged();
+				}
 			}
-			if (PendingWeapon != NULL)
-			{
-				WeaponChanged();
-			}
+		}
+		else if (PendingWeapon == LostWeapon)
+		{
+			PendingWeapon = NULL;
+			WeaponChanged();
 		}
 	}
 }
