@@ -309,7 +309,15 @@ void AUTCarriedObject::SetTeam(AUTTeamInfo* NewTeam)
 
 void AUTCarriedObject::FellOutOfWorld(const UDamageType& dmgType)
 {
-	SendHome();
+	if (Role == ROLE_Authority)
+	{
+		SendHome();
+	}
+	else
+	{
+		// Force it back to the last replicated location
+		SetActorLocation(ReplicatedMovement.Location);
+	}
 }
 
 // HACK: workaround for engine bug with transform replication when attaching/detaching things
