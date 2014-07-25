@@ -78,6 +78,9 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	LastPainSoundTime = -100.0f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
+
+	// TODO: write real relevancy checking
+	NetCullDistanceSquared = 500000000.0f;
 }
 
 void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
