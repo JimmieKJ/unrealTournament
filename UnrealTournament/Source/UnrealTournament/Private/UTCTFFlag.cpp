@@ -60,3 +60,14 @@ void AUTCTFFlag::Destroyed()
 {
 	Super::Destroyed();
 }
+
+void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
+{
+	Super::DetachFrom(AttachToMesh);
+	if (AttachToMesh != NULL && Mesh != NULL)
+	{
+		Mesh->SetAbsolute(false, false, true);
+		Mesh->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
+		Mesh->SetWorldScale3D(FVector(1.0f,1.0f,1.0f));
+	}
+}

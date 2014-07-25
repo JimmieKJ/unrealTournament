@@ -17,5 +17,8 @@ class AUTCTFFlag : public AUTCarriedObject
 	virtual void Score(FName Reason);
 	virtual void Destroyed() override;
 
+	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
+
+
 	virtual void OnConstruction(const FTransform& Transform) override;
 };

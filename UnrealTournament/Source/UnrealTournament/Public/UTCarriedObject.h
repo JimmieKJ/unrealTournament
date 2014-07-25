@@ -58,7 +58,6 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	TSubclassOf<UUTCarriedObjectMessage> MessageClass;
 
-
 	// DONT KNOW IF WE NEED THESE YET
 
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -128,6 +127,7 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 
+	void FellOutOfWorld(const UDamageType& dmgType);
 
 protected:
 
@@ -198,4 +198,5 @@ protected:
 
 	virtual void SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject = NULL);
 
+	virtual void TossObject(AUTCharacter* ObjectHolder);
 };

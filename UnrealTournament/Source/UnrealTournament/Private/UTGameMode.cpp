@@ -628,6 +628,23 @@ static bool bSetPlayerDefaultsSpawnInventory = false;
 
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
+	if (aPlayer == NULL)
+	{
+		UE_LOG(UT,Log,TEXT("[BAD] RestartPlayer with a bad player"));
+		return;
+	}
+	else if (aPlayer->PlayerState == NULL)
+	{
+		UE_LOG(UT,Log,TEXT("[BAD] RestartPlayer with bad player state"));
+		return;
+	}
+	else if (aPlayer->PlayerState->PlayerName.IsEmpty())
+	{
+		UE_LOG(UT,Log,TEXT("[BAD] RestartPlayer with an empty player name"));
+		return;
+	}
+	
+
 	if ( !UTGameState->HasMatchStarted() && bPlayersMustBeReady )
 	{
 		// If we are in the pre-game stage then flag the player as ready to play.  The game starting will be handled in the DefaultTimer() event

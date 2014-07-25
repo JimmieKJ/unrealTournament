@@ -78,6 +78,7 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 	{
 		Collision->SetRelativeLocation(FVector(0,0,0));
 		Collision->SetRelativeRotation(FRotator(0,0,0));
+		Collision->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
 		DetachRootComponentFromParent(true);
 	}
 }
@@ -237,22 +238,27 @@ void AUTCarriedObject::NoLongerHeld()
 	{
 		OnHolderChanged();
 	}
+}
 
+void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
+{
 	// Throw the object.
-	if (LastHoldingPawn != NULL)
+	if (ObjectHolder != NULL)
 	{
-		FRotator Dir = LastHoldingPawn->Health > 0 ? LastHoldingPawn->GetActorRotation() : FRotator(0, 0, 0);
-		SetActorLocationAndRotation(LastHoldingPawn->GetActorLocation(), Dir);
-		MovementComponent->Velocity = (0.5f * LastHoldingPawn->GetMovementComponent()->Velocity) + (900.0f * Dir.Vector()) + 218.0f * (0.5f + FMath::FRand()) + FMath::VRand();
+		FRotator Dir = ObjectHolder->Health > 0 ? ObjectHolder->GetActorRotation() : FRotator(0, 0, 0);
+		SetActorLocationAndRotation(ObjectHolder->GetActorLocation(), Dir);
+		MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + (900.0f * Dir.Vector()) + 218.0f * (0.5f + FMath::FRand()) + FMath::VRand();
 		MovementComponent->SetUpdatedComponent(Collision);
 	}
-
+	
 }
 
 void AUTCarriedObject::Drop(AController* Killer)
 {
 	SendGameMessage(3, Holder, NULL);
 	NoLongerHeld();
+	// Toss is out
+	TossObject(LastHoldingPawn);
 	ChangeState(CarriedObjectState::Dropped);
 }
 
@@ -277,8 +283,11 @@ void AUTCarriedObject::MoveToHome()
 	if (HomeBase != NULL)
 	{
 		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + (FVector(0,0,1) * Collision->GetScaledCapsuleHalfHeight());
+
+		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
-		MovementComponent->StopMovementImmediately();
+		MovementComponent->SetUpdatedComponent(Collision);
+		ForceNetUpdate();
 	}
 }
 
@@ -296,4 +305,9 @@ void AUTCarriedObject::SetTeam(AUTTeamInfo* NewTeam)
 {
 	Team = NewTeam;
 	ForceNetUpdate();
+}
+
+void AUTCarriedObject::FellOutOfWorld(const UDamageType& dmgType)
+{
+	SendHome();
 }
