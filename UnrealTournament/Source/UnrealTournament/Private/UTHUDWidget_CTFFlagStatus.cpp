@@ -13,8 +13,8 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FPostConstructIniti
 	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/Fonts/fntAmbex36.fntAmbex36'"));
 	MessageFont = Font.Object;
 
-	ScreenPosition = FVector2D(0.5f, 0.6f);
-
+	ScreenPosition = FVector2D(0.5f, 0.25f);
+	AnimationAlpha = 0.0f;
 }
 
 void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
@@ -29,8 +29,10 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			uint8 OtherTeamNum = MyTeamNum == 0 ? 1 : 0;
 			FText StatusText = FText::GetEmpty();
 
+			FLinearColor DrawColor = FLinearColor::Yellow;
 			if (CGS->GetFlagState(MyTeamNum) != CarriedObjectState::Home)	// My flag is out there
 			{
+				DrawColor = FLinearColor::Red;
 				// Look to see if I have the enemy flag
 				if (OwnerPS->CarriedObject != NULL && Cast<AUTCTFFlag>(OwnerPS->CarriedObject) != NULL)
 				{
@@ -48,7 +50,17 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 			if (!StatusText.IsEmpty())
 			{
-				DrawText(StatusText, 0,0, MessageFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+				AnimationAlpha += (DeltaTime * 3);
+		
+				float Alpha = FMath::Sin(AnimationAlpha);
+				Alpha = FMath::Abs<float>(Alpha);
+				float Scale = 0.85 + (0.15 * Alpha);
+
+				DrawText(StatusText, 0,0, MessageFont, FLinearColor::Black, Scale, Scale, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+			}
+			else
+			{
+				AnimationAlpha = 0.0f;
 			}
 		}
 	}	

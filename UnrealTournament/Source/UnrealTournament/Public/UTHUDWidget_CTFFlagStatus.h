@@ -25,6 +25,10 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	UFont* MessageFont;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Message")
+	float AnimationAlpha;
+
+
 	virtual void Draw_Implementation(float DeltaTime);
 
 };
