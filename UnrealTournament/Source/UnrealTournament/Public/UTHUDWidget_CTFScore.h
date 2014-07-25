@@ -11,7 +11,7 @@ class UUTHUDWidget_CTFScore : public UUTHUDWidget
 
 	UPROPERTY()
 	UTexture* IconTexture;
-
+	
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void DrawFlagIcon(float CenterX, float CenterY, float Width, float Height, float U, float V, float UL, float VL, FLinearColor DrawColor, float Scale);
 };

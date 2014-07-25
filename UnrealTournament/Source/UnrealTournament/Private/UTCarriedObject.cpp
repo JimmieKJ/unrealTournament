@@ -11,6 +11,7 @@ AUTCarriedObject::AUTCarriedObject(const FPostConstructInitializeProperties& PCI
 	Collision->InitCapsuleSize(64.0f, 30.0f);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTCarriedObject::OnOverlapBegin);
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
+	Collision->SetAbsolute(false, false, true);
 	RootComponent = Collision;
 
 	MovementComponent = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("MovementComp"));
@@ -22,6 +23,15 @@ AUTCarriedObject::AUTCarriedObject(const FPostConstructInitializeProperties& PCI
 	SetReplicates(true);
 	bReplicateMovement = true;
 	NetPriority=3.0;
+}
+
+void AUTCarriedObject::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	// backwards compatibility; force values on existing instances
+	Collision->SetAbsolute(false, false, true);
+	Collision->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
 }
 
 void AUTCarriedObject::Init(AUTGameObjective* NewBase)
@@ -105,14 +115,12 @@ void AUTCarriedObject::OnHolderChanged()
 {
 	if (Holder != NULL)
 	{
-		// Being held, so disable collision
-		Collision->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+		Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	
 	}
 	else
 	{
-		// We don't have a holder, so turn on collision
-		Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
+		Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
 }
 
@@ -254,9 +262,8 @@ void AUTCarriedObject::MoveToHome()
 	if (HomeBase != NULL)
 	{
 		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + (FVector(0,0,1) * Collision->GetScaledCapsuleHalfHeight());
-		MovementComponent->StopMovementImmediately();
-		MovementComponent->SetUpdatedComponent(NULL);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
+		MovementComponent->StopMovementImmediately();
 	}
 }
 

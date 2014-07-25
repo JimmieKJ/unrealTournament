@@ -380,6 +380,9 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			Health -= ResultDamage;
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 
+			// Let the game Score damage if it wants to
+			Game->ScoreDamage(ResultDamage, Controller, EventInstigator);
+
 			if (UTDamageTypeCDO != NULL)
 			{
 				ResultMomentum.Z = UTDamageTypeCDO->bForceZMomentum ? FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size()) : ResultMomentum.Z;

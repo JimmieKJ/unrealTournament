@@ -16,4 +16,6 @@ class AUTCTFFlag : public AUTCarriedObject
 	virtual bool CanBePickedUpBy(AUTCharacter* Character);
 	virtual void Score(FName Reason);
 	virtual void Destroyed() override;
+
+	virtual void OnConstruction(const FTransform& Transform) override;
 };

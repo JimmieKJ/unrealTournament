@@ -83,8 +83,9 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 		{
 			FText TimeStr = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), (CGS->TimeLimit - CGS->RemainingTime) + (CGS->bSecondHalf ? CGS->TimeLimit : 0));
 			DrawText(TimeStr, 0, 95, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
+			FText HalfText = !CGS->bSecondHalf ? NSLOCTEXT("CTFScore","FirstHalf","First Half") : NSLOCTEXT("CTFScore","SecondHalf","Second Half");
+			DrawText(HalfText, 0, 115, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
 		}
-
 	}
 }
 

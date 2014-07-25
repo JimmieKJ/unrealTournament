@@ -3,11 +3,13 @@
 #include "UTHUD_CTF.h"
 #include "UTCTFGAmeState.h"
 #include "UTHUDWidget_CTFScore.h"
+#include "UTHUDWidget_CTFFlagStatus.h"
 
 AUTHUD_CTF::AUTHUD_CTF(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
 	HudWidgetClasses.Add(UUTHUDWidget_CTFScore::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_CTFFlagStatus::StaticClass());
 }
 
 

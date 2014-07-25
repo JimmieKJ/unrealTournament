@@ -13,9 +13,21 @@ AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 	Mesh->AlwaysLoadOnClient = true;
 	Mesh->AlwaysLoadOnServer = true;
 	Mesh->AttachParent = RootComponent;
+	Mesh->SetAbsolute(false, false, true);
 
 	MovementComponent->ProjectileGravityScale=3.0;
 }
+
+void AUTCTFFlag::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	// backwards compatibility; force values on existing instances
+	Mesh->SetAbsolute(false, false, true);
+	Mesh->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+}
+
+
 
 bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 {

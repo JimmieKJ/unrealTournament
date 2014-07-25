@@ -129,6 +129,7 @@ public:
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
+	virtual void ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker);
 	virtual void ScoreKill(AController* Killer, AController* Other);
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
