@@ -121,6 +121,9 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = GameObject)
 	TSubobjectPtr<class UProjectileMovementComponent> MovementComponent;
 
+	virtual void OnConstruction(const FTransform& Transform) override;
+
+
 protected:
 
 	// Server Side - Holds a reference to the pawn that is holding this object
