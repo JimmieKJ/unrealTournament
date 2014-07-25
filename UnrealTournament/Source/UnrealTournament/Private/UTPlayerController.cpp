@@ -90,9 +90,10 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
 	InputComponent->BindAction("TapForward", IE_Pressed, this, &AUTPlayerController::OnTapForward);
 	InputComponent->BindAction("TapBack", IE_Pressed, this, &AUTPlayerController::OnTapBack);
-
+	InputComponent->BindAction("SingleTapDodge", IE_Pressed, this, &AUTPlayerController::OnSingleTapDodge);
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
+	InputComponent->BindAction("DodgeRoll", IE_Released, this, &AUTPlayerController::OnDodgeRoll);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -613,6 +614,15 @@ bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBac
 		MyCharMovement->bPressedDodgeRight = bRight;
 	}
 	return false;
+}
+
+void AUTPlayerController::OnDodgeRoll()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? Cast<UUTCharacterMovement>(UTCharacter->CharacterMovement) : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->DodgeRollTapTime = MyCharMovement->GetCurrentMovementTime();
+	}
 }
 
 void AUTPlayerController::OnSingleTapDodge()

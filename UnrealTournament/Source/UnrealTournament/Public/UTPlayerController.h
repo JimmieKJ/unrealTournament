@@ -279,6 +279,7 @@ protected:
 	void OnSingleTapDodge();
 	void HoldDodge();
 	void ReleaseDodge();
+	void OnDodgeRoll();
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();

@@ -26,7 +26,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SprintSpeed = 1250.f;
 	bIsDodging = false;
 	bIsSprinting = false;
-	SprintAccel = 100.f;
+	SprintAccel = 150.f;
 	AutoSprintDelayInterval = 2.f;
 	SprintStartTime = 0.f;
 	LandingStepUp = 40.f;
@@ -50,6 +50,11 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 48.0f;
 	SlopeDodgeScaling = 0.93f;
+	DodgeRollAcceleration = 1000.f;
+	DodgeRollDuration = 0.4f;
+	bIsDodgeRolling = false;
+	DodgeRollTapTime = 0.f;
+	DodgeRollTapInterval = 0.2f;
 
 	MaxSwimSpeed = 450.f;
 	Buoyancy = 1.f;
@@ -73,15 +78,25 @@ void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo
 
 	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 
+
 	Canvas->SetDrawColor(255, 255, 255);
 	UFont* RenderFont = GEngine->GetSmallFont();
+	FString T = FString::Printf(TEXT(""));
 	if (IsInWater())
 	{
-		FString T = FString::Printf(TEXT("IN WATER"));
-		Canvas->DrawText(RenderFont, T, 4.0f, YPos);
-		YPos += YL;
+		T = FString::Printf(TEXT("IN WATER"));
 	}
-	FString T = FString::Printf(TEXT("AVERAGE SPEED %f"), AvgSpeed);
+	else if (bIsDodging)
+	{
+		T = FString::Printf(TEXT("DODGING"));
+	}
+	else if (bIsDodgeRolling)
+	{
+		T = FString::Printf(TEXT("DODGE ROLLING"));
+	}
+	Canvas->DrawText(RenderFont, T, 4.0f, YPos);
+	YPos += YL;
+	T = FString::Printf(TEXT("AVERAGE SPEED %f"), AvgSpeed);
 	Canvas->DrawText(RenderFont, T, 4.0f, YPos);
 	YPos += YL;
 }
@@ -235,8 +250,23 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	return true;
 }
 
+void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
+{
+	bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
+	bool bSavedWantsToCrouch = bWantsToCrouch;
+	bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
+	bForceMaxAccel = bIsDodgeRolling;
+
+	Super::PerformMovement(DeltaSeconds);
+	bWantsToCrouch = bSavedWantsToCrouch;
+}
+
 float UUTCharacterMovement::GetMaxAcceleration() const
 {
+	if (bIsDodgeRolling)
+	{
+		return DodgeRollAcceleration;
+	}
 	return (bIsSprinting && (Velocity.SizeSquared() > MaxWalkSpeed*MaxWalkSpeed)) ? SprintAccel : Super::GetMaxAcceleration();
 }
 
@@ -254,6 +284,10 @@ bool UUTCharacterMovement::CanSprint() const
 
 float UUTCharacterMovement::GetMaxSpeed() const
 {
+	if (bIsDodgeRolling)
+	{
+		return MaxWalkSpeed;
+	}
 	return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
 }
 
@@ -305,10 +339,20 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		}
 		if (bIsDodging)
 		{
-			Velocity *= DodgeLandingSpeedFactor;
+			if (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval)
+			{
+				bIsDodgeRolling = true;
+				DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
+				Acceleration = DodgeRollAcceleration * Velocity.SafeNormal2D();
+				UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
+			}
+			else
+			{
+				Velocity *= DodgeLandingSpeedFactor;
+			}
 			if (!CharacterOwner->bClientUpdating)
 			{
-				DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
+				DodgeResetTime = bIsDodgeRolling ? (DodgeRollEndTime + DodgeResetInterval) : (GetCurrentMovementTime() + DodgeResetInterval);
 				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
 			bIsDodging = false;

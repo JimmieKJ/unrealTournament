@@ -145,7 +145,6 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 	UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f from BaseTrans %f"), BaseEyeHeight + BaseTranslationOffset.Z, BaseTranslationOffset.Z);
 }
 
-
 void AUTCharacter::Restart()
 {
 	Super::Restart();

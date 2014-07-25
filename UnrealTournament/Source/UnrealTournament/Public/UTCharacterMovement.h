@@ -20,6 +20,8 @@ public:
 
 	virtual bool CanCrouchInCurrentState() const override;
 
+	virtual void PerformMovement(float DeltaSeconds) override;
+
 	/** @TODO FIXMESTEVE remove when we get UE4 4.4
 	* Determine whether we should try to find a valid landing spot after an impact with an invalid one (based on the Hit result).
 	* For example, landing on the lower portion of the capsule on the edge of geometry may be a walkable surface, but could have reported an unwalkable impact normal.
@@ -111,6 +113,30 @@ public:
 	/** True during a dodge. */
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
+
+	/** True during a dodge roll. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	bool bIsDodgeRolling;
+
+	/** True during a dodge roll. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	float DodgeRollAcceleration;
+
+	/** How long dodge roll lasts. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	float DodgeRollDuration;
+
+	/** When dodge roll ends. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	float DodgeRollEndTime;
+
+	/** When dodge roll button was last tapped. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	float DodgeRollTapTime;
+
+	/** Maximum interval dodge roll tap can be performed before landing dodge. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite)
+	float DodgeRollTapInterval;
 
 	/** Enables slope dodge boost. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly)
