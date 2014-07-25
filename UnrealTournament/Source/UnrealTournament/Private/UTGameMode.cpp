@@ -363,7 +363,7 @@ void AUTGameMode::ScoreKill(AController* Killer, AController* Other)
 
 		if (!bFirstBloodOccurred)
 		{
-			BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, NULL, NULL, NULL);
+			BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
 			bFirstBloodOccurred = true;
 		}
 	}
