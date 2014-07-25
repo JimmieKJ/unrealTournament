@@ -445,11 +445,17 @@ void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 		InstigatorChar->ModifyDamageCaused(Damage, Momentum, DamageEvent, this, EventInstigator, DamageCauser);
 	}
 	// check inventory
-	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	if (InventoryList != NULL)
 	{
-		if (Inv->bCallDamageEvents)
+		AUTInventory* Inv = InventoryList;
+		while (Inv != NULL)
 		{
-			Inv->ModifyDamageTaken(Damage, Momentum, DamageEvent, EventInstigator, DamageCauser);
+			AUTInventory* NextInv = Inv->GetNext(); // cache here in case Inv is destroyed by damage absorption (e.g. armor)
+			if (Inv->bCallDamageEvents)
+			{
+				Inv->ModifyDamageTaken(Damage, Momentum, DamageEvent, EventInstigator, DamageCauser);
+			}
+			Inv = NextInv;
 		}
 	}
 }
