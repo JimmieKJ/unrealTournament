@@ -336,13 +336,13 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 {
 	if (CharacterOwner)
 	{
+		bIsDodgeRolling = bIsDodging && (CharacterOwner->IsLocallyControlled() ? (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval) : bIsDodgeRolling);
 		if (CharacterOwner->NotifyLanded(Hit))
 		{
 			CharacterOwner->Landed(Hit);
 		}
 		if (bIsDodging)
 		{
-			bIsDodgeRolling = CharacterOwner->IsLocallyControlled() ? (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval) : bIsDodgeRolling;
 			if (bIsDodgeRolling)
 			{
 				DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;

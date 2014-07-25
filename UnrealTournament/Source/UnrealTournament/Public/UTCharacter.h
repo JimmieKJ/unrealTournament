@@ -401,6 +401,8 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	USoundBase* PainSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WallHitSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* DodgeRollSound;
 
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastPainSoundTime;

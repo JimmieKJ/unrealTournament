@@ -1492,7 +1492,14 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 	LastHitBy = NULL;
 
-	UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+	if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->bIsDodgeRolling)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
+	}
+	else
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+	}
 }
 
 void AUTCharacter::MoveBlockedBy(const FHitResult& Impact) 
