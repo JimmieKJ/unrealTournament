@@ -37,7 +37,7 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 		TimerText->LDMaxDrawDistance = 1024.0f;
 	}
 
-	bActive = true;
+	State.bActive = true;
 	RespawnTime = 30.0f;
 	bDisplayRespawnTimer = true;
 
@@ -102,7 +102,7 @@ void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherCom
 
 void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Role == ROLE_Authority && bActive && TouchedBy->Controller != NULL)
+	if (Role == ROLE_Authority && State.bActive && TouchedBy->Controller != NULL)
 	{
 		GiveTo(TouchedBy);
 		PlayTakenEffects(true);
@@ -165,7 +165,8 @@ void AUTPickup::StartSleeping_Implementation()
 
 	if (Role == ROLE_Authority)
 	{
-		bActive = false;
+		State.bActive = false;
+		State.ChangeCounter++;
 		ForceNetUpdate();
 	}
 }
@@ -173,7 +174,7 @@ void AUTPickup::PlayTakenEffects(bool bReplicate)
 {
 	if (bReplicate)
 	{
-		bRepTakenEffects = true;
+		State.bRepTakenEffects = true;
 		ForceNetUpdate();
 	}
 	// TODO: EffectIsRelevant() ?
@@ -181,13 +182,6 @@ void AUTPickup::PlayTakenEffects(bool bReplicate)
 	{
 		UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent);
 		UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None);
-	}
-}
-void AUTPickup::ReplicatedTakenEffects()
-{
-	if (bRepTakenEffects)
-	{
-		PlayTakenEffects(false);
 	}
 }
 void AUTPickup::WakeUp_Implementation()
@@ -207,8 +201,9 @@ void AUTPickup::WakeUp_Implementation()
 
 	if (Role == ROLE_Authority)
 	{
-		bActive = true;
-		bRepTakenEffects = false;
+		State.bActive = true;
+		State.bRepTakenEffects = false;
+		State.ChangeCounter++;
 		ForceNetUpdate();
 	}
 
@@ -251,7 +246,7 @@ void AUTPickup::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	UWorld* World = GetWorld();
-	if (RespawnTime > 0.0f && !bActive && World->GetTimerManager().IsTimerActive(this, &AUTPickup::WakeUpTimer))
+	if (RespawnTime > 0.0f && !State.bActive && World->GetTimerManager().IsTimerActive(this, &AUTPickup::WakeUpTimer))
 	{
 		if (TimerMI != NULL)
 		{
@@ -270,21 +265,39 @@ void AUTPickup::Tick(float DeltaTime)
 	}
 }
 
-void AUTPickup::OnRep_bActive()
+static FPickupReplicatedState PreRepState;
+
+void AUTPickup::PreNetReceive()
 {
-	if (bActive)
+	PreRepState = State;
+	Super::PreNetReceive();
+}
+void AUTPickup::PostNetReceive()
+{
+	Super::PostNetReceive();
+
+	// make sure not to re-invoke WakeUp()/StartSleeping() if only bRepTakenEffects has changed
+	// since that will reset timers on the client incorrectly
+	if (PreRepState.bActive != State.bActive || PreRepState.ChangeCounter != State.ChangeCounter)
 	{
-		WakeUp();
+		if (State.bActive)
+		{
+			WakeUp();
+		}
+		else
+		{
+			StartSleeping();
+		}
 	}
-	else
+	if (!State.bActive && State.bRepTakenEffects)
 	{
-		StartSleeping();
+		PlayTakenEffects(false);
 	}
 }
 
 void AUTPickup::OnRep_RespawnTimeRemaining()
 {
-	if (!bActive)
+	if (!State.bActive)
 	{
 		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUpTimer, RespawnTimeRemaining, false);
 	}
@@ -301,7 +314,6 @@ void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	// warning: we rely on this ordering
-	DOREPLIFETIME_CONDITION(AUTPickup, bActive, COND_None);
+	DOREPLIFETIME_CONDITION(AUTPickup, State, COND_None);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTPickup, bRepTakenEffects, COND_None);
 }

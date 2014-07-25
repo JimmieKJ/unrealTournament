@@ -3,6 +3,24 @@
 
 #include "UTPickup.generated.h"
 
+USTRUCT()
+struct FPickupReplicatedState
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** whether the pickup is currently active */
+	UPROPERTY(BlueprintReadOnly, Category = Pickup)
+	uint32 bActive : 1;
+	/** plays taken effects when received on client as true
+	 * only has meaning when !bActive
+	 */
+	UPROPERTY()
+	uint32 bRepTakenEffects : 1;
+	/** counter used to make sure same-frame toggles replicate correctly (activated while player is standing on it so immediate pickup) */
+	UPROPERTY()
+	uint8 ChangeCounter;
+};
+
 UCLASS(abstract, Blueprintable, meta = (ChildCanTick))
 class AUTPickup : public AActor
 {
@@ -24,14 +42,8 @@ class AUTPickup : public AActor
 	/** if set, pickup begins play with its respawn time active */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	uint32 bDelayedSpawn : 1;
-	/** whether the pickup is currently active */
-	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_bActive, Category = Pickup)
-	uint32 bActive : 1;
 	/** whether to display TimerSprite/TimerText on the pickup while it is respawning */
 	uint32 bDisplayRespawnTimer : 1;
-	/** plays taken effects when received on client as true */
-	UPROPERTY(ReplicatedUsing=ReplicatedTakenEffects)
-	uint32 bRepTakenEffects : 1;
 	/** one-shot particle effect played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* TakenParticles;
@@ -50,6 +62,9 @@ class AUTPickup : public AActor
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	TArray<FName> TakenHideTags;
 
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pickup)
+	FPickupReplicatedState State;
+
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	UMaterialInstanceDynamic* TimerMI;
 
@@ -60,10 +75,8 @@ class AUTPickup : public AActor
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
-	UFUNCTION()
-	virtual void OnRep_bActive();
-	UFUNCTION()
-	void ReplicatedTakenEffects();
+	virtual void PreNetReceive();
+	virtual void PostNetReceive();
 
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult);
