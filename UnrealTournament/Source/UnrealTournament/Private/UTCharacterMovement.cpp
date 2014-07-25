@@ -231,7 +231,14 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 
 bool UUTCharacterMovement::CanSprint() const
 {
-	return CharacterOwner && IsMovingOnGround() && !IsCrouching() && (CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > SprintStartTime));
+	if (CharacterOwner && IsMovingOnGround() && !IsCrouching() && (CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > SprintStartTime)))
+	{
+		// must be movin mostly forward
+		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
+		FVector X = FRotationMatrix(TurnRot).GetScaledAxis(EAxis::X);
+		return ((X | Velocity.SafeNormal()) > 0.6f);
+	}
+	return false;
 }
 
 float UUTCharacterMovement::GetMaxSpeed() const
