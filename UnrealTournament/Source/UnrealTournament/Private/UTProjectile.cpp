@@ -14,7 +14,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 {
 	// Use a sphere as a simple collision representation
 	CollisionComp = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
-	CollisionComp->InitSphereRadius(5.0f);
+	CollisionComp->InitSphereRadius(0.0f);
 	CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
 	CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
 	CollisionComp->bTraceComplexOnMove = true;
