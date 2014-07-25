@@ -12,11 +12,8 @@
 
 class FUTDetailsCustomization : public IDetailCustomization
 {
-private:
-	TWeakPtr<IPropertyUtilities> MostRecentPropUtils;
 public:
 	FUTDetailsCustomization()
-		: MostRecentPropUtils(NULL)
 	{}
 	// Makes a new instance of this detail layout class for a specific detail view requesting it
 	static TSharedRef<IDetailCustomization> MakeInstance()

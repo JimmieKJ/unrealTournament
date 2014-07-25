@@ -5,24 +5,14 @@
 #include "UTWeaponAttachment.h"
 #include "Particles/ParticleSystemComponent.h"
 #if WITH_EDITOR
-#include "Editor/PropertyEditor/Public/DetailCategoryBuilder.h"
-#include "Editor/PropertyEditor/Public/IDetailPropertyRow.h"
-#include "Editor/PropertyEditor/Public/DetailWidgetRow.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/PropertyEditor/Public/IPropertyUtilities.h"
-
-template<typename OptionType>
-class SComboBoxMF : public SComboBox<OptionType>
-{
-private:
-	TSharedPtr<struct FMuzzleFlashItem> DelegateObject;
-public:
-	void SetDelegateObject(TSharedPtr<struct FMuzzleFlashItem> InDelegateObject)
-	{
-		DelegateObject = InDelegateObject;
-	}
-};
+#include "IDetailCustomNodeBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailWidgetRow.h"
+#include "PropertyHandle.h"
+#include "IDetailsView.h"
+#include "IPropertyUtilities.h"
+#include "PropertyCustomizationHelpers.h"
 
 struct FMuzzleFlashChoice
 {
@@ -50,19 +40,17 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 	uint32 Index;
 	/** object being modified */
 	TWeakObjectPtr<UObject> Obj;
-	/** builder */
-	IDetailLayoutBuilder& Builder;
 	/** choices */
-	TArray<TSharedPtr<FMuzzleFlashChoice>> Choices;
+	const TArray<TSharedPtr<FMuzzleFlashChoice>>& Choices;
 
 	TSharedPtr<STextBlock> TextBlock;
 
-	FMuzzleFlashItem(uint32 InIndex, TWeakObjectPtr<UObject> InObj, IDetailLayoutBuilder& InBuilder, const TArray<TSharedPtr<FMuzzleFlashChoice>>& InChoices)
-		: Index(InIndex), Obj(InObj), Builder(InBuilder), Choices(InChoices)
+	FMuzzleFlashItem(uint32 InIndex, TWeakObjectPtr<UObject> InObj, const TArray<TSharedPtr<FMuzzleFlashChoice>>& InChoices)
+		: Index(InIndex), Obj(InObj), Choices(InChoices)
 	{
 	}
 
-	TSharedRef<SComboBoxMF<TSharedPtr<FMuzzleFlashChoice>>> Init(IDetailCategoryBuilder& Category)
+	TSharedRef<SComboBox<TSharedPtr<FMuzzleFlashChoice>>> CreateWidget()
 	{
 		FString CurrentText;
 		{
@@ -89,29 +77,15 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 			}
 		}
 
-		TSharedRef<SComboBoxMF<TSharedPtr<FMuzzleFlashChoice>>> Ref = SNew(SComboBoxMF<TSharedPtr<FMuzzleFlashChoice>>)
-			.OptionsSource(&Choices)
-			.OnGenerateWidget(this, &FMuzzleFlashItem::GenerateWidget)
-			.OnSelectionChanged(this, &FMuzzleFlashItem::ComboChanged)
-			.Content()
-			[
-				SAssignNew(TextBlock, STextBlock)
-				.Text(CurrentText)
-			];
-		Category.AddCustomRow(TEXT("MuzzleFlash"))
-			[
-				SNew(SSplitter)
-				+ SSplitter::Slot()
-				[
-					SNew(STextBlock)
-					.Text(FString::Printf(TEXT("Set MuzzleFlash[%d]"), Index))
-				]
-				+ SSplitter::Slot()
-				[
-					Ref
-				]
-			];
-		return Ref;
+		return SNew(SComboBox<TSharedPtr<FMuzzleFlashChoice>>)
+		.OptionsSource(&Choices)
+		.OnGenerateWidget(this, &FMuzzleFlashItem::GenerateWidget)
+		.OnSelectionChanged(this, &FMuzzleFlashItem::ComboChanged)
+		.Content()
+		[
+			SAssignNew(TextBlock, STextBlock)
+			.Text(CurrentText)
+		];
 	}
 
 	void ComboChanged(TSharedPtr<FMuzzleFlashChoice> NewSelection, ESelectInfo::Type SelectInfo)
@@ -138,7 +112,6 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 				}
 			}
 		}
-		Builder.ForceRefreshDetails();
 	}
 
 	TSharedRef<SWidget> GenerateWidget(TSharedPtr<FMuzzleFlashChoice> InItem)
@@ -152,13 +125,42 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 	}
 };
 
-void FUTDetailsCustomization::OnPropChanged(const FPropertyChangedEvent& Event)
+class FMFArrayBuilder : public FDetailArrayBuilder
 {
-	if (MostRecentPropUtils.IsValid() && (Event.Property == NULL || Event.Property->GetFName() == FName(TEXT("MuzzleFlash"))))
+public:
+	FMFArrayBuilder(TWeakObjectPtr<UObject> InObj, TSharedRef<IPropertyHandle> InBaseProperty, TArray<TSharedPtr<FMuzzleFlashChoice>>& InChoices, bool InGenerateHeader = true)
+		: FDetailArrayBuilder(InBaseProperty, InGenerateHeader), Obj(InObj), Choices(InChoices), MyArrayProperty(InBaseProperty->AsArray())
+	{}
+
+	TWeakObjectPtr<UObject> Obj;
+	TArray<TSharedPtr<FMuzzleFlashChoice>> Choices;
+	TArray<TSharedPtr<FMuzzleFlashItem>> MFEntries;
+	TSharedPtr<IPropertyHandleArray> MyArrayProperty;
+
+	virtual void GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder) override
 	{
-		MostRecentPropUtils.Pin()->RequestRefresh();
+		uint32 NumChildren = 0;
+		MyArrayProperty->GetNumElements(NumChildren);
+
+		MFEntries.SetNum(NumChildren);
+		for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
+		{
+			TSharedPtr<FMuzzleFlashItem> NewEntry = MakeShareable(new FMuzzleFlashItem(ChildIndex, Obj, Choices));
+			MFEntries[ChildIndex] = NewEntry;
+			
+			TSharedRef<IPropertyHandle> ElementHandle = MyArrayProperty->GetElement(ChildIndex);
+			ChildrenBuilder.AddChildContent(TEXT("MuzzleFlash"))
+			.NameContent()
+			[
+				ElementHandle->CreatePropertyNameWidget()
+			]
+			.ValueContent()
+			[
+				NewEntry->CreateWidget()
+			];
+		}
 	}
-}
+};
 
 void FUTDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {
@@ -166,13 +168,9 @@ void FUTDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayou
 	DetailLayout.GetObjectsBeingCustomized(Objects);
 	if (Objects.Num() == 1 && Objects[0].IsValid())
 	{
-		MostRecentPropUtils = DetailLayout.GetPropertyUtilities();
-		const_cast<IDetailsView&>(DetailLayout.GetDetailsView()).OnFinishedChangingProperties().AddSP(this, &FUTDetailsCustomization::OnPropChanged);
-
 		IDetailCategoryBuilder& WeaponCategory = DetailLayout.EditCategory("Weapon");
 
 		TSharedRef<IPropertyHandle> MuzzleFlash = DetailLayout.GetProperty(TEXT("MuzzleFlash"));
-		WeaponCategory.AddProperty(MuzzleFlash); // causes array to list first
 
 		uint32 NumChildren = 0;
 		MuzzleFlash->GetNumChildren(NumChildren);
@@ -216,13 +214,7 @@ void FUTDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayou
 			}
 		}
 
-		for (uint32 i = 0; i < NumChildren; i++)
-		{
-			TSharedRef<IPropertyHandle> Element = MuzzleFlash->GetChildHandle(i).ToSharedRef();
-
-			TSharedPtr<FMuzzleFlashItem> DelegateObject = MakeShareable(new FMuzzleFlashItem(i, Objects[0], DetailLayout, Choices));
-			DelegateObject->Init(WeaponCategory)->SetDelegateObject(DelegateObject);
-		}
+		WeaponCategory.AddCustomBuilder(MakeShareable(new FMFArrayBuilder(Objects[0], MuzzleFlash, Choices, true)), false);
 	}
 }
 #endif
