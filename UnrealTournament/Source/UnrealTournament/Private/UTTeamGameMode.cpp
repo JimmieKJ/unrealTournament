@@ -128,6 +128,12 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 			}
 			else
 			{
+				// temp logging to track down intermittent issue of not being able to change teams in reasonable situations
+				UE_LOG(UT, Log, TEXT("Player %s denied from team change:"), *PS->PlayerName);
+				for (int32 i = 0; i < Teams.Num(); i++)
+				{
+					UE_LOG(UT, Log, TEXT("Team (%i) size: %i"), i, Teams[i]->GetSize());
+				}
 				return false;
 			}
 		}

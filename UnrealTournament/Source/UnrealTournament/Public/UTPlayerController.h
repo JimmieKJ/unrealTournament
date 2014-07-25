@@ -214,8 +214,9 @@ protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	bool bIsHoldingDodge;
 
+	/** requests a change team; default is to switch to any other team than current */
 	UFUNCTION(exec)
-	virtual void ChangeTeam(uint8 NewTeamIndex);
+	virtual void ChangeTeam(uint8 NewTeamIndex = 255);
 
 	UFUNCTION(exec)
 	virtual void Suicide();

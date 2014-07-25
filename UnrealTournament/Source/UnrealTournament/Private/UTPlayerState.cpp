@@ -144,15 +144,18 @@ void AUTPlayerState::ServerRequestChangeTeam_Implementation(uint8 NewTeamIndex)
 		AController* Controller =  Cast<AController>( GetOwner() );
 		if (Controller != NULL)
 		{
-			// NOTE: We need a "Can the player change team" function
-
-			AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-			if (Pawn != NULL)
+			if (NewTeamIndex == 255 && Team != NULL)
 			{
-				Pawn->PlayerChangedTeam();
+				NewTeamIndex = (Team->TeamIndex + 1) % FMath::Max<uint8>(1, GetWorld()->GetGameState<AUTGameState>()->Teams.Num());
 			}
-
-			Game->ChangeTeam(Controller, NewTeamIndex, true);
+			if (Game->ChangeTeam(Controller, NewTeamIndex, true))
+			{
+				AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+				if (Pawn != NULL)
+				{
+					Pawn->PlayerChangedTeam();
+				}
+			}
 		}
 	}
 }
