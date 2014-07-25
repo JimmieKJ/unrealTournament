@@ -129,6 +129,10 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 
 	void FellOutOfWorld(const UDamageType& dmgType);
 
+	// HACK: workaround for engine bug with transform replication when attaching/detaching things
+	virtual void OnRep_ReplicatedMovement() override;
+	virtual void GatherCurrentMovement() override;
+
 protected:
 
 	// Server Side - Holds a reference to the pawn that is holding this object

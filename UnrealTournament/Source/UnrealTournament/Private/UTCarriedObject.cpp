@@ -286,7 +286,7 @@ void AUTCarriedObject::MoveToHome()
 
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
-		MovementComponent->SetUpdatedComponent(Collision);
+		//MovementComponent->SetUpdatedComponent(Collision);
 		ForceNetUpdate();
 	}
 }
@@ -310,4 +310,27 @@ void AUTCarriedObject::SetTeam(AUTTeamInfo* NewTeam)
 void AUTCarriedObject::FellOutOfWorld(const UDamageType& dmgType)
 {
 	SendHome();
+}
+
+// HACK: workaround for engine bug with transform replication when attaching/detaching things
+void AUTCarriedObject::OnRep_ReplicatedMovement()
+{
+	// ignore the redundant ReplicatedMovement we replicated below
+	if (AttachmentReplication.AttachParent == NULL)
+	{
+		Super::OnRep_ReplicatedMovement();
+	}
+}
+void AUTCarriedObject::GatherCurrentMovement()
+{
+	Super::GatherCurrentMovement();
+	// force ReplicatedMovement to be replicated even when attached, which is a hack to force the last replicated data to be different when the flag is eventually returned
+	// otherwise an untouched flag capture results in replication fail because this value has never changed in between times it was replicated (only attachment was)
+	// leaving the flag floating at the enemy flag base on clients
+	if (RootComponent != NULL && RootComponent->AttachParent != NULL)
+	{
+		ReplicatedMovement.Location = RootComponent->GetComponentLocation();
+		ReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
+		ReplicatedMovement.bRepPhysics = false;
+	}
 }
