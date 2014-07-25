@@ -17,7 +17,6 @@ AUTCarriedObject::AUTCarriedObject(const FPostConstructInitializeProperties& PCI
 	MovementComponent = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("MovementComp"));
 	MovementComponent->MaxSpeed = 420;
 	MovementComponent->InitialSpeed = 360;
-	MovementComponent->bShouldBounce = true;
 	MovementComponent->SetIsReplicated(true);
 
 	SetReplicates(true);
@@ -292,7 +291,6 @@ void AUTCarriedObject::MoveToHome()
 
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
-		//MovementComponent->SetUpdatedComponent(Collision);
 		ForceNetUpdate();
 	}
 }
@@ -323,6 +321,46 @@ void AUTCarriedObject::FellOutOfWorld(const UDamageType& dmgType)
 	{
 		// Force it back to the last replicated location
 		SetActorLocation(ReplicatedMovement.Location);
+	}
+}
+
+// workaround for bug in AActor implementation
+void AUTCarriedObject::OnRep_AttachmentReplication()
+{
+	if (AttachmentReplication.AttachParent)
+	{
+		if (RootComponent)
+		{
+			USceneComponent* ParentComponent = AttachmentReplication.AttachParent->GetRootComponent();
+
+			if (AttachmentReplication.AttachComponent != NULL)
+			{
+				ParentComponent = AttachmentReplication.AttachComponent;
+			}
+
+			if (ParentComponent)
+			{
+				// Calculate scale before attachment as ComponentToWorld will be modified after AttachTo()
+				FVector NewRelativeScale3D = RootComponent->RelativeScale3D;
+				if (!RootComponent->bAbsoluteScale)
+				{
+					FTransform ParentToWorld = ParentComponent->GetSocketTransform(AttachmentReplication.AttachSocket);
+					FTransform RelativeTM = RootComponent->ComponentToWorld.GetRelativeTransform(ParentToWorld);
+					NewRelativeScale3D = RelativeTM.GetScale3D();
+				}
+
+				RootComponent->AttachTo(ParentComponent, AttachmentReplication.AttachSocket);
+				RootComponent->RelativeLocation = AttachmentReplication.LocationOffset;
+				RootComponent->RelativeRotation = AttachmentReplication.RotationOffset;
+				RootComponent->RelativeScale3D = NewRelativeScale3D;
+
+				RootComponent->UpdateComponentToWorld();
+			}
+		}
+	}
+	else
+	{
+		DetachRootComponentFromParent();
 	}
 }
 

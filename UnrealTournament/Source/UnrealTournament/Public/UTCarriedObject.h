@@ -129,6 +129,8 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 
 	void FellOutOfWorld(const UDamageType& dmgType);
 
+	// workaround for bug in AActor implementation
+	virtual void OnRep_AttachmentReplication() override;
 	// HACK: workaround for engine bug with transform replication when attaching/detaching things
 	virtual void OnRep_ReplicatedMovement() override;
 	virtual void GatherCurrentMovement() override;
