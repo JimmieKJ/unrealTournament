@@ -349,6 +349,8 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual void RecalculateBaseEyeHeight() override;
 
+	virtual void MoveBlockedBy(const FHitResult& Impact) override;
+
 	/** sets replicated ambient (looping) sound on this Pawn
 	 * only one ambient sound can be set at a time
 	 * pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
@@ -397,11 +399,16 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	USoundBase* DodgeSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PainSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* WallHitSound;
 
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastPainSoundTime;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	float MinPainSoundInterval;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+	float LastWallHitSoundTime;
 
 	// Controls if we want to see the first or third person meshes
 	void SetMeshVisibility(bool bThirdPersonView);

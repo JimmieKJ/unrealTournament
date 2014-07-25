@@ -1478,6 +1478,23 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
 }
 
+void AUTCharacter::MoveBlockedBy(const FHitResult& Impact) 
+{
+	if (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - LastWallHitSoundTime > 0.5f))
+	{
+		if (Impact.ImpactNormal.Z < 0.9f)
+		{
+			TakeFallingDamage(Impact);
+		}
+		if ( CharacterMovement->Velocity.SizeSquared() > FMath::Square(0.9f*CharacterMovement->MaxWalkSpeed))
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), WallHitSound, this, SRT_None);
+			LastWallHitSoundTime = GetWorld()->GetTimeSeconds();
+		}
+	}
+}
+
+
 void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 {
 	if (Role == ROLE_Authority)
