@@ -146,6 +146,7 @@ void AUTWeap_RocketLauncher::FireShot()
 		FireProjectile();
 		PlayFiringEffects();
 		ClearLoadedRockets();
+		SetLockTarget(NULL);
 	}
 
 	if (GetUTOwner() != NULL)
