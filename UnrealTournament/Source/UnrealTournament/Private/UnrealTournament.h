@@ -31,6 +31,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTWeapon.h"
 #include "UTGameSession.h"
 #include "UTGameObjective.h"
+#include "UTCarriedObjectMessage.h"
 #include "UTCarriedObject.h"
 #include "UTGameMode.h"
 

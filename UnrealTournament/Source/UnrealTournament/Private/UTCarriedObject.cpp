@@ -148,6 +148,15 @@ void AUTCarriedObject::PickupDenied(AUTCharacter* Character)
 	// By default do nothing.
 }
 
+void AUTCarriedObject::SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject)
+{
+	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GM != NULL && MessageClass != NULL)
+	{
+		GM->BroadcastLocalized(this, MessageClass, Switch, PS1, PS2, Team);
+	}
+}
+
 void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 {
 	// Sanity Checks
@@ -156,7 +165,11 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
 	if (GetTeamNum() == NewHolder->GetTeamNum() && bTeamPickupSendsHome)
 	{
-		SendHome();
+		if (ObjectState == CarriedObjectState::Dropped)
+		{
+			SendGameMessage(0, NewHolder->PlayerState, NULL);
+			SendHome();
+		}
 		return;
 	}
 	
@@ -196,9 +209,10 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	HoldingPawn->MakeNoise(2.0);
 	ChangeState(CarriedObjectState::Held);
 
-
-
+	SendGameMessage(4, Holder, NULL);
 }
+
+
 
 void AUTCarriedObject::NoLongerHeld()
 {
@@ -237,6 +251,7 @@ void AUTCarriedObject::NoLongerHeld()
 
 void AUTCarriedObject::Drop(AController* Killer)
 {
+	SendGameMessage(3, Holder, NULL);
 	NoLongerHeld();
 	ChangeState(CarriedObjectState::Dropped);
 }
@@ -272,6 +287,7 @@ void AUTCarriedObject::Score(FName Reason)
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (Game != NULL)
 	{
+		SendGameMessage(2, Holder, NULL);
 		Game->ScoreObject(this, HoldingPawn, Holder, Reason);
 	}
 }

@@ -65,6 +65,7 @@ void AUTTeamInfo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLife
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME_CONDITION(AUTTeamInfo, TeamName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTTeamInfo, TeamIndex, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTTeamInfo, TeamColor, COND_InitialOnly);
 	DOREPLIFETIME(AUTTeamInfo, bFromPreviousLevel);

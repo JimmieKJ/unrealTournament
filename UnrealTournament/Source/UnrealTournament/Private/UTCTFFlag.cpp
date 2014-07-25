@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCarriedObject.h"
 #include "UTCTFFlag.h"
+#include "UTCTFGameMessage.h"
 
 AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -16,6 +17,8 @@ AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 	Mesh->SetAbsolute(false, false, true);
 
 	MovementComponent->ProjectileGravityScale=3.0;
+	MessageClass = UUTCTFGameMessage::StaticClass();
+
 }
 
 void AUTCTFFlag::OnConstruction(const FTransform& Transform)
@@ -34,7 +37,7 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 	if (Character != NULL)
 	{
 		AUTCTFFlag* CarriedFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
-		if (CarriedFlag != NULL && CarriedFlag != this)
+		if (CarriedFlag != NULL && CarriedFlag != this && ObjectState == CarriedObjectState::Home)
 		{
 			if (CarriedFlag->GetTeamNum() != GetTeamNum())
 			{

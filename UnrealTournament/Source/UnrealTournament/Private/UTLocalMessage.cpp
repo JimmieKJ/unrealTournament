@@ -46,6 +46,25 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 	Args.Add(TEXT("Player2Name"), RelatedPlayerState_2 != NULL ? FText::FromString(RelatedPlayerState_2->PlayerName) : FText::GetEmpty());
 	Args.Add(TEXT("Player2Score"), RelatedPlayerState_2 != NULL ? FText::AsNumber(int32(RelatedPlayerState_2->Score)) : FText::GetEmpty());
 
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(RelatedPlayerState_1);
+	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
+	{
+		Args.Add(TEXT("Player1Team"), UTPlayerState->Team->TeamName);
+	}
+	else
+	{
+		Args.Add(TEXT("Player1Team"), FText::GetEmpty());
+	}
+
+	UTPlayerState = Cast<AUTPlayerState>(RelatedPlayerState_2);
+	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
+	{
+		Args.Add(TEXT("Player2Team"), UTPlayerState->Team->TeamName);
+	}
+	else
+	{
+		Args.Add(TEXT("Player2Team"), FText::GetEmpty());
+	}
 
 	UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
 	if (DamageTypeClass != NULL && DamageTypeClass->IsChildOf(UUTDamageType::StaticClass()))
@@ -56,6 +75,13 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 			Args.Add(TEXT("WeaponName"), DamageType->AssociatedWeaponName);
 		}
 	}
+
+	AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
+	if (TeamInfo != NULL)
+	{
+		Args.Add(TEXT("OptionalTeam"), TeamInfo->TeamName);
+	}
+
 	return;
 }
 

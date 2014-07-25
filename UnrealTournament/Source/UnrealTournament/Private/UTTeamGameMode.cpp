@@ -18,6 +18,12 @@ AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
 	new(TeamColors) FLinearColor(0.1f, 0.1f, 1.0f, 1.0f);
 	new(TeamColors) FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
 	new(TeamColors) FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
+
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team0Name","Red"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team1Name","Blue"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team2Name","Gold"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team3Name","Green"));
+
 	TeamMomentumPct = 0.3f;
 	bTeamGame = true;
 }
@@ -44,6 +50,12 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 		{
 			NewTeam->TeamColor = TeamColors[i];
 		}
+
+		if (TeamNames.IsValidIndex(i))
+		{
+			NewTeam->TeamName = TeamNames[i];
+		}
+
 		Teams.Add(NewTeam);
 		checkSlow(Teams[i] == NewTeam);
 	}

@@ -14,6 +14,9 @@ class AUTTeamGameMode : public AUTGameMode
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = TeamGame)
 	TArray<FLinearColor> TeamColors;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = TeamGame)
+	TArray<FText> TeamNames;
+
 	/** number of teams to create - set either in defaults or via InitGame() */
 	UPROPERTY(EditDefaultsOnly, Category = TeamGame)
 	uint8 NumTeams;

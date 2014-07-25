@@ -15,6 +15,9 @@ class AUTTeamInfo : public AInfo, public IUTTeamInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Team)
 	FLinearColor TeamColor;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Team)
+	FText TeamName;
+
 	/** team score */
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
 	int32 Score;

@@ -54,6 +54,11 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	uint32 bTeamPickupSendsHome:1;
 
+	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+	TSubclassOf<UUTCarriedObjectMessage> MessageClass;
+
+
 	// DONT KNOW IF WE NEED THESE YET
 
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -191,5 +196,6 @@ protected:
 	UFUNCTION()
 	virtual void MoveToHome();
 
+	virtual void SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject = NULL);
 
 };
