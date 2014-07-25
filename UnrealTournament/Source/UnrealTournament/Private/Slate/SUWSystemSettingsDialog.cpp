@@ -31,6 +31,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 			.VAlign(VAlign_Center)
 			[
 				SAssignNew(ComboBox, SComboBox< TSharedPtr<FString> >)
+				.Method(SMenuAnchor::UseCurrentWindow)
 				.InitiallySelectedItem(GeneralScalabilityList[SettingValue])
 				.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
@@ -168,6 +169,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Center)
 					[
 						SNew(SComboBox< TSharedPtr<FString> >)
+						.Method(SMenuAnchor::UseCurrentWindow)
 						.InitiallySelectedItem(ResList[CurrentResIndex])
 						.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
