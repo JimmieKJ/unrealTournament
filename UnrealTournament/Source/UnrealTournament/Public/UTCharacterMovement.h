@@ -286,6 +286,7 @@ public:
 	bool bPressedDodgeLeft;
 	bool bPressedDodgeRight;
 	bool bSavedIsSprinting;
+	bool bSavedIsRolling;
 
 	virtual void Clear() override;
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;

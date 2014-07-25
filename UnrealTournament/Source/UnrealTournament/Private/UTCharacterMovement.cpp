@@ -54,6 +54,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollDuration = 0.4f;
 	bIsDodgeRolling = false;
 	DodgeRollTapTime = 0.f;
+	DodgeRollEndTime = 0.f;
 	DodgeRollTapInterval = 0.2f;
 
 	MaxSwimSpeed = 450.f;
@@ -323,6 +324,8 @@ const FVector& NewAccel
 			// client timestamp rolled over, so roll over our movement timers
 			DodgeResetTime -= MinTimeBetweenTimeStampResets;
 			SprintStartTime -= MinTimeBetweenTimeStampResets;
+			DodgeRollTapTime -= MinTimeBetweenTimeStampResets;
+			DodgeRollEndTime -= MinTimeBetweenTimeStampResets;
 		}
 		CurrentServerMoveTime = ClientTimeStamp;
 	}
@@ -339,12 +342,12 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		}
 		if (bIsDodging)
 		{
-			if (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval)
+			bIsDodgeRolling = CharacterOwner->IsLocallyControlled() ? (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval) : bIsDodgeRolling;
+			if (bIsDodgeRolling)
 			{
-				bIsDodgeRolling = true;
 				DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
 				Acceleration = DodgeRollAcceleration * Velocity.SafeNormal2D();
-				UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
+				//UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
 			}
 			else
 			{
@@ -433,6 +436,10 @@ bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, AChara
 	{
 		return false;
 	}
+	if (bSavedIsRolling != ((FSavedMove_UTCharacter*)&NewMove)->bSavedIsRolling)
+	{
+		return false;
+	}
 	bool bPressedDodge = bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight;
 	bool bNewPressedDodge = ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight;
 	if (bPressedDodge || bNewPressedDodge)
@@ -477,6 +484,10 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	{
 		Result |= (5 << 2);
 	}
+	else if (bSavedIsRolling)
+	{
+		Result |= (6 << 2);
+	}
 
 	return Result;
 }
@@ -489,6 +500,7 @@ void FSavedMove_UTCharacter::Clear()
 	bPressedDodgeLeft = false;
 	bPressedDodgeRight = false;
 	bSavedIsSprinting = false;
+	bSavedIsRolling = false;
 }
 
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
@@ -502,6 +514,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeLeft = UTCharMov->bPressedDodgeLeft;
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
+		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
 	}
 }
 
@@ -583,7 +596,6 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 
 	return Result;
 }
-
 
 bool UUTCharacterMovement::CanCrouchInCurrentState() const
 {

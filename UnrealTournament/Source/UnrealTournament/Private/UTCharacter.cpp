@@ -1386,6 +1386,7 @@ void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 		UTCharMov->bPressedDodgeLeft = (DodgeFlags == 3);
 		UTCharMov->bPressedDodgeRight = (DodgeFlags == 4);
 		UTCharMov->bIsSprinting = (DodgeFlags == 5);
+		UTCharMov->bIsDodgeRolling = (DodgeFlags == 6);
 	}
 }
 
