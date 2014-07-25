@@ -12,37 +12,34 @@ class UUTHUDWidget_TeamScore : public UUTHUDWidget
 	: Super(PCIP)
 	{
 		ScreenPosition = FVector2D(0.5f, 0.0f);
-		Origin = FVector2D(0.5f, 0.0f);
-		Size = FVector2D(300.0f, 75.0f);
-		static ConstructorHelpers::FObjectFinder<UTexture> TeamScoreTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
-		TeamScoreBG.Texture = TeamScoreTexture.Object;
-		TeamScoreBG.UL = 238;
-		TeamScoreBG.VL = 52;
+		static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
+		IconTexture = HudTexture.Object;
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	FCanvasIcon TeamScoreBG;
+	UTexture* IconTexture;
 
 	virtual void Draw_Implementation(float DeltaTime)
 	{
 		FLinearColor BGColor = ApplyHUDColor(FLinearColor::White);
-		DrawTexture(TeamScoreBG.Texture, 0.0, 0.0, GetRenderSize().X, GetRenderSize().Y, TeamScoreBG.U, TeamScoreBG.V, TeamScoreBG.UL, TeamScoreBG.VL, 1.0f, BGColor);
+
+		float RedScale  = UTHUDOwner->UTPlayerOwner->GetTeamNum() == 0 ? 1.25 : 1.0;
+		float BlueScale = UTHUDOwner->UTPlayerOwner->GetTeamNum() == 1 ? 1.25 : 1.0;
+
+		DrawTexture(IconTexture, -162 * RedScale - 15, 0, 162 * RedScale, 80 * RedScale, 1,0,108,53,1.0,BGColor);
+		DrawTexture(IconTexture, -15,  0, 30, 80,  109,0,20,53,1.0,BGColor);
+		DrawTexture(IconTexture, 15, 0, 162 * BlueScale, 80 * BlueScale, 129,0,108,53,1.0,BGColor);
+
+		// Draw the Red Score...
 
 		AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (GS != NULL)
+		if (GS != NULL && GS->Teams.Num() == 2 && GS->Teams[0] != NULL && GS->Teams[1] != NULL)
 		{
-			for (int32 i = 0; i < 2 && i < GS->Teams.Num(); i++)
-			{
-				if (GS->Teams[i] != NULL)
-				{
-					float XPos = 125.0f * GetRenderScale();
-					if (i == 0)
-					{
-						XPos *= -1.0f;
-					}
-					DrawText(FText::AsNumber(GS->Teams[i]->Score), RenderSize.X * 0.5f + XPos, RenderSize.Y * 0.35f, UTHUDOwner->MediumFont, false, FVector2D(0.0f, 0.0f), FLinearColor::Black, false, FLinearColor::Black, 0.75f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
-				}
-			}
+			// Draw the Red Score...
+			UTHUDOwner->TempDrawNumber(GS->Teams[0]->Score, RenderPosition.X - (157 * RenderScale * RedScale) , 10 * RenderScale * RedScale, FLinearColor::Yellow, 1.0,RenderScale * RedScale * 0.75);
+	
+			// Draw the Blue Score...
+			UTHUDOwner->TempDrawNumber(GS->Teams[1]->Score, RenderPosition.X + (75 * RenderScale * BlueScale) , 10 * RenderScale * BlueScale, FLinearColor::Yellow, 1.0,RenderScale * BlueScale * 0.75);
 		}
 	}
 };

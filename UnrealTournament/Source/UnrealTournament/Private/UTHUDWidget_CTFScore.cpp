@@ -6,38 +6,22 @@
 UUTHUDWidget_CTFScore::UUTHUDWidget_CTFScore(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	ScreenPosition = FVector2D(0.5f, 0.0f);
-	static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
-	IconTexture = HudTexture.Object;
 }
 
 void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 {
+	Super::Draw_Implementation(DeltaTime);
+
 	FLinearColor BGColor = ApplyHUDColor(FLinearColor::White);
 
 	float RedScale  = UTHUDOwner->UTPlayerOwner->GetTeamNum() == 0 ? 1.25 : 1.0;
 	float BlueScale = UTHUDOwner->UTPlayerOwner->GetTeamNum() == 1 ? 1.25 : 1.0;
 
-	DrawTexture(IconTexture, -162 * RedScale - 15, 0, 162 * RedScale, 80 * RedScale, 1,0,108,53,1.0,BGColor);
-	DrawTexture(IconTexture, -15,  0, 30, 80,  109,0,20,53,1.0,BGColor);
-	DrawTexture(IconTexture, 15, 0, 162 * BlueScale, 80 * BlueScale, 129,0,108,53,1.0,BGColor);
-
 	// Draw the Red Score...
 
 	AUTCTFGameState* CGS = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
-	if (CGS != NULL)
+	if (CGS != NULL && CGS->Teams.Num() >= 2 && CGS->Teams[0] != NULL && CGS->Teams[1] != NULL)
 	{
-		//HACK: temp fix. Seems like the hud is trying to draw when the teams havn't fully replicated
-		if ((CGS->Teams.Num() != 2) || (CGS->Teams[0] == NULL)  || (CGS->Teams[1] == NULL))
-		{
-			return;
-		}
-		// Draw the Red Score...
-		UTHUDOwner->TempDrawNumber(CGS->Teams[0]->Score, RenderPosition.X - (157 * RenderScale * RedScale) , 10 * RenderScale * RedScale, FLinearColor::Yellow, 1.0,RenderScale * RedScale * 0.75);
-	
-		// Draw the Blue Score...
-		UTHUDOwner->TempDrawNumber(CGS->Teams[1]->Score, RenderPosition.X + (75 * RenderScale * BlueScale) , 10 * RenderScale * BlueScale, FLinearColor::Yellow, 1.0,RenderScale * BlueScale * 0.75);
-
 		// Draw the Red Flag State...
 
 		FName FlagState = CGS->GetFlagState(0);
@@ -55,8 +39,6 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 		{
 			DrawFlagIcon(-46 * RedScale,53 * RedScale, 43,41, 843, 87, 43,41, FLinearColor::Red, RedScale);
 		}
-
-
 
 		FlagState = CGS->GetFlagState(1);
 		if (FlagState == CarriedObjectState::Dropped)

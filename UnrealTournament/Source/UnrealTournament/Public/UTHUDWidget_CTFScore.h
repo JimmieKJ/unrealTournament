@@ -2,16 +2,14 @@
 
 #pragma once
 
+#include "UTHUDWidget_TeamScore.h"
 #include "UTHUDWidget_CTFScore.generated.h"
 
 UCLASS()
-class UUTHUDWidget_CTFScore : public UUTHUDWidget
+class UUTHUDWidget_CTFScore : public UUTHUDWidget_TeamScore
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY()
-	UTexture* IconTexture;
-	
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void DrawFlagIcon(float CenterX, float CenterY, float Width, float Height, float U, float V, float UL, float VL, FLinearColor DrawColor, float Scale);
 };
