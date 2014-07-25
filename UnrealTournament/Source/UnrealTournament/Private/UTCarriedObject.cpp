@@ -153,6 +153,17 @@ void AUTCarriedObject::ChangeState(FName NewCarriedObjectState)
 
 bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 {
+	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
+	if (GetTeamNum() == Character->GetTeamNum() && bTeamPickupSendsHome)
+	{
+		if (ObjectState == CarriedObjectState::Dropped)
+		{
+			SendGameMessage(0, Character->PlayerState, NULL);
+			SendHome();
+		}
+		return false;
+	}
+
 	return Team == NULL || bAnyoneCanPickup || Team->GetTeamNum() == GetTeamNum();
 }
 
@@ -174,17 +185,6 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 {
 	// Sanity Checks
 	if (NewHolder == NULL || NewHolder->bPendingKillPending || NewHolder->PlayerState == NULL || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL) return; 
-
-	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
-	if (GetTeamNum() == NewHolder->GetTeamNum() && bTeamPickupSendsHome)
-	{
-		if (ObjectState == CarriedObjectState::Dropped)
-		{
-			SendGameMessage(0, NewHolder->PlayerState, NULL);
-			SendHome();
-		}
-		return;
-	}
 	
 	// If this object is on it's base, tell the base it's been picked up
 
