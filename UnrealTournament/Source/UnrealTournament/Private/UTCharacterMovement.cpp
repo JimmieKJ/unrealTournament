@@ -540,6 +540,12 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 	return Result;
 }
 
+
+bool UUTCharacterMovement::CanCrouchInCurrentState() const
+{
+	return CanEverCrouch() && IsMovingOnGround();
+}
+
 /** @TODO FIXMESTEVE - physfalling copied from base version and edited.  At some point should probably add some hooks to base version and use those instead. */
 void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 {

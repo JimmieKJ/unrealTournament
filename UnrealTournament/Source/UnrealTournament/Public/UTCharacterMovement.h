@@ -18,6 +18,7 @@ public:
 
 	virtual FVector GetImpartedMovementBaseVelocity() const override;
 
+	virtual bool CanCrouchInCurrentState() const override;
 
 	/** @TODO FIXMESTEVE remove when we get UE4 4.4
 	* Determine whether we should try to find a valid landing spot after an impact with an invalid one (based on the Hit result).
