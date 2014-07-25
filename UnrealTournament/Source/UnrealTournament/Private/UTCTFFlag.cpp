@@ -18,6 +18,7 @@ AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 
 	MovementComponent->ProjectileGravityScale=3.0;
 	MessageClass = UUTCTFGameMessage::StaticClass();
+	bAlwaysRelevant = true;
 
 }
 

@@ -33,7 +33,10 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 		else if (FlagState == CarriedObjectState::Held)
 		{
 			DrawFlagIcon(-46 * RedScale,53 * RedScale, 43,35, 843, 50, 43,35, FLinearColor::Red, RedScale);
-			DrawText(FText::FromString(CGS->GetFlagHolder(0)->PlayerName), -75* RedScale, 56 * RedScale, UTHUDOwner->GetFontFromSizeIndex(0), RedScale,1.0, FLinearColor::White, ETextHorzPos::Right);
+			if (!CGS->GetFlagHolder(0)->PlayerName.IsEmpty())
+			{
+				DrawText(FText::FromString(CGS->GetFlagHolder(0)->PlayerName), -75* RedScale, 56 * RedScale, UTHUDOwner->GetFontFromSizeIndex(0), RedScale,1.0, FLinearColor::White, ETextHorzPos::Right);
+			}
 		}
 		else
 		{
@@ -48,7 +51,10 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 		else if (FlagState == CarriedObjectState::Held)
 		{
 			DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,35, 843, 50, 43,35, FLinearColor::Blue, RedScale);
-			DrawText(FText::FromString(CGS->GetFlagHolder(1)->PlayerName), 75* BlueScale, 56 * BlueScale, UTHUDOwner->GetFontFromSizeIndex(0), BlueScale,1.0, FLinearColor::White);
+			if (!CGS->GetFlagHolder(1)->PlayerName.IsEmpty())
+			{
+				DrawText(FText::FromString(CGS->GetFlagHolder(1)->PlayerName), 75* BlueScale, 56 * BlueScale, UTHUDOwner->GetFontFromSizeIndex(0), BlueScale,1.0, FLinearColor::White);
+			}
 		}
 		else
 		{
