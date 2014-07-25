@@ -72,3 +72,26 @@ void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		Mesh->SetWorldScale3D(FVector(1.0f,1.0f,1.0f));
 	}
 }
+
+void AUTCTFFlag::OnObjectStateChanged()
+{
+	Super::OnObjectStateChanged();
+
+	if (Role == ROLE_Authority)
+	{
+		if (ObjectState == CarriedObjectState::Dropped)
+		{
+			GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::AutoReturn, 30, false);
+		}
+		else
+		{
+			GetWorldTimerManager().ClearTimer(this, &AUTCTFFlag::AutoReturn);
+		}
+	}
+
+}
+
+void AUTCTFFlag::AutoReturn()
+{
+	SendHome();
+}

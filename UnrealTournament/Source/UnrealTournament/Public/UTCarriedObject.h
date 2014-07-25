@@ -169,10 +169,10 @@ protected:
 	USoundCue* HomeSound;	
 
 	UFUNCTION()
-	void OnObjectStateChanged();
+	virtual void OnObjectStateChanged();
 
 	UFUNCTION()
-	void OnHolderChanged();
+	virtual void OnHolderChanged();
 
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
