@@ -71,7 +71,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					if (C != NULL && C != UTOwner && C->GetWeaponClass() == GetClass() && C->GetWeapon()->GetCurrentFireMode() == CurrentFireMode)
 					{
 						UUTWeaponStateFiringCharged* EnemyWeaponState = Cast<UUTWeaponStateFiringCharged>(C->GetWeapon()->GetCurrentState());
-						if (EnemyWeaponState != NULL && EnemyWeaponState->bCharging)
+						if (EnemyWeaponState != NULL && EnemyWeaponState->bCharging && ChargedMode->ChargeTime >= FullChargeTime * MinChargePct)
 						{
 							float MyAim = FireDir | (C->GetActorLocation() - SpawnLocation).SafeNormal();
 							const FVector EnemyFireStart = C->GetWeapon()->GetFireStartLoc();
@@ -132,7 +132,7 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 	if (AutoHitTarget == NULL && UTOwner != NULL && Role == ROLE_Authority)
 	{
 		UUTWeaponStateFiringCharged* ChargedMode = Cast<UUTWeaponStateFiringCharged>(CurrentState);
-		if (ChargedMode != NULL && ChargedMode->bCharging)
+		if (ChargedMode != NULL && ChargedMode->bCharging && ChargedMode->ChargeTime >= FullChargeTime * MinChargePct)
 		{
 			FHitResult Hit;
 			FireInstantHit(false, &Hit);

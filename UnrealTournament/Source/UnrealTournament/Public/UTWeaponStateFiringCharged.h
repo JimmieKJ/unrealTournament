@@ -15,15 +15,16 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 	: Super(PCIP)
 	{}
 
+	/** looping animation played while charging */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	UAnimMontage* ChargingLoopAnim;
+
 	bool bCharging;
 	float ChargeTime;
 
 	virtual void BeginState(const UUTWeaponState* PrevState) override
 	{
-		if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
-		{
-			GetUTOwner()->SetAmbientSound(GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()]);
-		}
+		ToggleLoopingEffects(true);
 		GetOuterAUTWeapon()->OnStartedFiring();
 		bCharging = true;
 	}
@@ -41,6 +42,18 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		{
 			Super::UpdateTiming();
 		}
+		else
+		{
+			// update anim speed
+			if (ChargingLoopAnim != NULL)
+			{
+				UAnimInstance* AnimInstance = GetOuterAUTWeapon()->Mesh->GetAnimInstance();
+				if (AnimInstance != NULL && AnimInstance->GetCurrentActiveMontage() == ChargingLoopAnim)
+				{
+					AnimInstance->Montage_SetPlayRate(ChargingLoopAnim, GetUTOwner()->GetFireRateMultiplier());
+				}
+			}
+		}
 	}
 	virtual void RefireCheckTimer() override
 	{
@@ -50,6 +63,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		}
 		else
 		{
+			ToggleLoopingEffects(true);
 			GetOuterAUTWeapon()->OnContinuedFiring();
 			bCharging = true;
 		}
@@ -58,6 +72,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 	{
 		if (bCharging && FireModeNum == GetFireMode())
 		{
+			ToggleLoopingEffects(false);
 			FireShot();
 			bCharging = false;
 			ChargeTime = 0.0f;
@@ -72,6 +87,27 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		if (bCharging)
 		{
 			ChargeTime += DeltaTime * GetOuterAUTWeapon()->GetUTOwner()->GetFireRateMultiplier();
+		}
+	}
+
+	virtual void ToggleLoopingEffects(bool bNowOn) override
+	{
+		Super::ToggleLoopingEffects(bNowOn);
+
+		if (ChargingLoopAnim != NULL)
+		{
+			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->Mesh->GetAnimInstance();
+			if (AnimInstance != NULL)
+			{
+				if (bNowOn)
+				{
+					AnimInstance->Montage_Play(ChargingLoopAnim, GetUTOwner()->GetFireRateMultiplier());
+				}
+				else if (AnimInstance->GetCurrentActiveMontage() == ChargingLoopAnim)
+				{
+					AnimInstance->Montage_Stop(0.1f);
+				}
+			}
 		}
 	}
 };

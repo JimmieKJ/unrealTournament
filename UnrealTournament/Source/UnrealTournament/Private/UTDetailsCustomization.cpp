@@ -10,6 +10,7 @@
 #include "Editor/PropertyEditor/Public/DetailWidgetRow.h"
 #include "Editor/PropertyEditor/Public/PropertyHandle.h"
 #include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "Editor/PropertyEditor/Public/IPropertyUtilities.h"
 
 template<typename OptionType>
 class SComboBoxMF : public SComboBox<OptionType>
@@ -153,9 +154,9 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 
 void FUTDetailsCustomization::OnPropChanged(const FPropertyChangedEvent& Event)
 {
-	if (MostRecentBuilder != NULL && (Event.Property == NULL || Event.Property->GetFName() == FName(TEXT("MuzzleFlash"))))
+	if (MostRecentPropUtils.IsValid() && (Event.Property == NULL || Event.Property->GetFName() == FName(TEXT("MuzzleFlash"))))
 	{
-		MostRecentBuilder->ForceRefreshDetails();
+		MostRecentPropUtils.Pin()->RequestRefresh();
 	}
 }
 
@@ -165,7 +166,7 @@ void FUTDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayou
 	DetailLayout.GetObjectsBeingCustomized(Objects);
 	if (Objects.Num() == 1 && Objects[0].IsValid())
 	{
-		MostRecentBuilder = &DetailLayout;
+		MostRecentPropUtils = DetailLayout.GetPropertyUtilities();
 		const_cast<IDetailsView&>(DetailLayout.GetDetailsView()).OnFinishedChangingProperties().AddSP(this, &FUTDetailsCustomization::OnPropChanged);
 
 		IDetailCategoryBuilder& WeaponCategory = DetailLayout.EditCategory("Weapon");

@@ -7,23 +7,25 @@
 void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 {
 	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
-	if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
-	{
-		GetUTOwner()->SetAmbientSound(GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()]);
-	}
+	ToggleLoopingEffects(true);
 	GetOuterAUTWeapon()->OnStartedFiring();
 	FireShot();
 }
 void UUTWeaponStateFiring::EndState()
 {
-	if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
-	{
-		GetUTOwner()->SetAmbientSound(GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()], true);
-	}
+	ToggleLoopingEffects(false);
 	GetOuterAUTWeapon()->OnStoppedFiring();
 	GetOuterAUTWeapon()->StopFiringEffects();
 	GetOuterAUTWeapon()->GetUTOwner()->ClearFiringInfo();
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::RefireCheckTimer);
+}
+
+void UUTWeaponStateFiring::ToggleLoopingEffects(bool bNowOn)
+{
+	if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
+	{
+		GetUTOwner()->SetAmbientSound(GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()], !bNowOn);
+	}
 }
 
 void UUTWeaponStateFiring::UpdateTiming()

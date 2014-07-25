@@ -430,7 +430,7 @@ void AUTWeapon::PlayFiringEffects()
 				UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
 				if (AnimInstance != NULL)
 				{
-					AnimInstance->Montage_Play(FireAnimation[CurrentFireMode], 1.f);
+					AnimInstance->Montage_Play(FireAnimation[CurrentFireMode], UTOwner->GetFireRateMultiplier());
 				}
 			}
 

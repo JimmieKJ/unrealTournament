@@ -68,4 +68,7 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	{
 		return true;
 	}
+
+	/** activates or deactivates looping firing effects (sound/anim/etc) that are played for duration of firing state (if weapon has any set) */
+	virtual void ToggleLoopingEffects(bool bNowOn);
 };
