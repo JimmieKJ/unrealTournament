@@ -80,6 +80,7 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAxis("MoveForward", this, &AUTPlayerController::MoveForward);
 	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight);
+	InputComponent->BindAxis("MoveUp", this, &AUTPlayerController::MoveUp);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
@@ -419,6 +420,14 @@ void AUTPlayerController::MoveRight(float Value)
 	}
 }
 
+void AUTPlayerController::MoveUp(float Value)
+{
+	if (Value != 0.0f && UTCharacter != NULL)
+	{
+		UTCharacter->MoveUp(Value);
+	}
+}
+
 void AUTPlayerController::TurnAtRate(float Rate)
 {
 	if (GetPawn() != NULL)
@@ -460,6 +469,34 @@ void AUTPlayerController::UnCrouch()
 		GetCharacter()->UnCrouch(false);
 	}
 }
+
+void AUTPlayerController::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
+{
+	UFont* RenderFont = GEngine->GetSmallFont();
+	if (GetPawn() == NULL)
+	{
+		if (PlayerState == NULL)
+		{
+			Canvas->DrawText(RenderFont, TEXT("NO PlayerState"), 4.0f, YPos);
+		}
+		else
+		{
+			PlayerState->DisplayDebug(Canvas, DebugDisplay, YL, YPos);
+		}
+		YPos += YL;
+
+		return;
+	}
+
+	Canvas->SetDrawColor(255, 0, 0);
+	Canvas->DrawText(RenderFont, FString::Printf(TEXT("CONTROLLER %s Pawn %s"), *GetName(), *GetPawn()->GetName()), 4.0f, YPos);
+	YPos += YL;
+
+	Canvas->SetDrawColor(255, 255, 0);
+	Canvas->DrawText(RenderFont, FString::Printf(TEXT("STATE %s"), *GetStateName().ToString()), 4.0f, YPos);
+	YPos += YL;
+}
+
 
 void AUTPlayerController::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
 {

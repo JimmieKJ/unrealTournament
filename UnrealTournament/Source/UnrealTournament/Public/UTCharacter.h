@@ -331,8 +331,11 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** Handles moving forward/backward */
 	virtual void MoveForward(float Val);
 
-	/** Handles stafing movement, left and right */
+	/** Handles strafing movement, left and right */
 	virtual void MoveRight(float Val);
+
+	/** Handles up and down when swimming or flying */
+	virtual void MoveUp(float Val);
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 	virtual void OnRep_ReplicatedMovement() override;

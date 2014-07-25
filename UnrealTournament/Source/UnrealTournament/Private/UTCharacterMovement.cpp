@@ -51,6 +51,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CrouchedHalfHeight = 48.0f;
 	SlopeDodgeScaling = 0.9f;
 
+	MaxSwimSpeed = 450.f;
+	Buoyancy = 1.f;
+
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
 	WallDodgeSecondImpulseVertical = 260.f;
@@ -68,8 +71,16 @@ void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo
 		return;
 	}
 
+	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
+
 	Canvas->SetDrawColor(255, 255, 255);
 	UFont* RenderFont = GEngine->GetSmallFont();
+	if (IsInWater())
+	{
+		FString T = FString::Printf(TEXT("IN WATER"));
+		Canvas->DrawText(RenderFont, T, 4.0f, YPos);
+		YPos += YL;
+	}
 	FString T = FString::Printf(TEXT("AVERAGE SPEED %f"), AvgSpeed);
 	Canvas->DrawText(RenderFont, T, 4.0f, YPos);
 	YPos += YL;

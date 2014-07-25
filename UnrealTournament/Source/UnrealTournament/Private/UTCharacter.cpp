@@ -1353,6 +1353,16 @@ void AUTCharacter::MoveRight(float Value)
 		AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y), Value);
 	}
 }
+
+void AUTCharacter::MoveUp(float Value)
+{
+	if (Value != 0.0f)
+	{
+		// add movement in up direction
+		AddMovementInput(FVector(0.f,0.f,1.f), Value);
+	}
+}
+
 void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);

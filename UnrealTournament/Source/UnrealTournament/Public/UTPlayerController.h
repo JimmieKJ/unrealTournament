@@ -172,6 +172,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Display)
 	FLinearColor FFAPlayerColor;
 
+	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.
@@ -235,8 +237,12 @@ protected:
 
 	/** Handles moving forward/backward */
 	virtual void MoveForward(float Val);
-	/** Handles stafing movement, left and right */
+
+	/** Handles strafing movement, left and right */
 	virtual void MoveRight(float Val);
+
+	/** Up and down when flying or swimming */
+	virtual void MoveUp(float Val);
 
 	/**
 	* Called via input to turn at a given rate.
