@@ -150,6 +150,22 @@ void AUTPlayerController::InitPlayerState()
 {
 	Super::InitPlayerState();
 	UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+	
+	// need this until Controller::InitPlayerState() is updated
+	if (PlayerState && PlayerState->PlayerName.IsEmpty())
+	{
+		UWorld* const World = GetWorld();
+		if (World)
+		{
+			AGameMode* const GameMode = World->GetAuthGameMode();
+			if (GameMode)
+			{
+				// don't call SetPlayerName() as that will broadcast entry messages but the GameMode hasn't had a chance
+				// to potentially apply a player/bot name yet
+				PlayerState->PlayerName = GameMode->DefaultPlayerName;
+			}
+		}
+	}
 }
 
 void AUTPlayerController::OnRep_PlayerState()

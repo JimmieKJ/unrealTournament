@@ -50,6 +50,8 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
 	GameMessageClass=UUTGameMessage::StaticClass();
+
+	DefaultPlayerName = FString("Malcolm");
 }
 
 
@@ -710,7 +712,7 @@ void AUTGameMode::ChangeName(AController* Other, const FString& S, bool bNameCha
 					Cast<APlayerController>(Other)->ClientReceiveLocalizedMessage( GameMessageClass, 5 );
 					if ( FCString::Stricmp(*Other->PlayerState->PlayerName, *DefaultPlayerName) == 0 )
 					{
-						Other->PlayerState->SetPlayerName(DefaultPlayerName+Other->PlayerState->PlayerId);
+						Other->PlayerState->SetPlayerName(FString::Printf(TEXT("%s%i"), *DefaultPlayerName, Other->PlayerState->PlayerId));
 					}
 				return;
 			}
