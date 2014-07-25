@@ -73,6 +73,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FullWeaponLandBobVelZ = 900.f;
 	FullEyeOffsetLandBobVelZ = 750.f;
 	WeaponDirChangeDeflection = 4.f;
+	bFindCameraComponentWhenViewTarget = false;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -133,16 +134,16 @@ void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	float OldEyeHeight = BaseEyeHeight + BaseTranslationOffset.Z;
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
-	EyeOffset = EyeOffset + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
+	EyeOffset.Z = EyeOffset.Z + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
 }
 
 void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	float OldEyeHeight = BaseEyeHeight + BaseTranslationOffset.Z;
-	UE_LOG(UT, Warning, TEXT("OldEyeHeight %f from BaseTrans %f"), OldEyeHeight, BaseTranslationOffset.Z);
+//	UE_LOG(UT, Warning, TEXT("OldEyeHeight %f from BaseTrans %f"), OldEyeHeight, BaseTranslationOffset.Z);
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
-	EyeOffset = EyeOffset + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
-	UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f from BaseTrans %f"), BaseEyeHeight + BaseTranslationOffset.Z, BaseTranslationOffset.Z);
+	EyeOffset.Z = EyeOffset.Z + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
+//	UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f from BaseTrans %f"), BaseEyeHeight + BaseTranslationOffset.Z, BaseTranslationOffset.Z);
 }
 
 void AUTCharacter::Restart()
@@ -1421,6 +1422,7 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 	{
 		CharacterCameraComponent->GetCameraView(DeltaTime, OutResult);
 		float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
+		UE_LOG(UT, Warning, TEXT("camera at %f %f %f"), OutResult.Location.X, OutResult.Location.Y, OutResult.Location.Z);
 		OutResult.Location += EyeOffsetGlobalScaling*EyeOffset;
 		return;
 	}
