@@ -118,6 +118,9 @@ public:
 	UFUNCTION(exec)
 	virtual void DebugTest();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerDebugTest();
+
 	/**
 	 *	We override player tick to keep updating the player's rotation when the game is over.
 	 **/

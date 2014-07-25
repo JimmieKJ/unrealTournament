@@ -109,7 +109,19 @@ void AUTCarriedObject::TryPickup_Implementation(AUTCharacter* Character)
 
 void AUTCarriedObject::OnObjectStateChanged()
 {
-	// By default we don't do anything.
+	// Look to see if the 
+
+	if (ObjectState == CarriedObjectState::Held)
+	{
+		// Turn off movement on this actor
+
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->SetUpdatedComponent(NULL);
+	}
+	else 
+	{
+		MovementComponent->SetUpdatedComponent(Collision);
+	}
 }
 
 void AUTCarriedObject::OnHolderChanged()
@@ -191,11 +203,6 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 	}
 
-	// Turn off movement on this actor
-
-	MovementComponent->StopMovementImmediately();
-	MovementComponent->SetUpdatedComponent(NULL);
-
 	// Track the pawns that have held this.  It's to be used for scoring
 	Holders.AddUnique(Holder);
 
@@ -248,7 +255,6 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 		FRotator Dir = ObjectHolder->Health > 0 ? ObjectHolder->GetActorRotation() : FRotator(0, 0, 0);
 		SetActorLocationAndRotation(ObjectHolder->GetActorLocation(), Dir);
 		MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + (900.0f * Dir.Vector()) + 218.0f * (0.5f + FMath::FRand()) + FMath::VRand();
-		MovementComponent->SetUpdatedComponent(Collision);
 	}
 	
 }
