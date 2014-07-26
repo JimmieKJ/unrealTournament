@@ -123,27 +123,6 @@ void AUTCharacter::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
 }
-/*
-void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
-{
-float OldEyeHeight = BaseEyeHeight + BaseTranslationOffset.Z;
-UE_LOG(UT, Warning, TEXT("CROUCH OldEyeHeight %f"), OldEyeHeight);
-Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
-EyeOffset.Z = EyeOffset.Z + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
-Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
-UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f offset %f"), GetPawnViewLocation().Z + EyeOffset.Z, EyeOffset.Z);
-}
-
-void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
-{
-float OldEyeHeight = GetPawnViewLocation().Z;
-UE_LOG(UT, Warning, TEXT("OldEyeHeight %f"), OldEyeHeight);
-Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
-EyeOffset.Z = GetPawnViewLocation().Z - OldEyeHeight;
-Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
-UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f offset %f"), GetPawnViewLocation().Z + EyeOffset.Z, EyeOffset.Z);
-}
-*/
 
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
@@ -256,7 +235,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	FVector Z = RotMatrix.GetScaledAxis(EAxis::Z);
 
 	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
-	if (!CharacterMovement || CharacterMovement->IsFalling() || !MyWeapon)
+	if (!CharacterMovement || CharacterMovement->IsFalling() || !MyWeapon || (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->bIsDodgeRolling))
 	{
 		BobTime = 0.f;
 	}
@@ -1439,7 +1418,6 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 	{
 		CharacterCameraComponent->GetCameraView(DeltaTime, OutResult);
 		float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
-		UE_LOG(UT, Warning, TEXT("camera at %f %f %f"), OutResult.Location.X, OutResult.Location.Y, OutResult.Location.Z);
 		OutResult.Location += EyeOffsetGlobalScaling*EyeOffset;
 		return;
 	}
@@ -1737,7 +1715,24 @@ void AUTCharacter::Tick(float DeltaTime)
 		EyeOffset.Z += (Cast<UUTCharacterMovement>(CharacterMovement)->OldZ - GetActorLocation().Z);
 
 		// avoid clipping
-		EyeOffset.Z = FMath::Min(EyeOffset.Z, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight); // @TODO FIXMESTEVE CONSIDER CLIP PLANE -12.f);
+		if (EyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight - 12.f)
+		{
+			if (!IsLocallyControlled())
+			{
+				EyeOffset.Z = FMath::Min(EyeOffset.Z, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight); // @TODO FIXMESTEVE CONSIDER CLIP PLANE -12.f);
+			}
+			else
+			{
+				// trace and see if camera will clip
+				static FName CameraClipTrace = FName(TEXT("CameraClipTrace"));
+				FCollisionQueryParams Params(CameraClipTrace, false, this);
+				FHitResult Hit;
+				if (GetWorld()->SweepSingle(Hit, GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight), GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + EyeOffset, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(12.f), Params))
+				{
+					EyeOffset.Z = Hit.Location.Z;
+				}
+			}
+		}
 	}
 
 	// decay offset
