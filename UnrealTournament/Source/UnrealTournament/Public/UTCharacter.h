@@ -347,8 +347,6 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** Also call UTCharacterMovement ClearJumpInput() */
 	virtual void ClearJumpInput() override;
 
-	virtual void RecalculateBaseEyeHeight() override;
-
 	virtual void MoveBlockedBy(const FHitResult& Impact) override;
 
 	/** sets replicated ambient (looping) sound on this Pawn

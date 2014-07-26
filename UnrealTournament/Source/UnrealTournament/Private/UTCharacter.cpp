@@ -73,7 +73,6 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FullWeaponLandBobVelZ = 900.f;
 	FullEyeOffsetLandBobVelZ = 750.f;
 	WeaponDirChangeDeflection = 4.f;
-	bFindCameraComponentWhenViewTarget = false;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -124,17 +123,34 @@ void AUTCharacter::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
 }
-
-void AUTCharacter::RecalculateBaseEyeHeight()
+/*
+void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
-	BaseEyeHeight = CharacterCameraComponent->RelativeLocation.Z;
+float OldEyeHeight = BaseEyeHeight + BaseTranslationOffset.Z;
+UE_LOG(UT, Warning, TEXT("CROUCH OldEyeHeight %f"), OldEyeHeight);
+Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
+EyeOffset.Z = EyeOffset.Z + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
+Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
+UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f offset %f"), GetPawnViewLocation().Z + EyeOffset.Z, EyeOffset.Z);
 }
+
+void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
+{
+float OldEyeHeight = GetPawnViewLocation().Z;
+UE_LOG(UT, Warning, TEXT("OldEyeHeight %f"), OldEyeHeight);
+Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
+EyeOffset.Z = GetPawnViewLocation().Z - OldEyeHeight;
+Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
+UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f offset %f"), GetPawnViewLocation().Z + EyeOffset.Z, EyeOffset.Z);
+}
+*/
 
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	float OldEyeHeight = BaseEyeHeight + BaseTranslationOffset.Z;
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
 	EyeOffset.Z = EyeOffset.Z + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
+	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
 }
 
 void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
@@ -143,7 +159,8 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 //	UE_LOG(UT, Warning, TEXT("OldEyeHeight %f from BaseTrans %f"), OldEyeHeight, BaseTranslationOffset.Z);
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
 	EyeOffset.Z = EyeOffset.Z + BaseEyeHeight + BaseTranslationOffset.Z - OldEyeHeight;
-//	UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f from BaseTrans %f"), BaseEyeHeight + BaseTranslationOffset.Z, BaseTranslationOffset.Z);
+	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
+	//	UE_LOG(UT, Warning, TEXT("NEW EyeHeight %f from BaseTrans %f"), BaseEyeHeight + BaseTranslationOffset.Z, BaseTranslationOffset.Z);
 }
 
 void AUTCharacter::Restart()
