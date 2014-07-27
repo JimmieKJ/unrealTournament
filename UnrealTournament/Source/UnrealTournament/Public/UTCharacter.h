@@ -418,14 +418,17 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
+
 	/** uses CharOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
 	UFUNCTION()
 	virtual void UpdateCharOverlays();
+
 	/** sets weapon overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but the default in the weapon code is to only display one at a time
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
+
 	/** uses WeaponOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
 	UFUNCTION()
 	virtual void UpdateWeaponOverlays();
@@ -467,7 +470,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	virtual void PlayerSuicide();
 
 	//--------------------------
-	// Weapon Bob
+	// Weapon bob and eye offset
 
 	/** Current 1st person weapon deflection due to running bob. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)

@@ -242,6 +242,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
 	if (!CharacterMovement || CharacterMovement->IsFalling() || !MyWeapon )
 	{
+		// interp out weapon bob if falling
 		BobTime = 0.f;
 		CurrentWeaponBob.Y *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
 		CurrentWeaponBob.Z *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
@@ -268,6 +269,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		CurrentWeaponBob.X = 0.f;
 		if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->bIsDodgeRolling)
 		{
+			// interp out weapon bob when dodge rolliing
 			BobTime = 0.f;
 			CurrentWeaponBob.Y *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
 			CurrentWeaponBob.Z *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
