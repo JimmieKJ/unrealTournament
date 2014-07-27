@@ -50,7 +50,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 55.0f;
 	SlopeDodgeScaling = 0.93f;
-	DodgeRollAcceleration = 1000.f;
+	DodgeRollAcceleration = 800.f;
+	MaxDodgeRollSpeed = 800.f;
 	DodgeRollDuration = 0.4f;
 	bIsDodgeRolling = false;
 	DodgeRollTapTime = 0.f;
@@ -291,7 +292,7 @@ float UUTCharacterMovement::GetMaxSpeed() const
 {
 	if (bIsDodgeRolling)
 	{
-		return MaxWalkSpeed;
+		return MaxDodgeRollSpeed;
 	}
 	return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
 }

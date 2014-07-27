@@ -122,9 +122,13 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
 	float RollEndingSpeedFactor;
 
-	/** True during a dodge roll. */
+	/** Acceleration during a dodge roll. */
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	float DodgeRollAcceleration;
+
+	/** Max speed during a dodge roll. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	float MaxDodgeRollSpeed;
 
 	/** How long dodge roll lasts. */
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
