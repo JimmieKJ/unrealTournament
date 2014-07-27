@@ -525,6 +525,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 	FVector EyeOffset;
 
+	/** Eyeoffset due to crouching transition (not scaled). */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
+	FVector CrouchEyeOffset;
+
 	/** Target Eye position offset from base view position. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 	FVector TargetEyeOffset;
@@ -532,6 +536,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** How fast EyeOffset interpolates to TargetEyeOffset. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float EyeOffsetInterpRate;
+
+	/** How fast CrouchEyeOffset interpolates to 0. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	float CrouchEyeOffsetInterpRate;
 
 	/** How fast TargetEyeOffset decays. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
@@ -560,6 +568,12 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** Get Max eye offset land bob deflection at landing velocity Z of FullEyeOffsetLandBobVelZ+EyeOffsetLandBobThreshold */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float FullEyeOffsetLandBobVelZ;
+
+	/** Get Max weapon land bob deflection at landing velocity Z of FullWeaponLandBobVelZ+WeaponLandBobThreshold */
+	UPROPERTY()
+	float DefaultBaseEyeHeight;
+
+	virtual void RecalculateBaseEyeHeight() override;
 
 	/** Returns offset to add to first person mesh for weapon bob. */
 	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);

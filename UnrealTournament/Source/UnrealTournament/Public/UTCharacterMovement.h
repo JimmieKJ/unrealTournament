@@ -118,6 +118,10 @@ public:
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodgeRolling;
 
+	/** Horizontal speed reduction on roll ending (multiplied). */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
+	float RollEndingSpeedFactor;
+
 	/** True during a dodge roll. */
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	float DodgeRollAcceleration;

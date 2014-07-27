@@ -48,7 +48,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
-	CrouchedHalfHeight = 48.0f;
+	CrouchedHalfHeight = 55.0f;
 	SlopeDodgeScaling = 0.93f;
 	DodgeRollAcceleration = 1000.f;
 	DodgeRollDuration = 0.4f;
@@ -56,6 +56,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollTapTime = 0.f;
 	DodgeRollEndTime = 0.f;
 	DodgeRollTapInterval = 0.2f;
+	RollEndingSpeedFactor = 0.5f;
 
 	MaxSwimSpeed = 450.f;
 	Buoyancy = 1.f;
@@ -76,9 +77,7 @@ void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo
 	{
 		return;
 	}
-
 	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
-
 
 	Canvas->SetDrawColor(255, 255, 255);
 	UFont* RenderFont = GEngine->GetSmallFont();
@@ -253,7 +252,12 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 
 void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 {
+	bool bWasDodgeRolling = bIsDodgeRolling;
 	bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
+	if (bWasDodgeRolling && !bIsDodgeRolling)
+	{
+		Velocity *= RollEndingSpeedFactor;
+	}
 	bool bSavedWantsToCrouch = bWantsToCrouch;
 	bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
 	bForceMaxAccel = bIsDodgeRolling;
