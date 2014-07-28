@@ -12,6 +12,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	// MinTimeBetweenTimeStampResets = 30.f;
 
 	MaxWalkSpeed = 900.f;
+	MaxCustomMovementSpeed = 900.f;
+
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -2400.f;  // same as UTCharacter->MaxSafeFallSpeed - @TODO FIXMESTEVE probably get rid of this property
 	MaxAdditiveDodgeJumpSpeed = 800.f;  
@@ -48,7 +50,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
-	CrouchedHalfHeight = 55.0f;
+	CrouchedHalfHeight = 68.0f;
 	SlopeDodgeScaling = 0.93f;
 	DodgeRollAcceleration = 800.f;
 	MaxDodgeRollSpeed = 800.f;
