@@ -39,6 +39,9 @@ class AUTProj_TransDisk : public AUTProjectile
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Translocator)
 	AUTWeap_Translocator* MyTranslocator;
+	/** controller who disrupted the disk (and thus should gain kill credit) */
+	UPROPERTY(BlueprintReadOnly, Category = Translocator)
+	AController* DisruptedController;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_TransState, Category = TransDisk)
 	TEnumAsByte<ETLState> TransState;

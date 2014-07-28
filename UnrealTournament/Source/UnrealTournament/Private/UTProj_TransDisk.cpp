@@ -18,13 +18,13 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializePropert
 
 float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
-	if (EventInstigator != NULL && TransState != TLS_Disrupted)
+	if (Role == ROLE_Authority && EventInstigator != NULL && TransState != TLS_Disrupted)
 	{
-		AUTCharacter* UTP = Cast<AUTCharacter>(EventInstigator->GetPawn());
-		AUTCharacter* UTOwner = Cast<AUTCharacter>(Instigator);
-		if (UTP != NULL && UTOwner != NULL && (UTP->GetTeamNum() == 255 || UTP->GetTeamNum() != UTOwner->GetTeamNum()))
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(EventInstigator, Instigator))
 		{
 			TransState = TLS_Disrupted;
+			DisruptedController = EventInstigator;
 			//Play and deactivate effects
 			OnDisrupted();
 		}

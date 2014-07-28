@@ -80,7 +80,7 @@ void AUTWeap_Translocator::FireShot()
 					Event.ShotDirection = GetVelocity().SafeNormal();
 					Event.Momentum = Event.ShotDirection * AdjustedMomentum;
 
-					UTOwner->TakeDamage(TelefragDamage, Event, UTOwner->GetController(), UTOwner);
+					UTOwner->TakeDamage(TelefragDamage, Event, TransDisk->DisruptedController, UTOwner);
 				}
 				else
 				{

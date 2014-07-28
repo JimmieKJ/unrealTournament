@@ -18,6 +18,8 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 	SelfDamageScale = 0.3f;
 	SelfForceScale = -1.0f;
 
+	DroppedPickupClass = NULL; // doesn't drop
+
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
