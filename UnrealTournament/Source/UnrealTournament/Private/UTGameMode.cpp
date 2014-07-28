@@ -61,7 +61,7 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 
 	// WARNING: 'this' is actually an AActor! Only do AActor things!
 	if (!IsA(ALevelScriptActor::StaticClass()) && !IsA(AUTMutator::StaticClass()) &&
-		(RootComponent->Mobility != EComponentMobility::Static || (!IsA(AStaticMeshActor::StaticClass()) && !IsA(ALight::StaticClass()))) )
+		(RootComponent == NULL || RootComponent->Mobility != EComponentMobility::Static || (!IsA(AStaticMeshActor::StaticClass()) && !IsA(ALight::StaticClass()))) )
 	{
 		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		// a few type checks being AFTER the CheckRelevance() call is intentional; want mutators to be able to modify, but not outright destroy
