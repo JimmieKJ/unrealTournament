@@ -130,7 +130,8 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 	}
 	return true;
 }
-bool UUTGameplayStatics::UTHurtRadius(UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController)
+bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff,
+										TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, AController* FFInstigatedBy, TSubclassOf<UDamageType> FFDamageType )
 {
 	static FName NAME_ApplyRadialDamage = FName(TEXT("ApplyRadialDamage"));
 	FCollisionQueryParams SphereParams(NAME_ApplyRadialDamage, false, DamageCauser);
@@ -144,6 +145,7 @@ bool UUTGameplayStatics::UTHurtRadius(UObject* WorldContextObject, float BaseDam
 	// query scene to see what we hit
 	TArray<FOverlapResult> Overlaps;
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	AUTGameState* GS = World->GetGameState<AUTGameState>();
 	World->OverlapMulti(Overlaps, Origin, FQuat::Identity, COLLISION_TRACE_WEAPON,  FCollisionShape::MakeSphere(DamageOuterRadius), SphereParams);
 
 	// collate into per-actor list of hit components
@@ -182,7 +184,18 @@ bool UUTGameplayStatics::UTHurtRadius(UObject* WorldContextObject, float BaseDam
 		DmgEvent.Params = FRadialDamageParams(BaseDamage, MinimumDamage, DamageInnerRadius, DamageOuterRadius, DamageFalloff);
 		DmgEvent.BaseMomentumMag = BaseMomentumMag;
 
-		Victim->TakeDamage(BaseDamage, DmgEvent, InstigatedByController, DamageCauser);
+		// if it's friendly fire, possibly redirect to alternate Controller for damage credit
+		AController* ResolvedInstigator = InstigatedByController;
+		if (FFInstigatedBy != NULL && InstigatedByController != NULL && GS != NULL && GS->OnSameTeam(InstigatedByController, Victim))
+		{
+			ResolvedInstigator = FFInstigatedBy;
+			if (FFDamageType != NULL)
+			{
+				DmgEvent.DamageTypeClass = FFDamageType;
+			}
+		}
+
+		Victim->TakeDamage(BaseDamage, DmgEvent, ResolvedInstigator, DamageCauser);
 
 		bAppliedDamage = true;
 	}

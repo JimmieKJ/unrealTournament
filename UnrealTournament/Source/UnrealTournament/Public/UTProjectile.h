@@ -31,6 +31,14 @@ class AUTProjectile : public AActor
 
 	UPROPERTY(BlueprintReadWrite, Category = Projectile)
 	AController* InstigatorController;
+	/** if not NULL, Controller that gets credit for damage to enemies on the same team as InstigatorController (including damaging itself)
+	 * this is used to grant two way kill credit for mechanics where the opposition is partially responsible for the damage(e.g.blowing up an enemy's projectile in flight)
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = Projectile)
+	AController* FFInstigatorController;
+	/** when FFInstigatorController is assigned damage credit, optionally also change the damage type to this (primarily for death message clarity) */
+	UPROPERTY(BlueprintReadWrite, Category = Damage)
+	TSubclassOf<UDamageType> FFDamageType;
 
 	/** actor we hit directly and already applied damage to */
 	UPROPERTY()

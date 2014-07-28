@@ -13,12 +13,15 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	: Super(PCIP)
 {
 	// Use a sphere as a simple collision representation
-	CollisionComp = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
-	CollisionComp->InitSphereRadius(0.0f);
-	CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
-	CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
-	CollisionComp->bTraceComplexOnMove = true;
-	RootComponent = CollisionComp;
+	CollisionComp = PCIP.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
+	if (CollisionComp != NULL)
+	{
+		CollisionComp->InitSphereRadius(0.0f);
+		CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
+		CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
+		CollisionComp->bTraceComplexOnMove = true;
+		RootComponent = CollisionComp;
+	}
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
@@ -266,6 +269,21 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 
 void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	AController* ResolvedInstigator = InstigatorController;
+	TSubclassOf<UDamageType> ResolvedDamageType = MyDamageType;
+	if (FFInstigatorController != NULL && InstigatorController != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL && GS->OnSameTeam(OtherActor, InstigatorController))
+		{
+			ResolvedInstigator = FFInstigatorController;
+			if (FFDamageType != NULL)
+			{
+				ResolvedDamageType = FFDamageType;
+			}
+		}
+	}
+
 	// treat as point damage if projectile has no radius
 	if (DamageParams.OuterRadius > 0.0f)
 	{
@@ -273,23 +291,23 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 		Event.BaseMomentumMag = Momentum;
 		Event.Params = GetDamageParams(OtherActor, HitLocation, Event.BaseMomentumMag);
 		Event.Params.MinimumDamage = Event.Params.BaseDamage; // force full damage for direct hit
-		Event.DamageTypeClass = MyDamageType;
+		Event.DamageTypeClass = ResolvedDamageType;
 		Event.Origin = HitLocation;
 		new(Event.ComponentHits) FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
 		Event.ComponentHits[0].TraceStart = HitLocation - GetVelocity();
 		Event.ComponentHits[0].TraceEnd = HitLocation + GetVelocity();
-		OtherActor->TakeDamage(Event.Params.BaseDamage, Event, InstigatorController, this);
+		OtherActor->TakeDamage(Event.Params.BaseDamage, Event, ResolvedInstigator, this);
 	}
 	else
 	{
 		FUTPointDamageEvent Event;
 		float AdjustedMomentum = Momentum;
 		Event.Damage = GetDamageParams(OtherActor, HitLocation, AdjustedMomentum).BaseDamage;
-		Event.DamageTypeClass = MyDamageType;
+		Event.DamageTypeClass = ResolvedDamageType;
 		Event.HitInfo = FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
 		Event.ShotDirection = GetVelocity().SafeNormal();
 		Event.Momentum = Event.ShotDirection * AdjustedMomentum;
-		OtherActor->TakeDamage(Event.Damage, Event, InstigatorController, this);
+		OtherActor->TakeDamage(Event.Damage, Event, ResolvedInstigator, this);
 	}
 }
 
@@ -307,7 +325,8 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			{
 				IgnoreActors.Add(ImpactedActor);
 			}
-			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff, MyDamageType, IgnoreActors, this, InstigatorController);
+			UUTGameplayStatics::UTHurtRadius( this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
+												MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType );
 		}
 		if (Role == ROLE_Authority)
 		{

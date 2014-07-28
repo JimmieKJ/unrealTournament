@@ -43,10 +43,14 @@ class UUTGameplayStatics : public UBlueprintFunctionLibrary
 	* @param IgnoreActors - Actors to never hit; these Actors also don't block the trace that makes sure targets aren't behind a wall, etc. DamageCauser is automatically in this list.
 	* @param DamageCauser - Actor that actually caused the damage (e.g. the grenade that exploded)
 	* @param InstigatedByController - Controller that was responsible for causing this damage (e.g. player who threw the grenade)
+	* @param FFInstigatedBy (optional) - Controller that gets credit for damage to enemies on the same team as InstigatedByController (including damaging itself)
+	*									this is used to grant two way kill credit for mechanics where the opposition is partially responsible for the damage (e.g. blowing up an enemy's projectile in flight)
+	* @param FFDamageType (optional) - when FFInstigatedBy is assigned for damage credit, optionally also use this damage type instead of the default (primarily for death message clarity)
 	* @return true if damage was applied to at least one actor.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game|Damage", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "IgnoreActors"))
-	static bool UTHurtRadius(UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController);
+	static bool UTHurtRadius( UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff,
+								TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, AController* FFInstigatedBy = NULL, TSubclassOf<UDamageType> FFDamageType = NULL );
 
 	/** select visible controlled enemy Pawn for which direction from StartLoc is closest to FireDir and within aiming cone/distance constraints
 	 * commonly used for autoaim, homing locks, etc
