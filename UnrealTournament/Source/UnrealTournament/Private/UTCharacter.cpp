@@ -27,7 +27,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	// Create a CameraComponent	
 	CharacterCameraComponent = PCIP.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
 	CharacterCameraComponent->AttachParent = CapsuleComponent;
-	CharacterCameraComponent->RelativeLocation = FVector(0, 0, 64.f); // Position the camera
+	DefaultBaseEyeHeight = 70.f;
+	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
 	FirstPersonMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
@@ -39,6 +40,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	UTCharacterMovement = Cast<UUTCharacterMovement>(CharacterMovement);
 
 	HealthMax = 100;
 	SuperHealthMax = 199;
@@ -112,7 +115,7 @@ void AUTCharacter::BeginPlay()
 	{
 		Health = HealthMax;
 	}
-	DefaultBaseEyeHeight = CharacterCameraComponent->RelativeLocation.Z;
+	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
 	if (CharacterCameraComponent->RelativeLocation.Size2D() > 0.0f)
 	{
 		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation!"), *GetName());
@@ -135,7 +138,7 @@ void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
 	CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
-	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
+	UTCharacterMovement->OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
 }
 
@@ -143,7 +146,7 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
 	CrouchEyeOffset.Z += DefaultBaseEyeHeight - CrouchedEyeHeight + HeightAdjust;
-	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
+	UTCharacterMovement->OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, CrouchedEyeHeight),false);
 }
 
@@ -267,7 +270,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 			}
 		}
 		CurrentWeaponBob.X = 0.f;
-		if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->bIsDodgeRolling)
+		if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
 		{
 			// interp out weapon bob when dodge rolliing
 			BobTime = 0.f;
@@ -1287,7 +1290,7 @@ void AUTCharacter::SetBase( UPrimitiveComponent* NewBaseComponent, bool bNotifyP
 
 bool AUTCharacter::CanDodge() const
 {
-	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->CanDodge() && (CharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
+	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
 }
 
 bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
@@ -1299,7 +1302,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			// blueprint handled dodge attempt
 			return true;
 		}
-		if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->PerformDodge(DodgeDir, DodgeCross))
+		if (UTCharacterMovement && UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			OnDodge(DodgeDir);
 			return true;
@@ -1311,7 +1314,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 bool AUTCharacter::CanJumpInternal_Implementation() const
 {
 	// @TODO FIXMESTEVE ask to get this mostly moved to CharacterMovement!
-	return !bIsCrouched && Cast<UUTCharacterMovement>(CharacterMovement) && (CharacterMovement->IsMovingOnGround() || Cast<UUTCharacterMovement>(CharacterMovement)->CanMultiJump()) && CharacterMovement->CanEverJump() && !CharacterMovement->bWantsToCrouch;
+	return !bIsCrouched && UTCharacterMovement && (UTCharacterMovement->IsMovingOnGround() || UTCharacterMovement->CanMultiJump()) && UTCharacterMovement->CanEverJump() && !UTCharacterMovement->bWantsToCrouch;
 }
 
 void AUTCharacter::CheckJumpInput(float DeltaTime)
@@ -1331,13 +1334,12 @@ void AUTCharacter::CheckJumpInput(float DeltaTime)
 	}
 	else
 	{
-		UUTCharacterMovement* MyMovement = Cast<UUTCharacterMovement>(CharacterMovement);
-		if (MyMovement->bPressedDodgeForward || MyMovement->bPressedDodgeBack || MyMovement->bPressedDodgeLeft || MyMovement->bPressedDodgeRight)
+		if (UTCharacterMovement->bPressedDodgeForward || UTCharacterMovement->bPressedDodgeBack || UTCharacterMovement->bPressedDodgeLeft || UTCharacterMovement->bPressedDodgeRight)
 		{
-			float DodgeDirX = MyMovement->bPressedDodgeForward ? 1.f : (MyMovement->bPressedDodgeBack ? -1.f : 0.f);
-			float DodgeDirY = MyMovement->bPressedDodgeLeft ? -1.f : (MyMovement->bPressedDodgeRight ? 1.f : 0.f);
-			float DodgeCrossX = (MyMovement->bPressedDodgeLeft || MyMovement->bPressedDodgeRight) ? 1.f : 0.f;
-			float DodgeCrossY = (MyMovement->bPressedDodgeForward || MyMovement->bPressedDodgeBack) ? 1.f : 0.f;
+			float DodgeDirX = UTCharacterMovement->bPressedDodgeForward ? 1.f : (UTCharacterMovement->bPressedDodgeBack ? -1.f : 0.f);
+			float DodgeDirY = UTCharacterMovement->bPressedDodgeLeft ? -1.f : (UTCharacterMovement->bPressedDodgeRight ? 1.f : 0.f);
+			float DodgeCrossX = (UTCharacterMovement->bPressedDodgeLeft || UTCharacterMovement->bPressedDodgeRight) ? 1.f : 0.f;
+			float DodgeCrossY = (UTCharacterMovement->bPressedDodgeForward || UTCharacterMovement->bPressedDodgeBack) ? 1.f : 0.f;
 			FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 			FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
 			FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
@@ -1350,10 +1352,9 @@ void AUTCharacter::CheckJumpInput(float DeltaTime)
 void AUTCharacter::ClearJumpInput()
 {
 	Super::ClearJumpInput();
-	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(CharacterMovement);
-	if (UTCharMov)
+	if (UTCharacterMovement)
 	{
-		UTCharMov->ClearJumpInput();
+		UTCharacterMovement->ClearJumpInput();
 	}
 }
 
@@ -1397,16 +1398,15 @@ void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);
 
-	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(CharacterMovement);
-	if (UTCharMov)
+	if (UTCharacterMovement)
 	{
 		int32 DodgeFlags = (Flags >> 2) & 7;
-		UTCharMov->bPressedDodgeForward = (DodgeFlags == 1);
-		UTCharMov->bPressedDodgeBack = (DodgeFlags == 2);
-		UTCharMov->bPressedDodgeLeft = (DodgeFlags == 3);
-		UTCharMov->bPressedDodgeRight = (DodgeFlags == 4);
-		UTCharMov->bIsSprinting = (DodgeFlags == 5);
-		UTCharMov->bIsDodgeRolling = (DodgeFlags == 6);
+		UTCharacterMovement->bPressedDodgeForward = (DodgeFlags == 1);
+		UTCharacterMovement->bPressedDodgeBack = (DodgeFlags == 2);
+		UTCharacterMovement->bPressedDodgeLeft = (DodgeFlags == 3);
+		UTCharacterMovement->bPressedDodgeRight = (DodgeFlags == 4);
+		UTCharacterMovement->bIsSprinting = (DodgeFlags == 5);
+		UTCharacterMovement->bIsDodgeRolling = (DodgeFlags == 6);
 	}
 }
 
@@ -1495,7 +1495,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	{
 		TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
 	}
-	Cast<UUTCharacterMovement>(CharacterMovement)->OldZ = GetActorLocation().Z;
+	UTCharacterMovement->OldZ = GetActorLocation().Z;
 
 	TakeFallingDamage(Hit);
 
@@ -1506,7 +1506,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 	LastHitBy = NULL;
 
-	if (Cast<UUTCharacterMovement>(CharacterMovement) && Cast<UUTCharacterMovement>(CharacterMovement)->bIsDodgeRolling)
+	if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
 	}
@@ -1729,7 +1729,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (CharacterMovement->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativePosition(RelativeMovement.MovementBase))
 	{
 		// smooth up/down stairs
-		EyeOffset.Z += (Cast<UUTCharacterMovement>(CharacterMovement)->OldZ - GetActorLocation().Z);
+		EyeOffset.Z += (UTCharacterMovement->OldZ - GetActorLocation().Z);
 
 		// avoid clipping
 		if (CrouchEyeOffset.Z + EyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight - 12.f)

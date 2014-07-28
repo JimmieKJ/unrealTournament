@@ -15,7 +15,7 @@ AUTJumpBoots::AUTJumpBoots(const FPostConstructInitializeProperties& PCIP)
 
 void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 {
-	UUTCharacterMovement* Movement = Cast<UUTCharacterMovement>(GetUTOwner()->CharacterMovement);
+	UUTCharacterMovement* Movement = GetUTOwner()->UTCharacterMovement;
 	if (Movement != NULL)
 	{
 		if (bRemoveBonus)

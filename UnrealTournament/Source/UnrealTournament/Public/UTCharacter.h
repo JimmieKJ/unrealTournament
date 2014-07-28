@@ -47,6 +47,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	TSubobjectPtr<class UCameraComponent> CharacterCameraComponent;
 
+	/** Cached UTCharacterMovement casted CharacterMovement */
+	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly)
+	class UUTCharacterMovement* UTCharacterMovement;
+
 	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
 	UPROPERTY()
 	TArray<FStoredAmmo> SavedAmmo;

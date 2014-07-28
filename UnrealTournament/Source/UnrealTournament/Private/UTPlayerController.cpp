@@ -605,7 +605,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 
 bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? Cast<UUTCharacterMovement>(UTCharacter->CharacterMovement) : NULL;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxDodgeClickTime)))
 	{
 		MyCharMovement->bPressedDodgeForward = bForward;
@@ -618,7 +618,7 @@ bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBac
 
 void AUTPlayerController::OnDodgeRoll()
 {
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? Cast<UUTCharacterMovement>(UTCharacter->CharacterMovement) : NULL;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
 		MyCharMovement->DodgeRollTapTime = MyCharMovement->GetCurrentMovementTime();
@@ -627,7 +627,7 @@ void AUTPlayerController::OnDodgeRoll()
 
 void AUTPlayerController::OnSingleTapDodge()
 {
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? Cast<UUTCharacterMovement>(UTCharacter->CharacterMovement) : NULL;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
 		// base dodge direction on current acceleration, only in cardinal directions.  
