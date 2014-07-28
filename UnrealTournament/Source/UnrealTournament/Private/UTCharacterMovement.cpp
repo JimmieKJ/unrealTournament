@@ -52,7 +52,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 68.0f;
 	SlopeDodgeScaling = 0.93f;
-	DodgeRollAcceleration = 800.f;
+	DodgeRollAcceleration = 1200.f;
 	MaxDodgeRollSpeed = 800.f;
 	DodgeRollDuration = 0.4f;
 	bIsDodgeRolling = false;
@@ -257,16 +257,23 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 {
 	bool bWasDodgeRolling = bIsDodgeRolling;
 	bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
-	if (bWasDodgeRolling && !bIsDodgeRolling)
+	float RealGroundFriction = GroundFriction;
+	if (bIsDodgeRolling)
+	{
+		GroundFriction = 0.f;
+	}
+	else if (bWasDodgeRolling)
 	{
 		Velocity *= RollEndingSpeedFactor;
 	}
+	
 	bool bSavedWantsToCrouch = bWantsToCrouch;
 	bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
 	bForceMaxAccel = bIsDodgeRolling;
 
 	Super::PerformMovement(DeltaSeconds);
 	bWantsToCrouch = bSavedWantsToCrouch;
+	GroundFriction = RealGroundFriction;
 }
 
 float UUTCharacterMovement::GetMaxAcceleration() const
