@@ -681,6 +681,16 @@ void AUTCharacter::AmbientSoundUpdated()
 		}
 		if (AmbientSoundComp->Sound != AmbientSound)
 		{
+			// don't attenuate/spatialize sounds made by a local viewtarget
+			AmbientSoundComp->bAllowSpatialization = true;
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+				{
+					AmbientSoundComp->bAllowSpatialization = false;
+					break;
+				}
+			}
 			AmbientSoundComp->SetSound(AmbientSound);
 		}
 		if (!AmbientSoundComp->IsPlaying())
