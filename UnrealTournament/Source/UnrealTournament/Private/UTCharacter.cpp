@@ -1235,59 +1235,6 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	}
 }
 
-
-// @TODO: These changes mimic changes to engine source that are pending (likely for 4.3), so remove this code once that is released.
-
-namespace UTMovementBaseUtility
-{
-	void AddTickDependency(FTickFunction& BasedObjectTick, class UPrimitiveComponent* NewBase)
-	{
-		if (NewBase && MovementBaseUtility::UseRelativePosition(NewBase))
-		{
-			AActor* NewBaseOwner = NewBase->GetOwner();
-			if (NewBaseOwner)
-			{
-				TArray<UActorComponent*> Components;
-				NewBaseOwner->GetComponents(Components);
-				for (auto& Component : Components)
-				{
-					BasedObjectTick.AddPrerequisite(Component, Component->PrimaryComponentTick);
-				}
-			}
-		}
-	}
-
-	void RemoveTickDependency(FTickFunction& BasedObjectTick, class UPrimitiveComponent* OldBase)
-	{
-		if (OldBase && MovementBaseUtility::UseRelativePosition(OldBase))
-		{
-			AActor* OldBaseOwner = OldBase->GetOwner();
-			if (OldBaseOwner)
-			{
-				TArray<UActorComponent*> Components;
-				OldBaseOwner->GetComponents(Components);
-				for (auto& Component : Components)
-				{
-					BasedObjectTick.RemovePrerequisite(Component, Component->PrimaryComponentTick);
-				}
-			}
-		}
-	}
-}
-
-void AUTCharacter::SetBase( UPrimitiveComponent* NewBaseComponent, bool bNotifyPawn )
-{
-	UPrimitiveComponent* OldBase = MovementBase;
-	Super::SetBase(NewBaseComponent, bNotifyPawn);
-
-	if (MovementBase != OldBase)
-	{
-		// Update tick order dependencies (tick after moving bases)
-		UTMovementBaseUtility::RemoveTickDependency(CharacterMovement->PrimaryComponentTick, OldBase);
-		UTMovementBaseUtility::AddTickDependency(CharacterMovement->PrimaryComponentTick, MovementBase);
-	}
-}
-
 bool AUTCharacter::CanDodge() const
 {
 	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);

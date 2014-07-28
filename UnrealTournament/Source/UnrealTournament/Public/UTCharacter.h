@@ -344,8 +344,6 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 	virtual void OnRep_ReplicatedMovement() override;
 
-	virtual void SetBase(UPrimitiveComponent* NewBase, bool bNotifyActor=true) override;
-
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 
 	/** Also call UTCharacterMovement ClearJumpInput() */
