@@ -66,10 +66,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
-	WallDodgeSecondImpulseVertical = 260.f;
+	WallDodgeSecondImpulseVertical = 310.f;
 	DodgeImpulseVertical = 525.f;
 	WallDodgeImpulseHorizontal = 1350.f; 
-	WallDodgeImpulseVertical = 420.f; 
+	WallDodgeImpulseVertical = 440.f; 
 
 	NavAgentProps.bCanCrouch = true;
 }
@@ -91,7 +91,7 @@ void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo
 	}
 	else if (bIsDodging)
 	{
-		T = FString::Printf(TEXT("DODGING"));
+		T = FString::Printf(TEXT("DODGING %f"), CharacterOwner->GetWorld()->GetTimeSeconds());
 	}
 	else if (bIsDodgeRolling)
 	{
@@ -241,6 +241,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			VelocityZ = 0.f;
 		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);
+		//UE_LOG(UT, Warning, TEXT("Wall dodge at %f velZ %f"), CharacterOwner->GetWorld()->GetTimeSeconds(), Velocity.Z);
 	}
 	else
 	{
