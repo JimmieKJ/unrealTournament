@@ -19,7 +19,6 @@ class AUTCTFFlagBase : public AUTGameObjective
 	TSubobjectPtr<UStaticMeshComponent> Mesh;
 
 	virtual FName GetFlagState();
-	virtual AUTPlayerState* GetFlagHolder();
 	virtual void RecallFlag();
 
 protected:

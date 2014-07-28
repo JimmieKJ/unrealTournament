@@ -13,8 +13,8 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnObjectStateChanged, Category = GameObject)
 	FName ObjectState;
 
-	// Holds the UTPlayerState of the person currently holding this object.  If NULL noone is holding it.  You should always check the ObjectState first rather than just rely
-	// on Holder.
+	// Holds the UTPlayerState of the person currently holding this object.  
+
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnHolderChanged, Category = GameObject)
 	AUTPlayerState* Holder;
 
@@ -70,7 +70,7 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	virtual uint8 GetTeamNum() const;
 
 	/**
-	 *	Changes the current state of the carried object.  NOTE: this should only be called on the server except via OnObjectStateChanged() via replication
+	 *	Changes the current state of the carried object.  NOTE: this should only be called on the server
 	 **/
 	UFUNCTION()
 	void ChangeState(FName NewCarriedObjectState);

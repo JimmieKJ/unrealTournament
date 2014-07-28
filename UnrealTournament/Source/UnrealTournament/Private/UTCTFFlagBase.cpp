@@ -23,7 +23,7 @@ void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 void AUTCTFFlagBase::CreateCarriedObject()
 {
 	Super::CreateCarriedObject();
-	MyFlag = Cast<AUTCTFFlag>(MyCarriedObject);
+	MyFlag = Cast<AUTCTFFlag>(CarriedObject);
 }
 
 FName AUTCTFFlagBase::GetFlagState()
@@ -34,12 +34,6 @@ FName AUTCTFFlagBase::GetFlagState()
 	}
 
 	return NAME_None;
-}
-
-AUTPlayerState* AUTCTFFlagBase::GetFlagHolder()
-{
-	if (MyFlag != NULL) return MyFlag->Holder;
-	return NULL;
 }
 
 void AUTCTFFlagBase::RecallFlag()

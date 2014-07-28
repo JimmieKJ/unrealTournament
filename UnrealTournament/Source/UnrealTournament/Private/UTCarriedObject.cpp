@@ -147,6 +147,7 @@ void AUTCarriedObject::ChangeState(FName NewCarriedObjectState)
 	{
 		ObjectState = NewCarriedObjectState;
 		OnObjectStateChanged();
+		HomeBase->ObjectStateWasChanged(ObjectState);
 	}
 }
 
@@ -186,11 +187,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	if (NewHolder == NULL || NewHolder->bPendingKillPending || NewHolder->PlayerState == NULL || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL) return; 
 	
 	// If this object is on it's base, tell the base it's been picked up
-
-	if (ObjectState == CarriedObjectState::Home)
-	{
-		HomeBase->ObjectWasPickedUp(NewHolder);
-	}
+	HomeBase->ObjectWasPickedUp(NewHolder);
 
 	HoldingPawn = NewHolder;
 	AttachTo(HoldingPawn->Mesh);
@@ -262,8 +259,12 @@ void AUTCarriedObject::Drop(AController* Killer)
 {
 	SendGameMessage(3, Holder, NULL);
 	NoLongerHeld();
+
 	// Toss is out
 	TossObject(LastHoldingPawn);
+
+	if (HomeBase != NULL) HomeBase->ObjectWasPickedUp(LastHoldingPawn);
+
 	ChangeState(CarriedObjectState::Dropped);
 }
 

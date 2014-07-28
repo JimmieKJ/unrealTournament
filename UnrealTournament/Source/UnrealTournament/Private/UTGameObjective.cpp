@@ -21,7 +21,9 @@ void AUTGameObjective::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTGameObjective, MyCarriedObject);
+	DOREPLIFETIME(AUTGameObjective, CarriedObject);
+	DOREPLIFETIME(AUTGameObjective, CarriedObjectState);
+	DOREPLIFETIME(AUTGameObjective, CarriedObjectHolder);
 }
 
 
@@ -46,36 +48,61 @@ void AUTGameObjective::CreateCarriedObject()
 	FActorSpawnParameters Params;
 	Params.Owner = this;
 
-	MyCarriedObject = GetWorld()->SpawnActor<AUTCarriedObject>(CarriedObjectClass, GetActorLocation() + FVector(0,0,96), GetActorRotation(), Params);
-	if (MyCarriedObject != NULL)
+	CarriedObject = GetWorld()->SpawnActor<AUTCarriedObject>(CarriedObjectClass, GetActorLocation() + FVector(0,0,96), GetActorRotation(), Params);
+	if (CarriedObject != NULL)
 	{
-		MyCarriedObject->Init(this);
+		CarriedObject->Init(this);
 	}
 	else
 	{
 		UE_LOG(UT,Warning,TEXT("%s Could not create an object of type %s"), *GetNameSafe(this), *GetNameSafe(CarriedObjectClass));
 	}
 
-	UE_LOG(UT,Log,TEXT("Base: %s   Flag: %s"), *GetActorLocation().ToString(), *MyCarriedObject->GetActorLocation().ToString());	
+	UE_LOG(UT,Log,TEXT("Base: %s   Flag: %s"), *GetActorLocation().ToString(), *CarriedObject->GetActorLocation().ToString());	
 
 }
 
-
-FName AUTGameObjective::GetObjectState()
+AUTCarriedObject* AUTGameObjective::GetCarriedObject()
 {
-	if (MyCarriedObject != NULL) return MyCarriedObject->ObjectState;
-	return NAME_None;
+	return CarriedObject;
 }
 
+
+FName AUTGameObjective::GetCarriedObjectState()
+{
+	return CarriedObjectState;
+}
+
+AUTPlayerState* AUTGameObjective::GetCarriedObjectHolder()
+{
+	return CarriedObjectHolder;
+}
 
 void AUTGameObjective::ObjectWasPickedUp(AUTCharacter* NewHolder)
 {
-	// Subclass me and place any effects code here.
+	CarriedObjectHolder = NewHolder != NULL ? Cast<AUTPlayerState>(NewHolder->PlayerState) : NULL;
 }
 
+void AUTGameObjective::ObjectWasDropped(AUTCharacter* LastHolder)
+{
+	CarriedObjectHolder = NULL;
+}
 
 void AUTGameObjective::ObjectReturnedHome(AUTCharacter* Returner)
 {
-	// Subclass me and place any effects code here
+	CarriedObjectHolder = NULL;
 }
 
+void AUTGameObjective::ObjectStateWasChanged(FName NewObjectState)
+{
+	if (Role==ROLE_Authority)
+	{
+		CarriedObjectState = NewObjectState;
+		OnObjectStateChanged();
+	}
+}
+
+void AUTGameObjective::OnObjectStateChanged()
+{
+	// Subclass me
+}

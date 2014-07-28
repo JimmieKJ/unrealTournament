@@ -94,7 +94,7 @@ AUTPlayerState* AUTCTFGameState::GetFlagHolder(uint8 TeamNum)
 {
 	if (TeamNum < FlagBases.Num() && FlagBases[TeamNum] != NULL)
 	{
-		return FlagBases[TeamNum]->GetFlagHolder();
+		return FlagBases[TeamNum]->GetCarriedObjectHolder();
 	}
 
 	return NULL;
