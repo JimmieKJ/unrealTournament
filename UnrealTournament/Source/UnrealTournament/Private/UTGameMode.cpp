@@ -60,8 +60,8 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 	P_FINISH;
 
 	// WARNING: 'this' is actually an AActor! Only do AActor things!
-	// todo - fix bWantsInitialize being gone
-	if (!IsA(AStaticMeshActor::StaticClass()) && !IsA(ALevelScriptActor::StaticClass()) && !IsA(AUTMutator::StaticClass()))
+	if (!IsA(ALevelScriptActor::StaticClass()) && !IsA(AUTMutator::StaticClass()) &&
+		(RootComponent->Mobility != EComponentMobility::Static || (!IsA(AStaticMeshActor::StaticClass()) && !IsA(ALight::StaticClass()))) )
 	{
 		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		// a few type checks being AFTER the CheckRelevance() call is intentional; want mutators to be able to modify, but not outright destroy
@@ -108,6 +108,11 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		RespawnWaitTime = 0.0f;
 	}
 
+	for (int32 i = 0; i < BuiltInMutators.Num(); i++)
+	{
+		AddMutatorClass(BuiltInMutators[i]);
+	}
+
 	InOpt = ParseOption(Options, TEXT("Mutator"));
 	if (InOpt.Len() > 0)
 	{
@@ -145,11 +150,17 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			DefaultPawnClass = CharClass;
 		}
 	}
+
+	PostInitGame(Options);
 }
 
 void AUTGameMode::AddMutator(const FString& MutatorPath)
 {
-	TSubclassOf<AUTMutator> MutClass = LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, 0, NULL);
+	AddMutatorClass(LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, 0, NULL));
+}
+
+void AUTGameMode::AddMutatorClass(TSubclassOf<AUTMutator> MutClass)
+{
 	if (MutClass != NULL && AllowMutator(MutClass))
 	{
 		AUTMutator* NewMut = GetWorld()->SpawnActor<AUTMutator>(MutClass);

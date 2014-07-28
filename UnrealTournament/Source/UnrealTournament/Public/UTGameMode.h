@@ -108,6 +108,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
 
+	/** mutators required for the game, added at startup just before command line mutators */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
+	TArray< TSubclassOf<class AUTMutator> > BuiltInMutators;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rules)
 	float SpawnProtectionTime;
 
@@ -119,8 +123,13 @@ public:
 	class AUTMutator* BaseMutator;
 
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
+	UFUNCTION(BlueprintImplementableEvent)
+	void PostInitGame(const FString& Options);
 	/** add a mutator by string path name */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutator(const FString& MutatorPath);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
+	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState();
 	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
