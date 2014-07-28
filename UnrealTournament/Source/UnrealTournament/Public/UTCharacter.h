@@ -285,6 +285,18 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
 	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
 
+	virtual void FellOutOfWorld(const UDamageType& DmgType) override
+	{
+		if (IsDead())
+		{
+			Super::FellOutOfWorld(DmgType);
+		}
+		else
+		{
+			Died(NULL, FUTPointDamageEvent(1000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), DmgType.GetClass()));
+		}
+	}
+
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();
 	virtual void TornOff() override
