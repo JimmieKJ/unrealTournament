@@ -1900,3 +1900,21 @@ bool AUTCharacter::ServerUseCarriedObject_Validate()
 {
 	return true;
 }
+
+void AUTCharacter::ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser)
+{
+	UE_LOG(UT, Warning, TEXT("Use TakeDamage() instead"));
+	checkSlow(false);
+}
+
+void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
+{
+	if (IsDead())
+	{
+		Super::FellOutOfWorld(DmgType);
+	}
+	else
+	{
+		Died(NULL, FUTPointDamageEvent(1000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), DmgType.GetClass()));
+	}
+}

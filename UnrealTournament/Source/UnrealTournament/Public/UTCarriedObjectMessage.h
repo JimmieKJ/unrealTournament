@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTLocalMessage.h"
+
 #include "UTCarriedObjectMessage.generated.h"
 
 UCLASS()

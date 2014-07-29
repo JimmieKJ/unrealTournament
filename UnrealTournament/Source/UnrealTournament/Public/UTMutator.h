@@ -4,7 +4,7 @@
 #include "UTMutator.generated.h"
 
 UCLASS(Blueprintable, Abstract, Meta = (ChildCanTick))
-class AUTMutator : public AInfo
+class UNREALTOURNAMENT_API AUTMutator : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 

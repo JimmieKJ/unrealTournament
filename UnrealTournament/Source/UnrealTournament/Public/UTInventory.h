@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTCharacter.h"
+
 #include "UTInventory.generated.h"
 
 UCLASS(Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))

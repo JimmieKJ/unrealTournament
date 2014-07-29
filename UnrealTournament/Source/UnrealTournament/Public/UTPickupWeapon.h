@@ -1,6 +1,9 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTPickupInventory.h"
+#include "UTWeapon.h"
+
 #include "UTPickupWeapon.generated.h"
 
 USTRUCT(BlueprintType)
@@ -23,7 +26,7 @@ struct FWeaponPickupCustomer
 };
 
 UCLASS(Blueprintable, CustomConstructor, HideCategories=(Inventory, Pickup))
-class AUTPickupWeapon : public AUTPickupInventory
+class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 {
 	GENERATED_UCLASS_BODY()
 

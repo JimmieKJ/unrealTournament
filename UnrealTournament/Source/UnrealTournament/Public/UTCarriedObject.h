@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "UTPlayerState.h"
+#include "UTCarriedObjectMessage.h"
+#include "UTTeamInterface.h"
+
 #include "UTCarriedObject.generated.h"
 
 UCLASS()
@@ -24,7 +28,7 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 
 	// Holds the home base for this object.
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
-	AUTGameObjective* HomeBase;
+	class AUTGameObjective* HomeBase;
 
 	// Holds the team that this object belongs to
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)

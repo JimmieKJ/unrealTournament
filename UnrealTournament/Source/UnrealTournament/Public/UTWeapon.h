@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "UTInventory.h"
+#include "UTProjectile.h"
+#include "UTATypes.h"
+
 #include "UTWeapon.generated.h"
 
 USTRUCT(BlueprintType)
@@ -24,7 +28,7 @@ struct FInstantHitDamageInfo
 };
 
 UCLASS(Blueprintable, Abstract, NotPlaceable, Config = Game)
-class AUTWeapon : public AUTInventory
+class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
 

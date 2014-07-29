@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTCharacter.h"
+
 #include "UTGameObjective.generated.h"
 
 UCLASS()
