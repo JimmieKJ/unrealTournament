@@ -29,8 +29,11 @@ void AUTDroppedPickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// don't allow Instigator to touch until a little time has passed so a live player throwing an item doesn't immediately pick it back up again
-	GetWorld()->GetTimerManager().SetTimer(this, &AUTDroppedPickup::EnableInstigatorTouch, 1.0f, false);
+	if (!bPendingKillPending)
+	{
+		// don't allow Instigator to touch until a little time has passed so a live player throwing an item doesn't immediately pick it back up again
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTDroppedPickup::EnableInstigatorTouch, 1.0f, false);
+	}
 }
 
 void AUTDroppedPickup::EnableInstigatorTouch()
