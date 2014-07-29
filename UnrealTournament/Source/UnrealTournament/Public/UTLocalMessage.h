@@ -17,6 +17,10 @@ class UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	FName StyleTag;
 
+	/** If true, this is a Game Status Announcement */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+	uint32 bIsStatusAnnouncement : 1;
+	
 	// How much weight should be given to this message.  The MessageWidget will
 	// use this number to determine how important the message is. Range is 0-1.
 	UPROPERTY(EditDefaultsOnly, Category = Message)

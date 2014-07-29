@@ -14,6 +14,7 @@ UUTVictoryMessage::UUTVictoryMessage(const class FPostConstructInitializePropert
 	Lifetime = 6.0f;
 	MessageArea = FName(TEXT("GameMessages"));
 
+	bIsStatusAnnouncement = true;
 
 	YouHaveWonText = NSLOCTEXT("UTVictoryMessage","YouHaveWonText","You Have Won The Match!");
 	YouHaveLostText = NSLOCTEXT("UTVictoryMessage","YouHaveLostText","You Have Lost The Match!");

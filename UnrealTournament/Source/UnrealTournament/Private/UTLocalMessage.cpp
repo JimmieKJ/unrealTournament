@@ -5,6 +5,7 @@
 #include "Engine/Console.h"
 #include "UTLocalMessage.h"
 #include "UTHud.h"
+#include "UTAnnouncer.h"
 
 UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -29,6 +30,17 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText( LocalMessageText.ToString() );
 		}
 	}
+
+	if (bIsStatusAnnouncement)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
+		if (PC != NULL && PC->StatusAnnouncer != NULL)
+		{
+			PC->StatusAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+		}
+	}
+
+
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 }
 

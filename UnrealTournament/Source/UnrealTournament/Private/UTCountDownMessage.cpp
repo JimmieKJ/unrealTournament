@@ -14,6 +14,8 @@ UUTCountDownMessage::UUTCountDownMessage(const class FPostConstructInitializePro
 	Lifetime = 0.95;
 	MessageArea = FName(TEXT("GameMessages"));
 
+	bIsStatusAnnouncement = true;
+
 	CountDownText = NSLOCTEXT("UTVictoryMessage","MatBeginCountdown","Match begins in {Count}...");
 }
 

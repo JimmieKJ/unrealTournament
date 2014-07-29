@@ -13,15 +13,6 @@ class UUTCountDownMessage : public UUTLocalMessage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText CountDownText;
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
-	{
-		Super::ClientReceive(ClientData);
-		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->StatusAnnouncer != NULL)
-		{
-			PC->StatusAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
-		}
-	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
 		return FName(*FString::Printf(TEXT("CD%i"), Switch));

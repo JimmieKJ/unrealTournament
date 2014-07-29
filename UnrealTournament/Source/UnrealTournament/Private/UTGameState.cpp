@@ -4,6 +4,7 @@
 #include "UTMultiKillMessage.h"
 #include "UTSpreeMessage.h"
 #include "Net/UnrealNetwork.h"
+#include "UTTimerMessage.h"
 
 AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -124,6 +125,39 @@ void AUTGameState::DefaultTimer()
 			}
 		}
 	}
+
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer && IsMatchInProgress() && !bStopGameClock)
+	{
+		int32 TimerMessageIndex = -1;
+		switch (RemainingTime)
+		{
+			case 300 : TimerMessageIndex = 13; break;		// 5 mins remain
+			case 180 : TimerMessageIndex = 12; break;		// 3 mins remain
+			case 60  : TimerMessageIndex = 11; break;		// 1 min remains
+			case 30  : TimerMessageIndex = 10; break;		// 30 seconds remain
+			default:
+				if (RemainingTime >0 && RemainingTime <= 10)
+				{
+					TimerMessageIndex = (RemainingTime -1);
+				}
+				break;
+		}
+
+		if (TimerMessageIndex >= 0)
+		{
+			TArray<APlayerController*> PlayerList;
+			GEngine->GetAllLocalPlayerControllers(PlayerList);
+			for (auto It = PlayerList.CreateIterator(); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
+				if (PC != NULL)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTTimerMessage::StaticClass(), TimerMessageIndex);			
+				}
+			}
+		}
+	}
+
 }
 
 bool AUTGameState::OnSameTeam(const AActor* Actor1, const AActor* Actor2)
@@ -176,7 +210,7 @@ void AUTGameState::SetGoalScore(uint32 NewGoalScore)
 void AUTGameState::SetWinner(AUTPlayerState* NewWinner)
 {
 	WinnerPlayerState = NewWinner;
-	WinningTeam	= NewWinner->Team;
+	WinningTeam	= NewWinner != NULL ?  NewWinner->Team : 0;
 	ForceNetUpdate();
 }
 
