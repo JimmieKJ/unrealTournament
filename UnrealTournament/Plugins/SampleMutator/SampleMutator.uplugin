@@ -9,7 +9,7 @@
 	"EngineVersion" : "4.3.0",
 	"Description" : "Sample Mutator",
 	"Category" : "UnrealTournament.Mutator",
-	"EnabledByDefault" : true,
+	"EnabledByDefault" : false,
 	
 	"Modules" :
 	[
