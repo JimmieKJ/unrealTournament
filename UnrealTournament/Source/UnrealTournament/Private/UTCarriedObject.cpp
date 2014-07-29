@@ -159,7 +159,7 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
 			SendGameMessage(0, Character->PlayerState, NULL);
-			SendHome();
+			Score(FName(""));
 		}
 		return false;
 	}
@@ -200,7 +200,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 
 	// Track the pawns that have held this.  It's to be used for scoring
-	Holders.AddUnique(Holder);
+	PreviousHolders.AddUnique(Holder);
 
 	// Remove any spawn protection the pawn might have
 	if (HoldingPawn->bSpawnProtectionEligible)
@@ -294,6 +294,9 @@ void AUTCarriedObject::MoveToHome()
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
 		ForceNetUpdate();
 	}
+
+	PreviousHolders.Empty();
+
 }
 
 void AUTCarriedObject::Score(FName Reason)
@@ -301,9 +304,9 @@ void AUTCarriedObject::Score(FName Reason)
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (Game != NULL)
 	{
-		SendGameMessage(2, Holder, NULL);
 		Game->ScoreObject(this, HoldingPawn, Holder, Reason);
 	}
+	SendHome();
 }
 
 void AUTCarriedObject::SetTeam(AUTTeamInfo* NewTeam)

@@ -31,6 +31,9 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, Kills);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
 	DOREPLIFETIME(AUTPlayerState, Team);
+	DOREPLIFETIME(AUTPlayerState, FlagCaptures);
+	DOREPLIFETIME(AUTPlayerState, FlagReturns);
+	DOREPLIFETIME(AUTPlayerState, Assists);
 }
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()

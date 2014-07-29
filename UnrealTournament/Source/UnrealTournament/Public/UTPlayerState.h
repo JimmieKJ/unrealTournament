@@ -44,6 +44,18 @@ class AUTPlayerState : public APlayerState
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnDeathsReceived, Category = PlayerState)
 	int32 Deaths;
 
+	/** How many times has the player captured the flag */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+	uint32 FlagCaptures;
+
+	/** How many times has the player returned the flag */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+	uint32 FlagReturns;
+
+	/** How many times has the player captured the flag */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+	uint32 Assists;
+
 	// How long until this player can repawn.  It's not directly replicated to the clients instead it's set
 	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
 

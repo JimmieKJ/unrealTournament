@@ -22,6 +22,11 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnHolderChanged, Category = GameObject)
 	AUTPlayerState* Holder;
 
+	// This is an internal array that holds a list of people who have held this object
+	// since it was last on a base.  It's only valid on the server.
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	TArray<AUTPlayerState*> PreviousHolders;
+
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	AUTCharacter* HoldingPawn;
@@ -156,11 +161,6 @@ protected:
 	// How long before this object is automatically returned to it's base
 	UPROPERTY(BlueprintReadWrite, Category = GameObject)
 	float AutoReturnTime;	
-
-	// This is an internal array that holds a list of people who have held this object
-	// since it was last on a base.  It's only valid on the server.
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
-	TArray<AUTPlayerState*> Holders;
 
 	// Sound to play when this object is picked up
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)

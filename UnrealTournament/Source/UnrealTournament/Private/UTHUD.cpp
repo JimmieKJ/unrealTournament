@@ -314,8 +314,8 @@ void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type Hor
 
 void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits, bool bRightAlign)
 {
-	const float FontPositions[10] = {633,297,325,365,403,441,480,519,556,594};
-	const float FontSizes[10] = {40,28,40,38,38,39,39,37,38,39};
+	const float FontPositions[11] = {633,297,325,365,403,441,480,519,556,594,673};
+	const float FontSizes[11] = {40,28,40,38,38,39,39,37,38,39,30};
 
 	// Convert the number to an ANSICHAR* so we can itterate 
 	FString NumStr = FString::Printf(TEXT("%i"), Number);
@@ -327,7 +327,7 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 	}
 
 	int Cnt = NumStr.Len();
-	if (Cnt < MinDigits)
+	if (Cnt < MinDigits && Number >= 0)
 	{
 		Cnt = MinDigits;
 	}
@@ -348,29 +348,31 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 			}
 		}
 
-	
-		if (Index >= 0 && Index <=9)
+
+
+		if (Index < 0 || Index > 9)
 		{
+			Index =  10;
+		}
 
-			if (bRightAlign)
-			{
-				X -= FontSizes[Index] * Scale;
-			}
+		if (bRightAlign)
+		{
+			X -= FontSizes[Index] * Scale;
+		}
 
-			float U = FontPositions[Index];
-			float Width = FontSizes[Index];
-			float UL = Width;
-			// Draw the background.
-			Canvas->DrawColor = Color;
-			Canvas->DrawColor.A *= GlowOpacity;
-			Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 49, UL, 47, EBlendMode::BLEND_Translucent);
-			Canvas->DrawColor = Color;
-			Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
+		float U = FontPositions[Index];
+		float Width = FontSizes[Index];
+		float UL = Width;
+		// Draw the background.
+		Canvas->DrawColor = Color;
+		Canvas->DrawColor.A *= GlowOpacity;
+		Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 49, UL, 47, EBlendMode::BLEND_Translucent);
+		Canvas->DrawColor = Color;
+		Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
 
-			if (!bRightAlign)
-			{
-				X += FontSizes[Index] * Scale;
-			}
+		if (!bRightAlign)
+		{
+			X += FontSizes[Index] * Scale;
 		}
 
 	}

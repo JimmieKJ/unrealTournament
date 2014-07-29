@@ -3,6 +3,7 @@
 #include "UTTeamGameMode.h"
 #include "UTHUD_CTF.h"
 #include "UTCTFGameMode.h"
+#include "UTFirstBloodMessage.h"
 
 AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -50,8 +51,96 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 {
 	if (Holder != NULL && Holder->Team != NULL)
 	{
-		Holder->Team->Score++;
-		// Send score message and play sound.....
+		float DistanceFromHome = (GameObject->GetActorLocation() - CTFGameState->FlagBases[GameObject->GetTeamNum()]->GetActorLocation()).SizeSquared();
+		float DistanceFromScore = (GameObject->GetActorLocation() - CTFGameState->FlagBases[1 - GameObject->GetTeamNum()]->GetActorLocation()).SizeSquared();
+
+		UE_LOG(UT,Log,TEXT("========================================="));
+		UE_LOG(UT,Log,TEXT("Flag Score by %s - Reason: %s"), *Holder->PlayerName, *Reason.ToString());
+
+		if ( Reason == FName("SentHome") )
+		{
+			for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+			{
+				AController* C = *Iterator;
+				AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+				if (PS != NULL && PS->GetTeamNum() == Holder->GetTeamNum())
+				{
+					if ( C->GetPawn() != NULL && (GameObject->GetActorLocation() - C->GetPawn()->GetActorLocation()).SizeSquared() <= FlagCombatBonusDistance)
+					{
+						if (PS == Holder)
+						{
+							uint32 Points = FlagReturnPoints;
+							if (DistanceFromHome > DistanceFromScore)																																							
+							{
+								Points += FlagReturnEnemyZoneBonus;								
+							}
+
+							if (DistanceFromScore <= FlagDenialDistance)
+							{
+								Points += FlagReturnDenialBonus;
+							}
+							UE_LOG(UT,Log,TEXT("    Player %s received %i"), *PS->PlayerName, Points);
+							PS->FlagReturns++;
+							PS->AdjustScore(Points);
+						}
+						else
+						{
+							UE_LOG(UT,Log,TEXT("    Player %s received %i"), *PS->PlayerName, ProximityReturnBonus);
+							PS->AdjustScore(ProximityReturnBonus);
+						}
+					}
+				}
+			}
+		}
+
+		else if (Reason == FName("FlagCapture"))
+		{
+			// Give the team a capture.
+			Holder->Team->Score++;
+			Holder->FlagCaptures++;
+
+			// We have to count up since it's possible a player left the game...
+			int AssistCount = 0;
+			for (int i=0;i<GameObject->PreviousHolders.Num();i++)
+			{
+				if (GameObject->PreviousHolders[i] != NULL) AssistCount++;
+			}
+
+			uint32 ScorePerPlayer = FMath::Max<uint32>(1, FlagTotalScorePool / AssistCount);
+
+			// NOTE: It's possible that the first player to pickup this flag might have left so first might be NULL.  Not
+			// sure if we should then assign the points to the next in line so I'm ditching the points for now.
+			for (int i=0;i<GameObject->PreviousHolders.Num();i++)
+			{
+				if (GameObject->PreviousHolders[i] != NULL)
+				{
+					int Points = ScorePerPlayer + (i == 0 ? FlagFirstPickupPoints : 0);
+					UE_LOG(UT,Log,TEXT("    Assist Points for %s = %i"), *GameObject->PreviousHolders[i]->PlayerName, Points)
+					GameObject->PreviousHolders[i]->AdjustScore(Points);
+					if (GameObject->PreviousHolders[i] != Holder)
+					{
+						GameObject->PreviousHolders[i]->Assists++;
+					}
+				}
+			}
+
+			// Give out bonus points to all teammates near the flag.
+			for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+			{
+				AController* C = *Iterator;
+				AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+				if (PS != NULL && PS->GetTeamNum() == Holder->GetTeamNum())
+				{
+					if (C->GetPawn()!= NULL && PS != Holder && (GameObject->GetActorLocation() - C->GetPawn()->GetActorLocation()).SizeSquared() <= FlagCombatBonusDistance) 
+					{
+						UE_LOG(UT,Log, TEXT("    Prox Bonus for %s = %i"), *PS->PlayerName, ProximityCapBonus);
+						PS->AdjustScore(ProximityCapBonus);
+					}
+				}
+			}
+		}
+
+		UE_LOG(UT,Log,TEXT("========================================="));
 
 		if (CTFGameState->IsMatchInOvertime())
 		{
@@ -86,11 +175,6 @@ void AUTCTFGameMode::CheckGameTime()
 	}
 	else if (CTFGameState->IsMatchInProgress())
 	{
-/*
-		UE_LOG(UT,Log,TEXT("================"));
-		UE_LOG(UT,Log,TEXT("CheckGameTime: %i %i"), CTFGameState->TimeLimit, CTFGameState->RemainingTime);
-		UE_LOG(UT,Log,TEXT("================"));
-*/
 		if (!CTFGameState->bHalftime)
 		{
 			if (CTFGameState->RemainingTime <= 0)
@@ -234,3 +318,77 @@ void AUTCTFGameMode::RestartPlayer(AController* aPlayer)
 	if (CTFGameState != NULL && CTFGameState->bHalftime) return;
 	Super::RestartPlayer(aPlayer);
 }
+
+bool AUTCTFGameMode::IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum)
+{
+	if (CTFGameState == NULL || CTFGameState->FlagBases.Num() < 2)
+	{
+		AUTCTFFlag* Flags[2];
+		Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
+		Flags[1] = CTFGameState->FlagBases[1]->MyFlag;
+
+		BOOL bCloseToRed = Flags[0]->ObjectState == CarriedObjectState::Held && (Flags[0]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
+		BOOL bCloseToBlue = Flags[1]->ObjectState == CarriedObjectState::Held && (Flags[1]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
+
+		if ( (TeamNum == 0 && bCloseToRed) || (TeamNum == 1 && bCloseToBlue) ||
+				(TeamNum == 255 && (bCloseToRed || bCloseToBlue)) )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker)
+{
+	Super::ScoreDamage(DamageAmount, Victim, Attacker);
+	if (Attacker == NULL) return;
+	AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Attacker->PlayerState);
+
+	if (AttackerPS != NULL)
+	{
+		int AdjustedDamageAmount = FMath::Clamp<int>(DamageAmount,0,100);
+		if (Attacker->GetPawn() != NULL && IsCloseToFlagCarrier(Attacker->GetPawn(), FlagCombatBonusDistance, 255))
+		{
+			AdjustedDamageAmount *= FlagCarrierCombatMultiplier;
+		}
+	}
+
+}
+
+void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other)
+{
+	if( (Killer == Other) || (Killer == NULL) )
+	{
+		// If it's a suicide, subtract a kill from the player...
+
+		if (Other != NULL && Other->PlayerState != NULL && Cast<AUTPlayerState>(Other->PlayerState) != NULL)
+		{
+			Cast<AUTPlayerState>(Other->PlayerState)->AdjustScore(-1000);
+		}
+	}
+	else
+	{
+		AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+		if (AttackerPS != NULL)
+		{
+			uint32 Points = BaseKillScore;
+			if (Killer->GetPawn() != NULL &&IsCloseToFlagCarrier(Killer->GetPawn(), FlagCombatBonusDistance, 255))
+			{
+				Points += CombatBonusKillBonus;
+			}
+
+			AttackerPS->AdjustScore(Points);
+
+			if (!bFirstBloodOccurred)
+			{
+				BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, AttackerPS, NULL, NULL);
+				bFirstBloodOccurred = true;
+			}
+		}
+	
+	}
+}
+

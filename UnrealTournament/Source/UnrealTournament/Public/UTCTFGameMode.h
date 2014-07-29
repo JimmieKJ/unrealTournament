@@ -43,8 +43,68 @@ class AUTCTFGameMode : public AUTTeamGameMode
 
 protected:
 
+	// CTF Scoring.. made config for now so we can easily tweak it all.  Won't be config in the final.
+
+	// FLAG Capture points
+
+	// Each player who carried the flag get's a % of this pool and is guarenteed at least 1 point
+	UPROPERTY(Config)
+	uint32 FlagTotalScorePool;			
+
+	// The player who initially picked up the flag will give thee points
+	UPROPERTY(Config)
+	uint32 FlagFirstPickupPoints;
+
+	// The player who caps the flag will get these points
+	UPROPERTY(Config)
+	uint32 FlagCapPoints;
+
+	// # of points the player receives for returning the flag
+	uint32 FlagReturnPoints;
+	// # of points the player receives if they return the flag in the enemy score zone
+	uint32 FlagReturnEnemyZoneBonus;
+
+	// # of points hte player receives if they deny a score
+	uint32 FlagReturnDenialBonus;
+
+	// Players who are near the flag get bonuses when they kill
+	UPROPERTY(Config)
+	uint32 BaseKillScore;
+
+	// Flag combat
+
+	// How close to the flag carrier do you have to be to get Flag combat bonus points
+	UPROPERTY(Config)
+	float FlagCombatBonusDistance;
+
+	// How close to the opposing home base does a flag have to be for a denial
+	UPROPERTY(Config)
+	float FlagDenialDistance;
+
+	// Players who are near the flag when it's captured get this bonus
+	UPROPERTY(Config)
+	uint32 ProximityCapBonus;
+
+	// Players near the flag when it's returned get this bonus
+	UPROPERTY(Config)
+	uint32 ProximityReturnBonus;
+
+	// Players who are near the flag get bonuses when they kill
+	UPROPERTY(Config)
+	uint32 CombatBonusKillBonus;
+
+	// Damage points are muiltipled by this when combat is near the flag.
+	UPROPERTY(config)
+	float FlagCarrierCombatMultiplier;
+
+
 	UFUNCTION()
 	virtual void HalftimeIsOver();
+
+	virtual void ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker);
+	virtual void ScoreKill(AController* Killer, AController* Other);
+
+	virtual bool IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum=255);
 
 };
 

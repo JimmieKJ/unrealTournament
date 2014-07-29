@@ -14,7 +14,6 @@ class AUTCTFFlag : public AUTCarriedObject
 	TSubobjectPtr<USkeletalMeshComponent> Mesh;
 
 	virtual bool CanBePickedUpBy(AUTCharacter* Character);
-	virtual void Score(FName Reason);
 	virtual void Destroyed() override;
 
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
