@@ -55,7 +55,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 							bShouldReplicate = PC != TopOwner;
 							break;
 						case SRT_IfSourceNotReplicated:
-							bShouldReplicate = TheWorld->GetNetDriver()->ClientConnections[i]->ActorChannels.Find(SourceActor) == NULL;
+							bShouldReplicate = SourceActor == NULL || TheWorld->GetNetDriver()->ClientConnections[i]->ActorChannels.Find(SourceActor) == NULL;
 							break;
 						case SRT_None:
 							bShouldReplicate = false;
