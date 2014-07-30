@@ -31,7 +31,7 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 			{
 				if (bCheckInView)
 				{
-					if (SpawnedBy != NULL && GetWorld()->TimeSeconds - SpawnedBy->GetLastRenderTime() > 1.0f)
+					if (SpawnedBy != NULL && World->TimeSeconds - SpawnedBy->GetLastRenderTime() > 1.0f)
 					{
 						bSpawn = false;
 					}
