@@ -114,7 +114,7 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	 *  Call this to tell the object to score.  
 	 **/
 	UFUNCTION()
-	virtual void Score(FName Reason);
+	virtual void Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void TryPickup(AUTCharacter* Character);

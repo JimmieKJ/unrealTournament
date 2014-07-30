@@ -32,7 +32,6 @@ void AUTCTFFlag::OnConstruction(const FTransform& Transform)
 }
 
 
-
 bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 {
 	if (Character != NULL)
@@ -43,7 +42,7 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 			if (CarriedFlag->GetTeamNum() != GetTeamNum())
 			{
 				SendGameMessage(2, Holder, NULL);
-				CarriedFlag->Score(FName(TEXT("FlagCapture")));		
+				CarriedFlag->Score( FName(TEXT("FlagCapture")), HoldingPawn, Holder);		
 				return false;
 			}
 		}
@@ -55,6 +54,14 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 void AUTCTFFlag::Destroyed()
 {
 	Super::Destroyed();
+}
+
+void AUTCTFFlag::OnHolderChanged()
+{
+	Super::OnHolderChanged();
+
+	APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	Mesh->SetHiddenInGame(PC != NULL && Holder != NULL && PC->PlayerState == Holder);
 }
 
 void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)

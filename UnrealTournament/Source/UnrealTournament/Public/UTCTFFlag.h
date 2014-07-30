@@ -18,6 +18,7 @@ class AUTCTFFlag : public AUTCarriedObject
 
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
 	virtual void OnObjectStateChanged();
+	virtual void OnHolderChanged();
 
 	virtual void AutoReturn();
 

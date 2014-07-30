@@ -60,11 +60,14 @@ protected:
 	uint32 FlagCapPoints;
 
 	// # of points the player receives for returning the flag
+	UPROPERTY(Config)
 	uint32 FlagReturnPoints;
 	// # of points the player receives if they return the flag in the enemy score zone
+	UPROPERTY(Config)
 	uint32 FlagReturnEnemyZoneBonus;
 
 	// # of points hte player receives if they deny a score
+	UPROPERTY(Config)
 	uint32 FlagReturnDenialBonus;
 
 	// Players who are near the flag get bonuses when they kill

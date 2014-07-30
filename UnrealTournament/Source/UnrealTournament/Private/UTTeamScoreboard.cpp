@@ -30,7 +30,6 @@ void UUTTeamScoreboard::DrawScoreboard(float RenderDelta)
 	CellHeight *= CellScale;
 	ResScale = Canvas->ClipY / 720.0;
 
-
 	DrawPlayers(RenderDelta, 0, Canvas->ClipY * 0.15, Canvas->ClipX * 0.5, Canvas->ClipY * 0.8,0);
 	DrawPlayers(RenderDelta, Canvas->ClipX * 0.5, Canvas->ClipY * 0.15, Canvas->ClipX * 0.5, Canvas->ClipY * 0.8,1);
 

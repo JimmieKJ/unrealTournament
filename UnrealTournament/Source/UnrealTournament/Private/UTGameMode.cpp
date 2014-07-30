@@ -363,8 +363,8 @@ void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* 
 
 void AUTGameMode::ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker)
 {
-}
 
+}
 void AUTGameMode::ScoreKill(AController* Killer, AController* Other)
 {
 	if( (Killer == Other) || (Killer == NULL) )

@@ -159,7 +159,7 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
 			SendGameMessage(0, Character->PlayerState, NULL);
-			Score(FName(""));
+			Score(FName("SentHome"), Character, Cast<AUTPlayerState>(Character->PlayerState));
 		}
 		return false;
 	}
@@ -299,12 +299,12 @@ void AUTCarriedObject::MoveToHome()
 
 }
 
-void AUTCarriedObject::Score(FName Reason)
+void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (Game != NULL)
 	{
-		Game->ScoreObject(this, HoldingPawn, Holder, Reason);
+		Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
 	}
 	SendHome();
 }

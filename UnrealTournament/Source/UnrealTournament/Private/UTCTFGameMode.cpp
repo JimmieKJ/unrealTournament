@@ -345,15 +345,24 @@ void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AControl
 {
 	Super::ScoreDamage(DamageAmount, Victim, Attacker);
 	if (Attacker == NULL) return;
+	
 	AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Attacker->PlayerState);
 
 	if (AttackerPS != NULL)
 	{
 		int AdjustedDamageAmount = FMath::Clamp<int>(DamageAmount,0,100);
-		if (Attacker->GetPawn() != NULL && IsCloseToFlagCarrier(Attacker->GetPawn(), FlagCombatBonusDistance, 255))
+		if (Attacker != Victim)
 		{
-			AdjustedDamageAmount *= FlagCarrierCombatMultiplier;
+			if (Attacker->GetPawn() != NULL && IsCloseToFlagCarrier(Attacker->GetPawn(), FlagCombatBonusDistance, 255))
+			{
+				AdjustedDamageAmount *= FlagCarrierCombatMultiplier;
+			}
 		}
+		else 
+		{
+			AdjustedDamageAmount *= 0.25;
+		}
+		AttackerPS->AdjustScore(AdjustedDamageAmount);
 	}
 
 }
