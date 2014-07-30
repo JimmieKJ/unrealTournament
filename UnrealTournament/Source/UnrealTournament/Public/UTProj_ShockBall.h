@@ -22,13 +22,9 @@ class AUTProj_ShockBall : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)
 	int32 ComboAmmoCost;
 
-	/** Sounds */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	USoundBase* ComboExplosionSound;
-
 	/** Effects */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
-	UParticleSystem* ComboExplosionEffect;
+	TSubclassOf<AUTImpactEffect> ComboExplosionEffects;
 
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_ComboExplosion)
 	bool bComboExplosion;
@@ -42,6 +38,5 @@ class AUTProj_ShockBall : public AUTProjectile
 	/** Overridden to do the combo */
 	virtual void ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser) override;
 
-	/** Overridden to play explosion sound */
-	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal);
+	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL);
 };

@@ -29,9 +29,14 @@ protected:
 	TSharedPtr<STextBlock> SelectedEffectQuality;
 	TSharedPtr<SSlider> FOV;
 	TSharedPtr<STextBlock> FOVLabel;
+	TSharedPtr<SSlider> DecalLifetime;
 
 	/** range of values passed to PlayerInput->SetMouseSensitivity() which will be normalized to 0.0 - 1.0 for the slider widget */
 	FVector2D MouseSensitivityRange;
+	/** range of values for decal lifetime which will be normalized to 0.0 - 1.0 for the slider widget
+	 * note that the max value (1.0 on the slider) becomes infinite lifetime
+	 */
+	FVector2D DecalLifetimeRange;
 
 	FReply OKClick();
 	FReply CancelClick();

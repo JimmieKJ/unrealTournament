@@ -4,6 +4,7 @@
 #include "UTProj_BioShot.h"
 #include "UTProj_BioGlob.h"
 #include "UnrealNetwork.h"
+#include "UTImpactEffect.h"
 
 static const float GOO_TIMER_TICK = 0.5f;
 
@@ -72,7 +73,7 @@ void AUTProj_BioShot::GrowCollision()
 	CollisionComp->SetSphereRadius(FloorCollisionRadius, false);
 }
 
-void AUTProj_BioShot::Landed()
+void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 {
 	if (!bLanded)
 	{
@@ -121,10 +122,9 @@ void AUTProj_BioShot::Landed()
 		//Spawn Effects
 		OnLanded();
 
-		UUTGameplayStatics::UTPlaySound(GetWorld(), LandedSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-		if (GetNetMode() != NM_DedicatedServer)
+		if (LandedEffects != NULL)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandedEffect, GetActorLocation(), SurfaceNormal.Rotation(), true);
+			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(SurfaceNormal.Rotation(), GetActorLocation()), HitComp, this, InstigatorController);
 		}
 	}
 }
@@ -159,7 +159,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 			GetWorld()->LineTraceSingle(Hit, GetActorLocation(), GetActorLocation() + (-SurfaceNormal * 1000.0f), COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove));
 			SetActorLocation(Hit.ImpactPoint);
 
-			Landed();
+			Landed(OtherComp);
 		}
 	}
 }

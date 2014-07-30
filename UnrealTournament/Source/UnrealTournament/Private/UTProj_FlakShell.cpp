@@ -29,11 +29,11 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FPostConstructInitializePropert
 	ShardSpawnAngle = 85.0f;
 }
 
-void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal)
+void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
 	if (!bExploded)
 	{
-		Super::Explode_Implementation(HitLocation, HitNormal);
+		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
 
 		// On explosion spawn additional flak shards
 		if (Role == ROLE_Authority && ShardClass != NULL && ShardSpawnCount > 0)

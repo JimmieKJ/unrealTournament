@@ -38,19 +38,18 @@ void AUTProj_ShockBall::OnRep_ComboExplosion()
 {
 	//Swap combo damage and effects
 	DamageParams = ComboDamageParams;
-	ExplosionEffect = ComboExplosionEffect;
-	ExplosionSound = ComboExplosionSound;
+	ExplosionEffects = ComboExplosionEffects;
 	MyDamageType = ComboDamageType;
 	Momentum = ComboMomentum;
 }
 
 void AUTProj_ShockBall::OnComboExplode_Implementation(){}
 
-void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal)
+void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
 	if (!bExploded)
 	{
-		Super::Explode_Implementation(HitLocation, HitNormal);
+		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
 
 		if (bComboExplosion)
 		{

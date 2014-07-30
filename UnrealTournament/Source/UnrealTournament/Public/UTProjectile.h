@@ -44,11 +44,14 @@ class AUTProjectile : public AActor
 	UPROPERTY()
 	AActor* ImpactedActor;
 
-	// TODO: we should encapsulate all explosion aspects in a single struct
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	/** DEPRECATED */
+	UPROPERTY(VisibleAnywhere, Category = Effects)
 	UParticleSystem* ExplosionEffect;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	/** DEPRECATED */
+	UPROPERTY(VisibleAnywhere, Category = Effects)
 	USoundBase* ExplosionSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
 
 	/** Bounce effect */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
@@ -110,7 +113,7 @@ class AUTProjectile : public AActor
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
-	void Explode(const FVector& HitLocation, const FVector& HitNormal);
+	void Explode(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL);
 
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level

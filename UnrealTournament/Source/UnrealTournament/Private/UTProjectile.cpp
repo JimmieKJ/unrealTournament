@@ -6,6 +6,7 @@
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "UTImpactEffect.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
@@ -239,7 +240,7 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 		}
 
 		ImpactedActor = OtherActor;
-		Explode(HitLocation, HitNormal);
+		Explode(HitLocation, HitNormal, OtherComp);
 		ImpactedActor = NULL;
 
 		if (Cast<AUTProjectile>(OtherActor) != NULL)
@@ -311,7 +312,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 	}
 }
 
-void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal)
+void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
 	if (!bExploded)
 	{
@@ -333,10 +334,18 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			bTearOff = true;
 			bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
 		}
-		UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-		if (GetNetMode() != NM_DedicatedServer)
+		if (ExplosionEffects != NULL)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
+			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
+		}
+		// TODO: remove when no longer used
+		else
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
+			if (GetNetMode() != NM_DedicatedServer)
+			{
+				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
+			}
 		}
 		ShutDown();
 	}

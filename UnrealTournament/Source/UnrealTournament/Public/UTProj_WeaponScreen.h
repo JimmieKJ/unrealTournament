@@ -18,7 +18,7 @@ class AUTProj_WeaponScreen : public AUTProjectile
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) override;
 	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
-	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal) override
+	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL) override
 	{
 		// don't explode on general impacts
 	}

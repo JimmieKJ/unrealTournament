@@ -21,13 +21,9 @@ class AUTProj_BioShot : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
-	/**The sound played when the glob lands*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-	USoundBase* LandedSound;
-
-	/**The effect played when the glob lands*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-	UParticleSystem* LandedEffect;
+	/** played on landing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	TSubclassOf<AUTImpactEffect> LandedEffects;
 
 	/**The size of the glob collision when we land*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
@@ -61,7 +57,7 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float SurfaceWallThreshold;
 
-	virtual void Landed();
+	virtual void Landed(UPrimitiveComponent* HitComp);
 
 	/** hook to spawn effects when the glob lands*/
 	UFUNCTION(BlueprintNativeEvent, Category = Bio)

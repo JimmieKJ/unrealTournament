@@ -60,11 +60,11 @@ void AUTProj_BioGlob::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	}
 }
 
-void AUTProj_BioGlob::Landed()
+void AUTProj_BioGlob::Landed(UPrimitiveComponent* HitComp)
 {
 	if (!bLanded)
 	{
-		Super::Landed();
+		Super::Landed(HitComp);
 		SplashGloblings();
 	}
 }

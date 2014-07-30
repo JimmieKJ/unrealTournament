@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTProj_WeaponScreen.h"
+#include "UTImpactEffect.h"
 
 AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -67,10 +68,9 @@ void AUTProj_WeaponScreen::OnStop(const FHitResult& Hit)
 		bTearOff = true;
 		bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
 	}
-	UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-	if (GetNetMode() != NM_DedicatedServer)
+	if (ExplosionEffects != NULL)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), Hit.Normal.Rotation(), true);
+		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(Hit.Normal.Rotation(), Hit.Location), Hit.Component.Get(), this, InstigatorController);
 	}
 	ShutDown();
 }

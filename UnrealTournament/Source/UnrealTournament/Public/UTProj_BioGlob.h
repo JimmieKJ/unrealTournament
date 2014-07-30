@@ -75,7 +75,7 @@ class AUTProj_BioGlob: public AUTProj_BioShot
 	virtual void SplashGloblings();
 
 	/**Overridden to SplashGloblings*/
-	virtual void Landed();
+	virtual void Landed(UPrimitiveComponent* HitComp);
 
 	/**Grows the collision based on GlobStrength*/
 	virtual void GrowCollision();

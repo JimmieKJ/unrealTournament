@@ -6,6 +6,7 @@
 #include "SUWindowsStyle.h"
 #include "UTPlayerInput.h"
 #include "Scalability.h"
+#include "UTWorldSettings.h"
 
 SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue)
 {
@@ -92,6 +93,7 @@ FString SUWSystemSettingsDialog::GetFOVLabelText(int32 FOVAngle)
 void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
 	MouseSensitivityRange = FVector2D(0.01f, 0.15f);
+	DecalLifetimeRange = FVector2D(5.0f, 180.0f);
 
 	SUWDialog::Construct(SUWDialog::FArguments().PlayerOwner(InArgs._PlayerOwner));
 
@@ -286,6 +288,43 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), SoundVolumes[EUTSoundClass::SFX], UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
 				+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), SoundVolumes[EUTSoundClass::Voice], UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
 				+ SVerticalBox::Slot()
+				.Padding(0.0f, 10.0f, 0.0f, 10.0f)
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
+					[
+						SNew(SBox)
+						.HAlign(HAlign_Center)
+						.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
+						.Content()
+						[
+							SNew(STextBlock)
+							.ColorAndOpacity(FLinearColor::Black)
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetimeVis", "Decal Lifetime").ToString())
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
+						.Content()
+						[
+							SAssignNew(DecalLifetime, SSlider)
+							.Orientation(Orient_Horizontal)
+							.Value((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X)))
+						]
+					]
+				]
+				+ SVerticalBox::Slot()
 				.AutoHeight()
 				.VAlign(VAlign_Bottom)
 				.HAlign(HAlign_Right)
@@ -365,6 +404,22 @@ FReply SUWSystemSettingsDialog::OKClick()
 	{
 		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->ConfigDefaultFOV = NewFOV;
 		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
+	}
+
+	// impact effect lifetime - note that 1.0 on the slider is infinite lifetime
+	float NewDecalLifetime = (DecalLifetime->GetValue() >= 1.0f) ? -1.0f : (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	AUTWorldSettings* DefaultWS = AUTWorldSettings::StaticClass()->GetDefaultObject<AUTWorldSettings>();
+	DefaultWS->MaxImpactEffectVisibleLifetime = NewDecalLifetime;
+	DefaultWS->MaxImpactEffectInvisibleLifetime = NewDecalLifetime * 2.0f;
+	DefaultWS->SaveConfig();
+	if (GetPlayerOwner()->PlayerController != NULL)
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetPlayerOwner()->PlayerController->GetWorld()->GetWorldSettings());
+		if (WS != NULL)
+		{
+			WS->MaxImpactEffectVisibleLifetime = DefaultWS->MaxImpactEffectVisibleLifetime;
+			WS->MaxImpactEffectInvisibleLifetime = DefaultWS->MaxImpactEffectInvisibleLifetime;
+		}
 	}
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));

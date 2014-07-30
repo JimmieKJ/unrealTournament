@@ -43,6 +43,9 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
+	/** optional effect for instant hit endpoint */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	TArray< TSubclassOf<class AUTImpactEffect> > ImpactEffect;
 
 	virtual void BeginPlay() override;
 	virtual void RegisterAllComponents() override;

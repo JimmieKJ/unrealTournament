@@ -66,7 +66,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 protected:
 	/** class of firing state to use (workaround for editor limitations - editinlinenew doesn't work) */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-		TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
+	TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
 public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PreSave() override
@@ -114,6 +114,9 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
+	/** optional effect for instant hit endpoint */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	TArray< TSubclassOf<class AUTImpactEffect> > ImpactEffect;
 
 	/** first person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
@@ -286,6 +289,9 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayImpactEffects(const FVector& TargetLoc);
+
+	/** shared code between UTWeapon and UTWeaponAttachment to refine replicated FlashLocation into impact effect transform via trace */
+	static FHitResult GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc, const FVector& TargetLoc);
 
 	/** return start point for weapons fire */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
