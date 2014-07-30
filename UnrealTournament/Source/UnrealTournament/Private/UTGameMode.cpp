@@ -1141,6 +1141,18 @@ AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
 	return BestPlayer;
 }
 
+void AUTGameMode::OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState)
+{
+	Super::OverridePlayerState(PC, OldPlayerState);
+
+	// if we're in this function GameMode swapped PlayerState objects so we need to update the precasted copy
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+	if (UTPC != NULL)
+	{
+		UTPC->UTPlayerState = Cast<AUTPlayerState>(UTPC->PlayerState);
+	}
+}
+
 void AUTGameMode::GenericPlayerInitialization(AController* C)
 {
 	Super::GenericPlayerInitialization(C);

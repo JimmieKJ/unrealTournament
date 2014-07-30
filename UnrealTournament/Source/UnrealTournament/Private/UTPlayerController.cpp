@@ -789,14 +789,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 
 bool AUTPlayerController::CanRestartPlayer()
 {
-	// NOTE: We have a strange crash that shouldn't be possible.  This code should hopefully get some additional info.
-	// The game will still crash.
-	if (UTPlayerState == NULL)
-	{
-		UE_LOG(UT,Fatal,TEXT("%s.CanRestartPlayer() called without a UTPlayerState. Pending Kill = %i Owner = %s Uncached Player State = %s"), *GetNameSafe(this), bPendingKillPending, *GetNameSafe(GetOwner()), *GetNameSafe(PlayerState));
-	}
-
-	return  Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
+	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
 }
 
 

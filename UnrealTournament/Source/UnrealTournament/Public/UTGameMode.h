@@ -152,6 +152,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void DiscardInventory(APawn* Other, AController* Killer = NULL);
 
+	virtual void OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState) override;
 	virtual void GenericPlayerInitialization(AController* C) override;
 	virtual void Logout(AController* Exiting) override;
 	virtual void RestartPlayer(AController* aPlayer);
