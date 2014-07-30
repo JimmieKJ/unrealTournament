@@ -156,6 +156,18 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 void AUTGameMode::AddMutator(const FString& MutatorPath)
 {
+	int32 PeriodIndex = INDEX_NONE;
+	if (MutatorPath.Right(2) != FString(TEXT("_C")) && MutatorPath.FindChar(TCHAR('.'), PeriodIndex))
+	{
+		FName MutatorModuleName = FName(*MutatorPath.Left(PeriodIndex));
+		if (!FModuleManager::Get().IsModuleLoaded(MutatorModuleName))
+		{
+			if (!FModuleManager::Get().LoadModule(MutatorModuleName).IsValid())
+			{
+				UE_LOG(UT, Warning, TEXT("Failed to load module for mutator %s"), *MutatorModuleName.ToString());
+			}
+		}
+	}
 	AddMutatorClass(LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, 0, NULL));
 }
 
