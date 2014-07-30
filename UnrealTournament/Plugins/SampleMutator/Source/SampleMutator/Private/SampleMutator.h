@@ -12,5 +12,5 @@ class ASampleMutator : public AUTMutator
 {
 	GENERATED_UCLASS_BODY()
 
-	bool CheckRelevance_Implementation(AActor* Other) OVERRIDE;
+	bool CheckRelevance_Implementation(AActor* Other) override;
 };
