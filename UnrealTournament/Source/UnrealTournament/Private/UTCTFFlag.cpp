@@ -42,7 +42,7 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 			if (CarriedFlag->GetTeamNum() != GetTeamNum())
 			{
 				SendGameMessage(2, Holder, NULL);
-				CarriedFlag->Score( FName(TEXT("FlagCapture")), HoldingPawn, Holder);		
+				CarriedFlag->Score( FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);		
 				return false;
 			}
 		}

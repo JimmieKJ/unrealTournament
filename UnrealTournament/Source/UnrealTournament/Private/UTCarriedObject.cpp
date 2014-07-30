@@ -301,9 +301,11 @@ void AUTCarriedObject::MoveToHome()
 
 void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
+	UE_LOG(UT,Log,TEXT("FUCK: %s %s %s"), *Reason.ToString(), *GetNameSafe(ScoringPawn), *GetNameSafe(ScoringPS));
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (Game != NULL)
 	{
+
 		Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
 	}
 	SendHome();
