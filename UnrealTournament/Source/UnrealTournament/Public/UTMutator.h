@@ -44,6 +44,16 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ModifyLogin(FString& Portal, FString& Options);
 
+	/** called when a player joins the game initially or is rebuilt due to seamless travel, after the Controller is created and fully initialized with its local viewport or remote connection (so RPCs are OK here)
+	 * this function is also called for bots
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void PostPlayerInit(AController* C);
+
+	/** called when a player (human or bot) exits the game */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void NotifyLogout(AController* C);
+
 	/** if any mutator returns true for AlwaysKeep() then an Actor won't be destroyed by CheckRelevance() returning false
 	* when returning true, set bPreventModify to true as well to prevent CheckRelevance() from even being called;
 	* otherwise it is called but return value ignored so other mutators can modify even if they can't delete
@@ -64,4 +74,15 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	/** called when a player pawn is spawned and to reset its parameters (like movement speed and such)*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ModifyPlayer(APawn* Other);
+
+	/** allows mutators to modify/react to damage */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser);
+
+	/** allows preserving Actors during travel
+	 * this function does not need to invoke NextMutator; the GameMode guarantees everyone gets a shot
+	 */
+	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList)
+	{
+	}
 };

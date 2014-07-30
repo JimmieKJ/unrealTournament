@@ -347,7 +347,12 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 			if (Game != NULL)
 			{
-				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, DamageEvent, DamageCauser);
+				// we need to pull the hit info out of FDamageEvent because ModifyDamage() goes through blueprints and that doesn't correctly handle polymorphic structs
+				FHitResult HitInfo;
+				FVector UnusedDir;
+				DamageEvent.GetBestHitInfo(this, DamageCauser, HitInfo, UnusedDir);
+
+				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser);
 			}
 			ModifyDamageTaken(ResultDamage, ResultMomentum, DamageEvent, EventInstigator, DamageCauser);
 

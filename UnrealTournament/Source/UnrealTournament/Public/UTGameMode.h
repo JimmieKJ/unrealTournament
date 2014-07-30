@@ -152,6 +152,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void DiscardInventory(APawn* Other, AController* Killer = NULL);
 
+	virtual void GenericPlayerInitialization(AController* C) override;
+	virtual void Logout(AController* Exiting) override;
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
@@ -187,7 +189,7 @@ public:
 	virtual bool PlayerCanRestart( APlayerController* Player );
 
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FDamageEvent& DamageEvent, AActor* DamageCauser);
+	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser);
 
 	/** used to modify, remove, and replace Actors. Return false to destroy the passed in Actor. Default implementation queries mutators.
 	 * note that certain critical Actors such as PlayerControllers can't be destroyed, but we'll still call this code path to allow mutators
@@ -212,6 +214,8 @@ public:
 	virtual TSubclassOf<class AGameSession> GetGameSessionClass() const;
 	
 	virtual void PreInitializeComponents() override;
+
+	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 
 protected:
 	/** checks whether the mutator is allowed in this gametype and doesn't conflict with any existing mutators */

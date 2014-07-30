@@ -1141,6 +1141,25 @@ AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
 	return BestPlayer;
 }
 
+void AUTGameMode::GenericPlayerInitialization(AController* C)
+{
+	Super::GenericPlayerInitialization(C);
+
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->PostPlayerInit(C);
+	}
+}
+
+void AUTGameMode::Logout(AController* Exiting)
+{
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->NotifyLogout(Exiting);
+	}
+	Super::Logout(Exiting);
+}
+
 bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 {
 	// Can't restart in overtime
@@ -1152,7 +1171,7 @@ bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 	return Super::PlayerCanRestart(Player);
 }
 
-void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FDamageEvent& DamageEvent, AActor* DamageCauser)
+void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser)
 {
 	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
 	if (InjuredChar != NULL && InjuredChar->bSpawnProtectionEligible && GetWorld()->TimeSeconds - Injured->CreationTime < SpawnProtectionTime)
@@ -1203,4 +1222,14 @@ TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 void AUTGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	UE_LOG(UT,Log,TEXT("ScoreObject %s by %s (%s) %s"), *GetNameSafe(GameObject), *GetNameSafe(HolderPawn), *GetNameSafe(Holder), *Reason.ToString());
+}
+
+void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList)
+{
+	Super::GetSeamlessTravelActorList(bToEntry, ActorList);
+
+	for (AUTMutator* Mut = BaseMutator; Mut != NULL; Mut = Mut->NextMutator)
+	{
+		Mut->GetSeamlessTravelActorList(bToEntry, ActorList);
+	}
 }

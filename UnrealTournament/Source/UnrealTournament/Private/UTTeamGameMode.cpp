@@ -176,14 +176,14 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 	return BestTeams[FMath::RandHelper(BestTeams.Num())]->TeamIndex;
 }
 
-void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FDamageEvent& DamageEvent, AActor* DamageCauser)
+void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser)
 {
 	if (InstigatedBy != NULL && InstigatedBy != Injured->Controller && Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))
 	{
 		Damage *= TeamDamagePct;
 		Momentum *= TeamMomentumPct;
 	}
-	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, DamageEvent, DamageCauser);
+	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser);
 }
 
 float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
