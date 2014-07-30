@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTImpactEffect.h"
 #include "UTWorldSettings.h"
+#include "Particles/ParticleSystemComponent.h"
 
 AUTImpactEffect::AUTImpactEffect(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -122,6 +123,14 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 					MID->SetScalarParameterValue(WorldTimeParam, Prim->GetWorld()->TimeSeconds);
 				}
 			}
+		}
+		if (Prim->IsA(UParticleSystemComponent::StaticClass()))
+		{
+			((UParticleSystemComponent*)Prim)->bAutoDestroy = true;
+		}
+		else if (Prim->IsA(UAudioComponent::StaticClass()))
+		{
+			((UAudioComponent*)Prim)->bAutoDestroy = true;
 		}
 	}
 

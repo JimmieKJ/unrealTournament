@@ -11,14 +11,14 @@ struct FTimedImpactEffect
 
 	/** the component */
 	UPROPERTY()
-	UPrimitiveComponent* EffectComp;
+	USceneComponent* EffectComp;
 	/** time component was added */
 	UPROPERTY()
 	float CreationTime;
 
 	FTimedImpactEffect()
 	{}
-	FTimedImpactEffect(UPrimitiveComponent* InComp, float InTime)
+	FTimedImpactEffect(USceneComponent* InComp, float InTime)
 		: EffectComp(InComp), CreationTime(InTime)
 	{}
 };

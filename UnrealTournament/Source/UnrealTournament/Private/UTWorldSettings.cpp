@@ -27,35 +27,31 @@ void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect)
 {
 	bool bNeedsTiming = true;
 
-	UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewEffect);
-	if (Prim != NULL)
+	// do some checks for components we can assume will go away on their own
+	UParticleSystemComponent* PSC = Cast <UParticleSystemComponent>(NewEffect);
+	if (PSC != NULL)
 	{
-		// do some checks for components we can assume will go away on their own
-		UParticleSystemComponent* PSC = Cast <UParticleSystemComponent>(NewEffect);
-		if (PSC != NULL)
+		if (PSC->bAutoDestroy && PSC->Template != NULL && IsLoopingParticleSystem(PSC->Template))
 		{
-			if (PSC->bAutoDestroy && PSC->Template != NULL && IsLoopingParticleSystem(PSC->Template))
+			bNeedsTiming = false;
+		}
+	}
+	else
+	{
+		UAudioComponent* AC = Cast<UAudioComponent>(NewEffect);
+		if (AC != NULL)
+		{
+			if (AC->bAutoDestroy && AC->Sound != NULL && AC->Sound->GetDuration() < INDEFINITELY_LOOPING_DURATION)
 			{
 				bNeedsTiming = false;
 			}
 		}
-		else
-		{
-			UAudioComponent* AC = Cast<UAudioComponent>(NewEffect);
-			if (AC != NULL)
-			{
-				if (AC->bAutoDestroy && AC->Sound != NULL && AC->Sound->GetDuration() < INDEFINITELY_LOOPING_DURATION)
-				{
-					bNeedsTiming = false;
-				}
-			}
-		}
+	}
 
-		if (bNeedsTiming)
-		{
-			// spawning is usually the hotspot over removal so add to end here and deal with slightly more cost on the other end
-			new(TimedEffects) FTimedImpactEffect(Prim, GetWorld()->TimeSeconds);
-		}
+	if (bNeedsTiming)
+	{
+		// spawning is usually the hotspot over removal so add to end here and deal with slightly more cost on the other end
+		new(TimedEffects) FTimedImpactEffect(NewEffect, GetWorld()->TimeSeconds);
 	}
 }
 
@@ -70,7 +66,15 @@ void AUTWorldSettings::ExpireImpactEffects()
 		}
 		else
 		{
-			float DesiredTimeout = (WorldTime - TimedEffects[i].EffectComp->LastRenderTime) < 1.0f ? MaxImpactEffectVisibleLifetime : MaxImpactEffectInvisibleLifetime;
+			// try to get LastRenderTime of component
+			// if it's not available, assume it's visible
+			float LastRenderTime = WorldTime;
+			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(TimedEffects[i].EffectComp);
+			if (Prim != NULL)
+			{
+				LastRenderTime = Prim->LastRenderTime;
+			}
+			float DesiredTimeout = (WorldTime - LastRenderTime < 1.0f) ? MaxImpactEffectVisibleLifetime : MaxImpactEffectInvisibleLifetime;
 			if (DesiredTimeout > 0.0f && WorldTime - TimedEffects[i].CreationTime > DesiredTimeout)
 			{
 				TimedEffects[i].EffectComp->DetachFromParent();
