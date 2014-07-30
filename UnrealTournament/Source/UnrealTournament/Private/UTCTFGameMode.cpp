@@ -357,28 +357,14 @@ void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AControl
 			{
 				AdjustedDamageAmount *= FlagCarrierCombatMultiplier;
 			}
+			AttackerPS->AdjustScore(AdjustedDamageAmount);
 		}
-		else 
-		{
-			AdjustedDamageAmount *= 0.25;
-		}
-		AttackerPS->AdjustScore(AdjustedDamageAmount);
 	}
-
 }
 
 void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other)
 {
-	if( (Killer == Other) || (Killer == NULL) )
-	{
-		// If it's a suicide, subtract a kill from the player...
-
-		if (Other != NULL && Other->PlayerState != NULL && Cast<AUTPlayerState>(Other->PlayerState) != NULL)
-		{
-			Cast<AUTPlayerState>(Other->PlayerState)->AdjustScore(-1000);
-		}
-	}
-	else
+	if( (Killer != NULL && Killer != Other) )
 	{
 		AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Killer->PlayerState);
 		if (AttackerPS != NULL)
