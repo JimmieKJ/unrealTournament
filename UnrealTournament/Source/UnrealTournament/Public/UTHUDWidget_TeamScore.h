@@ -36,10 +36,10 @@ class UUTHUDWidget_TeamScore : public UUTHUDWidget
 		if (GS != NULL && GS->Teams.Num() == 2 && GS->Teams[0] != NULL && GS->Teams[1] != NULL)
 		{
 			// Draw the Red Score...
-			UTHUDOwner->TempDrawNumber(GS->Teams[0]->Score, RenderPosition.X - (157 * RenderScale * RedScale) , 10 * RenderScale * RedScale, FLinearColor::Yellow, 1.0,RenderScale * RedScale * 0.75);
+			UTHUDOwner->TempDrawNumber(GS->Teams[0]->Score, RenderPosition.X - (157 * RenderScale * RedScale), 10 * RenderScale * RedScale, GS->Teams[0]->TeamColor, 1.0, RenderScale * RedScale * 0.75);
 	
 			// Draw the Blue Score...
-			UTHUDOwner->TempDrawNumber(GS->Teams[1]->Score, RenderPosition.X + (75 * RenderScale * BlueScale) , 10 * RenderScale * BlueScale, FLinearColor::Yellow, 1.0,RenderScale * BlueScale * 0.75);
+			UTHUDOwner->TempDrawNumber(GS->Teams[1]->Score, RenderPosition.X + (75 * RenderScale * BlueScale), 10 * RenderScale * BlueScale, GS->Teams[1]->TeamColor, 1.0, RenderScale * BlueScale * 0.75);
 		}
 	}
 };
