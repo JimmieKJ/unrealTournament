@@ -50,16 +50,8 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 			TargetRot.Pitch = 0.0f;
 			TargetRot.Roll = 0.0f;
 		}
-		if (GetWorld()->FindTeleportSpot(OtherActor, AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
+		if (OtherActor->TeleportTo(AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
 		{
-			if (bSetRotation)
-			{
-				OtherActor->SetActorLocationAndRotation(AdjustedTeleportLoc, TargetRot, false);
-			}
-			else
-			{
-				OtherActor->SetActorLocation(AdjustedTeleportLoc, false);
-			}
 			APawn* P = Cast<APawn>(OtherActor);
 			if (P != NULL && P->Controller != NULL)
 			{

@@ -12,6 +12,8 @@
 #include "UTJumpBoots.h"
 #include "UTCTFFlag.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "UTTeamGameMode.h"
+#include "UTDmgType_Telefragged.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -86,6 +88,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	// TODO: write real relevancy checking
 	NetCullDistanceSquared = 500000000.0f;
+
+	OnActorBeginOverlap.AddDynamic(this, &AUTCharacter::OnOverlapBegin);
 }
 
 void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
@@ -1923,5 +1927,37 @@ void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
 	else
 	{
 		Died(NULL, FUTPointDamageEvent(1000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), DmgType.GetClass()));
+	}
+}
+
+bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest, bool bNoCheck)
+{
+	// during teleportation, we need to change our collision to overlap potential telefrag targets instead of block
+	// however, EncroachingBlockingGeometry() doesn't handle reflexivity correctly so we can't get anywhere changing our collision responses
+	// instead, we must change our object type to adjust the query
+
+	ECollisionChannel SavedObjectType = CapsuleComponent->GetCollisionObjectType();
+	CapsuleComponent->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
+	bool bResult = Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
+	CapsuleComponent->SetCollisionObjectType(SavedObjectType);
+	CapsuleComponent->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
+	// TODO: set bJustTeleported here?
+	return bResult;
+}
+void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
+{
+	if (Role == ROLE_Authority && OtherActor != this && CapsuleComponent->GetCollisionObjectType() == COLLISION_TELEPORTING_OBJECT) // need to make sure this ISN'T reflexive, only teleporting Pawn should be checking for telefrags
+	{
+		AUTCharacter* OtherC = Cast<AUTCharacter>(OtherActor);
+		if (OtherC != NULL)
+		{
+			AUTTeamGameMode* TeamGame = GetWorld()->GetAuthGameMode<AUTTeamGameMode>();
+			if (TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this))
+			{
+				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
+				OtherC->Died(Controller, DamageEvent);
+			}
+		}
+		// TODO: if OtherActor is a vehicle, then we should be killed instead
 	}
 }

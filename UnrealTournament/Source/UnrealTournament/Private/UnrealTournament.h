@@ -11,6 +11,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #define COLLISION_PROJECTILE ECC_GameTraceChannel1
 #define COLLISION_TRACE_WEAPON ECC_GameTraceChannel2
 #define COLLISION_PROJECTILE_SHOOTABLE ECC_GameTraceChannel3
+#define COLLISION_TELEPORTING_OBJECT ECC_GameTraceChannel4
 
 #include "UTATypes.h"
 #include "UTTeamInterface.h"

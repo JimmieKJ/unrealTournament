@@ -84,41 +84,18 @@ void AUTWeap_Translocator::FireShot()
 				}
 				else
 				{
-					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
-					FVector WarpLocation = TransDisk->GetActorLocation() + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
-					FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
-					
-					//TODO: check if we can actually warp
-					UTOwner->DropFlag();
-
 					UTOwner->IncrementFlashCount(CurrentFireMode);
 
-					if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
+					if (Role == ROLE_Authority)
 					{
-						TArray<FOverlapResult> Overlaps;
-						if (GetWorld()->OverlapMulti(Overlaps, WarpLocation, WarpRotation.Quaternion(),
-							PlayerCapsule, FCollisionQueryParams(FName(TEXT("TransOverlap")), false, UTOwner),
-							FCollisionObjectQueryParams(ECollisionChannel::ECC_Pawn)))
-						{
+						FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+						FVector WarpLocation = TransDisk->GetActorLocation() + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+						FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
 
-							for (int i = 0; i < Overlaps.Num(); i++)
-							{
-								FUTPointDamageEvent Event;
-								float AdjustedMomentum = 1000.0f;
-								Event.Damage = TelefragDamage;
-								Event.DamageTypeClass = TelefragDamageType;
-								Event.HitInfo = FHitResult(UTOwner, UTOwner->CapsuleComponent, WarpLocation, WarpRotation.Vector());
-								Event.ShotDirection = GetVelocity().SafeNormal();
-								Event.Momentum = Event.ShotDirection * AdjustedMomentum;
+						//TODO: check if we can actually warp
+						UTOwner->DropFlag();
 
-								//TODO: dont hit team mates
-								AUTCharacter* UTP = Cast<AUTCharacter>(Overlaps[i].GetActor());
-								if (UTP != NULL && (UTP->GetTeamNum() == 255 || UTP->GetTeamNum() != UTOwner->GetTeamNum()))
-								{
-									Overlaps[i].GetActor()->TakeDamage(TelefragDamage, Event, UTOwner->GetController(), UTOwner);
-								}
-							}
-						}
+						UTOwner->TeleportTo(WarpLocation, WarpRotation);
 					}
 					UUTGameplayStatics::UTPlaySound(GetWorld(), TeleSound, UTOwner, SRT_AllButOwner);
 				}

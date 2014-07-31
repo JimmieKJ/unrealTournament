@@ -601,17 +601,12 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual void OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust) override;
 
-	//--------------------------
+	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
+	UFUNCTION()
+	virtual void OnOverlapBegin(AActor* OtherActor);
 
-	/**
-	 *	@returns true if this 
-	 **/
 	virtual bool CanPickupObject(AUTCarriedObject* PendingObject);
-
-	
-	/**
-	 *	@return the current object carried by this pawn
-	 **/
+	/** @return the current object carried by this pawn */
 	UFUNCTION()
 	virtual AUTCarriedObject* GetCarriedObject();
 
