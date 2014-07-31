@@ -32,7 +32,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	MaxAmmo = 50;
 
 	BringUpTime = 0.5f;
-	PutDownTime = 0.5f;
+	PutDownTime = 0.4f;
 	WeaponBobScaling = 1.f;
 
 	bFPFireFromCenter = true;
