@@ -353,45 +353,48 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 
 void AUTProjectile::ShutDown()
 {
-	SetActorEnableCollision(false);
-	ProjectileMovement->SetActive(false);
-	// hide components that aren't particle systems; deactivate particle systems so they die off naturally; stop ambient sounds
-	bool bFoundParticles = false;
-	TArray<USceneComponent*> Components;
-	GetComponents<USceneComponent>(Components);
-	for (int32 i = 0; i < Components.Num(); i++)
+	if (!bPendingKillPending)
 	{
-		UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
-		if (PSC != NULL)
+		SetActorEnableCollision(false);
+		ProjectileMovement->SetActive(false);
+		// hide components that aren't particle systems; deactivate particle systems so they die off naturally; stop ambient sounds
+		bool bFoundParticles = false;
+		TArray<USceneComponent*> Components;
+		GetComponents<USceneComponent>(Components);
+		for (int32 i = 0; i < Components.Num(); i++)
 		{
-			// tick the particles one last time for e.g. SpawnPerUnit effects (particularly noticeable improvement for fast moving projectiles)
-			PSC->TickComponent(0.0f, LEVELTICK_All, NULL);
-			PSC->DeactivateSystem();
-			PSC->bAutoDestroy = true;
-			bFoundParticles = true;
-		}
-		else
-		{
-			UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
-			if (Audio != NULL)
+			UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
+			if (PSC != NULL)
 			{
-				// only stop looping (ambient) sounds - note that the just played explosion sound may be encountered here
-				if (Audio->Sound != NULL && Audio->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
-				{
-					Audio->Stop();
-				}
+				// tick the particles one last time for e.g. SpawnPerUnit effects (particularly noticeable improvement for fast moving projectiles)
+				PSC->TickComponent(0.0f, LEVELTICK_All, NULL);
+				PSC->DeactivateSystem();
+				PSC->bAutoDestroy = true;
+				bFoundParticles = true;
 			}
 			else
 			{
-				Components[i]->SetHiddenInGame(true);
-				Components[i]->SetVisibility(false);
+				UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
+				if (Audio != NULL)
+				{
+					// only stop looping (ambient) sounds - note that the just played explosion sound may be encountered here
+					if (Audio->Sound != NULL && Audio->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
+					{
+						Audio->Stop();
+					}
+				}
+				else
+				{
+					Components[i]->SetHiddenInGame(true);
+					Components[i]->SetVisibility(false);
+				}
 			}
 		}
-	}
-	// if some particles remain, defer destruction a bit to give them time to die on their own
-	SetLifeSpan((bFoundParticles && GetNetMode() != NM_DedicatedServer) ? 2.0f : 0.2f);
+		// if some particles remain, defer destruction a bit to give them time to die on their own
+		SetLifeSpan((bFoundParticles && GetNetMode() != NM_DedicatedServer) ? 2.0f : 0.2f);
 
-	OnShutdown();
+		OnShutdown();
+	}
 
 	bExploded = true;
 }
