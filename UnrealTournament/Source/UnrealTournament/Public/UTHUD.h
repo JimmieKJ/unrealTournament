@@ -22,10 +22,11 @@ struct FDamageHudIndicator
 	UPROPERTY()
 	float FadeTime;
 
+	UPROPERTY()
+	bool bFriendlyFire;
+
 	FDamageHudIndicator()
-		: RotationAngle(0.0f)
-		, DamageAmount(0.0f)
-		, FadeTime(0.0f)
+		: RotationAngle(0.0f), DamageAmount(0.0f), FadeTime(0.0f), bFriendlyFire(false)
 	{
 	}
 };
@@ -107,7 +108,7 @@ public:
 	
 	UTexture2D* OldHudTexture;
 
-	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass);
+	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
 
 	/** called when PlayerOwner caused damage to HitPawn */

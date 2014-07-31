@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "UTTeamInterface.h"
+
 #include "UTPlayerState.generated.h"
 
 UCLASS()
-class AUTPlayerState : public APlayerState
+class AUTPlayerState : public APlayerState, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 

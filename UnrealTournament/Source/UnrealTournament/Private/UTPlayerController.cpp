@@ -931,7 +931,8 @@ void AUTPlayerController::ClientNotifyTakeHit_Implementation(APlayerState* Insti
 {
 	if (MyUTHUD != NULL)
 	{
-		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : FVector::ZeroVector) + RelHitLocation, Damage, DamageType);
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : FVector::ZeroVector) + RelHitLocation, Damage, DamageType, InstigatedBy != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedBy, this));
 	}
 }
 

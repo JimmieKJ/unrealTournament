@@ -955,8 +955,31 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 			float H = CrosshairTexture->GetSurfaceHeight();
 
 			float Scale = WeaponHudWidget->GetRenderScale();
+			
+			// draw a different indicator if there is a friendly where the camera is pointing
+			bool bDrawFriendlyIndicator = false;
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS != NULL)
+			{
+				FVector CameraLoc;
+				FRotator CameraRot;
+				WeaponHudWidget->UTHUDOwner->PlayerOwner->GetPlayerViewPoint(CameraLoc, CameraRot);
+				FHitResult Hit;
+				GetWorld()->LineTraceSingle(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CrosshairFriendIndicator")), false, UTOwner));
+				if (Hit.Actor != NULL)
+				{
+					bDrawFriendlyIndicator = GS->OnSameTeam(Hit.Actor.Get(), UTOwner);
+				}
+			}
 
-			WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+			if (bDrawFriendlyIndicator)
+			{
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale * 2.0f, H * Scale * 2.0f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
+			}
+			else
+			{
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+			}
 		}
 	}
 }

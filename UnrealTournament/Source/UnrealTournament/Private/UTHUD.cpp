@@ -378,7 +378,7 @@ void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, fl
 	}
 }
 
-void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass)
+void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire)
 {
 	// Calculate the rotation 	
 	AUTCharacter* UTC = UTPlayerOwner->GetUTCharacter();
@@ -415,6 +415,7 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 
 		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
 		DamageIndicators[BestIndex].RotationAngle = FinalAng;
+		DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
 
 //		UUTHUDWidget_WeaponCrosshair* CrossHairWidget =
 	
@@ -424,11 +425,11 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 
 void AUTHUD::DrawDamageIndicators()
 {
-	FLinearColor DrawColor = FLinearColor::White;
 	for (int i=0; i < DamageIndicators.Num(); i++)
 	{
 		if (DamageIndicators[i].FadeTime > 0.0f)
 		{
+			FLinearColor DrawColor = DamageIndicators[i].bFriendlyFire ? FLinearColor::Green : FLinearColor::Red;
 			DrawColor.A = 1.0 * (DamageIndicators[i].FadeTime / DAMAGE_FADE_DURATION);
 
 			float Size = 384 * (Canvas->ClipY / 720.0f);
