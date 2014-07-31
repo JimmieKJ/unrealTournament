@@ -385,6 +385,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	FLinearColor GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const;
 
+	/** returns whether we should draw the friendly fire indicator on the crosshair */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	bool ShouldDrawFFIndicator(APlayerController* Viewer) const;
+
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 

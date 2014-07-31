@@ -39,7 +39,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FPostConstructInitial
 	LastTargetLockCheckTime = 0.0f;
 
 	UnderReticlePadding = 50.0f;
-	CrosshairScale = 1.2f;
+	CrosshairScale = 0.75f;
 
 	CrosshairRotationTime = 0.3f;
 	CurrentRotation = 0.0f;
@@ -526,7 +526,12 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 			float Alpha = FMath::Clamp(DeltaTime / CrosshairRotationTime, 0.0f, 1.0f);
 			CrosshairRot = FMath::Lerp(NextCrosshairRot, CrosshairRot, Alpha);
 		}
+
 		WeaponHudWidget->DrawTexture(Tex, 0, 0, W * Scale, H * Scale, 0.0, 0.0, W, H, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f), CrosshairRot);
+		if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner))
+		{
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex, 0, 0, W * Scale * 0.75f, H * Scale * 0.75f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
+		}
 	}
 
 	//Draw the locked on crosshair
