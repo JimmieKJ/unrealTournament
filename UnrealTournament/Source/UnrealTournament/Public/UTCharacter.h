@@ -5,6 +5,8 @@
 
 #include "UTCharacter.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCharacterDiedSignature, class AController*, Killer, const class UDamageType*, DamageType);
+
 USTRUCT(BlueprintType)
 struct FTakeHitInfo
 {
@@ -581,6 +583,10 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** Get Max weapon land bob deflection at landing velocity Z of FullWeaponLandBobVelZ+WeaponLandBobThreshold */
 	UPROPERTY()
 	float DefaultBaseEyeHeight;
+
+	/** Broadcast when the pawn has died [Server only] */
+	UPROPERTY(BlueprintAssignable)
+	FCharacterDiedSignature OnDied;
 
 	virtual void RecalculateBaseEyeHeight() override;
 

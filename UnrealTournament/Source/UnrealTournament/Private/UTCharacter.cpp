@@ -600,6 +600,8 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			Controller->PawnPendingDestroy(this);
 		}
 
+		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
+
 		PlayDying();
 
 		return true;
