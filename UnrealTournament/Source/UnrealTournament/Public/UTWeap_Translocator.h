@@ -38,6 +38,9 @@ class AUTWeap_Translocator : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
 	USoundBase* TeleSound;
 
+	/** recharge rate for ammo charges */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+	float AmmoRechargeRate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Telefrag)
 	float TelefragDamage;
@@ -47,6 +50,21 @@ class AUTWeap_Translocator : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Telefrag)
 	TSubclassOf<UDamageType> TransFailDamageType;	
 
+	virtual void ConsumeAmmo(uint8 FireModeNum) override;
+	virtual bool HasAmmo(uint8 FireModeNum) override
+	{
+		// neither mode can fire when there's no ammo regardless of cost
+		return (Ammo > 0 && Super::HasAmmo(FireModeNum));
+	}
+	virtual bool HasAnyAmmo() override
+	{
+		// return true since even if currently zero we'll shortly recharge more
+		return true;
+	}
+	virtual void OnRep_Ammo() override;
+
+	UFUNCTION()
+	virtual void RechargeTimer();
 
 	/**Dont drop Weapon when killed. Kill the disk*/
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;

@@ -18,6 +18,39 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 #endif
 	}
 	TelefragDamage = 1337.0f;
+
+	AmmoCost.Add(0);
+	AmmoCost.Add(1);
+	Ammo = 5;
+	MaxAmmo = 5;
+	AmmoRechargeRate = 1.0f;
+}
+
+void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
+{
+	Super::ConsumeAmmo(FireModeNum);
+
+	if ((FireModeNum == 1 || Ammo < MaxAmmo) && !GetWorldTimerManager().IsTimerActive(this, &AUTWeap_Translocator::RechargeTimer))
+	{
+		GetWorldTimerManager().SetTimer(this, &AUTWeap_Translocator::RechargeTimer, AmmoRechargeRate, true);
+	}
+}
+
+void AUTWeap_Translocator::RechargeTimer()
+{
+	AddAmmo(1);
+	if (Ammo >= MaxAmmo)
+	{
+		GetWorldTimerManager().ClearTimer(this, &AUTWeap_Translocator::RechargeTimer);
+	}
+}
+void AUTWeap_Translocator::OnRep_Ammo()
+{
+	Super::OnRep_Ammo();
+	if (Ammo >= MaxAmmo)
+	{
+		GetWorldTimerManager().ClearTimer(this, &AUTWeap_Translocator::RechargeTimer);
+	}
 }
 
 void AUTWeap_Translocator::OnRep_TransDisk()
@@ -37,7 +70,6 @@ void AUTWeap_Translocator::ClearDisk()
 void AUTWeap_Translocator::FireShot()
 {
 	UTOwner->DeactivateSpawnProtection();
-	ConsumeAmmo(CurrentFireMode);
 
 	if (!FireShotOverride() && GetUTOwner() != NULL) // script event may kill user
 	{
@@ -46,6 +78,7 @@ void AUTWeap_Translocator::FireShot()
 			//No disk. Shoot one
 			if (TransDisk == NULL)
 			{
+				ConsumeAmmo(CurrentFireMode);
 				if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 				{
 					TransDisk = Cast<AUTProj_TransDisk>(FireProjectile());
@@ -66,44 +99,53 @@ void AUTWeap_Translocator::FireShot()
 				UUTGameplayStatics::UTPlaySound(GetWorld(), RecallSound, UTOwner, SRT_AllButOwner);
 			}
 		}
-		else
+		else if (TransDisk != NULL)
 		{
-			if (TransDisk != NULL)
+			if (TransDisk->TransState == TLS_Disrupted)
 			{
-				if (TransDisk->TransState == TLS_Disrupted)
-				{
-					FUTPointDamageEvent Event;
-					float AdjustedMomentum = 1000.0f;
-					Event.Damage = TelefragDamage;
-					Event.DamageTypeClass = TransFailDamageType;
-					Event.HitInfo = FHitResult(UTOwner, UTOwner->CapsuleComponent, UTOwner->GetActorLocation(), FVector(0.0f,0.0f,1.0f));
-					Event.ShotDirection = GetVelocity().SafeNormal();
-					Event.Momentum = Event.ShotDirection * AdjustedMomentum;
+				ConsumeAmmo(CurrentFireMode); // well, we're probably about to die, but just in case
 
-					UTOwner->TakeDamage(TelefragDamage, Event, TransDisk->DisruptedController, UTOwner);
-				}
-				else
-				{
-					UTOwner->IncrementFlashCount(CurrentFireMode);
+				FUTPointDamageEvent Event;
+				float AdjustedMomentum = 1000.0f;
+				Event.Damage = TelefragDamage;
+				Event.DamageTypeClass = TransFailDamageType;
+				Event.HitInfo = FHitResult(UTOwner, UTOwner->CapsuleComponent, UTOwner->GetActorLocation(), FVector(0.0f,0.0f,1.0f));
+				Event.ShotDirection = GetVelocity().SafeNormal();
+				Event.Momentum = Event.ShotDirection * AdjustedMomentum;
 
-					if (Role == ROLE_Authority)
+				UTOwner->TakeDamage(TelefragDamage, Event, TransDisk->DisruptedController, UTOwner);
+			}
+			else
+			{
+				UTOwner->IncrementFlashCount(CurrentFireMode);
+
+				if (Role == ROLE_Authority)
+				{
+					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+					FVector WarpLocation = TransDisk->GetActorLocation() + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+					FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
+
+					// test first so we don't drop the flag on an unsuccessful teleport
+					if (UTOwner->TeleportTo(WarpLocation, WarpRotation, true))
 					{
-						FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
-						FVector WarpLocation = TransDisk->GetActorLocation() + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
-						FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
-
-						//TODO: check if we can actually warp
 						UTOwner->DropFlag();
 
-						UTOwner->TeleportTo(WarpLocation, WarpRotation);
+						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
+						{
+							ConsumeAmmo(CurrentFireMode);
+						}
 					}
-					UUTGameplayStatics::UTPlaySound(GetWorld(), TeleSound, UTOwner, SRT_AllButOwner);
 				}
-				ClearDisk();
+				UUTGameplayStatics::UTPlaySound(GetWorld(), TeleSound, UTOwner, SRT_AllButOwner);
 			}
+			ClearDisk();
 		}
 
 		PlayFiringEffects();
+	}
+	else
+	{
+		ConsumeAmmo(CurrentFireMode);
 	}
 	if (GetUTOwner() != NULL)
 	{
