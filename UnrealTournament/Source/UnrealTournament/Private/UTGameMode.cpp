@@ -10,7 +10,6 @@
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "UTScoreboard.h"
-
 namespace MatchState
 {
 	const FName CountdownToBegin = FName(TEXT("CountdownToBegin"));
@@ -361,10 +360,14 @@ void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* 
 {
 }
 
+void AUTGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
+{
+}
+
 void AUTGameMode::ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker)
 {
-
 }
+
 void AUTGameMode::ScoreKill(AController* Killer, AController* Other)
 {
 	if( (Killer == Other) || (Killer == NULL) )

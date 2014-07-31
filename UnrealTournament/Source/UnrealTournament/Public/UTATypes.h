@@ -87,4 +87,3 @@ namespace CarriedObjectState
 	const FName Held = FName(TEXT("Held"));
 	const FName Dropped = FName(TEXT("Dropped"));
 }
-

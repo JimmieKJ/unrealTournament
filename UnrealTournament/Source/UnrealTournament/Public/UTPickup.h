@@ -1,7 +1,16 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTPlayerState.h"
 #include "UTPickup.generated.h"
+
+UENUM()
+enum EPickupClassification
+{
+	PC_Minor,
+	PC_Major,
+	PC_Super,
+};
 
 USTRUCT()
 struct FPickupReplicatedState
@@ -67,6 +76,13 @@ class AUTPickup : public AActor
 
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	UMaterialInstanceDynamic* TimerMI;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	TEnumAsByte<EPickupClassification> PickupType;
+
+	// Holds the PRI of the last player to pick this item up.  Used to give a controlling bonus to score
+	UPROPERTY(BlueprintReadOnly, Category = Game)
+	AUTPlayerState* LastPickedUpBy;
 
 #if WITH_EDITOR
 	virtual void PostEditMove(bool bFinished);

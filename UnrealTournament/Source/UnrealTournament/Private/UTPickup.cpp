@@ -3,7 +3,6 @@
 #include "UnrealTournament.h"
 #include "UTPickup.h"
 #include "UnrealNetwork.h"
-
 static FName NAME_PercentComplete(TEXT("PercentComplete"));
 
 AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
@@ -46,6 +45,8 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 	NetUpdateFrequency = 1.0f;
 
 	PrimaryActorTick.bCanEverTick = true;
+
+	PickupType = PC_Minor;
 }
 
 void AUTPickup::OnConstruction(const FTransform& Transform)
@@ -105,6 +106,15 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 	if (Role == ROLE_Authority && State.bActive && TouchedBy->Controller != NULL)
 	{
 		GiveTo(TouchedBy);
+		UE_LOG(UT,Log,TEXT("PICKUP"));
+		AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (UTGameMode != NULL)
+		{
+			AUTPlayerState* PickedUpBy = Cast<AUTPlayerState>(TouchedBy->PlayerState);
+			UTGameMode->ScorePickup(this, PickedUpBy, LastPickedUpBy);
+			LastPickedUpBy = PickedUpBy;
+		}
+
 		PlayTakenEffects(true);
 		StartSleeping();
 	}

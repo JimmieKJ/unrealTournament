@@ -4,6 +4,7 @@
 #include "UTHUD_CTF.h"
 #include "UTCTFGameMode.h"
 #include "UTFirstBloodMessage.h"
+#include "UTPickup.h"
 
 AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -87,6 +88,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 						{
 							UE_LOG(UT,Log,TEXT("    Player %s received %i"), *PS->PlayerName, ProximityReturnBonus);
 							PS->AdjustScore(ProximityReturnBonus);
+							PS->Assists++;
 						}
 					}
 				}
@@ -340,10 +342,34 @@ bool AUTCTFGameMode::IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquare
 	return false;
 }
 
+void AUTCTFGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
+{
+	if (PickedUpBy != NULL && Pickup != NULL)
+	{
+		int Points = 0;
+		if (Pickup->PickupType == PC_Minor) Points = MinorPickupScore;
+		if (Pickup->PickupType == PC_Major) Points = MajorPickupScore;
+		if (Pickup->PickupType == PC_Super) Points = SuperPickupScore;
+
+		if (PickedUpBy == LastPickedUpBy) 
+		{
+			Points = uint32( float(Points) * ControlFreakMultiplier);
+		}
+
+		PickedUpBy->AdjustScore(Points);
+
+		UE_LOG(UT,Log,TEXT("========================================="));
+		UE_LOG(UT,Log,TEXT("ScorePickup: %s %s %i"), *PickedUpBy->PlayerName, *GetNameSafe(Pickup), Points);
+		UE_LOG(UT,Log,TEXT("========================================="));
+	}
+}
+
 
 void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker)
 {
 	Super::ScoreDamage(DamageAmount, Victim, Attacker);
+	
+	// No Damage for environmental damage
 	if (Attacker == NULL) return;
 	
 	AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Attacker->PlayerState);
@@ -355,9 +381,12 @@ void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AControl
 		{
 			if (Attacker->GetPawn() != NULL && IsCloseToFlagCarrier(Attacker->GetPawn(), FlagCombatBonusDistance, 255))
 			{
-				AdjustedDamageAmount *= FlagCarrierCombatMultiplier;
+				AdjustedDamageAmount = uint32( float(AdjustedDamageAmount) * FlagCarrierCombatMultiplier);
 			}
 			AttackerPS->AdjustScore(AdjustedDamageAmount);
+			UE_LOG(UT,Log,TEXT("========================================="));
+			UE_LOG(UT,Log,TEXT("DamageScore: %s %i"), *AttackerPS->PlayerName, AdjustedDamageAmount);
+			UE_LOG(UT,Log,TEXT("========================================="));
 		}
 	}
 }
@@ -376,6 +405,11 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other)
 			}
 
 			AttackerPS->AdjustScore(Points);
+			AttackerPS->IncrementKills(true);
+
+			UE_LOG(UT,Log,TEXT("========================================="));
+			UE_LOG(UT,Log,TEXT("Kill Score: %s %i"), *AttackerPS->PlayerName, Points);
+			UE_LOG(UT,Log,TEXT("========================================="));
 
 			if (!bFirstBloodOccurred)
 			{

@@ -100,10 +100,26 @@ protected:
 	UPROPERTY(config)
 	float FlagCarrierCombatMultiplier;
 
+	// How many points for picking up a minor pickup
+	UPROPERTY(config)
+	uint32 MinorPickupScore;
+
+	// How many points for picking up a major pickup
+	UPROPERTY(config)
+	uint32 MajorPickupScore;
+
+	// How many points for picking up a super pickup
+	UPROPERTY(config)
+	uint32 SuperPickupScore;
+
+	// Multiplier to use if the player controls a pickup
+	UPROPERTY(config)
+	float ControlFreakMultiplier;
 
 	UFUNCTION()
 	virtual void HalftimeIsOver();
 
+	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 	virtual void ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker);
 	virtual void ScoreKill(AController* Killer, AController* Other);
 
