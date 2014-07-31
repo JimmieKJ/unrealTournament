@@ -17,6 +17,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
 #include "UTCTFGameState.h"
+#include "UTChatMessage.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -1016,4 +1017,42 @@ void AUTPlayerController::ServerSuicide_Implementation()
 bool AUTPlayerController::ServerSuicide_Validate()
 {
 	return true;
+}
+
+void AUTPlayerController::Say(FString Message)
+{
+	ServerSay(Message, false);
+}
+
+void AUTPlayerController::TeamSay(FString Message)
+{
+	ServerSay(Message, true);
+}
+
+bool AUTPlayerController::ServerSay_Validate(const FString& Message, bool bTeamMessage) { return true; }
+
+void AUTPlayerController::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+		if (UTPC != nullptr)
+		{
+			if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
+			{
+				UTPC->ClientSay(UTPlayerState, Message, bTeamMessage);
+			}
+		}
+	}
+}
+
+void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, bool bTeamMessage)
+{
+	FClientReceiveData ClientData;
+	ClientData.LocalPC = this;
+	ClientData.MessageIndex = bTeamMessage;
+	ClientData.RelatedPlayerState_1 = Speaker;
+	ClientData.MessageString = Message;
+
+	UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceive(ClientData);
 }

@@ -177,6 +177,18 @@ public:
 
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
+	UFUNCTION(exec)
+	virtual void Say(FString Message);
+
+	UFUNCTION(exec)
+	virtual void TeamSay(FString Message);
+
+	UFUNCTION(reliable, server, WithValidation)
+	virtual void ServerSay(const FString& Message, bool bTeamMessage);
+
+	UFUNCTION(reliable, client)
+	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, bool bTeamMessage);
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.
