@@ -14,6 +14,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 
 #include "UTATypes.h"
 #include "UTTeamInterface.h"
+#include "UTResetInterface.h"
 #include "UTGameplayStatics.h"
 #include "UTGameUserSettings.h"
 #include "UTLocalPlayer.h"

@@ -224,7 +224,15 @@ void AUTCTFGameMode::HalftimeIsOver()
 		CTFGameState->SetTimeLimit(TimeLimit);		// Reset the GameClock for the second time.
 	}
 
-	// Reset all players
+	// reset everything
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		IUTResetInterface* ResetActor = InterfaceCast<IUTResetInterface>(*It);
+		if (ResetActor != NULL)
+		{
+			ResetActor->Execute_Reset(*It);
+		}
+	}
 
 	//now respawn all the players
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )

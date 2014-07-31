@@ -4,7 +4,7 @@
 #include "UTProjectile.generated.h"
 
 UCLASS(meta = (ChildCanTick))
-class AUTProjectile : public AActor
+class AUTProjectile : public AActor, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -98,6 +98,11 @@ class AUTProjectile : public AActor
 	/** blueprint hook for shutdown in case any blueprint-created effects need to be turned off */
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnShutdown();
+
+	virtual void Reset_Implementation() override
+	{
+		Destroy();
+	}
 
 	/** called when projectile hits something */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)

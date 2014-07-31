@@ -92,6 +92,19 @@ void AUTPickup::BeginPlay()
 	}
 }
 
+void AUTPickup::Reset_Implementation()
+{
+	if (bDelayedSpawn)
+	{
+		State.bRepTakenEffects = false;
+		StartSleeping();
+	}
+	else if (!State.bActive)
+	{
+		WakeUp();
+	}
+}
+
 void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
 {
 	APawn* P = Cast<APawn>(OtherActor);

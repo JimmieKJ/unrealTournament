@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTResetInterface.h"
 #include "UTPlayerState.h"
 #include "UTPickup.generated.h"
 
@@ -31,7 +32,7 @@ struct FPickupReplicatedState
 };
 
 UCLASS(abstract, Blueprintable, meta = (ChildCanTick))
-class AUTPickup : public AActor
+class AUTPickup : public AActor, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -117,6 +118,8 @@ class AUTPickup : public AActor
 	/** sets the hidden state of the pickup - note that this doesn't necessarily mean the whole object (e.g. item mesh but not holder) */
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetPickupHidden(bool bNowHidden);
+
+	virtual void Reset_Implementation() override;
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);
 	

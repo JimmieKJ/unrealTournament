@@ -10,13 +10,17 @@
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "UTScoreboard.h"
+
+UUTResetInterface::UUTResetInterface(const FPostConstructInitializeProperties& PCIP)
+: Super(PCIP)
+{}
+
 namespace MatchState
 {
 	const FName CountdownToBegin = FName(TEXT("CountdownToBegin"));
 	const FName MatchEnteringOvertime = FName(TEXT("MatchEnteringOvertime"));
 	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
 }
-
 
 AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
