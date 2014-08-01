@@ -86,6 +86,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
+	InputComponent->BindAction("ToggleCrouch", IE_Pressed, this, &AUTPlayerController::ToggleCrouch);
 
 	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
@@ -486,6 +487,14 @@ void AUTPlayerController::UnCrouch()
 	if (GetCharacter() != NULL)
 	{
 		GetCharacter()->UnCrouch(false);
+	}
+}
+
+void AUTPlayerController::ToggleCrouch()
+{
+	if (GetCharacter() != nullptr)
+	{
+		GetCharacter()->bIsCrouched ? UnCrouch() : Crouch();
 	}
 }
 

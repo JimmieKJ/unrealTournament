@@ -277,6 +277,7 @@ protected:
 
 	virtual void Crouch();
 	virtual void UnCrouch();
+	virtual void ToggleCrouch();
 
 	/** Handler for a touch input beginning. */
 	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
