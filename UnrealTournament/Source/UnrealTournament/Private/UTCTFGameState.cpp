@@ -104,7 +104,10 @@ void AUTCTFGameState::ResetFlags()
 {
 	for (int i=0; i < FlagBases.Num(); i++)
 	{
-		FlagBases[i]->RecallFlag();
+		if (FlagBases[i] != NULL)
+		{
+			FlagBases[i]->RecallFlag();
+		}
 	}
 
 }
