@@ -1442,8 +1442,11 @@ void AUTCharacter::CheckJumpInput(float DeltaTime)
 		const FRotator Rotation = GetControlRotation();
 		FRotator ForwardRotation = FRotator(0, Rotation.Yaw, 0);
 
-		// Get up vector and add movement in that direction
-		AddMovementInput(FRotationMatrix(ForwardRotation).GetUnitAxis(EAxis::Z), 1.f);
+		if (bPressedJump)
+		{
+			// Get up vector and add movement in that direction
+			AddMovementInput(FRotationMatrix(ForwardRotation).GetUnitAxis(EAxis::Z), 1.f);
+		}
 	}
 	else if (bPressedJump)
 	{
