@@ -1993,7 +1993,7 @@ void AUTCharacter::PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 
-	if (GetWorld()->TimeSeconds - GetLastRenderTime() < 1)
+	if (GetWorld()->TimeSeconds - GetLastRenderTime() < 1 && FVector::DotProduct( CameraDir, (GetActorLocation() - CameraPosition)) > 0)
 	{
 		if (UTPS != NULL && UTPS->Team != NULL && PC != NULL && PC->GetPawn() != NULL && GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(PC->GetPawn(), this))
 		{
@@ -2002,8 +2002,11 @@ void AUTCharacter::PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector
 			{
 
 				float XL,YL;
-				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
-				Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL);
+
+				float Scale = Canvas->ClipX / 1920;
+
+				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
+				Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL,Scale,Scale);
 
 				FVector ScreenPosition = Canvas->Project(GetActorLocation() + (CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.25f) * FVector(0,0,1));
 
@@ -2014,9 +2017,10 @@ void AUTCharacter::PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector
 				TeamColor.B *= 0.24;
 
 				Canvas->SetLinearDrawColor(TeamColor);
-				Canvas->DrawTile(Canvas->DefaultTexture, ScreenPosition.X - (XL * 0.5) - 1, ScreenPosition.Y - YL - 2, XL + 2, YL+2, 0,0, 1,1);
+				Canvas->DrawTile(Canvas->DefaultTexture, ScreenPosition.X - (XL * 0.5) - 1, ScreenPosition.Y - YL - 2, XL + 2, YL - (6 * Scale), 0,0, 1,1);
 				Canvas->SetLinearDrawColor(FLinearColor::White);
-				Canvas->DrawText(TinyFont, PlayerState->PlayerName, ScreenPosition.X - (XL * 0.5), ScreenPosition.Y - YL);
+				FFontRenderInfo FRI = Canvas->CreateFontRenderInfo(true, false);
+				Canvas->DrawText(TinyFont, PlayerState->PlayerName, ScreenPosition.X - (XL * 0.5), ScreenPosition.Y - YL, Scale, Scale, FRI);
 			}
 		}
 	}
