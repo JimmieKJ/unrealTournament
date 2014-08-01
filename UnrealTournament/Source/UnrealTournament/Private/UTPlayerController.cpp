@@ -523,6 +523,8 @@ void AUTPlayerController::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo&
 	Canvas->SetDrawColor(255, 255, 0);
 	Canvas->DrawText(RenderFont, FString::Printf(TEXT("STATE %s"), *GetStateName().ToString()), 4.0f, YPos);
 	YPos += YL;
+
+	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 }
 
 
