@@ -90,6 +90,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	NetCullDistanceSquared = 500000000.0f;
 
 	OnActorBeginOverlap.AddDynamic(this, &AUTCharacter::OnOverlapBegin);
+
+	PlayerIndicatorMaxDistance = 2700.0f;
 }
 
 void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
@@ -115,6 +117,15 @@ void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
 
 void AUTCharacter::BeginPlay()
 {
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+	{
+		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		if (PC != NULL && PC->MyHUD != NULL)
+		{
+			PC->MyHUD->AddPostRenderedActor(this);
+		}
+	}
+	UE_LOG(UT,Log,TEXT("UTCHARACTER.BeginPlay()"));
 	if (Health == 0 && Role == ROLE_Authority)
 	{
 		Health = HealthMax;
@@ -653,6 +664,17 @@ void AUTCharacter::Destroyed()
 		WeaponAttachment->Destroy();
 		WeaponAttachment = NULL;
 	}
+
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+	{
+		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		if (PC != NULL && PC->MyHUD != NULL)
+		{
+			PC->MyHUD->RemovePostRenderedActor(this);
+		}
+	}
+
+
 }
 
 void AUTCharacter::SetAmbientSound(USoundBase* NewAmbientSound, bool bClear)
@@ -1959,5 +1981,38 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 			}
 		}
 		// TODO: if OtherActor is a vehicle, then we should be killed instead
+	}
+}
+
+void AUTCharacter::PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir)
+{
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+
+	if (GetWorld()->TimeSeconds - GetLastRenderTime() < 1)
+	{
+		if (UTPS != NULL && UTPS->Team != NULL && PC != NULL && PC->GetPawn() != NULL && GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(PC->GetPawn(), this))
+		{
+			float Dist = (CameraPosition - GetActorLocation()).Size();
+			if (Dist <= PlayerIndicatorMaxDistance)
+			{
+
+				float XL,YL;
+				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
+				Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL);
+
+				FVector ScreenPosition = Canvas->Project(GetActorLocation() + (CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.25f) * FVector(0,0,1));
+
+				// Make the team backgrounds darker
+				FLinearColor TeamColor = UTPS->Team->TeamColor;
+				TeamColor.R *= 0.24;
+				TeamColor.G *= 0.24;
+				TeamColor.B *= 0.24;
+
+				Canvas->SetLinearDrawColor(TeamColor);
+				Canvas->DrawTile(Canvas->DefaultTexture, ScreenPosition.X - (XL * 0.5) - 1, ScreenPosition.Y - YL - 2, XL + 2, YL+2, 0,0, 1,1);
+				Canvas->SetLinearDrawColor(FLinearColor::White);
+				Canvas->DrawText(TinyFont, PlayerState->PlayerName, ScreenPosition.X - (XL * 0.5), ScreenPosition.Y - YL);
+			}
+		}
 	}
 }

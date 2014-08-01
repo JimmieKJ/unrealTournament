@@ -588,6 +588,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(BlueprintAssignable)
 	FCharacterDiedSignature OnDied;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category =  HUD)
+	float PlayerIndicatorMaxDistance;
+
 	virtual void RecalculateBaseEyeHeight() override;
 
 	/** Returns offset to add to first person mesh for weapon bob. */
@@ -610,7 +613,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION()
 	virtual AUTCarriedObject* GetCarriedObject();
 
-
+	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir);
 protected:
 
 	/** multiplier to firing speed */
