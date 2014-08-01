@@ -26,14 +26,22 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldHudTextureObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	OldHudTexture = OldHudTextureObj.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> SFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntPositec14.fntPositec14'"));
+	static ConstructorHelpers::FObjectFinder<UFont> SFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntSmallFont.fntSmallFont'"));
 	SmallFont = SFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntAmbex36.fntAmbex36'"));
+	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntMediumFont.fntMediumFont'"));
 	MediumFont = MFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> LFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntAmbex72.fntAmbex72'"));
+	static ConstructorHelpers::FObjectFinder<UFont> LFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntLargeFont.fntLargeFont'"));
 	LargeFont = LFont.Object;
+
+	static ConstructorHelpers::FObjectFinder<UFont> EFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntExtreme.fntExtreme'"));
+	ExtremeFont = LFont.Object;
+
+
+	static ConstructorHelpers::FObjectFinder<UFont> NFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntNumbers.fntNumbers'"));
+	NumberFont = NFont.Object;
+
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
@@ -46,7 +54,6 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	HudWidgetClasses.Add(UUTHUDWidget_Spectator::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_Powerups::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_WeaponBar::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerScore::StaticClass());
 
 	HudWidgetClasses.Add( ResolveHudWidgetByName(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'")));
 
@@ -86,6 +93,7 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 		case 1: return SmallFont;
 		case 2: return MediumFont;
 		case 3: return LargeFont;
+		case 4: return ExtremeFont;
 	}
 
 	return MediumFont;
@@ -187,7 +195,7 @@ void AUTHUD::PostRender()
 			if (PS != NULL)
 			{
 				FString Text = FString::Printf(TEXT("%s - %i"), *PS->PlayerName, PS->Score);
-				TempDrawString(FText::FromString(Text), 0, Y, ETextHorzPos::Left, GetFontFromSizeIndex(0), FLinearColor::White);
+				DrawString(FText::FromString(Text), 0, Y, ETextHorzPos::Left, GetFontFromSizeIndex(0), FLinearColor::White);
 				Y+=24;			
 			}
 		}
@@ -199,6 +207,30 @@ void AUTHUD::PostRender()
 void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
+
+	// find center of the Canvas
+	const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+
+	AUTCharacter* UTCharacterOwner = NULL;
+	if (UTPlayerOwner != NULL)
+	{
+		UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
+	}
+
+	for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
+	{
+		// If we aren't hidden then set the canvas and render..
+		if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
+		{
+			HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
+			if (HudWidgets[WidgetIndex]->ShouldDraw(bShowScores))
+			{
+				HudWidgets[WidgetIndex]->Draw(RenderDelta);
+			}
+			HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
+		}
+	}
+
 
 	if (bShowScores)
 	{
@@ -221,41 +253,7 @@ void AUTHUD::DrawHUD()
 	}
 	else
 	{
-		// find center of the Canvas
-		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
-
-		AUTCharacter* UTCharacterOwner = NULL;
-		if (UTPlayerOwner != NULL)
-		{
-			UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
-		}
-
-		for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
-		{
-			// If we aren't hidden then set the canvas and render..
-			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
-			{
-				HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
-				HudWidgets[WidgetIndex]->Draw(RenderDelta);
-				HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
-			}
-		}
-
 		DrawDamageIndicators();
-
-		/**
-		 * This is all TEMP code.  It will be replaced with a new hud system shortly but I 
-		 * needed a way to display some data.  
-
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		if (GameState)
-		{
-			TempDrawString(FText::FromString(TEXT("!! Alpha Prototype !!")), Center.X, 5.0f, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetSmallFont(), FLinearColor::White);
-			TempDrawString( ConvertTime(FText::GetEmpty(), FText::GetEmpty(), GameState->ElapsedTime), Center.X, 20, ETextHorzPos::Center, ETextVertPos::Top, GEngine->GetMediumFont(), FLinearColor::White);
-		}
-
-		**/
-
 	}
 }
 
@@ -282,13 +280,13 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds) const
 }
 
 
-void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale, bool bOutline)
+void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale, bool bOutline)
 {
 
 	FVector2D RenderPos = FVector2D(X,Y);
 
-	int32 XL, YL;
-	Font->GetStringHeightAndWidth(Text.ToString(), YL, XL);
+	float XL, YL;
+	Canvas->TextSize(Font, Text.ToString(), XL, YL, Scale, Scale);
 
 	if (HorzAlignment != ETextHorzPos::Left)
 	{
@@ -312,70 +310,11 @@ void AUTHUD::TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type Hor
 	Canvas->DrawItem(TextItem);
 }
 
-void AUTHUD::TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits, bool bRightAlign)
+void AUTHUD::DrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits, bool bRightAlign)
 {
-	const float FontPositions[11] = {633,297,325,365,403,441,480,519,556,594,673};
-	const float FontSizes[11] = {40,28,40,38,38,39,39,37,38,39,30};
-
-	// Convert the number to an ANSICHAR* so we can itterate 
-	FString NumStr = FString::Printf(TEXT("%i"), Number);
-	ANSICHAR *Ansi = TCHAR_TO_ANSI(*NumStr);
-
-	if (bRightAlign)
-	{
-		Ansi += (NumStr.Len() -1);
-	}
-
-	int Cnt = NumStr.Len();
-	if (Cnt < MinDigits && Number >= 0)
-	{
-		Cnt = MinDigits;
-	}
-
-	for (int i=0;i<Cnt;i++)
-	{
-		int32 Index = 0;
-		if (Cnt - i <= NumStr.Len())
-		{
-			Index = uint8(*Ansi) - 48;
-			if (bRightAlign)
-			{
-				Ansi--;
-			}
-			else
-			{
-				Ansi++;
-			}
-		}
-
-
-
-		if (Index < 0 || Index > 9)
-		{
-			Index =  10;
-		}
-
-		if (bRightAlign)
-		{
-			X -= FontSizes[Index] * Scale;
-		}
-
-		float U = FontPositions[Index];
-		float Width = FontSizes[Index];
-		float UL = Width;
-		// Draw the background.
-		Canvas->DrawColor = Color;
-		Canvas->DrawColor.A *= GlowOpacity;
-		Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 49, UL, 47, EBlendMode::BLEND_Translucent);
-		Canvas->DrawColor = Color;
-		Canvas->DrawTile(OldHudTexture, X, Y, Width * Scale, 47 * Scale, U, 0, UL, 47, EBlendMode::BLEND_Translucent);
-
-		if (!bRightAlign)
-		{
-			X += FontSizes[Index] * Scale;
-		}
-
-	}
+	FNumberFormattingOptions Opts;
+	Opts.MinimumIntegralDigits = MinDigits;
+	DrawString(FText::AsNumber(Number,&Opts), X, Y, bRightAlign ?  ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
 }
 
 void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire)

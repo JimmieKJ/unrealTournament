@@ -60,20 +60,6 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 		{
 			DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,41, 843, 87, 43,41, FLinearColor::Blue, BlueScale);
 		}
-
-		if (CGS->bHalftime)
-		{
-			FText TimeStr = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), CGS->TimeLimit - CGS->RemainingTime);
-			DrawText(TimeStr, 0, 95, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
-			DrawText(NSLOCTEXT("CTFScore","HalfTime","!! Halftime !!"), 0, 115, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
-		}
-		else
-		{
-			FText TimeStr = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), CGS->RemainingTime);
-			DrawText(TimeStr, 0, 95, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
-			FText HalfText = !CGS->bSecondHalf ? NSLOCTEXT("CTFScore","FirstHalf","First Half") : NSLOCTEXT("CTFScore","SecondHalf","Second Half");
-			DrawText(HalfText, 0, 115, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
-		}
 	}
 }
 

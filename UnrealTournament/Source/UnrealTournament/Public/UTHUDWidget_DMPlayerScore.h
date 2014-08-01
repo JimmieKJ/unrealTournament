@@ -19,8 +19,6 @@ public:
 
 	virtual void Draw_Implementation(float DeltaTime);
 protected:
-
-private:
 	int32 LastScore;
 	float ScoreFlashOpacity;
 };

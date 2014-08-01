@@ -51,17 +51,13 @@ void UUTCTFScoreboard::DrawPlayers(float RenderDelta, float X, float Y, float Cl
 				step = 1 - step;
 
 				FLinearColor DrawColor =  (PS == UTHUDOwner->UTPlayerOwner->UTPlayerState ? FLinearColor::Yellow : FLinearColor :: White);
-				UTHUDOwner->TempDrawString(FText::FromString( PS->PlayerName), NameX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor,TextScale,true);
-				UTHUDOwner->TempDrawNumber(PS->Score, ScoreX, DrawY,DrawColor, 0.0f, TextScale, 0, true);
+				UTHUDOwner->DrawString(FText::FromString( PS->PlayerName), NameX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor,TextScale,true);
+				UTHUDOwner->DrawNumber(PS->Score, ScoreX, DrawY,DrawColor, 0.0f, TextScale, 0, true);
 
 				DrawY += 26 * TextScale;
 
-				FLinearColor DarkColor = DrawColor;
-				DarkColor *= 0.5;
-				DarkColor.A = 1.0;
-
 				FString Stats = FString::Printf(TEXT("c: %i  r: %i  a: %i  k: %i  d: %i"), PS->FlagCaptures, PS->FlagReturns, PS->Assists, PS->Kills, PS->Deaths);
-				UTHUDOwner->TempDrawString(FText::FromString(Stats), NameX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DarkColor,TextScale * 0.5,true);
+				UTHUDOwner->DrawString(FText::FromString(Stats), NameX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor,TextScale * 0.5,true);
 				DrawY += 22 * TextScale;
 			}
 		}

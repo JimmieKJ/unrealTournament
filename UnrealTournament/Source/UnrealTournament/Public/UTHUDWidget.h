@@ -66,6 +66,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widgets")
 	virtual void SetHidden(bool bIsHidden);
 
+	// @Returns true if this widget should be drawn.
+	UFUNCTION(BlueprintNativeEvent)
+	bool ShouldDraw(bool bShowScores);
+
 	// Predraw is called before the main drawing function in order to perform any needed scaling / positioning /etc as
 	// well as cache the canvas and owner.  
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);

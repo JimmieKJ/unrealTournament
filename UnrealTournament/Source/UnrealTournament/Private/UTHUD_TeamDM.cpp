@@ -4,11 +4,14 @@
 #include "UTHUD_DM.h"
 #include "UTHUD_TeamDM.h"
 #include "UTHUDWidget_TeamScore.h"
+#include "UTHUDWidget_DMPlayerScore.h"
 
 AUTHUD_TeamDM::AUTHUD_TeamDM(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
 	HudWidgetClasses.Add(UUTHUDWidget_TeamScore::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerScore::StaticClass());
+
 }
 
 

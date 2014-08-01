@@ -51,6 +51,11 @@ void UUTHUDWidget::SetHidden(bool bIsHidden)
 	bHidden = bIsHidden;
 }
 
+bool UUTHUDWidget::ShouldDraw_Implementation(bool bShowScores)
+{
+	return !bShowScores;
+}
+
 void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	UTHUDOwner = InUTHUDOwner;

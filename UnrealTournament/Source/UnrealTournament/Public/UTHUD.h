@@ -60,6 +60,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* LargeFont;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	class UFont* ExtremeFont;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	class UFont* NumberFont;
+
+
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
@@ -129,12 +136,10 @@ protected:
 
 public:
 
-	// TEMP : Convert seconds to a time string.
 	FText ConvertTime(FText Prefix, FText Suffix, int Seconds) const;
 
-	// TEMP: Until the new Hud system comes online, quickly draw a string to the screen.  This will be replaced soon.
-	void TempDrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
-	void TempDrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
+	void DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
+	void DrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
 
 
 

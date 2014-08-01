@@ -4,12 +4,16 @@
 #include "UTCTFGAmeState.h"
 #include "UTHUDWidget_CTFScore.h"
 #include "UTHUDWidget_CTFFlagStatus.h"
+#include "UTHUDWidget_GameClock.h"
+#include "UTHUDWidget_CTFPlayerScore.h"
 
 AUTHUD_CTF::AUTHUD_CTF(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	HudWidgetClasses.Add(UUTHUDWidget_CTFPlayerScore::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_CTFScore::StaticClass());
 	HudWidgetClasses.Add(UUTHUDWidget_CTFFlagStatus::StaticClass());
+	HudWidgetClasses.Add(UUTHUDWidget_GameClock::StaticClass());
 }
 
 

@@ -21,9 +21,9 @@ void UUTTeamScoreboard::DrawScoreboard(float RenderDelta)
 	float xl;
 	Canvas->StrLen(UTHUDOwner->MediumFont, UTGameState->PlayerArray[0]->PlayerName, xl, CellHeight);
 
-	if (CellHeight < 47) CellHeight = 47;  // 47 = the Height of the Big numbers used by TempDrawNumber.  This is throwaway code
+	if (CellHeight < 47) CellHeight = 47;  
 
-	float ZoneYSize = Canvas->ClipY * 0.6;
+	float ZoneYSize = Canvas->ClipY * 0.5;
 	float ScoreYSize = CellHeight * UTGameState->PlayerArray.Num();
 
 	CellScale = (ScoreYSize <= ZoneYSize ? 1.0 : ZoneYSize / ScoreYSize);
@@ -33,7 +33,7 @@ void UUTTeamScoreboard::DrawScoreboard(float RenderDelta)
 	DrawPlayers(RenderDelta, 0, Canvas->ClipY * 0.15, Canvas->ClipX * 0.5, Canvas->ClipY * 0.8,0);
 	DrawPlayers(RenderDelta, Canvas->ClipX * 0.5, Canvas->ClipY * 0.15, Canvas->ClipX * 0.5, Canvas->ClipY * 0.8,1);
 
-	DrawHeader(RenderDelta, 0, 0, Canvas->ClipX, Canvas->ClipY);
+	//DrawHeader(RenderDelta, 0, 0, Canvas->ClipX, Canvas->ClipY);
 	DrawFooter(RenderDelta, 0, 0, Canvas->ClipX, Canvas->ClipY);
 }
 

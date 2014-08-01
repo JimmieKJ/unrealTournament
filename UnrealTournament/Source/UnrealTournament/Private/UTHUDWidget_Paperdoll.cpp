@@ -86,10 +86,10 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		}
 
 		DrawTexture(PaperDollTexture, 58.0f, 26.0f, 26.0f, 33.0f, 233.0f, 67.0f, 26.0f, 33.0f);
-		UTHUDOwner->TempDrawNumber(ArmorAmt, RenderPosition.X + 85 * RenderScale, RenderPosition.Y + 26 * RenderScale, FLinearColor::Yellow, 0.5, RenderScale * 0.5);
+		UTHUDOwner->DrawNumber(ArmorAmt, RenderPosition.X + 85 * RenderScale, RenderPosition.Y + 26 * RenderScale, FLinearColor::Yellow, 0.5, RenderScale * 0.5);
 
 		DrawTexture(PaperDollTexture, 54.0f, 70.0f, 35.0f, 35.0f, 225.0f, 104.0f, 35.0f,35.0f);
-		UTHUDOwner->TempDrawNumber(UTC->Health, RenderPosition.X + 85 * RenderScale , RenderPosition.Y + 70 * RenderScale, FLinearColor::Yellow, 0.5 + (0.5 * HealthFlashOpacity),RenderScale * 0.75);
+		UTHUDOwner->DrawNumber(UTC->Health, RenderPosition.X + 85 * RenderScale , RenderPosition.Y + 70 * RenderScale, FLinearColor::Yellow, 0.5 + (0.5 * HealthFlashOpacity),RenderScale * 0.75);
 	
 		if (HealthFlashOpacity > 0.0f)
 		{
