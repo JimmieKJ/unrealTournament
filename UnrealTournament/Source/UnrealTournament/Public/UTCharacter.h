@@ -313,7 +313,8 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	virtual void StopFire(uint8 FireModeNum);
 
 	/** Return true if character is currently able to dodge. */
-	virtual bool CanDodge() const;
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
+	bool CanDodge() const;
 
 	/** Dodge requested by controller, return whether dodge occurred. */
 	virtual bool Dodge(FVector DodgeDir, FVector DodgeCross);
@@ -615,6 +616,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir);
 protected:
+
+	UFUNCTION(BlueprintNativeEvent, Category = "Pawn|Character|InternalEvents", meta = (FriendlyName = "CanDodge"))
+	bool CanDodgeInternal() const;
 
 	/** multiplier to firing speed */
 	UPROPERTY(Replicated, ReplicatedUsing=FireRateChanged)

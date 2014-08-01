@@ -1280,6 +1280,11 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 
 bool AUTCharacter::CanDodge() const
 {
+	return CanDodgeInternal();
+}
+
+bool AUTCharacter::CanDodgeInternal_Implementation() const
+{
 	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
 }
 
