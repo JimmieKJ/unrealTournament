@@ -4,7 +4,7 @@
 #include "GameFramework/LocalMessage.h"
 #include "Engine/Console.h"
 #include "UTLocalMessage.h"
-#include "UTHud.h"
+#include "UTHUD.h"
 #include "UTAnnouncer.h"
 
 UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties& PCIP)
