@@ -300,11 +300,19 @@ bool UUTCharacterMovement::CanSprint() const
 
 float UUTCharacterMovement::GetMaxSpeed() const
 {
-	if (bIsDodgeRolling)
+	// ignore standard movement while character is a ragdoll
+	if (Cast<AUTCharacter>(CharacterOwner) != NULL && ((AUTCharacter*)CharacterOwner)->IsRagdoll())
+	{
+		return 0.0f;
+	}
+	else if (bIsDodgeRolling)
 	{
 		return MaxDodgeRollSpeed;
 	}
-	return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
+	else
+	{
+		return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
+	}
 }
 
 void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration)

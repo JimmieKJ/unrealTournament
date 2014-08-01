@@ -241,6 +241,24 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	 */
 	bool bDeferredReplicatedMovement;
 
+	/** set to prevent firing (does not stop already started firing, call StopFiring() for that) */
+	UPROPERTY(BlueprintReadWrite, Category = Pawn)
+	bool bDisallowWeaponFiring;
+
+protected:
+	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = PlayFeignDeath, Category = Pawn)
+	bool bFeigningDeath;
+	/** set during ragdoll recovery (still blending out physics, playing recover anim, etc) */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	bool bInRagdollRecovery;
+
+public:
+	inline bool IsRagdoll()
+	{
+		return bFeigningDeath || bInRagdollRecovery || (RootComponent == Mesh && Mesh->IsSimulatingPhysics());
+	}
+
 	virtual void BeginPlay() override;
 	virtual void PostInitializeComponents() override;
 	virtual void Destroyed() override;
@@ -291,6 +309,26 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	virtual void FellOutOfWorld(const UDamageType& DmgType) override;
 
+	/** time between StopRagdoll() call and when physics has been fully blended out of our mesh */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ragdoll)
+	float RagdollBlendOutTime;
+	/** player in feign death can't recover until world time reaches this */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ragdoll)
+	float FeignDeathRecoverStartTime;
+
+	virtual void StartRagdoll();
+	virtual void StopRagdoll();
+
+	UFUNCTION(Exec, BlueprintCallable, Category = Pawn)
+	virtual void FeignDeath();
+	UFUNCTION(Reliable, Server, WithValidation, Category = Pawn)
+	void ServerFeignDeath();
+	UFUNCTION()
+	virtual void PlayFeignDeath();
+	/** force feign death/ragdoll state for e.g. knockdown effects */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
+	virtual void ForceFeignDeath(float MinRecoveryDelay);
+
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();
 	virtual void TornOff() override
@@ -311,6 +349,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void StopFire(uint8 FireModeNum);
+
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	virtual void StopFiring();
 
 	/** Return true if character is currently able to dodge. */
 	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")

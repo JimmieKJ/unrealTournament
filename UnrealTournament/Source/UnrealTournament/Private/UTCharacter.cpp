@@ -42,6 +42,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Mesh->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
 
 	UTCharacterMovement = Cast<UUTCharacterMovement>(CharacterMovement);
 
@@ -80,6 +81,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	FullWeaponLandBobVelZ = 900.f;
 	FullEyeOffsetLandBobVelZ = 750.f;
 	WeaponDirChangeDeflection = 4.f;
+	RagdollBlendOutTime = 0.75f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -623,12 +625,14 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 	}
 }
 
-void AUTCharacter::PlayDying()
+void AUTCharacter::StartRagdoll()
 {
-	SetAmbientSound(NULL);
-
-	// TODO: damagetype effects, etc
+	StopFiring();
+	bDisallowWeaponFiring = true;
+	bInRagdollRecovery = false;
+	
 	CharacterMovement->ApplyAccumulatedForces(0.0f);
+	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Mesh->UpdateKinematicBonesToPhysics(true, true);
 	Mesh->SetSimulatePhysics(true);
@@ -638,8 +642,7 @@ void AUTCharacter::PlayDying()
 	RootComponent = Mesh;
 	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CapsuleComponent->DetachFromParent(false);
-	CapsuleComponent->AttachTo(Mesh);
-	SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
+	CapsuleComponent->AttachTo(Mesh, NAME_None, EAttachLocation::KeepWorldPosition);
 
 	if (bDeferredReplicatedMovement)
 	{
@@ -654,6 +657,110 @@ void AUTCharacter::PlayDying()
 	}
 }
 
+void AUTCharacter::StopRagdoll()
+{
+	CapsuleComponent->DetachFromParent(true);
+	FRotator FixedRotation = CapsuleComponent->RelativeRotation;
+	FixedRotation.Pitch = FixedRotation.Roll = 0.0f;
+	CapsuleComponent->SetRelativeRotation(FixedRotation);
+	CapsuleComponent->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->CapsuleComponent->RelativeScale3D);
+	RootComponent = CapsuleComponent;
+
+	Mesh->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->MeshComponentUpdateFlag;
+	Mesh->bBlendPhysics = false; // for some reason bBlendPhysics == false is the value that actually blends instead of using only physics
+	//Mesh->SetSimulatePhysics(false);
+	//Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	//Mesh->AttachTo(CapsuleComponent, NAME_None, EAttachLocation::SnapToTarget);
+	//Mesh->SetRelativeLocation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
+	//Mesh->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation);
+	//Mesh->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeScale3D);
+	//Mesh->RefreshBoneTransforms();
+
+	// TODO: make sure cylinder is in valid position (navmesh?)
+	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+	GetWorld()->FindTeleportSpot(this, AdjustedLoc, GetActorRotation());
+	CapsuleComponent->SetWorldLocation(AdjustedLoc);
+
+	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
+	bInRagdollRecovery = true;
+}
+
+void AUTCharacter::PlayDying()
+{
+	SetAmbientSound(NULL);
+
+	// TODO: damagetype effects, etc
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		StartRagdoll();
+	}
+
+	SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
+}
+
+void AUTCharacter::FeignDeath()
+{
+	ServerFeignDeath();
+}
+bool AUTCharacter::ServerFeignDeath_Validate()
+{
+	return true;
+}
+void AUTCharacter::ServerFeignDeath_Implementation()
+{
+	if (Role == ROLE_Authority && !IsDead())
+	{
+		if (bFeigningDeath)
+		{
+			if (GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime)
+			{
+				bFeigningDeath = false;
+				PlayFeignDeath();
+			}
+		}
+		else if (Mesh->Bodies.Num() == 0 || Mesh->Bodies[0]->PhysicsBlendWeight <= 0.0f)
+		{
+			bFeigningDeath = true;
+			FeignDeathRecoverStartTime = GetWorld()->TimeSeconds + 1.0f;
+			PlayFeignDeath();
+		}
+	}
+}
+void AUTCharacter::PlayFeignDeath()
+{
+	if (bFeigningDeath)
+	{
+		DropFlag();
+
+		// force behind view
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
+			if (PC != NULL && PC->GetViewTarget() == this)
+			{
+				PC->BehindView(true);
+			}
+		}
+
+		StartRagdoll();
+	}
+	else
+	{
+		StopRagdoll();
+	}
+}
+void AUTCharacter::ForceFeignDeath(float MinRecoveryTime)
+{
+	if (!bFeigningDeath && Role == ROLE_Authority && !IsDead())
+	{
+		bFeigningDeath = true;
+		FeignDeathRecoverStartTime = GetWorld()->TimeSeconds + MinRecoveryTime;
+		PlayFeignDeath();
+	}
+}
+
 void AUTCharacter::Destroyed()
 {
 	Super::Destroyed();
@@ -665,7 +772,7 @@ void AUTCharacter::Destroyed()
 		WeaponAttachment = NULL;
 	}
 
-	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+	if (!GExitPurge && GetWorld()->GetNetMode() != NM_DedicatedServer)
 	{
 		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
 		if (PC != NULL && PC->MyHUD != NULL)
@@ -673,8 +780,6 @@ void AUTCharacter::Destroyed()
 			PC->MyHUD->RemovePostRenderedActor(this);
 		}
 	}
-
-
 }
 
 void AUTCharacter::SetAmbientSound(USoundBase* NewAmbientSound, bool bClear)
@@ -741,6 +846,11 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 	{
 		UE_LOG(LogUTCharacter, Warning, TEXT("StartFire() can only be called on the owning client"));
 	}
+	// when feigning death, attempting to fire gets us out of it
+	else if (bFeigningDeath)
+	{
+		FeignDeath();
+	}
 	else if (Weapon != NULL)
 	{
 		Weapon->StartFire(FireModeNum);
@@ -756,6 +866,17 @@ void AUTCharacter::StopFire(uint8 FireModeNum)
 	else if (Weapon != NULL)
 	{
 		Weapon->StopFire(FireModeNum);
+	}
+}
+
+void AUTCharacter::StopFiring()
+{
+	for (int32 i = 0; i < PendingFire.Num(); i++)
+	{
+		if (PendingFire[i])
+		{
+			StopFire(i);
+		}
 	}
 }
 
@@ -1261,6 +1382,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bUnlimitedAmmo, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -1717,6 +1839,44 @@ void AUTCharacter::Tick(float DeltaTime)
 		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.35f * CharacterMovement->MaxWalkSpeed / Speed)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
+		}
+	}
+
+	// tick ragdoll recovery
+	if (!bFeigningDeath && bInRagdollRecovery)
+	{
+		// TODO: anim check?
+		if (Mesh->Bodies.Num() == 0)
+		{
+			bInRagdollRecovery = false;
+		}
+		else
+		{
+			Mesh->SetAllBodiesPhysicsBlendWeight(FMath::Max(0.0f, Mesh->Bodies[0]->PhysicsBlendWeight - (1.0f / FMath::Max(0.01f, RagdollBlendOutTime)) * DeltaTime));
+			if (Mesh->Bodies[0]->PhysicsBlendWeight == 0.0f)
+			{
+				bInRagdollRecovery = false;
+			}
+		}
+		if (!bInRagdollRecovery)
+		{
+			// disable physics and make sure mesh is in the proper position
+			Mesh->SetSimulatePhysics(false);
+			Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Mesh->AttachTo(CapsuleComponent, NAME_None, EAttachLocation::SnapToTarget);
+			Mesh->SetRelativeLocation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
+			Mesh->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation);
+			Mesh->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeScale3D);
+
+			bDisallowWeaponFiring = GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring;
+
+			// switch back to first person view
+			// TODO: remember prior setting?
+			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+			if (PC != NULL)
+			{
+				PC->BehindView(false);
+			}
 		}
 	}
 

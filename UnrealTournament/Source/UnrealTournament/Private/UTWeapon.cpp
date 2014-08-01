@@ -289,16 +289,22 @@ float AUTWeapon::GetAutoSwitchPriority()
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
-	BeginFiringSequence(FireModeNum);
-	if (Role < ROLE_Authority)
+	if (!UTOwner->bDisallowWeaponFiring)
 	{
-		ServerStartFire(FireModeNum);
+		BeginFiringSequence(FireModeNum);
+		if (Role < ROLE_Authority)
+		{
+			ServerStartFire(FireModeNum);
+		}
 	}
 }
 
 void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum)
 {
-	BeginFiringSequence(FireModeNum);
+	if (!UTOwner->bDisallowWeaponFiring)
+	{
+		BeginFiringSequence(FireModeNum);
+	}
 }
 
 bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
