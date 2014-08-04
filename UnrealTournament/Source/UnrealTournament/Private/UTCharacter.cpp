@@ -695,9 +695,13 @@ void AUTCharacter::PlayDying()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		StartRagdoll();
+		SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
 	}
-
-	SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
+	else
+	{
+		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		SetLifeSpan(0.25f);
+	}
 }
 
 void AUTCharacter::FeignDeath()
