@@ -5,6 +5,108 @@
 #include "BatchedElements.h"
 #include "RenderResource.h"
 
+DECLARE_CYCLE_STAT(TEXT("CanvasTextItem Time"), STAT_Canvas_TextItemTime, STATGROUP_Canvas);
+void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
+{
+	SCOPE_CYCLE_COUNTER(STAT_Canvas_TextItemTime);
+
+	if (InCanvas == NULL || Font == NULL || Text.IsEmpty())
+	{
+		return;
+	}
+
+	XScale = Scale.X;
+	YScale = Scale.Y;
+
+	bool bHasShadow = ShadowOffset.Size() != 0.0f;
+	if (FontRenderInfo.bEnableShadow && !bHasShadow)
+	{
+		EnableShadow(FLinearColor::Black);
+		bHasShadow = true;
+	}
+	if (Font->ImportOptions.bUseDistanceFieldAlpha)
+	{
+		// convert blend mode to distance field type
+		switch (BlendMode)
+		{
+		case SE_BLEND_Translucent:
+			BlendMode = (bHasShadow || FontRenderInfo.bEnableShadow) ? SE_BLEND_TranslucentDistanceFieldShadowed : SE_BLEND_TranslucentDistanceField;
+			break;
+		case SE_BLEND_Masked:
+			BlendMode = (bHasShadow || FontRenderInfo.bEnableShadow) ? SE_BLEND_MaskedDistanceFieldShadowed : SE_BLEND_MaskedDistanceField;
+			break;
+		}
+
+		// we don't need to use the double draw method because the shader will do it better
+		bHasShadow = false;
+	}
+
+	CharIncrement = ((float)Font->Kerning + HorizSpacingAdjust) * Scale.X;
+	DrawnSize.Y = Font->GetMaxCharHeight() * Scale.Y;
+
+	FVector2D DrawPos(Position.X, Position.Y);
+
+	// If we are centering the string or we want to fix stereoscopic rending issues we need to measure the string
+	if ((bCentreX || bCentreY) || (!bDontCorrectStereoscopic))
+	{
+		FTextSizingParameters Parameters(Font, Scale.X, Scale.Y);
+		UCanvas::CanvasStringSize(Parameters, *Text.ToString());
+
+		// Calculate the offset if we are centering
+		if (bCentreX || bCentreY)
+		{
+			// Note we drop the fraction after the length divide or we can end up with coords on 1/2 pixel boundaries
+			if (bCentreX)
+			{
+				DrawPos.X = DrawPos.X - (int)(Parameters.DrawXL / 2);
+			}
+			if (bCentreY)
+			{
+				DrawPos.Y = DrawPos.Y - (int)(Parameters.DrawYL / 2);
+			}
+		}
+
+		// Check if we want to correct the stereo3d issues - if we do, render the correction now
+		bool CorrectStereo = !bDontCorrectStereoscopic  && GEngine->IsStereoscopic3D();
+		if (CorrectStereo)
+		{
+			FVector2D StereoOutlineBoxSize(2.0f, 2.0f);
+			TileItem.MaterialRenderProxy = GEngine->RemoveSurfaceMaterial->GetRenderProxy(false);
+			TileItem.Position = DrawPos - StereoOutlineBoxSize;
+			FVector2D CorrectionSize = FVector2D(Parameters.DrawXL, Parameters.DrawYL) + StereoOutlineBoxSize + StereoOutlineBoxSize;
+			TileItem.Size = CorrectionSize;
+			TileItem.bFreezeTime = true;
+			TileItem.Draw(InCanvas);
+		}
+	}
+
+	FLinearColor DrawColor;
+	BatchedElements = NULL;
+	TextLen = Text.ToString().Len();
+	if (bOutlined && !FontRenderInfo.GlowInfo.bEnableGlow) // efficient distance field glow takes priority
+	{
+		DrawColor = OutlineColor;
+		DrawColor.A *= InCanvas->AlphaModulate;
+		DrawStringInternal(InCanvas, DrawPos + FVector2D(-1.0f, -1.0f), DrawColor);
+		DrawStringInternal(InCanvas, DrawPos + FVector2D(-1.0f, 1.0f), DrawColor);
+		DrawStringInternal(InCanvas, DrawPos + FVector2D(1.0f, 1.0f), DrawColor);
+		DrawStringInternal(InCanvas, DrawPos + FVector2D(1.0f, -1.0f), DrawColor);
+	}
+	// If we have a shadow - draw it now
+	if (bHasShadow)
+	{
+		DrawColor = ShadowColor;
+		// Copy the Alpha from the shadow otherwise if we fade the text the shadow wont fade - which is almost certainly not what we will want.
+		DrawColor.A = Color.A;
+		DrawColor.A *= InCanvas->AlphaModulate;
+		DrawStringInternal(InCanvas, DrawPos + ShadowOffset, DrawColor);
+	}
+	DrawColor = Color;
+	DrawColor.A *= InCanvas->AlphaModulate;
+	// TODO: we need to pass the shadow color and direction in the distance field case... (currently engine support is missing)
+	DrawStringInternal(InCanvas, DrawPos, DrawColor);
+}
+
 UUTHUDWidget::UUTHUDWidget(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 	bIgnoreHUDBaseColor = false;
@@ -123,8 +225,12 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, FVec
 {
 	return DrawText(Text, X, Y, Font, true, ShadowDirection, ShadowColor, true, OutlineColor, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment);
 }
+FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, const FFontRenderInfo& RenderInfo, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+{
+	return DrawText(Text, X, Y, Font, false, FVector2D::ZeroVector, FLinearColor::Black, false, FLinearColor::Black, TextScale, DrawOpacity, DrawColor, TextHorzAlignment, TextVertAlignment, RenderInfo);
+}
 
-FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow, FVector2D ShadowDirection, FLinearColor ShadowColor, bool bDrawOutline, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
+FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow, FVector2D ShadowDirection, FLinearColor ShadowColor, bool bDrawOutline, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment, const FFontRenderInfo& RenderInfo)
 {
 
 	float XL = 0.0f, YL = 0.0f;
@@ -163,7 +269,8 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		DrawColor.A *= DrawOpacity * UTHUDOwner->WidgetOpacity;
 		Canvas->DrawColor = DrawColor;
 
-		FCanvasTextItem TextItem(RenderPos, Text, Font, DrawColor);
+		FUTCanvasTextItem TextItem(RenderPos, Text, Font, DrawColor);
+		TextItem.FontRenderInfo = RenderInfo;
 
 		if (bDrawOutline)
 		{
