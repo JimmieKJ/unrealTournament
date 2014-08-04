@@ -1652,7 +1652,6 @@ void AUTCharacter::MoveBlockedBy(const FHitResult& Impact)
 	}
 }
 
-
 void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 {
 	if (Role == ROLE_Authority)

@@ -52,6 +52,8 @@ public:
 	virtual void OnRep_PlayerState();
 	virtual void SetPawn(APawn* InPawn);
 	virtual void SetupInputComponent() override;
+	virtual void ProcessPlayerInput(const float DeltaTime, const bool bGamePaused) override;
+
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 
 	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
@@ -206,6 +208,14 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	float BaseLookUpRate;
 
+	/** Current movement axis deflecton forward/back (back is negative) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement)
+	float MovementForwardAxis;
+
+	/** Current movement axis deflecton right/left (left is negative) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement)
+	float MovementStrafeAxis;
+
 	// @TODO FIXMESTEVE make config
 	UPROPERTY(EditAnywhere, Category = Dodging)
 	float MaxDodgeClickTime;
@@ -221,6 +231,10 @@ protected:
 
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapBackTime;
+
+	/** if true, single tap dodge requested */
+	UPROPERTY(BluePrintReadOnly, Category = Dodging)
+	bool bRequestedDodge;
 
 	/** If true, holding dodge modifier key down, single tap of movement key causes dodge. */
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
@@ -291,6 +305,7 @@ protected:
 	void OnTapForward();
 	void OnTapBack();
 	void OnSingleTapDodge();
+	virtual void PerformSingleTapDodge();
 	void HoldDodge();
 	void ReleaseDodge();
 	void OnDodgeRoll();

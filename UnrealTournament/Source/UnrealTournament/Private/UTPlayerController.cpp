@@ -121,6 +121,19 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTPlayerController::ShowMenu);
 }
 
+void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
+{
+	Super::ProcessPlayerInput(DeltaTime, bGamePaused);
+
+	if (bRequestedDodge)
+	{
+		PerformSingleTapDodge();
+	}
+	bRequestedDodge = false;
+	MovementForwardAxis = 0.f;
+	MovementStrafeAxis = 0.f;
+}
+
 void AUTPlayerController::InitInputSystem()
 {
 	if (PlayerInput == NULL)
@@ -428,6 +441,7 @@ void AUTPlayerController::MoveForward(float Value)
 {
 	if (Value != 0.0f && UTCharacter != NULL)
 	{
+		MovementForwardAxis = Value;
 		UTCharacter->MoveForward(Value);
 	}
 }
@@ -436,6 +450,7 @@ void AUTPlayerController::MoveRight(float Value)
 {
 	if (Value != 0.0f && UTCharacter != NULL)
 	{
+		MovementStrafeAxis = Value;
 		UTCharacter->MoveRight(Value);
 	}
 }
@@ -639,33 +654,33 @@ void AUTPlayerController::OnDodgeRoll()
 
 void AUTPlayerController::OnSingleTapDodge()
 {
+	bRequestedDodge = true;
+}
+
+void AUTPlayerController::PerformSingleTapDodge()
+{
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
-		// base dodge direction on current acceleration, only in cardinal directions.  
+		// base dodge direction on currently pressed axis movement.  
 		// If two directions pressed, dodge to the side
 		MyCharMovement->bPressedDodgeForward = false;
 		MyCharMovement->bPressedDodgeBack = false;
 		MyCharMovement->bPressedDodgeLeft = false;
 		MyCharMovement->bPressedDodgeRight = false;
 
-		FRotator TurnRot(0.f, UTCharacter->GetActorRotation().Yaw, 0.f);
-		FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
-		FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
-		FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
-
 		// @TODO FIXMESTEVE need to check pressed move dir, otherwise fast turn will cause wrong dir dodge
-		if ((MyCharMovement->GetCurrentAcceleration() | Y) > 0.5f)
+		if (MovementStrafeAxis > 0.5f)
 		{
 			MyCharMovement->bPressedDodgeRight = true;
 			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Right"));
 		}
-		else if ((MyCharMovement->GetCurrentAcceleration() | Y) < -0.5f)
+		else if (MovementStrafeAxis < -0.5f)
 		{
 			MyCharMovement->bPressedDodgeLeft = true;
 			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Left"));
 		}
-		else if ((MyCharMovement->GetCurrentAcceleration() | X) >= 0.f)
+		else if ( MovementForwardAxis >= 0.f)
 		{
 			MyCharMovement->bPressedDodgeForward = true;
 			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Forward"));
