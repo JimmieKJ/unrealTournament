@@ -776,7 +776,7 @@ void AUTCharacter::Destroyed()
 		WeaponAttachment = NULL;
 	}
 
-	if (!GExitPurge && GetWorld()->GetNetMode() != NM_DedicatedServer)
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer && GEngine->GetWorldContextFromWorld(GetWorld()) != NULL) // might not be able to get world context when exiting PIE
 	{
 		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
 		if (PC != NULL && PC->MyHUD != NULL)
