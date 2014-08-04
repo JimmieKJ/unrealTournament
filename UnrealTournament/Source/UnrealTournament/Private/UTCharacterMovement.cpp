@@ -164,7 +164,7 @@ bool UUTCharacterMovement::CanDodge()
 	{
 		//UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
-	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && (CharacterOwner && CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > DodgeResetTime));
+	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
 }
 
 bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)

@@ -337,8 +337,8 @@ bool AUTCTFGameMode::IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquare
 		Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
 		Flags[1] = CTFGameState->FlagBases[1]->MyFlag;
 
-		BOOL bCloseToRed = Flags[0]->ObjectState == CarriedObjectState::Held && (Flags[0]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
-		BOOL bCloseToBlue = Flags[1]->ObjectState == CarriedObjectState::Held && (Flags[1]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
+		bool bCloseToRed = Flags[0]->ObjectState == CarriedObjectState::Held && (Flags[0]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
+		bool bCloseToBlue = Flags[1]->ObjectState == CarriedObjectState::Held && (Flags[1]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
 
 		if ( (TeamNum == 0 && bCloseToRed) || (TeamNum == 1 && bCloseToBlue) ||
 				(TeamNum == 255 && (bCloseToRed || bCloseToBlue)) )

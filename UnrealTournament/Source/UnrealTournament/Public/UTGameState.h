@@ -115,10 +115,7 @@ class AUTGameState : public AGameState
 	/** get overlay material from index */
 	UMaterialInterface* GetOverlayMaterial(int32 Index)
 	{
-		if (Index >= 0 && Index < ARRAY_COUNT(OverlayMaterials))
-		{
-			return OverlayMaterials[Index];
-		}
+		return (Index >= 0 && Index < ARRAY_COUNT(OverlayMaterials)) ? OverlayMaterials[Index] : NULL;
 	}
 	/** returns first active overlay material given the passed in flags */
 	UMaterialInterface* GetFirstOverlay(uint16 Flags)
