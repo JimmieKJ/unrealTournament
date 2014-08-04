@@ -37,10 +37,15 @@ bool AUTTeleporter::CanTeleport_Implementation(AActor* OtherActor)
 	return (C != NULL && !C->IsDead() && C->Controller != NULL);
 }
 
+// prevents re-entrancy between teleporters
+static AActor* CurrentlyTeleportingActor = NULL;
+
 void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 {
-	if (OtherActor != NULL && CanTeleport(OtherActor))
+	if (OtherActor != NULL && CurrentlyTeleportingActor != OtherActor && CanTeleport(OtherActor))
 	{
+		CurrentlyTeleportingActor = OtherActor;
+
 		FTransform WorldTransform = TeleportTarget * ActorToWorld();
 		FVector AdjustedTeleportLoc = WorldTransform.GetLocation();
 		FRotator TargetRot = WorldTransform.Rotator();
@@ -62,6 +67,8 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		{
 			UE_LOG(UT, Warning, TEXT("Teleporter %s failed to teleport %s"), *GetName(), *OtherActor->GetName());
 		}
+
+		CurrentlyTeleportingActor = NULL;
 	}
 }
 
