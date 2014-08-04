@@ -654,6 +654,7 @@ void AUTPlayerController::OnSingleTapDodge()
 		FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
 		FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
 
+		// @TODO FIXMESTEVE need to check pressed move dir, otherwise fast turn will cause wrong dir dodge
 		if ((MyCharMovement->GetCurrentAcceleration() | Y) > 0.5f)
 		{
 			MyCharMovement->bPressedDodgeRight = true;

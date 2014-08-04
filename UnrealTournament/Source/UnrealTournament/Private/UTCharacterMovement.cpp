@@ -21,22 +21,16 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
 	MultiJumpImpulse = 500.f;
-	DodgeLandingSpeedFactor = 0.2f;
+	DodgeLandingSpeedFactor = 0.19f;
 	DodgeResetInterval = 0.35f;
 	WallDodgeResetInterval = 0.2f;
-	DodgeResetTime = 0.f;
 	SprintSpeed = 1250.f;
-	bIsDodging = false;
-	bIsSprinting = false;
-	SprintAccel = 150.f;
+	SprintAccel = 200.f;
 	AutoSprintDelayInterval = 2.f;
-	SprintStartTime = 0.f;
 	LandingStepUp = 40.f;
 	LandingAssistBoost = 380.f;
-	bJumpAssisted = false;
 	CrouchedSpeedMultiplier_DEPRECATED = 0.35f;
 	MaxWalkSpeedCrouched = 315.f;
-	CurrentWallDodgeCount = 0;
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f;  
 	WallDodgeGraceVelocityZ = -600.f;
@@ -44,8 +38,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 4000.f; // default was 2048, UT3 was 4464.6, UT was 5041.2
-	BrakingDecelerationWalking = 4500.f;
+	MaxAcceleration = 4200.f; 
+	BrakingDecelerationWalking = 4800.f;
 	GravityScale = 2.2f;
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
@@ -53,11 +47,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CrouchedHalfHeight = 68.0f;
 	SlopeDodgeScaling = 0.93f;
 	DodgeRollAcceleration = 1200.f;
-	MaxDodgeRollSpeed = 800.f;
+	MaxDodgeRollSpeed = 820.f;
 	DodgeRollDuration = 0.4f;
-	bIsDodgeRolling = false;
-	DodgeRollTapTime = 0.f;
-	DodgeRollEndTime = 0.f;
 	DodgeRollTapInterval = 0.2f;
 	RollEndingSpeedFactor = 0.5f;
 
@@ -72,6 +63,18 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	WallDodgeImpulseVertical = 440.f; 
 
 	NavAgentProps.bCanCrouch = true;
+
+	// initialization of transient properties
+	bIsSprinting = false;
+	SprintStartTime = 0.f;
+	bJumpAssisted = false;
+	DodgeResetTime = 0.f;
+	bIsDodging = false;
+	bIsDodgeRolling = false;
+	DodgeRollTapTime = 0.f;
+	DodgeRollEndTime = 0.f;
+	CurrentWallDodgeCount = 0;
+
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
