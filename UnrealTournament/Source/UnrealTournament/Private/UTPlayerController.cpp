@@ -705,21 +705,25 @@ void AUTPlayerController::ReleaseDodge()
 
 void AUTPlayerController::OnTapForward()
 {
+	LastTapBackTime = -10.f;
 	LastTapForwardTime = (!UTCharacter || CheckDodge(LastTapForwardTime, true, false, false, false)) ? -10.f : GetWorld()->GetTimeSeconds();
 }
 
 void AUTPlayerController::OnTapBack()
 {
+	LastTapForwardTime = -10.f;
 	LastTapBackTime = (!UTCharacter || CheckDodge(LastTapBackTime, false, true, false, false)) ? -10.f : GetWorld()->GetTimeSeconds();
 }
 
 void AUTPlayerController::OnTapLeft()
 {
+	LastTapRightTime = -10.f;
 	LastTapLeftTime = (!UTCharacter || CheckDodge(LastTapLeftTime, false, false, true, false)) ? -10.f : GetWorld()->GetTimeSeconds();
 }
 
 void AUTPlayerController::OnTapRight()
 {
+	LastTapLeftTime = -10.f;
 	LastTapRightTime = (!UTCharacter || CheckDodge(LastTapRightTime, false, false, false, true)) ? -10.f : GetWorld()->GetTimeSeconds();
 }
 

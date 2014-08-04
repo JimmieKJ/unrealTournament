@@ -1436,19 +1436,7 @@ bool AUTCharacter::CanJumpInternal_Implementation() const
 
 void AUTCharacter::CheckJumpInput(float DeltaTime)
 {
-	if (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Flying))
-	{
-		// find out which way is up
-		const FRotator Rotation = GetControlRotation();
-		FRotator ForwardRotation = FRotator(0, Rotation.Yaw, 0);
-
-		if (bPressedJump)
-		{
-			// Get up vector and add movement in that direction
-			AddMovementInput(FRotationMatrix(ForwardRotation).GetUnitAxis(EAxis::Z), 1.f);
-		}
-	}
-	else if (bPressedJump)
+	if (bPressedJump)
 	{
 		DoJump(bClientUpdating);
 	}
