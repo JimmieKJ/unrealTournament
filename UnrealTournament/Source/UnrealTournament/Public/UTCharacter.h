@@ -423,12 +423,19 @@ public:
 	/** Landing at faster than this velocity results in damage (note: use positive number) */
 	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite)
 	float MaxSafeFallSpeed;
+
 	/** amount of falling damage dealt if the player's fall speed is double MaxSafeFallSpeed (scaled linearly from there) */
 	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite)
 	float FallingDamageFactor;
+
 	/** amount of damage dealt to other characters we land on per 100 units of speed */
 	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite)
 	float CrushingDamageFactor;
+
+	/** Blueprint override for take falling damage.  Return true to keep TakeFallingDamage() from causing damage.
+		FallingSpeed is the Z velocity at landing, and Hit describes the impacted surface. */
+	UFUNCTION(BlueprintImplementableEvent)
+	bool HandleFallingDamage(float FallingSpeed, const FHitResult& Hit);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void TakeFallingDamage(const FHitResult& Hit);

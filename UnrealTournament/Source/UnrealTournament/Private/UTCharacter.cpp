@@ -1658,7 +1658,7 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 	if (Role == ROLE_Authority)
 	{
 		float FallingSpeed = CharacterMovement->Velocity.Z;
-		if (FallingSpeed < -1.f * MaxSafeFallSpeed)
+		if (FallingSpeed < -1.f * MaxSafeFallSpeed && !HandleFallingDamage(FallingSpeed, Hit))
 		{
 			/* TODO: water
 			if (IsTouchingWaterVolume())
