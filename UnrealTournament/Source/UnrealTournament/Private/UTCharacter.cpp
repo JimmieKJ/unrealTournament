@@ -662,24 +662,41 @@ void AUTCharacter::StopRagdoll()
 	CapsuleComponent->DetachFromParent(true);
 	FRotator FixedRotation = CapsuleComponent->RelativeRotation;
 	FixedRotation.Pitch = FixedRotation.Roll = 0.0f;
+	if (Controller != NULL)
+	{
+		// always recover in the direction the controller is facing since turning is instant
+		FixedRotation.Yaw = Controller->GetControlRotation().Yaw;
+	}
 	CapsuleComponent->SetRelativeRotation(FixedRotation);
 	CapsuleComponent->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->CapsuleComponent->RelativeScale3D);
 	RootComponent = CapsuleComponent;
 
 	Mesh->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->MeshComponentUpdateFlag;
 	Mesh->bBlendPhysics = false; // for some reason bBlendPhysics == false is the value that actually blends instead of using only physics
-	//Mesh->SetSimulatePhysics(false);
-	//Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	//Mesh->AttachTo(CapsuleComponent, NAME_None, EAttachLocation::SnapToTarget);
-	//Mesh->SetRelativeLocation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
-	//Mesh->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation);
-	//Mesh->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeScale3D);
-	//Mesh->RefreshBoneTransforms();
 
 	// TODO: make sure cylinder is in valid position (navmesh?)
 	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight());
 	GetWorld()->FindTeleportSpot(this, AdjustedLoc, GetActorRotation());
 	CapsuleComponent->SetWorldLocation(AdjustedLoc);
+
+	// terminate constraints on the root bone so we can move it without interference
+	for (int32 i = 0; i < Mesh->Constraints.Num(); i++)
+	{
+		if (Mesh->Constraints[i] != NULL && (Mesh->GetBoneIndex(Mesh->Constraints[i]->ConstraintBone1) == 0 || Mesh->GetBoneIndex(Mesh->Constraints[i]->ConstraintBone2) == 0))
+		{
+			Mesh->Constraints[i]->TermConstraint();
+		}
+	}
+	// move the root bone to where we put the capsule, then disable further physics
+	if (Mesh->Bodies.Num() > 0 && Mesh->Bodies[0] != NULL)
+	{
+		FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
+		NewTransform *= CapsuleComponent->GetComponentTransform();
+		Mesh->Bodies[0]->SetBodyTransform(NewTransform, true);
+		Mesh->Bodies[0]->SetInstanceSimulatePhysics(false, true);
+		Mesh->Bodies[0]->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
+		Mesh->SyncComponentToRBPhysics();
+	}
 
 	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
@@ -741,7 +758,7 @@ void AUTCharacter::PlayFeignDeath()
 		// force behind view
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 			if (PC != NULL && PC->GetViewTarget() == this)
 			{
 				PC->BehindView(true);
