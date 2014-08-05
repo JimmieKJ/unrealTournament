@@ -445,8 +445,7 @@ void AUTWeapon::PlayFiringEffects()
 			if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
 			{
 				// if we detect a looping particle system, then don't reactivate it
-				if ( !MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->Template->Emitters[0] == NULL ||
-					IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template) )
+				if (!MuzzleFlash[CurrentFireMode]->bIsActive || !IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template))
 				{
 					MuzzleFlash[CurrentFireMode]->ActivateSystem();
 				}
@@ -487,7 +486,7 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
 		const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
 		if (FireEffect.IsValidIndex(CurrentFireMode) && FireEffect[CurrentFireMode] != NULL)
 		{
-			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (TargetLoc - SpawnLocation).Rotation(), true);
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, MuzzleFlash[CurrentFireMode]->GetComponentRotation(), true);
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
 			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));
 		}
