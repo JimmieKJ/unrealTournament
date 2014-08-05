@@ -53,7 +53,7 @@ class AUTGameState : public AGameState
 
 	// How long must a player wait before respawning
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
-	uint32 RespawnWaitTime;
+	float RespawnWaitTime;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnWinnerReceived, Category = GameState)
 	AUTPlayerState* WinnerPlayerState;

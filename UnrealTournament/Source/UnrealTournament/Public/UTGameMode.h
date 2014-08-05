@@ -71,7 +71,7 @@ public:
 
 	// How long a player must wait before respawning.  Set to 0 for no delay.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Rules)
-	uint32 RespawnWaitTime;
+	float RespawnWaitTime;
 
 	/** TRUE if we have started the count down to the match starting */
 	UPROPERTY()
