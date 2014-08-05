@@ -23,7 +23,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FPostConstructInitializeProperties& PCIP)
 	{
 		AmmoCost.SetNum(2);
 	}
-	AmmoCost[1] = 1;
+	AmmoCost[0] = 1;
 	AmmoCost[1] = 2;
 
 	Ammo = 100;
