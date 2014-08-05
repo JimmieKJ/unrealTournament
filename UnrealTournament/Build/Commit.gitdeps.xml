@@ -2068,7 +2068,6 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Weapons/WP_Translocator/Textures/T_WP_Translocator_N.uasset" Hash="aad6a51e12643bf1ec91b1ee64255c849e351cec" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Proto/UT3_Weapons/WP_Translocator/Textures/T_WP_Translocator_S.uasset" Hash="b44c03b298ffeaf231bb0d7d391d4aab2625648b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Readme.txt" Hash="619e3a661a26dc56b2d747a0b8a5d857c4838285" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/RestrictedAssets/UserContent/Translocator/BP_TransDisk.uasset" Hash="3508069fbd377cf31690fde62ec2527be33102b0" />
     <File Name="UnrealTournament/Content/RestrictedAssets/ScreenFacingFont.uasset" Hash="37287573a1d68ecbd499eab60dd8d7295e3becd3" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Standard.Button.Disabled.png" Hash="48e890c1fd568295aa698c23a609f1da5c62cb10" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Standard.Button.Hovered.png" Hash="b7c0abb6eb73db34a9cbeb92ee28a3a445b275c7" />
@@ -2816,7 +2815,6 @@
     <Blob Hash="34a8801e576dfb260e5440651fecceee4d2fb823" Size="2725547" PackHash="9a37bfdc3c62a829eff45b5ec43aa0ca9259896b" PackOffset="8" />
     <Blob Hash="34cb75e4381690f611860dd8748ad9610af56d4a" Size="10907" PackHash="b481973a7a489c72d8684c5b6970397dc7b2e50c" PackOffset="53748" />
     <Blob Hash="34d239d1dea153d213ed15f6249b29cb0da610a5" Size="11135" PackHash="88b00862628a45e37194b7f24655822b1f88cdeb" PackOffset="848440" />
-    <Blob Hash="3508069fbd377cf31690fde62ec2527be33102b0" Size="129439" PackHash="aea611ba43336ec082cb3b80ece04923f0d89ccc" PackOffset="532035" />
     <Blob Hash="351a473a8d0d8138ea321f73b8751aee46c368ca" Size="72992" PackHash="5f3414102a9648dcc7d812fad9e670c9fd1df25e" PackOffset="1731971" />
     <Blob Hash="352ead1832d079237a2d93c0b1f7ddbbfe8a0e81" Size="69053" PackHash="599f3854c46c622ecd92278b94a88e7b8b2e8930" PackOffset="1389932" />
     <Blob Hash="3530fb48752eb353844dbab298ddc198a334d511" Size="111107" PackHash="0e1cb5ee93aade78c2961d29e1bd3468e6d44c15" PackOffset="264108" />
