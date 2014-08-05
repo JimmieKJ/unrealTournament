@@ -45,7 +45,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	bUseSeamlessTravel = false;
 	CountDown = 4;
 	bPauseable = false;
-	RespawnWaitTime = 0.0f;
+	RespawnWaitTime = 1.5f;
 	bPlayersMustBeReady = false;
 	MinPlayersToStart = 1;
 	EndScoreboardDelay = 2.0f;
@@ -106,11 +106,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	MinPlayersToStart = FMath::Max(1, GetIntOption( Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
-	if (bForceRespawn)
-	{
-		RespawnWaitTime = 0.0f;
-	}
-
+	
 	for (int32 i = 0; i < BuiltInMutators.Num(); i++)
 	{
 		AddMutatorClass(BuiltInMutators[i]);
@@ -290,7 +286,11 @@ void AUTGameMode::DefaultTimer()
 			AController* Controller = *It;
 			if (Controller->IsInState(NAME_Inactive))
 			{
-				RestartPlayer(Controller);
+				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
+				if (PS != NULL && PS->RespawnTime <= 0.0f)
+				{
+					RestartPlayer(Controller);
+				}
 			}
 		}
 	}
