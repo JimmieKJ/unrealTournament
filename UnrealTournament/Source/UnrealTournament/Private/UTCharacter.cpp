@@ -1457,7 +1457,11 @@ bool AUTCharacter::CanJumpInternal_Implementation() const
 
 void AUTCharacter::CheckJumpInput(float DeltaTime)
 {
-	if (bPressedJump)
+	if (CharacterMovement && ((CharacterMovement->MovementMode == MOVE_Flying) || (CharacterMovement->MovementMode == MOVE_Swimming)))
+	{
+		// No jump when swimming or flying
+	}
+	else if (bPressedJump)
 	{
 		DoJump(bClientUpdating);
 	}

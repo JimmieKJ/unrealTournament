@@ -9,7 +9,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 : Super(PCIP)
 {
 	// @TODO FIXMESTEVE increase this to hour+ for release version
-	// MinTimeBetweenTimeStampResets = 30.f;
+	// MinTimeBetweenTimeStampResets = 3600.f;
 
 	MaxWalkSpeed = 900.f;
 	MaxCustomMovementSpeed = MaxWalkSpeed;
