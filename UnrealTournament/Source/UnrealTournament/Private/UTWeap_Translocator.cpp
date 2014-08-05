@@ -122,7 +122,20 @@ void AUTWeap_Translocator::FireShot()
 				if (Role == ROLE_Authority)
 				{
 					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
-					FVector WarpLocation = TransDisk->GetActorLocation() + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+					FVector WarpLocation = TransDisk->GetActorLocation();
+					{
+						FHitResult Hit;
+						FVector EndTrace = WarpLocation + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+						if (GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeCapsule(PlayerCapsule.GetCapsuleRadius(), 1.0f), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->CapsuleComponent->GetCollisionResponseToChannels()))
+						{
+							WarpLocation = Hit.Location;
+							// note that offsetting downward here is not guaranteed to be any better; let FindTeleportSpot() deal with it
+						}
+						else
+						{
+							WarpLocation = EndTrace;
+						}
+					}
 					FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
 
 					// test first so we don't drop the flag on an unsuccessful teleport

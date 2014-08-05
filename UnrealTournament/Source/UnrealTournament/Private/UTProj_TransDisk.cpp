@@ -9,8 +9,8 @@
 AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	//bLanded = false;
-	//bDisrupted = false;
+	bReplicateMovement = true;
+
 	TransState = TLS_InAir;
 
 	CollisionComp->SetCollisionProfileName("ProjectileShootable");
