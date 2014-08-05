@@ -2144,6 +2144,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/UserContent/BioRifle/UTDmg_BioGoo.uasset" Hash="c97b0ac1c9a0e415f0b665d707395d43dd16b8f1" />
     <File Name="UnrealTournament/Content/RestrictedAssets/UserContent/BioRifle/UTDmg_BioGoo_Charged.uasset" Hash="9d4724c5c0d9d23f1907ed7621231e5d5c090e0e" />
     <File Name="UnrealTournament/Content/RestrictedAssets/UserContent/BioRifle/UTDmg_BioGooGib.uasset" Hash="224251019d7d297f1bd6f884b5d38e38aca59fc5" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/UserContent/DoNotDelete.txt" Hash="6c389409084a4dd687008635feb8bc47c922de01" />
     <File Name="UnrealTournament/Content/RestrictedAssets/UserContent/Translocator/Anims/SK_WP_Translocator_1P_AnimBlueprint.uasset" Hash="c418121944ad7bd0a37851dc815d0b969cc865d5" />
     <File Name="UnrealTournament/Content/RestrictedAssets/UserContent/Translocator/Anims/Translocator_Equip.uasset" Hash="0f34ba2aff228ef8b6b9bf464fb6ad01c94e55b5" />
     <File Name="UnrealTournament/Content/RestrictedAssets/UserContent/Translocator/Anims/Translocator_Equip_Montage.uasset" Hash="ced053ae5f62003957f1c0b6c965df47ec44f4c8" />
@@ -2342,7 +2343,6 @@
     <File Name="UnrealTournament/Content/UserContent/BioRifle/UTDmg_BioGoo.uasset" Hash="d9da690269b68788a364e61893f544fe057eaacf" />
     <File Name="UnrealTournament/Content/UserContent/BioRifle/UTDmg_BioGoo_Charged.uasset" Hash="998255786f53667f45c7869084991511ec5841bf" />
     <File Name="UnrealTournament/Content/UserContent/BioRifle/UTDmg_BioGooGib.uasset" Hash="7559d3d316529c91e7469752f240f8652e325878" />
-    <File Name="UnrealTournament/Content/UserContent/DoNotDelete.txt" Hash="6c389409084a4dd687008635feb8bc47c922de01" />
     <File Name="UnrealTournament/Content/UserContent/Translocator/Anims/SK_WP_Translocator_1P_AnimBlueprint.uasset" Hash="8b739ec597051b717fe28aef8bb036eaacb33605" />
     <File Name="UnrealTournament/Content/UserContent/Translocator/Anims/Translocator_Equip.uasset" Hash="62561808d7a7d7092c6726e101cb87baf8618d64" />
     <File Name="UnrealTournament/Content/UserContent/Translocator/Anims/Translocator_Equip_Montage.uasset" Hash="d9439bf516ff68598871d2b12fcef20abdb18687" />
