@@ -6,6 +6,16 @@
 #include "UTFirstBloodMessage.h"
 #include "UTPickup.h"
 
+namespace MatchState
+{
+	const FName MatchEnteringHalftime = FName(TEXT("MatchEnteringHalftime"));
+	const FName MatchIsAtHalftime = FName(TEXT("MatchIsAtHalftime"));
+	const FName MatchExitingHalftime = FName(TEXT("MatchExitingHalftime"));
+	const FName MatchEnteringSuddenDeath = FName(TEXT("MatchEnteringSuddenDeath"));
+	const FName MatchIsInSuddenDeath = FName(TEXT("MatchIsInSuddenDeath"));
+}
+
+
 AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
@@ -18,6 +28,8 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	bOldSchool = false;
 	OvertimeDuration=5;
 	bUseTeamStarts = true;
+
+	SuddenDeathHealthDrain=5;
 
 	//Add the translocator here for now :(
 	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("Blueprint'/Game/UserContent/Translocator/BP_Translocator.BP_Translocator_C'"));
@@ -37,6 +49,11 @@ void AUTCTFGameMode::InitGame( const FString& MapName, const FString& Options, F
 	// OvertimeDuration is in minutes
 	OvertimeDuration = FMath::Max(1, GetIntOption( Options, TEXT("OvertimeDuration"), OvertimeDuration));
 	OvertimeDuration *= 60;
+
+	if (TimeLimit > 0)
+	{
+		TimeLimit = uint32( float(TimeLimit) * 0.5);
+	}
 }
 
 void AUTCTFGameMode::InitGameState()
@@ -189,96 +206,34 @@ void AUTCTFGameMode::CheckGameTime()
 					}
 					else if (bAllowOvertime && !UTGameState->IsMatchInOvertime())
 					{
-						StartHalftime();
+						SetMatchState(MatchState::MatchEnteringHalftime);
 					}
 				}		
 				else 
 				{
-					StartHalftime();
+					SetMatchState(MatchState::MatchEnteringHalftime);
 				}
 			}
 		}
 	}
 }
 
-void AUTCTFGameMode::StartHalftime()
+void AUTCTFGameMode::HandleMatchHasStarted()
 {
-	FreezePlayers();
-	FocusOnBestPlayer();
-	CTFGameState->bHalftime = true;
-	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
-	GetWorldTimerManager().SetTimer(this, &AUTCTFGameMode::HalftimeIsOver, HalftimeDuration, false);
-}
-
-
-void AUTCTFGameMode::HalftimeIsOver()
-{
-	if (CTFGameState->bSecondHalf)
+	if (!CTFGameState->bSecondHalf)
 	{
-		CTFGameState->SetTimeLimit(OvertimeDuration);
-		SetMatchState(MatchState::MatchEnteringOvertime);
-	}
-	else
-	{
-		CTFGameState->bSecondHalf = true;
-		CTFGameState->SetTimeLimit(TimeLimit);		// Reset the GameClock for the second time.
-	}
-
-	// reset everything
-	for (FActorIterator It(GetWorld()); It; ++It)
-	{
-		IUTResetInterface* ResetActor = InterfaceCast<IUTResetInterface>(*It);
-		if (ResetActor != NULL)
-		{
-			ResetActor->Execute_Reset(*It);
-		}
-	}
-
-	//now respawn all the players
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		AController* Controller = *Iterator;
-		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
-		{
-			if (Controller->GetPawn() != NULL)
-			{
-				AUTCharacter* Char = Cast<AUTCharacter>(Controller->GetPawn());
-				if (Char != NULL)
-				{
-					Char->Died(NULL,FDamageEvent(UUTDamageType::StaticClass()));
-				}
-				
-			}
-			RestartPlayer(Controller);
-		}
-	}
-
-	// Send all flags home..
-
-	CTFGameState->ResetFlags();
-	CTFGameState->bHalftime = false;
-}
-
-void AUTCTFGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
-{
-	AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(Obj);
-	if (FlagBase != NULL && FlagBase->MyFlag)
-	{
-		CTFGameState->CacheFlagBase(FlagBase);
+		Super::HandleMatchHasStarted();
 	}
 }
 
-void AUTCTFGameMode::FreezePlayers()
+void AUTCTFGameMode::HandleHalftime()
 {
-	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
-	{
-		(*Iterator)->TurnOff();
-	}
-
 }
 
-void AUTCTFGameMode::FocusOnBestPlayer()
+void AUTCTFGameMode::HandleEnteringHalftime()
 {
+	// Figure out who we should look at
+
 	// Init targets
 	TArray<AUTCharacter*> BestPlayers;
 	for (int i=0;i<Teams.Num();i++)
@@ -288,6 +243,7 @@ void AUTCTFGameMode::FocusOnBestPlayer()
 
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
+
 		AController* Controller = *Iterator;
 		if (Controller->GetPawn() != NULL && Controller->PlayerState != NULL)
 		{
@@ -307,9 +263,24 @@ void AUTCTFGameMode::FocusOnBestPlayer()
 		}
 	}	
 
+
+	// Freeze all of the pawns and detach their controllers
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+		// Detach all controllers from their pawns
+		if ((*Iterator)->GetPawn() != NULL)
+		{
+			(*Iterator)->GetPawn()->TurnOff();
+			(*Iterator)->UnPossess();
+		}
+	}
+
+	// Tell the controllers to look at cool people
+
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		UE_LOG(UT,Log,TEXT("Setting Viewtarget for %s"), *GetNameSafe(PC));
 		if (PC != NULL)
 		{
 			uint8 TeamNum = PC->GetTeamNum();
@@ -318,16 +289,97 @@ void AUTCTFGameMode::FocusOnBestPlayer()
 			{
 				BestTarget = BestPlayers[TeamNum];
 			}
+			UE_LOG(UT,Log,TEXT("   Setting %s's viewtarget to %s"), *PC->PlayerState->PlayerName, *GetNameSafe(BestPlayers[TeamNum]));
+			PC->ClientHalftime();
 			PC->SetViewTarget(BestTarget);
 		}
 	}
+
+	CTFGameState->bHalftime = true;
+	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
+	GetWorldTimerManager().SetTimer(this, &AUTCTFGameMode::HalftimeIsOver, HalftimeDuration, false);
 }
 
-void AUTCTFGameMode::RestartPlayer(AController* aPlayer)
+void AUTCTFGameMode::HalftimeIsOver()
 {
-	if (CTFGameState != NULL && CTFGameState->bHalftime) return;
-	Super::RestartPlayer(aPlayer);
+	SetMatchState(MatchState::MatchExitingHalftime);
 }
+
+void AUTCTFGameMode::HandleExitingHalftime()
+{
+	TArray<APawn*> PawnsToDestroy;
+
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		PawnsToDestroy.Add(*It);
+	}
+
+	for (int i=0;i<PawnsToDestroy.Num();i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		Pawn->Destroy();	
+	}
+
+	// reset everything
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		IUTResetInterface* ResetActor = InterfaceCast<IUTResetInterface>(*It);
+		if (ResetActor != NULL)
+		{
+			ResetActor->Execute_Reset(*It);
+		}
+	}
+
+	//now respawn all the players
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+		AController* Controller = *Iterator;
+		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
+		{
+			RestartPlayer(Controller);
+		}
+	}
+
+	// Send all flags home..
+
+	CTFGameState->ResetFlags();
+	CTFGameState->bHalftime = false;
+
+	if (CTFGameState->bSecondHalf)
+	{
+		CTFGameState->SetTimeLimit(OvertimeDuration);
+		SetMatchState(MatchState::MatchEnteringOvertime);
+	}
+	else
+	{
+		CTFGameState->bSecondHalf = true;
+		CTFGameState->SetTimeLimit(TimeLimit);		// Reset the GameClock for the second time.
+		SetMatchState(MatchState::InProgress);
+	}
+}
+
+void AUTCTFGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
+{
+	AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(Obj);
+	if (FlagBase != NULL && FlagBase->MyFlag)
+	{
+		CTFGameState->CacheFlagBase(FlagBase);
+	}
+}
+
+bool AUTCTFGameMode::PlayerCanRestart( APlayerController* Player )
+{
+	// Can't restart in overtime
+	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchAtHalftime() || CTFGameState->IsMatchInSuddenDeath()|| 
+			Player == NULL || Player->IsPendingKillPending())
+	{
+		return false;
+	}
+	
+	// Ask the player controller if it's ready to restart as well
+	return Player->CanRestartPlayer();
+}
+
 
 bool AUTCTFGameMode::IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum)
 {
@@ -425,7 +477,81 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other)
 				bFirstBloodOccurred = true;
 			}
 		}
+	}
+
+	if (CTFGameState->IsMatchInSuddenDeath())
+	{
+		// Search through all players and determine if anyone is still alive and 
 	
+	}
+
+}
+
+bool AUTCTFGameMode::IsMatchInSuddenDeath()
+{
+	return CTFGameState->IsMatchInSuddenDeath();
+}
+
+void AUTCTFGameMode::SetMatchState(FName NewState)
+{
+	if (MatchState == NewState)
+	{
+		return;
+	}
+	
+	Super::SetMatchState(NewState);
+
+	if (NewState == MatchState::MatchEnteringHalftime)
+	{
+		HandleEnteringHalftime();
+	}
+	else if (NewState == MatchState::MatchIsAtHalftime)
+	{
+		HandleHalftime();
+	}
+	else if (NewState == MatchState::MatchExitingHalftime)
+	{
+		HandleExitingHalftime();
+	}
+	else if (NewState == MatchState::MatchEnteringSuddenDeath)
+	{
+		HandleEnteringSuddenDeath();
+	}
+	else if (NewState == MatchState::MatchIsInSuddenDeath)
+	{
+		HandleSuddenDeath();
 	}
 }
 
+
+void AUTCTFGameMode::HandleEnteringSuddenDeath()
+{
+
+}
+
+void AUTCTFGameMode::HandleSuddenDeath()
+{
+
+}
+
+void AUTCTFGameMode::DefaultTimer()
+{	
+	Super::DefaultTimer();
+	if (CTFGameState->IsMatchInSuddenDeath())
+	{
+		// Iterate over all of the pawns and slowly drain their health
+
+		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+		{
+			AController* C = Cast<AController>(*Iterator);
+			if (C != NULL && C->GetPawn() != NULL)
+			{
+				AUTCharacter* Char = Cast<AUTCharacter>(C->GetPawn());
+				if (Char!=NULL && Char->Health > 0)
+				{
+					Char->TakeDamage(SuddenDeathHealthDrain, FDamageEvent(UUTDamageType::StaticClass()), NULL, NULL);
+				}
+			}
+		}
+	}
+}

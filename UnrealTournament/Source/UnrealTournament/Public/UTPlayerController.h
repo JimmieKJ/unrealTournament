@@ -108,6 +108,12 @@ public:
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
+	/**
+	 *	Client replicated function that get's called when it's half-time
+	 **/
+	UFUNCTION(client, reliable)
+	virtual void ClientHalftime();
+
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
 	virtual FVector GetFocalLocation() const override;
@@ -190,6 +196,7 @@ public:
 
 	UFUNCTION(reliable, client)
 	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, bool bTeamMessage);
+
 
 protected:
 

@@ -2,7 +2,17 @@
 
 #pragma once
 #include "UTCTFGameState.h"
+#include "UTTeamGameMode.h"
 #include "UTCTFGameMode.generated.h"
+
+namespace MatchState
+{
+	extern const FName MatchEnteringHalftime;		// Entering Halftime
+	extern const FName MatchIsAtHalftime;			// The match has entered halftime
+	extern const FName MatchExitingHalftime;		// Exiting Halftime
+	extern const FName MatchEnteringSuddenDeath;	// The match is entering sudden death
+	extern const FName MatchIsInSuddenDeath;		// The match is in sudden death
+}
 
 UCLASS()
 class AUTCTFGameMode : public AUTTeamGameMode
@@ -27,6 +37,8 @@ class AUTCTFGameMode : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	uint32 OvertimeDuration;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
+	uint32 SuddenDeathHealthDrain;
 
 	virtual void InitGameState();
 
@@ -36,10 +48,17 @@ class AUTCTFGameMode : public AUTTeamGameMode
 	virtual bool IsAWinner(AUTPlayerController* PC);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
-	virtual void StartHalftime();
-	virtual void FreezePlayers();
-	virtual void FocusOnBestPlayer();
-	virtual void RestartPlayer(AController* aPlayer);
+
+	virtual void SetMatchState(FName NewState);
+
+	virtual void HandleEnteringHalftime();
+	virtual void HandleHalftime();
+	virtual void HandleExitingHalftime();
+	virtual void HandleEnteringSuddenDeath();
+	virtual void HandleSuddenDeath();
+
+	virtual void DefaultTimer();
+	virtual bool PlayerCanRestart( APlayerController* Player );
 
 protected:
 
@@ -116,8 +135,13 @@ protected:
 	UPROPERTY(config)
 	float ControlFreakMultiplier;
 
+	virtual void HandleMatchHasStarted();
+
 	UFUNCTION()
 	virtual void HalftimeIsOver();
+
+	UFUNCTION()
+	virtual bool IsMatchInSuddenDeath();
 
 	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 	virtual void ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker);

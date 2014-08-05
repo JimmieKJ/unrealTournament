@@ -11,3 +11,15 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitial
 	bUseClientSideCameraUpdates = false;
 }
 
+void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
+{
+	FName SavedCameraStyle = CameraStyle;
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState != NULL)
+	{
+		CameraStyle = GameState->OverrideCameraStyle(PCOwner, CameraStyle);
+	}
+	Super::UpdateViewTarget(OutVT, DeltaTime);
+	CameraStyle = SavedCameraStyle;
+}
+

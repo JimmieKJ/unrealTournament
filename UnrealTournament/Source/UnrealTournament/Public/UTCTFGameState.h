@@ -16,14 +16,19 @@ class AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint32 bSecondHalf : 1;
 
-	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
+	UPROPERTY(BlueprintReadOnly,Replicated,ReplicatedUsing=OnHalftimeChanged, Category = CTF)
 	uint32 bHalftime : 1;
+
+	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
+	uint32 bAllowSuddenDeath : 1;
 
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint8 MaxNumberOfTeams;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
 	TArray<AUTCTFFlagBase*> FlagBases;
+
+
 
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */
 	virtual void SetMaxNumberOfTeams(int TeamCount);
@@ -40,4 +45,17 @@ class AUTCTFGameState: public AUTGameState
 	/** Find the current team that is in the lead */
 	virtual AUTTeamInfo* FindLeadingTeam();
 
+	virtual bool IsMatchInProgress() const;
+	virtual bool IsMatchInOvertime() const;
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	virtual bool IsMatchInSuddenDeath() const;
+	
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	bool IsMatchAtHalftime() const;
+
+	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
+	
+	UFUNCTION()
+	virtual void OnHalftimeChanged();
 };

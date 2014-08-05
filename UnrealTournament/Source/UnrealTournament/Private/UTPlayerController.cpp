@@ -44,6 +44,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 	ConfigDefaultFOV = 90.0f;
 	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
+	bAutoManageActiveCameraTarget=false;
 }
 
 void AUTPlayerController::SetGravity(float NewGravity)
@@ -834,7 +835,14 @@ bool AUTPlayerController::IsBehindView()
 {
 	if (PlayerCameraManager != NULL)
 	{
-		return PlayerCameraManager->CameraStyle == FName(TEXT("FreeCam"));
+		FName CameraStyle = PlayerCameraManager->CameraStyle;
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState != NULL)
+		{
+			CameraStyle = GameState->OverrideCameraStyle(this, CameraStyle);
+		}
+
+		return CameraStyle == FName(TEXT("FreeCam"));
 	}
 	return false;
 }
@@ -880,28 +888,17 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 }
 
+void AUTPlayerController::ClientHalftime_Implementation()
+{
+}
+
+
+
 // LEAVE ME for quick debug commands when we need them.
 void AUTPlayerController::DebugTest()
 {
 	UE_LOG(UT,Log,TEXT("DEBUG"));
 
-	AUTCTFGameState* CGS = GetWorld()->GetGameState<AUTCTFGameState>();
-	if (CGS != NULL)
-	{
-		UE_LOG(UT,Log,TEXT("GameState: %s"), *GetNameSafe(CGS));
-		UE_LOG(UT,Log,TEXT("   FlagBase[0] %s"), *GetNameSafe(CGS->FlagBases[0]));
-		if (CGS->FlagBases[0] != NULL)
-		{
-			UE_LOG(UT,Log,TEXT("       Flag: %s in state %s with holder %s"), *GetNameSafe(CGS->FlagBases[0]->MyFlag), (CGS->FlagBases[0]->MyFlag != NULL ? *CGS->FlagBases[0]->MyFlag->ObjectState.ToString() : TEXT("None")),
-										(CGS->FlagBases[0]->MyFlag != NULL ? *GetNameSafe(CGS->FlagBases[0]->MyFlag->Holder) : TEXT("None")));
-		}
-		UE_LOG(UT,Log,TEXT("   FlagBase[1] %s"), *GetNameSafe(CGS->FlagBases[1]));
-		if (CGS->FlagBases[1] != NULL)
-		{
-			UE_LOG(UT,Log,TEXT("       Flag: %s in state %s with holder %s"), *GetNameSafe(CGS->FlagBases[1]->MyFlag), (CGS->FlagBases[1]->MyFlag != NULL ? *CGS->FlagBases[1]->MyFlag->ObjectState.ToString() : TEXT("None")),
-										(CGS->FlagBases[1]->MyFlag != NULL ? *GetNameSafe(CGS->FlagBases[1]->MyFlag->Holder) : TEXT("None")));
-		}
-	}
 
 	ServerDebugTest();
 }
@@ -1088,3 +1085,4 @@ void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, cons
 
 	UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceive(ClientData);
 }
+

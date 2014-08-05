@@ -7,5 +7,7 @@ UCLASS()
 class AUTPlayerCameraManager : public APlayerCameraManager
 {
 	GENERATED_UCLASS_BODY()
+	virtual void UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime);
+
 };
 

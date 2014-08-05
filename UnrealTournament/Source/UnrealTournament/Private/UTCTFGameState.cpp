@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCTFGameState.h"
+#include "UTCTFGameMode.h"
 #include "Net/UnrealNetwork.h"
 
 AUTCTFGameState::AUTCTFGameState(const FPostConstructInitializeProperties& PCIP)
@@ -110,4 +111,84 @@ void AUTCTFGameState::ResetFlags()
 		}
 	}
 
+}
+
+
+	const FName MatchIsAtHalftime = FName(TEXT("MatchIsAtHalftime"));
+	const FName MatchEnteringSuddenDeath = FName(TEXT("MatchEnteringSuddenDeath"));
+	const FName MatchIsInSuddenDeath = FName(TEXT("MatchIsInSuddenDeath"));
+
+
+bool AUTCTFGameState::IsMatchInProgress() const
+{
+	FName MatchState = GetMatchState();
+	if (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIsAtHalftime ||
+			MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime ||
+			MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool AUTCTFGameState::IsMatchInOvertime() const
+{
+	FName MatchState = GetMatchState();
+	if (MatchState == MatchState::MatchIsInOvertime ||	MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+
+bool AUTCTFGameState::IsMatchAtHalftime() const
+{
+	FName MatchState = GetMatchState();
+	if (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool AUTCTFGameState::IsMatchInSuddenDeath() const
+{
+	FName MatchState = GetMatchState();
+	if (MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
+{
+	if (IsMatchAtHalftime() || HasMatchEnded())
+	{
+		return FName(TEXT("FreeCam"));
+	}
+
+	return CurrentCameraStyle;
+}
+
+void AUTCTFGameState::OnHalftimeChanged()
+{
+	if (bHalftime)
+	{
+		// Turn OwnerNoSee off on all meshes
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* C = Cast<AUTCharacter>(*It);
+			if (C != NULL)
+			{
+				C->SetMeshVisibility(true);
+				UE_LOG(UT,Log,TEXT("Here %s"),*GetNameSafe(C));
+			}
+		}
+	}
 }

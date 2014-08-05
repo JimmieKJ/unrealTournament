@@ -284,7 +284,8 @@ bool AUTGameState::HasMatchStarted() const
 
 bool AUTGameState::IsMatchInProgress() const
 {
-	if (GetMatchState() == MatchState::InProgress || GetMatchState() == MatchState::MatchIsInOvertime)
+	FName MatchState = GetMatchState();
+	if (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime)
 	{
 		return true;
 	}
@@ -294,7 +295,8 @@ bool AUTGameState::IsMatchInProgress() const
 
 bool AUTGameState::IsMatchInOvertime() const
 {
-	if (GetMatchState() == MatchState::MatchEnteringOvertime || GetMatchState() == MatchState::MatchIsInOvertime)
+	FName MatchState = GetMatchState();
+	if (MatchState == MatchState::MatchEnteringOvertime || MatchState == MatchState::MatchIsInOvertime)
 	{
 		return true;
 	}
@@ -306,3 +308,7 @@ void AUTGameState::OnWinnerReceived()
 {
 }
 
+FName AUTGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
+{
+	return CurrentCameraStyle;
+}

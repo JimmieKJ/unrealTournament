@@ -1018,7 +1018,6 @@ void AUTGameMode::SetMatchState(FName NewState)
 	{
 		HandleMatchInOvertime();
 	}
-
 }
 
 void AUTGameMode::HandleEnteringOvertime()

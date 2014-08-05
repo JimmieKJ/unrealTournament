@@ -42,7 +42,7 @@ class UUTCTFGameMessage : public UUTCarriedObjectMessage
 		{
 			case 0 : return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
 			case 1 : return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
-			case 2 : return TeamNum == 0 ? TEXT("BlueTeamScores") : TEXT("RedTeamScores"); break;
+			case 2 : return TeamNum == 0 ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
 			case 3 : return TeamNum == 0 ? TEXT("RedFlagDropped") : TEXT("BlueFlagDropped"); break;
 			case 4 : return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
 		}

@@ -93,6 +93,8 @@ class AUTGameState : public AGameState
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInProgress() const;
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInOvertime() const;
 
 	virtual void BeginPlay() override;
@@ -137,6 +139,13 @@ class AUTGameState : public AGameState
 			return NULL;
 		}
 	}
+
+	/**
+	 *	This is called from the UTPlayerCameraManage to allow the game to force an override to the current player camera to make it easier for
+	 *  Presentation to be controlled by the server.
+	 **/
+	
+	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 
 protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
