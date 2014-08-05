@@ -34,7 +34,7 @@ AUTTeleporter::AUTTeleporter(const FPostConstructInitializeProperties& PCIP)
 bool AUTTeleporter::CanTeleport_Implementation(AActor* OtherActor)
 {
 	AUTCharacter* C = Cast<AUTCharacter>(OtherActor);
-	return (C != NULL && !C->IsDead() && C->Controller != NULL);
+	return (C != NULL && C->Role == ROLE_Authority && !C->IsDead() && C->Controller != NULL);
 }
 
 // prevents re-entrancy between teleporters

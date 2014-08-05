@@ -37,7 +37,7 @@ class AUTTeleporter : public AActor, public INavLinkHostInterface, public INavRe
 	bool bSetRotation;
 
 	/** returns whether we support teleporting OtherActor */
-	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	UFUNCTION(BlueprintNativeEvent)
 	bool CanTeleport(AActor* OtherActor);
 
 	/** called after teleportation is complete

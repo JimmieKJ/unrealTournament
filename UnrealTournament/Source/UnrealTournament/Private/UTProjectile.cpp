@@ -7,6 +7,7 @@
 #include "Engine/ActorChannel.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTImpactEffect.h"
+#include "UTTeleporter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
@@ -231,6 +232,8 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
 	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds)
+		// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
+		&& (Cast<AUTTeleporter>(OtherActor) == NULL || GetVelocity().IsZero())
 		// projectiles that are shootable always win against projectiles that are not
 		&& (Cast<AUTProjectile>(OtherActor) == NULL || OtherComp->GetCollisionObjectType() == COLLISION_PROJECTILE_SHOOTABLE || OtherComp->GetCollisionResponseToChannel(COLLISION_PROJECTILE) > ECR_Ignore) )
 	{
