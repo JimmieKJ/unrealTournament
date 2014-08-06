@@ -44,7 +44,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
-	CrouchedHalfHeight = 68.0f;
+	CrouchedHalfHeight = 64.0f;
 	SlopeDodgeScaling = 0.93f;
 	DodgeRollAcceleration = 2000.f;
 	MaxDodgeRollSpeed = 860.f;

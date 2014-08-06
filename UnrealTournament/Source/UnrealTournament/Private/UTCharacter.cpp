@@ -24,12 +24,12 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
-	CapsuleComponent->InitCapsuleSize(42.f, 96.0f);
+	CapsuleComponent->InitCapsuleSize(42.f, 92.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = PCIP.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
 	CharacterCameraComponent->AttachParent = CapsuleComponent;
-	DefaultBaseEyeHeight = 70.f;
+	DefaultBaseEyeHeight = 71.f;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
