@@ -153,6 +153,42 @@ void AUTWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 		ValidateFiringStates();
 	}
 }
+void AUTWeapon::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+
+	// we need to handle redirecting the component references when duplicating blueprints as this does not currently work correctly in engine
+	// however, this is too early; the blueprint duplication and recompilation will clobber any changes
+	// so we'll wait until the blueprint OnChanged event, which will work
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		UBlueprint* BP = Cast<UBlueprint>(GetClass()->ClassGeneratedBy);
+		if (BP != NULL)
+		{
+			BP->OnChanged().RemoveUObject(AUTWeapon::StaticClass()->GetDefaultObject<AUTWeapon>(), &AUTWeapon::WeaponBPChanged); // make sure not already bound as there's an assert
+			BP->OnChanged().AddUObject(AUTWeapon::StaticClass()->GetDefaultObject<AUTWeapon>(), &AUTWeapon::WeaponBPChanged);
+		}
+	}
+}
+void AUTWeapon::WeaponBPChanged(UBlueprint* BP)
+{
+	if (BP->GeneratedClass != NULL)
+	{
+		AUTWeapon* NewDefWeapon = BP->GeneratedClass->GetDefaultObject<AUTWeapon>();
+		for (int32 i = 0; i < NewDefWeapon->MuzzleFlash.Num(); i++)
+		{
+			if (NewDefWeapon->MuzzleFlash[i] != NULL && !NewDefWeapon->MuzzleFlash[i]->IsIn(NewDefWeapon->GetClass()))
+			{
+				UParticleSystemComponent* NewMF = FindObject<UParticleSystemComponent>(NewDefWeapon->GetClass(), *NewDefWeapon->MuzzleFlash[i]->GetName(), false);
+				if (NewMF != NULL)
+				{
+					NewDefWeapon->MuzzleFlash[i] = NewMF;
+				}
+			}
+		}
+	}
+	BP->OnChanged().RemoveUObject(AUTWeapon::StaticClass()->GetDefaultObject<AUTWeapon>(), &AUTWeapon::WeaponBPChanged);
+}
 #endif
 
 void AUTWeapon::BeginPlay()

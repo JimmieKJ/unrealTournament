@@ -79,6 +79,8 @@ public:
 		Super::PostLoad();
 		ValidateFiringStates();
 	}
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+	void WeaponBPChanged(UBlueprint* BP);
 	void ValidateFiringStates();
 #endif
 

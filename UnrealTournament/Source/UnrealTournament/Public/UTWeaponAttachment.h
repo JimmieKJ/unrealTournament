@@ -71,4 +71,9 @@ public:
 
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);
+
+#if WITH_EDITORONLY_DATA
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+	void AttachmentBPChanged(UBlueprint* BP);
+#endif
 };
