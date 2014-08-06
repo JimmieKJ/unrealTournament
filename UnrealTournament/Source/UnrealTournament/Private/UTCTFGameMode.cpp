@@ -229,7 +229,15 @@ void AUTCTFGameMode::CheckGameTime()
 			}
 			else if ( CTFGameState->bSecondHalf )
 			{
-				if ( bAllowOvertime )
+
+				AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
+				if (WinningTeam != NULL)
+				{
+					AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
+					EndGame(WinningPS, FName(TEXT("TimeLimit")));	
+				
+				}
+				else if ( bAllowOvertime )
 				{
 					SetMatchState(MatchState::MatchEnteringHalftime);
 				}
