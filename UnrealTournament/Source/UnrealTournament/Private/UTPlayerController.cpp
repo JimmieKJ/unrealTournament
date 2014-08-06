@@ -594,7 +594,10 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.bAllowSpatialization = false;
 
 			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
-			GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
+			if (GEngine->GetAudioDevice() != NULL)
+			{
+				GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
+			}
 		}
 		else
 		{
