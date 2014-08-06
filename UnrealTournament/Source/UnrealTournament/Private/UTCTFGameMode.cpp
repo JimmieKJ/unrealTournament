@@ -32,7 +32,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	SuddenDeathHealthDrain=5;
 
 	//Add the translocator here for now :(
-	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("Blueprint'/Game/UserContent/Translocator/BP_Translocator.BP_Translocator_C'"));
+	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/UserContent/Translocator/BP_Translocator.BP_Translocator_C'"));
 	DefaultInventory.Add(WeapTranslocator.Object);
 }
 
@@ -526,7 +526,6 @@ void AUTCTFGameMode::SetMatchState(FName NewState)
 
 void AUTCTFGameMode::HandleEnteringSuddenDeath()
 {
-
 }
 
 void AUTCTFGameMode::HandleSuddenDeath()
