@@ -16,6 +16,13 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = Projectile)
 	FVector Acceleration;
 
+	/** stop only if HitNormal.Z is greater than this value, otherwise continue moving after removing velocity in the impact direction
+	 * primarily this is used to only stop the projectile on hitting a floor
+	 * no effect if bBounce is true
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile, Meta = (EditCondition = "!bBounce"))
+	float HitZStopSimulatingThreshold;
+
 	/** additional components that should be moved along with the main UpdatedComponent. Defaults to all colliding children of UpdatedComponent.
 	 * closest blocking hit of all components is used for blocking collision
 	 *
@@ -33,4 +40,10 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 		OldVelocity += OldVelocity.SafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
 		return Super::CalculateVelocity(OldVelocity, DeltaTime);
 	}
+
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+protected:
+	virtual FVector ComputeMoveDelta(const FVector& InVelocity, float DeltaTime, bool bApplyGravity = true) const override;
+	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;
 };

@@ -1,6 +1,8 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTProjectileMovementComponent.h"
+
 #include "UTDroppedPickup.generated.h"
 
 /** a dropped, partially used inventory item that was previously held by a player
@@ -29,7 +31,7 @@ public:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	TSubobjectPtr<UCapsuleComponent> Collision;
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	TSubobjectPtr<UProjectileMovementComponent> Movement;
+	TSubobjectPtr<UUTProjectileMovementComponent> Movement;
 
 	virtual void BeginPlay() override;
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override

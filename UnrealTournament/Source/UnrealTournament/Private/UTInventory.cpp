@@ -171,9 +171,21 @@ void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVel
 		SetOwner(NULL);
 		if (DroppedPickupClass != NULL)
 		{
+			// pull back spawn location if it is embedded in world geometry
+			FVector AdjustedStartLoc = StartLocation;
+			UCapsuleComponent* TestCapsule = DroppedPickupClass.GetDefaultObject()->Collision;
+			if (TestCapsule != NULL)
+			{
+				FHitResult Hit;
+				if (GetWorld()->SweepSingle(Hit, StartLocation - TossVelocity * 0.25f, StartLocation, FQuat::Identity, TestCapsule->GetCollisionObjectType(), TestCapsule->GetCollisionShape(), FCollisionQueryParams(FName(TEXT("DropPlacement")), false), TestCapsule->GetCollisionResponseToChannels()))
+				{
+					AdjustedStartLoc = Hit.Location;
+				}
+			}
+
 			FActorSpawnParameters Params;
 			Params.Instigator = FormerInstigator;
-			AUTDroppedPickup* Pickup = GetWorld()->SpawnActor<AUTDroppedPickup>(DroppedPickupClass, StartLocation, TossVelocity.Rotation(), Params);
+			AUTDroppedPickup* Pickup = GetWorld()->SpawnActor<AUTDroppedPickup>(DroppedPickupClass, AdjustedStartLoc, TossVelocity.Rotation(), Params);
 			if (Pickup != NULL)
 			{
 				Pickup->Movement->Velocity = TossVelocity;

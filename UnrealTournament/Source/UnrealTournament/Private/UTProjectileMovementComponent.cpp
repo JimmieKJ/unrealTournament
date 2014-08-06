@@ -5,6 +5,7 @@
 UUTProjectileMovementComponent::UUTProjectileMovementComponent(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	HitZStopSimulatingThreshold = -1.1f; // default is always stop
 }
 
 void UUTProjectileMovementComponent::InitializeComponent()
@@ -152,5 +153,93 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 			}
 			return bResult;
 		}
+	}
+}
+
+// this is a hack around UProjectileMovementComponent not passing the real TimeSlice to HandleImpact()
+static float LastTimeSlice = 0.0f;
+FVector UUTProjectileMovementComponent::ComputeMoveDelta(const FVector& InVelocity, float DeltaTime, bool bApplyGravity) const
+{
+	LastTimeSlice = DeltaTime;
+	return Super::ComputeMoveDelta(InVelocity, DeltaTime, bApplyGravity);
+}
+void UUTProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	LastTimeSlice = 0.0f;
+}
+void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
+{
+	if (!bShouldBounce && Hit.Normal.Z < HitZStopSimulatingThreshold && UpdatedComponent != NULL && UpdatedComponent->GetOwner() != NULL && (TimeSlice > 0.0f || LastTimeSlice > 0.0f))
+	{
+		AActor* ActorOwner = UpdatedComponent->GetOwner();
+		FVector OldLocation = UpdatedComponent->GetComponentLocation();
+
+		// restore time and velocity that got clobbered by UProjectileMovementComponent::TickComponent()'s hit handling
+		if (TimeSlice == 0.0f)
+		{
+			TimeSlice = LastTimeSlice;
+		}
+		else
+		{
+			TimeSlice /= Hit.Time;
+		}
+		Velocity = MoveDelta / TimeSlice;
+
+		FVector OldHitNormal = Hit.Normal;
+		FVector Delta = (MoveDelta - Hit.Normal * (MoveDelta | Hit.Normal)) * (1.f - Hit.Time);
+		if ((Delta | MoveDelta) >= 0.0f)
+		{
+			if (Delta.Z > 0.f) // friction slows sliding up slopes
+			{
+				Delta *= 0.5f;
+			}
+			FHitResult NewHit;
+			SafeMoveUpdatedComponent(Delta, ActorOwner->GetActorRotation(), true, NewHit);
+			if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+			{
+				if (NewHit.Time < 1.f) // hit second wall
+				{
+					if (NewHit.Normal.Z >= HitZStopSimulatingThreshold)
+					{
+						StopSimulating(NewHit);
+					}
+					else
+					{
+						// TODO: should we call anything here?
+						//processHitWall(NewHit.Normal, NewHit.Actor, NewHit.Component);
+						//if (bDeleteMe)
+						//{
+						//	return;
+						//}
+
+						TwoWallAdjust(Delta, NewHit, OldHitNormal);
+						if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+						{
+							bool bDitch = ((OldHitNormal.Z > 0.0f) && (NewHit.Normal.Z > 0.0f) && (Delta.Z == 0.0f) && ((NewHit.Normal | OldHitNormal) < 0.0f));
+							SafeMoveUpdatedComponent(Delta, ActorOwner->GetActorRotation(), true, NewHit);
+							if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+							{
+								if (bDitch || NewHit.Normal.Z >= HitZStopSimulatingThreshold)
+								{
+									StopSimulating(NewHit);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		// update velocity for actual movement that occurred
+		if (UpdatedComponent != NULL)
+		{
+			float OldVelZ = Velocity.Z;
+			Velocity = (UpdatedComponent->GetComponentLocation() - OldLocation + MoveDelta * Hit.Time) / TimeSlice;
+			Velocity.Z = OldVelZ;
+		}
+	}
+	else
+	{
+		Super::HandleImpact(Hit, TimeSlice, MoveDelta);
 	}
 }

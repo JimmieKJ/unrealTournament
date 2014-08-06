@@ -14,10 +14,12 @@ AUTDroppedPickup::AUTDroppedPickup(const FPostConstructInitializeProperties& PCI
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTDroppedPickup::OnOverlapBegin);
 	RootComponent = Collision;
 
-	Movement = PCIP.CreateDefaultSubobject<UProjectileMovementComponent>(this, TEXT("Movement"));
+	Movement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("Movement"));
+	Movement->HitZStopSimulatingThreshold = 0.7f;
 	Movement->UpdatedComponent = Collision;
 	Movement->OnProjectileStop.AddDynamic(this, &AUTDroppedPickup::PhysicsStopped);
 
+	bCollideWhenPlacing = true;
 	InitialLifeSpan = 15.0f;
 
 	SetReplicates(true);
