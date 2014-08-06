@@ -44,7 +44,6 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 	ConfigDefaultFOV = 90.0f;
 	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
-	bAutoManageActiveCameraTarget=false;
 }
 
 void AUTPlayerController::SetGravity(float NewGravity)
@@ -193,7 +192,15 @@ void AUTPlayerController::OnRep_PlayerState()
 
 void AUTPlayerController::SetPawn(APawn* InPawn)
 {
-	Super::SetPawn(InPawn);
+	if (InPawn == NULL)
+	{
+		// Attempt to move the PC to the current camera location if no pawn was specified
+		const FVector NewLocation = (PlayerCameraManager != NULL) ? PlayerCameraManager->GetCameraLocation() : GetSpawnLocation();
+		SetSpawnLocation(NewLocation);
+	}
+
+	AController::SetPawn(InPawn);
+
 	UTCharacter = Cast<AUTCharacter>(InPawn);
 
 	// apply FOV angle if dead/spectating
@@ -1085,4 +1092,5 @@ void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, cons
 
 	UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceive(ClientData);
 }
+
 

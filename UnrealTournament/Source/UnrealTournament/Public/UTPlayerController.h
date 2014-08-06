@@ -197,7 +197,6 @@ public:
 	UFUNCTION(reliable, client)
 	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, bool bTeamMessage);
 
-
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.
