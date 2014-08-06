@@ -74,13 +74,23 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 		GlobStrength++;
 		ConsumeAmmo(CurrentFireMode);
 	}
-	GetWorldTimerManager().SetTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime, false);
+	GetWorldTimerManager().SetTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
 }
 
 void AUTWeap_BioRifle::ClearGlobStrength()
 {
 	GlobStrength = 0;
 	GetWorldTimerManager().ClearTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength);
+}
+
+void AUTWeap_BioRifle::UpdateTiming()
+{
+	Super::UpdateTiming();
+	if (GetWorldTimerManager().IsTimerActive(this, &AUTWeap_BioRifle::IncreaseGlobStrength))
+	{
+		float RemainingPct = GetWorldTimerManager().GetTimerRemaining(this, &AUTWeap_BioRifle::IncreaseGlobStrength) / GetWorldTimerManager().GetTimerRate(this, &AUTWeap_BioRifle::IncreaseGlobStrength);
+		GetWorldTimerManager().SetTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
+	}
 }
 
 void AUTWeap_BioRifle::OnStoppedFiring_Implementation()

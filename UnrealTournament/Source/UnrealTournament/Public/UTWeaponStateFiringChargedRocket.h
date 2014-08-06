@@ -91,6 +91,16 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		EndFiringSequence(GetFireMode());
 	}
 
+	virtual void UpdateTiming() override
+	{
+		Super::UpdateTiming();
+		if (GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(this, &UUTWeaponStateFiringChargedRocket::LoadTimer))
+		{
+			float RemainingPct = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiringChargedRocket::LoadTimer) / GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRate(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime() * RemainingPct, false);
+		}
+	}
+
 	virtual void EndFiringSequence(uint8 FireModeNum) override
 	{
 		if (FireModeNum == GetFireMode())

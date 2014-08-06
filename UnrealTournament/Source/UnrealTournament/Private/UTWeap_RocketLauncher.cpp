@@ -89,9 +89,8 @@ void AUTWeap_RocketLauncher::ClearLoadedRockets()
 
 float AUTWeap_RocketLauncher::GetLoadTime()
 {
-	return ((NumLoadedRockets > 0) ? RocketLoadTime : FirstRocketLoadTime) * ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f);
+	return ((NumLoadedRockets > 0) ? RocketLoadTime : FirstRocketLoadTime) / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f);
 }
-
 
 void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 {

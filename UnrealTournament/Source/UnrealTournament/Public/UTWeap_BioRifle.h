@@ -34,6 +34,10 @@ class AUTWeap_BioRifle : public AUTWeapon
 
 	virtual void IncreaseGlobStrength();
 	virtual void ClearGlobStrength();
+
+	virtual void UpdateTiming() override;
+
+	UPROPERTY(BlueprintReadOnly, Category = Bio)
 	uint8 GlobStrength;
 
 	/** hook to to play glob anim while charging*/
