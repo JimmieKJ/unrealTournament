@@ -23,6 +23,11 @@ class AUTCTFGameMode : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	uint32 bOldSchool:1;	
 
+	/** If true, CTF allow for a sudden death after overtime */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
+	uint32 bSuddenDeath:1;	
+
+
 	/** Holds the # of teams expected for this version of CTF.  This isn't a command line switch rather a var that can be subclassed or blueprinted */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	uint8 MaxNumberOfTeams;
@@ -48,6 +53,7 @@ class AUTCTFGameMode : public AUTTeamGameMode
 	virtual bool IsAWinner(AUTPlayerController* PC);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
+	virtual AUTPlayerState* FindBestPlayerOnTeam(int TeamNumToTest);
 
 	virtual void SetMatchState(FName NewState);
 
@@ -56,6 +62,7 @@ class AUTCTFGameMode : public AUTTeamGameMode
 	virtual void HandleExitingHalftime();
 	virtual void HandleEnteringSuddenDeath();
 	virtual void HandleSuddenDeath();
+	virtual void HandleEnteringOvertime();
 
 	virtual void DefaultTimer();
 	virtual bool PlayerCanRestart( APlayerController* Player );

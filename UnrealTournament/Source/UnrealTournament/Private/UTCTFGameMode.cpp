@@ -28,6 +28,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	bOldSchool = false;
 	OvertimeDuration=5;
 	bUseTeamStarts = true;
+	bSuddenDeath = true;
 
 	SuddenDeathHealthDrain=5;
 
@@ -43,6 +44,9 @@ void AUTCTFGameMode::InitGame( const FString& MapName, const FString& Options, F
 	FString InOpt = ParseOption(Options, TEXT("OldSchool"));
 	bOldSchool = EvalBoolOptions(InOpt, bOldSchool);
 
+	InOpt = ParseOption(Options, TEXT("SuddenDeath"));
+	bSuddenDeath = EvalBoolOptions(InOpt, bSuddenDeath);
+
 	// HalftimeDuration is in seconds and used in seconds,
 	HalftimeDuration = FMath::Max(1, GetIntOption( Options, TEXT("HalftimeDuration"), HalftimeDuration));	
 
@@ -54,6 +58,7 @@ void AUTCTFGameMode::InitGame( const FString& MapName, const FString& Options, F
 	{
 		TimeLimit = uint32( float(TimeLimit) * 0.5);
 	}
+
 }
 
 void AUTCTFGameMode::InitGameState()
@@ -178,6 +183,13 @@ bool AUTCTFGameMode::CheckScore(AUTPlayerState* Scorer)
 		}
 	}
 
+	if (CTFGameState->IsMatchInSuddenDeath())
+	{
+		
+
+
+	}
+
 	return true;
 }
 
@@ -192,27 +204,44 @@ void AUTCTFGameMode::CheckGameTime()
 	{
 		Super::CheckGameTime();
 	}
-	else if (CTFGameState->IsMatchInProgress())
+	else if ( CTFGameState->IsMatchInProgress() )
 	{
-		if (!CTFGameState->bHalftime)
+		if ( CTFGameState->RemainingTime <= 0 )
 		{
-			if (CTFGameState->RemainingTime <= 0)
+			// Halftime?? then exti it
+			if (CTFGameState->IsMatchAtHalftime())
 			{
-				if (CTFGameState->bSecondHalf)
+				SetMatchState(MatchState::MatchExitingHalftime);
+			}
+
+			// If we are in Overtime, look to see if we should start sudden death
+			else if ( CTFGameState->IsMatchInOvertime() )
+			{
+				if (!CTFGameState->IsMatchInSuddenDeath() && bSuddenDeath)
 				{
-					if (!bAllowOvertime || UTGameState->IsMatchInOvertime() || CTFGameState->FindLeadingTeam() != NULL)
-					{
-						EndGame(NULL, FName(TEXT("TimeLimit")));	
-					}
-					else if (bAllowOvertime && !UTGameState->IsMatchInOvertime())
-					{
-						SetMatchState(MatchState::MatchEnteringHalftime);
-					}
-				}		
-				else 
+					SetMatchState(MatchState::MatchEnteringSuddenDeath);				
+				}
+				else if ( CTFGameState->FindLeadingTeam() != NULL )
+				{
+					// Match is over....
+					EndGame(NULL, FName(TEXT("TimeLimit")));	
+				}
+			}
+			else if ( CTFGameState->bSecondHalf )
+			{
+				if ( bAllowOvertime )
 				{
 					SetMatchState(MatchState::MatchEnteringHalftime);
 				}
+				else
+				{
+					// Match is over....
+					EndGame(NULL, FName(TEXT("TimeLimit")));	
+				}
+			}
+			else 
+			{
+				SetMatchState(MatchState::MatchEnteringHalftime);
 			}
 		}
 	}
@@ -297,7 +326,9 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 
 	CTFGameState->bHalftime = true;
 	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
-	GetWorldTimerManager().SetTimer(this, &AUTCTFGameMode::HalftimeIsOver, HalftimeDuration, false);
+
+	SetMatchState(MatchState::MatchIsAtHalftime);
+
 }
 
 void AUTCTFGameMode::HalftimeIsOver()
@@ -347,8 +378,14 @@ void AUTCTFGameMode::HandleExitingHalftime()
 
 	if (CTFGameState->bSecondHalf)
 	{
-		CTFGameState->SetTimeLimit(OvertimeDuration);
-		SetMatchState(MatchState::MatchEnteringOvertime);
+		if (!bOldSchool && bAllowOvertime && OvertimeDuration > 0)
+		{
+			SetMatchState(MatchState::MatchEnteringOvertime);
+		}
+		else
+		{
+			EndGame(NULL, FName(TEXT("TimeLimit")));	
+		}
 	}
 	else
 	{
@@ -476,15 +513,76 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other)
 				BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, AttackerPS, NULL, NULL);
 				bFirstBloodOccurred = true;
 			}
+
+			if (CTFGameState->IsMatchInSuddenDeath() && Killer != NULL)
+			{
+				AUTCharacter* Char = Cast<AUTCharacter>(Killer->GetPawn());
+				if (Char != NULL)
+				{
+					Char->Health = 100;
+				}
+			}
+
 		}
 	}
 
 	if (CTFGameState->IsMatchInSuddenDeath())
 	{
 		// Search through all players and determine if anyone is still alive and 
-	
+
+		FName LastMan = TEXT("LastManStanding");
+
+		int TeamCounts[2] = {0,0};
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* Char = Cast<AUTCharacter>(*It);
+			if ( Char != NULL && !Char->IsDead() )
+			{
+				int TeamNum = Char->GetTeamNum();
+				if (TeamNum >= 0 && TeamNum <= 1)
+				{
+					TeamCounts[TeamNum]++;
+				}
+			}
+		}
+
+		if (TeamCounts[0] <= 0 && TeamCounts[1] > 0)		// Check for Blue victory
+		{
+			// Blue Team Won
+			EndGame(FindBestPlayerOnTeam(1),LastMan);
+		}
+		else if (TeamCounts[0] > 0 && TeamCounts[1] <= 0)		// Check for Red Victory
+		{
+			// Blue Team Won
+			EndGame(FindBestPlayerOnTeam(0),LastMan);
+		}
+		else if (TeamCounts[0] <= 0 && TeamCounts[1] <=0)	// Santy check.. should never get here
+		{
+			// Blue Team Won
+			EndGame(NULL,LastMan);
+		}
 	}
 
+}
+
+AUTPlayerState* AUTCTFGameMode::FindBestPlayerOnTeam(int TeamNumToTest)
+{
+	AUTPlayerState* Best;
+	Best = CTFGameState->GetFlagHolder(TeamNumToTest);
+
+	if (Best != NULL)
+	{
+		for (int i=0;i<CTFGameState->PlayerArray.Num();i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(CTFGameState->PlayerArray[i]);
+			if (PS != NULL && PS->GetTeamNum() == TeamNumToTest && (Best == NULL || Best->Score < PS->Score))
+			{
+				Best = PS;
+			}
+		}
+	}
+
+	return Best;
 }
 
 bool AUTCTFGameMode::IsMatchInSuddenDeath()
@@ -523,6 +621,11 @@ void AUTCTFGameMode::SetMatchState(FName NewState)
 	}
 }
 
+void AUTCTFGameMode::HandleEnteringOvertime()
+{
+	CTFGameState->SetTimeLimit(OvertimeDuration);
+	SetMatchState(MatchState::MatchIsInOvertime);
+}
 
 void AUTCTFGameMode::HandleEnteringSuddenDeath()
 {
@@ -548,9 +651,16 @@ void AUTCTFGameMode::DefaultTimer()
 				AUTCharacter* Char = Cast<AUTCharacter>(C->GetPawn());
 				if (Char!=NULL && Char->Health > 0)
 				{
-					Char->TakeDamage(SuddenDeathHealthDrain, FDamageEvent(UUTDamageType::StaticClass()), NULL, NULL);
+					int Damage = SuddenDeathHealthDrain;
+					if (Char->GetCarriedObject() != NULL)
+					{
+						Damage = int(float(Damage) * 1.5f);
+					}
+
+					Char->TakeDamage(Damage, FDamageEvent(UUTDamageType::StaticClass()), NULL, NULL);
 				}
 			}
 		}
 	}
 }
+
