@@ -32,7 +32,9 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 
 	AUTPickupWeapon(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
-	{}
+	{
+		Collision->InitCapsuleSize(72.0f, 75.0f);
+	}
 
 	/** weapon type that can be picked up here */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Weapon)

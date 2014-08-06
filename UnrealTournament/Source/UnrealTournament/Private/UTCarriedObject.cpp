@@ -8,7 +8,7 @@ AUTCarriedObject::AUTCarriedObject(const FPostConstructInitializeProperties& PCI
 : Super(PCIP)
 {
 	Collision = PCIP.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
-	Collision->InitCapsuleSize(64.0f, 30.0f);
+	Collision->InitCapsuleSize(72.0f, 30.0f);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTCarriedObject::OnOverlapBegin);
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->SetAbsolute(false, false, true);
