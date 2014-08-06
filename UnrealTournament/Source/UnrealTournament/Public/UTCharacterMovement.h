@@ -118,6 +118,14 @@ public:
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodgeRolling;
 
+	/** True if was dodge rolling last movement update. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	bool bWasDodgeRolling;
+
+	/** True if would dodge roll when land dodge */
+	UPROPERTY()
+	bool bWillDodgeRoll;
+
 	/** Horizontal speed reduction on roll ending (multiplied). */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
 	float RollEndingSpeedFactor;
@@ -295,6 +303,7 @@ public:
 	bool bPressedDodgeRight;
 	bool bSavedIsSprinting;
 	bool bSavedIsRolling;
+	bool bWillDodgeRoll;
 
 	virtual void Clear() override;
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;

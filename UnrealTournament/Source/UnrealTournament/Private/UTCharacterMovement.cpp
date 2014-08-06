@@ -46,7 +46,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 68.0f;
 	SlopeDodgeScaling = 0.93f;
-	DodgeRollAcceleration = 1200.f;
+	DodgeRollAcceleration = 2000.f;
 	MaxDodgeRollSpeed = 860.f;
 	DodgeRollDuration = 0.45f;
 	DodgeRollTapInterval = 0.25f;
@@ -74,7 +74,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollTapTime = 0.f;
 	DodgeRollEndTime = 0.f;
 	CurrentWallDodgeCount = 0;
-
+	bWillDodgeRoll = false;
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
@@ -121,8 +121,16 @@ void UUTCharacterMovement::SetGravityScale(float NewGravityScale)
 
 void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	OldZ = CharacterOwner ? CharacterOwner->GetActorLocation().Z : 0.f;
-	bIsSprinting = (CharacterOwner && CharacterOwner->IsLocallyControlled()) ? CanSprint() : bIsSprinting;
+	if (CharacterOwner)
+	{
+		OldZ = CharacterOwner->GetActorLocation().Z;
+		if (!CharacterOwner->bClientUpdating && CharacterOwner->IsLocallyControlled())
+		{
+			bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
+			bIsSprinting = CanSprint();
+			bWillDodgeRoll = (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval);
+		}
+	}
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 }
@@ -259,8 +267,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 
 void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 {
-	bool bWasDodgeRolling = bIsDodgeRolling;
-	bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
 	float RealGroundFriction = GroundFriction;
 	if (bIsDodgeRolling)
 	{
@@ -270,7 +276,8 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	{
 		Velocity *= RollEndingSpeedFactor;
 	}
-	
+	bWasDodgeRolling = bIsDodgeRolling;
+
 	bool bSavedWantsToCrouch = bWantsToCrouch;
 	bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
 	bForceMaxAccel = bIsDodgeRolling;
@@ -329,7 +336,7 @@ void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction,
 
 float UUTCharacterMovement::GetCurrentMovementTime() const
 {
-	return ((CharacterOwner->Role == ROLE_Authority) && !CharacterOwner->IsLocallyControlled())
+	return (CharacterOwner && (CharacterOwner->bClientUpdating || ((CharacterOwner->Role == ROLE_Authority) && !CharacterOwner->IsLocallyControlled())))
 		? CurrentServerMoveTime
 		: CharacterOwner->GetWorld()->GetTimeSeconds();
 }
@@ -362,7 +369,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 {
 	if (CharacterOwner)
 	{
-		bIsDodgeRolling = bIsDodging && (CharacterOwner->IsLocallyControlled() ? (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval) : bIsDodgeRolling);
+		bIsDodgeRolling = bWillDodgeRoll;
 		if (CharacterOwner->NotifyLanded(Hit))
 		{
 			CharacterOwner->Landed(Hit);
@@ -462,7 +469,7 @@ bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, AChara
 	{
 		return false;
 	}
-	if (bSavedIsRolling != ((FSavedMove_UTCharacter*)&NewMove)->bSavedIsRolling)
+	if ((bSavedIsRolling != ((FSavedMove_UTCharacter*)&NewMove)->bSavedIsRolling) || (bWillDodgeRoll != ((FSavedMove_UTCharacter*)&NewMove)->bWillDodgeRoll))
 	{
 		return false;
 	}
@@ -514,6 +521,10 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	{
 		Result |= (6 << 2);
 	}
+	else if (bWillDodgeRoll)
+	{
+		Result |= (7 << 2);
+	}
 
 	return Result;
 }
@@ -527,6 +538,7 @@ void FSavedMove_UTCharacter::Clear()
 	bPressedDodgeRight = false;
 	bSavedIsSprinting = false;
 	bSavedIsRolling = false;
+	bWillDodgeRoll = false;
 }
 
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
@@ -541,6 +553,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
 		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
+		bWillDodgeRoll = UTCharMov->bWillDodgeRoll;
 	}
 }
 

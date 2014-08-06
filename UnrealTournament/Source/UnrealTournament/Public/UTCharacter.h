@@ -245,6 +245,13 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UPROPERTY(BlueprintReadWrite, Category = Pawn)
 	bool bDisallowWeaponFiring;
 
+	/** Used to replicate bIsDodgeRolling to non owning clients */
+	UPROPERTY(ReplicatedUsing = OnRepDodgeRolling)
+	bool bRepDodgeRolling;
+
+	UFUNCTION()
+	virtual void OnRepDodgeRolling();
+
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = PlayFeignDeath, Category = Pawn)

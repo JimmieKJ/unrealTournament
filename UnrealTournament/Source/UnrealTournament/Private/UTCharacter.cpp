@@ -214,6 +214,12 @@ static TAutoConsoleVariable<int32> CVarDebugHeadshots(
 
 bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor)
 {
+	if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
+	{
+		// no headshots while dodge rolling
+		return false;
+	}
+
 	// force mesh update if necessary
 	if (!Mesh->ShouldTickPose())
 	{
@@ -578,6 +584,14 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		{
 			// TODO: bots
 		}
+	}
+}
+
+void AUTCharacter::OnRepDodgeRolling()
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->bIsDodgeRolling = bRepDodgeRolling;
 	}
 }
 
@@ -1404,6 +1418,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bUnlimitedAmmo, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bRepDodgeRolling, COND_SkipOwner);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -1540,6 +1555,8 @@ void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 		UTCharacterMovement->bPressedDodgeRight = (DodgeFlags == 4);
 		UTCharacterMovement->bIsSprinting = (DodgeFlags == 5);
 		UTCharacterMovement->bIsDodgeRolling = (DodgeFlags == 6);
+		UTCharacterMovement->bWillDodgeRoll = (DodgeFlags == 7);
+		bRepDodgeRolling = UTCharacterMovement->bIsDodgeRolling;
 	}
 }
 
