@@ -23,6 +23,14 @@ struct FUTCanvasTextItem : public FCanvasTextItem
 	{}
 
 	virtual void Draw(class FCanvas* InCanvas) override;
+protected:
+	// UT version appropriately handles distance field fonts by slightly overlapping triangles to give the shadows more space
+	void UTDrawStringInternal(class FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& DrawColor);
+private:
+	void DrawStringInternal(class FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& DrawColor)
+	{
+		UTDrawStringInternal(InCanvas, DrawPos, DrawColor);
+	}
 };
 
 UCLASS(BlueprintType, Blueprintable)
