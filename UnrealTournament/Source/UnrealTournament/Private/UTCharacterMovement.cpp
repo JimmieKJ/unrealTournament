@@ -11,7 +11,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	// @TODO FIXMESTEVE increase this to hour+ for release version
 	// MinTimeBetweenTimeStampResets = 3600.f;
 
-	MaxWalkSpeed = 950.f;
+	MaxWalkSpeed = 960.f;
 	MaxCustomMovementSpeed = MaxWalkSpeed;
 
 	WallDodgeTraceDist = 50.f;
@@ -47,7 +47,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CrouchedHalfHeight = 64.0f;
 	SlopeDodgeScaling = 0.93f;
 	DodgeRollAcceleration = 2000.f;
-	MaxDodgeRollSpeed = 860.f;
+	MaxDodgeRollSpeed = 880.f;
 	DodgeRollDuration = 0.45f;
 	DodgeRollTapInterval = 0.25f;
 	RollEndingSpeedFactor = 0.5f;
