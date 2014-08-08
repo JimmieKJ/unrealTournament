@@ -1470,8 +1470,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 
 bool AUTCharacter::CanJumpInternal_Implementation() const
 {
-	// @TODO FIXMESTEVE ask to get this mostly moved to CharacterMovement!
-	return !bIsCrouched && UTCharacterMovement && (UTCharacterMovement->IsMovingOnGround() || UTCharacterMovement->CanMultiJump()) && UTCharacterMovement->CanEverJump() && !UTCharacterMovement->bWantsToCrouch;
+	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanJump();
 }
 
 void AUTCharacter::CheckJumpInput(float DeltaTime)
@@ -1559,7 +1558,12 @@ void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
 		UTCharacterMovement->bPressedDodgeRight = (DodgeFlags == 4);
 		UTCharacterMovement->bIsSprinting = (DodgeFlags == 5);
 		UTCharacterMovement->bIsDodgeRolling = (DodgeFlags == 6);
+		bool bOldWillDodgeRoll = UTCharacterMovement->bWillDodgeRoll;
 		UTCharacterMovement->bWillDodgeRoll = (DodgeFlags == 7);
+		if (!bOldWillDodgeRoll && UTCharacterMovement->bWillDodgeRoll)
+		{
+			UTCharacterMovement->DodgeRollTapTime = UTCharacterMovement->GetCurrentMovementTime();
+		}
 		bRepDodgeRolling = UTCharacterMovement->bIsDodgeRolling;
 	}
 }
@@ -1701,6 +1705,10 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 			if (FallingSpeed < -1.f * MaxSafeFallSpeed)
 			{
 				FUTPointDamageEvent DamageEvent(-100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
+				if (UTCharacterMovement)
+				{
+					DamageEvent.Damage -= UTCharacterMovement->FallingDamageReduction();
+				}
 				if (DamageEvent.Damage >= 1.0f)
 				{
 					TakeDamage(DamageEvent.Damage, DamageEvent, Controller, this);

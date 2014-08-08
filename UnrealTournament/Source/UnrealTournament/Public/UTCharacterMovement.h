@@ -123,7 +123,7 @@ public:
 	bool bWasDodgeRolling;
 
 	/** True if would dodge roll when land dodge */
-	UPROPERTY()
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bWillDodgeRoll;
 
 	/** Horizontal speed reduction on roll ending (multiplied). */
@@ -150,9 +150,17 @@ public:
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	float DodgeRollTapTime;
 
-	/** Maximum interval dodge roll tap can be performed before landing dodge to get speed bonus. */
+	/** Maximum interval dodge roll tap can be performed before landing dodge to get bonus. */
 	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
 	float DodgeRollBonusTapInterval;
+
+	/** Falling damage reduction if hit roll within DodgeRollBonusTapInterval */
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
+	float FallingDamageRollReduction;
+
+	/** Amount of falling damage reduction */
+	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
+	virtual	float FallingDamageReduction();
 
 	/** Maximum Velocity Z that a Dodge Roll tap will register. */
 	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
@@ -174,6 +182,9 @@ public:
 
 	/** Return true if character can dodge. */
 	virtual bool CanDodge();
+
+	/** Return true if character can jump. */
+	virtual bool CanJump();
 
 	/** Clear dodging input related flags */
 	void ClearJumpInput();

@@ -26,7 +26,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	WallDodgeResetInterval = 0.2f;
 	SprintSpeed = 1250.f;
 	SprintAccel = 200.f;
-	AutoSprintDelayInterval = 2.f;
+	AutoSprintDelayInterval = 1.8f;
 	LandingStepUp = 40.f;
 	LandingAssistBoost = 380.f;
 	CrouchedSpeedMultiplier_DEPRECATED = 0.31f;
@@ -50,10 +50,11 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollAcceleration = 2000.f;
 	MaxDodgeRollSpeed = 880.f;
 	DodgeRollDuration = 0.45f;
-	DodgeRollBonusTapInterval = 0.25f;
+	DodgeRollBonusTapInterval = 0.17f;
 	// also dodgerollcancelinterval - turn off bWillDodgeRoll after that
-	DodgeRollEarliestZ = -50.f;
+	DodgeRollEarliestZ = -100.f;
 	RollEndingSpeedFactor = 0.5f;
+	FallingDamageRollReduction = 6.f;
 
 	MaxSwimSpeed = 450.f;
 	Buoyancy = 1.f;
@@ -165,7 +166,12 @@ bool UUTCharacterMovement::CanDodge()
 	{
 		//UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
-	return (IsMovingOnGround() || IsFalling()) && CanEverJump() && !bWantsToCrouch && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
+	return (IsMovingOnGround() || IsFalling()) && !bIsDodgeRolling && CanEverJump() && !bWantsToCrouch && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
+}
+
+bool UUTCharacterMovement::CanJump()
+{
+	return (IsMovingOnGround() || CanMultiJump()) && CanEverJump() && !bWantsToCrouch && !bIsDodgeRolling;
 }
 
 bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
@@ -227,6 +233,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 
 	// perform the dodge
+	bWillDodgeRoll = false;
 	float VelocityZ = Velocity.Z;
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
@@ -358,6 +365,11 @@ const FVector& NewAccel
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
 
+float UUTCharacterMovement::FallingDamageReduction()
+{
+	return (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollBonusTapInterval) ? FallingDamageRollReduction : 0.f;
+}
+
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
 	if (CharacterOwner)
@@ -386,8 +398,8 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 				DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
 				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
-			bIsDodging = false;
 		}
+		bIsDodging = false;
 		if (!CharacterOwner->bClientUpdating)
 		{
 			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
