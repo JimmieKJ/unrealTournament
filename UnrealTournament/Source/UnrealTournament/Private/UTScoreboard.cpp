@@ -54,7 +54,8 @@ void UUTScoreboard::DrawHeader(float RenderDelta, float X, float Y, float ClipX,
 
 void UUTScoreboard::DrawPlayers(float RenderDelta, float X, float Y, float ClipX, float ClipY, int32 TeamFilter)
 {
-	float NameX = X + ClipX * 0.15;
+	float PingX = X + ClipX * 0.15;
+	float NameX = X + ClipX * 0.25;
 	float ScoreX = X + ClipX * 0.8;
 	float DrawY = Y;
 
@@ -65,7 +66,8 @@ void UUTScoreboard::DrawPlayers(float RenderDelta, float X, float Y, float ClipX
 		{
 			if (TeamFilter < 0 || (PS->Team != NULL && PS->Team->GetTeamNum() == TeamFilter))
 			{
-				FLinearColor DrawColor =  (PS == UTHUDOwner->UTPlayerOwner->UTPlayerState ? FLinearColor::Yellow : FLinearColor :: White);
+				FLinearColor DrawColor = (PS == UTHUDOwner->UTPlayerOwner->UTPlayerState ? FLinearColor::Yellow : FLinearColor::White);
+				UTHUDOwner->DrawString(FText::FromString(FString::Printf(TEXT("Ping %d"), PS->Ping)), PingX, DrawY + (CellHeight * 0.25), ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale * 0.5f);
 				UTHUDOwner->DrawString(FText::FromString( PS->PlayerName), NameX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale);
 				UTHUDOwner->DrawNumber(PS->Score, ScoreX, DrawY,DrawColor, 0.0f, CellScale, 0, true);
 				UTHUDOwner->DrawString(FText::FromString( FString::Printf(TEXT("Kills: %i"),PS->Kills)), ScoreX + 2, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor, CellScale * 0.5f);
