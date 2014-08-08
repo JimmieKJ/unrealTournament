@@ -38,6 +38,18 @@ struct FStoredAmmo
 	int32 Amount;
 };
 
+USTRUCT()
+struct FEmoteRepInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	bool bNewData;
+
+	UPROPERTY()
+	int32 EmoteIndex;
+};
+
 UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoExposure,LensFlares,AmbientOcclusion,DepthOfField,MotionBlur,Misc,ScreenSpaceReflections,Bloom,SceneColor,Film,AmbientCubemap,AgentPhysics,Attachment,Avoidance,PlanarMovement,AI,Replication,Input,Actor,Tags,GlobalIllumination))
 class AUTCharacter : public ACharacter, public IUTTeamInterface
 {
@@ -54,6 +66,17 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** Cached UTCharacterMovement casted CharacterMovement */
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly)
 	class UUTCharacterMovement* UTCharacterMovement;
+
+	UPROPERTY(replicatedUsing=OnRepEmote)
+	FEmoteRepInfo EmoteReplicationInfo;
+
+	UFUNCTION()
+	virtual void OnRepEmote();
+
+	void PlayEmote(int32 EmoteIndex);
+
+	UPROPERTY(EditDefaultsOnly, Category = Pawn)
+	TArray<UAnimMontage*> EmoteAnimations;
 
 	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
 	UPROPERTY()

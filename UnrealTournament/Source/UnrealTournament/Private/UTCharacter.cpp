@@ -168,6 +168,13 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 	CrouchEyeOffset.Z += DefaultBaseEyeHeight - CrouchedEyeHeight + HeightAdjust;
 	UTCharacterMovement->OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, CrouchedEyeHeight),false);
+
+	// Kill any montages that might be overriding the crouch anim
+	UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+	if (AnimInstance != NULL)
+	{
+		AnimInstance->Montage_Stop(0.2f);
+	}
 }
 
 void AUTCharacter::Restart()
@@ -1423,6 +1430,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepDodgeRolling, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteReplicationInfo, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -2239,6 +2247,26 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			Canvas->SetLinearDrawColor(FLinearColor::White);
 			FFontRenderInfo FRI = Canvas->CreateFontRenderInfo(true, false);
 			Canvas->DrawText(TinyFont, PlayerState->PlayerName, ScreenPosition.X - (XL * 0.5), ScreenPosition.Y - YL, Scale, Scale, FRI);
+		}
+	}
+}
+
+void AUTCharacter::OnRepEmote()
+{
+	PlayEmote(EmoteReplicationInfo.EmoteIndex);
+}
+
+void AUTCharacter::PlayEmote(int32 EmoteIndex)
+{
+	EmoteReplicationInfo.EmoteIndex = EmoteIndex;
+	EmoteReplicationInfo.bNewData = !EmoteReplicationInfo.bNewData;
+
+	if (EmoteAnimations.IsValidIndex(EmoteIndex) && EmoteAnimations[EmoteIndex] != nullptr && !bFeigningDeath)
+	{
+		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+		if (AnimInstance != NULL)
+		{
+			AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], 1.0f);
 		}
 	}
 }

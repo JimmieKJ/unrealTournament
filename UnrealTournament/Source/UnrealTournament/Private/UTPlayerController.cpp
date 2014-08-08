@@ -46,6 +46,9 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 	ConfigDefaultFOV = 90.0f;
 	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
+
+	LastEmoteTime = 0.0f;
+	EmoteCooldownTime = 5.0f;
 }
 
 void AUTPlayerController::ToggleSingleTap()
@@ -1154,3 +1157,28 @@ void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, cons
 }
 
 
+void AUTPlayerController::Emote(int32 EmoteIndex)
+{
+	if (GetWorld()->GetRealTimeSeconds() - LastEmoteTime > EmoteCooldownTime)
+	{
+		ServerEmote(EmoteIndex);
+		LastEmoteTime = GetWorld()->GetRealTimeSeconds();
+	}
+}
+
+bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
+{
+	if (GetWorld()->GetRealTimeSeconds() - LastEmoteTime > EmoteCooldownTime - 0.5f)
+	{
+		if (UTCharacter != nullptr)
+		{
+			UTCharacter->PlayEmote(EmoteIndex);
+		}
+		LastEmoteTime = GetWorld()->GetRealTimeSeconds();
+	}
+}

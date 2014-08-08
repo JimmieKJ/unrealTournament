@@ -197,6 +197,16 @@ public:
 	UFUNCTION(reliable, client)
 	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, bool bTeamMessage);
 
+	float LastEmoteTime;
+	
+	float EmoteCooldownTime;
+
+	UFUNCTION(Exec)
+	virtual void Emote(int32 EmoteIndex);
+
+	UFUNCTION(reliable, server, WithValidation)
+	virtual void ServerEmote(int32 EmoteIndex);
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.
