@@ -113,12 +113,6 @@ void AUTCTFGameState::ResetFlags()
 
 }
 
-
-	const FName MatchIsAtHalftime = FName(TEXT("MatchIsAtHalftime"));
-	const FName MatchEnteringSuddenDeath = FName(TEXT("MatchEnteringSuddenDeath"));
-	const FName MatchIsInSuddenDeath = FName(TEXT("MatchIsInSuddenDeath"));
-
-
 bool AUTCTFGameState::IsMatchInProgress() const
 {
 	FName MatchState = GetMatchState();
