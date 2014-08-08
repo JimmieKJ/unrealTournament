@@ -43,8 +43,6 @@ class AUTPickup : public AActor, public IUTResetInterface
 	UMaterialBillboardComponent* TimerSprite;
 	//UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	//TSubobjectPtr<UMaterialBillboardComponent> TimerSprite;
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	TSubobjectPtr<UTextRenderComponent> TimerText;
 
 	/** respawn time for the pickup; if it's <= 0 then the pickup doesn't respawn until the round resets */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
@@ -85,9 +83,6 @@ class AUTPickup : public AActor, public IUTResetInterface
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	AUTPlayerState* LastPickedUpBy;
 
-#if WITH_EDITOR
-	virtual void PostEditMove(bool bFinished);
-#endif
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;

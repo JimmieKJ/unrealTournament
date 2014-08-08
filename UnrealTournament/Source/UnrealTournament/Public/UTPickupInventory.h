@@ -16,6 +16,10 @@ protected:
 	TSubclassOf<AUTInventory> InventoryType;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
 	UMeshComponent* Mesh;
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(Transient)
+	UMeshComponent* EditorMesh;
+#endif
 public:
 	inline const UMeshComponent* GetMesh()
 	{
@@ -31,6 +35,9 @@ public:
 
 	virtual void BeginPlay() override;
 #if WITH_EDITOR
+	/** create transient pickup mesh for editor previewing */
+	virtual void CreateEditorPickupMesh();
+	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 

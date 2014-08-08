@@ -18,6 +18,18 @@ void AUTPickupInventory::BeginPlay()
 }
 
 #if WITH_EDITOR
+void AUTPickupInventory::CreateEditorPickupMesh()
+{
+	if (InventoryType != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
+	{
+		CreatePickupMesh(this, EditorMesh, InventoryType, FloatHeight);
+	}
+}
+void AUTPickupInventory::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	CreateEditorPickupMesh();
+}
 void AUTPickupInventory::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -31,6 +43,8 @@ void AUTPickupInventory::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 			FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Use UTPickupWeapon for weapon pickups.")));
 		}
 	}
+
+	CreateEditorPickupMesh();
 }
 #endif
 
@@ -104,8 +118,14 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 	{
 		if (PickupMesh != NULL)
 		{
+			TArray<USceneComponent*> Children;
+			PickupMesh->GetChildrenComponents(true, Children);
 			PickupMesh->DetachFromParent();
 			PickupMesh->UnregisterComponent();
+			for (USceneComponent* Child : Children)
+			{
+				Child->UnregisterComponent();
+			}
 			PickupMesh = NULL;
 		}
 	}

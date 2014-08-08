@@ -26,15 +26,6 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 		TimerSprite->SetHiddenInGame(true);
 		TimerSprite->AttachParent = RootComponent;
 	}*/
-	TimerText = PCIP.CreateDefaultSubobject<UTextRenderComponent>(this, TEXT("TimerText"));
-	if (TimerText != NULL)
-	{
-		TimerText->Text = TEXT("30");
-		TimerText->SetAbsolute(false, true, false);
-		TimerText->SetHiddenInGame(true);
-		TimerText->AttachParent = (TimerSprite != NULL) ? TimerSprite : RootComponent;
-		TimerText->LDMaxDrawDistance = 1024.0f;
-	}
 
 	State.bActive = true;
 	RespawnTime = 30.0f;
@@ -53,10 +44,6 @@ void AUTPickup::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	// backwards compatibility; force values on existing instances
-	TimerText->SetAbsolute(false, true, false);
-	TimerText->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
-
 	if (GetWorld()->IsGameWorld())
 	{
 		// due to editor limitations the TimerSprite gets set via the blueprint construction script - initialize its material instance here
@@ -67,20 +54,10 @@ void AUTPickup::OnConstruction(const FTransform& Transform)
 				TimerMI = UMaterialInstanceDynamic::Create(TimerSprite->Elements[0].Material, GetWorld());
 			}
 			TimerSprite->Elements[0].Material = TimerMI;
-			TimerSprite->LDMaxDrawDistance = TimerText->LDMaxDrawDistance;
+			TimerSprite->LDMaxDrawDistance = 1024.0f;
 		}
 	}
 }
-
-#if WITH_EDITOR
-void AUTPickup::PostEditMove(bool bFinished)
-{
-	Super::PostEditMove(bFinished);
-
-	// need to adjust the text transform to get the proper screen facing effect 
-	TimerText->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
-}
-#endif
 
 void AUTPickup::BeginPlay()
 {
@@ -174,13 +151,7 @@ void AUTPickup::StartSleeping_Implementation()
 			}
 			TimerSprite->SetHiddenInGame(false);
 		}
-		if (TimerText != NULL)
-		{
-			//TimerText->SetText(FString::Printf(TEXT("%i"), int32(RespawnTime))); // FIXME: not exposed in dll
-			TimerText->Text = FString::Printf(TEXT("%i"), int32(RespawnTime));
-			TimerText->SetHiddenInGame(false);
-		}
-		if (TimerSprite != NULL || TimerText != NULL)
+		if (TimerSprite != NULL)
 		{
 			PrimaryActorTick.SetTickFunctionEnable(true);
 		}
@@ -217,10 +188,6 @@ void AUTPickup::WakeUp_Implementation()
 	{
 		TimerSprite->SetHiddenInGame(true);
 	}
-	if (TimerText != NULL)
-	{
-		TimerText->SetHiddenInGame(true);
-	}
 
 	if (Role == ROLE_Authority)
 	{
@@ -246,12 +213,6 @@ void AUTPickup::WakeUpTimer()
 		{
 			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 0.99f);
 		}
-		if (TimerText != NULL)
-		{
-			//TimerText->SetText(TEXT("1")); // FIXME: not exposed in dll
-			TimerText->Text = TEXT("1");
-			TimerText->MarkRenderStateDirty();
-		}
 	}
 }
 void AUTPickup::PlayRespawnEffects()
@@ -274,16 +235,6 @@ void AUTPickup::Tick(float DeltaTime)
 		if (TimerMI != NULL)
 		{
 			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 1.0f - World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer) / RespawnTime);
-		}
-		if (TimerText != NULL)
-		{
-			FString NewText = FString::Printf(TEXT("%i"), FMath::CeilToInt(World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer)));
-			if (NewText != TimerText->Text)
-			{
-				//TimerText->SetText(NewText); // FIXME: not exposed in dll
-				TimerText->Text = NewText;
-				TimerText->MarkRenderStateDirty();
-			}
 		}
 	}
 }

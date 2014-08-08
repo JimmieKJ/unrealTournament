@@ -64,3 +64,25 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 		}
 	}
 }
+
+#if WITH_EDITOR
+void AUTPickupWeapon::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	if (TimerSprite != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
+	{
+		TimerSprite->SetVisibility(WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay);
+	}
+}
+void AUTPickupWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// only show timer sprite for superweapons
+	if (TimerSprite != NULL)
+	{
+		TimerSprite->SetVisibility(WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay);
+	}
+}
+#endif

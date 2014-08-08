@@ -52,4 +52,16 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType) override;
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
+
+#if WITH_EDITOR
+	virtual void CreateEditorPickupMesh() override
+	{
+		if (WeaponType != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
+		{
+			CreatePickupMesh(this, EditorMesh, WeaponType, FloatHeight);
+		}
+	}
+	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 };
