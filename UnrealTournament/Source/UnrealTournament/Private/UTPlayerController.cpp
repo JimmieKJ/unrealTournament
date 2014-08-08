@@ -31,10 +31,12 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	bAutoWeaponSwitch = true;
 
 	MaxDodgeClickTime = 0.25f;
+	MaxDodgeTapTime = 0.25f;
 	LastTapLeftTime = -10.f;
 	LastTapRightTime = -10.f;
 	LastTapForwardTime = -10.f;
 	LastTapBackTime = -10.f;
+	bSingleTapWallDodge = true;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -44,6 +46,11 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 	ConfigDefaultFOV = 90.0f;
 	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
+}
+
+void AUTPlayerController::ToggleSingleTap()
+{
+	bSingleTapWallDodge = !bSingleTapWallDodge;
 }
 
 void AUTPlayerController::SetEyeOffsetScaling(float NewScaling)
@@ -87,8 +94,13 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SingleTapDodge", IE_Pressed, this, &AUTPlayerController::OnSingleTapDodge);
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
-	InputComponent->BindAction("DodgeRoll", IE_Released, this, &AUTPlayerController::OnDodgeRoll);
-	InputComponent->BindAction("JumpDodgeRoll", IE_Released, this, &AUTPlayerController::OnJumpDodgeRoll);
+	InputComponent->BindAction("DodgeRoll", IE_Pressed, this, &AUTPlayerController::OnDodgeRoll);
+	InputComponent->BindAction("JumpDodgeRoll", IE_Pressed, this, &AUTPlayerController::OnJumpDodgeRoll);
+
+	InputComponent->BindAction("TapLeftRelease", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
+	InputComponent->BindAction("TapRightRelease", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
+	InputComponent->BindAction("TapForwardRelease", IE_Released, this, &AUTPlayerController::OnTapForwardRelease);
+	InputComponent->BindAction("TapBackRelease", IE_Released, this, &AUTPlayerController::OnTapBackRelease);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -638,17 +650,16 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 	}
 }
 
-bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBack, bool bLeft, bool bRight)
+void AUTPlayerController::CheckDodge(float LastTapTime, float MaxClickTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxDodgeClickTime)))
+	if (MyCharMovement && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxClickTime)))
 	{
 		MyCharMovement->bPressedDodgeForward = bForward;
 		MyCharMovement->bPressedDodgeBack = bBack;
 		MyCharMovement->bPressedDodgeLeft = bLeft;
 		MyCharMovement->bPressedDodgeRight = bRight;
 	}
-	return false;
 }
 
 void AUTPlayerController::OnJumpDodgeRoll()
@@ -724,27 +735,66 @@ void AUTPlayerController::ReleaseDodge()
 void AUTPlayerController::OnTapForward()
 {
 	LastTapBackTime = -10.f;
-	LastTapForwardTime = (!UTCharacter || CheckDodge(LastTapForwardTime, true, false, false, false)) ? -10.f : GetWorld()->GetTimeSeconds();
+	CheckDodge(LastTapForwardTime, MaxDodgeClickTime, true, false, false, false);
+	LastTapForwardTime = GetWorld()->GetTimeSeconds();
 }
 
 void AUTPlayerController::OnTapBack()
 {
 	LastTapForwardTime = -10.f;
-	LastTapBackTime = (!UTCharacter || CheckDodge(LastTapBackTime, false, true, false, false)) ? -10.f : GetWorld()->GetTimeSeconds();
+	CheckDodge(LastTapBackTime, MaxDodgeClickTime, false, true, false, false);
+	LastTapBackTime = GetWorld()->GetTimeSeconds();
 }
 
 void AUTPlayerController::OnTapLeft()
 {
 	LastTapRightTime = -10.f;
-	LastTapLeftTime = (!UTCharacter || CheckDodge(LastTapLeftTime, false, false, true, false)) ? -10.f : GetWorld()->GetTimeSeconds();
+	CheckDodge(LastTapLeftTime, MaxDodgeClickTime, false, false, true, false);
+	LastTapLeftTime = GetWorld()->GetTimeSeconds();
 }
 
 void AUTPlayerController::OnTapRight()
 {
 	LastTapLeftTime = -10.f;
-	LastTapRightTime = (!UTCharacter || CheckDodge(LastTapRightTime, false, false, false, true)) ? -10.f : GetWorld()->GetTimeSeconds();
+	CheckDodge(LastTapRightTime, MaxDodgeClickTime, false, false, false, true);
+	LastTapRightTime = GetWorld()->GetTimeSeconds();
 }
 
+void AUTPlayerController::OnTapForwardRelease()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	{
+		CheckDodge(LastTapForwardTime, MaxDodgeTapTime, true, false, false, false);
+	}
+}
+
+void AUTPlayerController::OnTapBackRelease()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	{
+		CheckDodge(LastTapBackTime, MaxDodgeTapTime, false, true, false, false);
+	}
+}
+
+void AUTPlayerController::OnTapLeftRelease()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	{
+		CheckDodge(LastTapLeftTime, MaxDodgeTapTime, false, false, true, false);
+	}
+}
+
+void AUTPlayerController::OnTapRightRelease()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	{
+		CheckDodge(LastTapRightTime, MaxDodgeTapTime, false, false, false, true);
+	}
+}
 
 void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents)
 {

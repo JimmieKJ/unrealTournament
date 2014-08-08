@@ -52,7 +52,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollDuration = 0.45f;
 	DodgeRollBonusTapInterval = 0.25f;
 	// also dodgerollcancelinterval - turn off bWillDodgeRoll after that
-	DodgeRollEarliestZ = -100.f;
+	DodgeRollEarliestZ = -50.f;
 	RollEndingSpeedFactor = 0.5f;
 
 	MaxSwimSpeed = 450.f;

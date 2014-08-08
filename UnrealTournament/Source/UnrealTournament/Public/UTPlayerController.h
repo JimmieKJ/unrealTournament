@@ -166,6 +166,12 @@ public:
 	UFUNCTION(exec)
 	virtual void SetWeaponBobScaling(float NewScaling);
 
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
+	bool bSingleTapWallDodge;
+
+	UFUNCTION(exec)
+	virtual void ToggleSingleTap();
+
 	/** user configurable FOV setting */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
 	float ConfigDefaultFOV;
@@ -219,6 +225,10 @@ protected:
 	// @TODO FIXMESTEVE make config
 	UPROPERTY(EditAnywhere, Category = Dodging)
 	float MaxDodgeClickTime;
+
+	/** Max held time for single tap wall dodge */
+	UPROPERTY(EditAnywhere, Category = Dodging)
+	float MaxDodgeTapTime;
 
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapLeftTime;
@@ -297,13 +307,18 @@ protected:
 	void TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
 
 	/** If double tap, tell pawn to dodge */
-	bool CheckDodge(float LastTapTime, bool bForward, bool bBack, bool bLeft, bool bRight);
+	void CheckDodge(float LastTapTime, float MaxClickTime, bool bForward, bool bBack, bool bLeft, bool bRight);
 
 	/** Dodge tap input handling */
 	void OnTapLeft();
 	void OnTapRight();
 	void OnTapForward();
 	void OnTapBack();
+	void OnTapLeftRelease();
+	void OnTapRightRelease();
+	void OnTapForwardRelease();
+	void OnTapBackRelease();
+
 	void OnSingleTapDodge();
 	virtual void PerformSingleTapDodge();
 	void HoldDodge();
