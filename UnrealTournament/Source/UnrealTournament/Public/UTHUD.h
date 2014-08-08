@@ -82,6 +82,9 @@ public:
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;
 
+	UPROPERTY(Config = Game)
+	TArray<FString> RequiredHudWidgetClasses;
+
 	// Add any of the blueprint based hud widgets
 	virtual void BeginPlay();
 

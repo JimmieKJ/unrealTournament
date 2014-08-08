@@ -7,7 +7,4 @@
 AUTHUD_DM::AUTHUD_DM(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerLeaderboard::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerScore::StaticClass());
-
 }

@@ -9,8 +9,6 @@
 AUTHUD_TeamDM::AUTHUD_TeamDM(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	HudWidgetClasses.Add(UUTHUDWidget_TeamScore::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_DMPlayerScore::StaticClass());
 	bShowOverlays=true;
 }
 

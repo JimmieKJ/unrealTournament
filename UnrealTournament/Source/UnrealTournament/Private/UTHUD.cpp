@@ -46,23 +46,17 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
-	HudWidgetClasses.Add(UUTHUDWidget_Paperdoll::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_WeaponInfo::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_WeaponCrosshair::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidgetMessage_DeathMessages::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidgetMessage_ConsoleMessages::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_Spectator::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_Powerups::StaticClass());
-	HudWidgetClasses.Add(UUTHUDWidget_WeaponBar::StaticClass());
-
-	HudWidgetClasses.Add( ResolveHudWidgetByName(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/GameMessageWidget.GameMessageWidget'")));
-
 	LastConfirmedHitTime = -100.0f;
 }
 
 void AUTHUD::BeginPlay()
 {
 	Super::BeginPlay();
+
+	for (int i = 0; i < RequiredHudWidgetClasses.Num(); i++)
+	{
+		HudWidgetClasses.Add(ResolveHudWidgetByName(*RequiredHudWidgetClasses[i]));
+	}
 
 	for (int WidgetIndex = 0 ; WidgetIndex < HudWidgetClasses.Num(); WidgetIndex++)
 	{
