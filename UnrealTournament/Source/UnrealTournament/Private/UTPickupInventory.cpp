@@ -23,6 +23,7 @@ void AUTPickupInventory::CreateEditorPickupMesh()
 	if (InventoryType != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
 	{
 		CreatePickupMesh(this, EditorMesh, InventoryType, FloatHeight);
+		EditorMesh->SetHiddenInGame(true);
 	}
 }
 void AUTPickupInventory::PreEditUndo()
