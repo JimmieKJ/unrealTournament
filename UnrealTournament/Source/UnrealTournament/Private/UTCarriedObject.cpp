@@ -262,8 +262,8 @@ void AUTCarriedObject::Drop(AController* Killer)
 
 	// Toss is out
 	TossObject(LastHoldingPawn);
-
-	if (HomeBase != NULL) HomeBase->ObjectWasPickedUp(LastHoldingPawn);
+	
+	if (HomeBase != NULL) HomeBase->ObjectReturnedHome(LastHoldingPawn);
 
 	ChangeState(CarriedObjectState::Dropped);
 }

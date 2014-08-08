@@ -5,6 +5,7 @@
 #include "UTCTFGameMode.h"
 #include "UTFirstBloodMessage.h"
 #include "UTPickup.h"
+#include "UTGameMessage.h"
 
 namespace MatchState
 {
@@ -37,7 +38,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	DefaultInventory.Add(WeapTranslocator.Object);
 }
 
-void AUTCTFGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
+void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
@@ -48,17 +49,16 @@ void AUTCTFGameMode::InitGame( const FString& MapName, const FString& Options, F
 	bSuddenDeath = EvalBoolOptions(InOpt, bSuddenDeath);
 
 	// HalftimeDuration is in seconds and used in seconds,
-	HalftimeDuration = FMath::Max(1, GetIntOption( Options, TEXT("HalftimeDuration"), HalftimeDuration));	
+	HalftimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
 
 	// OvertimeDuration is in minutes
-	OvertimeDuration = FMath::Max(1, GetIntOption( Options, TEXT("OvertimeDuration"), OvertimeDuration));
+	OvertimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("OvertimeDuration"), OvertimeDuration));
 	OvertimeDuration *= 60;
 
 	if (TimeLimit > 0)
 	{
-		TimeLimit = uint32( float(TimeLimit) * 0.5);
+		TimeLimit = uint32(float(TimeLimit) * 0.5);
 	}
-
 }
 
 void AUTCTFGameMode::InitGameState()
@@ -181,13 +181,6 @@ bool AUTCTFGameMode::CheckScore(AUTPlayerState* Scorer)
 		{
 			EndGame(Scorer,FName(TEXT("scorelimit")));
 		}
-	}
-
-	if (CTFGameState->IsMatchInSuddenDeath())
-	{
-		
-
-
 	}
 
 	return true;
@@ -522,55 +515,42 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other)
 				bFirstBloodOccurred = true;
 			}
 
-			if (CTFGameState->IsMatchInSuddenDeath() && Killer != NULL)
+			if (CTFGameState->IsMatchInSuddenDeath())
 			{
-				AUTCharacter* Char = Cast<AUTCharacter>(Killer->GetPawn());
-				if (Char != NULL)
+				if (Killer != NULL)
 				{
-					Char->Health = 100;
+					AUTCharacter* Char = Cast<AUTCharacter>(Killer->GetPawn());
+					if (Char != NULL)
+					{
+						Char->Health = 100;
+					}
+				}
+
+				// Search through all players and determine if anyone is still alive and 
+
+				FName LastMan = TEXT("LastManStanding");
+
+				int TeamCounts[2] = { 0, 0 };
+				for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+				{
+					AUTCharacter* Char = Cast<AUTCharacter>(*It);
+					if (Char != NULL && !Char->IsDead())
+					{
+						int TeamNum = Char->GetTeamNum();
+						if (TeamNum >= 0 && TeamNum <= 1)
+						{
+							TeamCounts[TeamNum]++;
+						}
+					}
+				}
+
+				if (TeamCounts[AttackerPS->GetTeamNum()] > 0 && TeamCounts[1 - AttackerPS->GetTeamNum()] <= 0)
+				{
+					EndGame(AttackerPS, LastMan);
 				}
 			}
-
 		}
 	}
-
-	if (CTFGameState->IsMatchInSuddenDeath())
-	{
-		// Search through all players and determine if anyone is still alive and 
-
-		FName LastMan = TEXT("LastManStanding");
-
-		int TeamCounts[2] = {0,0};
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			AUTCharacter* Char = Cast<AUTCharacter>(*It);
-			if ( Char != NULL && !Char->IsDead() )
-			{
-				int TeamNum = Char->GetTeamNum();
-				if (TeamNum >= 0 && TeamNum <= 1)
-				{
-					TeamCounts[TeamNum]++;
-				}
-			}
-		}
-
-		if (TeamCounts[0] <= 0 && TeamCounts[1] > 0)		// Check for Blue victory
-		{
-			// Blue Team Won
-			EndGame(FindBestPlayerOnTeam(1),LastMan);
-		}
-		else if (TeamCounts[0] > 0 && TeamCounts[1] <= 0)		// Check for Red Victory
-		{
-			// Blue Team Won
-			EndGame(FindBestPlayerOnTeam(0),LastMan);
-		}
-		else if (TeamCounts[0] <= 0 && TeamCounts[1] <=0)	// Santy check.. should never get here
-		{
-			// Blue Team Won
-			EndGame(NULL,LastMan);
-		}
-	}
-
 }
 
 AUTPlayerState* AUTCTFGameMode::FindBestPlayerOnTeam(int TeamNumToTest)
@@ -637,6 +617,7 @@ void AUTCTFGameMode::HandleEnteringOvertime()
 
 void AUTCTFGameMode::HandleEnteringSuddenDeath()
 {
+	BroadcastLocalized(this, UUTGameMessage::StaticClass(), 7, NULL, NULL, NULL);
 }
 
 void AUTCTFGameMode::HandleSuddenDeath()
@@ -647,6 +628,7 @@ void AUTCTFGameMode::HandleSuddenDeath()
 void AUTCTFGameMode::DefaultTimer()
 {	
 	Super::DefaultTimer();
+
 	if (CTFGameState->IsMatchInSuddenDeath())
 	{
 		// Iterate over all of the pawns and slowly drain their health
@@ -672,3 +654,7 @@ void AUTCTFGameMode::DefaultTimer()
 	}
 }
 
+void AUTCTFGameMode::ScoreHolder(AUTPlayerState* Holder)
+{
+	Holder->Score += FlagHolderPointsPerSecond;
+}

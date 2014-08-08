@@ -3,6 +3,8 @@
 #include "UTCarriedObject.h"
 #include "UTCTFFlag.h"
 #include "UTCTFGameMessage.h"
+#include "UTCTFGameState.h"
+#include "UTCTFGameMode.h"
 
 AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -19,7 +21,6 @@ AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 	MovementComponent->ProjectileGravityScale=3.0;
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
-
 }
 
 void AUTCTFFlag::OnConstruction(const FTransform& Transform)
@@ -29,6 +30,38 @@ void AUTCTFFlag::OnConstruction(const FTransform& Transform)
 	// backwards compatibility; force values on existing instances
 	Mesh->SetAbsolute(false, false, true);
 	Mesh->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+
+	if (Role == ROLE_Authority)
+	{
+		GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::DefaultTimer, 1.0f, true);
+	}
+}
+
+void AUTCTFFlag::DefaultTimer()
+{
+	if (Holder != NULL)
+	{
+		// Look to see if the other CTF Flag is out.
+		
+		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (CTFGameState != NULL)
+		{
+			for (int i = 0; i < CTFGameState->FlagBases.Num(); i++)
+			{
+				UE_LOG(UT, Log, TEXT("Holder of flag %i = %s"), i, *GetNameSafe(CTFGameState->FlagBases[i]->GetCarriedObjectHolder()));
+				if (CTFGameState->FlagBases[i] != NULL && CTFGameState->FlagBases[i]->GetCarriedObjectHolder() == NULL)
+				{
+					return;
+				}
+			}
+		}
+
+		AUTCTFGameMode* GM = Cast<AUTCTFGameMode>(GetWorld()->GetAuthGameMode());
+		if (GM != NULL)
+		{
+			GM->ScoreHolder(Holder);
+		}
+	}
 }
 
 

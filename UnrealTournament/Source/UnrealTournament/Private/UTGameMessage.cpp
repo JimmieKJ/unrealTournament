@@ -12,11 +12,13 @@ UUTGameMessage::UUTGameMessage(const class FPostConstructInitializeProperties& P
 
 	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","BEGIN...");
 	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","!!!! OVERTIME !!!!");
-	CantBeSpectator = NSLOCTEXT("UTGameMessage","CantBeSpectator","You can not become a spectator!");
+	SuddenDeathMessage = NSLOCTEXT("UTGameMessage", "SuddenDeathMessage", "!!!! SUDDEN DEATH !!!!");
+	CantBeSpectator = NSLOCTEXT("UTGameMessage", "CantBeSpectator", "You can not become a spectator!");
 	CantBePlayer = NSLOCTEXT("UTGameMessage","CantBePlayer","Sorry, you can not become a player!");
 	SwitchLevelMessage = NSLOCTEXT("UTGameMessage","SwitchLevelMessage","Loading....");
 	NoNameChange = NSLOCTEXT("UTGameMessage","NoNameChange","You can not change your name.");
 	BecameSpectator = NSLOCTEXT("UTGameMessage","BecameSpectator","You are now a spectator.");
+
 }
 
 FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const
@@ -43,6 +45,9 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			break;
 		case 6:
 			return GetDefault<UUTGameMessage>(GetClass())->BecameSpectator;
+			break;
+		case 7:
+			return GetDefault<UUTGameMessage>(GetClass())->SuddenDeathMessage;
 			break;
 		default:
 			return FText::GetEmpty();

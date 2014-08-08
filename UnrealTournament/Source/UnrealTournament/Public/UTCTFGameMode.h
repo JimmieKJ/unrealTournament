@@ -49,6 +49,7 @@ class AUTCTFGameMode : public AUTTeamGameMode
 
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
+	virtual void ScoreHolder(AUTPlayerState* Holder);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
 	virtual bool IsAWinner(AUTPlayerController* PC);
 	virtual void CheckGameTime();
@@ -141,6 +142,9 @@ protected:
 	// Multiplier to use if the player controls a pickup
 	UPROPERTY(config)
 	float ControlFreakMultiplier;
+
+	UPROPERTY(config)
+	uint32 FlagHolderPointsPerSecond;
 
 	virtual void HandleMatchHasStarted();
 

@@ -31,7 +31,18 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 		{
 			if (!GS->IsMatchInProgress())
 			{
-				DrawText(NSLOCTEXT("GameClock","PreGame","!! Pre-Game !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
+				if (GS->HasMatchEnded())
+				{
+					DrawText(NSLOCTEXT("GameClock", "PostGame", "!! Game Over !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
+				}
+				else
+				{
+					DrawText(NSLOCTEXT("GameClock", "PreGame", "!! Pre-Game !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
+				}
+			}
+			else if (CGS->IsMatchInSuddenDeath())
+			{
+				DrawText(NSLOCTEXT("GameClock", "SuddenDeath", "!! Sudden Death !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
 			}
 			else if (GS->IsMatchInOvertime())
 			{
@@ -39,7 +50,16 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 			}
 			else if (CGS->bHalftime)
 			{
-				DrawText(NSLOCTEXT("GameClock","HalfTime","!! Halftime !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
+				if (CGS->bSecondHalf)
+				{
+					DrawText(NSLOCTEXT("GameClock", "PreOvertime", "!! Get Ready !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
+
+				}
+				else
+				{
+					DrawText(NSLOCTEXT("GameClock", "HalfTime", "!! Halftime !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
+
+				}
 			}
 			else
 			{
