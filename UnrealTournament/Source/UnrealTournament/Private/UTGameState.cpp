@@ -12,6 +12,7 @@ AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
 	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();
 	MultiKillDelay = 4.0f;
+	SpawnProtectionTime = 3.0f;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -31,6 +32,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayMaterials, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, SpawnProtectionTime, COND_InitialOnly);
 }
 
 void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay)

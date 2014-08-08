@@ -113,9 +113,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
 	TArray< TSubclassOf<class AUTMutator> > BuiltInMutators;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Rules)
-	float SpawnProtectionTime;
-
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
 

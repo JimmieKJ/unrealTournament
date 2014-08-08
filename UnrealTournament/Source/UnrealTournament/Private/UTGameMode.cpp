@@ -49,7 +49,6 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	bPlayersMustBeReady = false;
 	MinPlayersToStart = 1;
 	EndScoreboardDelay = 2.0f;
-	SpawnProtectionTime = 3.0f;
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
 	GameMessageClass=UUTGameMessage::StaticClass();
@@ -1192,7 +1191,7 @@ bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser)
 {
 	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
-	if (InjuredChar != NULL && InjuredChar->bSpawnProtectionEligible && GetWorld()->TimeSeconds - Injured->CreationTime < SpawnProtectionTime)
+	if (InjuredChar != NULL && InjuredChar->bSpawnProtectionEligible && InstigatedBy != NULL && InstigatedBy != Injured->Controller && GetWorld()->TimeSeconds - Injured->CreationTime < UTGameState->SpawnProtectionTime)
 	{
 		Damage = 0;
 	}

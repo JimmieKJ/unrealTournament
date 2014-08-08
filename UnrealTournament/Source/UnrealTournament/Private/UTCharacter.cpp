@@ -143,7 +143,10 @@ void AUTCharacter::BeginPlay()
 void AUTCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
+	}
 }
 
 void AUTCharacter::RecalculateBaseEyeHeight()
@@ -1419,6 +1422,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bUnlimitedAmmo, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepDodgeRolling, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -1871,6 +1875,16 @@ void AUTCharacter::Tick(float DeltaTime)
 		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.35f * CharacterMovement->MaxWalkSpeed / Speed)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
+		}
+	}
+
+	if (BodyMI != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			static FName NAME_SpawnProtectionPct(TEXT("SpawnProtectionPct"));
+			BodyMI->SetScalarParameterValue(NAME_SpawnProtectionPct, (bSpawnProtectionEligible && GS->SpawnProtectionTime > 0.0f) ? FMath::Max(0.0f, 1.0f - (GetWorld()->TimeSeconds - CreationTime) / GS->SpawnProtectionTime) : 0.0f);
 		}
 	}
 

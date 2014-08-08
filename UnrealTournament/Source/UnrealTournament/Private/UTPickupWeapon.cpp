@@ -41,7 +41,8 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 {
 	if (State.bActive && Cast<AUTCharacter>(TouchedBy) != NULL)
 	{
-		if (WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay || (GS != NULL && !GS->bWeaponStay))
 		{
 			Super::ProcessTouch_Implementation(TouchedBy);
 		}

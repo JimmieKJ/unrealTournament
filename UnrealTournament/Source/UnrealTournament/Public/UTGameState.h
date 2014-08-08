@@ -20,6 +20,13 @@ class AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bPlayerMustBeReady:1;
 
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
+	uint32 bTeamGame : 1;
+
+	/** If true, we will stop the game clock */
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
+	uint32 bStopGameClock : 1;
+
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
 	uint32 GoalScore;
@@ -28,8 +35,9 @@ class AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 TimeLimit;
 
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
-	uint32 bTeamGame:1;
+	/** amount of time after a player spawns where they are immune to damage from enemies */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = GameState)
+	float SpawnProtectionTime;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	TSubclassOf<UUTLocalMessage> MultiKillMessageClass;
@@ -38,10 +46,6 @@ class AUTGameState : public AGameState
 	/** amount of time between kills to qualify as a multikill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float MultiKillDelay;
-
-	// If true, we will stop the game clock
-	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
-	uint32 bStopGameClock:1;
 
 	// Used to sync the time on clients to the server. -- See DefaultTimer()
 	UPROPERTY(Replicated)

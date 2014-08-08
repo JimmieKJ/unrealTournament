@@ -233,7 +233,7 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	/** whether spawn protection may potentially be applied (still must meet time since spawn check in UTGameMode)
 	 * set to false after firing weapon or any other action that is considered offensive
 	 */
-	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
 	bool bSpawnProtectionEligible;
 
 	/** set temporarily during client reception of replicated properties because replicated position and switches to ragdoll may be processed out of the desired order 
