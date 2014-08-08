@@ -13,6 +13,7 @@ AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();
 	MultiKillDelay = 4.0f;
 	SpawnProtectionTime = 3.0f;
+	bWeaponStay = true;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
