@@ -2032,6 +2032,13 @@ void AUTCharacter::PossessedBy(AController* NewController)
 	NotifyTeamChanged();
 }
 
+void AUTCharacter::UnPossessed()
+{
+	ClearPendingFire();
+
+	Super::UnPossessed();
+}
+
 void AUTCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();

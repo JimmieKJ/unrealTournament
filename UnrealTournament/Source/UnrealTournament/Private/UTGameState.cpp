@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTMultiKillMessage.h"
 #include "UTSpreeMessage.h"
+#include "UTRemoteRedeemer.h"
 #include "Net/UnrealNetwork.h"
 #include "UTTimerMessage.h"
 
@@ -313,5 +314,10 @@ void AUTGameState::OnWinnerReceived()
 
 FName AUTGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
 {
+	if (Cast<AUTRemoteRedeemer>(PCOwner->GetPawn()) != nullptr)
+	{
+		return FName(TEXT("FirstPerson"));
+	}
+
 	return CurrentCameraStyle;
 }

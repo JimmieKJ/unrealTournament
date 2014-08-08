@@ -407,6 +407,10 @@ void AUTPlayerController::OnFire()
 			UTCharacter->StartFire(0);
 		}
 	}
+	else if (GetPawn() != nullptr)
+	{
+		GetPawn()->PawnStartFire(0);
+	}
 	else
 	{
 		ServerRestartPlayer();

@@ -1,5 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
+#include "UTRemoteRedeemer.h"
+#include "Net/UnrealNetwork.h"
 #include "UTProjectileMovementComponent.h"
 
 UUTProjectileMovementComponent::UUTProjectileMovementComponent(const FPostConstructInitializeProperties& PCIP)
@@ -167,6 +169,7 @@ void UUTProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelT
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	LastTimeSlice = 0.0f;
+	UpdateState(DeltaTime);
 }
 void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
 {
@@ -242,4 +245,38 @@ void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float T
 	{
 		Super::HandleImpact(Hit, TimeSlice, MoveDelta);
 	}
+}
+
+void UUTProjectileMovementComponent::UpdateState(float DeltaSeconds)
+{
+	AUTRemoteRedeemer* MyRedeemer = UpdatedComponent ? Cast<AUTRemoteRedeemer>(UpdatedComponent->GetOwner()) : NULL;
+	if (MyRedeemer)
+	{
+		if (MyRedeemer->IsLocallyControlled())
+		{
+			ServerUpdateState(Acceleration);
+		}
+		else
+		{
+			Acceleration = ReplicatedAcceleration;
+		}
+	}
+}
+
+void UUTProjectileMovementComponent::GetLifetimeReplicatedProps(TArray< class FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UUTProjectileMovementComponent, ReplicatedAcceleration);
+}
+
+bool UUTProjectileMovementComponent::ServerUpdateState_Validate(FVector InAcceleration)
+{
+	return true;
+}
+
+void UUTProjectileMovementComponent::ServerUpdateState_Implementation(FVector InAcceleration)
+{
+	Acceleration = InAcceleration;
+	ReplicatedAcceleration = Acceleration;
 }

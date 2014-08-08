@@ -17,7 +17,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 
 	AUTGameState* UTGameState = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	
-	if (UTGameState != NULL && !UTGameState->HasMatchEnded() && UTHUDOwner->UTPlayerOwner != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->GetUTCharacter() == NULL)
+	if (UTGameState != NULL && !UTGameState->HasMatchEnded() && UTHUDOwner->UTPlayerOwner != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)
 	{
 		FText SpectatorMessage;
 		if (!UTGameState->HasMatchStarted())	

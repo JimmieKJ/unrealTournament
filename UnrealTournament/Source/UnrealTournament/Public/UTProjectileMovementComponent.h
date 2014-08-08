@@ -16,6 +16,9 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = Projectile)
 	FVector Acceleration;
 
+	UPROPERTY(replicated)
+	FVector ReplicatedAcceleration;
+
 	/** stop only if HitNormal.Z is greater than this value, otherwise continue moving after removing velocity in the impact direction
 	 * primarily this is used to only stop the projectile on hitting a floor
 	 * no effect if bBounce is true
@@ -42,6 +45,11 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 	}
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	UFUNCTION(Server, WithValidation, Reliable)
+	void ServerUpdateState(FVector InAcceleration);
+
+	void UpdateState(float DeltaSeconds);
 
 protected:
 	virtual FVector ComputeMoveDelta(const FVector& InVelocity, float DeltaTime, bool bApplyGravity = true) const override;

@@ -134,6 +134,14 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 		PendingFire[FireMode] = bNowFiring ? 1 : 0;
 	}
 
+	inline void ClearPendingFire()
+	{
+		for (int32 i = 0; i < PendingFire.Num(); i++)
+		{
+			PendingFire[i] = 0;
+		}
+	}
+
 	inline AUTWeapon* GetWeapon() const
 	{
 		return Weapon;
@@ -271,6 +279,7 @@ public:
 	virtual void Destroyed() override;
 
 	virtual void PossessedBy(AController* NewController) override;
+	virtual void UnPossessed() override;
 	virtual void Restart() override;
 
 	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const override
