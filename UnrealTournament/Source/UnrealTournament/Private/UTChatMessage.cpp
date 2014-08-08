@@ -12,6 +12,7 @@ UUTChatMessage::UUTChatMessage(const class FPostConstructInitializeProperties& P
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;
+	bIsConsoleMessage = true;
 
 	Lifetime = 6.0f;
 }
@@ -38,5 +39,10 @@ void UUTChatMessage::ClientReceive(const FClientReceiveData& ClientData) const
 
 		FText LocalMessageText = FText::FromString(ChatMessage);
 		Cast<AUTHUD>(ClientData.LocalPC->MyHUD)->ReceiveLocalMessage(GetClass(), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.MessageIndex, LocalMessageText, ClientData.OptionalObject);
+
+		if (IsConsoleMessage(ClientData.MessageIndex) && Cast<ULocalPlayer>(ClientData.LocalPC->Player) != NULL && Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient != NULL)
+		{
+			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText(LocalMessageText.ToString());
+		}
 	}
 }
