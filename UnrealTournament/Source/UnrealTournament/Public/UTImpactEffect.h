@@ -6,7 +6,7 @@
  * contains functionality to LOD by distance and settings
  * this class is an Actor primarily for the editability features and should not be directly spawned
  */
-UCLASS(NotPlaceable, Blueprintable, Abstract)
+UCLASS(Blueprintable, Abstract)
 class AUTImpactEffect : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -65,6 +65,21 @@ private:
 	 * @param SpawnedBy - calling Actor, if any (for example, the projectile that exploded), commonly used for LastRenderTime checks to avoid the effect
 	 * @param InstigatedBy - Controller that instigated the effect, if any - commonly used to prioritize effects created by local players
 	 */
-	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"), Category = Effects)
-	void CallSpawnEffect(UObject* WorldContextObject, const FTransform& InTransform, UPrimitiveComponent* HitComp = NULL, AActor* SpawnedBy = NULL, AController* InstigatedBy = NULL, ESoundReplicationType SoundReplication = SRT_IfSourceNotReplicated) const;
+	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", FriendlyName = "SpawnEffect"), Category = Effects)
+	static void CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp = NULL, AActor* SpawnedBy = NULL, AController* InstigatedBy = NULL, ESoundReplicationType SoundReplication = SRT_IfSourceNotReplicated);
+
+	virtual void PostInitializeComponents() override
+	{
+		Super::PostInitializeComponents();
+		// we allow placing these so artists can more easily test their effects, but they should never be spawned this way in a normal game situation
+		if (GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Game)
+		{
+			if (GAreScreenMessagesEnabled)
+			{
+				GEngine->AddOnScreenDebugMessage((uint64)-1, 3.0f, FColor(255, 0, 0), TEXT("UTImpactEffects should not be spawned! Use the SpawnEffect function instead."));
+			}
+			UE_LOG(UT, Warning, TEXT("UTImpactEffects should not be spawned! Use the SpawnEffect function instead."));
+			Destroy();
+		}
+	}
 };

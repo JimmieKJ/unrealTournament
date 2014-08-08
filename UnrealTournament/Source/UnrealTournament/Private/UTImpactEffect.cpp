@@ -84,15 +84,19 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 	}
 }
 
-void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication) const
+void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication)
 {
 	if (WorldContextObject == NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("SpawnEffect(): No world context"));
 	}
+	else if (Effect == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("SpawnEffect(): No effect specified"));
+	}
 	else
 	{
-		SpawnEffect(WorldContextObject->GetWorld(), InTransform, HitComp, SpawnedBy, InstigatedBy, SoundReplication);
+		Effect->SpawnEffect(WorldContextObject->GetWorld(), InTransform, HitComp, SpawnedBy, InstigatedBy, SoundReplication);
 	}
 }
 
