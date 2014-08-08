@@ -115,11 +115,11 @@ public:
 	bool bIsDodging;
 
 	/** True during a dodge roll. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bIsDodgeRolling;
 
 	/** True if was dodge rolling last movement update. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bWasDodgeRolling;
 
 	/** True if would dodge roll when land dodge */
@@ -127,39 +127,43 @@ public:
 	bool bWillDodgeRoll;
 
 	/** Horizontal speed reduction on roll ending (multiplied). */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
 	float RollEndingSpeedFactor;
 
 	/** Acceleration during a dodge roll. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	float DodgeRollAcceleration;
 
 	/** Max speed during a dodge roll. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	float MaxDodgeRollSpeed;
 
 	/** How long dodge roll lasts. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	float DodgeRollDuration;
 
 	/** When dodge roll ends. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	float DodgeRollEndTime;
 
 	/** When dodge roll button was last tapped. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	float DodgeRollTapTime;
 
-	/** Maximum interval dodge roll tap can be performed before landing dodge. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite)
-	float DodgeRollTapInterval;
+	/** Maximum interval dodge roll tap can be performed before landing dodge to get speed bonus. */
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
+	float DodgeRollBonusTapInterval;
+
+	/** Maximum Velocity Z that a Dodge Roll tap will register. */
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
+	float DodgeRollEarliestZ;
 
 	/** Enables slope dodge boost. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadOnly)
 	bool bAllowSlopeDodgeBoost;
 
 	/** Affects amount of slope dodge possible. */
-	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadOnly)
 	float SlopeDodgeScaling;
 
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)

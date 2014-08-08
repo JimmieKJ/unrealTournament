@@ -46,10 +46,13 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 64.0f;
 	SlopeDodgeScaling = 0.93f;
+
 	DodgeRollAcceleration = 2000.f;
 	MaxDodgeRollSpeed = 880.f;
 	DodgeRollDuration = 0.45f;
-	DodgeRollTapInterval = 0.25f;
+	DodgeRollBonusTapInterval = 0.25f;
+	// also dodgerollcancelinterval - turn off bWillDodgeRoll after that
+	DodgeRollEarliestZ = -100.f;
 	RollEndingSpeedFactor = 0.5f;
 
 	MaxSwimSpeed = 450.f;
@@ -128,7 +131,6 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 		{
 			bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
 			bIsSprinting = CanSprint();
-			bWillDodgeRoll = (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollTapInterval);
 		}
 	}
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -374,21 +376,23 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		{
 			CharacterOwner->Landed(Hit);
 		}
-		if (bIsDodging)
+		if (bIsDodgeRolling)
 		{
-			if (bIsDodgeRolling)
+			DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
+			Acceleration = DodgeRollAcceleration * Velocity.SafeNormal2D();
+			//UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
+			if (bIsDodging && !CharacterOwner->bClientUpdating)
 			{
-				DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
-				Acceleration = DodgeRollAcceleration * Velocity.SafeNormal2D();
-				//UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
+				DodgeResetTime = DodgeRollEndTime + DodgeResetInterval;
+				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
-			else
-			{
-				Velocity *= DodgeLandingSpeedFactor;
-			}
+		}
+		else if (bIsDodging)
+		{
+			Velocity *= DodgeLandingSpeedFactor;
 			if (!CharacterOwner->bClientUpdating)
 			{
-				DodgeResetTime = bIsDodgeRolling ? (DodgeRollEndTime + DodgeResetInterval) : (GetCurrentMovementTime() + DodgeResetInterval);
+				DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
 				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
 			bIsDodging = false;
@@ -398,6 +402,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 		}
 	}
+	bWillDodgeRoll = false;
 	bJumpAssisted = false;
 	CurrentMultiJumpCount = 0;
 	CurrentWallDodgeCount = 0;

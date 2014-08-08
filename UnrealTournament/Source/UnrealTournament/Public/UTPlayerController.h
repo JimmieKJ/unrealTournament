@@ -316,6 +316,9 @@ protected:
 	void ReleaseDodge();
 	void OnDodgeRoll();
 
+	/** Special version of dodge roll triggered by spacebar - ignores if dodge multijump is enabled. */
+	void OnJumpDodgeRoll();
+
 	virtual void OnShowScores();
 	virtual void OnHideScores();
 

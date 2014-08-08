@@ -96,6 +96,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
 	InputComponent->BindAction("DodgeRoll", IE_Released, this, &AUTPlayerController::OnDodgeRoll);
+	InputComponent->BindAction("JumpDodgeRoll", IE_Released, this, &AUTPlayerController::OnJumpDodgeRoll);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -654,12 +655,22 @@ bool AUTPlayerController::CheckDodge(float LastTapTime, bool bForward, bool bBac
 	return false;
 }
 
+void AUTPlayerController::OnJumpDodgeRoll()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement && !MyCharMovement->bAllowDodgeMultijumps)
+	{
+		OnDodgeRoll();
+	}
+}
+
 void AUTPlayerController::OnDodgeRoll()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
+	if (MyCharMovement && MyCharMovement->bIsDodging && (MyCharMovement->Velocity.Z < MyCharMovement->DodgeRollEarliestZ))
 	{
 		MyCharMovement->DodgeRollTapTime = MyCharMovement->GetCurrentMovementTime();
+		MyCharMovement->bWillDodgeRoll = true;
 	}
 }
 
