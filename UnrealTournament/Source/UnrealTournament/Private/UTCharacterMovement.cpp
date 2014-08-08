@@ -34,7 +34,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f;  
 	WallDodgeGraceVelocityZ = -600.f;
-	AirControl = 0.35f;
+	AirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
@@ -708,13 +708,13 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			}
 		}
 
-		float MaxAccel = GetMaxAcceleration() * TickAirControl;
-
-		// Boost maxAccel to increase player's control when falling
-		if ((Speed2d < 10.f) && (TickAirControl > 0.f) && (TickAirControl <= 0.05f)) //allow initial burst
+		// Boost maxAccel to increase player's control when falling straight down
+		if ((Speed2d < 25.f) && (TickAirControl > 0.f)) //allow initial burst
 		{
-			MaxAccel = MaxAccel + (10.f - Speed2d) / deltaTime;
+			TickAirControl = FMath::Min(1.f, 2.f*TickAirControl);
 		}
+
+		float MaxAccel = GetMaxAcceleration() * TickAirControl;
 
 		FallAcceleration = FallAcceleration.ClampMaxSize(MaxAccel);
 	}
