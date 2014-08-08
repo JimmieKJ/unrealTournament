@@ -46,14 +46,6 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
 }
 
-void AUTPlayerController::SetGravity(float NewGravity)
-{
-	if (GetPawn() && Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent()))
-	{
-		Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent())->SetGravityScale(NewGravity);
-	}
-}
-
 void AUTPlayerController::SetEyeOffsetScaling(float NewScaling)
 {
 	EyeOffsetGlobalScaling = NewScaling;

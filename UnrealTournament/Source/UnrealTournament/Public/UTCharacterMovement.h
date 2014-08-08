@@ -254,11 +254,11 @@ public:
 
 	/** Defines what jumps just barely missed */
 	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Step Up Distance"))
-		float LandingStepUp;
+	float LandingStepUp;
 
 	/** Boost to help successfully land jumps that just barely missed */
 	UPROPERTY(Category = "LandingAssist", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Landing Assist Boost"))
-		float LandingAssistBoost;
+	float LandingAssistBoost;
 
 	/** True if already assisted this jump */
 	UPROPERTY(Category = "LandingAssist", BlueprintReadOnly, meta = (DisplayName = "Jump Assisted"))
@@ -272,9 +272,25 @@ public:
 	/** Check for landing assist */
 	virtual void NotifyJumpApex() override;
 
-	// FIXME REMOVE
-	void SetGravityScale(float NewGravityScale);
+	//=========================================
+	// Wall Slide
 
+	/**  Max Falling velocity Z to get slide */
+	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
+	float MaxSlideFallZ;
+
+	/** Gravity acceleration reduction during wall slide */
+	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
+	float SlideGravityScaling;
+
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
+	bool bApplyWallSlide;
+
+	virtual void HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta) override;
+
+	virtual float UUTCharacterMovement::GetGravityZ() const override;
+
+	
 	//=========================================
 	// Networking
 

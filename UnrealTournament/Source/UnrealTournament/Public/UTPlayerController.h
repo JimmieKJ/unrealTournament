@@ -108,19 +108,13 @@ public:
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
-	/**
-	 *	Client replicated function that get's called when it's half-time
-	 **/
+	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
 	virtual void ClientHalftime();
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
 	virtual FVector GetFocalLocation() const override;
-
-	// TEMP FIXMESTEVE - change gravity and update all jump properties to keep same jump heights etc.
-	UFUNCTION(exec)
-	virtual void SetGravity(float NewGravity);
 
 	// A quick function so I don't have to keep adding one when I want to test something.  @REMOVEME: Before the final version
 	UFUNCTION(exec)
@@ -129,14 +123,14 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerDebugTest();
 
-	/**
-	 *	We override player tick to keep updating the player's rotation when the game is over.
-	 **/
+	/**	We override player tick to keep updating the player's rotation when the game is over. */
 	virtual void PlayerTick(float DeltaTime);
 
 	void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
+
 	UFUNCTION(Client, Unreliable)
 	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamageType);
+
 	/** notification that we successfully hit HitPawn
 	 * note that HitPawn may be NULL if it is not currently relevant to the client
 	 */

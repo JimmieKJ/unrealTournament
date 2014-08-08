@@ -65,6 +65,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 440.f; 
 
+	MaxSlideFallZ = -200.f;
+	SlideGravityScaling = 0.2f;
+
 	NavAgentProps.bCanCrouch = true;
 
 	// initialization of transient properties
@@ -108,18 +111,6 @@ void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo
 	T = FString::Printf(TEXT("AVERAGE SPEED %f"), AvgSpeed);
 	Canvas->DrawText(RenderFont, T, 4.0f, YPos);
 	YPos += YL;
-}
-
-void UUTCharacterMovement::SetGravityScale(float NewGravityScale)
-{
-	float JumpZScaling = FMath::Sqrt(NewGravityScale / GravityScale);
-	MaxMultiJumpZSpeed *= JumpZScaling;
-	JumpZVelocity *= JumpZScaling;
-	WallDodgeSecondImpulseVertical *= JumpZScaling;
-	DodgeImpulseVertical *= JumpZScaling;
-	WallDodgeImpulseHorizontal *= JumpZScaling;
-	WallDodgeImpulseVertical *= JumpZScaling;
-	GravityScale = NewGravityScale;
 }
 
 void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
@@ -404,6 +395,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	}
 	bWillDodgeRoll = false;
 	bJumpAssisted = false;
+	bApplyWallSlide = false;
 	CurrentMultiJumpCount = 0;
 	CurrentWallDodgeCount = 0;
 	if (IsFalling())
@@ -646,6 +638,20 @@ bool UUTCharacterMovement::CanCrouchInCurrentState() const
 	return CanEverCrouch() && IsMovingOnGround();
 }
 
+void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta)
+{
+	if (IsFalling())
+	{
+		bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ));
+	}
+	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
+}
+
+float UUTCharacterMovement::GetGravityZ() const
+{
+	return Super::GetGravityZ() * (bApplyWallSlide ? SlideGravityScaling : 1.f);
+}
+
 /** @TODO FIXMESTEVE - physfalling copied from base version and edited.  At some point should probably add some hooks to base version and use those instead. */
 void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 {
@@ -657,6 +663,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	FVector FallAcceleration = Acceleration;
 	FallAcceleration.Z = 0.f;
 	bool bSkipLandingAssist = true;
+	bApplyWallSlide = false;
 	FHitResult Hit(1.f);
 	if (!HasRootMotion())
 	{
@@ -683,6 +690,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					if (!IsValidLandingSpot(Result.Location, Result))
 					{
 						TickAirControl = 0.f;
+						bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ));
 					}
 				}
 			}
