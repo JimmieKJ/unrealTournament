@@ -49,3 +49,18 @@ bool IsLoopingParticleSystem(const UParticleSystem* PSys)
 	}
 	return false;
 }
+
+void UnregisterComponentTree(USceneComponent* Comp)
+{
+	if (Comp != NULL)
+	{
+		TArray<USceneComponent*> Children;
+		Comp->GetChildrenComponents(true, Children);
+		Comp->DetachFromParent();
+		Comp->UnregisterComponent();
+		for (USceneComponent* Child : Children)
+		{
+			Child->UnregisterComponent();
+		}
+	}
+}

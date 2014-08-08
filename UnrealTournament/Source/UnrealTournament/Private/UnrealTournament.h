@@ -40,4 +40,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 /** utility to find out if a particle system loops */
 extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);
 
+/** utility to detach and unregister a component and all its children */
+extern void UnregisterComponentTree(USceneComponent* Comp);
+
 #endif

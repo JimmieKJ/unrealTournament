@@ -39,6 +39,8 @@ public:
 	virtual void CreateEditorPickupMesh();
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PreEditUndo() override;
+	virtual void PostEditUndo() override;
 #endif
 
 	UFUNCTION(BlueprintCallable, Category = Pickup)

@@ -25,6 +25,17 @@ void AUTPickupInventory::CreateEditorPickupMesh()
 		CreatePickupMesh(this, EditorMesh, InventoryType, FloatHeight);
 	}
 }
+void AUTPickupInventory::PreEditUndo()
+{
+	UnregisterComponentTree(EditorMesh);
+	EditorMesh = NULL;
+	Super::PreEditUndo();
+}
+void AUTPickupInventory::PostEditUndo()
+{
+	Super::PostEditUndo();
+	CreateEditorPickupMesh();
+}
 void AUTPickupInventory::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
@@ -118,14 +129,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 	{
 		if (PickupMesh != NULL)
 		{
-			TArray<USceneComponent*> Children;
-			PickupMesh->GetChildrenComponents(true, Children);
-			PickupMesh->DetachFromParent();
-			PickupMesh->UnregisterComponent();
-			for (USceneComponent* Child : Children)
-			{
-				Child->UnregisterComponent();
-			}
+			UnregisterComponentTree(PickupMesh);
 			PickupMesh = NULL;
 		}
 	}
@@ -137,8 +141,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 		{
 			if (PickupMesh != NULL)
 			{
-				PickupMesh->DetachFromParent();
-				PickupMesh->UnregisterComponent();
+				UnregisterComponentTree(PickupMesh);
 				PickupMesh = NULL;
 			}
 		}
@@ -152,8 +155,8 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 			{
 				if (PickupMesh != NULL)
 				{
-					PickupMesh->DetachFromParent();
-					PickupMesh->UnregisterComponent();
+					UnregisterComponentTree(PickupMesh);
+					PickupMesh = NULL;
 				}
 				PickupMesh = ConstructObject<UMeshComponent>(NewMesh->GetClass(), Pickup, NAME_None, RF_NoFlags, NewMesh);
 				PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -174,12 +177,15 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				FVector Offset = Pickup->GetRootComponent()->ComponentToWorld.InverseTransformVectorNoScale(PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation());
 				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - Offset);
 				// if there's a rotation component, set it up to rotate the pickup mesh
-				TArray<URotatingMovementComponent*> RotationComps;
-				Pickup->GetComponents<URotatingMovementComponent>(RotationComps);
-				if (RotationComps.Num() > 0)
+				if (Pickup->GetWorld()->WorldType != EWorldType::Editor) // not if editor preview, because that will cause the preview component to exist in game and we want it to be editor only
 				{
-					RotationComps[0]->SetUpdatedComponent(PickupMesh);
-					RotationComps[0]->PivotTranslation = Offset;
+					TArray<URotatingMovementComponent*> RotationComps;
+					Pickup->GetComponents<URotatingMovementComponent>(RotationComps);
+					if (RotationComps.Num() > 0)
+					{
+						RotationComps[0]->SetUpdatedComponent(PickupMesh);
+						RotationComps[0]->PivotTranslation = Offset;
+					}
 				}
 
 				// see if the pickup mesh has any attached children we should also instance
@@ -199,6 +205,12 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 					}
 				}
 				CreatePickupMeshAttachments(Pickup, PickupMesh, NewMesh->GetFName(), NativeCompList, ConstructionNodes);
+			}
+			else if (PickupMesh->AttachParent != Pickup->GetRootComponent())
+			{
+				PickupMesh->AttachTo(Pickup->GetRootComponent(), NAME_None, EAttachLocation::SnapToTarget);
+				FVector Offset = Pickup->GetRootComponent()->ComponentToWorld.InverseTransformVectorNoScale(PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation());
+				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - Offset + FVector(0.0f, 0.0f, MeshFloatHeight));
 			}
 		}
 	}
