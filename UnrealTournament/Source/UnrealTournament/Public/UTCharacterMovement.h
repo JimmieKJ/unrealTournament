@@ -288,7 +288,7 @@ public:
 
 	virtual void HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta) override;
 
-	virtual float UUTCharacterMovement::GetGravityZ() const override;
+	virtual float GetGravityZ() const override;
 
 	
 	//=========================================
