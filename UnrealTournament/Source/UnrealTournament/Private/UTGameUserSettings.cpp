@@ -40,7 +40,8 @@ void UUTGameUserSettings::SetToDefaults()
 	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
-	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
+	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f; 
+	FullscreenMode = EWindowMode::Fullscreen;
 }
 
 void UUTGameUserSettings::ApplySettings()
