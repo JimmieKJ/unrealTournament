@@ -438,16 +438,6 @@ public:
 
 	virtual void MoveBlockedBy(const FHitResult& Impact) override;
 
-	/** sets replicated ambient (looping) sound on this Pawn
-	 * only one ambient sound can be set at a time
-	 * pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
-	 */
-	UFUNCTION(BlueprintCallable, Category = Audio)
-	virtual void SetAmbientSound(USoundBase* NewAmbientSound, bool bClear = false);
-
-	UFUNCTION()
-	void AmbientSoundUpdated();
-
 	UFUNCTION(BlueprintPure, Category = PlayerController)
 	virtual APlayerCameraManager* GetPlayerCameraManager();
 
@@ -503,8 +493,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	float MinPainSoundInterval;
 
+	/** Last time we handled  wall hit for gameplay (damage,sound, etc.) */
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
-	float LastWallHitSoundTime;
+	float LastWallHitNotifyTime;
+
+	/** Whether can play wall hit sound - true when it hasn't yet been played for this fall */
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+	bool bCanPlayWallHitSound;
 
 	// Controls if we want to see the first or third person meshes
 	void SetMeshVisibility(bool bThirdPersonView);
@@ -754,13 +749,48 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Pawn")
 	TArray< TSubclassOf<AUTInventory> > DefaultCharacterInventory;
 
+	//================================
+	// Ambient sounds
+
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=AmbientSoundUpdated, Category = "Pawn")
 	USoundBase* AmbientSound;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	UAudioComponent* AmbientSoundComp;
 
+	/** Ambient sound played only on owning client */
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	USoundBase* LocalAmbientSound;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UAudioComponent* LocalAmbientSoundComp;
+
+public:
+	/** sets replicated ambient (looping) sound on this Pawn
+	* only one ambient sound can be set at a time
+	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
+	*/
+	UFUNCTION(BlueprintCallable, Category = Audio)
+	virtual void SetAmbientSound(USoundBase* NewAmbientSound, bool bClear = false);
+
+	UFUNCTION()
+	void AmbientSoundUpdated();
+
+	/** sets local (not replicated) ambient (looping) sound on this Pawn
+	* only one ambient sound can be set at a time
+	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
+	*/
+	UFUNCTION(BlueprintCallable, Category = Audio)
+	virtual void SetLocalAmbientSound(USoundBase* NewAmbientSound, bool bClear = false);
+
+	UFUNCTION()
+	void LocalAmbientSoundUpdated();
+
+	//================================
+protected:
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
 	float LastFootstepTime;
+
 	/** last FootNum for PlayFootstep(), for alternating when animations are disabled */
 	uint8 LastFoot;
 	

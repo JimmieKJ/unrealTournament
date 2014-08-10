@@ -160,7 +160,7 @@ public:
 
 	/** Amount of falling damage reduction */
 	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
-	virtual	float FallingDamageReduction();
+	virtual	float FallingDamageReduction(float FallingDamage, const FHitResult& Hit);
 
 	/** Maximum Velocity Z that a Dodge Roll tap will register. */
 	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
@@ -300,7 +300,6 @@ public:
 	virtual void HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta) override;
 
 	virtual float GetGravityZ() const override;
-
 	
 	//=========================================
 	// Networking

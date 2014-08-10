@@ -16,7 +16,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -2400.f;  // same as UTCharacter->MaxSafeFallSpeed - @TODO FIXMESTEVE probably get rid of this property
-	MaxAdditiveDodgeJumpSpeed = 800.f;  
+	MaxAdditiveDodgeJumpSpeed = 700.f;  
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
@@ -51,7 +51,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxDodgeRollSpeed = 880.f;
 	DodgeRollDuration = 0.45f;
 	DodgeRollBonusTapInterval = 0.17f;
-	// also dodgerollcancelinterval - turn off bWillDodgeRoll after that
 	DodgeRollEarliestZ = -100.f;
 	RollEndingSpeedFactor = 0.5f;
 	FallingDamageRollReduction = 6.f;
@@ -61,10 +60,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
-	WallDodgeSecondImpulseVertical = 310.f;
+	WallDodgeSecondImpulseVertical = 320.f;
 	DodgeImpulseVertical = 525.f;
 	WallDodgeImpulseHorizontal = 1350.f; 
-	WallDodgeImpulseVertical = 440.f; 
+	WallDodgeImpulseVertical = 470.f; 
 
 	MaxSlideFallZ = -200.f;
 	SlideGravityScaling = 0.2f;
@@ -368,8 +367,13 @@ const FVector& NewAccel
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
 
-float UUTCharacterMovement::FallingDamageReduction()
+float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FHitResult& Hit)
 {
+	if (Hit.ImpactNormal.Z < GetWalkableFloorZ())
+	{
+		// Scale damage based on angle of wall we hit
+		return FallingDamage * Hit.ImpactNormal.Z;
+	}
 	return (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollBonusTapInterval) ? FallingDamageRollReduction : 0.f;
 }
 

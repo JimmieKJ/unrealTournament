@@ -85,6 +85,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
+	bCanPlayWallHitSound = true;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
@@ -730,6 +731,7 @@ void AUTCharacter::StopRagdoll()
 void AUTCharacter::PlayDying()
 {
 	SetAmbientSound(NULL);
+	SetLocalAmbientSound(NULL);
 
 	// TODO: damagetype effects, etc
 
@@ -883,6 +885,62 @@ void AUTCharacter::AmbientSoundUpdated()
 	}
 }
 
+
+void AUTCharacter::SetLocalAmbientSound(USoundBase* NewAmbientSound, bool bClear)
+{
+	if (bClear)
+	{
+		if (NewAmbientSound == LocalAmbientSound)
+		{
+			LocalAmbientSound = NULL;
+		}
+	}
+	else
+	{
+		LocalAmbientSound = NewAmbientSound;
+	}
+	LocalAmbientSoundUpdated();
+}
+
+void AUTCharacter::LocalAmbientSoundUpdated()
+{
+	if (LocalAmbientSound == NULL)
+	{
+		if (LocalAmbientSoundComp != NULL)
+		{
+			LocalAmbientSoundComp->Stop();
+		}
+	}
+	else
+	{
+		if (LocalAmbientSoundComp == NULL)
+		{
+			LocalAmbientSoundComp = NewObject<UAudioComponent>(this);
+			LocalAmbientSoundComp->bAutoDestroy = false;
+			LocalAmbientSoundComp->bAutoActivate = false;
+			LocalAmbientSoundComp->AttachTo(RootComponent);
+			LocalAmbientSoundComp->RegisterComponent();
+		}
+		if (LocalAmbientSoundComp->Sound != LocalAmbientSound)
+		{
+			// don't attenuate/spatialize sounds made by a local viewtarget
+			LocalAmbientSoundComp->bAllowSpatialization = true;
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+				{
+					LocalAmbientSoundComp->bAllowSpatialization = false;
+					break;
+				}
+			}
+			LocalAmbientSoundComp->SetSound(AmbientSound);
+		}
+		if (!LocalAmbientSoundComp->IsPlaying())
+		{
+			LocalAmbientSoundComp->Play();
+		}
+	}
+}
 void AUTCharacter::StartFire(uint8 FireModeNum)
 {
 	UE_LOG(LogUTCharacter, Verbose, TEXT("StartFire %d"), FireModeNum);
@@ -1469,6 +1527,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		}
 		if (UTCharacterMovement && UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
+			bCanPlayWallHitSound = true;
 			OnDodge(DodgeDir);
 			return true;
 		}
@@ -1646,6 +1705,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		}
 	}
 
+	bCanPlayWallHitSound = true;
 	if (Role == ROLE_Authority)
 	{
 		MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
@@ -1684,17 +1744,17 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 void AUTCharacter::MoveBlockedBy(const FHitResult& Impact) 
 {
-	if (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - LastWallHitSoundTime > 0.5f))
+	if (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - LastWallHitNotifyTime > 0.5f))
 	{
-		if (Impact.ImpactNormal.Z < 0.9f)
+		if (Impact.ImpactNormal.Z > 0.4f)
 		{
 			TakeFallingDamage(Impact);
 		}
-		if ( CharacterMovement->Velocity.SizeSquared() > FMath::Square(0.9f*CharacterMovement->MaxWalkSpeed))
+		if ( bCanPlayWallHitSound && CharacterMovement->Velocity.SizeSquared() > FMath::Square(0.9f*CharacterMovement->MaxWalkSpeed))
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), WallHitSound, this, SRT_None);
-			LastWallHitSoundTime = GetWorld()->GetTimeSeconds();
 		}
+		LastWallHitNotifyTime = GetWorld()->GetTimeSeconds();
 	}
 }
 
@@ -1712,13 +1772,14 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 			}*/
 			if (FallingSpeed < -1.f * MaxSafeFallSpeed)
 			{
-				FUTPointDamageEvent DamageEvent(-100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
+				float FallingDamage = -100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed;
 				if (UTCharacterMovement)
 				{
-					DamageEvent.Damage -= UTCharacterMovement->FallingDamageReduction();
+					FallingDamage -= UTCharacterMovement->FallingDamageReduction(FallingDamage, Hit);
 				}
-				if (DamageEvent.Damage >= 1.0f)
+				if (FallingDamage >= 1.0f)
 				{
+					FUTPointDamageEvent DamageEvent(FallingDamage, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
 					TakeDamage(DamageEvent.Damage, DamageEvent, Controller, this);
 				}
 			}
