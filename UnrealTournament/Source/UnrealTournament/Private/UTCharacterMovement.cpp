@@ -82,6 +82,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollEndTime = 0.f;
 	CurrentWallDodgeCount = 0;
 	bWillDodgeRoll = false;
+
+	OutofWaterZ = 700.f;
+	JumpOutOfWaterPitch = 0.f;
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
@@ -973,3 +976,6 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 		//UE_LOG(UT, Warning, TEXT("LANDING ASSIST BOOST"));
 	}
 }
+
+
+
