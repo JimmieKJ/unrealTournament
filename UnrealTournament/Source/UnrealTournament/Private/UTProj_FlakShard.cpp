@@ -7,8 +7,8 @@
 AUTProj_FlakShard::AUTProj_FlakShard(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	ProjectileMovement->InitialSpeed = 6500.0f;
-	ProjectileMovement->MaxSpeed = 6500.0f;
+	ProjectileMovement->InitialSpeed = 7600.0f;
+	ProjectileMovement->MaxSpeed = 7600.0f;
 	ProjectileMovement->ProjectileGravityScale = 0.f;
 	ProjectileMovement->bShouldBounce = true;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;
@@ -16,7 +16,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FPostConstructInitializePropert
 	// Damage
 	DamageParams.BaseDamage = 18.0f;
 	DamageParams.MinimumDamage = 5.0f;
-	Momentum = 28000.f;
+	Momentum = 30500.f;
 
 	DamageAttenuation = 5.0f;
 	DamageAttenuationDelay = 0.75f;

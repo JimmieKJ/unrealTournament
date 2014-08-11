@@ -9,8 +9,8 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FPostConstructInitializePropert
 	: Super(PCIP)
 {
 	// Movement
-	ProjectileMovement->InitialSpeed = 2400.f;
-	ProjectileMovement->MaxSpeed = 2400.f;
+	ProjectileMovement->InitialSpeed = 2600.f;
+	ProjectileMovement->MaxSpeed = 2600.f;
 	ProjectileMovement->ProjectileGravityScale = 1.0f;
 
 	CollisionComp->InitSphereRadius(10);
@@ -18,7 +18,7 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FPostConstructInitializePropert
 	TossZ = 610.0f;
 
 	DamageParams.BaseDamage = 100.0f;
-	DamageParams.OuterRadius = 400.0f;
+	DamageParams.OuterRadius = 440.0f;
 
 	Momentum = 150000.0f;
 
