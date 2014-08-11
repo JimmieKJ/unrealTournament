@@ -110,6 +110,11 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		AddMutatorClass(BuiltInMutators[i]);
 	}
+	
+	for (int32 i = 0; i < ConfigMutators.Num(); i++)
+	{
+		AddMutator(ConfigMutators[i]);
+	}
 
 	InOpt = ParseOption(Options, TEXT("Mutator"));
 	if (InOpt.Len() > 0)

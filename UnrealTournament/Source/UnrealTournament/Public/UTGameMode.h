@@ -112,6 +112,10 @@ public:
 	/** mutators required for the game, added at startup just before command line mutators */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
 	TArray< TSubclassOf<class AUTMutator> > BuiltInMutators;
+	
+	/** mutators that will load from the config*/
+	UPROPERTY(Config)
+	TArray<FString> ConfigMutators;
 
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
