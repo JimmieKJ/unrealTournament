@@ -661,7 +661,7 @@ void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlic
 {
 	if (IsFalling())
 	{
-		bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ));
+		bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ) && ((Acceleration | Impact.ImpactNormal) < 0.f));
 	}
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }
@@ -709,7 +709,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					if (!IsValidLandingSpot(Result.Location, Result))
 					{
 						TickAirControl = 0.f;
-						bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ));
+						bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ) && ((Acceleration | Result.ImpactNormal) < 0.f));
 					}
 				}
 			}
