@@ -8,7 +8,9 @@
 void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 {
 	const UUTWeaponStateEquipping* PrevEquip = Cast<UUTWeaponStateEquipping>(PrevState);
-	float EquipTime = (PrevEquip != NULL) ? PrevEquip->PartialEquipTime : GetOuterAUTWeapon()->PutDownTime;
+
+	// if was previously equipping, pay same amount of time to take back down
+	float EquipTime = (PrevEquip != NULL) ? FMath::Min(PrevEquip->PartialEquipTime, GetOuterAUTWeapon()->PutDownTime) : GetOuterAUTWeapon()->PutDownTime;
 	if (EquipTime <= 0.0f)
 	{
 		PutDownFinished();
@@ -30,7 +32,8 @@ void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 void UUTWeaponStateEquipping::BeginState(const UUTWeaponState* PrevState)
 {
 	const UUTWeaponStateUnequipping* PrevEquip = Cast<UUTWeaponStateUnequipping>(PrevState);
-	float EquipTime = (PrevEquip != NULL) ? PrevEquip->PartialEquipTime : GetOuterAUTWeapon()->PutDownTime;
+	// if was previously unequipping, pay same amount of time to bring back up
+	float EquipTime = (PrevEquip != NULL) ? FMath::Min(PrevEquip->PartialEquipTime, GetOuterAUTWeapon()->BringUpTime) : GetOuterAUTWeapon()->BringUpTime;
 	if (EquipTime <= 0.0f)
 	{
 		BringUpFinished();

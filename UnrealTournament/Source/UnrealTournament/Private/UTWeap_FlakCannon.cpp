@@ -12,7 +12,9 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 	// UI
 	Group = 7;
 	IconCoordinates = FTextureUVs(131.000000, 429.000000, 132.000000, 52.000000);
-	
+
+	BringUpTime = 0.68f;
+
 	// Firing
 	ProjClass.SetNumZeroed(2);
 	FireInterval.SetNum(2);

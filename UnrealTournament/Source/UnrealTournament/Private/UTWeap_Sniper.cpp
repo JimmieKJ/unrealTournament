@@ -9,6 +9,8 @@
 AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateZooming>(TEXT("FiringState1")) )
 {
+	BringUpTime = 0.54f;
+	PutDownTime = 0.41f;
 	SlowHeadshotScale = 1.75f;
 	RunningHeadshotScale = 0.8f;
 	ProjClass.Insert(AUTProj_Sniper::StaticClass(), 0);

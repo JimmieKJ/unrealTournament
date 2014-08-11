@@ -5,6 +5,8 @@
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	BringUpTime = 1.8f;
+	PutDownTime = 1.44f;
 	Ammo = 1;
 	MaxAmmo = 1;
 }

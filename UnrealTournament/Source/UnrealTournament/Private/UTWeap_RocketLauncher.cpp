@@ -16,6 +16,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FPostConstructInitial
 		FiringStateType[1] = UUTWeaponStateFiringChargedRocket::StaticClass();
 #endif
 	}
+	BringUpTime = 0.54f;
 
 	NumLoadedRockets = 0;
 	MaxLoadedRockets = 3;
