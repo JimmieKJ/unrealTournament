@@ -9,7 +9,7 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FPostConstructInitializePropert
 	ComboDamageParams = FRadialDamageParams(215.0f, 550.0f);
 	ComboAmmoCost = 3;
 	bComboExplosion = false;
-	ComboMomentum = 200000.0f;
+	ComboMomentum = 330000.0f;
 }
 
 void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
@@ -50,7 +50,6 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 	if (!bExploded)
 	{
 		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
-
 		if (bComboExplosion)
 		{
 			OnComboExplode();
