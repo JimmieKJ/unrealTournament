@@ -15,6 +15,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 	AttachSocket = FName((TEXT("WeaponPoint")));
 
 	PickupScaleOverride = FVector(2.0f, 2.0f, 2.0f);
+	WeaponStance=0;
 }
 
 void AUTWeaponAttachment::BeginPlay()

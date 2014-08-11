@@ -50,6 +50,15 @@ struct FEmoteRepInfo
 	int32 EmoteIndex;
 };
 
+
+UENUM(BlueprintType)
+enum EAllowedSpecialMoveAnims
+{
+	EASM_Any,
+	EASM_UpperBodyOnly, 
+	EASM_None,
+};
+
 UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoExposure,LensFlares,AmbientOcclusion,DepthOfField,MotionBlur,Misc,ScreenSpaceReflections,Bloom,SceneColor,Film,AmbientCubemap,AgentPhysics,Attachment,Avoidance,PlanarMovement,AI,Replication,Input,Actor,Tags,GlobalIllumination))
 class AUTCharacter : public ACharacter, public IUTTeamInterface
 {
@@ -282,6 +291,9 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 
 	UFUNCTION()
 	virtual void OnRepDodgeRolling();
+
+	UFUNCTION(BlueprintCallable, Category = "Animations")
+	virtual EAllowedSpecialMoveAnims AllowedSpecialMoveAnims();
 
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
@@ -746,6 +758,8 @@ protected:
 	/** spawn/destroy/replace the current weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()
 	virtual void UpdateWeaponAttachment();
+
+	
 
 	// firemodes with input currently being held down (pending or actually firing)
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")

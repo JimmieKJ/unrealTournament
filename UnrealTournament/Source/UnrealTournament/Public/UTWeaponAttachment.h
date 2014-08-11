@@ -22,6 +22,11 @@ protected:
 	UPROPERTY()
 	USkeletalMeshComponent* OverlayMesh;
 public:
+
+	/** Tells the aniamtion system what movement blends to use */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	int32 WeaponStance;
+
 	/** particle component for muzzle flash */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystemComponent*> MuzzleFlash;

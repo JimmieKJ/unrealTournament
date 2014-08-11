@@ -1023,6 +1023,13 @@ void AUTCharacter::ClearFiringInfo()
 }
 void AUTCharacter::FiringInfoUpdated()
 {
+	// Kill any montages that might be overriding the crouch anim
+	UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+	if (AnimInstance != NULL)
+	{
+		AnimInstance->Montage_Stop(0.2f);
+	}
+
 	if (Weapon != NULL && IsLocallyControlled() && Cast<APlayerController>(Controller) != NULL)  // and in first person?
 	{
 		if (!FlashLocation.IsZero())
@@ -2368,4 +2375,15 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 			AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], 1.0f);
 		}
 	}
+}
+
+
+EAllowedSpecialMoveAnims AUTCharacter::AllowedSpecialMoveAnims()
+{
+	if (CharacterMovement != NULL && (!CharacterMovement->IsMovingOnGround() || !CharacterMovement->GetCurrentAcceleration().IsNearlyZero()))
+	{
+		return EASM_UpperBodyOnly;
+	}
+
+	return EASM_Any;
 }
