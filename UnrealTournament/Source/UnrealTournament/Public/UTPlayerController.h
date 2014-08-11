@@ -185,6 +185,12 @@ public:
 
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
+	UFUNCTION()
+	virtual void Talk();
+
+	UFUNCTION()
+	virtual void TeamTalk();
+
 	UFUNCTION(exec)
 	virtual void Say(FString Message);
 

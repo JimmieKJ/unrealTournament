@@ -18,6 +18,7 @@
 #include "UTCheatManager.h"
 #include "UTCTFGameState.h"
 #include "UTChatMessage.h"
+#include "Engine/Console.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -127,6 +128,9 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("ShowScores", IE_Released, this, &AUTPlayerController::OnHideScores);
 
 	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTPlayerController::ShowMenu);
+
+	InputComponent->BindAction("Talk", IE_Pressed, this, &AUTPlayerController::Talk);
+	InputComponent->BindAction("TeamTalk", IE_Pressed, this, &AUTPlayerController::TeamTalk);
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -1116,6 +1120,24 @@ void AUTPlayerController::ServerSuicide_Implementation()
 bool AUTPlayerController::ServerSuicide_Validate()
 {
 	return true;
+}
+
+void AUTPlayerController::Talk()
+{
+	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
+	{
+		LP->ViewportClient->ViewportConsole->StartTyping("Say ");
+	}
+}
+
+void AUTPlayerController::TeamTalk()
+{
+	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
+	{
+		LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
+	}
 }
 
 void AUTPlayerController::Say(FString Message)
