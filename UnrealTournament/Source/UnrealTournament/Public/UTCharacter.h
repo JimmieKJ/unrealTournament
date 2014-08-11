@@ -488,6 +488,26 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DodgeRollSound;
 
+	/** Ambient sound played while sprinting */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* SprintAmbientSound;
+
+	/** Running speed to engage sprint sound */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	float SprintAmbientStartSpeed;
+
+	/** Running speed to stop sprint sound */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	float SprintAmbientStopSpeed;
+
+	/** Ambient sound played while falling fast */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* FallingAmbientSound;
+
+	/** Falling speed to engage falling sound */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	float FallingAmbientStartSpeed;
+
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastPainSoundTime;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)

@@ -87,6 +87,10 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	LastPainSoundTime = -100.0f;
 	bCanPlayWallHitSound = true;
 
+	SprintAmbientStartSpeed = 1000.f;
+	SprintAmbientStopSpeed = 970.f;
+	FallingAmbientStartSpeed = -1600.f;
+
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
 	// TODO: write real relevancy checking
@@ -2043,12 +2047,46 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 	TargetEyeOffset *= FMath::Max(0.f, 1.f - EyeOffsetDecayRate*DeltaTime);
 
+	if (IsLocallyControlled() && CharacterMovement) // @TODO FIXME ALSO FOR SPECTATORS
+	{
+		// @TODO FIXMESTEVE this should all be event driven
+		if (CharacterMovement->IsFalling() && (CharacterMovement->Velocity.Z < FallingAmbientStartSpeed))
+		{
+			SetLocalAmbientSound(FallingAmbientSound, false);
+		}
+		else
+		{
+			SetLocalAmbientSound(FallingAmbientSound, true);
+			if (CharacterMovement->IsMovingOnGround())
+			{
+				if (CharacterMovement->Velocity.Size2D() > SprintAmbientStartSpeed)
+				{
+					SetLocalAmbientSound(SprintAmbientSound, false);
+				}
+				else if (CharacterMovement->Velocity.Size2D() < SprintAmbientStopSpeed)
+				{
+					SetLocalAmbientSound(SprintAmbientSound, true);
+				}
+			}
+			else
+			{
+				SetLocalAmbientSound(SprintAmbientSound, true);
+			}
+		}
+	}
 	/*
 	if (CharacterMovement && ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f))
 	{
 		UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
 }
+
+float SprintAmbientStartSpeed;
+
+/** Running speed to stop sprint sound */
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+float SprintAmbientStopSpeed;
+
 
 void AUTCharacter::BecomeViewTarget(class APlayerController* PC)
 {
