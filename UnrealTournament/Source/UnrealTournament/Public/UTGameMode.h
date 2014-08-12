@@ -2,6 +2,10 @@
 #pragma once
 
 #include "UTPickup.h"
+#include "UTCharacter.h"
+#include "UTGameObjective.h"
+#include "UTPlayerController.h"
+#include "UTGameState.h"
 #include "UTGameMode.generated.h"
 
 /** Defines the current state of the game. */
@@ -14,8 +18,8 @@ namespace MatchState
 }
 
 
-UCLASS(MinimalAPI, Config = Game, Abstract)
-class AUTGameMode : public AGameMode
+UCLASS(Config = Game, Abstract)
+class UNREALTOURNAMENT_API AUTGameMode : public AGameMode
 {
 	GENERATED_UCLASS_BODY()
 

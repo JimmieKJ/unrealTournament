@@ -4,7 +4,7 @@
 #include "UTTeamDMGameMode.generated.h"
 
 UCLASS()
-class AUTTeamDMGameMode : public AUTTeamGameMode
+class UNREALTOURNAMENT_API AUTTeamDMGameMode : public AUTTeamGameMode
 {
 	GENERATED_UCLASS_BODY()
 

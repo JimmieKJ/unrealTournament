@@ -15,7 +15,7 @@ namespace MatchState
 }
 
 UCLASS()
-class AUTCTFGameMode : public AUTTeamGameMode
+class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 {
 	GENERATED_UCLASS_BODY()
 

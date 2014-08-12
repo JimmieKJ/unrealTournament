@@ -3,8 +3,8 @@
 
 #include "UTDMGameMode.generated.h"
 
-UCLASS(minimalapi)
-class AUTDMGameMode : public AUTGameMode
+UCLASS()
+class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 {
 	GENERATED_UCLASS_BODY()
 

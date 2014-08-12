@@ -2357,6 +2357,8 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Sniper/SniperBullet.uasset" Hash="2493364267a625e808fba2c882f045968f54aba0" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/Sniper/UTDmg_Sniper.uasset" Hash="f70c40cbf307af358ad9730b7049141deafc38d0" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/WeaponBase.uasset" Hash="ca879615fa44f5c4550409b84b5ca4f2e2507466" />
+    <File Name="UnrealTournament/Plugins/SampleGameMode/Binaries/Win64/UE4Editor-SampleGameMode.dll" Hash="4acf52876a96c298bd565fe727ff8bafdf10a78e" />
+    <File Name="UnrealTournament/Plugins/SampleGameMode/Content/BP_SampleGameMode.uasset" Hash="f3613dbc634472494efcdbe9f54be54eefab4fb9" />
     <File Name="UnrealTournament/Plugins/SampleMutator/Binaries/Win64/UE4Editor-SampleMutator.dll" Hash="46c72d103a3004c61c1e813cea6b4b2181d5856e" />
   </Files>
   <Blobs>
@@ -3066,6 +3068,7 @@
     <Blob Hash="4a693abf2174b6fc67f033b7815cd59beed34f87" Size="133769" PackHash="aac2e5890a8dfb3c94baac2d6f841109e2373130" PackOffset="1597111" />
     <Blob Hash="4a9fd1f294136f74a3636824267c1089a955d505" Size="1526691" PackHash="4eeafc9891439cf7c457f1df44b905bd4a854268" PackOffset="8" />
     <Blob Hash="4abf809c54540f378c920f5995b262c4644df6ac" Size="72015" PackHash="0de2c192f7d5ac61bbe096043b3f199568e108a4" PackOffset="247921" />
+    <Blob Hash="4acf52876a96c298bd565fe727ff8bafdf10a78e" Size="124416" PackHash="da95c63739000cf6bccb92f735661110a1972e27" PackOffset="8" />
     <Blob Hash="4ae41255547246b69874dc39d02f7f5274bd6349" Size="186490" PackHash="6a072c09c59ca2e4658cdb9c7098433d016a30a8" PackOffset="322217" />
     <Blob Hash="4b0f27d91b159334ebc89ae7994417115cb4552b" Size="12722" PackHash="0de2c192f7d5ac61bbe096043b3f199568e108a4" PackOffset="1180935" />
     <Blob Hash="4b16aa5c6617d2d34d867b5335a8a68dc1a6d61d" Size="102211" PackHash="5eeb845f6313af0e3fab59a939a6549cdb4a4321" PackOffset="1617644" />
@@ -4596,6 +4599,7 @@
     <Blob Hash="f2ce96190e0a381c3980dfe3d1b565adcf8b6fb1" Size="303424" PackHash="4f46b5cae93ce421cddeaed648a7859cba3abe60" PackOffset="957453" />
     <Blob Hash="f334c86e5d730ed9d1239da2914398856846af76" Size="79227" PackHash="ba9ca522dd919c747cc8d333e869e5f3bdd87f25" PackOffset="1228032" />
     <Blob Hash="f34c52fd17cd53b49a9b3baf4381ac9009bd3b24" Size="5765" PackHash="6a86b522b9a0bf4b4fe7a81b49f6848c4e345974" PackOffset="1987593" />
+    <Blob Hash="f3613dbc634472494efcdbe9f54be54eefab4fb9" Size="7583" PackHash="da95c63739000cf6bccb92f735661110a1972e27" PackOffset="124424" />
     <Blob Hash="f3734d15d1c426d913f5eea0e4cc32eaa133d43d" Size="100319" PackHash="0714f09f90401afd6f58eebc5af1174b38ce7516" PackOffset="1885240" />
     <Blob Hash="f38bc3192ab807733df8c856eda83a9d3ab04f3b" Size="111543" PackHash="72d3cd8ef2b2941ba449b2c15f74b93af8a71d8f" PackOffset="497158" />
     <Blob Hash="f3aff834006c534668ad7db1dfb25a36f99a8f34" Size="1100" PackHash="ba9ca522dd919c747cc8d333e869e5f3bdd87f25" PackOffset="677849" />
@@ -5035,6 +5039,7 @@
     <Pack Hash="d93025c1aa678c3224542752a0e962db15263c0a" Size="511703" CompressedSize="485911" RemotePath="0-baca18c0aab62a05df21fad2316c2f21b1d141c1" />
     <Pack Hash="d95ac7786df4baeeced29924c226178b69fe8ec9" Size="2144992" CompressedSize="2144540" RemotePath="0-fd84a205d99f60e3971218e4102d8f27be2e5416" />
     <Pack Hash="d9b99bbed54ee50d08426a4c35099d23deb07268" Size="2093272" CompressedSize="1130423" RemotePath="0-c914caa15aa507fb732f7dee13d0dde7f4bb1c31" />
+    <Pack Hash="da95c63739000cf6bccb92f735661110a1972e27" Size="132007" CompressedSize="61048" RemotePath="0-1e132614e120d273b93a1202b332e1d42a7dbdd3" />
     <Pack Hash="db1e39bb7766abde974d747ab979260a6c612815" Size="2509402" CompressedSize="2509099" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
     <Pack Hash="db6b080784fcdbb501a66da623e8aea140ba6263" Size="2421142" CompressedSize="2420857" RemotePath="0-fd84a205d99f60e3971218e4102d8f27be2e5416" />
     <Pack Hash="dba23f11ec7adc431301fec78705dc8b00e2ebbc" Size="2096451" CompressedSize="1903733" RemotePath="0-cd99934ab98ba2cf58372cf0a4a67e3bfe1d5ac8" />

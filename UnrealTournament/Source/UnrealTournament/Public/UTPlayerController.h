@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTATypes.h"
 #include "UTPlayerController.generated.h"
 
 // range user is allowed to configure FOV angle
