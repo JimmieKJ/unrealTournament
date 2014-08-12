@@ -100,31 +100,25 @@ void SUWindowsDesktop::BuildFileSubMenu()
 					SNew(SButton)
 					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Reconnect", "Reconnect").ToString())
-					.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("Reconnect")))
-				];
-
-				(*Menu).AddSlot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
-					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Disconnect", "Disconect").ToString())
+					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Disconnect", "Disconnect").ToString())
 					.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("Disconnect")))
 				];
 			}
-			else
+			if (PlayerOwner->PlayerController != NULL)
 			{
-				(*Menu).AddSlot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
-					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_PlayTest", "Play Test").ToString())
-					.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("open 10.1.105.55")))			// NOTE: Hard coded to my internal IP until I get lan beacons working
-				];
+				const FURL& LastNetURL = GEngine->GetWorldContextFromWorldChecked(PlayerOwner->PlayerController->GetWorld()).LastRemoteURL;
+				if (LastNetURL.Valid && LastNetURL.Host.Len() > 0)
+				{
+					(*Menu).AddSlot()
+					.AutoHeight()
+					[
+						SNew(SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+						.ContentPadding(FMargin(10.0f, 5.0f))
+						.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Reconnect", "Reconnect to {Addr}"), FText::FromString(FString::Printf(TEXT("%s:%i"), *LastNetURL.Host, LastNetURL.Port))).ToString())
+						.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("Reconnect")))
+					];
+				}
 			}
 
 			(*Menu).AddSlot()
