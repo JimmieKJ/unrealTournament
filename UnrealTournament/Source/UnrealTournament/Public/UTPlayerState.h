@@ -110,6 +110,7 @@ class AUTPlayerState : public APlayerState, public IUTTeamInterface
 	UFUNCTION()
 	virtual uint8 GetTeamNum() const;
 
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 };
 
 

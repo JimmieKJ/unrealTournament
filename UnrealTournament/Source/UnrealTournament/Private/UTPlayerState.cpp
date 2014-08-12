@@ -219,3 +219,12 @@ uint8 AUTPlayerState::GetTeamNum() const
 	return (Team != NULL) ? Team->GetTeamNum() : 255;
 }
 
+void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
+{
+	if (Team != NULL && GetOwner() != NULL)
+	{
+		Team->RemoveFromTeam(Cast<AController>(GetOwner()));
+	}
+
+	Super::EndPlay(Reason);
+}
