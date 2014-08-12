@@ -6,7 +6,7 @@
 
 // range user is allowed to configure FOV angle
 #define FOV_CONFIG_MIN 80.0f
-#define FOV_CONFIG_MAX 105.0f
+#define FOV_CONFIG_MAX 120.0f
 
 class UUTAnnouncer;
 

@@ -45,7 +45,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	WeaponBobGlobalScaling = 1.f;
 	EyeOffsetGlobalScaling = 1.f;
 
-	ConfigDefaultFOV = 90.0f;
+	ConfigDefaultFOV = 100.0f;
 	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
 
 	LastEmoteTime = 0.0f;
@@ -238,6 +238,7 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	{
 		PlayerCameraManager->UnlockFOV();
 	}
+	Super::FOV(ConfigDefaultFOV);
 }
 
 void AUTPlayerController::FOV(float NewFOV)
@@ -245,7 +246,8 @@ void AUTPlayerController::FOV(float NewFOV)
 	if (NewFOV != ConfigDefaultFOV)
 	{
 		ConfigDefaultFOV = FMath::Clamp<float>(NewFOV, FOV_CONFIG_MIN, FOV_CONFIG_MAX);
-		if (GetPawn() != NULL)
+		Super::FOV(ConfigDefaultFOV);
+		if ((GetPawn() != NULL) && (GetNetMode() != NM_Standalone))
 		{
 			Suicide();
 		}
