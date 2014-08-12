@@ -12,7 +12,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 		FiringStateType[0] = UUTWeaponStateFiringCharged::StaticClass();
 #endif
 	}
-
+	WeaponBobScaling = 0.7f;
 	FullChargeTime = 2.5f;
 	MinChargePct = 0.3f;
 	SelfDamageScale = 0.3f;
