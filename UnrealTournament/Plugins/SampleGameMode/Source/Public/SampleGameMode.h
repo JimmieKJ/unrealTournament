@@ -3,6 +3,7 @@
 
 #include "Core.h"
 #include "Engine.h"
+#include "UTWeapon.h"
 #include "UTGameMode.h"
 
 #include "SampleGameMode.generated.h"
