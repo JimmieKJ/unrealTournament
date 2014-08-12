@@ -2327,8 +2327,9 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if ( UTPS != NULL && UTPS->Team != NULL && PC != NULL && PC->GetPawn() != NULL && PC->GetViewTarget() != this && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
-		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(PC->GetPawn(), this) )
+		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL && GS->OnSameTeam(PC->GetPawn(), this) )
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
 		if (Dist <= PlayerIndicatorMaxDistance)
