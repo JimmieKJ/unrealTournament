@@ -36,8 +36,8 @@ class UUTTimerMessage : public UUTLocalMessage
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text10","10..."));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text30Secs","30 seconds left!"));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text1Min","One minute remains!"));
-		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text3Min","Three minutes remains!"));
-		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text5Min","Five minutes remains!"));
+		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text3Min","Three minutes remain!"));
+		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text5Min","Five minutes remain!"));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","TextOverTime","!! OVERTIME !!"));
 
 		CountDownAnnouncements.Add(TEXT("CD1"));
