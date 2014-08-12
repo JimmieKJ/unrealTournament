@@ -292,8 +292,12 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION()
 	virtual void OnRepDodgeRolling();
 
-	UFUNCTION(BlueprintCallable, Category = "Animations")
+	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual EAllowedSpecialMoveAnims AllowedSpecialMoveAnims();
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual float GetRemoteViewPitch();
+
 
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */

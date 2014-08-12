@@ -2391,3 +2391,10 @@ EAllowedSpecialMoveAnims AUTCharacter::AllowedSpecialMoveAnims()
 
 	return EASM_Any;
 }
+
+float AUTCharacter::GetRemoteViewPitch()
+{
+	float ClampedPitch = (RemoteViewPitch * 360.0 / 255.0);
+	ClampedPitch = ClampedPitch > 90 ? ClampedPitch - 360 : ClampedPitch;
+	return FMath::Clamp<float>(ClampedPitch, -90.0, 90.0);
+}
