@@ -52,6 +52,28 @@ void AUTInventory::PostInitProperties()
 	}
 }
 
+void AUTInventory::PreInitializeComponents()
+{
+	// get rid of components that are only supposed to be part of the pickup mesh
+	// TODO: would be better to not create in the first place, no reasonable engine hook to filter
+	for (int32 i = 0; i < SerializedComponents.Num(); i++)
+	{
+		USceneComponent* SceneComp = Cast<USceneComponent>(SerializedComponents[i]);
+		if (SceneComp != NULL && SceneComp->AttachParent != NULL && !SceneComp->AttachParent->IsRegistered())
+		{
+			TArray<USceneComponent*> Children;
+			SceneComp->GetChildrenComponents(true, Children);
+			for (USceneComponent* Child : Children)
+			{
+				Child->DestroyComponent();
+			}
+			SceneComp->DestroyComponent();
+		}
+	}
+
+	Super::PreInitializeComponents();
+}
+
 UMeshComponent* AUTInventory::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const
 {
 	return PickupMesh;

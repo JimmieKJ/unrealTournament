@@ -56,10 +56,13 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 #if WITH_EDITOR
 	virtual void CreateEditorPickupMesh() override
 	{
-		if (WeaponType != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
+		if (GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
 		{
 			CreatePickupMesh(this, EditorMesh, WeaponType, FloatHeight);
-			EditorMesh->SetHiddenInGame(true);
+			if (EditorMesh != NULL)
+			{
+				EditorMesh->SetHiddenInGame(true);
+			}
 		}
 	}
 	virtual void OnConstruction(const FTransform& Transform) override;

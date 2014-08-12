@@ -22,6 +22,7 @@ protected:
 	AUTCharacter* UTOwner;
 
 	virtual void PostInitProperties() override;
+	virtual void PreInitializeComponents() override;
 
 	/** called when this inventory item has been given to the specified character */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)

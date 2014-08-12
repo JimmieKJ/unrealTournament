@@ -20,10 +20,13 @@ void AUTPickupInventory::BeginPlay()
 #if WITH_EDITOR
 void AUTPickupInventory::CreateEditorPickupMesh()
 {
-	if (InventoryType != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
+	if (GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
 	{
 		CreatePickupMesh(this, EditorMesh, InventoryType, FloatHeight);
-		EditorMesh->SetHiddenInGame(true);
+		if (EditorMesh != NULL)
+		{
+			EditorMesh->SetHiddenInGame(true);
+		}
 	}
 }
 void AUTPickupInventory::PreEditUndo()
