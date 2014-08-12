@@ -42,6 +42,7 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 			if (RemoteRedeemer)
 			{
 				RemoteRedeemer->TryToDrive(UTOwner);
+				RemoteRedeemer->CollisionComp->bGenerateOverlapEvents = true;
 			}
 			else
 			{

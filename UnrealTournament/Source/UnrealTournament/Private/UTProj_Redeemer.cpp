@@ -48,7 +48,7 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		
 		if (Role == ROLE_Authority)
 		{
-			ExplodeHitLocation = HitLocation;
+			ExplodeHitLocation = HitLocation + FVector(0, 0, 400);
 			ExplodeMomentum = Momentum;
 			ExplodeStage1();
 		}
@@ -66,6 +66,7 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 		{
 			IgnoreActors.Add(ImpactedActor);
 		}
+
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType);
 	}

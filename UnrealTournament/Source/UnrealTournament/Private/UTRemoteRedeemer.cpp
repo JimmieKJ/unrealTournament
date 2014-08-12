@@ -15,6 +15,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 		CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
 		CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AUTRemoteRedeemer::OnOverlapBegin);
 		CollisionComp->bTraceComplexOnMove = true;
+		CollisionComp->bGenerateOverlapEvents = false;
 		RootComponent = CollisionComp;
 	}
 
@@ -83,13 +84,16 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 		DriverLeave(true);
 	}
 
-	Driver = NewDriver;
-	AController* C = NewDriver->Controller;
-	if (C)
+	if (NewDriver != nullptr)
 	{
-		C->UnPossess();
-		NewDriver->SetOwner(this);
-		C->Possess(this);
+		Driver = NewDriver;
+		AController* C = NewDriver->Controller;
+		if (C)
+		{
+			C->UnPossess();
+			NewDriver->SetOwner(this);
+			C->Possess(this);
+		}
 	}
 
 	return true;
@@ -118,6 +122,11 @@ void AUTRemoteRedeemer::OnStop(const FHitResult& Hit)
 void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (Role != ROLE_Authority)
+	{
+		return;
+	}
+
+	if (Driver == OtherActor)
 	{
 		return;
 	}
@@ -254,8 +263,9 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 		if (AdjustedDamageParams.OuterRadius > 0.0f)
 		{
 			TArray<AActor*> IgnoreActors;
+			FVector ExplosionCenter = GetActorLocation() + FVector(0, 0, 400);
 
-			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, GetActorLocation(), RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
+			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, ExplosionCenter, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 				DefaultRedeemer->MyDamageType, IgnoreActors, this, Controller, Controller, DefaultRedeemer->MyDamageType);
 		}
 	}
