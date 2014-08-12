@@ -8,4 +8,27 @@ UCLASS(Abstract, meta = (ChildCanTick))
 class AUTProj_Redeemer : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
+
+	FVector ExplodeHitLocation;
+	float ExplodeMomentum;
+
+	float ExplosionTimings[5];
+	float ExplosionRadii[6];
+
+	void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
+
+	void ExplodeStage(float RangeMultiplier);
+
+	UFUNCTION()
+	void ExplodeStage1();
+	UFUNCTION()
+	void ExplodeStage2();
+	UFUNCTION()
+	void ExplodeStage3();
+	UFUNCTION()
+	void ExplodeStage4();
+	UFUNCTION()
+	void ExplodeStage5();
+	UFUNCTION()
+	void ExplodeStage6();
 };

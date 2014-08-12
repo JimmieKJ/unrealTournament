@@ -21,8 +21,8 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
-	ProjectileMovement->InitialSpeed = 2000.f;
-	ProjectileMovement->MaxSpeed = 2000.f;
+	ProjectileMovement->InitialSpeed = 2200.f;
+	ProjectileMovement->MaxSpeed = 2200.f;
 	ProjectileMovement->ProjectileGravityScale = 0;
 	ProjectileMovement->bShouldBounce = false;
 	ProjectileMovement->OnProjectileStop.AddDynamic(this, &AUTRemoteRedeemer::OnStop);
@@ -39,6 +39,19 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 	RollSmoothingMultiplier = 5.0f;
 	MaxPitch = 75.0f;
 	MinPitch = -55.0f;
+
+	ExplosionTimings[0] = 0.5;
+	ExplosionTimings[1] = 0.2;
+	ExplosionTimings[2] = 0.2;
+	ExplosionTimings[3] = 0.2;
+	ExplosionTimings[4] = 0.2;
+
+	ExplosionRadii[0] = 0.125f;
+	ExplosionRadii[1] = 0.3f;
+	ExplosionRadii[2] = 0.475f;
+	ExplosionRadii[3] = 0.65f;
+	ExplosionRadii[4] = 0.825f;
+	ExplosionRadii[5] = 1.0f;
 }
 
 void AUTRemoteRedeemer::BeginPlay()
@@ -133,6 +146,21 @@ void AUTRemoteRedeemer::BlowUp()
 {
 	GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
 	DriverLeave(true);
+
+	ProjectileMovement->SetActive(false);
+
+	TArray<USceneComponent*> Components;
+	GetComponents<USceneComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		Components[i]->SetHiddenInGame(true);
+	}
+
+	if (!bExploded)
+	{
+		bExploded = true;
+		ExplodeStage1();
+	}
 }
 
 uint8 AUTRemoteRedeemer::GetTeamNum() const
@@ -215,4 +243,62 @@ bool AUTRemoteRedeemer::ServerBlowUp_Validate()
 void AUTRemoteRedeemer::ServerBlowUp_Implementation()
 {
 	BlowUp();
+}
+
+void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
+{
+	AUTProj_Redeemer *DefaultRedeemer = RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>();
+	if (DefaultRedeemer)
+	{
+		FRadialDamageParams AdjustedDamageParams = DefaultRedeemer->DamageParams;
+		if (AdjustedDamageParams.OuterRadius > 0.0f)
+		{
+			TArray<AActor*> IgnoreActors;
+
+			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, GetActorLocation(), RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
+				DefaultRedeemer->MyDamageType, IgnoreActors, this, Controller, Controller, DefaultRedeemer->MyDamageType);
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("UTRemoteRedeemer does not have a proper reference to UTProj_Redeemer"));
+	}
+}
+
+void AUTRemoteRedeemer::ExplodeStage1()
+{
+	ExplodeStage(ExplosionRadii[0]);
+	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage2, ExplosionTimings[0]);
+}
+void AUTRemoteRedeemer::ExplodeStage2()
+{
+	ExplodeStage(ExplosionRadii[1]);
+	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage3, ExplosionTimings[1]);
+}
+void AUTRemoteRedeemer::ExplodeStage3()
+{
+	ExplodeStage(ExplosionRadii[2]);
+	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage4, ExplosionTimings[2]);
+}
+void AUTRemoteRedeemer::ExplodeStage4()
+{
+	ExplodeStage(ExplosionRadii[3]);
+	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage5, ExplosionTimings[3]);
+}
+void AUTRemoteRedeemer::ExplodeStage5()
+{
+	ExplodeStage(ExplosionRadii[4]);
+	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage6, ExplosionTimings[4]);
+}
+void AUTRemoteRedeemer::ExplodeStage6()
+{
+	ExplodeStage(ExplosionRadii[5]);
+	ShutDown();
+}
+
+void AUTRemoteRedeemer::ShutDown()
+{
+	// Post explosion clean up here
+
+	SetLifeSpan(2.0f);
 }
