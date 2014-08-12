@@ -67,6 +67,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 	MaxSlideFallZ = -200.f;
 	SlideGravityScaling = 0.2f;
+	MinWallSlideSpeed = 200.f;
 
 	NavAgentProps.bCanCrouch = true;
 
@@ -657,11 +658,16 @@ bool UUTCharacterMovement::CanCrouchInCurrentState() const
 	return CanEverCrouch() && IsMovingOnGround();
 }
 
+void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
+{
+	bApplyWallSlide = ((Velocity.Z < 0.f) && (CurrentMultiJumpCount > 0) && (Velocity.Z > MaxSlideFallZ) && ((Acceleration | Impact.ImpactNormal) < 0.f) && (Velocity.Size2D() >= MinWallSlideSpeed));
+}
+
 void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta)
 {
 	if (IsFalling())
 	{
-		bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ) && ((Acceleration | Impact.ImpactNormal) < 0.f));
+		CheckWallSlide(Impact);
 	}
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }
@@ -709,7 +715,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					if (!IsValidLandingSpot(Result.Location, Result))
 					{
 						TickAirControl = 0.f;
-						bApplyWallSlide = ((Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ) && ((Acceleration | Result.ImpactNormal) < 0.f));
+						CheckWallSlide(Result);
 					}
 				}
 			}

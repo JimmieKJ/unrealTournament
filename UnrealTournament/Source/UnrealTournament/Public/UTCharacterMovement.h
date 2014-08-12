@@ -294,6 +294,10 @@ public:
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
 	float SlideGravityScaling;
 
+	/** Minimum horizontal velocity to wall slide */
+	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
+	float MinWallSlideSpeed;
+
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bApplyWallSlide;
 
@@ -301,6 +305,9 @@ public:
 
 	virtual float GetGravityZ() const override;
 	
+	/** Set bApplyWallSlide if should slide against wall we are currently touching */
+	virtual void CheckWallSlide(FHitResult const& Impact);
+
 	//=========================================
 	// Networking
 
