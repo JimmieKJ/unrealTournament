@@ -18,7 +18,8 @@ UUTWeaponStateFiringSpinUp::UUTWeaponStateFiringSpinUp(const FPostConstructIniti
 void UUTWeaponStateFiringSpinUp::BeginState(const UUTWeaponState* PrevState)
 {
 	CurrentShot = 0;
-	ShotTimeRemaining = 0.0f;
+	ShotTimeRemaining = -0.001f;
+	RefireCheckTimer();
 	IncrementShotTimer();
 	if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
 	{
