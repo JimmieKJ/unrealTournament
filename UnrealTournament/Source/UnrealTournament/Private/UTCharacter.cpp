@@ -448,8 +448,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 			if (UTDamageTypeCDO != NULL)
 			{
-				ResultMomentum.Z = UTDamageTypeCDO->bForceZMomentum ? FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size()) : ResultMomentum.Z;
-				if (Controller && (EventInstigator == Controller))
+				if (UTDamageTypeCDO->bForceZMomentum && CharacterMovement->MovementMode == MOVE_Walking)
+				{
+					ResultMomentum.Z = FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size());
+				}
+				if (EventInstigator == Controller && Controller != NULL)
 				{
 					ResultMomentum *= UTDamageTypeCDO->SelfMomentumBoost;
 				}
