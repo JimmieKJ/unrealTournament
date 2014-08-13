@@ -19,7 +19,7 @@ AUTDroppedPickup::AUTDroppedPickup(const FPostConstructInitializeProperties& PCI
 	Movement->UpdatedComponent = Collision;
 	Movement->OnProjectileStop.AddDynamic(this, &AUTDroppedPickup::PhysicsStopped);
 
-	bCollideWhenPlacing = true;
+	//bCollideWhenPlacing = true; // causes too many false positives at the moment, re-evaluate later
 	InitialLifeSpan = 15.0f;
 
 	SetReplicates(true);
