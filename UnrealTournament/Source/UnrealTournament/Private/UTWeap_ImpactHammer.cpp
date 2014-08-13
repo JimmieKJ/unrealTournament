@@ -22,6 +22,11 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+
+	EasyImpactJumpZ = 1500.f;
+	EasyImpactDamage = 30;
+	ImpactMaxHorizontalVelocity = 1500.f;
+	ImpactMaxVerticalVelocity = 1500.f;
 }
 
 void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
@@ -95,7 +100,38 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 			else if (Hit.Component != NULL)
 			{
 				// if we hit something undamageable (world geometry, etc) then the damage is caused to ourselves instead
-				UTOwner->TakeDamage(InstantHitInfo[CurrentFireMode].Damage * DamageMult * SelfDamageScale, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage * DamageMult * SelfDamageScale, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum * DamageMult * SelfForceScale), UTOwner->Controller, this);
+				// Special case of fixed damage and momentum
+				float FinalDamage = EasyImpactDamage;
+				if (UTOwner->CharacterMovement->Velocity.Z >= -1.f * UTOwner->MaxSafeFallSpeed)
+				{
+					// take falling damage, but give credit for it against impact damage
+					float OldHealth = UTOwner->Health;
+					UTOwner->TakeFallingDamage(Hit);
+					FinalDamage = FMath::Max(0.f, FinalDamage - (OldHealth - UTOwner->Health));
+				}
+				FVector JumpDir = -1.f*FireDir;
+				if ((SpawnRotation.Pitch < 290.f) && (SpawnRotation.Pitch > 260.f))
+				{
+					// consider as straight down
+					JumpDir = FVector(0.f, 0.f, 1.f);
+				}
+
+				// provide scaled boost in facing direction, clamped to ImpactMaxHorizontalVelocity and ImpactMaxVerticalVelocity
+				FVector NewVelocity = UTOwner->CharacterMovement->Velocity + JumpDir * EasyImpactJumpZ;
+				if (NewVelocity.Size2D() > ImpactMaxHorizontalVelocity)
+				{
+					float VelZ = NewVelocity.Z;
+					NewVelocity = NewVelocity.SafeNormal2D() * ImpactMaxHorizontalVelocity;
+					NewVelocity.Z = VelZ;
+				}
+				if (NewVelocity.Z > ImpactMaxVerticalVelocity)
+				{
+					NewVelocity.Z = ImpactMaxVerticalVelocity;
+				}
+				UTOwner->CharacterMovement->Velocity = NewVelocity;
+				UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
+				UTOwner->CharacterMovement->SetMovementMode(MOVE_Falling);
+				UTOwner->CharacterMovement->bNotifyApex = true;
 				UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner);
 			}
 		}
