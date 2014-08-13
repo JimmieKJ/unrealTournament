@@ -127,10 +127,10 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					NewVelocity.Z = ImpactMaxVerticalVelocity;
 				}
 				UTOwner->CharacterMovement->Velocity = NewVelocity;
-				UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
 				UTOwner->CharacterMovement->SetMovementMode(MOVE_Falling);
 				UTOwner->CharacterMovement->bNotifyApex = true;
 				UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner);
+				UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
 			}
 		}
 		if (OutHit != NULL)
