@@ -62,6 +62,11 @@ void AUTRemoteRedeemer::BeginPlay()
 	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::BlowUp, 20.0, false);
 }
 
+FVector AUTRemoteRedeemer::GetVelocity() const
+{
+	return ProjectileMovement->Velocity;
+}
+
 void AUTRemoteRedeemer::PostNetReceiveVelocity(const FVector& NewVelocity)
 {
 	ProjectileMovement->Velocity = NewVelocity;
@@ -242,6 +247,7 @@ void AUTRemoteRedeemer::GetActorEyesViewPoint(FVector& out_Location, FRotator& o
 void AUTRemoteRedeemer::PawnStartFire(uint8 FireModeNum)
 {
 	ServerBlowUp();
+	ProjectileMovement->SetActive(false);
 }
 
 bool AUTRemoteRedeemer::ServerBlowUp_Validate()
@@ -309,6 +315,11 @@ void AUTRemoteRedeemer::ExplodeStage6()
 void AUTRemoteRedeemer::ShutDown()
 {
 	// Post explosion clean up here
+	ProjectileMovement->SetActive(false);
 
 	SetLifeSpan(2.0f);
+}
+
+void AUTRemoteRedeemer::ForceReplication_Implementation()
+{
 }

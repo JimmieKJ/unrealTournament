@@ -248,12 +248,19 @@ void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float T
 }
 
 void UUTProjectileMovementComponent::UpdateState(float DeltaSeconds)
-{
+{	
 	AUTRemoteRedeemer* MyRedeemer = UpdatedComponent ? Cast<AUTRemoteRedeemer>(UpdatedComponent->GetOwner()) : NULL;
 	if (MyRedeemer)
 	{
 		if (MyRedeemer->IsLocallyControlled())
 		{
+			// Can only start sending moves if our controllers are synced up over the network, otherwise we flood the reliable buffer.
+			APlayerController* PC = Cast<APlayerController>(MyRedeemer->GetController());
+			if (PC && PC->AcknowledgedPawn != MyRedeemer)
+			{
+				return;
+			}
+
 			ServerUpdateState(Acceleration);
 		}
 		else
@@ -277,6 +284,22 @@ bool UUTProjectileMovementComponent::ServerUpdateState_Validate(FVector InAccele
 
 void UUTProjectileMovementComponent::ServerUpdateState_Implementation(FVector InAcceleration)
 {
+	bool bServerReadyForClient = true;
+	AUTRemoteRedeemer* MyRedeemer = UpdatedComponent ? Cast<AUTRemoteRedeemer>(UpdatedComponent->GetOwner()) : NULL;
+	if (MyRedeemer)
+	{
+		APlayerController* PC = Cast<APlayerController>(MyRedeemer->GetController());
+		if (PC)
+		{
+			bServerReadyForClient = PC->NotifyServerReceivedClientData(MyRedeemer, 0.0f);
+		}
+	}
+
+	if (!bServerReadyForClient)
+	{
+		return;
+	}
+
 	Acceleration = InAcceleration;
 	ReplicatedAcceleration = Acceleration;
 }

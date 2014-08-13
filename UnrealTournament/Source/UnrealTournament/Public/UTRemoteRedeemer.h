@@ -107,4 +107,9 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	void ExplodeStage5();
 	UFUNCTION()
 	void ExplodeStage6();
+
+	UFUNCTION(reliable, client)
+	void ForceReplication();
+
+	virtual FVector GetVelocity() const;
 };

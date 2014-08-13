@@ -41,7 +41,13 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 			AUTRemoteRedeemer* RemoteRedeemer = GetWorld()->SpawnActor<AUTRemoteRedeemer>(RemoteRedeemerClass, SpawnLocation, SpawnRotation, Params);
 			if (RemoteRedeemer)
 			{
-				RemoteRedeemer->TryToDrive(UTOwner);
+				if (UTOwner && UTOwner->Controller)
+				{
+					RemoteRedeemer->SetOwner(UTOwner->Controller);
+					RemoteRedeemer->ForceReplication();
+					RemoteRedeemer->TryToDrive(UTOwner);
+				}
+
 				RemoteRedeemer->CollisionComp->bGenerateOverlapEvents = true;
 			}
 			else
