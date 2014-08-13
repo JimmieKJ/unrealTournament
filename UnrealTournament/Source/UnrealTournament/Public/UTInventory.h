@@ -7,7 +7,7 @@
 #include "UTInventory.generated.h"
 
 UCLASS(Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
-class AUTInventory : public AActor
+class UNREALTOURNAMENT_API AUTInventory : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
