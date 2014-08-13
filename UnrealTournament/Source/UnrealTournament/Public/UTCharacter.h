@@ -298,6 +298,13 @@ class AUTCharacter : public ACharacter, public IUTTeamInterface
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual float GetRemoteViewPitch();
 
+	UPROPERTY(ReplicatedUsing = OnRepDrivenVehicle)
+	APawn* DrivenVehicle;
+
+	UFUNCTION()
+	virtual void OnRepDrivenVehicle();
+
+	void StartDriving(APawn* Vehicle);
 
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */

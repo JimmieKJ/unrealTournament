@@ -111,5 +111,8 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	UFUNCTION(reliable, client)
 	void ForceReplication();
 
-	virtual FVector GetVelocity() const;
+	virtual FVector GetVelocity() const override;
+
+	// This should get moved to Vehicle when it gets implemented
+	virtual bool IsRelevancyOwnerFor(AActor* ReplicatedActor, AActor* ActorOwner, AActor* ConnectionActor) override;
 };

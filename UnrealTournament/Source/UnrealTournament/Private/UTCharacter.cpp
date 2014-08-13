@@ -969,7 +969,11 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 
 void AUTCharacter::StopFire(uint8 FireModeNum)
 {
-	if (!IsLocallyControlled())
+	if (DrivenVehicle && !DrivenVehicle->IsLocallyControlled())
+	{
+		UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
+	}
+	else if (!DrivenVehicle && !IsLocallyControlled())
 	{
 		UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
 	}
@@ -1503,6 +1507,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepDodgeRolling, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteReplicationInfo, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -2155,9 +2160,23 @@ void AUTCharacter::PossessedBy(AController* NewController)
 
 void AUTCharacter::UnPossessed()
 {
-	ClearPendingFire();
+	StopFiring();
 
 	Super::UnPossessed();
+}
+
+void AUTCharacter::OnRepDrivenVehicle()
+{
+	if (DrivenVehicle)
+	{
+		StartDriving(DrivenVehicle);
+	}
+}
+
+void AUTCharacter::StartDriving(APawn* Vehicle)
+{
+	DrivenVehicle = Vehicle;
+	StopFiring();
 }
 
 void AUTCharacter::OnRep_PlayerState()

@@ -98,6 +98,11 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 			C->UnPossess();
 			NewDriver->SetOwner(this);
 			C->Possess(this);
+			AUTCharacter *UTChar = Cast<AUTCharacter>(NewDriver);
+			if (UTChar)
+			{
+				UTChar->StartDriving(this);
+			}
 		}
 	}
 
@@ -322,4 +327,19 @@ void AUTRemoteRedeemer::ShutDown()
 
 void AUTRemoteRedeemer::ForceReplication_Implementation()
 {
+}
+
+bool AUTRemoteRedeemer::IsRelevancyOwnerFor(AActor* ReplicatedActor, AActor* ActorOwner, AActor* ConnectionActor)
+{
+	if (ReplicatedActor == ActorOwner)
+	{
+		return true;
+	}
+
+	if (Driver == ReplicatedActor->GetOwner())
+	{
+		return true;
+	}
+
+	return Super::IsRelevancyOwnerFor(ReplicatedActor, ActorOwner, ConnectionActor);
 }
