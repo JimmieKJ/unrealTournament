@@ -59,7 +59,7 @@ void AUTInventory::PreInitializeComponents()
 	for (int32 i = 0; i < SerializedComponents.Num(); i++)
 	{
 		USceneComponent* SceneComp = Cast<USceneComponent>(SerializedComponents[i]);
-		if (SceneComp != NULL && SceneComp->AttachParent != NULL && !SceneComp->AttachParent->IsRegistered())
+		if (SceneComp != NULL && SceneComp->AttachParent != NULL && SceneComp->AttachParent == PickupMesh && !SceneComp->AttachParent->IsRegistered())
 		{
 			TArray<USceneComponent*> Children;
 			SceneComp->GetChildrenComponents(true, Children);
