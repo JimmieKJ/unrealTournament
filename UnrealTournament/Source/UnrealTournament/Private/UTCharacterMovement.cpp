@@ -82,6 +82,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollEndTime = 0.f;
 	CurrentWallDodgeCount = 0;
 	bWillDodgeRoll = false;
+	bApplyWallSlide = false;
 
 	OutofWaterZ = 700.f;
 	JumpOutOfWaterPitch = 0.f;
@@ -661,6 +662,12 @@ bool UUTCharacterMovement::CanCrouchInCurrentState() const
 void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 {
 	bApplyWallSlide = ((Velocity.Z < 0.f) && (CurrentMultiJumpCount > 0) && (Velocity.Z > MaxSlideFallZ) && ((Acceleration | Impact.ImpactNormal) < 0.f) && (Velocity.Size2D() >= MinWallSlideSpeed));
+	if (bApplyWallSlide && Cast<AUTCharacter>(CharacterOwner) && Cast<AUTCharacter>(CharacterOwner)->bCanPlayWallHitSound)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), Cast<AUTCharacter>(CharacterOwner)->WallHitSound, CharacterOwner, SRT_None);
+		Cast<AUTCharacter>(CharacterOwner)->bCanPlayWallHitSound = false;
+	}
+
 }
 
 void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta)

@@ -1764,10 +1764,6 @@ void AUTCharacter::MoveBlockedBy(const FHitResult& Impact)
 		{
 			TakeFallingDamage(Impact);
 		}
-		if ( bCanPlayWallHitSound && CharacterMovement->Velocity.SizeSquared() > FMath::Square(0.9f*CharacterMovement->MaxWalkSpeed))
-		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), WallHitSound, this, SRT_None);
-		}
 		LastWallHitNotifyTime = GetWorld()->GetTimeSeconds();
 	}
 }
