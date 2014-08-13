@@ -15,14 +15,6 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
 	float MinChargePct;
 
-	/** damage multiplier to self when hitting world geometry (impact jumps, etc) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
-	float SelfDamageScale;
-
-	/** momentum multiplier to self when hitting world geometry (impact jumps, etc) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
-	float SelfForceScale;
-
 	/** sound played when impact jumping (fire at wall) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
 	USoundBase* ImpactJumpSound;

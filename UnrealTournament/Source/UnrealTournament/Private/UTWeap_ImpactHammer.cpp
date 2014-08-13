@@ -14,9 +14,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 	}
 	WeaponBobScaling = 0.7f;
 	FullChargeTime = 2.5f;
-	MinChargePct = 0.3f;
-	SelfDamageScale = 0.3f;
-	SelfForceScale = -1.0f;
+	MinChargePct = 0.4f;
 
 	DroppedPickupClass = NULL; // doesn't drop
 
