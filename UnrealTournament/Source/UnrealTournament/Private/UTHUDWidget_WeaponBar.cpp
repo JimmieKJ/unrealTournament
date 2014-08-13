@@ -27,8 +27,8 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FPostConstructInitial
 	CellWidth = 72;		
 	CellHeight = 48;	
 
-	AmmoBarOffset = FVector2D(18.0f,-18.0f);
-	AmmoBarSize = FVector2D(34.0f, 9.0f);
+	AmmoBarOffset = FVector2D(18.0f,-13.0f);
+	AmmoBarSize = FVector2D(34.0f, 4.0f);
 	SlotOffset = FVector2D(9.0f, -15.0f);
 	for (int i=0;i<10;i++) CurrentWeaponScale[i] = 1.0f;
 
@@ -157,10 +157,10 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					
 					// Draw ammo bar ticks...
 
-					FVector2D BarOffset = AmmoBarOffset * CurrentWeaponScale[i];
-					FVector2D BarSize = AmmoBarSize * CurrentWeaponScale[i];
+					//FVector2D BarOffset = AmmoBarOffset * CurrentWeaponScale[i];
+					//FVector2D BarSize = AmmoBarSize * CurrentWeaponScale[i];
 
-					DrawTexture(OldHudTexture, X + BarOffset.X, BarOffset.Y, BarSize.X, BarSize.Y, 407,479, AmmoBarSize.X, AmmoBarSize.Y);
+					//DrawTexture(OldHudTexture, X + BarOffset.X, BarOffset.Y, BarSize.X, BarSize.Y, 407,479, AmmoBarSize.X, AmmoBarSize.Y);
 				}
 				else
 				{
@@ -227,14 +227,18 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		X = BarWidth * -0.5f;
 		for (int i=FirstWeaponIndex; i<= LastWeaponIndex; i++)
 		{
-			if (WeaponList[i] != NULL && WeaponList[i]->Ammo > 0 && WeaponList[i]->MaxAmmo > 0)
+			if (WeaponList[i] != NULL)
 			{
+				if  (WeaponList[i]->Ammo > 0 && WeaponList[i]->MaxAmmo > 0)
+				{
+					FVector2D BarOffset = AmmoBarOffset * CurrentWeaponScale[i];
+					FVector2D BarSize = (i == SelectedWeaponIndex) ?  AmmoBarSize * CurrentWeaponScale[i] : FVector2D(AmmoBarSize.X,2.0f);
 
-				FVector2D BarOffset = AmmoBarOffset * CurrentWeaponScale[i];
-				FVector2D BarSize = AmmoBarSize * CurrentWeaponScale[i];
-
-				float Perc = float(WeaponList[i]->Ammo) / float(WeaponList[i]->MaxAmmo);
-				DrawTexture(OldHudTexture, X + BarOffset.X, BarOffset.Y, BarSize.X * Perc, BarSize.Y + 3 * CurrentWeaponScale[i], 277,496,4,9);	// NOTE: I hacked in the height change because the art is iffy
+					float Perc = float(WeaponList[i]->Ammo) / float(WeaponList[i]->MaxAmmo);
+					DrawTexture(Canvas->DefaultTexture, X + BarOffset.X, BarOffset.Y, BarSize.X, BarSize.Y,0,0,1,1,1.0, FLinearColor::White);
+					DrawTexture(Canvas->DefaultTexture, X + BarOffset.X-1, BarOffset.Y-1, BarSize.X * Perc+2, BarSize.Y+2,0,0,1,1,1.0, FLinearColor(0.0,1.0,0.0,1.0));
+					DrawTexture(Canvas->DefaultTexture, X + BarOffset.X, BarOffset.Y, BarSize.X * Perc, BarSize.Y,0,0,1,1,1.0, FLinearColor(0.0,0.5,0.0,1.0));
+				}
 				X += CellWidth * CurrentWeaponScale[i];
 			}
 		}
@@ -249,7 +253,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				FVector2D NumberOffset = SlotOffset * CurrentWeaponScale[i];
 				FString NumText = i < 10 ? FString::Printf(TEXT("%i"),i+1) : FString::Printf(TEXT("0"));
 				DrawText(FText::FromString(NumText), X + NumberOffset.X, NumberOffset.Y, NumberFont, FVector2D(1,1), FLinearColor::Black, CurrentWeaponScale[i], 1.0f, i == SelectedWeaponIndex ? FLinearColor::Yellow : FLinearColor::White );
-
 				X += CellWidth * CurrentWeaponScale[i];
 			}
 		}
