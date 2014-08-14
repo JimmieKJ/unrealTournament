@@ -27,6 +27,11 @@ public class UnrealTournamentTarget : TargetRules
         }
 	}
 
+    public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+    {
+        return false;
+    }
+
     public override void SetupGlobalEnvironment(
         TargetInfo Target,
         ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
