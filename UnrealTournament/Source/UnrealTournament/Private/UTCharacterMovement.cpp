@@ -167,11 +167,11 @@ FVector UUTCharacterMovement::GetImpartedMovementBaseVelocity() const
 
 bool UUTCharacterMovement::CanDodge()
 {
-	if (GetCurrentMovementTime() < DodgeResetTime)
+	//if (GetCurrentMovementTime() < DodgeResetTime)
 	{
 		//UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
-	return (IsMovingOnGround() || IsFalling()) && !bIsDodgeRolling && CanEverJump() && !bWantsToCrouch && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
+	return (IsMovingOnGround() || IsFalling()) && !bIsDodgeRolling && CanEverJump() && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
 }
 
 bool UUTCharacterMovement::CanJump()
@@ -280,6 +280,10 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	else if (bWasDodgeRolling)
 	{
 		Velocity *= RollEndingSpeedFactor;
+		if (!CharacterOwner->bClientUpdating)
+		{
+			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+		}
 	}
 	bWasDodgeRolling = bIsDodgeRolling;
 
@@ -394,6 +398,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 			DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
 			Acceleration = DodgeRollAcceleration * Velocity.SafeNormal2D();
 			//UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
+			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging && !CharacterOwner->bClientUpdating)
 			{
 				DodgeResetTime = DodgeRollEndTime + DodgeResetInterval;
@@ -434,6 +439,25 @@ void UUTCharacterMovement::TriggerDodgeRoll()
 	{
 		DodgeRollTapTime = GetCurrentMovementTime();
 		bWillDodgeRoll = true;
+	}
+}
+
+void UUTCharacterMovement::CrouchRoll(const FVector& DodgeDir)
+{
+	if (!IsFalling() && CharacterOwner)
+	{
+		// @todo FIXMESTEVE test networking
+		DodgeRollTapTime = GetCurrentMovementTime();
+		bIsDodgeRolling = true;
+		DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
+		Acceleration = DodgeRollAcceleration * DodgeDir;
+		if (!CharacterOwner->bClientUpdating)
+		{
+			DodgeResetTime = DodgeRollEndTime + DodgeResetInterval;
+			//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+		}
+		Velocity = MaxDodgeRollSpeed*DodgeDir;
+		UUTGameplayStatics::UTPlaySound(GetWorld(), Cast<AUTCharacter>(CharacterOwner)->DodgeRollSound, CharacterOwner, SRT_None);
 	}
 }
 

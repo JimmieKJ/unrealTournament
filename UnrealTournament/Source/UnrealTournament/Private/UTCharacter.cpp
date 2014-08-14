@@ -1532,7 +1532,7 @@ bool AUTCharacter::CanDodge() const
 
 bool AUTCharacter::CanDodgeInternal_Implementation() const
 {
-	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
+	return UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
 }
 
 bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
@@ -1544,7 +1544,14 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			// blueprint handled dodge attempt
 			return true;
 		}
-		if (UTCharacterMovement && UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
+		if (bIsCrouched)
+		{
+			if (UTCharacterMovement)
+			{
+				UTCharacterMovement->CrouchRoll(DodgeDir);
+			}
+		}
+		else if (UTCharacterMovement && UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			bCanPlayWallHitSound = true;
 			OnDodge(DodgeDir);

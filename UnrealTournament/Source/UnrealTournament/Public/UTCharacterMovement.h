@@ -177,6 +177,9 @@ public:
 	/** Dodge roll when land (sets bWillDodgeRoll) */
 	virtual void TriggerDodgeRoll();
 
+	/** Dodge roll out of a crouch */
+	virtual void CrouchRoll(const FVector& DodgeDir);
+
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
 	bool bPressedDodgeForward;
 	bool bPressedDodgeBack;
