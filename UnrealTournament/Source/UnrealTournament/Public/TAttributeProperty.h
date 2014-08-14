@@ -6,10 +6,15 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#if PLATFORM_MAC
+// Mac compiler doesn't support forward enum declarations...
+#include "Slate.h"
+#else
 namespace ESlateCheckBoxState
 {
 	enum Type;
 };
+#endif
 
 struct TAttributePropertyBase
 {
