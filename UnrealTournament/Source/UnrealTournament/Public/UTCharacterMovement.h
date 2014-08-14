@@ -298,6 +298,10 @@ public:
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
 	float MinWallSlideSpeed;
 
+	/** Maximum dot product of acceleration and wall normal (more negative means accel pushing more into wall) */
+	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
+	float MaxSlideAccelNormal;
+
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bApplyWallSlide;
 

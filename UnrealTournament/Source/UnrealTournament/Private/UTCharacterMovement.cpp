@@ -67,7 +67,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 	MaxSlideFallZ = -200.f;
 	SlideGravityScaling = 0.2f;
-	MinWallSlideSpeed = 200.f;
+	MinWallSlideSpeed = 500.f;
+	MaxSlideAccelNormal = -0.4f;
 
 	NavAgentProps.bCanCrouch = true;
 
@@ -662,7 +663,7 @@ bool UUTCharacterMovement::CanCrouchInCurrentState() const
 void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 {
 	bApplyWallSlide = false;
-	if ((Velocity.Z < 0.f) && (CurrentMultiJumpCount > 0) && (Velocity.Z > MaxSlideFallZ) && ((Acceleration | Impact.ImpactNormal) < 0.f))
+	if ((Velocity.Z < 0.f) && (CurrentMultiJumpCount > 0) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.SafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
 	{
 		FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 		bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
