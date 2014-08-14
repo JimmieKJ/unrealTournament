@@ -2,6 +2,9 @@
 
 #include "UnrealTournament.h"
 #include "UTGameViewportClient.h"
+#include "Slate/SUWMessageBox.h"
+#include "Slate/SUWDialog.h"
+#include "Slate/SUWInputBox.h"
 
 
 UUTGameViewportClient::UUTGameViewportClient(const class FPostConstructInitializeProperties& PCIP)
@@ -16,6 +19,26 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 
 	FText NetworkErrorMessage;
+
+	if (FailureType == ENetworkFailure::PendingConnectionFailure && ErrorString == "NEEDPASS")
+	{
+
+		UE_LOG(UT,Log,TEXT("%s %s"), *NetDriver->LowLevelGetNetworkNumber(), *GetNameSafe(GetWorld()));
+		if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
+		{
+			LastAttemptedURL = NetDriver->ServerConnection->URL;
+			FirstPlayer->OpenDialog(SNew(SUWInputBox)
+									.OnDialogResult(FInputBoxResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
+									.PlayerOwner(FirstPlayer)
+									.MessageTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
+									.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
+									);
+		
+
+		}
+		return;
+	}
+
 
 	switch (FailureType)
 	{
@@ -41,4 +64,15 @@ void UUTGameViewportClient::NetworkFailureDialogResult(uint16 ButtonID)
 		FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
 	}
 	ReconnectDialog.Reset();
+}
+
+void UUTGameViewportClient::ConnectPasswordResult(const FString& InputText, bool bCancelled)
+{
+
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	if (!bCancelled && !InputText.IsEmpty() && FirstPlayer != NULL)
+	{
+		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
+		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+	}
 }

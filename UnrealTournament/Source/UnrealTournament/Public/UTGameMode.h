@@ -136,9 +136,13 @@ public:
 	virtual void PostInitProperties()
 	{
 		Super::PostInitProperties();
-
 		DisplayName = FText::FromName(GetClass()->GetFName());
 	}
+	UPROPERTY(Config)
+	FString ServerPassword;
+
+	UPROPERTY(Config)
+	uint32 bRequirePassword:1;
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	UFUNCTION(BlueprintImplementableEvent)

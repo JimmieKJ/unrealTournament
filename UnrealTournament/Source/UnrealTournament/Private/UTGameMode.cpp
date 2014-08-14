@@ -107,7 +107,25 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	MinPlayersToStart = FMath::Max(1, GetIntOption( Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
-	
+
+	InOpt = ParseOption(Options, TEXT("bRequirePassword"));
+	bRequirePassword= EvalBoolOptions(InOpt, bRequirePassword);
+	if (bRequirePassword)
+	{
+		InOpt = ParseOption(Options, TEXT("ServerPassword"));
+		if (!InOpt.IsEmpty())
+		{
+			ServerPassword = InOpt;
+		}
+
+		if (ServerPassword.IsEmpty())
+		{
+			bRequirePassword = false;
+		}
+	}
+
+	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
+
 	for (int32 i = 0; i < BuiltInMutators.Num(); i++)
 	{
 		AddMutatorClass(BuiltInMutators[i]);

@@ -15,8 +15,13 @@ protected:
 
 	TSharedPtr<class SUWDialog> ReconnectDialog;
 
+	// Holds the IP/Port of the last connect so we can try to reconnect
+	FURL LastAttemptedURL;
+
 	UFUNCTION()
 	virtual void NetworkFailureDialogResult(uint16 ButtonID);
 
+	UFUNCTION()
+	virtual void ConnectPasswordResult(const FString& InputText, bool bCancelled);
 };
 

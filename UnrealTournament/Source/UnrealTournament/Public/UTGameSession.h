@@ -10,6 +10,8 @@ class AUTGameSession : public AGameSession
 	GENERATED_UCLASS_BODY()
 
 
+	FString ApproveLogin(const FString& Options);
+
 protected:
 
 
