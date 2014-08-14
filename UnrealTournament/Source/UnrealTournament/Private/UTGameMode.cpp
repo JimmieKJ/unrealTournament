@@ -807,7 +807,7 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 
 		float NewRating = RatePlayerStart(P,Player);
 
-		if ( NewRating >= 30 )
+		if (NewRating >= 30.0f && GetWorld()->WorldType != EWorldType::PIE)
 		{
 			// this PlayerStart is good enough
 			return P;
@@ -870,15 +870,15 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 				float NextDist = (OtherCharacter->GetActorLocation() - StartLoc).Size();
 				static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
 
-				if ( NextDist < 3000.0f && !UTGameState->OnSameTeam(Player, OtherController) &&
+				if ( NextDist < 6000.0f && !UTGameState->OnSameTeam(Player, OtherController) &&
 					!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
 				{
-					Score -= (5.f - 0.001f * NextDist);
+					Score -= (5.f - 0.0006f * NextDist);
 				}
 				else if (bTwoPlayerGame)
 				{
 					// in 2 player game, look for any visibility
-					Score += FMath::Min(2.f,0.001f*NextDist);
+					Score += FMath::Min(2.f,0.0006f*NextDist);
 					if (!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation(), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
 					{
 						Score -= 5.f;
