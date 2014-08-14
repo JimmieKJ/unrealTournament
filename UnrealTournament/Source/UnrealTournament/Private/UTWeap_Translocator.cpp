@@ -33,7 +33,7 @@ void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
 {
 	Super::ConsumeAmmo(FireModeNum);
 
-	if ((FireModeNum == 1 || Ammo < MaxAmmo) && !GetWorldTimerManager().IsTimerActive(this, &AUTWeap_Translocator::RechargeTimer))
+	if ((FireModeNum == 1 || Ammo < MaxAmmo) && !GetWorldTimerManager().IsTimerActive(this, &AUTWeap_Translocator::RechargeTimer) && !bPendingKillPending)
 	{
 		GetWorldTimerManager().SetTimer(this, &AUTWeap_Translocator::RechargeTimer, AmmoRechargeRate, true);
 	}
