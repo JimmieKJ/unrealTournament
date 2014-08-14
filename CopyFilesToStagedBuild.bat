@@ -1,4 +1,5 @@
-Engine\Build\BatchFiles\RunUAT buildcookrun -project=unrealtournament -cook -pak -stage -platform=win64 -AllMaps
+call Engine\Build\BatchFiles\RunUAT buildcookrun -project=unrealtournament -cook -pak -stage -platform=win64 -AllMaps
+
 xcopy /s Engine\Content\Localization\ICU UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Content\Localization\ICU\
 xcopy /s Engine\Binaries\ThirdParty\ICU\icu4c-53_1\Win64\VS2013\*.dll UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Binaries\ThirdParty\ICU\icu4c-53_1\Win64\VS2013\
 xcopy Engine\Binaries\Win64\UE4.exe UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Binaries\Win64\
