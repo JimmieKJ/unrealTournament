@@ -454,7 +454,14 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 				if (EventInstigator == Controller && Controller != NULL)
 				{
-					ResultMomentum *= UTDamageTypeCDO->SelfMomentumBoost;
+					if (UTDamageTypeCDO->bSelfMomentumBoostOnlyZ)
+					{
+						ResultMomentum.Z *= UTDamageTypeCDO->SelfMomentumBoost;
+					}
+					else
+					{
+						ResultMomentum *= UTDamageTypeCDO->SelfMomentumBoost;
+					}
 				}
 			}
 			// if Z impulse is low enough and currently walking, remove Z impulse to prevent switch to falling physics, preventing lockdown effects

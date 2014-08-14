@@ -56,6 +56,10 @@ class UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	float SelfMomentumBoost;
 
+	/** if set SelfMomentumBoost only applies to Z component of momentum */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
+	uint32 bSelfMomentumBoostOnlyZ : 1;
+
 	/** if set, force some of the momentum of impacts to also be applied to upward Z
 	 * this makes hits more consistently noticeable and gameplay relevant, particularly in UT
 	 * because walking acceleration is very fast
