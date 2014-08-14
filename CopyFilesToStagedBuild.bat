@@ -5,7 +5,12 @@ xcopy /s Engine\Binaries\ThirdParty\ICU\icu4c-53_1\Win64\VS2013\*.dll UnrealTour
 xcopy Engine\Binaries\Win64\UE4.exe UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Binaries\Win64\
 xcopy Engine\Binaries\Win64\UE4-*.dll UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Binaries\Win64\
 xcopy UnrealTournament\Binaries\Win64\UE4-UnrealTournament.dll UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\UnrealTournament\Binaries\Win64\
+xcopy /s Engine\Plugins\Runtime\ExampleDeviceProfileSelector\UE4-*.dll UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Plugins\Runtime\ExampleDeviceProfileSelector\
+xcopy /s Engine\Plugins\Runtime\ExampleDeviceProfileSelector\*.uplugin UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Plugins\Runtime\ExampleDeviceProfileSelector\
+xcopy /s Engine\Plugins\Runtime\ExampleDeviceProfileSelector\*.png UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Engine\Plugins\Runtime\ExampleDeviceProfileSelector\
 xcopy /s UnrealTournament\Plugins\*UE4-*.dll UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\UnrealTournament\Plugins\
 xcopy /s UnrealTournament\Plugins\*.uplugin UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\UnrealTournament\Plugins\
 xcopy /s UnrealTournament\Plugins\*.uasset UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\UnrealTournament\Plugins\
+del UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\Manifest*txt
+xcopy RunUT.bat UnrealTournament\Saved\StagedBuilds\WindowsNoEditor\
 pause
