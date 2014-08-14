@@ -65,3 +65,13 @@ FReply SUWDialog::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEve
 	return FReply::Handled();
 }
 
+TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::Black)
+			.Text(*InItem.Get())
+		];
+}

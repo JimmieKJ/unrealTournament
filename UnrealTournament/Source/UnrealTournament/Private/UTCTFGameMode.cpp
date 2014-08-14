@@ -25,13 +25,16 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	HalftimeDuration = 15;	// 15 second half-time by default...
 	HUDClass = AUTHUD_CTF::StaticClass();
 	GameStateClass = AUTCTFGameState::StaticClass();
-	bAllowOvertime=true;
+	bAllowOvertime = true;
 	bOldSchool = false;
-	OvertimeDuration=5;
+	OvertimeDuration = 5;
 	bUseTeamStarts = true;
 	bSuddenDeath = true;
+	GoalScore = 0;
+	TimeLimit = 14;
+	MapPrefix = TEXT("CTF");
 
-	SuddenDeathHealthDrain=5;
+	SuddenDeathHealthDrain = 5;
 
 	//Add the translocator here for now :(
 	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/UserContent/Translocator/BP_Translocator.BP_Translocator_C'"));

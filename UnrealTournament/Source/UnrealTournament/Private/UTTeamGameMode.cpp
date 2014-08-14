@@ -3,6 +3,7 @@
 #include "UTTeamGameMode.h"
 #include "UTTeamInfo.h"
 #include "UTTeamPlayerStart.h"
+#include "Slate.h"
 
 UUTTeamInterface::UUTTeamInterface(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -232,4 +233,30 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 	{
 		return false;
 	}
+}
+
+void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+{
+	Super::CreateConfigWidgets(MenuSpace, ConfigProps);
+
+	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams));
+	ConfigProps.Add(BalanceTeamsAttr);
+
+	MenuSpace->AddSlot()
+	.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+	.AutoHeight()
+	.VAlign(VAlign_Top)
+	.HAlign(HAlign_Center)
+	[
+		SNew(SCheckBox)
+		.IsChecked(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+		.OnCheckStateChanged(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+		.Type(ESlateCheckBoxType::CheckBox)
+		.Content()
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::Black)
+			.Text(NSLOCTEXT("UTTeamGameMode", "BalanceTeams", "Balance Teams").ToString())
+		]
+	];
 }

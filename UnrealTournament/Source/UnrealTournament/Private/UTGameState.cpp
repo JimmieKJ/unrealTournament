@@ -15,6 +15,9 @@ AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
 	MultiKillDelay = 4.0f;
 	SpawnProtectionTime = 3.0f;
 	bWeaponStay = true;
+
+	ServerName = TEXT("My First Server");
+	ServerMOTD = TEXT("Welcome!");
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

@@ -20,7 +20,9 @@ class SUWDialog : public SCompoundWidget
 	{
 		return PlayerOwner;
 	}
-
+public:
+	/** utility to generate a simple text widget for list and combo boxes given a string value */
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;

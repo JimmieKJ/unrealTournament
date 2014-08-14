@@ -10,6 +10,7 @@
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "UTScoreboard.h"
+#include "Slate.h"
 
 UUTResetInterface::UUTResetInterface(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -54,6 +55,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	GameMessageClass=UUTGameMessage::StaticClass();
 
 	DefaultPlayerName = FString("Malcolm");
+	MapPrefix = TEXT("DM");
 }
 
 
@@ -1259,4 +1261,88 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	{
 		Mut->GetSeamlessTravelActorList(bToEntry, ActorList);
 	}
+}
+
+void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+{
+	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit));
+	ConfigProps.Add(TimeLimitAttr);
+	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore));
+	ConfigProps.Add(GoalScoreAttr);
+	TSharedPtr< TAttributePropertyBool > ForceRespawnAttr = MakeShareable(new TAttributePropertyBool(this, &bForceRespawn));
+	ConfigProps.Add(ForceRespawnAttr);
+
+	MenuSpace->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	.VAlign(VAlign_Top)
+	.HAlign(HAlign_Center)
+	[
+		SNew(SBox)
+		.WidthOverride(150.0f)
+		.Content()
+		[
+			SNew(SNumericEntryBox<int32>)
+			.LabelPadding(FMargin(10.0f, 0.0f))
+			.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+			.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+			.AllowSpin(true)
+			.Delta(1)
+			.MinValue(0)
+			.MaxValue(999)
+			.MinSliderValue(0)
+			.MaxSliderValue(99)
+			.Label()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
+			]
+		]
+	];
+	MenuSpace->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	.VAlign(VAlign_Top)
+	.HAlign(HAlign_Center)
+	[
+		SNew(SBox)
+		.WidthOverride(150.0f)
+		.Content()
+		[
+			SNew(SNumericEntryBox<int32>)
+			.LabelPadding(FMargin(10.0f, 0.0f))
+			.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+			.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+			.AllowSpin(true)
+			.Delta(1)
+			.MinValue(0)
+			.MaxValue(999)
+			.MinSliderValue(0)
+			.MaxSliderValue(60)
+			.Label()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(NSLOCTEXT("UTGameMode", "TimeLimit", "Time Limit"))
+			]
+		]
+	];
+	MenuSpace->AddSlot()
+		.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Center)
+		[
+			SNew(SCheckBox)
+			.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+			.OnCheckStateChanged(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+			.Type(ESlateCheckBoxType::CheckBox)
+			.Content()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn").ToString())
+			]
+		];
 }

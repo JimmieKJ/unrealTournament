@@ -8,6 +8,7 @@
 #include "SUWindowsStyle.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
+#include "SUWCreateGameDialog.h"
 #include "SUWInputBox.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
@@ -92,6 +93,25 @@ void SUWindowsDesktop::BuildFileSubMenu()
 		SAssignNew(Menu, SVerticalBox);
 		if (Menu.IsValid())
 		{
+			(*Menu).AddSlot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateLocal", "Create Local Game").ToString())
+				.OnClicked(this, &SUWindowsDesktop::OnCreateGame, false)
+			];
+			(*Menu).AddSlot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateOnline", "Create Multiplayer Server").ToString())
+				.OnClicked(this, &SUWindowsDesktop::OnCreateGame, true)
+			];
+
 			if (GWorld->GetWorld()->GetNetMode() == NM_Client)
 			{
 				(*Menu).AddSlot()
@@ -378,6 +398,15 @@ FReply SUWindowsDesktop::OnConnectIP()
 							.PlayerOwner(PlayerOwner)
 							.MessageTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
 							.MessageText(NSLOCTEXT("SUWindowsDesktop", "ConnecToIPDesc", "Enter address to connect to:"))
+							);
+	return FReply::Handled();
+}
+FReply SUWindowsDesktop::OnCreateGame(bool bOnline)
+{
+	PlayerOwner->OpenDialog(
+							SNew(SUWCreateGameDialog)
+							.PlayerOwner(PlayerOwner)
+							.IsOnline(bOnline)
 							);
 	return FReply::Handled();
 }

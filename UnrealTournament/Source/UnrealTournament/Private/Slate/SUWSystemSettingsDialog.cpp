@@ -37,7 +37,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 				.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 				.OptionsSource(&GeneralScalabilityList)
-				.OnGenerateWidget(this, &SUWSystemSettingsDialog::GenerateTextWidget)
+				.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 				.OnSelectionChanged(this, SelectionFunc)
 				.Content()
 				[
@@ -176,7 +176,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 						.OptionsSource(&ResList)
-						.OnGenerateWidget(this, &SUWSystemSettingsDialog::GenerateTextWidget)
+						.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 						.OnSelectionChanged(this, &SUWSystemSettingsDialog::OnResolutionSelected)
 						.Content()
 						[
@@ -430,17 +430,6 @@ FReply SUWSystemSettingsDialog::CancelClick()
 {
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
-}
-
-TSharedRef<SWidget> SUWSystemSettingsDialog::GenerateTextWidget(TSharedPtr<FString> InItem)
-{
-	return SNew(SBox)
-		.Padding(5)
-		[
-			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
-			.Text(*InItem.Get())
-		];
 }
 
 void SUWSystemSettingsDialog::OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)

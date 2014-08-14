@@ -53,4 +53,6 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	 * passed in team number is used as tiebreaker if the teams would be just as balanced either way
 	 */
 	virtual uint8 PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam);
+
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
 };

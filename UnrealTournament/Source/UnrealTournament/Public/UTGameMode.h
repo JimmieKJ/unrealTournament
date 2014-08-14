@@ -6,6 +6,8 @@
 #include "UTGameObjective.h"
 #include "UTPlayerController.h"
 #include "UTGameState.h"
+#include "TAttributeProperty.h"
+
 #include "UTGameMode.generated.h"
 
 /** Defines the current state of the game. */
@@ -16,7 +18,6 @@ namespace MatchState
 	extern const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern const FName MatchIsInOvertime;				// The game is in overtime
 }
-
 
 UCLASS(Config = Game, Abstract)
 class UNREALTOURNAMENT_API AUTGameMode : public AGameMode
@@ -45,7 +46,15 @@ public:
 
 	/** If TRUE, force dead players to respawn immediately */
 	UPROPERTY(globalconfig)
-	uint32 bForceRespawn:1;		
+	bool bForceRespawn;
+
+	/** If true, players will have to all be ready before the match will begin */
+	UPROPERTY()
+	bool bPlayersMustBeReady;
+
+	/** human readable localized name for the game mode */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
+	FText DisplayName;
 
 	/** Score needed to win the match.  Can be overridden with GOALSCORE=x on the url */
 	UPROPERTY(config)
@@ -65,10 +74,6 @@ public:
 
 	UPROPERTY()
 	bool bFirstBloodOccurred;
-
-	/** If true, players will have to all be ready before the match will begin */
-	UPROPERTY()
-	uint32 bPlayersMustBeReady;
 
 	UPROPERTY()
 	int32 MinPlayersToStart;
@@ -128,7 +133,14 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Mutator)
 	class AUTMutator* BaseMutator;
 
-	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
+	virtual void PostInitProperties()
+	{
+		Super::PostInitProperties();
+
+		DisplayName = FText::FromName(GetClass()->GetFName());
+	}
+
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	UFUNCTION(BlueprintImplementableEvent)
 	void PostInitGame(const FString& Options);
 	/** add a mutator by string path name */
@@ -227,14 +239,32 @@ public:
 
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 
+	/** called on the default object of this class by the UI to create widgets to manipulate this game type's settings
+	 * you can use TAttributeProperty<> to easily implement get/set delegates that map directly to the config property address
+	 * add any such to the ConfigProps array so the menu maintains the shared pointer
+	 */
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
+
+	/** returns whether the given map name is appropriate for this game type
+	 * this is just for UI and doesn't prevent the map from loading via e.g. the console
+	 */
+	virtual bool SupportsMap(const FString& MapName) const
+	{
+		return MapPrefix.Len() == 0 || MapName.StartsWith(MapPrefix + TEXT("-"));
+	}
+
 protected:
+	/** map prefix for valid maps (not including the dash); you can create more broad handling by overriding SupportsMap() */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
+	FString MapPrefix;
+
 	/** checks whether the mutator is allowed in this gametype and doesn't conflict with any existing mutators */
 	virtual bool AllowMutator(TSubclassOf<AUTMutator> MutClass);
 
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
 	 **/
-	inline uint32 EvalBoolOptions(FString InOpt, uint32 Default)
+	inline bool EvalBoolOptions(FString InOpt, bool Default)
 	{
 		if (!InOpt.IsEmpty())
 		{
@@ -253,10 +283,13 @@ protected:
 			}
 			else
 			{
-				return FCString::Atoi(*InOpt);
+				return FCString::Atoi(*InOpt) != 0;
 			}
 		}
-		return Default;
+		else
+		{
+			return Default;
+		}
 	}
 
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);

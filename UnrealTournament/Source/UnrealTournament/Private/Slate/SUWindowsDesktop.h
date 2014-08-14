@@ -31,6 +31,7 @@ protected:
 	TSharedPtr<class SHorizontalBox> MenuBar;
 
 	virtual FReply OnMenuConsoleCommand(FString Command);
+	virtual FReply OnCreateGame(bool bOnline);
 	virtual FReply OnConnectIP();
 	virtual void ConnectIPDialogResult(const FString& InputText, bool bCancelled);
 	virtual FReply OnChangeTeam(int32 NewTeamIndex);

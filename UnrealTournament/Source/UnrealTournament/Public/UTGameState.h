@@ -3,10 +3,16 @@
 
 #include "UTGameState.generated.h"
 
-UCLASS(minimalapi)
+UCLASS(minimalapi, Config = Game)
 class AUTGameState : public AGameState
 {
 	GENERATED_UCLASS_BODY()
+
+	/** server settings */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	FString ServerName;
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	FString ServerMOTD;
 
 	/** teams, if the game type has them */
 	UPROPERTY(BlueprintReadOnly, Category = GameState)

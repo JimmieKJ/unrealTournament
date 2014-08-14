@@ -40,7 +40,6 @@ protected:
 
 	FReply OKClick();
 	FReply CancelClick();
-	TSharedRef<SWidget> GenerateTextWidget(TSharedPtr<FString> InItem);
 	void OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnTextureResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
