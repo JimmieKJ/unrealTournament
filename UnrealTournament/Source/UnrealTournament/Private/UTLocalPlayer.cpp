@@ -62,16 +62,19 @@ void UUTLocalPlayer::HideMenu()
 
 }
 
-void UUTLocalPlayer::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
+TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
 {
-	OpenDialog(
-		SNew(SUWMessageBox)
+	TSharedPtr<class SUWDialog> NewDialog;
+	SAssignNew(NewDialog, SUWMessageBox)
 		.PlayerOwner(this)
 		.MessageTitle(MessageTitle)
 		.MessageText(MessageText)
 		.ButtonsMask(Buttons)
-		.OnDialogResult(Callback)
-		);
+		.OnDialogResult(Callback);
+
+
+	OpenDialog( NewDialog.ToSharedRef() );
+	return NewDialog;
 }
 
 void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog)

@@ -26,8 +26,11 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		default:									  NetworkErrorMessage = FText::FromString(ErrorString);
 	}
 
-
-	FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","NetworkErrorDialogTitle","Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+	if (!ReconnectDialog.IsValid())
+	{
+		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","NetworkErrorDialogTitle","Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+	}
+	
 }
 
 void UUTGameViewportClient::NetworkFailureDialogResult(uint16 ButtonID)
@@ -37,4 +40,5 @@ void UUTGameViewportClient::NetworkFailureDialogResult(uint16 ButtonID)
 		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
 		FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
 	}
+	ReconnectDialog.Reset();
 }

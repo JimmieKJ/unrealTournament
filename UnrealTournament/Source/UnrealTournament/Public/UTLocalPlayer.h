@@ -15,7 +15,7 @@ public:
 	virtual void ShowMenu();
 	virtual void HideMenu();
 
-	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
+	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
 
 	/** utilities for opening and closing dialogs */
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog);
