@@ -428,6 +428,15 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	StartNewPhysics(remainingTime, Iterations);
 }
 
+void UUTCharacterMovement::TriggerDodgeRoll()
+{
+	if (IsFalling() && !bWillDodgeRoll && (Velocity.Z < DodgeRollEarliestZ))
+	{
+		DodgeRollTapTime = GetCurrentMovementTime();
+		bWillDodgeRoll = true;
+	}
+}
+
 bool UUTCharacterMovement::DoJump()
 {
 	if ( IsFalling() ? DoMultiJump() : Super::DoJump())

@@ -174,6 +174,9 @@ public:
 	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadOnly)
 	float SlopeDodgeScaling;
 
+	/** Dodge roll when land (sets bWillDodgeRoll) */
+	virtual void TriggerDodgeRoll();
+
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
 	bool bPressedDodgeForward;
 	bool bPressedDodgeBack;

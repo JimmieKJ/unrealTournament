@@ -683,10 +683,9 @@ void AUTPlayerController::OnJumpDodgeRoll()
 void AUTPlayerController::OnDodgeRoll()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && MyCharMovement->IsFalling() && !MyCharMovement->bWillDodgeRoll && (MyCharMovement->Velocity.Z < MyCharMovement->DodgeRollEarliestZ))
+	if (MyCharMovement)
 	{
-		MyCharMovement->DodgeRollTapTime = MyCharMovement->GetCurrentMovementTime();
-		MyCharMovement->bWillDodgeRoll = true;
+		MyCharMovement->TriggerDodgeRoll();
 	}
 }
 
