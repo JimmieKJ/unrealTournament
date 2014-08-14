@@ -146,7 +146,7 @@ public:
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 	virtual void ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker);
-	virtual void ScoreKill(AController* Killer, AController* Other);
+	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
 	virtual bool IsAWinner(AUTPlayerController* PC);
@@ -165,6 +165,8 @@ public:
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
+
+	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 

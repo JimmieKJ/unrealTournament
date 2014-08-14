@@ -355,7 +355,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
 
-			ScoreKill(Killer, KilledPlayer);
+			ScoreKill(Killer, KilledPlayer, DamageType);
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 		}
 
@@ -376,7 +376,7 @@ void AUTGameMode::ScoreDamage(int DamageAmount, AController* Victim, AController
 {
 }
 
-void AUTGameMode::ScoreKill(AController* Killer, AController* Other)
+void AUTGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
 {
 	if( (Killer == Other) || (Killer == NULL) )
 	{
@@ -698,6 +698,15 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	bSetPlayerDefaultsSpawnInventory = false;
 }
 
+void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
+{
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
+	if (UTCharacter != NULL && UTCharacter->GetInventory() == NULL)
+	{
+		UTCharacter->AddDefaultInventory(DefaultInventory);
+	}
+}
+
 /* 
   Make sure pawn properties are back to default
   Also add default inventory
@@ -708,11 +717,7 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 
 	if (bSetPlayerDefaultsSpawnInventory)
 	{
-		AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
-		if (UTCharacter != NULL && UTCharacter->GetInventory() == NULL)
-		{
-			UTCharacter->AddDefaultInventory(DefaultInventory);
-		}
+		GiveDefaultInventory(PlayerPawn);
 	}
 
 	if (BaseMutator != NULL)

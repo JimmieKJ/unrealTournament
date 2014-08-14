@@ -981,6 +981,10 @@ void AUTCharacter::StopFire(uint8 FireModeNum)
 	{
 		Weapon->StopFire(FireModeNum);
 	}
+	else
+	{
+		SetPendingFire(FireModeNum, false);
+	}
 }
 
 void AUTCharacter::StopFiring()
@@ -1259,6 +1263,9 @@ void AUTCharacter::TossInventory(AUTInventory* InvToToss, FVector ExtraVelocity)
 
 void AUTCharacter::DiscardAllInventory()
 {
+	// If we're dumping inventory on the server, make sure pending fire doesn't get stuck
+	ClearPendingFire();
+
 	AUTInventory* Inv = InventoryList;
 	while (Inv != NULL)
 	{

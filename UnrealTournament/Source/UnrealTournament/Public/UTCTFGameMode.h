@@ -156,7 +156,7 @@ protected:
 
 	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 	virtual void ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker);
-	virtual void ScoreKill(AController* Killer, AController* Other);
+	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 
 	virtual bool IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum=255);
 

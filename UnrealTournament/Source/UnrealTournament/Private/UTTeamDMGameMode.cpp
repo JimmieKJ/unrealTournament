@@ -13,7 +13,7 @@ AUTTeamDMGameMode::AUTTeamDMGameMode(const FPostConstructInitializeProperties& P
 	HUDClass = AUTHUD_TeamDM::StaticClass();
 }
 
-void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other)
+void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
 {
 	AUTPlayerState* KillerState = (Killer != NULL) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 	AUTPlayerState* VictimState = (Other != NULL) ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
@@ -51,5 +51,5 @@ void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other)
 		}
 	}
 
-	Super::ScoreKill(Killer, Other);
+	Super::ScoreKill(Killer, Other, DamageType);
 }

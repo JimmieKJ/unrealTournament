@@ -489,7 +489,7 @@ void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AControl
 	}
 }
 
-void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other)
+void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
 {
 	if( (Killer != NULL && Killer != Other) )
 	{
