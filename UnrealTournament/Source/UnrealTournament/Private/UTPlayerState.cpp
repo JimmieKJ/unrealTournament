@@ -221,7 +221,7 @@ uint8 AUTPlayerState::GetTeamNum() const
 
 void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 {
-	if (Team != NULL && GetOwner() != NULL)
+	if (!bIsInactive && Team != NULL && GetOwner() != NULL)
 	{
 		Team->RemoveFromTeam(Cast<AController>(GetOwner()));
 	}
