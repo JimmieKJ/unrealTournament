@@ -115,6 +115,8 @@ TSharedRef<class SWidget> SUWMessageBox::BuildButtonBar(uint16 ButtonMask)
 		if (ButtonMask & UTDIALOG_BUTTON_RECONNECT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","ReconnectButton","Reconnect"), UTDIALOG_BUTTON_RECONNECT,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_EXIT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","ExitButton","Exit"), UTDIALOG_BUTTON_EXIT,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_QUIT) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","QuitButton","Quit"), UTDIALOG_BUTTON_QUIT,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_VIEW) BuildButton(Bar, NSLOCTEXT("SUWMessageBox","ViewButton","View"), UTDIALOG_BUTTON_QUIT,ButtonCount);
+		
 	}
 
 	return Bar.ToSharedRef();
