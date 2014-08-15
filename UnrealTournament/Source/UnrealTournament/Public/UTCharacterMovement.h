@@ -70,6 +70,10 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Wall Dodge Min Normal"))
 		float WallDodgeMinNormal;
 
+	/** Max dot product of previous wall normal and new wall normal to perform a dodge (to prevent dodging along a wall) */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	FVector LastWallDodgeNormal;
+
 	/** Max number of consecutive wall dodges without landing. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Wall Dodges"))
 		int32 MaxWallDodges;

@@ -32,7 +32,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CrouchedSpeedMultiplier_DEPRECATED = 0.31f;
 	MaxWalkSpeedCrouched = 315.f;
 	MaxWallDodges = 99;
-	WallDodgeMinNormal = 0.5f;  
+	WallDodgeMinNormal = 0.5f; 
 	WallDodgeGraceVelocityZ = -600.f;
 	AirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
@@ -219,7 +219,8 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			{
 				ForwardDir *= -1.f;
 			}
-			DodgeDir = Result.Normal*WallDodgeMinNormal*WallDodgeMinNormal + ForwardDir*(1.f - WallDodgeMinNormal)*(1.f - WallDodgeMinNormal);
+			DodgeDir = Result.Normal*WallDodgeMinNormal*WallDodgeMinNormal + ForwardDir*(1.f - WallDodgeMinNormal*WallDodgeMinNormal);
+			DodgeDir = DodgeDir.SafeNormal();
 			FVector NewDodgeCross = (DodgeDir ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
 			DodgeCross = ((NewDodgeCross | DodgeCross) < 0.f) ? -1.f*NewDodgeCross : NewDodgeCross;
 		}
@@ -230,6 +231,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		}
 		HorizontalImpulse = WallDodgeImpulseHorizontal;
 		CurrentWallDodgeCount++;
+		LastWallDodgeNormal = Result.Normal;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
 	{
@@ -732,6 +734,13 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	//bound acceleration, falling object has minimal ability to impact acceleration
 	FVector FallAcceleration = Acceleration;
 	FallAcceleration.Z = 0.f;
+
+	if ((CurrentWallDodgeCount > 0) && (Velocity.Z > 0.f) && ((FallAcceleration | LastWallDodgeNormal) < 0.f) && ((FallAcceleration.SafeNormal() | LastWallDodgeNormal) < -1.f*WallDodgeMinNormal) )
+	{
+		// don't air control back into wall you just dodged from  
+		FallAcceleration = FallAcceleration - (FallAcceleration | LastWallDodgeNormal) * LastWallDodgeNormal;
+		FallAcceleration = FallAcceleration.SafeNormal();
+	}
 	bool bSkipLandingAssist = true;
 	bApplyWallSlide = false;
 	FHitResult Hit(1.f);

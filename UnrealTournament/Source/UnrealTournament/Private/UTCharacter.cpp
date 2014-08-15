@@ -1602,7 +1602,7 @@ void AUTCharacter::CheckJumpInput(float DeltaTime)
 			FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
 			FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
 			FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
-			Dodge(DodgeDirX*X + DodgeDirY*Y, DodgeCrossX*X + DodgeCrossY*Y);
+			Dodge((DodgeDirX*X + DodgeDirY*Y).SafeNormal(), (DodgeCrossX*X + DodgeCrossY*Y).SafeNormal());
 		}
 	}
 }
