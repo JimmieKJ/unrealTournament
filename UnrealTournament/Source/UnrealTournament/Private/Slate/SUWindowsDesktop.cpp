@@ -10,6 +10,7 @@
 #include "SUWPlayerSettingsDialog.h"
 #include "SUWCreateGameDialog.h"
 #include "SUWInputBox.h"
+#include "SUWMessageBox.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
@@ -61,6 +62,7 @@ TSharedRef<SWidget> SUWindowsDesktop::BuildMenuBar()
 		BuildFileSubMenu();
 		BuildGameSubMenu();
 		BuildOptionsSubMenu();
+		BuildAboutSubMenu();
 	}
 
 	return MenuBar.ToSharedRef();
@@ -297,6 +299,47 @@ void SUWindowsDesktop::BuildOptionsSubMenu()
 		];
 }
 
+void SUWindowsDesktop::BuildAboutSubMenu()
+{
+	MenuBar->AddSlot()
+	.AutoWidth()
+	.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+	.HAlign(HAlign_Fill)
+	[
+		SNew(SComboButton)
+		.Method(SMenuAnchor::UseCurrentWindow)
+		.HasDownArrow(false)
+		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
+		.ButtonContent()
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About", "About").ToString())
+		]
+		.MenuContent()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_TPSReport", "Third Party Software Info").ToString())
+				.OnClicked(this, &SUWindowsDesktop::OpenTPSReport)
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits").ToString())
+				.OnClicked(this, &SUWindowsDesktop::OpenCredits)
+			]
+		]
+	];
+}
+
 /****************************** [ Other ] *****************************************/
 
 
@@ -418,4 +461,27 @@ void SUWindowsDesktop::ConnectIPDialogResult(const FString& InputText, bool bCan
 		LastIP = AdjustedText;
 		PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
 	}
+}
+
+FReply SUWindowsDesktop::OpenTPSReport()
+{
+	PlayerOwner->OpenDialog(
+							SNew(SUWMessageBox)
+							.PlayerOwner(PlayerOwner)
+							.MessageTitle(NSLOCTEXT("SUWindowsDesktop", "TPSReportTitle", "Third Party Software"))
+							.MessageText(NSLOCTEXT("SUWindowsDesktop", "TPSReportText", "TPSText"))
+							.ButtonsMask(UTDIALOG_BUTTON_OK)
+							);
+	return FReply::Handled();
+}
+FReply SUWindowsDesktop::OpenCredits()
+{
+	PlayerOwner->OpenDialog(
+							SNew(SUWMessageBox)
+							.PlayerOwner(PlayerOwner)
+							.MessageTitle(NSLOCTEXT("SUWindowsDesktop", "CreditsTitle", "Credits"))
+							.MessageText(NSLOCTEXT("SUWindowsDesktop", "CreditsText", "Coming Soon!"))
+							.ButtonsMask(UTDIALOG_BUTTON_OK)
+							);
+	return FReply::Handled();
 }

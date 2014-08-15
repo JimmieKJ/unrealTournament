@@ -37,6 +37,8 @@ protected:
 	virtual FReply OnChangeTeam(int32 NewTeamIndex);
 	virtual FReply OpenPlayerSettings();
 	virtual FReply OpenSystemSettings();
+	virtual FReply OpenTPSReport();
+	virtual FReply OpenCredits();
 
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual FReply OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent ) override;
@@ -51,5 +53,6 @@ protected:
 	virtual void BuildFileSubMenu();
 	virtual void BuildGameSubMenu();
 	virtual void BuildOptionsSubMenu();
+	virtual void BuildAboutSubMenu();
 };
 

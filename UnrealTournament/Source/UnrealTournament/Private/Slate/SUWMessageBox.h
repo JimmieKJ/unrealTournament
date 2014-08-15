@@ -19,7 +19,6 @@ class SUWMessageBox : public SUWDialog
 	void Construct(const FArguments& InArgs);
 
 protected:
-	TSharedPtr<class SCanvas> Canvas;
 	FDialogResultDelegate OnDialogResult;
 	
 	TSharedRef<class SWidget> BuildButtonBar(uint16 ButtonMask);

@@ -4,6 +4,7 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SUWMessageBox.h"
 #include "SUWindowsStyle.h"
+#include "SlateWordWrapper.h"
 
 void SUWMessageBox::Construct(const FArguments& InArgs)
 {
@@ -14,19 +15,16 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
 
-	FVector2D WindowSize = FVector2D(250, 150);	// PICK OUT OF MY BUTT -- Should look fine :)
-	FVector2D WindowPosition = FVector2D( (ViewportSize.X * 0.5), (ViewportSize.Y * 0.5));
+	TSharedPtr<STextBlock> MessageTextBlock;
 
 	ChildSlot
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Center)
 		[
-			SAssignNew(Canvas,SCanvas)
-			+SCanvas::Slot()
-			.Position(WindowPosition)
-			.Size(WindowSize)
+			SNew(SBorder)
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
+			.BorderImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
 			[
 				SNew(SOverlay)
 				+SOverlay::Slot()
@@ -40,11 +38,11 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
 					]
 				]
-				+SOverlay::Slot()
+				+ SOverlay::Slot()
 				[
 					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.Padding(0.0f,5.0f,0.0f,5.0f)
+					+ SVerticalBox::Slot()
+					.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 					.AutoHeight()
 					.VAlign(VAlign_Top)
 					.HAlign(HAlign_Center)
@@ -53,28 +51,40 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 						.ColorAndOpacity(FLinearColor::Black)
 						.Text(InArgs._MessageTitle)
 					]
-					+SVerticalBox::Slot()
-					.VAlign(VAlign_Fill)
-					.HAlign(HAlign_Fill)
-					.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
+					+ SVerticalBox::Slot()
+					.MaxHeight(ViewportSize.Y * 0.85f)
 					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
-						.Text(InArgs._MessageText)
-						.AutoWrapText(true)
+						SNew(SScrollBox)
+						+ SScrollBox::Slot()
+						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+						[
+							SAssignNew(MessageTextBlock, STextBlock)
+							.ColorAndOpacity(FLinearColor::Black)
+							.Text(InArgs._MessageText)
+							//.AutoWrapText(true) // manually wrapped due to bug, see below
+						]
 					]
-					+SVerticalBox::Slot()
+					+ SVerticalBox::Slot()
 					.AutoHeight()
 					.VAlign(VAlign_Bottom)
 					.HAlign(HAlign_Right)
-					.Padding(5.0f,5.0f,5.0f,5.0f)
+					.Padding(5.0f, 5.0f, 5.0f, 5.0f)
 					[
 						BuildButtonBar(InArgs._ButtonsMask)
 					]
-
 				]
 			]
 		];
+
+	// we have to manually apply the wrapping because SlateWordWrapper::WrapText() has a bug where it discards multi-line breaks and replaces with a single line break
+	FWordWrapper::FWrappedLineData WrapData;
+	SlateWordWrapper::WrapText(InArgs._MessageText.ToString(), FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>("NormalText").Font, ViewportSize.X * 0.9f, 1.0f, &WrapData);
+	FString WrappedText = InArgs._MessageText.ToString();
+	for (int32 i = 0; i < WrapData.Num(); i++)
+	{
+		WrappedText.InsertAt(WrapData[i].Value + i * 2, TEXT("\n"));
+	}
+	MessageTextBlock->SetText(FText::FromString(WrappedText));
 }
 
 void SUWMessageBox::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText, uint16 ButtonID, uint32 &ButtonCount)
