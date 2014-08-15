@@ -132,7 +132,6 @@ void AUTCharacter::BeginPlay()
 			PC->MyHUD->AddPostRenderedActor(this);
 		}
 	}
-	UE_LOG(UT,Log,TEXT("UTCHARACTER.BeginPlay()"));
 	if (Health == 0 && Role == ROLE_Authority)
 	{
 		Health = HealthMax;

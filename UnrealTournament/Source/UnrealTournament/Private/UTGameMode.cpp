@@ -816,11 +816,10 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 	{
 		APlayerStart* P = PlayerStarts[i];
 
-		if (Cast<APlayerStartPIE>( P ) != NULL )
+		if (P->IsA(APlayerStartPIE::StaticClass()))
 		{
 			// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
-			BestStart = P;
-			break;
+			return P;
 		}
 
 		float NewRating = RatePlayerStart(P,Player);
@@ -839,9 +838,16 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 	for ( int32 i=0; i<RandStart; i++ )
 	{
 		APlayerStart* P = PlayerStarts[i];
+
+		if (P->IsA(APlayerStartPIE::StaticClass()))
+		{
+			// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
+			return P;
+		}
+
 		float NewRating = RatePlayerStart(P,Player);
 
-		if ( NewRating >= 30 )
+		if (NewRating >= 30.0f && GetWorld()->WorldType != EWorldType::PIE)
 		{
 			// this PlayerStart is good enough
 			return P;
@@ -852,7 +858,11 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 			BestStart = P;
 		}
 	}
-	return BestStart ? BestStart : Super::ChoosePlayerStart(Player);
+	if (BestRating < 20.0f)
+	{
+		UE_LOG(UT, Log, TEXT("ChoosePlayerStart(): No ideal PlayerStart found for %s: Best was %s rating %f"), *GetNameSafe(Player), *GetNameSafe(BestStart), BestRating);
+	}
+	return (BestStart != NULL) ? BestStart : Super::ChoosePlayerStart(Player);
 }
 
 float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
@@ -889,14 +899,14 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 				static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
 
 				if ( NextDist < 6000.0f && !UTGameState->OnSameTeam(Player, OtherController) &&
-					!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)) )
+					!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)) )
 				{
 					Score -= (5.f - 0.0006f * NextDist);
 				}
 				else if (bTwoPlayerGame)
 				{
 					// in 2 player game, look for any visibility
-					Score += FMath::Min(2.f,0.0006f*NextDist);
+					Score += FMath::Min(2.f,0.0008f*NextDist);
 					if (!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation(), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
 					{
 						Score -= 5.f;

@@ -189,16 +189,17 @@ void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Moment
 
 float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 {
+	float Result = Super::RatePlayerStart(P, Player);
 	if (bUseTeamStarts && Player != NULL)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
 		if (PS != NULL && PS->Team != NULL && (Cast<AUTTeamPlayerStart>(P) == NULL || ((AUTTeamPlayerStart*)P)->TeamNum != PS->Team->TeamIndex))
 		{
 			// return low positive rating so it can be used as a last resort
-			return 1.0f;
+			Result *= 0.05;
 		}
 	}
-	return Super::RatePlayerStart(P, Player);
+	return Result;
 }
 
 bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
