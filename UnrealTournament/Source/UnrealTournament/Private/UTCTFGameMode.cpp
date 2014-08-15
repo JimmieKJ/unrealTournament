@@ -133,18 +133,24 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 				if (GameObject->PreviousHolders[i] != NULL) AssistCount++;
 			}
 
-			uint32 ScorePerPlayer = FMath::Max<uint32>(1, FlagTotalScorePool / AssistCount);
-
 			// NOTE: It's possible that the first player to pickup this flag might have left so first might be NULL.  Not
 			// sure if we should then assign the points to the next in line so I'm ditching the points for now.
-			for (int i=0;i<GameObject->PreviousHolders.Num();i++)
+
+			for (int i=0;i<GameObject->AssistTracking.Num();i++)
 			{
-				if (GameObject->PreviousHolders[i] != NULL)
+				AUTPlayerState* Who = GameObject->AssistTracking[i].Holder;
+				if (Who != NULL)
 				{
-					int Points = ScorePerPlayer + (i == 0 ? FlagFirstPickupPoints : 0);
-					UE_LOG(UT,Log,TEXT("    Assist Points for %s = %i"), *GameObject->PreviousHolders[i]->PlayerName, Points)
-					GameObject->PreviousHolders[i]->AdjustScore(Points);
-					if (GameObject->PreviousHolders[i] != Holder)
+					float HeldTime = GameObject->GetHeldTime(Who);
+					int32 Points = i == 0 ? FlagFirstPickupPoints : 0;
+					if (HeldTime > 0)
+					{
+						float Perc = HeldTime / GameObject->TotalHeldTime;
+						Points = Points + int(float(FlagTotalScorePool * Perc));
+					}
+					UE_LOG(UT,Log,TEXT("    Assist Points for %s = %i"), *Who->PlayerName, Points)				
+					Who->AdjustScore(Points);
+					if (Who != Holder)
 					{
 						GameObject->PreviousHolders[i]->Assists++;
 					}

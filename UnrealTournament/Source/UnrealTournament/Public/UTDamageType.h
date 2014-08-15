@@ -101,6 +101,11 @@ class UUTDamageType : public UDamageType
 	/** this is the name that will be used for the {WeaponName} message option*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText AssociatedWeaponName;
+
+	/** Any score given out will be multipled by this */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Score)
+	int32 ScoreMultiplier;
+
 };
 
 /** return the base momentum for the given damage event (before radial damage and any other modifiers) */

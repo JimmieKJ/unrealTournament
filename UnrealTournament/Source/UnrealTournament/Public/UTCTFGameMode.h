@@ -146,6 +146,9 @@ protected:
 	UPROPERTY(config)
 	uint32 FlagHolderPointsPerSecond;
 
+	UPROPERTY(config)
+	uint32 TelefragBonus;
+
 	virtual void HandleMatchHasStarted();
 
 	UFUNCTION()

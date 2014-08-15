@@ -199,6 +199,18 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 	}
 
+	uint32 AssistIndex = FindAssist(Holder);
+	if (AssistIndex < 0)
+	{
+		FAssistTracker NewAssist;
+		NewAssist.Holder = Holder;
+		NewAssist.TotalHeldTime = 0.0f;
+		AssistTracking.Add(NewAssist);
+		AssistIndex = AssistTracking.Num()-1;
+
+	}
+	AssistTracking[AssistIndex].LastHoldStartTime = GetWorld()->GetTimeSeconds();
+
 	// Track the pawns that have held this.  It's to be used for scoring
 	PreviousHolders.AddUnique(Holder);
 
@@ -232,6 +244,17 @@ void AUTCarriedObject::NoLongerHeld()
 	}
 
 	LastHoldingPawn = HoldingPawn;
+
+	float LastHeldTime = 0.0f;
+
+	int32 AssistIndex = FindAssist(Holder);
+	if (AssistIndex >= 0 && AssistIndex < AssistTracking.Num())
+	{
+		LastHeldTime = GetWorld()->GetTimeSeconds() - AssistTracking[AssistIndex].LastHoldStartTime;
+		AssistTracking[AssistIndex].TotalHeldTime += LastHeldTime;
+	}
+
+	TotalHeldTime += LastHeldTime;
 
 	HoldingPawn = NULL;
 	Holder = NULL;
@@ -282,6 +305,7 @@ void AUTCarriedObject::SendHome()
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();
+	TotalHeldTime = 0.0f;
 }
 
 void AUTCarriedObject::MoveToHome()
@@ -301,7 +325,6 @@ void AUTCarriedObject::MoveToHome()
 
 void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
-	UE_LOG(UT,Log,TEXT("FUCK: %s %s %s"), *Reason.ToString(), *GetNameSafe(ScoringPawn), *GetNameSafe(ScoringPS));
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (Game != NULL)
 	{
@@ -391,4 +414,20 @@ void AUTCarriedObject::GatherCurrentMovement()
 		ReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
 		ReplicatedMovement.bRepPhysics = false;
 	}
+}
+
+float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
+{
+	int32 AssistIndex = FindAssist(TestHolder);
+	float AssistTime = 0.0f;
+	if (AssistIndex >= 0)
+	{
+		if (TestHolder == Holder)
+		{	
+			AssistTime = GetWorld()->GetTimeSeconds() - AssistTracking[AssistIndex].LastHoldStartTime;
+		}
+		AssistTime += AssistTracking[AssistIndex].TotalHeldTime;
+	}
+
+	return AssistTime;
 }

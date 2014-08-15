@@ -8,6 +8,28 @@
 
 #include "UTCarriedObject.generated.h"
 
+USTRUCT()
+struct FAssistTracker
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+
+	// The PlayerState of the player who held it
+	UPROPERTY()
+	AUTPlayerState* Holder;
+
+	// Total amount of time it's been held.
+	UPROPERTY()
+	float TotalHeldTime;
+
+	// The timestamp where this player last picked up the flag.
+	UPROPERTY()
+	float LastHoldStartTime;
+};
+
+
+
 UCLASS()
 class AUTCarriedObject : public AActor, public IUTTeamInterface
 {
@@ -26,6 +48,10 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	// since it was last on a base.  It's only valid on the server.
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	TArray<AUTPlayerState*> PreviousHolders;
+
+	// Holds a array of information about people who have held this object
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	TArray<FAssistTracker> AssistTracking;
 
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -144,6 +170,25 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	virtual void OnRep_ReplicatedMovement() override;
 	virtual void GatherCurrentMovement() override;
 
+	virtual float GetHeldTime(AUTPlayerState* TestHolder);
+
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	float TotalHeldTime;
+
+	/**
+	 *	@Returns the index of a player in the assist array
+	 **/
+	virtual int32 FindAssist(AUTPlayerState* Holder)
+	{
+		for (int32 i=0; i<AssistTracking.Num(); i++)
+		{
+			if (AssistTracking[i].Holder == Holder) return i;
+		}
+
+		return -1;
+	}
+
+
 protected:
 
 	// Server Side - Holds a reference to the pawn that is holding this object
@@ -173,6 +218,7 @@ protected:
 	// Sound to play when this object is sent home
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	USoundCue* HomeSound;	
+
 
 	UFUNCTION()
 	virtual void OnObjectStateChanged();
@@ -209,4 +255,6 @@ protected:
 	virtual void SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject = NULL);
 
 	virtual void TossObject(AUTCharacter* ObjectHolder);
+
+
 };
