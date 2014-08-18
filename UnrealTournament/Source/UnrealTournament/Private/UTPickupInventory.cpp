@@ -232,6 +232,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 	if (Mesh != NULL)
 	{
 		Mesh->SetHiddenInGame(bNowHidden, true);
+		Mesh->SetVisibility(!bNowHidden, true);
 		// if previously there was no InventoryType or no Mesh then the whole Actor might have been hidden
 		SetActorHiddenInGame(false);
 	}
