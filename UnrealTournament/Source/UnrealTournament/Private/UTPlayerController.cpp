@@ -176,6 +176,18 @@ void AUTPlayerController::InitInputSystem()
 	}
 }
 
+// @TODO FIXMESTEVE temporary until we have version checking working correctly
+void AUTPlayerController::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	if ((GetNetMode() == NM_Client) && NetConnection && (NetConnection->NegotiatedVer != GEngineNetVersion))
+	{
+		// this should only happen if server is pre-official client
+		UE_LOG(UT, Error, TEXT("Server is outdated:  local version %d negotiated from server %d"), GEngineNetVersion, NetConnection->NegotiatedVer);
+	}
+}
+
 /* Cache a copy of the PlayerState cast'd to AUTPlayerState for easy reference.  Do it both here and when the replicated copy of APlayerState arrives in OnRep_PlayerState */
 void AUTPlayerController::InitPlayerState()
 {
