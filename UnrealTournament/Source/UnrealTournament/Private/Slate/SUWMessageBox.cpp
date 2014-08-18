@@ -17,6 +17,8 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 
 	TSharedPtr<STextBlock> MessageTextBlock;
 
+	const float MessageTextPaddingX = 10.0f;
+
 	ChildSlot
 		.VAlign(VAlign_Center)
 		.HAlign(HAlign_Center)
@@ -52,11 +54,12 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 						.Text(InArgs._MessageTitle)
 					]
 					+ SVerticalBox::Slot()
+					.Padding(MessageTextPaddingX, 0.0f, MessageTextPaddingX, 0.0f)
 					.MaxHeight(ViewportSize.Y * 0.85f)
 					[
 						SNew(SScrollBox)
 						+ SScrollBox::Slot()
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+						.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
 						[
 							SAssignNew(MessageTextBlock, STextBlock)
 							.ColorAndOpacity(FLinearColor::Black)
@@ -78,7 +81,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 
 	// we have to manually apply the wrapping because SlateWordWrapper::WrapText() has a bug where it discards multi-line breaks and replaces with a single line break
 	FWordWrapper::FWrappedLineData WrapData;
-	SlateWordWrapper::WrapText(InArgs._MessageText.ToString(), FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>("NormalText").Font, ViewportSize.X * InArgs._MaxWidthPct, 1.0f, &WrapData);
+	SlateWordWrapper::WrapText(InArgs._MessageText.ToString(), FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>("NormalText").Font, ViewportSize.X * InArgs._MaxWidthPct - MessageTextPaddingX * 2.0f - 1.0f, 1.0f, &WrapData);
 	FString WrappedText = InArgs._MessageText.ToString();
 	for (int32 i = 0; i < WrapData.Num(); i++)
 	{
