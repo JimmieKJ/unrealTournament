@@ -9,6 +9,13 @@ public class UnrealTournament : ModuleRules
         bFasterWithoutUnity = true;
         MinFilesUsingPrecompiledHeaderOverride = 1;
 
+		DynamicallyLoadedModuleNames.AddRange(
+			new string[] {
+				"Analytics",
+				"AnalyticsET",
+			}
+		);
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule" });
         if (Target.Type != TargetRules.TargetType.Server)
         {

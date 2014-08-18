@@ -9,9 +9,9 @@ class AUTGameState : public AGameState
 	GENERATED_UCLASS_BODY()
 
 	/** server settings */
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerName;
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerMOTD;
 
 	/** teams, if the game type has them */

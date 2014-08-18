@@ -199,7 +199,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 	}
 
-	uint32 AssistIndex = FindAssist(Holder);
+	int32 AssistIndex = FindAssist(Holder);
 	if (AssistIndex < 0)
 	{
 		FAssistTracker NewAssist;

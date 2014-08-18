@@ -19,6 +19,9 @@
 #include "UTCTFGameState.h"
 #include "UTChatMessage.h"
 #include "Engine/Console.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -974,9 +977,17 @@ void AUTPlayerController::DebugTest()
 {
 	UE_LOG(UT,Log,TEXT("DEBUG"));
 
-
+	//ShowMessage(NSLOCTEXT("A","B","C"), NSLOCTEXT("A","c","This is a test of word wrapping text.  I don't know why it didn't work.  But this is a test and it should wrap the right way.  The quick brown fox was a zombie who ate the lazy dog."),UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &AUTPlayerController::TestResult));
+	ShowMessage(NSLOCTEXT("A","B","C"), NSLOCTEXT("Engine", "ClientOutdated", "The match you are trying to join is running an incompatible version of the game.  Please try upgrading your game version."),UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &AUTPlayerController::TestResult));
+	
 	ServerDebugTest();
 }
+
+void AUTPlayerController::TestResult(uint16 ButtonID)
+{
+
+}
+
 
 void AUTPlayerController::ServerDebugTest_Implementation()
 {
@@ -1203,5 +1214,21 @@ void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 			UTCharacter->PlayEmote(EmoteIndex);
 		}
 		LastEmoteTime = GetWorld()->GetRealTimeSeconds();
+	}
+}
+
+void AUTPlayerController::ReceivedPlayer()
+{
+	Super::ReceivedPlayer();
+
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	
+	if (LP != NULL && LP->GetWorld()->GetNetMode() != NM_Standalone)
+	{
+		if (FUTAnalytics::IsAvailable())
+		{
+			FString ServerInfo = GetWorld()->GetNetDriver()->ServerConnection->URL.ToString();
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
+		}
 	}
 }

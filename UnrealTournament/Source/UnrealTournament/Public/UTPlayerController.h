@@ -1,4 +1,4 @@
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+	// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTATypes.h"
@@ -347,6 +347,9 @@ protected:
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();
+	virtual void TestResult(uint16 ButtonID);
+
+	virtual void ReceivedPlayer();
 
 };
 

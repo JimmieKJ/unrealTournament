@@ -324,11 +324,10 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		{
 			uint8 TeamNum = PC->GetTeamNum();
 			AActor* BestTarget = NULL;
-			if (BestPlayers[TeamNum] != NULL)
+			if (TeamNum < BestPlayers.Num() && BestPlayers[TeamNum] != NULL)
 			{
 				BestTarget = BestPlayers[TeamNum];
 			}
-			UE_LOG(UT,Log,TEXT("   Setting %s's viewtarget to %s"), *PC->PlayerState->PlayerName, *GetNameSafe(BestPlayers[TeamNum]));
 			PC->ClientHalftime();
 			PC->SetViewTarget(BestTarget);
 		}

@@ -38,6 +38,9 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayMaterials, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, SpawnProtectionTime, COND_InitialOnly);
+
+	DOREPLIFETIME_CONDITION(AUTGameState, ServerName, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
 }
 
 void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay)

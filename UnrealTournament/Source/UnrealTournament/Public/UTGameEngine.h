@@ -24,6 +24,7 @@ class UUTGameEngine : public UGameEngine
 	float GameNetworkVersion;
 
 	virtual void Init(IEngineLoop* InEngineLoop);
-
+	virtual void PreExit();
+	
 	UT_LOADMAP_DEFINITION()
 };
