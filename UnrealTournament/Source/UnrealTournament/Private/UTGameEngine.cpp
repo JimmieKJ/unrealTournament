@@ -42,6 +42,7 @@ void UUTGameEngine::PreExit()
 	FUTAnalytics::Shutdown();
 }
 
+// @TODO FIXMESTEVE - we want open to be relative like it used to be
 bool UUTGameEngine::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld)
 {
 	return HandleTravelCommand(Cmd, Ar, InWorld);
