@@ -19,6 +19,10 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(globalconfig)
 	bool bFirstRun;
 
+	/** UT specific networking version.  Must match for net compatibility. */
+	UPROPERTY()
+	float GameNetworkVersion;
+
 	virtual void Init(IEngineLoop* InEngineLoop);
 
 	UT_LOADMAP_DEFINITION()

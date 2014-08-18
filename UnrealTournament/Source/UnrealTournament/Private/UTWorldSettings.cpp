@@ -3,6 +3,7 @@
 #include "UTWorldSettings.h"
 #include "UTDmgType_KillZ.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "UTGameEngine.h"
 
 AUTWorldSettings::AUTWorldSettings(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -15,6 +16,13 @@ AUTWorldSettings::AUTWorldSettings(const FPostConstructInitializeProperties& PCI
 
 void AUTWorldSettings::BeginPlay()
 {
+	if (GEngineNetVersion == 0)
+	{
+		// @TODO FIXMESTEVE temp hack for network compatibility code
+		GEngineNetVersion = UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->GameNetworkVersion;
+		UE_LOG(UT, Warning, TEXT("************************************Set Net Version %d"), GEngineNetVersion);
+	}
+
 	Super::BeginPlay();
 
 	if (!bPendingKillPending)
