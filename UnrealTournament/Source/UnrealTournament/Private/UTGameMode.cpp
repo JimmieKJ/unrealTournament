@@ -28,7 +28,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 {
 	// set default pawn class to our Blueprinted character
 
-	static ConstructorHelpers::FObjectFinder<UClass> PlayerPawnObject(TEXT("Blueprint'/Game/RestrictedAssets/Blueprints/WIP/Steve/SteveUTCharacter.SteveUTCharacter_C'"));
+	static ConstructorHelpers::FObjectFinder<UClass> PlayerPawnObject(TEXT("Class'/Game/RestrictedAssets/Blueprints/WIP/Steve/SteveUTCharacter.SteveUTCharacter_C'"));
 	
 	if (PlayerPawnObject.Object != NULL)
 	{

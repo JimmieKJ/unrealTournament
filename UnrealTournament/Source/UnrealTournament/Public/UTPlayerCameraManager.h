@@ -7,7 +7,13 @@ UCLASS()
 class AUTPlayerCameraManager : public APlayerCameraManager
 {
 	GENERATED_UCLASS_BODY()
-	virtual void UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime);
 
+	/** post process settings used when there are no post process volumes */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PostProcess)
+	FPostProcessSettings DefaultPPSettings;
+
+	virtual void UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime) override;
+
+	virtual void ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV) override;
 };
 
