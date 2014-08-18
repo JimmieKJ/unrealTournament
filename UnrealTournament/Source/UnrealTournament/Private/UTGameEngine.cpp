@@ -41,3 +41,8 @@ void UUTGameEngine::PreExit()
 	Super::PreExit();
 	FUTAnalytics::Shutdown();
 }
+
+bool UUTGameEngine::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld)
+{
+	return HandleTravelCommand(Cmd, Ar, InWorld);
+}

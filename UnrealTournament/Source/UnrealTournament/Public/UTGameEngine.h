@@ -25,6 +25,7 @@ class UUTGameEngine : public UGameEngine
 
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
-	
+	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
+
 	UT_LOADMAP_DEFINITION()
 };
