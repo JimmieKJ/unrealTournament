@@ -11,6 +11,7 @@
 #include "SUWCreateGameDialog.h"
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"
+#include "UTGameEngine.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
@@ -63,6 +64,17 @@ TSharedRef<SWidget> SUWindowsDesktop::BuildMenuBar()
 		BuildGameSubMenu();
 		BuildOptionsSubMenu();
 		BuildAboutSubMenu();
+		
+		// version number
+		MenuBar->AddSlot()
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 5.0f, 0.0f)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::Black)
+			.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), GetDefault<UUTGameEngine>()->GameNetworkVersion))).ToString())
+		];
 	}
 
 	return MenuBar.ToSharedRef();
@@ -468,6 +480,7 @@ FReply SUWindowsDesktop::OpenTPSReport()
 	PlayerOwner->OpenDialog(
 							SNew(SUWMessageBox)
 							.PlayerOwner(PlayerOwner)
+							.MaxWidthPct(0.8f)
 							.MessageTitle(NSLOCTEXT("SUWindowsDesktop", "TPSReportTitle", "Third Party Software"))
 							.MessageText(NSLOCTEXT("SUWindowsDesktop", "TPSReportText", "TPSText"))
 							.ButtonsMask(UTDIALOG_BUTTON_OK)

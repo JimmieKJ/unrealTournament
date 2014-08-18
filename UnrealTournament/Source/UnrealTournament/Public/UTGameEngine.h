@@ -21,7 +21,7 @@ class UUTGameEngine : public UGameEngine
 
 	/** UT specific networking version.  Must match for net compatibility. */
 	UPROPERTY()
-	float GameNetworkVersion;
+	int32 GameNetworkVersion;
 
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();

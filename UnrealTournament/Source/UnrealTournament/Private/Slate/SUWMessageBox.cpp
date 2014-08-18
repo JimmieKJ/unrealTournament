@@ -78,7 +78,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 
 	// we have to manually apply the wrapping because SlateWordWrapper::WrapText() has a bug where it discards multi-line breaks and replaces with a single line break
 	FWordWrapper::FWrappedLineData WrapData;
-	SlateWordWrapper::WrapText(InArgs._MessageText.ToString(), FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>("NormalText").Font, ViewportSize.X * 0.9f, 1.0f, &WrapData);
+	SlateWordWrapper::WrapText(InArgs._MessageText.ToString(), FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>("NormalText").Font, ViewportSize.X * InArgs._MaxWidthPct, 1.0f, &WrapData);
 	FString WrappedText = InArgs._MessageText.ToString();
 	for (int32 i = 0; i < WrapData.Num(); i++)
 	{
