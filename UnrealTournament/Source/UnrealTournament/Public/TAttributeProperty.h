@@ -6,7 +6,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if PLATFORM_MAC
+#if PLATFORM_MAC || PLATFORM_LINUX
 // Mac compiler doesn't support forward enum declarations...
 #include "Slate.h"
 #else
