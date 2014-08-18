@@ -35,8 +35,6 @@ public class UnrealTournamentTarget : TargetRules
     {
         // Turn on shipping logging, this will only apply to monolithic builds
         UEBuildConfiguration.bUseLoggingInShipping = true;
-
-        UEBuildConfiguration.bBuildWithEditorOnlyData = true;
     }
 
     public override List<GUBPFormalBuild> GUBP_GetConfigsForFormalBuilds_MonolithicOnly(UnrealTargetPlatform HostPlatform)
