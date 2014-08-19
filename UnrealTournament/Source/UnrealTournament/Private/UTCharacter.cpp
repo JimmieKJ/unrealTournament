@@ -88,7 +88,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	bCanPlayWallHitSound = true;
 
 	SprintAmbientStartSpeed = 1000.f;
-	FallingAmbientStartSpeed = -1600.f;
+	FallingAmbientStartSpeed = -1300.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
@@ -2078,7 +2078,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		// @TODO FIXMESTEVE this should all be event driven
 		if (CharacterMovement->IsFalling() && (CharacterMovement->Velocity.Z < FallingAmbientStartSpeed))
 		{
-			SetLocalAmbientSound(FallingAmbientSound, FMath::Clamp((FallingAmbientStartSpeed - CharacterMovement->Velocity.Z) / (MaxSafeFallSpeed+FallingAmbientStartSpeed), 0.f, 1.f), false);
+			SetLocalAmbientSound(FallingAmbientSound, FMath::Clamp((FallingAmbientStartSpeed - CharacterMovement->Velocity.Z) / (1.5f*MaxSafeFallSpeed+FallingAmbientStartSpeed), 0.f, 1.5f), false);
 		}
 		else
 		{
