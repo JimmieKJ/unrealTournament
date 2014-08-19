@@ -88,7 +88,6 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	bCanPlayWallHitSound = true;
 
 	SprintAmbientStartSpeed = 1000.f;
-	SprintAmbientStopSpeed = 970.f;
 	FallingAmbientStartSpeed = -1600.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -899,20 +898,25 @@ void AUTCharacter::AmbientSoundUpdated()
 }
 
 
-void AUTCharacter::SetLocalAmbientSound(USoundBase* NewAmbientSound, bool bClear)
+void AUTCharacter::SetLocalAmbientSound(USoundBase* NewAmbientSound, float SoundVolume, bool bClear)
 {
 	if (bClear)
 	{
-		if (NewAmbientSound == LocalAmbientSound)
+		if ((NewAmbientSound != NULL) && (NewAmbientSound == LocalAmbientSound))
 		{
 			LocalAmbientSound = NULL;
+			LocalAmbientSoundUpdated();
 		}
 	}
 	else
 	{
 		LocalAmbientSound = NewAmbientSound;
+		LocalAmbientSoundUpdated();
+		if (LocalAmbientSoundComp && LocalAmbientSound)
+		{
+			LocalAmbientSoundComp->SetVolumeMultiplier(SoundVolume);
+		}
 	}
-	LocalAmbientSoundUpdated();
 }
 
 void AUTCharacter::LocalAmbientSoundUpdated()
@@ -931,22 +935,13 @@ void AUTCharacter::LocalAmbientSoundUpdated()
 			LocalAmbientSoundComp = NewObject<UAudioComponent>(this);
 			LocalAmbientSoundComp->bAutoDestroy = false;
 			LocalAmbientSoundComp->bAutoActivate = false;
+		//	LocalAmbientSoundComp->bAllowSpatialization = false;
 			LocalAmbientSoundComp->AttachTo(RootComponent);
 			LocalAmbientSoundComp->RegisterComponent();
 		}
 		if (LocalAmbientSoundComp->Sound != LocalAmbientSound)
 		{
-			// don't attenuate/spatialize sounds made by a local viewtarget
-			LocalAmbientSoundComp->bAllowSpatialization = true;
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-			{
-				if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
-				{
-					LocalAmbientSoundComp->bAllowSpatialization = false;
-					break;
-				}
-			}
-			LocalAmbientSoundComp->SetSound(AmbientSound);
+			LocalAmbientSoundComp->SetSound(LocalAmbientSound);
 		}
 		if (!LocalAmbientSoundComp->IsPlaying())
 		{
@@ -2083,25 +2078,25 @@ void AUTCharacter::Tick(float DeltaTime)
 		// @TODO FIXMESTEVE this should all be event driven
 		if (CharacterMovement->IsFalling() && (CharacterMovement->Velocity.Z < FallingAmbientStartSpeed))
 		{
-			SetLocalAmbientSound(FallingAmbientSound, false);
+			SetLocalAmbientSound(FallingAmbientSound, FMath::Clamp((FallingAmbientStartSpeed - CharacterMovement->Velocity.Z) / (MaxSafeFallSpeed+FallingAmbientStartSpeed), 0.f, 1.f), false);
 		}
 		else
 		{
-			SetLocalAmbientSound(FallingAmbientSound, true);
-			if (CharacterMovement->IsMovingOnGround())
+			SetLocalAmbientSound(FallingAmbientSound, 0.f, true);
+			if (CharacterMovement->IsMovingOnGround() && (CharacterMovement->Velocity.Size2D() > SprintAmbientStartSpeed))
 			{
-				if (CharacterMovement->Velocity.Size2D() > SprintAmbientStartSpeed)
-				{
-					SetLocalAmbientSound(SprintAmbientSound, false);
-				}
-				else if (CharacterMovement->Velocity.Size2D() < SprintAmbientStopSpeed)
-				{
-					SetLocalAmbientSound(SprintAmbientSound, true);
-				}
+				float NewLocalAmbientVolume = FMath::Min(1.f, (CharacterMovement->Velocity.Size2D() - SprintAmbientStartSpeed) / (UTCharacterMovement->SprintSpeed - SprintAmbientStartSpeed));
+				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime) + NewLocalAmbientVolume*DeltaTime;
+				SetLocalAmbientSound(SprintAmbientSound, LocalAmbientVolume, false);
+			}
+			else if ((LocalAmbientSound == SprintAmbientSound) && (LocalAmbientVolume > 0.05f))
+			{
+				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime);
+				SetLocalAmbientSound(SprintAmbientSound, LocalAmbientVolume, false);
 			}
 			else
 			{
-				SetLocalAmbientSound(SprintAmbientSound, true);
+				SetLocalAmbientSound(SprintAmbientSound, 0.f, true);
 			}
 		}
 	}
@@ -2111,13 +2106,6 @@ void AUTCharacter::Tick(float DeltaTime)
 		UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
 }
-
-float SprintAmbientStartSpeed;
-
-/** Running speed to stop sprint sound */
-UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-float SprintAmbientStopSpeed;
-
 
 void AUTCharacter::BecomeViewTarget(class APlayerController* PC)
 {

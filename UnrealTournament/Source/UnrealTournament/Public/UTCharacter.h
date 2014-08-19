@@ -518,11 +518,7 @@ public:
 	/** Running speed to engage sprint sound */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	float SprintAmbientStartSpeed;
-
-	/** Running speed to stop sprint sound */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	float SprintAmbientStopSpeed;
-
+	
 	/** Ambient sound played while falling fast */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* FallingAmbientSound;
@@ -807,6 +803,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	USoundBase* LocalAmbientSound;
 
+	/** Volume of Ambient sound played only on owning client */
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	float LocalAmbientVolume;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	UAudioComponent* LocalAmbientSoundComp;
 
@@ -826,7 +826,7 @@ public:
 	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
 	*/
 	UFUNCTION(BlueprintCallable, Category = Audio)
-	virtual void SetLocalAmbientSound(USoundBase* NewAmbientSound, bool bClear = false);
+	virtual void SetLocalAmbientSound(USoundBase* NewAmbientSound, float SoundVolume = 0.f, bool bClear = false);
 
 	UFUNCTION()
 	void LocalAmbientSoundUpdated();
