@@ -36,6 +36,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxConsecutiveWallDodgeDP = 0.97f;
 	WallDodgeGraceVelocityZ = -600.f;
 	AirControl = 0.4f;
+	MultiJumpAirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
 	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
@@ -86,6 +87,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	bWillDodgeRoll = false;
 	bApplyWallSlide = false;
 
+	EasyImpactImpulse = 1500.f;
+	MaxUndampedImpulse = 2000.f;
+
 	OutofWaterZ = 700.f;
 	JumpOutOfWaterPitch = 0.f;
 }
@@ -135,6 +139,51 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 }
 
+void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted)
+{
+	if (HasValidData() && !Impulse.IsZero())
+	{
+		// handle scaling by mass
+		FVector FinalImpulse = Impulse;
+		if (Mass > SMALL_NUMBER)
+		{
+			FinalImpulse = FinalImpulse / Mass;
+		}
+
+		// dampen impulse if already traveling fast.  Shouldn't affect 1st rocket, but should affect 2 and 3
+		// First dampen XY component that is in the direction of the current PendingVelocity
+		float FinalImpulseZ = FinalImpulse.Z;
+		FinalImpulse.Z = 0.f;
+		FVector PendingVelocity = Velocity + PendingImpulseToApply;
+		FVector PendingVelocityDir = PendingVelocity.SafeNormal();
+		FVector AdditiveImpulse = PendingVelocityDir * (PendingVelocityDir | FinalImpulse);
+		FVector OrthogonalImpulse = FinalImpulse - AdditiveImpulse;
+		FVector ResultVelocity = PendingVelocity + AdditiveImpulse;
+		float CurrentXYSpeed = PendingVelocity.Size2D();
+		float ResultXYSpeed = ResultVelocity.Size2D();
+		float XYDelta = ResultXYSpeed - CurrentXYSpeed;
+		if (XYDelta > 0.f)
+		{
+			float PctBelowRun = FMath::Clamp((MaxWalkSpeed - CurrentXYSpeed)/XYDelta, 0.f, 1.f);
+			float PctBelowDodge = FMath::Clamp((DodgeImpulseHorizontal - CurrentXYSpeed)/XYDelta, 0.f ,1.f);
+			float PctAboveDodge = FMath::Max(0.f, 1.f - PctBelowDodge);
+			PctBelowDodge = FMath::Max(0.f, PctBelowDodge - PctBelowRun);
+			FinalImpulse *= (PctBelowRun + PctBelowDodge + FMath::Max(0.5f, 1.f - PctAboveDodge)*PctAboveDodge);
+		}
+		FinalImpulse.Z = FinalImpulseZ;
+
+		// Now for Z component
+		float DampingThreshold = bSelfInflicted ? MaxUndampedImpulse : MaxAdditiveDodgeJumpSpeed;
+		if ((FinalImpulse.Z > 0.f) && (FinalImpulse.Z + PendingVelocity.Z > DampingThreshold))
+		{
+			float PctBelowBoost = FMath::Clamp((DampingThreshold - PendingVelocity.Z) / FinalImpulse.Z, 0.f, 1.f);
+			FinalImpulse.Z *= (PctBelowBoost + (1.f - PctBelowBoost)*FMath::Max(0.5f, PctBelowBoost));
+		}
+
+		PendingImpulseToApply += FinalImpulse;
+	}
+}
+
 bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 {
 	if (!HasValidData())
@@ -154,7 +203,7 @@ FVector UUTCharacterMovement::GetImpartedMovementBaseVelocity() const
 
 	if (!Result.IsZero())
 	{
-		// clamp total velocity to GroundSpeed+JumpZ+Imparted total
+		// clamp total velocity to GroundSpeed+JumpZ+Imparted total TODO SEPARATE XY and Z
 		float XYSpeed = ((Result.X == 0.f) && (Result.Y == 0.f)) ? 0.f : Result.Size2D();
 		float MaxSpeedSq = FMath::Square(MaxWalkSpeed + Result.Size2D()) + FMath::Square(JumpZVelocity + Result.Z);
 		if ((Velocity + Result).SizeSquared() > MaxSpeedSq)
@@ -753,7 +802,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	if (!HasRootMotion())
 	{
 		// test for slope to avoid using air control to climb walls 
-		float TickAirControl = AirControl;
+		float TickAirControl = (CurrentMultiJumpCount - CurrentWallDodgeCount  < 2) ? AirControl : MultiJumpAirControl;
 		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
 		{
 			const float TestWalkTime = FMath::Max(deltaTime, 0.05f);

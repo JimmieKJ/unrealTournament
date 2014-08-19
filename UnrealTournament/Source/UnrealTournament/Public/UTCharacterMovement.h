@@ -35,7 +35,19 @@ public:
 	/** Last Z position when standing on ground - used for eyeheight smoothing */
 	UPROPERTY()
 	float OldZ;
-	
+
+	/** Impulse imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
+	float EasyImpactImpulse;
+
+	/** Max undamped Z Impulse. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
+	float MaxUndampedImpulse;
+
+	/** Add an impulse, damped if player would end up going too fast */
+	UFUNCTION(BlueprintCallable, Category = "Impulse")
+	virtual void AddDampedImpulse(FVector Impulse, bool bSelfInflicted);
+
 	//=========================================
 	// DODGING
 	/** Dodge impulse in XY plane */
@@ -228,6 +240,10 @@ public:
 	/** Vertical impulse on multijump. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump impulse (vertical)"))
 	float MultiJumpImpulse;
+
+	/** Air control during multijump . */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multijump)
+	float MultiJumpAirControl;
 
 	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) override;
 

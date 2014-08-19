@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTWeap_ImpactHammer.h"
 #include "UTWeaponStateFiringCharged.h"
+#include "UTCharacterMovement.h"
 
 AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState0")))
@@ -21,7 +22,6 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
-	EasyImpactJumpZ = 1500.f;
 	EasyImpactDamage = 30;
 	ImpactMaxHorizontalVelocity = 1500.f;
 	ImpactMaxVerticalVelocity = 1500.f;
@@ -95,7 +95,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					}
 				}
 			}
-			else if (Hit.Component != NULL)
+			else if ((Hit.Component != NULL) && UTOwner->UTCharacterMovement)
 			{
 				// if we hit something undamageable (world geometry, etc) then the damage is caused to ourselves instead
 				// Special case of fixed damage and momentum
@@ -115,7 +115,8 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				}
 
 				// provide scaled boost in facing direction, clamped to ImpactMaxHorizontalVelocity and ImpactMaxVerticalVelocity
-				FVector NewVelocity = UTOwner->CharacterMovement->Velocity + JumpDir * EasyImpactJumpZ;
+				// @TODO FIXMESTEVE should use AddDampedImpulse()?
+				FVector NewVelocity = UTOwner->CharacterMovement->Velocity + JumpDir * UTOwner->UTCharacterMovement->EasyImpactImpulse;
 				if (NewVelocity.Size2D() > ImpactMaxHorizontalVelocity)
 				{
 					float VelZ = NewVelocity.Z;

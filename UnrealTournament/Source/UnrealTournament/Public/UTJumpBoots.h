@@ -11,11 +11,18 @@ class AUTJumpBoots : public AUTInventory
 	/** number of super jumps allowed before the boots run out */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = JumpBoots)
 	int32 NumJumps;
+
 	/** Added to multijump Z speed while equipped */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = JumpBoots)
 	float SuperJumpZ;
+
+	/** Air control during multijump while equipped */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpBoots)
+	float MultiJumpAirControl;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	USoundBase* SuperJumpSound;
+
 	/** effect played on the character when the boots are activated */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTReplicatedEmitter> SuperJumpEffect;

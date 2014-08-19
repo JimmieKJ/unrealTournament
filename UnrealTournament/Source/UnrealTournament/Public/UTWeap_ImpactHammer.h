@@ -27,10 +27,6 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	bool AllowAutoHit(AActor* PotentialTarget);
 
-	/** Velocity Z imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
-	float EasyImpactJumpZ;
-
 	/** Damage imparted by "easy" impact jump. Not charge dependent. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
 	float EasyImpactDamage;

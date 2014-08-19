@@ -437,20 +437,21 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					}
 				}
 			}
-
+			ResultDamage = 0;
 			Health -= ResultDamage;
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 
 			// Let the game Score damage if it wants to
 			Game->ScoreDamage(ResultDamage, Controller, EventInstigator);
 
+			bool bIsSelfDamage = (EventInstigator == Controller && Controller != NULL);
 			if (UTDamageTypeCDO != NULL)
 			{
 				if (UTDamageTypeCDO->bForceZMomentum && CharacterMovement->MovementMode == MOVE_Walking)
 				{
 					ResultMomentum.Z = FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size());
 				}
-				if (EventInstigator == Controller && Controller != NULL)
+				if (bIsSelfDamage)
 				{
 					if (UTDamageTypeCDO->bSelfMomentumBoostOnlyZ)
 					{
@@ -467,7 +468,14 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				ResultMomentum.Z = 0.0f;
 			}
-			CharacterMovement->AddImpulse(ResultMomentum, false);
+			if (UTCharacterMovement)
+			{
+				UTCharacterMovement->AddDampedImpulse(ResultMomentum, bIsSelfDamage);
+			}
+			else
+			{
+				CharacterMovement->AddImpulse(ResultMomentum, false);
+			}
 			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, DamageEvent);
 			SetLastTakeHitInfo(ResultDamage, ResultMomentum, DamageEvent);
 			if (Health <= 0)

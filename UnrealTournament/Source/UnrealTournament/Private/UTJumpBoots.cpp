@@ -10,6 +10,7 @@ AUTJumpBoots::AUTJumpBoots(const FPostConstructInitializeProperties& PCIP)
 {
 	NumJumps = 3;
 	SuperJumpZ = 1500.0f;
+	MultiJumpAirControl = 0.8f;
 	bCallOwnerEvent = true;
 }
 
@@ -22,10 +23,14 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 		{
 			Movement->MaxMultiJumpCount = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MaxMultiJumpCount;
 			Movement->MultiJumpImpulse = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MultiJumpImpulse;
+			Movement->MultiJumpAirControl = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MultiJumpAirControl;
+
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
 		}
 		else
 		{
+			Movement->MultiJumpAirControl = MultiJumpAirControl;
+
 			if (Movement->MaxMultiJumpCount <= 1)
 			{
 				Movement->MaxMultiJumpCount = 2;
