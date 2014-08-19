@@ -52,7 +52,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	FFAPlayerColor = FLinearColor(0.020845f, 0.335f, 0.0f, 1.0f);
 
 	LastEmoteTime = 0.0f;
-	EmoteCooldownTime = 5.0f;
+	EmoteCooldownTime = 0.3f;
 }
 
 void AUTPlayerController::ToggleSingleTap()
@@ -1219,13 +1219,9 @@ bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
 
 void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 {
-	if (GetWorld()->GetRealTimeSeconds() - LastEmoteTime > EmoteCooldownTime - 0.5f)
+	if (UTCharacter != nullptr)
 	{
-		if (UTCharacter != nullptr)
-		{
-			UTCharacter->PlayEmote(EmoteIndex);
-		}
-		LastEmoteTime = GetWorld()->GetRealTimeSeconds();
+		UTCharacter->PlayEmote(EmoteIndex);
 	}
 }
 
