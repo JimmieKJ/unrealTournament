@@ -47,3 +47,54 @@ bool UUTGameEngine::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorl
 {
 	return HandleTravelCommand(Cmd, Ar, InWorld);
 }
+
+bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
+{
+	if (FParse::Command(&Cmd, TEXT("START")))
+	{
+		FWorldContext &WorldContext = GetWorldContextFromWorldChecked(InWorld);
+		FURL TestURL(&WorldContext.LastURL, Cmd, TRAVEL_Absolute);
+		// make sure the file exists if we are opening a local file
+		if (TestURL.IsLocalInternal() && !MakeSureMapNameIsValid(TestURL.Map))
+		{
+			Out.Logf(TEXT("ERROR: The map '%s' does not exist."), *TestURL.Map);
+			return true;
+		}
+		else
+		{
+			SetClientTravel(InWorld, Cmd, TRAVEL_Absolute);
+			return true;
+		}
+	}
+	else
+	{
+		return Super::Exec(InWorld, Cmd, Out);
+	}
+}
+
+void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
+{
+	// HACK: make sure our default URL options are in all travel URLs since FURL code to do this was removed
+	for (int32 WorldIdx = 0; WorldIdx < WorldList.Num(); ++WorldIdx)
+	{
+		FWorldContext& Context = WorldList[WorldIdx];
+		if (!Context.TravelURL.IsEmpty())
+		{
+			FURL DefaultURL;
+			DefaultURL.LoadURLConfig(TEXT("DefaultPlayer"), GGameIni);
+			FURL NewURL(&DefaultURL, *Context.TravelURL, TRAVEL_Absolute);
+			for (int32 i = 0; i < DefaultURL.Op.Num(); i++)
+			{
+				FString OpKey;
+				DefaultURL.Op[i].Split(TEXT("="), &OpKey, NULL);
+				if (!NewURL.HasOption(*OpKey))
+				{
+					new(NewURL.Op) FString(DefaultURL.Op[i]);
+				}
+			}
+			Context.TravelURL = NewURL.ToString();
+		}
+	}
+
+	Super::Tick(DeltaSeconds, bIdleMode);
+}

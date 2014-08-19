@@ -26,6 +26,8 @@ class UUTGameEngine : public UGameEngine
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
+	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
 
 	UT_LOADMAP_DEFINITION()
 };
