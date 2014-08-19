@@ -205,11 +205,13 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		FAssistTracker NewAssist;
 		NewAssist.Holder = Holder;
 		NewAssist.TotalHeldTime = 0.0f;
-		AssistTracking.Add(NewAssist);
-		AssistIndex = AssistTracking.Num()-1;
-
+		AssistIndex = AssistTracking.Add(NewAssist);
 	}
-	AssistTracking[AssistIndex].LastHoldStartTime = GetWorld()->GetTimeSeconds();
+
+	if (AssistIndex >= 0 && AssistIndex < AssistTracking.Num())
+	{
+		AssistTracking[AssistIndex].LastHoldStartTime = GetWorld()->GetTimeSeconds();
+	}
 
 	// Track the pawns that have held this.  It's to be used for scoring
 	PreviousHolders.AddUnique(Holder);
@@ -420,7 +422,7 @@ float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
 {
 	int32 AssistIndex = FindAssist(TestHolder);
 	float AssistTime = 0.0f;
-	if (AssistIndex >= 0)
+	if (AssistIndex >= 0 && AssistIndex < AssistTracking.Num())
 	{
 		if (TestHolder == Holder)
 		{	

@@ -143,7 +143,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 				{
 					float HeldTime = GameObject->GetHeldTime(Who);
 					int32 Points = i == 0 ? FlagFirstPickupPoints : 0;
-					if (HeldTime > 0)
+					if (HeldTime > 0 && GameObject->TotalHeldTime > 0)
 					{
 						float Perc = HeldTime / GameObject->TotalHeldTime;
 						Points = Points + int(float(FlagTotalScorePool * Perc));
