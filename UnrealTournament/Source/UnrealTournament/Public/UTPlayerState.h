@@ -58,6 +58,11 @@ class AUTPlayerState : public APlayerState, public IUTTeamInterface
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 Assists;
 
+	// Player Stats 
+
+	/** This is the unique ID for stats generation*/
+	FString StatsID;
+
 	// How long until this player can repawn.  It's not directly replicated to the clients instead it's set
 	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
 
@@ -103,6 +108,9 @@ class AUTPlayerState : public APlayerState, public IUTTeamInterface
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRecieveStatsID(const FString& NewStatsID);
+
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;
 
@@ -110,6 +118,7 @@ class AUTPlayerState : public APlayerState, public IUTTeamInterface
 	UFUNCTION()
 	virtual uint8 GetTeamNum() const;
 
+	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 };
 

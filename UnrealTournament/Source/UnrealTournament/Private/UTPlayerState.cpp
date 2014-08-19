@@ -138,6 +138,18 @@ void AUTPlayerState::Tick(float DeltaTime)
 	}
 }
 
+/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have 
+    have a proper ID available.  */
+void AUTPlayerState::ServerRecieveStatsID_Implementation(const FString& NewStatsID)
+{
+	StatsID = NewStatsID;
+}
+
+bool AUTPlayerState::ServerRecieveStatsID_Validate(const FString& NewStatsID)
+{
+	return true;
+}
+
 
 void AUTPlayerState::ServerRequestChangeTeam_Implementation(uint8 NewTeamIndex)
 {
@@ -227,4 +239,10 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 	}
 
 	Super::EndPlay(Reason);
+}
+
+void AUTPlayerState::BeginPlay()
+{
+	Super::BeginPlay();
+	ServerRecieveStatsID(FPlatformMisc::GetUniqueDeviceId());
 }

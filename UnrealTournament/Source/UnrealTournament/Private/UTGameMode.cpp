@@ -11,6 +11,9 @@
 #include "UTMutator.h"
 #include "UTScoreboard.h"
 #include "Slate.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 UUTResetInterface::UUTResetInterface(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -1214,6 +1217,24 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		BaseMutator->NotifyLogout(Exiting);
 	}
+
+	// Let's Analytics know how long this player has been online....
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(Exiting->PlayerState);
+		
+	if (PS != NULL && FUTAnalytics::IsAvailable())
+	{
+		float TotalTimeOnline = GameState->ElapsedTime - PS->StartTime;
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ID"), PS->StatsID));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerName"), PS->PlayerName));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TimeOnline"), TotalTimeOnline));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Kills"), PS->Deaths));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Kills));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Score"), PS->Score));
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
+	}
+
 	Super::Logout(Exiting);
 }
 
@@ -1374,3 +1395,4 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		];
 }
+
