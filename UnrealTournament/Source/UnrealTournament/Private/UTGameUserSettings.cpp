@@ -44,9 +44,9 @@ void UUTGameUserSettings::SetToDefaults()
 	FullscreenMode = EWindowMode::Fullscreen;
 }
 
-void UUTGameUserSettings::ApplySettings()
+void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 {
-	Super::ApplySettings();
+	Super::ApplySettings(bCheckForCommandLineOverrides);
 
 	// Set the player name on the first player
 	TArray<APlayerController*> PlayerList;

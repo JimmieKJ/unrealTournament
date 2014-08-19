@@ -933,7 +933,7 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	{
 		// tell client what hud class to use
 
-		TSubclassOf<UUTScoreboard> ScoreboardClass = LoadClass<UUTScoreboard>(NULL, *ScoreboardClassName.ClassName, NULL, LOAD_None, NULL);
+		TSubclassOf<UUTScoreboard> ScoreboardClass = LoadClass<UUTScoreboard>(NULL, *ScoreboardClassName.AssetLongPathname, NULL, LOAD_None, NULL);
 		UTNewPlayer->ClientSetHUDAndScoreboard(HUDClass, ScoreboardClass);
 
 		if (!bDelayedStart)

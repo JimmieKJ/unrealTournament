@@ -397,7 +397,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	if (CharacterOwner)
 	{
 		bIsDodgeRolling = bWillDodgeRoll;
-		if (CharacterOwner->NotifyLanded(Hit))
+		if (CharacterOwner->ShouldNotifyLanded(Hit))
 		{
 			CharacterOwner->Landed(Hit);
 		}
@@ -1047,5 +1047,27 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 	}
 }
 
+void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
+{
+	Super::UpdateFromCompressedFlags(Flags);
+
+	int32 DodgeFlags = (Flags >> 2) & 7;
+	bPressedDodgeForward = (DodgeFlags == 1);
+	bPressedDodgeBack = (DodgeFlags == 2);
+	bPressedDodgeLeft = (DodgeFlags == 3);
+	bPressedDodgeRight = (DodgeFlags == 4);
+	bIsSprinting = (DodgeFlags == 5);
+	bIsDodgeRolling = (DodgeFlags == 6);
+	bool bOldWillDodgeRoll = bWillDodgeRoll;
+	bWillDodgeRoll = (DodgeFlags == 7);
+	if (!bOldWillDodgeRoll && bWillDodgeRoll)
+	{
+		DodgeRollTapTime = GetCurrentMovementTime();
+	}
+	if (Cast<AUTCharacter>(CharacterOwner))
+	{
+		Cast<AUTCharacter>(CharacterOwner)->bRepDodgeRolling = bIsDodgeRolling;
+	}
+}
 
 

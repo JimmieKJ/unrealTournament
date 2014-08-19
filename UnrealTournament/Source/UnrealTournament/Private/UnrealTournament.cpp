@@ -37,6 +37,7 @@ void FUTModule::StartupModule()
 
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleModuleRequired.h"
+#include "Particles/ParticleLODLevel.h"
 
 bool IsLoopingParticleSystem(const UParticleSystem* PSys)
 {

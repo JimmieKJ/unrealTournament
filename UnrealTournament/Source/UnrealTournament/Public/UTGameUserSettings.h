@@ -11,7 +11,7 @@ class UUTGameUserSettings : public UGameUserSettings
 
 public:
 	virtual void SetToDefaults();
-	virtual void ApplySettings();
+	virtual void ApplySettings(bool bCheckForCommandLineOverrides) override;
 	virtual void UpdateVersion();
 	virtual bool IsVersionValid();
 

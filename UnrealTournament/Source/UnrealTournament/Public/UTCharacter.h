@@ -453,9 +453,7 @@ public:
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 	virtual void OnRep_ReplicatedMovement() override;
-
-	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
-
+	
 	/** Also call UTCharacterMovement ClearJumpInput() */
 	virtual void ClearJumpInput() override;
 

@@ -1646,29 +1646,6 @@ void AUTCharacter::MoveUp(float Value)
 	}
 }
 
-void AUTCharacter::UpdateFromCompressedFlags(uint8 Flags)
-{
-	Super::UpdateFromCompressedFlags(Flags);
-
-	if (UTCharacterMovement)
-	{
-		int32 DodgeFlags = (Flags >> 2) & 7;
-		UTCharacterMovement->bPressedDodgeForward = (DodgeFlags == 1);
-		UTCharacterMovement->bPressedDodgeBack = (DodgeFlags == 2);
-		UTCharacterMovement->bPressedDodgeLeft = (DodgeFlags == 3);
-		UTCharacterMovement->bPressedDodgeRight = (DodgeFlags == 4);
-		UTCharacterMovement->bIsSprinting = (DodgeFlags == 5);
-		UTCharacterMovement->bIsDodgeRolling = (DodgeFlags == 6);
-		bool bOldWillDodgeRoll = UTCharacterMovement->bWillDodgeRoll;
-		UTCharacterMovement->bWillDodgeRoll = (DodgeFlags == 7);
-		if (!bOldWillDodgeRoll && UTCharacterMovement->bWillDodgeRoll)
-		{
-			UTCharacterMovement->DodgeRollTapTime = UTCharacterMovement->GetCurrentMovementTime();
-		}
-		bRepDodgeRolling = UTCharacterMovement->bIsDodgeRolling;
-	}
-}
-
 APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
@@ -2034,7 +2011,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 
 	// update eyeoffset 
-	if (CharacterMovement->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativePosition(RelativeMovement.MovementBase))
+	if (CharacterMovement->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativeLocation(BasedMovement.MovementBase))
 	{
 		// smooth up/down stairs
 		EyeOffset.Z += (UTCharacterMovement->OldZ - GetActorLocation().Z);

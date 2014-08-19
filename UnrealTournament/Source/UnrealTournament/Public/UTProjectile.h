@@ -85,7 +85,7 @@ class AUTProjectile : public AActor, public IUTResetInterface
 	virtual void BeginPlay();
 	virtual void TornOff();
 	
-	virtual void PostNetReceiveLocation() override;
+	virtual void PostNetReceiveLocationAndRotation() override;
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 

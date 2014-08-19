@@ -162,9 +162,9 @@ void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyT
 	}
 }
 
-void AUTProjectile::PostNetReceiveLocation()
+void AUTProjectile::PostNetReceiveLocationAndRotation()
 {
-	Super::PostNetReceiveLocation();
+	Super::PostNetReceiveLocationAndRotation();
 
 	// tick particle systems for e.g. SpawnPerUnit trails
 	if (!bTearOff && !bExploded) // if torn off ShutDown() will do this
