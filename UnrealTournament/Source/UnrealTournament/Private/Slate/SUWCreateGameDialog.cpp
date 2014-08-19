@@ -185,15 +185,18 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.Text(NSLOCTEXT("SUWCreateGameDialog", "StartListenButton", "Start Listen").ToString())
 			.OnClicked(this, &SUWCreateGameDialog::StartClick, SERVER_Listen)
 		];
-		ButtonRow->AddSlot(ButtonID++, 0)
-		[
-			SNew(SButton)
-			.HAlign(HAlign_Center)
-			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWCreateGameDialog", "StartDedicatedButton", "Start Dedicated").ToString())
-			.OnClicked(this, &SUWCreateGameDialog::StartClick, SERVER_Dedicated)
-		];
+		if (!FPlatformProperties::IsGameOnly())
+		{
+			ButtonRow->AddSlot(ButtonID++, 0)
+			[
+				SNew(SButton)
+				.HAlign(HAlign_Center)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+				.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWCreateGameDialog", "StartDedicatedButton", "Start Dedicated").ToString())
+				.OnClicked(this, &SUWCreateGameDialog::StartClick, SERVER_Dedicated)
+			];
+		}
 	}
 	else
 	{
