@@ -33,6 +33,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxWalkSpeedCrouched = 315.f;
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f; 
+	MaxConsecutiveWallDodgeDP = 0.97f;
 	WallDodgeGraceVelocityZ = -600.f;
 	AirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
@@ -187,6 +188,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 
 	float HorizontalImpulse = DodgeImpulseHorizontal;
+	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
 
 	if (IsFalling())
 	{
@@ -207,19 +209,19 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
 		FHitResult Result;
 		const bool bBlockingHit = GetWorld()->SweepSingle(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
-		if ( !bBlockingHit )
+		if (!bBlockingHit || ((CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 		{
 			return false;
 		}
-		if ( (Result.Normal | DodgeDir) < WallDodgeMinNormal )
+		if ( (Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal )
 		{
 			// clamp dodge direction based on wall normal
-			FVector ForwardDir = (Result.Normal ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
+			FVector ForwardDir = (Result.ImpactNormal ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
 			if ((ForwardDir | DodgeDir) < 0.f)
 			{
 				ForwardDir *= -1.f;
 			}
-			DodgeDir = Result.Normal*WallDodgeMinNormal*WallDodgeMinNormal + ForwardDir*(1.f - WallDodgeMinNormal*WallDodgeMinNormal);
+			DodgeDir = Result.ImpactNormal*WallDodgeMinNormal*WallDodgeMinNormal + ForwardDir*(1.f - WallDodgeMinNormal*WallDodgeMinNormal);
 			DodgeDir = DodgeDir.SafeNormal();
 			FVector NewDodgeCross = (DodgeDir ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
 			DodgeCross = ((NewDodgeCross | DodgeCross) < 0.f) ? -1.f*NewDodgeCross : NewDodgeCross;
@@ -231,7 +233,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		}
 		HorizontalImpulse = WallDodgeImpulseHorizontal;
 		CurrentWallDodgeCount++;
-		LastWallDodgeNormal = Result.Normal;
+		LastWallDodgeNormal = Result.ImpactNormal;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
 	{
@@ -254,7 +256,11 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		float CurrentWallImpulse = (CurrentWallDodgeCount < 2) ? WallDodgeImpulseVertical : WallDodgeSecondImpulseVertical;
 
-		if ((CurrentWallDodgeCount < 2) && (VelocityZ < 0.f) && (VelocityZ > WallDodgeGraceVelocityZ))
+		if (!bIsLowGrav && (CurrentWallDodgeCount > 1))
+		{
+			VelocityZ = FMath::Min(0.f, VelocityZ);
+		}
+		else if ((VelocityZ < 0.f) && (VelocityZ > WallDodgeGraceVelocityZ))
 		{
 			VelocityZ = 0.f;
 		}
