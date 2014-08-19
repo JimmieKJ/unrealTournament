@@ -24,11 +24,13 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->MaxMultiJumpCount = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MaxMultiJumpCount;
 			Movement->MultiJumpImpulse = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MultiJumpImpulse;
 			Movement->MultiJumpAirControl = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MultiJumpAirControl;
+			Movement->bAllowDodgeMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->bAllowDodgeMultijumps;
 
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
 		}
 		else
 		{
+			Movement->bAllowDodgeMultijumps = true;
 			Movement->MultiJumpAirControl = MultiJumpAirControl;
 
 			if (Movement->MaxMultiJumpCount <= 1)
