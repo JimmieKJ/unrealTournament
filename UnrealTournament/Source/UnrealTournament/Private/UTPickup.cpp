@@ -55,6 +55,7 @@ void AUTPickup::OnConstruction(const FTransform& Transform)
 			}
 			TimerSprite->Elements[0].Material = TimerMI;
 			TimerSprite->LDMaxDrawDistance = 1024.0f;
+			TimerSprite->bHiddenInGame = true;
 		}
 	}
 }
@@ -63,10 +64,10 @@ void AUTPickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (Role == ROLE_Authority && bDelayedSpawn)
+	/*if (Role == ROLE_Authority && bDelayedSpawn)
 	{
 		StartSleeping();
-	}
+	}*/
 }
 
 void AUTPickup::Reset_Implementation()
@@ -196,6 +197,8 @@ void AUTPickup::WakeUp_Implementation()
 		State.ChangeCounter++;
 		ForceNetUpdate();
 	}
+
+	PlayRespawnEffects();
 
 	// last so if a player is already touching we're fully ready to act on it
 	SetActorEnableCollision(true);

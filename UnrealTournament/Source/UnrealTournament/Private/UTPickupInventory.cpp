@@ -76,13 +76,16 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 		RespawnTime = 0.0f;
 	}
 	InventoryTypeUpdated();
-	if (InventoryType == NULL || bDelayedSpawn)
+	if (Role == ROLE_Authority && GetWorld()->GetAuthGameMode<AUTGameMode>()->HasMatchStarted())
 	{
-		StartSleeping();
-	}
-	else
-	{
-		WakeUp();
+		if (InventoryType == NULL || bDelayedSpawn)
+		{
+			StartSleeping();
+		}
+		else
+		{
+			WakeUp();
+		}
 	}
 }
 
