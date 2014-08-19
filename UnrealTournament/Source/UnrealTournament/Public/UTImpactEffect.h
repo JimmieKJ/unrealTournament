@@ -23,6 +23,9 @@ class AUTImpactEffect : public AActor
 	/** if set, attach to hit component (if any) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	bool bAttachToHitComp;
+	/** if set, apply random roll to any decals */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+	bool bRandomizeDecalRoll;
 
 	/** one shot audio played with the effect */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)

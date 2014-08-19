@@ -9,6 +9,7 @@ AUTImpactEffect::AUTImpactEffect(const FPostConstructInitializeProperties& PCIP)
 {
 	bCheckInView = true;
 	bForceForLocalPlayer = true;
+	bRandomizeDecalRoll = true;
 }
 
 bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication) const
@@ -135,6 +136,19 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 		else if (Prim->IsA(UAudioComponent::StaticClass()))
 		{
 			((UAudioComponent*)Prim)->bAutoDestroy = true;
+		}
+	}
+	else
+	{
+		UDecalComponent* Decal = Cast<UDecalComponent>(NewComp);
+		if (Decal != NULL)
+		{
+			Decal->RelativeScale3D.X = 1.0f; // this prevents stretching around corners
+			if (bRandomizeDecalRoll)
+			{
+				Decal->RelativeRotation.Roll += 360.0f * FMath::FRand();
+			}
+			Decal->UpdateComponentToWorld();
 		}
 	}
 
