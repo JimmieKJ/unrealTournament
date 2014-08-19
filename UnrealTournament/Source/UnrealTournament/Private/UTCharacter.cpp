@@ -437,7 +437,6 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					}
 				}
 			}
-			ResultDamage = 0;
 			Health -= ResultDamage;
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 
