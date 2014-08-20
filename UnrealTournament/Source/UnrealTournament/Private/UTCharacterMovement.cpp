@@ -50,7 +50,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SlopeDodgeScaling = 0.93f;
 
 	DodgeRollAcceleration = 2000.f;
-	MaxDodgeRollSpeed = 880.f;
+	MaxDodgeRollSpeed = 920.f;
 	DodgeRollDuration = 0.45f;
 	DodgeRollBonusTapInterval = 0.17f;
 	DodgeRollEarliestZ = -100.f;
