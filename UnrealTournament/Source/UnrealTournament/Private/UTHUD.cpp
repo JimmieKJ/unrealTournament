@@ -13,6 +13,7 @@
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
+#include "Json.h"
 
 
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
@@ -53,14 +54,16 @@ void AUTHUD::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Parse the widgets found in the ini
 	for (int i = 0; i < RequiredHudWidgetClasses.Num(); i++)
 	{
-		HudWidgetClasses.Add(ResolveHudWidgetByName(*RequiredHudWidgetClasses[i]));
+		BuildHudWidget(*RequiredHudWidgetClasses[i]);
 	}
 
+	// Parse any hard coded widgets
 	for (int WidgetIndex = 0 ; WidgetIndex < HudWidgetClasses.Num(); WidgetIndex++)
 	{
-		AddHudWidget(HudWidgetClasses[WidgetIndex]);
+		BuildHudWidget(HudWidgetClasses[WidgetIndex]);
 	}
 
 
@@ -116,12 +119,85 @@ TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceNa
 	return NULL;
 }
 
+FVector2D AUTHUD::JSon2FVector2D(const TSharedPtr<FJsonObject> Vector2DObject, FVector2D Default)
+{
+	FVector2D Final = Default;
+
+	// Grab X
+	const TSharedPtr<FJsonValue>* XVal = Vector2DObject->Values.Find(TEXT("X"));
+	if (XVal != NULL && (*XVal)->Type == EJson::Number) Final.X = (*XVal)->AsNumber();
+
+	// Grab Y
+	const TSharedPtr<FJsonValue>* YVal = Vector2DObject->Values.Find(TEXT("Y"));
+	if (YVal != NULL && (*YVal)->Type == EJson::Number) Final.Y = (*YVal)->AsNumber();
+
+	return Final;
+}
 
 
-void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
+void AUTHUD::BuildHudWidget(FString NewWidgetString)
+{
+	// Look at the string.  If it starts with a "{" then assume it's not a JSON based config and just resolve it's name.
+
+	if ( NewWidgetString.Trim().Left(1) == TEXT("{") )
+	{
+		// It's a json command so we have to break it apart
+
+		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( NewWidgetString );
+		TSharedPtr<FJsonObject> JSONObject;
+		if (FJsonSerializer::Deserialize( Reader, JSONObject) && JSONObject.IsValid() )
+		{
+			// We have a valid JSON object..
+
+			const TSharedPtr<FJsonValue>* ClassName = JSONObject->Values.Find(TEXT("Classname"));
+			if (ClassName->IsValid() && (*ClassName)->Type == EJson::String)
+			{
+				TSubclassOf<UUTHUDWidget> NewWidgetClass = ResolveHudWidgetByName(*(*ClassName)->AsString());
+				if (NewWidgetClass != NULL) 
+				{
+					UUTHUDWidget* NewWidget = AddHudWidget(NewWidgetClass);
+
+					// Now Look for position Overrides
+
+					const TSharedPtr<FJsonValue>* PositionVal = JSONObject->Values.Find(TEXT("Position"));
+					if (PositionVal != NULL && (*PositionVal)->Type == EJson::Object) 
+					{
+						NewWidget->Position = JSon2FVector2D( (*PositionVal)->AsObject(), NewWidget->Position);
+					}
+				
+					const TSharedPtr<FJsonValue>* OriginVal = JSONObject->Values.Find(TEXT("Origin"));
+					if (OriginVal != NULL && (*OriginVal)->Type == EJson::Object) 
+					{
+						NewWidget->Origin = JSon2FVector2D( (*OriginVal)->AsObject(), NewWidget->Origin);
+					}
+
+					const TSharedPtr<FJsonValue>* ScreenPositionVal = JSONObject->Values.Find(TEXT("ScreenPosition"));
+					if (ScreenPositionVal != NULL && (*ScreenPositionVal)->Type == EJson::Object) 
+					{
+						NewWidget->ScreenPosition = JSon2FVector2D( (*ScreenPositionVal)->AsObject(), NewWidget->ScreenPosition);
+					}
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(UT,Log,TEXT("Failed to parse JSON HudWidget entry: %s"),*NewWidgetString);
+		}
+	}
+	else
+	{
+		TSubclassOf<UUTHUDWidget> NewWidgetClass = ResolveHudWidgetByName(*NewWidgetString);
+		if (NewWidgetClass != NULL) AddHudWidget(NewWidgetClass);
+	}
+}
+
+
+
+
+UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 {
 
-	if (NewWidgetClass == NULL) return;
+	if (NewWidgetClass == NULL) return NULL;
 
 	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass,GetTransientPackage());
 	HudWidgets.Add(Widget);
@@ -134,6 +210,7 @@ void AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	}
 
 	Widget->InitializeWidget(this);
+	return Widget;
 }
 
 UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass)

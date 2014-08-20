@@ -2,7 +2,8 @@
 #pragma once 
 
 #include "UTScoreboard.h"
-
+#include "UTHUDWidget.h"
+#include "Json.h"
 #include "UTHUD.generated.h"
 
 const uint32 MAX_DAMAGE_INDICATORS = 3;		// # of damage indicators on the screen at any one time
@@ -31,7 +32,6 @@ struct FDamageHudIndicator
 	}
 };
 
-
 UCLASS(Config=Game)
 class AUTHUD : public AHUD
 {
@@ -48,24 +48,29 @@ public:
 	// Holds a list of HudWidgets that manage the messaging system
 	TMap<FName, class UUTHUDWidgetMessage*> HudMessageWidgets;
 
+	// Holds a list of hud widgets to load.  These are hardcoded widgets that can't be changed via the ini and are stored as strings.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	TArray<TSubclassOf<UUTHUDWidget> > HudWidgetClasses;
+	TArray<FString> HudWidgetClasses;
 
+	// The Small font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* SmallFont;
 
+	// The Med font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* MediumFont;
 
+	// The Large font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* LargeFont;
 
+	// The "extreme" font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* ExtremeFont;
 
+	// The font that only contains numbers
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* NumberFont;
-
 
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
@@ -82,6 +87,8 @@ public:
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;
 
+	// This is a list of hud widgets that are defined in DefaultGame.ini to be loaded.  NOTE: you can use 
+	// embedded JSON to set their position.  See BuildHudWidget().
 	UPROPERTY(Config = Game)
 	TArray<FString> RequiredHudWidgetClasses;
 
@@ -94,7 +101,7 @@ public:
 	TSubclassOf<UUTHUDWidget> ResolveHudWidgetByName(const TCHAR* ResourceName);
 
 	// Creates and adds a hud widget
-	virtual void AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
+	virtual UUTHUDWidget* AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
 	UUTHUDWidget* FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass);
 
@@ -134,8 +141,30 @@ public:
 
 protected:
 
+	// The current Scoreboard
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
+
+	// Takes a raw widget string and tries to build a widget from it.  It supports embedded JSON objects that define the widget as follows:
+	//
+	// { "Classname" : "//path.to.unreal.object",
+	//		"ScreenPosition" : { "X" : ###, "Y" : ### },
+	//		"Origin" : { "X" : ###, "Y" : ### },
+	//	    "Position" : { "X" : ###, "Y" : XXX }
+	// }
+	// 
+	// NOTE the 3 position vars are not required and it will default to their original values.  So :
+	//
+	// {"Classname":"/Script/UnrealTournament.UTHUDWidget_GameClock", "ScreenPosition" : { "Y" : 0.5}}
+	//
+	// Would display the GameClock widget 1/2 way down the screen on the left edge.  See UTHUDWidget.h for a description of the difference between ScreenPosition, Origin and Position.
+	//
+	// Finally, you can use just the unreal path without JSON to load an object.  See DefaultGame.ini for examples.
+
+	virtual void BuildHudWidget(FString NewWidgetString);
+
+	// Helper function to take a JSON object and try to convert it to the FVector2D.  
+	virtual FVector2D JSon2FVector2D(const TSharedPtr<FJsonObject> Vector2DObject, FVector2D Default);
 
 public:
 
