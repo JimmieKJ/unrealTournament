@@ -362,12 +362,8 @@ protected:
 	virtual void PerformSingleTapDodge();
 	void HoldDodge();
 	void ReleaseDodge();
-	void OnDodgeRoll();
 	void HoldRollSlide();
 	void ReleaseRollSlide();
-
-	/** Special version of dodge roll triggered by spacebar - ignores if dodge multijump is enabled. */
-	void OnJumpDodgeRoll();
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();

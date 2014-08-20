@@ -135,8 +135,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
 	InputComponent->BindAction("HoldRollSlide", IE_Pressed, this, &AUTPlayerController::HoldRollSlide);
 	InputComponent->BindAction("HoldRollSlide", IE_Released, this, &AUTPlayerController::ReleaseRollSlide);
-	InputComponent->BindAction("DodgeRoll", IE_Pressed, this, &AUTPlayerController::OnDodgeRoll);
-	InputComponent->BindAction("JumpDodgeRoll", IE_Pressed, this, &AUTPlayerController::OnJumpDodgeRoll);
 
 	InputComponent->BindAction("TapLeftRelease", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
 	InputComponent->BindAction("TapRightRelease", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
@@ -273,7 +271,7 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		}
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
-			UTCharacter->UTCharacterMovement->bWantsSlideRoll = bIsHoldingSlideRoll;
+			UTCharacter->UTCharacterMovement->UpdateSlideRoll(bIsHoldingSlideRoll);
 			SetAutoSlide(bAutoSlide);
 		}
 	}
@@ -728,24 +726,6 @@ void AUTPlayerController::CheckDodge(float LastTapTime, float MaxClickTime, bool
 	}
 }
 
-void AUTPlayerController::OnJumpDodgeRoll()
-{
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && !MyCharMovement->bAllowDodgeMultijumps)
-	{
-		OnDodgeRoll();
-	}
-}
-
-void AUTPlayerController::OnDodgeRoll()
-{
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->TriggerDodgeRoll();
-	}
-}
-
 void AUTPlayerController::OnSingleTapDodge()
 {
 	bRequestedDodge = true;
@@ -793,7 +773,7 @@ void AUTPlayerController::HoldRollSlide()
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
-		MyCharMovement->bWantsSlideRoll = true;
+		MyCharMovement->UpdateSlideRoll(true);
 	}
 }
 
@@ -803,7 +783,7 @@ void AUTPlayerController::ReleaseRollSlide()
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
-		MyCharMovement->bWantsSlideRoll = bAutoSlide;
+		MyCharMovement->UpdateSlideRoll(bAutoSlide);
 	}
 }
 

@@ -84,7 +84,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeRollTapTime = 0.f;
 	DodgeRollEndTime = 0.f;
 	CurrentWallDodgeCount = 0;
-	bWillDodgeRoll = false;
+	bWantsSlideRoll = false;
 	bApplyWallSlide = false;
 
 	EasyImpactImpulse = 1500.f;
@@ -291,7 +291,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 
 	// perform the dodge
-	bWillDodgeRoll = false;
 	float VelocityZ = Velocity.Z;
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
@@ -445,7 +444,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 {
 	if (CharacterOwner)
 	{
-		bIsDodgeRolling = bWillDodgeRoll;
+		bIsDodgeRolling = bWantsSlideRoll;
 		if (CharacterOwner->ShouldNotifyLanded(Hit))
 		{
 			CharacterOwner->Landed(Hit);
@@ -477,7 +476,6 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 		}
 	}
-	bWillDodgeRoll = false;
 	bJumpAssisted = false;
 	bApplyWallSlide = false;
 	CurrentMultiJumpCount = 0;
@@ -490,13 +488,18 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	StartNewPhysics(remainingTime, Iterations);
 }
 
-void UUTCharacterMovement::TriggerDodgeRoll()
+void UUTCharacterMovement::UpdateSlideRoll(bool bNewWantsSlideRoll)
 {
-	if (IsFalling() && !bWillDodgeRoll && (Velocity.Z < DodgeRollEarliestZ))
+	if (bNewWantsSlideRoll && !bWantsSlideRoll)
 	{
 		DodgeRollTapTime = GetCurrentMovementTime();
-		bWillDodgeRoll = true;
 	}
+	bWantsSlideRoll = bNewWantsSlideRoll;
+}
+
+bool UUTCharacterMovement::WantsSlideRoll()
+{ 
+	return bWantsSlideRoll; 
 }
 
 void UUTCharacterMovement::PerformRoll(const FVector& DodgeDir)
@@ -578,7 +581,7 @@ bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, AChara
 	{
 		return false;
 	}
-	if ((bSavedIsRolling != ((FSavedMove_UTCharacter*)&NewMove)->bSavedIsRolling) || (bWillDodgeRoll != ((FSavedMove_UTCharacter*)&NewMove)->bWillDodgeRoll))
+	if ((bSavedIsRolling != ((FSavedMove_UTCharacter*)&NewMove)->bSavedIsRolling))
 	{
 		return false;
 	}
@@ -635,10 +638,6 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	{
 		Result |= (6 << 2);
 	}
-	else if (bWillDodgeRoll)
-	{
-		Result |= (7 << 2);
-	}
 
 	if (bSavedWantsSlide)
 	{
@@ -658,7 +657,6 @@ void FSavedMove_UTCharacter::Clear()
 	bSavedIsSprinting = false;
 	bSavedIsRolling = false;
 	bSavedWantsSlide = false;
-	bWillDodgeRoll = false;
 }
 
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
@@ -673,8 +671,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
 		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
-		bSavedWantsSlide = UTCharMov->bWantsSlideRoll; 
-		bWillDodgeRoll = UTCharMov->bWillDodgeRoll;
+		bSavedWantsSlide = UTCharMov->WantsSlideRoll(); 
 	}
 }
 
@@ -1119,10 +1116,9 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bPressedDodgeRight = (DodgeFlags == 4);
 	bIsSprinting = (DodgeFlags == 5);
 	bIsDodgeRolling = (DodgeFlags == 6);
-	bool bOldWillDodgeRoll = bWillDodgeRoll;
+	bool bOldWillDodgeRoll = bWantsSlideRoll;
 	bWantsSlideRoll = ((Flags & 32) != 0);
-	bWillDodgeRoll = (DodgeFlags == 7);
-	if (!bOldWillDodgeRoll && bWillDodgeRoll)
+	if (!bOldWillDodgeRoll && bWantsSlideRoll)
 	{
 		DodgeRollTapTime = GetCurrentMovementTime();
 	}

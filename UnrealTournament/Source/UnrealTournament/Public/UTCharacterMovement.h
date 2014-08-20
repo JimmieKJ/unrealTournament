@@ -142,14 +142,13 @@ public:
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bWasDodgeRolling;
 
-	/** True if would dodge roll when land dodge */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	bool bWillDodgeRoll;
 
-	/** True if player is holding modifier to slide/roll */
+protected:
+	/** True if player is holding modifier to slide/roll.  Change with UpdateSlideRoll(). */
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bWantsSlideRoll;
 
+public:
 	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
 	UPROPERTY(EditAnywhere, Category = Movement)
 	bool bAutoSlide;
@@ -202,8 +201,13 @@ public:
 	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadOnly)
 	float SlopeDodgeScaling;
 
-	/** Dodge roll when land (sets bWillDodgeRoll) */
-	virtual void TriggerDodgeRoll();
+	/** Update bWantsSlideRoll and DodgeRollTapTime */
+	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
+	virtual void UpdateSlideRoll(bool bNewWantsSlideRoll);
+
+	/** Update bWantsSlideRoll and DodgeRollTapTime */
+	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
+	virtual bool WantsSlideRoll();
 
 	/** Dodge roll out (holding bRollSlide while dodging on ground) */
 	virtual void PerformRoll(const FVector& DodgeDir);
@@ -384,7 +388,6 @@ public:
 	bool bSavedIsSprinting;
 	bool bSavedIsRolling;
 	bool bSavedWantsSlide;
-	bool bWillDodgeRoll;
 
 	virtual void Clear() override;
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;

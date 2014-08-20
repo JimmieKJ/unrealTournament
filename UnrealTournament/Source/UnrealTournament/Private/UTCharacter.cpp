@@ -1559,7 +1559,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			// blueprint handled dodge attempt
 			return true;
 		}
-		if (UTCharacterMovement && UTCharacterMovement->bWantsSlideRoll && UTCharacterMovement->IsMovingOnGround())
+		if (UTCharacterMovement && UTCharacterMovement->WantsSlideRoll() && UTCharacterMovement->IsMovingOnGround())
 		{
 			UTCharacterMovement->PerformRoll(DodgeDir);
 		}
