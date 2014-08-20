@@ -21,7 +21,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 #endif
 	}
 
-	IconCoordinates = FTextureUVs(726,532,165,51);
+	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 726, 532, 165, 51);
 }
 
 AUTProjectile* AUTWeap_Sniper::FireProjectile()

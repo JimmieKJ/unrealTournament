@@ -28,4 +28,6 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FPostConstructInitializeProperties& PCIP)
 
 	Ammo = 100;
 	MaxAmmo = 300;
+
+	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 509.0f, 148.0f, 53.0f);
 }

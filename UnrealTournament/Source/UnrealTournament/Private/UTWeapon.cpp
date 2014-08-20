@@ -67,6 +67,10 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	ReturnChgSpeed = 3.f;
 	MaxYawLag = 4.4f;
 	MaxPitchLag = 3.3f; 
+
+	// default icon texture
+	static ConstructorHelpers::FObjectFinder<UTexture> WeaponTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseB.UI_HUD_BaseB'"));
+	HUDIcon.Texture = WeaponTexture.Object;
 }
 
 void AUTWeapon::PostInitProperties()

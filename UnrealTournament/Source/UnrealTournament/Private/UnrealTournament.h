@@ -43,4 +43,16 @@ extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);
 /** utility to detach and unregister a component and all its children */
 extern void UnregisterComponentTree(USceneComponent* Comp);
 
+/** workaround for FCanvasIcon not having a constructor you can pass in the values to */
+FORCEINLINE FCanvasIcon MakeCanvasIcon(UTexture* Tex, float InU, float InV, float InUL, float InVL)
+{
+	FCanvasIcon Result;
+	Result.Texture = Tex;
+	Result.U = InU;
+	Result.V = InV;
+	Result.UL = InUL;
+	Result.VL = InVL;
+	return Result;
+}
+
 #endif

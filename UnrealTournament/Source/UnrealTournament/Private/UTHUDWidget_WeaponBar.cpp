@@ -9,10 +9,6 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FPostConstructInitial
 	static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	OldHudTexture = HudTexture.Object;
 
-	static ConstructorHelpers::FObjectFinder<UTexture> WeaponTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseB.UI_HUD_BaseB'"));
-	OldWeaponTexture = WeaponTexture.Object;
-	
-	
 	Position=FVector2D(0.0f, -5.0f);
 	Size=FVector2D(0,0);
 	ScreenPosition=FVector2D(0.5f, 1.0f);
@@ -44,42 +40,52 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 		FLinearColor HudColor = ApplyHUDColor(FLinearColor::White);
 
-		AUTWeapon *WeaponList[10];
-		for (int i=0;i<10;i++) WeaponList[i] = NULL;
+		TArray< AUTWeapon*, TInlineAllocator<10> > WeaponList;
+		WeaponList.SetNumZeroed(10);
 
 		int32 FirstWeaponIndex = 11; 
 		int32 LastWeaponIndex = -1;
 		int32 CellCount = 0;
 
+		AUTWeapon* PendingWeapon = UTC->GetPendingWeapon();
+		AUTWeapon* CurrentWeapon = UTC->GetWeapon();
+
 		// Get the weapon list.
 		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
 			AUTWeapon* Weapon = Cast<AUTWeapon>(Inv);
-			if (Weapon != NULL && Weapon->Group > 0 && Weapon->Group < 11)
+			if (Weapon != NULL)
 			{
-				int32 WeaponGroup = Weapon->Group-1;
+				int32 WeaponGroup = FMath::Max(0, Weapon->Group - 1); // weapon group 0 and 1 share a slot
+
+				// make sure we have enough entries
+				WeaponList.SetNum(FMath::Max<int32>(WeaponList.Num(), WeaponGroup + 1));
 
 				// Count if needed
-				if (WeaponList[WeaponGroup] == NULL) CellCount++;
+				if (WeaponList[WeaponGroup] == NULL)
+				{
+					CellCount++;
+				}
 
-				// Store off - NOTE: if a weapon already exists in that group.. it will get blown out.  This implementation
-				// doesn't support stacking.
+				// if two weapons share a slot, bias towards the one that is selected
+				if (WeaponList[WeaponGroup] == NULL || WeaponList[WeaponGroup] != CurrentWeapon)
+				{
+					// Store off - NOTE: if a weapon already exists in that group.. it will get blown out.  This implementation
+					// doesn't support stacking.
 
-				WeaponList[WeaponGroup] = Weapon;								
+					WeaponList[WeaponGroup] = Weapon;
 
-				// Move the first and last if needed
-				if (WeaponGroup < FirstWeaponIndex) FirstWeaponIndex = WeaponGroup;
-				if (WeaponGroup > LastWeaponIndex) LastWeaponIndex = WeaponGroup;
+					// Move the first and last if needed
+					if (WeaponGroup < FirstWeaponIndex) FirstWeaponIndex = WeaponGroup;
+					if (WeaponGroup > LastWeaponIndex) LastWeaponIndex = WeaponGroup;
+				}
 			}
 		}
 
 		if (CellCount <= 0) return;	// Quick out if we do not have any weapons
 
-		AUTWeapon* PendingWeapon = UTC->GetPendingWeapon();
-		AUTWeapon* Weapon = UTC->GetWeapon();
-
 		// Figure out the selected weapon
-		int32 SelectedWeaponIndex = (PendingWeapon != NULL ? PendingWeapon->Group : ( Weapon != NULL ? Weapon->Group : -1));
+		int32 SelectedWeaponIndex = (PendingWeapon != NULL ? PendingWeapon->Group : (CurrentWeapon != NULL ? CurrentWeapon->Group : -1));
 		if (SelectedWeaponIndex > 0) SelectedWeaponIndex--;
 		
 		float Delta = WeaponScaleSpeed * DeltaTime;
@@ -187,13 +193,13 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		{
 			if (WeaponList[i] != NULL)
 			{
-				if (WeaponList[i]->IconCoordinates.UL > 0 && WeaponList[i]->IconCoordinates.VL > 0)
+				if (WeaponList[i]->HUDIcon.Texture != NULL)
 				{
 					float IconX = X + (CellWidth * CurrentWeaponScale[i]) * 0.5;
 					float IconY = (CellHeight * CurrentWeaponScale[i]) * -0.5;
 
-					float IconWidth = WeaponList[i]->IconCoordinates.UL;
-					float IconHeight = WeaponList[i]->IconCoordinates.VL;
+					float IconWidth = WeaponList[i]->HUDIcon.UL;
+					float IconHeight = WeaponList[i]->HUDIcon.VL;
 
 					if (IconWidth > MaxIconSize.X || IconHeight > MaxIconSize.Y)
 					{
@@ -212,9 +218,9 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					IconWidth *= CurrentWeaponScale[i];
 					IconHeight *= CurrentWeaponScale[i];
 
-					DrawTexture(OldWeaponTexture, IconX, IconY, IconWidth, IconHeight
-										,WeaponList[i]->IconCoordinates.U, WeaponList[i]->IconCoordinates.V, WeaponList[i]->IconCoordinates.UL, WeaponList[i]->IconCoordinates.VL 
-										,1.0, FLinearColor::White, FVector2D(0.5f,0.5f),15, FVector2D(0.5,0.5));
+					DrawTexture( WeaponList[i]->HUDIcon.Texture, IconX, IconY, IconWidth, IconHeight,
+									WeaponList[i]->HUDIcon.U, WeaponList[i]->HUDIcon.V, WeaponList[i]->HUDIcon.UL, WeaponList[i]->HUDIcon.VL,
+									1.0, FLinearColor::White, FVector2D(0.5f, 0.5f),15, FVector2D(0.5f, 0.5f) );
 				}
 
 				X += CellWidth * CurrentWeaponScale[i];

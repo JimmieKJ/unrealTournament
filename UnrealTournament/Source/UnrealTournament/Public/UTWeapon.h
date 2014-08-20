@@ -404,8 +404,9 @@ public:
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);
 
+	/** HUD icon for e.g. weapon bar */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icon")
-	FTextureUVs IconCoordinates;
+	FCanvasIcon HUDIcon;
 
 	/** human readable localized name for the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -420,27 +421,27 @@ public:
 
 	/** Saved values used for lagging weapon rotation */
 	UPROPERTY()
-		float	OldRotDiff[2];
+	float	OldRotDiff[2];
 	UPROPERTY()
-		float	OldLeadMag[2];
+	float	OldLeadMag[2];
 	UPROPERTY()
-		float	OldMaxDiff[2];
+	float	OldMaxDiff[2];
 
 	/** How fast Weapon Rotation offsets */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
-		float	RotChgSpeed; 
+	float	RotChgSpeed; 
 
 	/** How fast Weapon Rotation returns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
-		float	ReturnChgSpeed;
+	float	ReturnChgSpeed;
 
 	/** Max Weapon Rotation Yaw offset */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
-		float	MaxYawLag;
+	float	MaxYawLag;
 
 	/** Max Weapon Rotation Pitch offset */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
-		float	MaxPitchLag;
+	float	MaxPitchLag;
 
 	/** @return whether the weapon's rotation is allowed to lag behind the holder's rotation */
 	virtual bool ShouldLagRot();
