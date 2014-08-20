@@ -281,7 +281,10 @@ void AUTPlayerController::SpawnPlayerCameraManager()
 {
 	Super::SpawnPlayerCameraManager();
 	// init configured FOV angle
-	FOV(ConfigDefaultFOV);
+	if (PlayerCameraManager != NULL)
+	{
+		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
+	}
 }
 
 void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
@@ -292,8 +295,8 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	if (PlayerCameraManager != NULL)
 	{
 		PlayerCameraManager->UnlockFOV();
+		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
 	}
-	Super::FOV(ConfigDefaultFOV);
 }
 
 void AUTPlayerController::FOV(float NewFOV)
@@ -301,8 +304,11 @@ void AUTPlayerController::FOV(float NewFOV)
 	if (NewFOV != ConfigDefaultFOV)
 	{
 		ConfigDefaultFOV = FMath::Clamp<float>(NewFOV, FOV_CONFIG_MIN, FOV_CONFIG_MAX);
-		Super::FOV(ConfigDefaultFOV);
-		if ((GetPawn() != NULL) && (GetNetMode() != NM_Standalone))
+		if (PlayerCameraManager != NULL)
+		{
+			PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
+		}
+		if (GetPawn() != NULL && GetNetMode() != NM_Standalone)
 		{
 			Suicide();
 		}

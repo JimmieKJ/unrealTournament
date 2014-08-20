@@ -1673,13 +1673,17 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 {
 	if (bFindCameraComponentWhenViewTarget && CharacterCameraComponent && CharacterCameraComponent->bIsActive)
 	{
+		// don't allow FOV override, we handle that in UTPlayerController/UTPlayerCameraManager
+		float SavedFOV = OutResult.FOV;
 		CharacterCameraComponent->GetCameraView(DeltaTime, OutResult);
+		OutResult.FOV = SavedFOV;
 		float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
 		OutResult.Location = OutResult.Location + CrouchEyeOffset + EyeOffsetGlobalScaling*EyeOffset;
-		return;
 	}
-
-	GetActorEyesViewPoint(OutResult.Location, OutResult.Rotation);
+	else
+	{
+		GetActorEyesViewPoint(OutResult.Location, OutResult.Rotation);
+	}
 }
 
 void AUTCharacter::PlayJump()
