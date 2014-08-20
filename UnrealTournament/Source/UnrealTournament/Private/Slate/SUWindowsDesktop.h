@@ -39,6 +39,7 @@ protected:
 	virtual FReply OpenSystemSettings();
 	virtual FReply OpenTPSReport();
 	virtual FReply OpenCredits();
+	virtual FReply OnMenuHTTPButton(FString URL);
 
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual FReply OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent ) override;

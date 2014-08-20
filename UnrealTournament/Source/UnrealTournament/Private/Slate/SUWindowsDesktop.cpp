@@ -348,6 +348,24 @@ void SUWindowsDesktop::BuildAboutSubMenu()
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits").ToString())
 				.OnClicked(this, &SUWindowsDesktop::OpenCredits)
 			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTSite", "UT Website").ToString())
+				.OnClicked(this, &SUWindowsDesktop::OnMenuHTTPButton, FString(TEXT("http://www.unrealtournament.com/")))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTForums", "UT Forums").ToString())
+				.OnClicked(this, &SUWindowsDesktop::OnMenuHTTPButton, FString(TEXT("http://forums.unrealtournament.com/")))
+			]
 		]
 	];
 }
@@ -496,5 +514,22 @@ FReply SUWindowsDesktop::OpenCredits()
 							.MessageText(NSLOCTEXT("SUWindowsDesktop", "CreditsText", "Coming Soon!"))
 							.ButtonsMask(UTDIALOG_BUTTON_OK)
 							);
+	return FReply::Handled();
+}
+
+FReply SUWindowsDesktop::OnMenuHTTPButton(FString URL)
+{
+	FString Error;
+	FPlatformProcess::LaunchURL(*URL, NULL, &Error);
+	if (Error.Len() > 0)
+	{
+		PlayerOwner->OpenDialog(
+								SNew(SUWMessageBox)
+								.PlayerOwner(PlayerOwner)
+								.MessageTitle(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"))
+								.MessageText(FText::FromString(Error))
+								.ButtonsMask(UTDIALOG_BUTTON_OK)
+								);
+	}
 	return FReply::Handled();
 }
