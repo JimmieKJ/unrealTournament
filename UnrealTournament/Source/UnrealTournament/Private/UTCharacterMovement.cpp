@@ -582,6 +582,11 @@ bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, AChara
 	{
 		return false;
 	}
+	if (bSavedWantsSlide != ((FSavedMove_UTCharacter*)&NewMove)->bSavedWantsSlide)
+	{
+		return false;
+	}
+
 	bool bPressedDodge = bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight;
 	bool bNewPressedDodge = ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight;
 	if (bPressedDodge || bNewPressedDodge)
@@ -635,6 +640,11 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 		Result |= (7 << 2);
 	}
 
+	if (bSavedWantsSlide)
+	{
+		Result |= 32;
+	}
+
 	return Result;
 }
 
@@ -647,6 +657,7 @@ void FSavedMove_UTCharacter::Clear()
 	bPressedDodgeRight = false;
 	bSavedIsSprinting = false;
 	bSavedIsRolling = false;
+	bSavedWantsSlide = false;
 	bWillDodgeRoll = false;
 }
 
@@ -662,6 +673,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
 		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
+		bSavedWantsSlide = UTCharMov->bWantsSlideRoll || UTCharMov->bAutoSlide;
 		bWillDodgeRoll = UTCharMov->bWillDodgeRoll;
 	}
 }
@@ -1108,6 +1120,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bIsSprinting = (DodgeFlags == 5);
 	bIsDodgeRolling = (DodgeFlags == 6);
 	bool bOldWillDodgeRoll = bWillDodgeRoll;
+	bWantsSlideRoll = ((Flags & 32) != 0);
 	bWillDodgeRoll = (DodgeFlags == 7);
 	if (!bOldWillDodgeRoll && bWillDodgeRoll)
 	{

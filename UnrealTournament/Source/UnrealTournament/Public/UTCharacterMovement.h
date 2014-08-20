@@ -383,6 +383,7 @@ public:
 	bool bPressedDodgeRight;
 	bool bSavedIsSprinting;
 	bool bSavedIsRolling;
+	bool bSavedWantsSlide;
 	bool bWillDodgeRoll;
 
 	virtual void Clear() override;
