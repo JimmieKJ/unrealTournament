@@ -152,7 +152,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					Who->AdjustScore(Points);
 					if (Who != Holder)
 					{
-						GameObject->PreviousHolders[i]->Assists++;
+						Who->Assists++;
 					}
 				}
 			}
