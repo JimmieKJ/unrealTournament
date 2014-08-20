@@ -499,7 +499,7 @@ void UUTCharacterMovement::TriggerDodgeRoll()
 	}
 }
 
-void UUTCharacterMovement::CrouchRoll(const FVector& DodgeDir)
+void UUTCharacterMovement::PerformRoll(const FVector& DodgeDir)
 {
 	if (!IsFalling() && CharacterOwner)
 	{
@@ -673,7 +673,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
 		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
-		bSavedWantsSlide = UTCharMov->bWantsSlideRoll || UTCharMov->bAutoSlide;
+		bSavedWantsSlide = UTCharMov->bWantsSlideRoll; 
 		bWillDodgeRoll = UTCharMov->bWillDodgeRoll;
 	}
 }

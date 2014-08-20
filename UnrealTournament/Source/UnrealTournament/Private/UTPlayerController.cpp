@@ -64,13 +64,32 @@ void AUTPlayerController::ToggleSingleTap()
 
 void AUTPlayerController::ToggleAutoSlide()
 {
-	bAutoSlide = !bAutoSlide;
+	SetAutoSlide(!bAutoSlide);
+}
+
+void AUTPlayerController::SetAutoSlide(bool bNewAutoSlide)
+{
+	bAutoSlide = bNewAutoSlide;
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
 		MyCharMovement->bAutoSlide = bAutoSlide;
 	}
+	if (Role != ROLE_Authority)
+	{
+		// @TODO FIXMESTEVE - only replicate if we know it has changed
+		ServerSetAutoSlide(bAutoSlide);
+	}
+}
 
+void AUTPlayerController::ServerSetAutoSlide_Implementation(bool bNewAutoSlide)
+{
+	SetAutoSlide(bNewAutoSlide);
+}
+
+bool AUTPlayerController::ServerSetAutoSlide_Validate(bool bNewAutoSlide)
+{
+	return true;
 }
 
 void AUTPlayerController::SetEyeOffsetScaling(float NewScaling)
@@ -255,7 +274,7 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
 			UTCharacter->UTCharacterMovement->bWantsSlideRoll = bIsHoldingSlideRoll;
-			UTCharacter->UTCharacterMovement->bAutoSlide = bAutoSlide;
+			SetAutoSlide(bAutoSlide);
 		}
 	}
 }

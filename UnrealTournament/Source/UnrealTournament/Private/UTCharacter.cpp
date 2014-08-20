@@ -1547,7 +1547,7 @@ bool AUTCharacter::CanDodge() const
 
 bool AUTCharacter::CanDodgeInternal_Implementation() const
 {
-	return UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
+	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
 }
 
 bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
@@ -1559,12 +1559,9 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			// blueprint handled dodge attempt
 			return true;
 		}
-		if (bIsCrouched)
+		if (UTCharacterMovement && UTCharacterMovement->bWantsSlideRoll && UTCharacterMovement->IsMovingOnGround())
 		{
-			if (UTCharacterMovement)
-			{
-				UTCharacterMovement->CrouchRoll(DodgeDir);
-			}
+			UTCharacterMovement->PerformRoll(DodgeDir);
 		}
 		else if (UTCharacterMovement && UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{

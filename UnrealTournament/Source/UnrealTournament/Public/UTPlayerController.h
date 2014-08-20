@@ -184,6 +184,13 @@ public:
 	UFUNCTION(exec)
 	virtual void ToggleAutoSlide();
 
+	/** Handles propagating autoslide changes to UTCharacterMovement and to server */
+	virtual	void SetAutoSlide(bool bNewAutoSlide);
+
+	/** Replicate autoslide setting to server */
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetAutoSlide(bool bNewAutoSlide);
+
 	/** user configurable FOV setting */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
 	float ConfigDefaultFOV;
