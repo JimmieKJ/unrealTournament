@@ -5,7 +5,7 @@
 #include "UTProjectile.generated.h"
 
 UCLASS(meta = (ChildCanTick))
-class AUTProjectile : public AActor, public IUTResetInterface
+class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
