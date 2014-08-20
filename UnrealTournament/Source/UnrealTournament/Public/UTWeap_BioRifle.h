@@ -8,7 +8,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(abstract)
 class AUTWeap_BioRifle : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()

@@ -12,7 +12,7 @@ class AUTProj_TransDisk;
 /**
  * 
  */
-UCLASS()
+UCLASS(abstract)
 class AUTWeap_Translocator : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()

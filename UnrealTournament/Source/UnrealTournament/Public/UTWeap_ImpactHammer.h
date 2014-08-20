@@ -2,7 +2,7 @@
 
 #include "UTWeap_ImpactHammer.generated.h"
 
-UCLASS()
+UCLASS(abstract)
 class AUTWeap_ImpactHammer : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()

@@ -39,7 +39,7 @@ struct FRocketFireMode
  *
  * Needs 3 muzzle flash locations for each barrel
  */
-UCLASS()
+UCLASS(abstract)
 class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()

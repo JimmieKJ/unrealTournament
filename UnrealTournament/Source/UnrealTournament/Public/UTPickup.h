@@ -76,7 +76,7 @@ class AUTPickup : public AActor, public IUTResetInterface
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	UMaterialInstanceDynamic* TimerMI;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	TEnumAsByte<EPickupClassification> PickupType;
 
 	// Holds the PRI of the last player to pick this item up.  Used to give a controlling bonus to score

@@ -2,7 +2,7 @@
 
 #include "UTWeap_Enforcer.generated.h"
 
-UCLASS()
+UCLASS(abstract)
 class AUTWeap_Enforcer : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()

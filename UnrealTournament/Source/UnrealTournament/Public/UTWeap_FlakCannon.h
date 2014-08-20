@@ -15,7 +15,7 @@
  * Secondary Fire:
  * - Fires a single explosive shell
  */
-UCLASS()
+UCLASS(abstract)
 class AUTWeap_FlakCannon : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
