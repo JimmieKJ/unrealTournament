@@ -34,10 +34,13 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
-	if (bLanded && !bExploded)
+	if (Role == ROLE_Authority)
 	{
-		RemainingRestTime = -1.0;
-		RemainingRestTimer();
+		if (bLanded && !bExploded)
+		{
+			RemainingRestTime = -1.0;
+			RemainingRestTimer();
+		}
 	}
 	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 }

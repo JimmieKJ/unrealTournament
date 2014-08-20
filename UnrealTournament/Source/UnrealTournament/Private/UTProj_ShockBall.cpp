@@ -14,7 +14,7 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FPostConstructInitializePropert
 
 void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
 {
-	if (ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
+	if (Role == ROLE_Authority && ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
 	{
 		//Consume extra ammo for the combo
 		AUTWeapon* Weapon = Cast<AUTWeapon>(DamageCauser);
