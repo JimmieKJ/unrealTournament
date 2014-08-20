@@ -168,11 +168,21 @@ public:
 	UFUNCTION(exec)
 	virtual void SetWeaponBobScaling(float NewScaling);
 
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
+	/** If true, single quick tap will result in wall dodge on release.  Otherwise need double tap to wall dodge. */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapWallDodge;
 
+	/** Toggles bSingleTapWallDodge */
 	UFUNCTION(exec)
 	virtual void ToggleSingleTap();
+
+	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
+	bool bAutoSlide;
+
+	/** Toggles whether need to hold shift down or not to slide along walls. */
+	UFUNCTION(exec)
+	virtual void ToggleAutoSlide();
 
 	/** user configurable FOV setting */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
@@ -268,6 +278,10 @@ protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	bool bIsHoldingDodge;
 
+	/** True if player is holding modifier to slide/roll */
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
+	bool bIsHoldingSlideRoll;
+
 	/** requests a change team; default is to switch to any other team than current */
 	UFUNCTION(exec)
 	virtual void ChangeTeam(uint8 NewTeamIndex = 255);
@@ -342,6 +356,8 @@ protected:
 	void HoldDodge();
 	void ReleaseDodge();
 	void OnDodgeRoll();
+	void HoldRollSlide();
+	void ReleaseRollSlide();
 
 	/** Special version of dodge roll triggered by spacebar - ignores if dodge multijump is enabled. */
 	void OnJumpDodgeRoll();

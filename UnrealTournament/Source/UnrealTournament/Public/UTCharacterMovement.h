@@ -146,6 +146,14 @@ public:
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bWillDodgeRoll;
 
+	/** True if player is holding modifier to slide/roll */
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
+	bool bWantsSlideRoll;
+
+	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
+	UPROPERTY(EditAnywhere, Category = Movement)
+	bool bAutoSlide;
+
 	/** Horizontal speed reduction on roll ending (multiplied). */
 	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
 	float RollEndingSpeedFactor;

@@ -53,11 +53,24 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 	LastEmoteTime = 0.0f;
 	EmoteCooldownTime = 0.3f;
+
+	bAutoSlide = false;
 }
 
 void AUTPlayerController::ToggleSingleTap()
 {
 	bSingleTapWallDodge = !bSingleTapWallDodge;
+}
+
+void AUTPlayerController::ToggleAutoSlide()
+{
+	bAutoSlide = !bAutoSlide;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->bAutoSlide = bAutoSlide;
+	}
+
 }
 
 void AUTPlayerController::SetEyeOffsetScaling(float NewScaling)
@@ -101,6 +114,8 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SingleTapDodge", IE_Pressed, this, &AUTPlayerController::OnSingleTapDodge);
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
+	InputComponent->BindAction("HoldRollSlide", IE_Pressed, this, &AUTPlayerController::HoldRollSlide);
+	InputComponent->BindAction("HoldRollSlide", IE_Released, this, &AUTPlayerController::ReleaseRollSlide);
 	InputComponent->BindAction("DodgeRoll", IE_Pressed, this, &AUTPlayerController::OnDodgeRoll);
 	InputComponent->BindAction("JumpDodgeRoll", IE_Pressed, this, &AUTPlayerController::OnJumpDodgeRoll);
 
@@ -230,10 +245,18 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 
 	UTCharacter = Cast<AUTCharacter>(InPawn);
 
-	// apply FOV angle if dead/spectating
-	if (GetPawn() == NULL && IsLocalPlayerController() && PlayerCameraManager != NULL)
+	if (IsLocalPlayerController())
 	{
-		FOV(ConfigDefaultFOV);
+		// apply FOV angle if dead/spectating
+		if (GetPawn() == NULL && IsLocalPlayerController() && PlayerCameraManager != NULL)
+		{
+			FOV(ConfigDefaultFOV);
+		}
+		if (UTCharacter && UTCharacter->UTCharacterMovement)
+		{
+			UTCharacter->UTCharacterMovement->bWantsSlideRoll = bIsHoldingSlideRoll;
+			UTCharacter->UTCharacterMovement->bAutoSlide = bAutoSlide;
+		}
 	}
 }
 
@@ -742,6 +765,26 @@ void AUTPlayerController::PerformSingleTapDodge()
 			MyCharMovement->bPressedDodgeBack = true;
 			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Back"));
 		}
+	}
+}
+
+void AUTPlayerController::HoldRollSlide()
+{
+	bIsHoldingSlideRoll = true;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->bWantsSlideRoll = true;
+	}
+}
+
+void AUTPlayerController::ReleaseRollSlide()
+{
+	bIsHoldingSlideRoll = false;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->bWantsSlideRoll = bAutoSlide;
 	}
 }
 
