@@ -19,5 +19,8 @@ class UUTHUDWidget_GameClock : public UUTHUDWidget
 		return true;
 	}
 
+private:
+	// Holds the value used to bounce the clock when it get's close to time
+	float BounceValue;
 
 };

@@ -21,10 +21,23 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GS != NULL)
 	{
+
+		float OldScale = RenderScale;
+
+		if (GS->IsMatchInProgress() && GS->RemainingTime <= 10.0)
+		{
+			BounceValue += DeltaTime * 6;
+			RenderScale *= 1.0 + (0.1 * sin(BounceValue));
+		}
+		else
+		{
+			BounceValue = 0.0f;
+		}
+
 		// Draw the background
 		DrawTexture(HudTexture, 0.0f,0.0f, 181.0f,43.0f, 491.0f,396.0f,181.0f,43.0f,1.0f,ApplyHUDColor(FLinearColor::White));
 		FText TimeStr = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), GS->RemainingTime);
-		DrawText(TimeStr, 37, 8, UTHUDOwner->NumberFont, 0.5, 1.0, FLinearColor::White, ETextHorzPos::Left);
+		DrawText(TimeStr, 37, 8, UTHUDOwner->NumberFont, 0.5, 1.0, BounceValue > 0.0 ? FLinearColor::Yellow : FLinearColor::White, ETextHorzPos::Left);
 
 		AUTCTFGameState* CGS = Cast<AUTCTFGameState>(GS);
 		if (CGS != NULL)
@@ -67,5 +80,7 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 				DrawText(HalfText, 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
 			}
 		}
+
+		RenderScale = OldScale;
 	}
 }
