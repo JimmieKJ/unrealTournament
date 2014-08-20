@@ -12,6 +12,7 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 	GameNetworkVersion = 8001;
 }
 
+
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
 	if (GEngineNetVersion == 0)
@@ -23,10 +24,22 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 
 	if (bFirstRun)
 	{
+#if PLATFORM_LINUX
+		// Don't write code like this, don't copy paste this anywhere. Will get removed with Engine 4.5
+		// hacked until we get an engine with FLinuxPlatformMisc::MessageBoxExt
+		EAppReturnType::Type LINUXMessageBoxExt(EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption);
+		if (LINUXMessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
+		{
+			FPlatformMisc::RequestExit(true);
+			return;
+		}
+#else
 		if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
 		{
 			FPlatformMisc::RequestExit(true);
+			return;
 		}
+#endif
 		bFirstRun = false;
 		SaveConfig();
 		GConfig->Flush(false);
@@ -98,3 +111,155 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 
 	Super::Tick(DeltaSeconds, bIdleMode);
 }
+
+#if PLATFORM_LINUX
+
+#include "SDL.h"
+
+EAppReturnType::Type LINUXMessageBoxExt(EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption)
+{
+	int NumberOfButtons = 0;
+
+	if (SDL_WasInit(SDL_INIT_VIDEO) == 0)
+	{
+		SDL_InitSubSystem(SDL_INIT_VIDEO);
+	}
+
+	SDL_MessageBoxButtonData *Buttons = nullptr;
+
+	switch (MsgType)
+	{
+	case EAppMsgType::Ok:
+		NumberOfButtons = 1;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT;
+		Buttons[0].text = "Ok";
+		Buttons[0].buttonid = EAppReturnType::Ok;
+		break;
+
+	case EAppMsgType::YesNo:
+		NumberOfButtons = 2;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[0].text = "Yes";
+		Buttons[0].buttonid = EAppReturnType::Yes;
+		Buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[1].text = "No";
+		Buttons[1].buttonid = EAppReturnType::No;
+		break;
+
+	case EAppMsgType::OkCancel:
+		NumberOfButtons = 2;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[0].text = "Ok";
+		Buttons[0].buttonid = EAppReturnType::Ok;
+		Buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[1].text = "Cancel";
+		Buttons[1].buttonid = EAppReturnType::Cancel;
+		break;
+
+	case EAppMsgType::YesNoCancel:
+		NumberOfButtons = 3;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[0].text = "Yes";
+		Buttons[0].buttonid = EAppReturnType::Yes;
+		Buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[1].text = "No";
+		Buttons[1].buttonid = EAppReturnType::No;
+		Buttons[2].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[2].text = "Cancel";
+		Buttons[2].buttonid = EAppReturnType::Cancel;
+		break;
+
+	case EAppMsgType::CancelRetryContinue:
+		NumberOfButtons = 3;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[0].text = "Continue";
+		Buttons[0].buttonid = EAppReturnType::Continue;
+		Buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[1].text = "Retry";
+		Buttons[1].buttonid = EAppReturnType::Retry;
+		Buttons[2].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[2].text = "Cancel";
+		Buttons[2].buttonid = EAppReturnType::Cancel;
+		break;
+
+	case EAppMsgType::YesNoYesAllNoAll:
+		NumberOfButtons = 4;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[0].text = "Yes";
+		Buttons[0].buttonid = EAppReturnType::Yes;
+		Buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[1].text = "No";
+		Buttons[1].buttonid = EAppReturnType::No;
+		Buttons[2].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[2].text = "Yes to all";
+		Buttons[2].buttonid = EAppReturnType::YesAll;
+		Buttons[3].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[3].text = "No to all";
+		Buttons[3].buttonid = EAppReturnType::NoAll;
+		break;
+
+	case EAppMsgType::YesNoYesAllNoAllCancel:
+		NumberOfButtons = 5;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[0].text = "Yes";
+		Buttons[0].buttonid = EAppReturnType::Yes;
+		Buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[1].text = "No";
+		Buttons[1].buttonid = EAppReturnType::No;
+		Buttons[2].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[2].text = "Yes to all";
+		Buttons[2].buttonid = EAppReturnType::YesAll;
+		Buttons[3].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[3].text = "No to all";
+		Buttons[3].buttonid = EAppReturnType::NoAll;
+		Buttons[4].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[4].text = "Cancel";
+		Buttons[4].buttonid = EAppReturnType::Cancel;
+		break;
+
+	case EAppMsgType::YesNoYesAll:
+		NumberOfButtons = 3;
+		Buttons = new SDL_MessageBoxButtonData[NumberOfButtons];
+		Buttons[0].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[0].text = "Yes";
+		Buttons[0].buttonid = EAppReturnType::Yes;
+		Buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[1].text = "No";
+		Buttons[1].buttonid = EAppReturnType::No;
+		Buttons[2].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+		Buttons[2].text = "Yes to all";
+		Buttons[2].buttonid = EAppReturnType::YesAll;
+		break;
+	}
+
+	SDL_MessageBoxData MessageBoxData =
+	{
+		SDL_MESSAGEBOX_INFORMATION,
+		NULL, // No parent window
+		TCHAR_TO_UTF8(Caption),
+		TCHAR_TO_UTF8(Text),
+		NumberOfButtons,
+		Buttons,
+		NULL // Default color scheme
+	};
+
+	int ButtonPressed = -1;
+	if (SDL_ShowMessageBox(&MessageBoxData, &ButtonPressed) == -1)
+	{
+		UE_LOG(LogInit, Fatal, TEXT("Error Presenting MessageBox: %s\n"), ANSI_TO_TCHAR(SDL_GetError()));
+		// unreachable
+		return EAppReturnType::Cancel;
+	}
+
+	delete[] Buttons;
+
+	return ButtonPressed == -1 ? EAppReturnType::Cancel : static_cast<EAppReturnType::Type>(ButtonPressed);
+}
+#endif

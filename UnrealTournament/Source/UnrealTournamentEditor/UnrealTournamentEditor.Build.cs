@@ -9,6 +9,12 @@ public class UnrealTournamentEditor : ModuleRules
         bFasterWithoutUnity = true;
         MinFilesUsingPrecompiledHeaderOverride = 1;
 
+        if (Target.Platform == UnrealTargetPlatform.Linux)
+        {
+            // Hack for LINUXMessageBoxExt
+            PublicDependencyModuleNames.AddRange(new string[] { "SDL2" });
+        }
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UnrealEd", "Slate", "SlateCore", "SlateRHIRenderer", "UnrealTournament" });
 	}
 }

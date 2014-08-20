@@ -41,6 +41,12 @@ public class UnrealTournamentServer : ModuleRules
 			}
 		);
 
+        if (Target.Platform == UnrealTargetPlatform.Linux)
+        {
+            // Hack for LINUXMessageBoxExt
+            PublicDependencyModuleNames.AddRange(new string[] { "SDL2" });
+        }
+
        	if (UEBuildConfiguration.bBuildEditor == true)
 		{
 			PrivateDependencyModuleNames.Add("UnrealEd");

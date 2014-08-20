@@ -16,6 +16,12 @@ public class UnrealTournament : ModuleRules
 			}
 		);
 
+        if (Target.Platform == UnrealTargetPlatform.Linux)
+        {
+            // Hack for LINUXMessageBoxExt
+            PublicDependencyModuleNames.AddRange(new string[] { "SDL2" });
+        }
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
