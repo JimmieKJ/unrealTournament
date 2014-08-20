@@ -31,8 +31,12 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	virtual void Destroyed() override;
 	virtual void BeginPlay() override;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Vehicle)
 	APawn* Driver;
+	/** Controller that gets credit for damage, since main Controller will be lost due to driver leaving when we blow up */
+	UPROPERTY(BlueprintReadOnly, Category = Projectile)
+	AController* DamageInstigator;
+
 
 	UFUNCTION()
 	virtual bool TryToDrive(APawn* NewDriver);

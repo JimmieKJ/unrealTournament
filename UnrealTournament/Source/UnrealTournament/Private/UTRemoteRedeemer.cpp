@@ -103,6 +103,7 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 			{
 				UTChar->StartDriving(this);
 			}
+			DamageInstigator = C;
 		}
 	}
 
@@ -277,7 +278,7 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 			FVector ExplosionCenter = GetActorLocation() + FVector(0, 0, 400);
 
 			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, ExplosionCenter, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
-				DefaultRedeemer->MyDamageType, IgnoreActors, this, Controller, Controller, DefaultRedeemer->MyDamageType);
+				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator);
 		}
 	}
 	else
