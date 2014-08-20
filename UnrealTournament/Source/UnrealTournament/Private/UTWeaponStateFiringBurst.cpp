@@ -23,7 +23,7 @@ void UUTWeaponStateFiringBurst::BeginState(const UUTWeaponState* PrevState)
 
 void UUTWeaponStateFiringBurst::IncrementShotTimer()
 {
-	ShotTimeRemaining += (CurrentShot < BurstSize) ? BurstInterval : GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode());
+	ShotTimeRemaining += (CurrentShot < BurstSize) ? BurstInterval : FMath::Max(0.01f, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - BurstSize*BurstInterval);
 }
 
 void UUTWeaponStateFiringBurst::UpdateTiming()

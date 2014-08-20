@@ -734,8 +734,8 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 		FRotationMatrix Mat(BaseAim);
 		FVector X, Y, Z;
 		Mat.GetScaledAxes(X, Y, Z);
-		float RandY = FMath::FRand() - 0.5f;
-		float RandZ = FMath::Sqrt(0.5f - FMath::Square(RandY)) * (FMath::FRand() - 0.5f);
+		float RandY = 0.5f * (FMath::FRand() + FMath::FRand() - 1.f);
+		float RandZ = FMath::Sqrt(0.25f - FMath::Square(RandY)) * (FMath::FRand() + FMath::FRand() - 1.f);
 		return (X + RandY * Spread[CurrentFireMode] * Y + RandZ * Spread[CurrentFireMode] * Z).Rotation();
 	}
 	else
