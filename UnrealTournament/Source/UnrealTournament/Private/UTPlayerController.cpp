@@ -525,6 +525,10 @@ void AUTPlayerController::MoveForward(float Value)
 		MovementForwardAxis = Value;
 		UTCharacter->MoveForward(Value);
 	}
+	else if (GetSpectatorPawn() != NULL)
+	{
+		GetSpectatorPawn()->MoveForward(Value);
+	}
 }
 
 void AUTPlayerController::MoveRight(float Value)
@@ -534,6 +538,10 @@ void AUTPlayerController::MoveRight(float Value)
 		MovementStrafeAxis = Value;
 		UTCharacter->MoveRight(Value);
 	}
+	else if (GetSpectatorPawn() != NULL)
+	{
+		GetSpectatorPawn()->MoveRight(Value);
+	}
 }
 
 void AUTPlayerController::MoveUp(float Value)
@@ -542,24 +550,22 @@ void AUTPlayerController::MoveUp(float Value)
 	{
 		UTCharacter->MoveUp(Value);
 	}
+	else if (GetSpectatorPawn() != NULL)
+	{
+		GetSpectatorPawn()->MoveUp_World(Value);
+	}
 }
 
 void AUTPlayerController::TurnAtRate(float Rate)
 {
-	if (GetPawn() != NULL)
-	{
-		// calculate delta for this frame from the rate information
-		AddYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
-	}
+	// calculate delta for this frame from the rate information
+	AddYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 }
 
 void AUTPlayerController::LookUpAtRate(float Rate)
 {
-	if (GetPawn() != NULL)
-	{
-		// calculate delta for this frame from the rate information
-		AddPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
-	}
+	// calculate delta for this frame from the rate information
+	AddPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
 }
 
 void AUTPlayerController::Jump()

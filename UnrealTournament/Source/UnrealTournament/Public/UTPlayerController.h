@@ -72,6 +72,7 @@ public:
 	UFUNCTION(client, unreliable)
 	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
 
+	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
 
 	inline void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
