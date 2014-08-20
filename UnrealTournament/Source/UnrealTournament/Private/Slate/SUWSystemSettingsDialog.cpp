@@ -92,7 +92,7 @@ FString SUWSystemSettingsDialog::GetFOVLabelText(int32 FOVAngle)
 
 void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
-	MouseSensitivityRange = FVector2D(0.01f, 0.15f);
+	MouseSensitivityRange = FVector2D(0.0075f, 0.15f);
 	DecalLifetimeRange = FVector2D(5.0f, 180.0f);
 
 	SUWDialog::Construct(SUWDialog::FArguments().PlayerOwner(InArgs._PlayerOwner));

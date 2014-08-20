@@ -4,108 +4,6 @@
 #include "SUWPlayerSettingsDialog.h"
 #include "SUWindowsStyle.h"
 
-/** TODO: copy and paste from SColorPicker.cpp without GIsEditor check... hopefully engine will fix and we can remove this */
-
-static TWeakPtr<SWindow> ColorPickerWindow;
-static bool UTOpenColorPicker(const FColorPickerArgs& Args)
-{
-	DestroyColorPicker();
-
-	bool Result = false;
-
-	FLinearColor OldColor = Args.InitialColorOverride;
-
-	if (Args.ColorArray && Args.ColorArray->Num() > 0)
-	{
-		OldColor = (*Args.ColorArray)[0]->ReinterpretAsLinear();
-	}
-	else if (Args.LinearColorArray && Args.LinearColorArray->Num() > 0)
-	{
-		OldColor = *(*Args.LinearColorArray)[0];
-	}
-	else if (Args.ColorChannelsArray && Args.ColorChannelsArray->Num() > 0)
-	{
-		OldColor.R = (*Args.ColorChannelsArray)[0].Red ? *(*Args.ColorChannelsArray)[0].Red : 0.0f;
-		OldColor.G = (*Args.ColorChannelsArray)[0].Green ? *(*Args.ColorChannelsArray)[0].Green : 0.0f;
-		OldColor.B = (*Args.ColorChannelsArray)[0].Blue ? *(*Args.ColorChannelsArray)[0].Blue : 0.0f;
-		OldColor.A = (*Args.ColorChannelsArray)[0].Alpha ? *(*Args.ColorChannelsArray)[0].Alpha : 0.0f;
-	}
-	else
-	{
-		check(Args.OnColorCommitted.IsBound());
-	}
-
-	// Determine the position of the window so that it will spawn near the mouse, but not go off the screen.
-	const FVector2D CursorPos = FSlateApplication::Get().GetCursorPos();
-	FSlateRect Anchor(CursorPos.X, CursorPos.Y, CursorPos.X, CursorPos.Y);
-
-	FVector2D AdjustedSummonLocation = FSlateApplication::Get().CalculatePopupWindowPosition(Anchor, SColorPicker::DEFAULT_WINDOW_SIZE, Orient_Horizontal);
-
-	TSharedPtr<SWindow> Window = SNew(SWindow)
-		.AutoCenter(EAutoCenter::None)
-		.ScreenPosition(AdjustedSummonLocation)
-		.SupportsMaximize(false)
-		.SupportsMinimize(false)
-		.SizingRule(ESizingRule::Autosized)
-		.Title(NSLOCTEXT("ColorPicker", "WindowHeader", "Color Picker"));
-
-	TSharedRef<SColorPicker> ColorPicker = SNew(SColorPicker)
-		.TargetColorAttribute(OldColor)
-		.TargetFColors(Args.ColorArray ? *Args.ColorArray : TArray<FColor*>())
-		.TargetLinearColors(Args.LinearColorArray ? *Args.LinearColorArray : TArray<FLinearColor*>())
-		.TargetColorChannels(Args.ColorChannelsArray ? *Args.ColorChannelsArray : TArray<FColorChannels>())
-		.UseAlpha(Args.bUseAlpha)
-		.OnlyRefreshOnMouseUp(Args.bOnlyRefreshOnMouseUp && !Args.bIsModal)
-		.OnlyRefreshOnOk(Args.bOnlyRefreshOnOk || Args.bIsModal)
-		.OnColorCommitted(Args.OnColorCommitted)
-		.PreColorCommitted(Args.PreColorCommitted)
-		.OnColorPickerCancelled(Args.OnColorPickerCancelled)
-		.OnInteractivePickBegin(Args.OnInteractivePickBegin)
-		.OnInteractivePickEnd(Args.OnInteractivePickEnd)
-		.OnColorPickerWindowClosed(Args.OnColorPickerWindowClosed)
-		.ParentWindow(Window)
-		.DisplayGamma(Args.DisplayGamma);
-
-	Window->SetContent(
-		SNew(SBox)
-		[
-			SNew(SBorder)
-			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
-			.Padding(FMargin(8.0f, 8.0f))
-			[
-				ColorPicker
-			]
-		]
-	);
-
-	if (Args.bIsModal)
-	{
-		FSlateApplication::Get().AddModalWindow(Window.ToSharedRef(), Args.ParentWidget);
-	}
-	else
-	{
-		if (Args.ParentWidget.IsValid())
-		{
-			// Find the window of the parent widget
-			FWidgetPath WidgetPath;
-			FSlateApplication::Get().GeneratePathToWidgetChecked(Args.ParentWidget.ToSharedRef(), WidgetPath);
-			Window = FSlateApplication::Get().AddWindowAsNativeChild(Window.ToSharedRef(), WidgetPath.GetWindow());
-		}
-		else
-		{
-			Window = FSlateApplication::Get().AddWindow(Window.ToSharedRef());
-		}
-
-	}
-
-	Result = true;
-
-	//hold on to the window created for external use...
-	ColorPickerWindow = Window;
-
-	return Result;
-}
-
 // scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
 static const float BOB_SCALING_FACTOR = 2.0f;
 
@@ -480,7 +378,7 @@ FReply SUWPlayerSettingsDialog::PlayerColorClicked(const FGeometry& Geometry, co
 		Params.ParentWidget = SharedThis(this);
 		Params.OnColorCommitted.BindSP(this, &SUWPlayerSettingsDialog::PlayerColorChanged);
 		Params.InitialColorOverride = SelectedPlayerColor;
-		UTOpenColorPicker(Params);
+		OpenColorPicker(Params);
 	}
 	return FReply::Handled();
 }
