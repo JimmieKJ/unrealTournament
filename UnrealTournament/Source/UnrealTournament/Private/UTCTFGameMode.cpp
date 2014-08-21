@@ -357,7 +357,10 @@ void AUTCTFGameMode::HandleExitingHalftime()
 	for (int i=0;i<PawnsToDestroy.Num();i++)
 	{
 		APawn* Pawn = PawnsToDestroy[i];
-		Pawn->Destroy();	
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();	
+		}
 	}
 
 	// reset everything
