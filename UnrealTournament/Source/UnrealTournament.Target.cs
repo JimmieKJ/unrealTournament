@@ -41,8 +41,16 @@ public class UnrealTournamentTarget : TargetRules
     {
         return new List<GUBPFormalBuild> 
         { 
-            new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Development) 
+            new GUBPFormalBuild(UnrealTargetConfiguration.Development) 
         };
     }
 
+    public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
+    {
+        if (HostPlatform == UnrealTargetPlatform.Mac)
+        {
+            return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Mac };
+        }
+        return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64, UnrealTargetPlatform.Linux };
+    }
 }
