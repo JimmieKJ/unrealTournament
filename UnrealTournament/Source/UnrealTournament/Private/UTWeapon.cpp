@@ -545,6 +545,14 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
 	}
 }
 
+void AUTWeapon::DeactivateSpawnProtection()
+{
+	if (UTOwner)
+	{
+		UTOwner->DeactivateSpawnProtection();
+	}
+}
+
 void AUTWeapon::FireShot()
 {
 	UTOwner->DeactivateSpawnProtection();

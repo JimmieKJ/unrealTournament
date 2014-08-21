@@ -26,6 +26,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 	{
 		ToggleLoopingEffects(true);
 		GetOuterAUTWeapon()->OnStartedFiring();
+		GetOuterAUTWeapon()->DeactivateSpawnProtection();
 		bCharging = true;
 	}
 	virtual void EndState() override

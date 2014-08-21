@@ -169,6 +169,9 @@ public:
 	 */
 	float GetAutoSwitchPriority();
 
+	/** Deactivate any owner spawn protection */
+	virtual void DeactivateSpawnProtection();
+
 	/** whether this weapon stays around by default when someone picks it up (i.e. multiple people can pick up from the same spot without waiting for respawn time) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	bool bWeaponStay;
