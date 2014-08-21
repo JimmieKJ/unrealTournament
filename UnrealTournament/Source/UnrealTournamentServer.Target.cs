@@ -24,7 +24,7 @@ public class UnrealTournamentServerTarget : TargetRules
         OutExtraModuleNames.Add("UnrealTournament");
     }
 
-    public override List<UnrealTargetPlatform> GUBP_GetBuildOnlyPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
+    public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
     {
         if (HostPlatform == UnrealTargetPlatform.Mac)
         {
