@@ -25,10 +25,10 @@ public class UnrealTournamentTarget : TargetRules
         {
             OutExtraModuleNames.Add("UnrealTournamentEditor");
         }
-        if (!UnrealBuildTool.UnrealBuildTool.RunningRocket())
-        {
-            OutExtraModuleNames.Add("OnlineSubsystemMcp");
-        }
+		if (UEBuildConfiguration.bCompileMcpOSS == true)
+		{
+			OutExtraModuleNames.Add("OnlineSubsystemMcp");
+		}
 	}
     
     public override void SetupGlobalEnvironment(

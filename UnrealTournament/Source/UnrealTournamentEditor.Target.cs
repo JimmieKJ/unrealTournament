@@ -23,7 +23,7 @@ public class UnrealTournamentEditorTarget : TargetRules
 		OutExtraModuleNames.Add("UnrealTournament");
         OutExtraModuleNames.Add("UnrealTournamentEditor");
 
-        if (!UnrealBuildTool.UnrealBuildTool.RunningRocket())
+        if (UEBuildConfiguration.bCompileMcpOSS == true)
         {
             OutExtraModuleNames.Add("OnlineSubsystemMcp");
         }
