@@ -482,6 +482,21 @@ void AUTGameMode::StartMatch()
 	{
 		SetMatchState(MatchState::CountdownToBegin);	
 	}
+
+	if (FUTAnalytics::IsAvailable())
+	{
+		if (GetWorld()->GetNetMode() != NM_Standalone)
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("MapName"), GetWorld()->GetMapName()));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(this)));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GoalScore"), GoalScore));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TimeLimit"), TimeLimit));
+			FUTAnalytics::GetProvider().RecordEvent( TEXT("NewMatch"), ParamArray );
+		}
+	}
+
+
 }
 
 void AUTGameMode::HandleMatchHasStarted()

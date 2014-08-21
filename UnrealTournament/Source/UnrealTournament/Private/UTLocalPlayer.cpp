@@ -6,6 +6,9 @@
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SUWDialog.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -28,6 +31,21 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 {
 	SUWindowsStyle::Initialize();
 	Super::PlayerAdded(InViewportClient, InControllerID);
+
+	if (FUTAnalytics::IsAvailable())
+	{
+		FString OSMajor;
+		FString OSMinor;
+
+		FPlatformMisc::GetOSVersions(OSMajor, OSMinor);
+
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("OSMajor"), OSMajor));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("OSMinor"), OSMinor));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CPUVendor"), FPlatformMisc::GetCPUVendor()));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CPUBrand"), FPlatformMisc::GetCPUBrand()));
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("SystemInfo"), ParamArray );
+	}
 }
 
 
