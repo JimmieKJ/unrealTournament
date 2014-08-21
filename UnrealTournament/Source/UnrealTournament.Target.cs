@@ -7,7 +7,12 @@ public class UnrealTournamentTarget : TargetRules
 {
 	public UnrealTournamentTarget(TargetInfo Target)
 	{
-		Type = TargetType.Game;
+        Type = TargetType.Game;
+
+        if (!UnrealBuildTool.UnrealBuildTool.RunningRocket())
+        {
+            OutExtraModuleNames.Add("OnlineSubsystemMcp");
+        }
 	}
 
 	//
