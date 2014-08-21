@@ -1056,7 +1056,6 @@ bool UUTCharacterMovement::ShouldCheckForValidLandingSpot(const float DeltaTime,
 	return false;
 }
 
-
 void UUTCharacterMovement::NotifyJumpApex()
 {
 	if (Cast<AUTCharacter>(CharacterOwner))
@@ -1094,7 +1093,6 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 
 	if (IsValidLandingSpot(Result.Location, Result))
 	{
-		//UE_LOG(UT, Warning, TEXT("ASSIST"));
 		bJustTeleported = true;
 		if (Cast<AUTCharacter>(CharacterOwner))
 		{

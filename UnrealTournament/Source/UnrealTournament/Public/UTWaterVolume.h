@@ -12,4 +12,15 @@ UCLASS(BlueprintType)
 class AUTWaterVolume : public APhysicsVolume
 {
 	GENERATED_UCLASS_BODY()
+
+	virtual void ActorEnteredVolume(class AActor* Other) override;
+	virtual void ActorLeavingVolume(class AActor* Other) override;
+
+	/** Sound played when actor enters this volume. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* EntrySound;
+
+	/** Sound played when actor exits this volume. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* ExitSound;
 };

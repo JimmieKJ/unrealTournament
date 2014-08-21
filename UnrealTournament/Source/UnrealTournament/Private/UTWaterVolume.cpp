@@ -16,3 +16,37 @@ AUTPainVolume::AUTPainVolume(const FPostConstructInitializeProperties& PCIP)
 	bWaterVolume = true;
 	FluidFriction = 1.5f;
 }
+
+void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
+{
+	if (Other && EntrySound)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
+	}
+}
+
+void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
+{
+	if (Other && ExitSound)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
+	}
+}
+
+void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
+{
+	if (Other && EntrySound)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
+	}
+}
+
+void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
+{
+	if (Other && ExitSound)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
+	}
+}
+
+
