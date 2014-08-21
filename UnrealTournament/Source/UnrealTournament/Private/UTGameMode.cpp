@@ -562,7 +562,12 @@ void AUTGameMode::EndMatch()
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
 	{
-		(*Iterator)->TurnOff();
+		// If a pawn is marked pending kill, *Iterator will be NULL
+		APawn* Pawn = *Iterator;
+		if (Pawn)
+		{
+			Pawn->TurnOff();
+		}
 	}
 }
 
