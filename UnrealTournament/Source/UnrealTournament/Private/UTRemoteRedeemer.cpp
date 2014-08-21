@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTProjectileMovementComponent.h"
+#include "UTImpactEffect.h"
 #include "UTRemoteRedeemer.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializeProperties& PCIP)
@@ -178,8 +179,18 @@ void AUTRemoteRedeemer::BlowUp()
 
 	if (!bExploded)
 	{
+		PlayExplosionEffects();
+
 		bExploded = true;
 		ExplodeStage1();
+	}
+}
+
+void AUTRemoteRedeemer::PlayExplosionEffects()
+{
+	if (ExplosionEffects != NULL)
+	{
+		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, Controller);
 	}
 }
 

@@ -37,6 +37,8 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	UPROPERTY(BlueprintReadOnly, Category = Projectile)
 	AController* DamageInstigator;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
 
 	UFUNCTION()
 	virtual bool TryToDrive(APawn* NewDriver);
@@ -98,6 +100,8 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	void ShutDown();
 
 	void ExplodeStage(float RangeMultiplier);
+
+	void PlayExplosionEffects();
 
 	UFUNCTION()
 	void ExplodeStage1();
