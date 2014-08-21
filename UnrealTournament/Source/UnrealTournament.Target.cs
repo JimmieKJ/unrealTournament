@@ -8,11 +8,6 @@ public class UnrealTournamentTarget : TargetRules
 	public UnrealTournamentTarget(TargetInfo Target)
 	{
         Type = TargetType.Game;
-
-        if (!UnrealBuildTool.UnrealBuildTool.RunningRocket())
-        {
-            OutExtraModuleNames.Add("OnlineSubsystemMcp");
-        }
 	}
 
 	//
@@ -30,6 +25,10 @@ public class UnrealTournamentTarget : TargetRules
         {
             OutExtraModuleNames.Add("UnrealTournamentEditor");
         }
+        if (!UnrealBuildTool.UnrealBuildTool.RunningRocket())
+        {
+            OutExtraModuleNames.Add("OnlineSubsystemMcp");
+        }
 	}
     
     public override void SetupGlobalEnvironment(
@@ -46,7 +45,8 @@ public class UnrealTournamentTarget : TargetRules
     {
         return new List<GUBPFormalBuild> 
         { 
-            new GUBPFormalBuild(UnrealTargetConfiguration.Development) 
+            new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Development),
+            new GUBPFormalBuild(UnrealTargetPlatform.Linux, UnrealTargetConfiguration.Development)
         };
     }
 
