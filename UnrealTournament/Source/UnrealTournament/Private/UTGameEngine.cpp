@@ -8,7 +8,7 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 {
 	bFirstRun = true;
 	ReadEULACaption = NSLOCTEXT("UTGameEngine", "ReadEULACaption", "READ ME FIRST");
-	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "Do you accept the license agreement at http://epic.gm/eula\n?");
+	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
 	GameNetworkVersion = 8001;
 }
 
