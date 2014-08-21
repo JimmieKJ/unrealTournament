@@ -16,6 +16,8 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FPostConstructInitializeProperties& PCI
 	SpreadResetInterval = 1.f;
 	SpreadIncrease = 0.04f;
 	MaxSpread = 0.15f;
+	BringUpTime = 0.3f;
+	PutDownTime = 0.2f;
 }
 
 void AUTWeap_Enforcer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
