@@ -74,7 +74,7 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	UPROPERTY()
 	float AccelerationBlend;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RemoteRedeemer)
 	float RedeemerMouseSensitivity;
 
 	UPROPERTY()

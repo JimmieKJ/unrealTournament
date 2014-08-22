@@ -34,7 +34,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 	bReplicateInstigator = true;
 
 	AccelRate = 4000.0;
-	RedeemerMouseSensitivity = 500.0f;
+	RedeemerMouseSensitivity = 700.0f;
 	AccelerationBlend = 5.0f;
 	MaximumRoll = 20.0f;
 	RollMultiplier = 0.01f;
