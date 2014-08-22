@@ -54,7 +54,7 @@ public class UnrealTournamentTarget : TargetRules
     {
         if (HostPlatform == UnrealTargetPlatform.Mac)
         {
-            return new List<UnrealTargetPlatform>();
+            return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Mac };
         }
         return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64, UnrealTargetPlatform.Linux };
     }
