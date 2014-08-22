@@ -44,6 +44,10 @@ void AUTPickup::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
+}
+
+void AUTPickup::SetupTimerSprite()
+{
 	if (GetWorld()->IsGameWorld())
 	{
 		// due to editor limitations the TimerSprite gets set via the blueprint construction script - initialize its material instance here
@@ -55,7 +59,7 @@ void AUTPickup::OnConstruction(const FTransform& Transform)
 			}
 			TimerSprite->Elements[0].Material = TimerMI;
 			TimerSprite->LDMaxDrawDistance = 1024.0f;
-			TimerSprite->bHiddenInGame = true;
+			TimerSprite->SetHiddenInGame(true);
 		}
 	}
 }
@@ -63,6 +67,8 @@ void AUTPickup::OnConstruction(const FTransform& Transform)
 void AUTPickup::BeginPlay()
 {
 	Super::BeginPlay();
+
+	SetupTimerSprite();
 
 	/*if (Role == ROLE_Authority && bDelayedSpawn)
 	{

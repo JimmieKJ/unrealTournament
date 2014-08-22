@@ -14,6 +14,8 @@ void AUTPickupInventory::BeginPlay()
 {
 	AActor::BeginPlay(); // skip UTPickup as SetInventoryType() will handle delayed spawn
 
+	SetupTimerSprite();
+
 	SetInventoryType(InventoryType);
 }
 

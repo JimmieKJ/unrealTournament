@@ -118,6 +118,9 @@ class AUTPickup : public AActor, public IUTResetInterface
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);
 	
+	// Handle creating the MID and hiding timer sprite by default
+	void SetupTimerSprite();
+
 protected:
 	/** used to replicate remaining respawn time to newly joining clients */
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RespawnTimeRemaining)
