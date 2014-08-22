@@ -14,6 +14,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
+#include "UTReplicatedEmitter.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -2308,13 +2309,28 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 	// during teleportation, we need to change our collision to overlap potential telefrag targets instead of block
 	// however, EncroachingBlockingGeometry() doesn't handle reflexivity correctly so we can't get anywhere changing our collision responses
 	// instead, we must change our object type to adjust the query
-
+	FVector TeleportStart = GetActorLocation();
 	ECollisionChannel SavedObjectType = CapsuleComponent->GetCollisionObjectType();
 	CapsuleComponent->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 	bool bResult = Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
 	CapsuleComponent->SetCollisionObjectType(SavedObjectType);
 	CapsuleComponent->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
-	// TODO: set bJustTeleported here?
+	CharacterMovement->bJustTeleported = bResult && !bIsATest;
+	if (bResult && !bIsATest && (TeleportEffect.Num() > 0) && TeleportEffect[0])
+	{
+		TSubclassOf<AUTReplicatedEmitter> PickedEffect = TeleportEffect[0];
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+		if (UTPS && UTPS->Team && (UTPS->Team->TeamIndex == 1) && TeleportEffect[1])
+		{
+			PickedEffect = TeleportEffect[1];
+		}
+
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		Params.Instigator = this;
+		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
+		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation(), GetActorRotation(), Params);
+	}
 	return bResult;
 }
 void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
