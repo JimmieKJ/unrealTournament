@@ -58,6 +58,9 @@ class AUTPlayerState : public APlayerState, public IUTTeamInterface
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 Assists;
 
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	AUTPlayerState* LastKillerPlayerState;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/

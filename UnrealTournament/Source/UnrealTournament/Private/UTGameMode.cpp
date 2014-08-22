@@ -371,6 +371,8 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 		if (KilledPlayerState != NULL)
 		{
+			KilledPlayerState->LastKillerPlayerState = KillerPlayerState;
+
 			KilledPlayerState->IncrementDeaths(KillerPlayerState);
 			TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 			if (UTDamage != NULL)
@@ -935,7 +937,18 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 				if ( NextDist < 6000.0f && !UTGameState->OnSameTeam(Player, OtherController) &&
 					!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)) )
 				{
+					// Avoid the last person that killed me
+					if (OtherCharacter->PlayerState == Cast<AUTPlayerState>(Player->PlayerState)->LastKillerPlayerState)
+					{
+						Score -= 7.f;
+					}
+
 					Score -= (5.f - 0.0006f * NextDist);
+				}
+				else if (NextDist < 3000.0f && OtherCharacter->PlayerState == Cast<AUTPlayerState>(Player->PlayerState)->LastKillerPlayerState)
+				{
+					// Avoid the last person that killed me
+					Score -= 7.f;
 				}
 				else if (bTwoPlayerGame)
 				{
