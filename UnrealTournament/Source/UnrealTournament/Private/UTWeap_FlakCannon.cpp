@@ -47,6 +47,23 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 	MultiShotProjClass.SetNumZeroed(1);
 }
 
+FRotator AUTWeap_FlakCannon::GetAdjustedAim_Implementation(FVector StartFireLoc)
+{
+	FRotator BaseAim = Super::GetAdjustedAim_Implementation(StartFireLoc);
+	if ((CurrentFireMode == 1) && UTOwner && Cast<APlayerController>(UTOwner->GetController()))
+	{
+		if (BaseAim.Pitch > 270.f)
+		{
+			BaseAim.Pitch += 3.f;
+		}
+		else if (BaseAim.Pitch < 90.f)
+		{
+			BaseAim.Pitch += (90.f - BaseAim.Pitch) / 32.f;
+		}
+	}
+	return BaseAim;
+}
+
 FVector AUTWeap_FlakCannon::GetFireLocationForMultiShot_Implementation(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation)
 {
 	if (MultiShotIndex > 0 && MultiShotLocationSpread.IsValidIndex(CurrentFireMode))
@@ -135,3 +152,4 @@ AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 		return MainProjectile;
 	}
 }
+

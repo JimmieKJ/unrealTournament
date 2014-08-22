@@ -56,4 +56,7 @@ class AUTWeap_FlakCannon : public AUTWeapon
 	FRotator GetFireRotationForMultiShot(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation);
 
 	virtual AUTProjectile* FireProjectile() override;
+
+	/** Point the barrel up a little when firing shell. */
+	virtual FRotator GetAdjustedAim_Implementation(FVector StartFireLoc) override;
 };
