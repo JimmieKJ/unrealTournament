@@ -351,7 +351,10 @@ void AUTCTFGameMode::HandleExitingHalftime()
 
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		PawnsToDestroy.Add(*It);
+		if (*It)
+		{
+			PawnsToDestroy.Add(*It);
+		}
 	}
 
 	for (int i=0;i<PawnsToDestroy.Num();i++)
