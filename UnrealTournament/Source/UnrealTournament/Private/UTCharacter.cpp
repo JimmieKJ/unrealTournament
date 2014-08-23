@@ -2400,11 +2400,46 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
-			AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], 1.0f);
+			if (AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], 1.0f))
+			{
+				CurrentEmote = EmoteAnimations[EmoteIndex];
+				EmoteCount++;
+
+				// force behind view
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+					if (PC != NULL && PC->GetViewTarget() == this)
+					{
+						PC->BehindView(true);
+					}
+				}
+				FOnMontageEnded EndDelegate;
+				EndDelegate.BindUObject(this, &AUTCharacter::OnEmoteEnded);
+				AnimInstance->Montage_SetEndDelegate(EndDelegate);
+			}			
 		}
 	}
 }
 
+void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	EmoteCount--;
+	if (EmoteCount == 0)
+	{
+		CurrentEmote = nullptr;
+	}
+
+	// cancel behind view
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+		if (PC != NULL && PC->GetViewTarget() == this)
+		{
+			PC->BehindView(false);
+		}
+	}
+}
 
 EAllowedSpecialMoveAnims AUTCharacter::AllowedSpecialMoveAnims()
 {

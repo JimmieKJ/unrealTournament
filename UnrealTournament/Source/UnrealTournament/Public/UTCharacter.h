@@ -84,8 +84,17 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	void PlayEmote(int32 EmoteIndex);
 
+	UFUNCTION()
+	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
+
 	UPROPERTY(EditDefaultsOnly, Category = Pawn)
 	TArray<UAnimMontage*> EmoteAnimations;
+	
+	UPROPERTY()
+	UAnimMontage* CurrentEmote;
+
+	// Keep track of emote count so we can clear CurrentEmote
+	int32 EmoteCount;
 
 	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
 	UPROPERTY()

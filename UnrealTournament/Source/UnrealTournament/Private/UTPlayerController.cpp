@@ -972,7 +972,25 @@ bool AUTPlayerController::CanRestartPlayer()
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
 {
-	SetCameraMode( (bWantBehindView ? FName(TEXT("FreeCam")) : FName(TEXT("Default"))));
+	if (bWantBehindView)
+	{
+		BehindViewStacks++;
+	}
+	else
+	{
+		BehindViewStacks--;
+	}
+
+	if (BehindViewStacks >= 1)
+	{
+		SetCameraMode("FreeCam");
+	}
+	else
+	{
+		SetCameraMode("Default");
+		// Make sure we don't go negative
+		BehindViewStacks = 0;
+	}
 }
 
 bool AUTPlayerController::IsBehindView()

@@ -106,6 +106,9 @@ public:
 	UFUNCTION(exec)
 	virtual void BehindView(bool bWantBehindView);
 
+	UPROPERTY()
+	int32 BehindViewStacks;
+
 	virtual bool IsBehindView();
 	virtual void SetCameraMode( FName NewCamMode );
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
