@@ -176,9 +176,17 @@ public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapWallDodge;
 
+	/** If true, holding slide/roll (shift) will keep current acceleration if no movement keys are pressed. */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
+	bool bHoldAccelWithSlideRoll;
+
 	/** Toggles bSingleTapWallDodge */
 	UFUNCTION(exec)
 	virtual void ToggleSingleTap();
+
+	/** Toggles holding acceleration with slide/roll (shift) */
+	UFUNCTION(exec)
+	virtual void ToggleHoldAccel();
 
 	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)

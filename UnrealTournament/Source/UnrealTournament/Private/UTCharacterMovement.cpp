@@ -86,6 +86,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CurrentWallDodgeCount = 0;
 	bWantsSlideRoll = false;
 	bApplyWallSlide = false;
+	SavedAcceleration = FVector(0.f);
+	bMaintainSlideRollAccel = true;
 
 	EasyImpactImpulse = 1500.f;
 	MaxUndampedImpulse = 2000.f;
@@ -324,6 +326,19 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	CurrentMultiJumpCount++;
 	SetMovementMode(MOVE_Falling);
 	return true;
+}
+
+FVector UUTCharacterMovement::ConsumeInputVector()
+{
+	FVector NewInputVector = Super::ConsumeInputVector();
+
+	if (bWantsSlideRoll && NewInputVector.IsZero() && bMaintainSlideRollAccel)
+	{
+		NewInputVector = SavedAcceleration;
+	}
+
+	SavedAcceleration = NewInputVector;
+	return NewInputVector;
 }
 
 void UUTCharacterMovement::PerformMovement(float DeltaSeconds)

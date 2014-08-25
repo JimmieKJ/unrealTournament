@@ -22,6 +22,8 @@ public:
 
 	virtual void PerformMovement(float DeltaSeconds) override;
 
+	virtual FVector ConsumeInputVector() override;
+
 	/** @TODO FIXMESTEVE remove when we get UE4 4.4
 	* Determine whether we should try to find a valid landing spot after an impact with an invalid one (based on the Hit result).
 	* For example, landing on the lower portion of the capsule on the edge of geometry may be a walkable surface, but could have reported an unwalkable impact normal.
@@ -142,7 +144,14 @@ public:
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bWasDodgeRolling;
 
+	/** Acceleration at start of last PerformMovement. */
+	UPROPERTY(Category = "Saved Acceleration", BlueprintReadOnly)
+	FVector SavedAcceleration;
 
+	/** If true, keep old acceleration while holding bWantSlideRoll if no movement keys are pressed. */
+	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
+	bool bMaintainSlideRollAccel;
+	
 protected:
 	/** True if player is holding modifier to slide/roll.  Change with UpdateSlideRoll(). */
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)

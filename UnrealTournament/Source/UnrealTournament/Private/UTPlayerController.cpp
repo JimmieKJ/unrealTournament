@@ -55,11 +55,22 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	EmoteCooldownTime = 0.3f;
 
 	bAutoSlide = false;
+	bHoldAccelWithSlideRoll = true;
 }
 
 void AUTPlayerController::ToggleSingleTap()
 {
 	bSingleTapWallDodge = !bSingleTapWallDodge;
+}
+
+void AUTPlayerController::ToggleHoldAccel()
+{
+	bHoldAccelWithSlideRoll = !bHoldAccelWithSlideRoll;
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->bMaintainSlideRollAccel = bHoldAccelWithSlideRoll;
+	}
 }
 
 void AUTPlayerController::ToggleAutoSlide()
@@ -273,6 +284,7 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		{
 			UTCharacter->UTCharacterMovement->UpdateSlideRoll(bIsHoldingSlideRoll);
 			SetAutoSlide(bAutoSlide);
+			UTCharacter->UTCharacterMovement->bMaintainSlideRollAccel = bHoldAccelWithSlideRoll;
 		}
 	}
 }
