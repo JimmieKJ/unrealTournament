@@ -3,8 +3,8 @@
 
 #include "UTGameState.generated.h"
 
-UCLASS(minimalapi, Config = Game)
-class AUTGameState : public AGameState
+UCLASS(Config = Game)
+class UNREALTOURNAMENT_API AUTGameState : public AGameState
 {
 	GENERATED_UCLASS_BODY()
 

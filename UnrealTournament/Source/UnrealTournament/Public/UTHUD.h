@@ -33,7 +33,7 @@ struct FDamageHudIndicator
 };
 
 UCLASS(Config=Game)
-class AUTHUD : public AHUD
+class UNREALTOURNAMENT_API AUTHUD : public AHUD
 {
 	GENERATED_UCLASS_BODY()
 

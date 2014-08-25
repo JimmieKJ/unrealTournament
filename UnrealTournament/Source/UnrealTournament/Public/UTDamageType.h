@@ -48,7 +48,7 @@ struct FUTRadialDamageEvent : public FRadialDamageEvent
 };
 
 UCLASS()
-class UUTDamageType : public UDamageType
+class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 {
 	GENERATED_UCLASS_BODY()
 

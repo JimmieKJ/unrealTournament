@@ -4,7 +4,7 @@
 #include "UTHUD_TeamDM.generated.h"
 
 UCLASS()
-class AUTHUD_TeamDM : public AUTHUD_DM
+class UNREALTOURNAMENT_API AUTHUD_TeamDM : public AUTHUD_DM
 {
 	GENERATED_UCLASS_BODY()
 

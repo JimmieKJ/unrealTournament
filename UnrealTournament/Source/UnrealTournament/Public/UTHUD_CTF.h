@@ -5,7 +5,7 @@
 #include "UTHUD_CTF.generated.h"
 
 UCLASS()
-class AUTHUD_CTF : public AUTHUD
+class UNREALTOURNAMENT_API AUTHUD_CTF : public AUTHUD
 {
 	GENERATED_UCLASS_BODY()
 

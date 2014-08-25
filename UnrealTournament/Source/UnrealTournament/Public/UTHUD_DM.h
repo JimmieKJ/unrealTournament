@@ -5,7 +5,7 @@
 #include "UTHUD_DM.generated.h"
 
 UCLASS()
-class AUTHUD_DM : public AUTHUD
+class UNREALTOURNAMENT_API AUTHUD_DM : public AUTHUD
 {
 	GENERATED_UCLASS_BODY()
 };
