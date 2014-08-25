@@ -14,8 +14,8 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FPostConstructInitializeProperties& PCI
 	MaxAmmo = 40;
 	LastFireTime = 0.f;
 	SpreadResetInterval = 1.f;
-	SpreadIncrease = 0.04f;
-	MaxSpread = 0.15f;
+	SpreadIncrease = 0.03f;
+	MaxSpread = 0.12f;
 	BringUpTime = 0.3f;
 	PutDownTime = 0.2f;
 }
