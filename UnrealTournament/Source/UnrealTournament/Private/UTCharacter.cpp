@@ -733,14 +733,18 @@ void AUTCharacter::StopRagdoll()
 		}
 	}
 	// move the root bone to where we put the capsule, then disable further physics
-	if (Mesh->Bodies.Num() > 0 && Mesh->Bodies[0] != NULL)
+	if (Mesh->Bodies.Num() > 0)
 	{
-		FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
-		NewTransform *= CapsuleComponent->GetComponentTransform();
-		Mesh->Bodies[0]->SetBodyTransform(NewTransform, true);
-		Mesh->Bodies[0]->SetInstanceSimulatePhysics(false, true);
-		Mesh->Bodies[0]->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
-		Mesh->SyncComponentToRBPhysics();
+		FBodyInstance* RootBody = Mesh->GetBodyInstance();
+		if (RootBody != NULL)
+		{
+			FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
+			NewTransform *= CapsuleComponent->GetComponentTransform();
+			RootBody->SetBodyTransform(NewTransform, true);
+			RootBody->SetInstanceSimulatePhysics(false, true);
+			RootBody->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
+			Mesh->SyncComponentToRBPhysics();
+		}
 	}
 
 	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
