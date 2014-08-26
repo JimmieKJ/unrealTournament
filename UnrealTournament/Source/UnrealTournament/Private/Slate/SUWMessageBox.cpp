@@ -85,7 +85,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 	FString WrappedText = InArgs._MessageText.ToString();
 	for (int32 i = 0; i < WrapData.Num(); i++)
 	{
-		WrappedText.InsertAt(WrapData[i].Value + i * 2, TEXT("\n"));
+		WrappedText.InsertAt(WrapData[i].Value + i, TEXT("\n"));
 	}
 	MessageTextBlock->SetText(FText::FromString(WrappedText));
 }
