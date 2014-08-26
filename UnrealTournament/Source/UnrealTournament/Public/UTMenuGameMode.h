@@ -14,6 +14,7 @@ public:
 	virtual void BeginGame();
 	virtual void GenericPlayerInitialization(AController* C) override;
 	virtual void RestartPlayer(AController* aPlayer);
+	virtual TSubclassOf<AGameMode> SetGameMode(const FString& MapName, const FString& Options, const FString& Portal); // FIXME: waiting on engine: override
 };
 
 

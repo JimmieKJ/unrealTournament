@@ -4,10 +4,7 @@
 #include "UTMenuGameMode.h"
 #include "GameFramework/GameMode.h"
 #include "UTGameMode.h"
-#include "Slate.h"
-#include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "UTDMGameMode.h"
 
 AUTMenuGameMode::AUTMenuGameMode(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -41,4 +38,11 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 void AUTMenuGameMode::RestartPlayer(AController* aPlayer)
 {
 	return;
+}
+
+TSubclassOf<AGameMode> AUTMenuGameMode::SetGameMode(const FString& MapName, const FString& Options, const FString& Portal)
+{
+	// note that map prefixes are handled by the engine code so we don't need to do that here
+	// TODO: mod handling?
+	return (MapName == TEXT("UT-Entry")) ? GetClass() : AUTDMGameMode::StaticClass();
 }

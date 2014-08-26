@@ -24,7 +24,7 @@ struct FTimedImpactEffect
 };
 
 UCLASS()
-class AUTWorldSettings : public AWorldSettings
+class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 {
 	GENERATED_UCLASS_BODY()
 
