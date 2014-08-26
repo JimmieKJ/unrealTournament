@@ -24,31 +24,36 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
-			.MaxHeight(26)
+			.AutoHeight()
 			.HAlign(HAlign_Fill)
 			[
-				SNew(SOverlay)
-				+ SOverlay::Slot()
+				SNew(SBox)
+				.HeightOverride(26)
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.HAlign(HAlign_Fill)
+					SNew(SOverlay)
+					+ SOverlay::Slot()
 					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
+						]
 					]
-				]
-				+SOverlay::Slot()
-				[
-					BuildMenuBar()
+					+SOverlay::Slot()
+					[
+						BuildMenuBar()
+					]
 				]
 			]
 
 			+ SVerticalBox::Slot()
-			.AutoHeight()
+			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SOverlay)
+
 				+ SOverlay::Slot()
 				[
 					SNew(SImage)

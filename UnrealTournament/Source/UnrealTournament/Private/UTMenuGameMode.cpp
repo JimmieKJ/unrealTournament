@@ -32,7 +32,6 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 	{
 		PC->ShowMenu();
 	}
-
 }
 
 void AUTMenuGameMode::RestartPlayer(AController* aPlayer)
@@ -45,4 +44,15 @@ TSubclassOf<AGameMode> AUTMenuGameMode::SetGameMode(const FString& MapName, cons
 	// note that map prefixes are handled by the engine code so we don't need to do that here
 	// TODO: mod handling?
 	return (MapName == TEXT("UT-Entry")) ? GetClass() : AUTDMGameMode::StaticClass();
+}
+
+void AUTMenuGameMode::Logout( AController* Exiting )
+{
+	Super::Logout(Exiting);
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(Exiting);
+	if (PC != NULL)
+	{
+		PC->HideMenu();
+	}
 }

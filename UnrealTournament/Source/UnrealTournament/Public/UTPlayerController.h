@@ -124,7 +124,7 @@ public:
 
 	// A quick function so I don't have to keep adding one when I want to test something.  @REMOVEME: Before the final version
 	UFUNCTION(exec)
-	virtual void DebugTest();
+	virtual void DebugTest(FString TestCommand);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerDebugTest();
@@ -146,6 +146,9 @@ public:
 	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec)
 	virtual void ShowMenu();
+
+	UFUNCTION(exec)
+	virtual void HideMenu();
 
 	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
 

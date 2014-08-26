@@ -1069,44 +1069,20 @@ void AUTPlayerController::ClientHalftime_Implementation()
 
 
 // LEAVE ME for quick debug commands when we need them.
-void AUTPlayerController::DebugTest()
+void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	UE_LOG(UT,Log,TEXT("DEBUG"));
-
-	//ShowMessage(NSLOCTEXT("A","B","C"), NSLOCTEXT("A","c","This is a test of word wrapping text.  I don't know why it didn't work.  But this is a test and it should wrap the right way.  The quick brown fox was a zombie who ate the lazy dog."),UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &AUTPlayerController::TestResult));
-	ShowMessage(NSLOCTEXT("A","B","C"), NSLOCTEXT("Engine", "ClientOutdated", "The match you are trying to join is running an incompatible version of the game.  Please try upgrading your game version."),UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &AUTPlayerController::TestResult));
-	
 	ServerDebugTest();
 }
 
+
 void AUTPlayerController::TestResult(uint16 ButtonID)
 {
-
 }
 
 
 void AUTPlayerController::ServerDebugTest_Implementation()
 {
 	UE_LOG(UT,Log,TEXT("SERVERDEBUG"));
-
-	AUTCTFGameState* CGS = GetWorld()->GetGameState<AUTCTFGameState>();
-	if (CGS != NULL)
-	{
-		UE_LOG(UT,Log,TEXT("GameState: %s"), *GetNameSafe(CGS));
-		UE_LOG(UT,Log,TEXT("   FlagBase[0] %s"), *GetNameSafe(CGS->FlagBases[0]));
-		if (CGS->FlagBases[0] != NULL)
-		{
-			UE_LOG(UT,Log,TEXT("       Flag: %s in state %s with holder %s"), *GetNameSafe(CGS->FlagBases[0]->MyFlag), (CGS->FlagBases[0]->MyFlag != NULL ? *CGS->FlagBases[0]->MyFlag->ObjectState.ToString() : TEXT("None")),
-										(CGS->FlagBases[0]->MyFlag != NULL ? *GetNameSafe(CGS->FlagBases[0]->MyFlag->Holder) : TEXT("None")));
-		}
-		UE_LOG(UT,Log,TEXT("   FlagBase[1] %s"), *GetNameSafe(CGS->FlagBases[1]));
-		if (CGS->FlagBases[1] != NULL)
-		{
-			UE_LOG(UT,Log,TEXT("       Flag: %s in state %s with holder %s"), *GetNameSafe(CGS->FlagBases[1]->MyFlag), (CGS->FlagBases[1]->MyFlag != NULL ? *CGS->FlagBases[1]->MyFlag->ObjectState.ToString() : TEXT("None")),
-										(CGS->FlagBases[1]->MyFlag != NULL ? *GetNameSafe(CGS->FlagBases[1]->MyFlag->Holder) : TEXT("None")));
-		}
-	}
-
 }
 
 bool AUTPlayerController::ServerDebugTest_Validate() {return true;}
@@ -1178,6 +1154,16 @@ void AUTPlayerController::ShowMenu()
 	}
 
 }
+
+void AUTPlayerController::HideMenu()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
+	{
+		LP->HideMenu();
+	}
+}
+
 
 void AUTPlayerController::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
 {
