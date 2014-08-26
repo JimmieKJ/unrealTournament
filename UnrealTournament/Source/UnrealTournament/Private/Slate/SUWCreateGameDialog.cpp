@@ -321,6 +321,7 @@ FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 		GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), *NewURL, TRAVEL_Absolute);
 	}
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
+	GetPlayerOwner()->HideMenu();
 	return FReply::Handled();
 }
 FReply SUWCreateGameDialog::CancelClick()

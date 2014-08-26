@@ -48,7 +48,27 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 			.AutoHeight()
 			.HAlign(HAlign_Fill)
 			[
-				SNew(SCanvas)
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
+				]
+				+ SOverlay::Slot()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background.Logo"))
+					]
+				]
+
+				+ SOverlay::Slot()
+				[
+					SNew(SCanvas)
+				]
 			]
 		];
 }
@@ -399,7 +419,10 @@ FReply SUWindowsDesktop::OnKeyUp( const FGeometry& MyGeometry, const FKeyboardEv
 {
 	if (InKeyboardEvent.GetKey() == EKeys::Escape)
 	{
-		CloseMenus();
+		if (GWorld->GetWorld()->GetMapName().ToLower() != TEXT("ut-entry"))
+		{
+			CloseMenus();
+		}
 		return FReply::Handled();
 	}
 	else
@@ -430,7 +453,10 @@ FReply SUWindowsDesktop::OnMouseButtonDown( const FGeometry& MyGeometry, const F
 
 FReply SUWindowsDesktop::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	CloseMenus();
+	if (GWorld->GetWorld()->GetMapName().ToLower() != TEXT("ut-entry"))
+	{
+		CloseMenus();
+	}
 	return FReply::Handled();
 }
 
