@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
+#include "UTLift.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
@@ -94,6 +95,129 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 
 	OutofWaterZ = 700.f;
 	JumpOutOfWaterPitch = 0.f;
+}
+
+// @TODO FIXMESTEVE remove once Engine gives me the UnableToFollowBaseMove() event
+// @todo UE4 - handle lift moving up and down through encroachment
+void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
+{
+	if (!HasValidData())
+	{
+		return;
+	}
+
+	const UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
+	if (!MovementBaseUtility::UseRelativeLocation(MovementBase))
+	{
+		return;
+	}
+
+	if (!IsValid(MovementBase->GetOwner()))
+	{
+		SetBase(NULL);
+		return;
+	}
+
+	// Ignore collision with bases during these movements.
+	TGuardValue<EMoveComponentFlags> ScopedFlagRestore(MoveComponentFlags, MoveComponentFlags | MOVECOMP_IgnoreBases);
+
+	FQuat DeltaQuat = FQuat::Identity;
+	FVector DeltaPosition = FVector::ZeroVector;
+
+	FQuat NewBaseQuat;
+	FVector NewBaseLocation;
+	if (!MovementBaseUtility::GetMovementBaseTransform(MovementBase, CharacterOwner->GetBasedMovement().BoneName, NewBaseLocation, NewBaseQuat))
+	{
+		return;
+	}
+
+	// Find change in rotation
+	const bool bRotationChanged = !OldBaseQuat.Equals(NewBaseQuat);
+	if (bRotationChanged)
+	{
+		DeltaQuat = NewBaseQuat * OldBaseQuat.Inverse();
+	}
+
+	// only if base moved
+	if (bRotationChanged || (OldBaseLocation != NewBaseLocation))
+	{
+		// Calculate new transform matrix of base actor (ignoring scale).
+		const FQuatRotationTranslationMatrix OldLocalToWorld(OldBaseQuat, OldBaseLocation);
+		const FQuatRotationTranslationMatrix NewLocalToWorld(NewBaseQuat, NewBaseLocation);
+
+		if (CharacterOwner->IsMatineeControlled())
+		{
+			FRotationTranslationMatrix HardRelMatrix(CharacterOwner->GetBasedMovement().Rotation, CharacterOwner->GetBasedMovement().Location);
+			const FMatrix NewWorldTM = HardRelMatrix * NewLocalToWorld;
+			const FRotator NewWorldRot = bIgnoreBaseRotation ? CharacterOwner->GetActorRotation() : NewWorldTM.Rotator();
+			MoveUpdatedComponent(NewWorldTM.GetOrigin() - CharacterOwner->GetActorLocation(), NewWorldRot, true);
+		}
+		else
+		{
+			FQuat FinalQuat = CharacterOwner->GetActorQuat();
+
+			if (bRotationChanged && !bIgnoreBaseRotation)
+			{
+				// Apply change in rotation and pipe through FaceRotation to maintain axis restrictions
+				const FQuat PawnOldQuat = CharacterOwner->GetActorQuat();
+				FinalQuat = DeltaQuat * FinalQuat;
+				CharacterOwner->FaceRotation(FinalQuat.Rotator(), 0.f);
+				FinalQuat = CharacterOwner->GetActorQuat();
+
+				// Pipe through ControlRotation, to affect camera.
+				if (CharacterOwner->Controller)
+				{
+					const FQuat PawnDeltaRotation = FinalQuat * PawnOldQuat.Inverse();
+					FRotator FinalRotation = FinalQuat.Rotator();
+					UpdateBasedRotation(FinalRotation, PawnDeltaRotation.Rotator());
+					FinalQuat = FinalRotation.Quaternion();
+				}
+			}
+
+			// We need to offset the base of the character here, not its origin, so offset by half height
+			float HalfHeight, Radius;
+			CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(Radius, HalfHeight);
+
+			FVector const BaseOffset(0.0f, 0.0f, HalfHeight);
+			FVector const LocalBasePos = OldLocalToWorld.InverseTransformPosition(CharacterOwner->GetActorLocation() - BaseOffset);
+			FVector const NewWorldPos = ConstrainLocationToPlane(NewLocalToWorld.TransformPosition(LocalBasePos) + BaseOffset);
+			DeltaPosition = ConstrainDirectionToPlane(NewWorldPos - CharacterOwner->GetActorLocation());
+
+			// move attached actor
+			if (bFastAttachedMove)
+			{
+				// we're trusting no other obstacle can prevent the move here
+				UpdatedComponent->SetWorldLocationAndRotation(NewWorldPos, FinalQuat.Rotator(), false);
+			}
+			else
+			{
+				FVector OldLocation = UpdatedComponent->GetComponentLocation();
+				MoveUpdatedComponent(DeltaPosition, FinalQuat.Rotator(), true);
+				if ((UpdatedComponent->GetComponentLocation() - (OldLocation + DeltaPosition)).IsNearlyZero() == false)
+				{
+					UE_LOG(UT, Warning, TEXT("Couldn't move with mover! %s"), *MovementBase->GetName());
+
+					UnableToFollowBaseMove(DeltaPosition, OldLocation);
+				}
+			}
+		}
+
+		if (MovementBase->IsSimulatingPhysics() && CharacterOwner->Mesh)
+		{
+			CharacterOwner->Mesh->ApplyDeltaToAllPhysicsTransforms(DeltaPosition, DeltaQuat);
+		}
+	}
+}
+
+void UUTCharacterMovement::UnableToFollowBaseMove(FVector DeltaPosition, FVector OldLocation)
+{
+	UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
+
+	// @TODO FIXMESTEVE handle case where we should adjust player position so he doesn't encroach, but don't need to make lift return
+	if (MovementBase && Cast<AUTLift>(MovementBase->GetOwner()))// && UpdatedComponent->IsOverlappingComponent(MovementBase))
+	{
+		Cast<AUTLift>(MovementBase->GetOwner())->OnEncroachActor(CharacterOwner);
+	}
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)

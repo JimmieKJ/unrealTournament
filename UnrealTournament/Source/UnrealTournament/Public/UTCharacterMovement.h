@@ -24,6 +24,12 @@ public:
 
 	virtual FVector ConsumeInputVector() override;
 
+	/** @TODO FIXMESTEVE remove when we get UnableToFollowBaseMove() notify in base engine */
+	virtual void UpdateBasedMovement(float DeltaSeconds) override;
+
+	/** If I'm on a lift, tell it to return */
+	virtual void UnableToFollowBaseMove(FVector DeltaPosition, FVector OldLocation);
+
 	/** @TODO FIXMESTEVE remove when we get UE4 4.4
 	* Determine whether we should try to find a valid landing spot after an impact with an invalid one (based on the Hit result).
 	* For example, landing on the lower portion of the capsule on the edge of geometry may be a walkable surface, but could have reported an unwalkable impact normal.
