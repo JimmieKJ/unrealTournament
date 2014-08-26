@@ -926,6 +926,31 @@ void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlic
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }
 
+bool UUTCharacterMovement::CanBaseOnLift()
+{
+	const FVector PawnLocation = CharacterOwner->GetActorLocation();
+	FFindFloorResult FloorResult;
+	FindFloor(PawnLocation, FloorResult, false);
+	if (FloorResult.IsWalkableFloor() && IsValidLandingSpot(PawnLocation, FloorResult.HitResult))
+	{
+		if (IsFalling())
+		{
+			ProcessLanded(FloorResult.HitResult, 0.f, 1);
+		}
+		else if (IsMovingOnGround())
+		{
+			AdjustFloorHeight();
+			SetBase(FloorResult.HitResult.Component.Get(), FloorResult.HitResult.BoneName);
+		}
+		else
+		{
+			return false;
+		}
+		return true;
+	}
+	return false;
+}
+
 float UUTCharacterMovement::GetGravityZ() const
 {
 	return Super::GetGravityZ() * (bApplyWallSlide ? SlideGravityScaling : 1.f);

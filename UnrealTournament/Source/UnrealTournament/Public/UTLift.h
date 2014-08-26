@@ -37,4 +37,8 @@ private:
 	/** Component to test for encroachment */
 	UPROPERTY()
 	UPrimitiveComponent* EncroachComponent;
+
+	/** Used during lift move to identify if movement was incomplete */
+	UPROPERTY()
+		bool bMoveWasBlocked;
 };
