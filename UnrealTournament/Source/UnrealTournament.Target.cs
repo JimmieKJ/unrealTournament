@@ -45,7 +45,10 @@ public class UnrealTournamentTarget : TargetRules
     {
         if (HostPlatform == UnrealTargetPlatform.Mac)
         {
-            new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Development)
+            return new List<GUBPFormalBuild> 
+            { 
+                new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Development)
+            };
         }
 
         return new List<GUBPFormalBuild> 
