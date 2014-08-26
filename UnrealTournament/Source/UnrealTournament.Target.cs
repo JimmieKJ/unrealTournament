@@ -43,6 +43,11 @@ public class UnrealTournamentTarget : TargetRules
 
     public override List<GUBPFormalBuild> GUBP_GetConfigsForFormalBuilds_MonolithicOnly(UnrealTargetPlatform HostPlatform)
     {
+        if (HostPlatform == UnrealTargetPlatform.Mac)
+        {
+            new GUBPFormalBuild(UnrealTargetPlatform.Mac, UnrealTargetConfiguration.Development)
+        }
+
         return new List<GUBPFormalBuild> 
         { 
             new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Development),
