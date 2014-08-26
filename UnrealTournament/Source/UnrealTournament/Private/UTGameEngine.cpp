@@ -10,6 +10,8 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 	ReadEULACaption = NSLOCTEXT("UTGameEngine", "ReadEULACaption", "READ ME FIRST");
 	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
 	GameNetworkVersion = 8002;
+
+	CurrentMaxTickRate = 100.f;
 }
 
 
@@ -263,3 +265,62 @@ EAppReturnType::Type LINUXMessageBoxExt(EAppMsgType::Type MsgType, const TCHAR* 
 	return ButtonPressed == -1 ? EAppReturnType::Cancel : static_cast<EAppReturnType::Type>(ButtonPressed);
 }
 #endif
+
+static TAutoConsoleVariable<int32> CVarUnsteadyFPS(
+	TEXT("ut.UnsteadyFPS"), 0,
+	TEXT("Causes FPS to bounce around randomly in the 85-120 range."));
+
+float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing)
+{
+	float MaxTickRate = 0;
+
+	if (IsRunningDedicatedServer())
+	{
+		return Super::GetMaxTickRate(DeltaTime, bAllowFrameRateSmoothing);
+	}
+
+	if (bSmoothFrameRate && bAllowFrameRateSmoothing)
+	{
+		// Adjust the maximum tick rate dynamically
+		// As maximum tick rate is met consistently, shorten the time period to try to reach equilibrium faster
+		if (1.f / DeltaTime < CurrentMaxTickRate)
+		{
+			MissedFrames++;
+			MadeFrames = 0;
+			MadeFramesStreak = 0;
+			// Miss 3 frames in a row, go to 95% framerate
+			if (MissedFrames > 3)
+			{
+				CurrentMaxTickRate *= 0.95f;
+				MissedFrames = 0;
+				MadeFrames = 0;
+				//UE_LOG(UT, Log, TEXT("Missed framerate %f"), CurrentMaxTickRate);
+			}
+		}
+		else
+		{
+			MadeFrames++;
+			if (MadeFrames >= CurrentMaxTickRate * FMath::Max(0.5f, 3.0f - MadeFramesStreak))
+			{
+				// We made framerate enough times in a row, creep max back up
+				MadeFramesStreak++;
+				CurrentMaxTickRate += 2.f;
+				MadeFrames = 0;
+				MissedFrames = 0;
+				//UE_LOG(UT, Log, TEXT("Made framerate %f"), CurrentMaxTickRate);
+			}
+		}
+
+		MaxTickRate = CurrentMaxTickRate;
+	}
+
+	if (CVarUnsteadyFPS.GetValueOnGameThread())
+	{
+		static float LastMaxTickRate = 85.f;
+		float RandDelta = FMath::FRandRange(-5.f, 5.f);
+		MaxTickRate = FMath::Clamp(LastMaxTickRate + RandDelta, 85.f, 120.f);
+		LastMaxTickRate = MaxTickRate;
+	}
+
+	return MaxTickRate;
+}
