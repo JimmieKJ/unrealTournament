@@ -4,7 +4,7 @@
 
 #include "UTArmor.generated.h"
 
-UCLASS(Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
+UCLASS(MinimalAPI, Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
 class AUTArmor : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()

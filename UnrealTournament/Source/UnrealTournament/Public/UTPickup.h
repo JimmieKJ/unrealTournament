@@ -32,7 +32,7 @@ struct FPickupReplicatedState
 };
 
 UCLASS(abstract, Blueprintable, meta = (ChildCanTick))
-class AUTPickup : public AActor, public IUTResetInterface
+class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 

@@ -9,7 +9,7 @@
  * note that this is NOT a subclass of UTPickup
  */
 UCLASS(NotPlaceable)
-class AUTDroppedPickup : public AActor
+class UNREALTOURNAMENT_API AUTDroppedPickup : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

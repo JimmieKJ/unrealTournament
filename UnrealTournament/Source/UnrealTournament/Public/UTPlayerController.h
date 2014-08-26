@@ -11,7 +11,7 @@
 class UUTAnnouncer;
 
 UCLASS(config=Game)
-class AUTPlayerController : public APlayerController, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTPlayerController : public APlayerController, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 
