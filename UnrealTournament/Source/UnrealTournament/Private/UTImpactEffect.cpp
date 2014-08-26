@@ -156,12 +156,34 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 	return true;
 }
 
+// FIXME: workaround for engine crash on DX10
+static inline bool ForceDisableComponent(USceneComponent* TestComp)
+{
+	if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::SM4)
+	{
+		UDecalComponent* Decal = Cast<UDecalComponent>(TestComp);
+		if (Decal != NULL && Decal->DecalMaterial != NULL)
+		{
+			UMaterial* Mat = Decal->DecalMaterial->GetMaterial();
+			return (Mat != NULL && Mat->DecalBlendMode > DBM_Emissive);
+		}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+		return false;
+	}
+}
+
 void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const
 {
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(World->GetWorldSettings());
 	for (int32 i = 0; i < NativeCompList.Num(); i++)
 	{
-		if (NativeCompList[i]->AttachParent == CurrentAttachment && ShouldCreateComponent(NativeCompList[i], NativeCompList[i]->GetFName(), BaseTransform, HitComp, SpawnedBy, InstigatedBy))
+		if (NativeCompList[i]->AttachParent == CurrentAttachment && !ForceDisableComponent(NativeCompList[i]) &&  ShouldCreateComponent(NativeCompList[i], NativeCompList[i]->GetFName(), BaseTransform, HitComp, SpawnedBy, InstigatedBy))
 		{
 			USceneComponent* NewComp = ConstructObject<USceneComponent>(NativeCompList[i]->GetClass(), World, NAME_None, RF_NoFlags, NativeCompList[i]);
 			NewComp->AttachParent = NULL;
@@ -191,7 +213,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 	}
 	for (int32 i = 0; i < BPNodes.Num(); i++)
 	{
-		if (Cast<USceneComponent>(BPNodes[i]->ComponentTemplate) != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName && ShouldCreateComponent((USceneComponent*)BPNodes[i]->ComponentTemplate, TemplateName, BaseTransform, HitComp, SpawnedBy, InstigatedBy))
+		if (Cast<USceneComponent>(BPNodes[i]->ComponentTemplate) != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName && !ForceDisableComponent((USceneComponent*)BPNodes[i]->ComponentTemplate) && ShouldCreateComponent((USceneComponent*)BPNodes[i]->ComponentTemplate, TemplateName, BaseTransform, HitComp, SpawnedBy, InstigatedBy))
 		{
 			USceneComponent* NewComp = ConstructObject<USceneComponent>(BPNodes[i]->ComponentTemplate->GetClass(), World, NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
 			NewComp->AttachParent = NULL;
