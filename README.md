@@ -20,7 +20,7 @@ The current Unreal Tournament project is based on Unreal Engine version 4.3.0.  
 
 - Download the project by clicking the **Download Source** button on this page.
 - Unzip the files to a folder on your computer.  
-- Load up [Unreal Editor](https://www.unrealengine.com/dashboard)
+- Load up [Unreal Editor](https://www.unrealengine.com/dashboard).
 - On the Project Browser screen, click **Browse** and navigate to the folder where unzipped the files.
 - Choose the **UnrealTournament.uproject** file.  
 
@@ -49,7 +49,7 @@ Setting up the project
 
 **Windows:**
  
- 1. Be sure to have [Visual Studio 2013](http://www.microsoft.com/en-us/download/details.aspx?id=40787) installed.  You can use any desktop version of Visual Studio 2013, including the free version:  [Visual Studio 2013 Express for Windows Desktop](http://www.microsoft.com/en-us/download/details.aspx?id=40787)
+ 1. Be sure to have [Visual Studio 2013](http://www.microsoft.com/en-us/download/details.aspx?id=40787) installed.  You can use any desktop version of Visual Studio 2013, including the free version:  [Visual Studio 2013 Express for Windows Desktop](http://www.microsoft.com/en-us/download/details.aspx?id=40787).
  2. right click on **UnrealTournament.uproject** to generate C++ project files.
  3. You can now open up **UnrealTournament.uproject** in the editor!
  
@@ -57,6 +57,6 @@ Setting up the project
   
 1. Be sure to have [Xcode 5.1](https://itunes.apple.com/us/app/xcode/id497799835) installed.
 2. right click on on **UnrealTournament.uproject** > services and click on **Generate xcode project** to generate C++ project files.
-3. Open **UnrealTournament.codeproj** and select **UnrealTournamentEditor - Mac** from the scheme selector..
+3. Open **UnrealTournament.codeproj** and select **UnrealTournamentEditor - Mac** from the scheme selector.
 4. You can now open up **UnrealTournament.uproject** in the editor!
  
