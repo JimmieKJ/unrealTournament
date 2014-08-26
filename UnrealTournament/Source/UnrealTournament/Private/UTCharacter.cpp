@@ -2001,7 +2001,18 @@ void AUTCharacter::Tick(float DeltaTime)
 		if (GS != NULL)
 		{
 			static FName NAME_SpawnProtectionPct(TEXT("SpawnProtectionPct"));
-			BodyMI->SetScalarParameterValue(NAME_SpawnProtectionPct, (bSpawnProtectionEligible && GS->SpawnProtectionTime > 0.0f) ? FMath::Max(0.0f, 1.0f - (GetWorld()->TimeSeconds - CreationTime) / GS->SpawnProtectionTime) : 0.0f);
+			float ShaderValue = 0.0f;
+			if (bSpawnProtectionEligible && GS->SpawnProtectionTime > 0.0f)
+			{
+				float Pct = 1.0f - (GetWorld()->TimeSeconds - CreationTime) / GS->SpawnProtectionTime;
+				if (Pct > 0.0f)
+				{
+					// clamp remaining time so that the final portion of the effect snaps instead of fading
+					// this makes sure it's always clear that spawn protection is still active
+					ShaderValue = FMath::Max(Pct, 0.25f);
+				}
+			}
+			BodyMI->SetScalarParameterValue(NAME_SpawnProtectionPct, ShaderValue);
 		}
 	}
 
