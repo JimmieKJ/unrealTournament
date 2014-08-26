@@ -288,10 +288,10 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 			MissedFrames++;
 			MadeFrames = 0;
 			MadeFramesStreak = 0;
-			// Miss 3 frames in a row, go to 95% framerate
-			if (MissedFrames > 3)
+			// Miss enough frames during this sample period, apply MissedFramePenalty
+			if (MissedFrames > MissedFrameThreshold)
 			{
-				CurrentMaxTickRate *= 0.95f;
+				CurrentMaxTickRate *= MissedFramePenalty;
 				MissedFrames = 0;
 				MadeFrames = 0;
 				//UE_LOG(UT, Log, TEXT("Missed framerate %f"), CurrentMaxTickRate);
@@ -300,11 +300,11 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 		else
 		{
 			MadeFrames++;
-			if (MadeFrames >= CurrentMaxTickRate * FMath::Max(0.5f, 3.0f - MadeFramesStreak))
+			if (MadeFrames >= CurrentMaxTickRate * FMath::Max(MadeFrameMinimumThreshold, MadeFrameStartingThreshold - MadeFramesStreak))
 			{
 				// We made framerate enough times in a row, creep max back up
 				MadeFramesStreak++;
-				CurrentMaxTickRate += 2.f;
+				CurrentMaxTickRate += MadeFrameBonus;
 				MadeFrames = 0;
 				MissedFrames = 0;
 				//UE_LOG(UT, Log, TEXT("Made framerate %f"), CurrentMaxTickRate);

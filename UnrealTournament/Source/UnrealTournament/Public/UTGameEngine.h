@@ -35,9 +35,29 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY()
 	int32 MadeFramesStreak;
 
-	// How many times we've been slower than maxium tick rate since the last time it was raised
+	// How many times we've been slower than maximum tick rate since the last time it was raised
 	UPROPERTY()
 	int32 MissedFrames;
+
+	/* The percentage reduction in maximum frame rate for missing frame rate too often */
+	UPROPERTY(config)
+	float MissedFramePenalty;
+	
+	/* How much to raise frame rate by when surpassing maximum frame rate */
+	UPROPERTY(config)
+	float MadeFrameBonus;
+
+	/* How many frames must be missed before considering applying a penalty */
+	UPROPERTY(config)
+	int32 MissedFrameThreshold;
+
+	/* Starting point for a sliding scale of how many seconds of frames must be consistently good before raising the cap */
+	UPROPERTY(config)
+	float MadeFrameStartingThreshold;
+
+	/* Ending point for a sliding scale of how many seconds of frames must be consistently good before raising the cap */
+	UPROPERTY(config)
+	float MadeFrameMinimumThreshold;
 
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
