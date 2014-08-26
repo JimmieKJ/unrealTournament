@@ -315,6 +315,8 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	void StartDriving(APawn* Vehicle);
 
+	virtual void BaseChange() override;
+
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = PlayFeignDeath, Category = Pawn)

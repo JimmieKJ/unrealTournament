@@ -15,6 +15,7 @@
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
 #include "UTReplicatedEmitter.h"
+#include "UTLift.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -99,6 +100,20 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	OnActorBeginOverlap.AddDynamic(this, &AUTCharacter::OnOverlapBegin);
 
 	PlayerIndicatorMaxDistance = 2700.0f;
+}
+
+
+void AUTCharacter::BaseChange()
+{
+	Super::BaseChange();
+	if (CharacterMovement && CharacterMovement->MovementMode != MOVE_None)
+	{
+		AUTLift* BaseLift = Cast<AUTLift>(GetMovementBaseActor(this));
+		if (BaseLift)
+		{
+			BaseLift->AddBasedCharacter(this);
+		}
+	}
 }
 
 void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
@@ -2337,6 +2352,8 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 	}
 	return bResult;
 }
+
+// @TODO FIXMESTEVE - why isn't this just an implementation of ReceiveActorBeginOverlap()
 void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 {
 	if (Role == ROLE_Authority && OtherActor != this && CapsuleComponent->GetCollisionObjectType() == COLLISION_TELEPORTING_OBJECT) // need to make sure this ISN'T reflexive, only teleporting Pawn should be checking for telefrags

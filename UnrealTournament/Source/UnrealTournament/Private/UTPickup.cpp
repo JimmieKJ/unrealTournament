@@ -103,7 +103,6 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 	if (Role == ROLE_Authority && State.bActive && TouchedBy->Controller != NULL)
 	{
 		GiveTo(TouchedBy);
-		UE_LOG(UT,Log,TEXT("PICKUP"));
 		AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (UTGameMode != NULL)
 		{
