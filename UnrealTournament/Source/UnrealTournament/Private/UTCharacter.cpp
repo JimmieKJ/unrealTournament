@@ -708,7 +708,7 @@ void AUTCharacter::StartRagdoll()
 	{
 		OnRep_ReplicatedMovement();
 		// OnRep_ReplicatedMovement() will only apply to the root body but in this case we want to apply to all bodies
-		Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance(NAME_None)->GetUnrealWorldVelocity());
+		Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance()->GetUnrealWorldVelocity());
 		bDeferredReplicatedMovement = false;
 	}
 	else
@@ -1502,13 +1502,18 @@ void AUTCharacter::FireRateChanged()
 
 void AUTCharacter::OnRep_ReplicatedMovement()
 {
-	if (bTearOff && (RootComponent == NULL || !RootComponent->IsSimulatingPhysics()))
+	if ((bTearOff || bFeigningDeath) && (RootComponent == NULL || !RootComponent->IsSimulatingPhysics()))
 	{
 		bDeferredReplicatedMovement = true;
 	}
 	else
 	{
 		Super::OnRep_ReplicatedMovement();
+		if (bFeigningDeath && Mesh->IsSimulatingPhysics())
+		{
+			// making the velocity apply to all bodies is more likely to be correct
+			Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance()->GetUnrealWorldVelocity());
+		}
 	}
 }
 

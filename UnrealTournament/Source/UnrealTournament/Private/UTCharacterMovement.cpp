@@ -128,17 +128,21 @@ void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo
 
 void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	if (CharacterOwner)
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTOwner == NULL || !UTOwner->IsRagdoll())
 	{
-		OldZ = CharacterOwner->GetActorLocation().Z;
-		if (!CharacterOwner->bClientUpdating && CharacterOwner->IsLocallyControlled())
+		if (CharacterOwner)
 		{
-			bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
-			bIsSprinting = CanSprint();
+			OldZ = CharacterOwner->GetActorLocation().Z;
+			if (!CharacterOwner->bClientUpdating && CharacterOwner->IsLocallyControlled())
+			{
+				bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
+				bIsSprinting = CanSprint();
+			}
 		}
+		Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+		AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 	}
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 }
 
 void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted)
@@ -1141,4 +1145,11 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	}
 }
 
-
+void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode)
+{
+	// use normal replication when simulating physics
+	if (CharacterOwner == NULL || CharacterOwner->GetRootComponent() == NULL || !CharacterOwner->GetRootComponent()->IsSimulatingPhysics())
+	{
+		Super::ClientAdjustPosition_Implementation(TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition, ServerMovementMode);
+	}
+}
