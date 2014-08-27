@@ -31,6 +31,10 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = ImpactHammer)
 	AActor* AutoHitTarget;
 
+	/** Trace dist for impact jumping against world geometry */
+	UPROPERTY(BlueprintReadWrite, Category = ImpactHammer)
+	float ImpactJumpTraceDist;
+
 	/** return whether the automatic charged fire release should happen against the specified target */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	bool AllowAutoHit(AActor* PotentialTarget);

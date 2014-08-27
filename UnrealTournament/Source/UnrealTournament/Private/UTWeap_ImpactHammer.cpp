@@ -17,6 +17,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 	FullChargeTime = 2.5f;
 	FullImpactChargePct = 0.4f;
 	MinAutoChargePct = 1.f;
+	ImpactJumpTraceDist = 220.f;
 
 	DroppedPickupClass = NULL; // doesn't drop
 
@@ -51,11 +52,22 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		}
 		else
 		{
+			float TraceDist = InstantHitInfo[CurrentFireMode].TraceRange;
+			if (bDealDamage && ((FVector(0.f, 0.f, -1.f) | FireDir) > 0.f))
+			{
+				TraceDist += (ImpactJumpTraceDist - InstantHitInfo[CurrentFireMode].TraceRange) * (FVector(0.f, 0.f, -1.f) | FireDir);
+			}
+
 			const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 			
 			if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, TraceParams))
 			{
 				Hit.Location = EndTrace;
+			}
+			else if (bDealDamage && Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && ((Hit.Location - SpawnLocation).Size() > InstantHitInfo[CurrentFireMode].TraceRange))
+			{
+				// only accept targets beyond trace range if they are world geometry
+				bDealDamage = false;
 			}
 		}
 		if (Role == ROLE_Authority)
