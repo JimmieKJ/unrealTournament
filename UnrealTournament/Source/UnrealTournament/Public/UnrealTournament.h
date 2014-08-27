@@ -36,6 +36,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTCarriedObjectMessage.h"
 #include "UTCarriedObject.h"
 #include "UTGameMode.h"
+#include "UTTeamGameMode.h"
 
 /** utility to find out if a particle system loops */
 extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);
