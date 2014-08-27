@@ -2,4 +2,4 @@
 
 #pragma once
 
-#include "../../UnrealTournament/Private/UnrealTournament.h"
+#include "../../UnrealTournament/Public/UnrealTournament.h"
