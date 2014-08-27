@@ -771,14 +771,14 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 {
 	Super::SetPlayerDefaults(PlayerPawn);
 
-	if (bSetPlayerDefaultsSpawnInventory)
-	{
-		GiveDefaultInventory(PlayerPawn);
-	}
-
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ModifyPlayer(PlayerPawn);
+	}
+
+	if (bSetPlayerDefaultsSpawnInventory)
+	{
+		GiveDefaultInventory(PlayerPawn);
 	}
 }
 
