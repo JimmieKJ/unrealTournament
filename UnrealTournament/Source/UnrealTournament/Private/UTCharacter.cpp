@@ -26,7 +26,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
-	CapsuleComponent->InitCapsuleSize(42.f, 92.0f);
+	CapsuleComponent->InitCapsuleSize(46.f, 92.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = PCIP.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
