@@ -16,8 +16,6 @@ UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 	GibHealthThreshold = -50;
 	GibDamageThreshold = 99;
 
-	ScoreMultiplier = 1;
-
 	ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages","GenericConsoleDeathMessage","{Player1Name} killed {Player2Name} with the {WeaponName}.");
 	MaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericMaleSuicideMessage","{Player2Name} killed himself with the {WeaponName}.");
 	FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericFemaleSuicideMessage","{Player2Name} killed herself with the {WeaponName}.");
