@@ -105,7 +105,7 @@ void AUTWeaponAttachment::PlayFiringEffects()
 	if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL && MuzzleFlash[UTOwner->FireMode]->Template != NULL)
 	{
 		// if we detect a looping particle system, then don't reactivate it
-		if (!MuzzleFlash[UTOwner->FireMode]->bIsActive || !IsLoopingParticleSystem(MuzzleFlash[UTOwner->FireMode]->Template))
+		if (!MuzzleFlash[UTOwner->FireMode]->bIsActive || MuzzleFlash[UTOwner->FireMode]->bSuppressSpawning || !IsLoopingParticleSystem(MuzzleFlash[UTOwner->FireMode]->Template))
 		{
 			MuzzleFlash[UTOwner->FireMode]->ActivateSystem();
 		}

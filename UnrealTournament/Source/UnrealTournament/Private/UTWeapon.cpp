@@ -485,7 +485,7 @@ void AUTWeapon::PlayFiringEffects()
 			if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
 			{
 				// if we detect a looping particle system, then don't reactivate it
-				if (!MuzzleFlash[CurrentFireMode]->bIsActive || !IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template))
+				if (!MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->bSuppressSpawning || !IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template))
 				{
 					MuzzleFlash[CurrentFireMode]->ActivateSystem();
 				}
