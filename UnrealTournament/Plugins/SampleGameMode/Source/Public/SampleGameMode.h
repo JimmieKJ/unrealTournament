@@ -2,9 +2,8 @@
 #pragma once
 
 #include "Core.h"
-#include "Engine.h"
-#include "UTWeapon.h"
-#include "UTGameMode.h"
+#include "UnrealTournament.h"
+#include "Net/UnrealNetwork.h"
 
 #include "SampleGameMode.generated.h"
 

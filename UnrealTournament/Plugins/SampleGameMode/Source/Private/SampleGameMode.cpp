@@ -1,10 +1,14 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "SampleGameMode.h"
+#include "SampleGameState.h"
+#include "SamplePlayerState.h"
 
 ASampleGameMode::ASampleGameMode(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
+	GameStateClass = ASampleGameState::StaticClass();
+	PlayerStateClass = ASamplePlayerState::StaticClass();
 }
 
 void ASampleGameMode::GiveDefaultInventory(APawn* PlayerPawn)
@@ -42,7 +46,7 @@ void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, TSubcla
 		return;
 	}
 
-	APlayerState* KillerPlayerState = Killer->PlayerState;
+	ASamplePlayerState* KillerPlayerState = Cast<ASamplePlayerState>(Killer->PlayerState);
 	if (KillerPlayerState)
 	{
 		int32 DamageIndex = KillerPlayerState->Score;
@@ -57,8 +61,10 @@ void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, TSubcla
 			{
 				Super::ScoreKill(Killer, Other, DamageType);
 				
+				KillerPlayerState->PlayerLevel = KillerPlayerState->Score;
+
 				// If we changed score, give player a new gun
-				if (DamageIndex != KillerPlayerState->Score)
+				if (DamageIndex != KillerPlayerState->PlayerLevel)
 				{
 					AUTCharacter* UTCharacter = Cast<AUTCharacter>(Killer->GetPawn());
 					if (UTCharacter != nullptr)
@@ -77,10 +83,25 @@ void ASampleGameMode::GiveNewGun(AUTCharacter *UTCharacter)
 {
 	UTCharacter->DiscardAllInventory();
 
-	int32 InventoryIndex = UTCharacter->PlayerState->Score;
+	int32 InventoryIndex = 0;
+	
+	if (Cast<ASamplePlayerState>(UTCharacter->PlayerState) != nullptr)
+	{
+		InventoryIndex = Cast<ASamplePlayerState>(UTCharacter->PlayerState)->PlayerLevel;
+	}
+
 	if (InventoryIndex >= StartingInventories.Num())
 	{
 		InventoryIndex = StartingInventories.Num() - 1;
+	}
+
+	if (InventoryIndex == StartingInventories.Num() - 1)
+	{
+		ASampleGameState *SampleGS = Cast<ASampleGameState>(GameState);
+		if (SampleGS)
+		{
+			SampleGS->bPlayerReachedLastLevel = true;
+		}
 	}
 
 	if (StartingInventories.IsValidIndex(InventoryIndex))
