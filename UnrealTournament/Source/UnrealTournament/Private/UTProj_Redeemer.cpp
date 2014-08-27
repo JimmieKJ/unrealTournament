@@ -27,6 +27,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FPostConstructInitializePropertie
 	ExplosionRadii[5] = 1.0f;
 
 	InitialLifeSpan = 20.0f;
+	bAlwaysShootable = true;
 }
 
 void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)

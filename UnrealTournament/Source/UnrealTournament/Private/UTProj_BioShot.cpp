@@ -30,6 +30,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 
 	InitialLifeSpan = 10.0f;
 	RestTime = 3.0f;
+	bAlwaysShootable = true;
 }
 
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)

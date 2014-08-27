@@ -50,6 +50,9 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	InitialReplicationTick.bTickEvenWhenPaused = true;
 	InitialReplicationTick.SetTickFunctionEnable(true);
 	ProjectileMovement->PrimaryComponentTick.AddPrerequisite(this, InitialReplicationTick);
+
+	bAlwaysShootable = false;
+	bIsEnergyProjectile = false;
 }
 
 void AUTProjectile::BeginPlay()
@@ -226,6 +229,11 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 	}
 }
 
+bool AUTProjectile::InteractsWithProj(AUTProjectile* OtherProj)
+{
+	return bAlwaysShootable || OtherProj->bAlwaysShootable || (bIsEnergyProjectile && OtherProj->bIsEnergyProjectile);
+}
+
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	UE_LOG(LogUTProjectile, Verbose, TEXT("%s::ProcessHit OtherActor:%s"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
@@ -235,8 +243,7 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 		// don't blow up on non-blocking volumes
 		// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
 		&& ((Cast<AUTTeleporter>(OtherActor) == NULL && Cast<AVolume>(OtherActor) == NULL) || GetVelocity().IsZero())
-		// projectiles that are shootable always win against projectiles that are not
-		&& (Cast<AUTProjectile>(OtherActor) == NULL || OtherComp->GetCollisionObjectType() == COLLISION_PROJECTILE_SHOOTABLE || OtherComp->GetCollisionResponseToChannel(COLLISION_PROJECTILE) > ECR_Ignore) )
+		&& (Cast<AUTProjectile>(OtherActor) == NULL || InteractsWithProj(Cast<AUTProjectile>(OtherActor))) )
 	{
 		if (OtherActor != NULL)
 		{

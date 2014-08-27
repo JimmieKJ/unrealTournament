@@ -10,10 +10,9 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializePropert
 	: Super(PCIP)
 {
 	bReplicateMovement = true;
-
 	TransState = TLS_InAir;
-
 	CollisionComp->SetCollisionProfileName("ProjectileShootable");
+	bAlwaysShootable = true;
 }
 
 float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)

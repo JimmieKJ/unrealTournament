@@ -10,6 +10,7 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FPostConstructInitializePropert
 	ComboAmmoCost = 3;
 	bComboExplosion = false;
 	ComboMomentum = 330000.0f;
+	bIsEnergyProjectile = true;
 }
 
 void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)

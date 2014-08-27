@@ -121,6 +121,17 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	void Explode(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL);
 
+	/** Whether this projectile always interacts with other projectiles */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	bool bAlwaysShootable;
+
+	/** If true, this projectile always interacts with other energy projectiles */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	bool bIsEnergyProjectile;
+
+	UFUNCTION(BlueprintCallable, Category = Projectile)
+	virtual bool InteractsWithProj(AUTProjectile* OtherProj);
+
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level
 	 * ONLY USED IN SPAWN ACTOR NODE

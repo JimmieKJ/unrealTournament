@@ -34,6 +34,7 @@ AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FPostConstructInitializePropert
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+	bAlwaysShootable = true;
 }
 
 float AUTProj_WeaponScreen::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
