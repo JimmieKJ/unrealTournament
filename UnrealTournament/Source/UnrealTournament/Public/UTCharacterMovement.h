@@ -51,6 +51,30 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
 	float EasyImpactImpulse;
 
+	/** Impulse imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
+	float EasyImpactDamage;
+
+	/** Impulse imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
+		float FullImpactImpulse;
+
+	/** Impulse imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
+		float FullImpactDamage;
+
+	/** Max total horizontal velocity after impact jump. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
+		float ImpactMaxHorizontalVelocity;
+
+	/** Max total vertical velocity after impact jump. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
+		float ImpactMaxVerticalVelocity;
+
+	/** Add an impulse, damped if player would end up going too fast */
+	UFUNCTION(BlueprintCallable, Category = "Impulse")
+		virtual void ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpactImpulse);
+
 	/** Max undamped Z Impulse. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
 	float MaxUndampedImpulse;

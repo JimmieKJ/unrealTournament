@@ -11,13 +11,21 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
 	float FullChargeTime;
 
-	/** minimum charge damage multiplier, even if user immediately releases button */
+	/** minimum charge to activate autofire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
-	float MinChargePct;
+	float MinAutoChargePct;
+
+	/** minimum charge for full impact jump */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
+		float FullImpactChargePct;
 
 	/** sound played when impact jumping (fire at wall) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
 	USoundBase* ImpactJumpSound;
+
+	/** sound played when reach new charge level. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
+		USoundBase* ChargeClickSound;
 
 	/** set when automatically firing charged mode due to proximity */
 	UPROPERTY(BlueprintReadWrite, Category = ImpactHammer)
@@ -26,18 +34,6 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	/** return whether the automatic charged fire release should happen against the specified target */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	bool AllowAutoHit(AActor* PotentialTarget);
-
-	/** Damage imparted by "easy" impact jump. Not charge dependent. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
-	float EasyImpactDamage;
-
-	/** Max total horizontal velocity after impact jump. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
-	float ImpactMaxHorizontalVelocity;
-
-	/** Max total vertical velocity after impact jump. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
-	float ImpactMaxVerticalVelocity;
 
 	/** called to make client mirror server autohit success */
 	UFUNCTION(Client, Reliable)

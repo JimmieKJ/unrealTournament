@@ -90,7 +90,12 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SavedAcceleration = FVector(0.f);
 	bMaintainSlideRollAccel = true;
 
-	EasyImpactImpulse = 1500.f;
+	EasyImpactImpulse = 1050.f;
+	EasyImpactDamage = 25;
+	FullImpactImpulse = 1500.f;
+	FullImpactDamage = 40;
+	ImpactMaxHorizontalVelocity = 1500.f;
+	ImpactMaxVerticalVelocity = 1500.f;
 	MaxUndampedImpulse = 2000.f;
 
 	OutofWaterZ = 700.f;
@@ -218,6 +223,27 @@ void UUTCharacterMovement::UnableToFollowBaseMove(FVector DeltaPosition, FVector
 	{
 		Cast<AUTLift>(MovementBase->GetOwner())->OnEncroachActor(CharacterOwner);
 	}
+}
+
+void UUTCharacterMovement::ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpactImpulse)
+{
+	// provide scaled boost in facing direction, clamped to ImpactMaxHorizontalVelocity and ImpactMaxVerticalVelocity
+	// @TODO FIXMESTEVE should use AddDampedImpulse()?
+	float ImpulseMag = bIsFullImpactImpulse ? FullImpactImpulse : EasyImpactImpulse;
+	FVector NewVelocity = Velocity + JumpDir * ImpulseMag;
+	if (NewVelocity.Size2D() > ImpactMaxHorizontalVelocity)
+	{
+		float VelZ = NewVelocity.Z;
+		NewVelocity = NewVelocity.SafeNormal2D() * ImpactMaxHorizontalVelocity;
+		NewVelocity.Z = VelZ;
+	}
+	if (NewVelocity.Z > ImpactMaxVerticalVelocity)
+	{
+		NewVelocity.Z = ImpactMaxVerticalVelocity;
+	}
+	Velocity = NewVelocity;
+	SetMovementMode(MOVE_Falling);
+	bNotifyApex = true;
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)

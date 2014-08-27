@@ -15,16 +15,13 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 	}
 	WeaponBobScaling = 0.7f;
 	FullChargeTime = 2.5f;
-	MinChargePct = 0.4f;
+	FullImpactChargePct = 0.4f;
+	MinAutoChargePct = 1.f;
 
 	DroppedPickupClass = NULL; // doesn't drop
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
-
-	EasyImpactDamage = 30;
-	ImpactMaxHorizontalVelocity = 1500.f;
-	ImpactMaxVerticalVelocity = 1500.f;
 }
 
 void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
@@ -36,7 +33,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	else
 	{
-		float DamageMult = FMath::Clamp<float>(ChargedMode->ChargeTime / FullChargeTime, MinChargePct, 1.0f);
+		float DamageMult = FMath::Min<float>(ChargedMode->ChargeTime / FullChargeTime, 1.0f);
 
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
@@ -76,7 +73,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					if (C != NULL && C != UTOwner && C->GetWeaponClass() == GetClass() && C->GetWeapon()->GetCurrentFireMode() == CurrentFireMode)
 					{
 						UUTWeaponStateFiringCharged* EnemyWeaponState = Cast<UUTWeaponStateFiringCharged>(C->GetWeapon()->GetCurrentState());
-						if (EnemyWeaponState != NULL && EnemyWeaponState->bCharging && ChargedMode->ChargeTime >= FullChargeTime * MinChargePct)
+						if (EnemyWeaponState != NULL && EnemyWeaponState->bCharging && ChargedMode->ChargeTime >= FullChargeTime * MinAutoChargePct)
 						{
 							float MyAim = FireDir | (C->GetActorLocation() - SpawnLocation).SafeNormal();
 							const FVector EnemyFireStart = C->GetWeapon()->GetFireStartLoc();
@@ -99,7 +96,8 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 			{
 				// if we hit something undamageable (world geometry, etc) then the damage is caused to ourselves instead
 				// Special case of fixed damage and momentum
-				float FinalDamage = EasyImpactDamage;
+				bool bIsFullImpactImpulse = (ChargedMode->ChargeTime > FullChargeTime * FullImpactChargePct);
+				float FinalDamage = bIsFullImpactImpulse ? UTOwner->UTCharacterMovement->FullImpactDamage : UTOwner->UTCharacterMovement->EasyImpactDamage;
 				if (UTOwner->CharacterMovement->Velocity.Z >= -1.f * UTOwner->MaxSafeFallSpeed)
 				{
 					// take falling damage, but give credit for it against impact damage
@@ -114,22 +112,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					JumpDir = FVector(0.f, 0.f, 1.f);
 				}
 
-				// provide scaled boost in facing direction, clamped to ImpactMaxHorizontalVelocity and ImpactMaxVerticalVelocity
-				// @TODO FIXMESTEVE should use AddDampedImpulse()?
-				FVector NewVelocity = UTOwner->CharacterMovement->Velocity + JumpDir * UTOwner->UTCharacterMovement->EasyImpactImpulse;
-				if (NewVelocity.Size2D() > ImpactMaxHorizontalVelocity)
-				{
-					float VelZ = NewVelocity.Z;
-					NewVelocity = NewVelocity.SafeNormal2D() * ImpactMaxHorizontalVelocity;
-					NewVelocity.Z = VelZ;
-				}
-				if (NewVelocity.Z > ImpactMaxVerticalVelocity)
-				{
-					NewVelocity.Z = ImpactMaxVerticalVelocity;
-				}
-				UTOwner->CharacterMovement->Velocity = NewVelocity;
-				UTOwner->CharacterMovement->SetMovementMode(MOVE_Falling);
-				UTOwner->CharacterMovement->bNotifyApex = true;
+				UTOwner->UTCharacterMovement->ApplyImpactVelocity(JumpDir, bIsFullImpactImpulse);
 				UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner);
 				UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
 			}
@@ -163,25 +146,41 @@ bool AUTWeap_ImpactHammer::AllowAutoHit_Implementation(AActor* PotentialTarget)
 
 void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 {
+	UUTWeaponStateFiringCharged* ChargedMode = Cast<UUTWeaponStateFiringCharged>(CurrentState);
+	float OldChargeTime = (ChargedMode && ChargedMode->bCharging) ? ChargedMode->ChargeTime : 0.f;
 	Super::Tick(DeltaTime);
 
 	// check for auto target
 	if (AutoHitTarget == NULL && UTOwner != NULL && Role == ROLE_Authority)
 	{
-		UUTWeaponStateFiringCharged* ChargedMode = Cast<UUTWeaponStateFiringCharged>(CurrentState);
-		if (ChargedMode != NULL && ChargedMode->bCharging && ChargedMode->ChargeTime >= FullChargeTime * MinChargePct)
+		if (ChargedMode != NULL && ChargedMode->bCharging)
 		{
-			FHitResult Hit;
-			FireInstantHit(false, &Hit);
-			if (Hit.Actor.IsValid() && AllowAutoHit(Hit.Actor.Get()))
+			if (ChargedMode->ChargeTime >= FullChargeTime * FullImpactChargePct)
 			{
-				AutoHitTarget = Hit.Actor.Get();
-				if (!UTOwner->IsLocallyControlled())
+				if (OldChargeTime < FullChargeTime * FullImpactChargePct)
 				{
-					ClientAutoHit(AutoHitTarget);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ChargeClickSound, UTOwner, SRT_AllButOwner);
 				}
-				ChargedMode->EndFiringSequence(CurrentFireMode);
-				AutoHitTarget = NULL;
+			}
+			if (ChargedMode->ChargeTime >= FullChargeTime * MinAutoChargePct)
+			{
+				if (OldChargeTime < FullChargeTime * MinAutoChargePct)
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ChargeClickSound, UTOwner, SRT_AllButOwner);
+				}
+
+				FHitResult Hit;
+				FireInstantHit(false, &Hit);
+				if (Hit.Actor.IsValid() && AllowAutoHit(Hit.Actor.Get()))
+				{
+					AutoHitTarget = Hit.Actor.Get();
+					if (!UTOwner->IsLocallyControlled())
+					{
+						ClientAutoHit(AutoHitTarget);
+					}
+					ChargedMode->EndFiringSequence(CurrentFireMode);
+					AutoHitTarget = NULL;
+				}
 			}
 		}
 	}
