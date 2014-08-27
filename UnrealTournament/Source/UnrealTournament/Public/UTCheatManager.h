@@ -14,6 +14,9 @@ class UUTCheatManager : public UCheatManager
 	UFUNCTION(exec)
 	virtual void UnlimitedAmmo();
 
+	UFUNCTION(exec)
+	virtual void Loaded();
+
 	// Alias to UnlimitedAmmo
 	UFUNCTION(exec)
 	virtual void ua();

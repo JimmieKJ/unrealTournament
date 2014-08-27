@@ -26,7 +26,7 @@ UUTCheatManager::UUTCheatManager(const class FPostConstructInitializeProperties&
 void UUTCheatManager::AllAmmo()
 {
 	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
-	if (MyPawn)
+	if (MyPawn != NULL)
 	{
 		MyPawn->AllAmmo();
 	}
@@ -35,9 +35,31 @@ void UUTCheatManager::AllAmmo()
 void UUTCheatManager::UnlimitedAmmo()
 {
 	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
-	if (MyPawn)
+	if (MyPawn != NULL)
 	{
 		MyPawn->UnlimitedAmmo();
+	}
+}
+
+void UUTCheatManager::Loaded()
+{
+	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (MyPawn != NULL)
+	{
+		// grant all weapons that are in memory
+		for (TObjectIterator<UClass> It; It; ++It)
+		{
+			// make sure we don't use abstract, deprecated, or blueprint skeleton classes
+			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")))
+			{
+				UClass* TestClass = *It;
+				if (!MyPawn->FindInventoryType(TSubclassOf<AUTInventory>(*It), true))
+				{
+					MyPawn->AddInventory(MyPawn->GetWorld()->SpawnActor<AUTInventory>(*It, FVector(0.0f), FRotator(0, 0, 0)), true);
+				}
+			}
+		}
+		MyPawn->AllAmmo();
 	}
 }
 
