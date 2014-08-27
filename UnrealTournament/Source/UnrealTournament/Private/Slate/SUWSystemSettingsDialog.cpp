@@ -92,7 +92,6 @@ FString SUWSystemSettingsDialog::GetFOVLabelText(int32 FOVAngle)
 
 void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
-	MouseSensitivityRange = FVector2D(0.0075f, 0.15f);
 	DecalLifetimeRange = FVector2D(5.0f, 180.0f);
 
 	SUWDialog::Construct(SUWDialog::FArguments().PlayerOwner(InArgs._PlayerOwner));
@@ -197,48 +196,6 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						SNew(STextBlock)
 						.ColorAndOpacity(FLinearColor::Black)
 						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
-					]
-				]
-				+ SVerticalBox::Slot()
-				.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
-						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "MouseSensitivity", "Mouse Sensitivity").ToString())
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					[
-						SNew(SBox)
-						.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
-						.Content()
-						[
-							SAssignNew(MouseSensitivity, SSlider)
-							.Orientation(Orient_Horizontal)
-							.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity() - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
-						]
-					]
-				]
-				+ SVerticalBox::Slot()
-				.HAlign(HAlign_Center)
-				.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-				[
-					SAssignNew(MouseSmoothing, SCheckBox)
-					.ForegroundColor(FLinearColor::Black)
-					.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-					.Content()
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
-						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "MouseSmoothing", "Mouse Smoothing").ToString())
 					]
 				]
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
@@ -368,22 +325,6 @@ FReply SUWSystemSettingsDialog::OKClick()
 	{
 		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
 	}
-	// mouse sensitivity
-	float NewSensitivity = MouseSensitivity->GetValue() * (MouseSensitivityRange.Y - MouseSensitivityRange.X) + MouseSensitivityRange.X;
-	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
-	{
-		It->SetMouseSensitivity(NewSensitivity);
-	}
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
-	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
-	{
-		if (Entry.AxisKeyName == EKeys::MouseX || Entry.AxisKeyName == EKeys::MouseY)
-		{
-			Entry.AxisProperties.Sensitivity = NewSensitivity;
-		}
-	}
-	InputSettings->bEnableMouseSmoothing = MouseSmoothing->IsChecked();
-	InputSettings->SaveConfig();
 	// engine scalability
 	UserSettings->ScalabilityQuality.TextureQuality = GeneralScalabilityList.Find(TextureRes->GetSelectedItem());
 	UserSettings->ScalabilityQuality.ShadowQuality = GeneralScalabilityList.Find(ShadowQuality->GetSelectedItem());

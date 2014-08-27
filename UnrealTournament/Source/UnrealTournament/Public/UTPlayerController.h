@@ -271,15 +271,14 @@ protected:
 	/** Current movement axis deflecton right/left (left is negative) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement)
 	float MovementStrafeAxis;
-
-	// @TODO FIXMESTEVE make config
-	UPROPERTY(EditAnywhere, Category = Dodging)
+public:
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
 	float MaxDodgeClickTime;
 
 	/** Max held time for single tap wall dodge */
-	UPROPERTY(EditAnywhere, Category = Dodging)
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
 	float MaxDodgeTapTime;
-
+protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapLeftTime;
 

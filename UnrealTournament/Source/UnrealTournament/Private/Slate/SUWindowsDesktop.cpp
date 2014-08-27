@@ -9,6 +9,7 @@
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
 #include "SUWCreateGameDialog.h"
+#include "SUWControlSettingsDialog.h"
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
@@ -336,6 +337,15 @@ void SUWindowsDesktop::BuildOptionsSubMenu()
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
 			.OnClicked(this, &SUWindowsDesktop::OpenSystemSettings)
 		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
+			.OnClicked(this, &SUWindowsDesktop::OpenControlSettings)
+		]
 	);
 
 	MenuBar->AddSlot()
@@ -498,6 +508,11 @@ FReply SUWindowsDesktop::OpenPlayerSettings()
 FReply SUWindowsDesktop::OpenSystemSettings()
 {
 	PlayerOwner->OpenDialog(SNew(SUWSystemSettingsDialog).PlayerOwner(PlayerOwner));
+	return FReply::Handled();
+}
+FReply SUWindowsDesktop::OpenControlSettings()
+{
+	PlayerOwner->OpenDialog(SNew(SUWControlSettingsDialog).PlayerOwner(PlayerOwner));
 	return FReply::Handled();
 }
 

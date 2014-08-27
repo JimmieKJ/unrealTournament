@@ -14,8 +14,6 @@ protected:
 	TArray< TSharedPtr<FString> > ResList;
 	TSharedPtr<STextBlock> SelectedRes;
 	TSharedPtr<SCheckBox> Fullscreen;
-	TSharedPtr<SSlider> MouseSensitivity;
-	TSharedPtr<SCheckBox> MouseSmoothing;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	/** list of display values for general scalability setting that are all set the same way (e.g. low/medium/high) */
 	TArray< TSharedPtr<FString> > GeneralScalabilityList;
