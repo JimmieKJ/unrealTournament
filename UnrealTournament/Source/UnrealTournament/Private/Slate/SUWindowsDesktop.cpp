@@ -11,6 +11,7 @@
 #include "SUWCreateGameDialog.h"
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"
+#include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
@@ -59,17 +60,27 @@ void SUWindowsDesktop::Construct(const FArguments& InArgs)
 					SNew(SImage)
 					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
 				]
+				/* -- Remove until I can get a hi-rez logo
 				+ SOverlay::Slot()
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.HAlign(HAlign_Fill)
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
 					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background.Logo"))
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SUWScaleBox)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background.Logo"))
+							]
+						]
 					]
 				]
-
+				*/
 				+ SOverlay::Slot()
 				[
 					SNew(SCanvas)

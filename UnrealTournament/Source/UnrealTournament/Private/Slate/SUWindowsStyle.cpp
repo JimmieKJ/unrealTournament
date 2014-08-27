@@ -77,7 +77,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{ // Background Image
 	
 		Style.Set("UWindows.Desktop.Background", new IMAGE_BRUSH("UWindows.Desktop.Background", FVector2D(512, 512), FLinearColor(1, 1, 1, 1), ESlateBrushTileType::Both));
-		Style.Set("UWindows.Desktop.Background.Logo", new IMAGE_BRUSH("UWindows.Desktop.Background.Logo", FVector2D(1024, 523), FLinearColor(1, 1, 1, 1), ESlateBrushTileType::NoTile));
+		Style.Set("UWindows.Desktop.Background.Logo", new IMAGE_BRUSH("UWindows.Desktop.Background.Logo", FVector2D(1024, 294), FLinearColor(1, 1, 1, 1), ESlateBrushTileType::NoTile));
 	}
 
 	return StyleRef;
