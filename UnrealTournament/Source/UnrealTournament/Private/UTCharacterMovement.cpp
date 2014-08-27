@@ -926,7 +926,7 @@ void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlic
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }
 
-bool UUTCharacterMovement::CanBaseOnLift()
+bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim)
 {
 	const FVector PawnLocation = CharacterOwner->GetActorLocation();
 	FFindFloorResult FloorResult;
@@ -946,7 +946,7 @@ bool UUTCharacterMovement::CanBaseOnLift()
 		{
 			return false;
 		}
-		return true;
+		return (CharacterOwner->GetMovementBase() == LiftPrim);
 	}
 	return false;
 }

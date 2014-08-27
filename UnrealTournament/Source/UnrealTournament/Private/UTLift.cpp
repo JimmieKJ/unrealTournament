@@ -39,9 +39,24 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 	{
 		//if (GetWorld()->GetTimeSeconds() - LastEncroachNotifyTime > 0.2f)
 		{
+			if (Cast<AUTProjectile>(Other))
+			{
+				if (bMoveWasBlocked)
+				{
+					// projectile didn't get out of the way
+					Cast<AUTProjectile>(Other)->Explode(HitLocation, HitNormal, MyComp);
+				}
+				bMoveWasBlocked = true;
+				return;
+			}
 			//if (Other) { UE_LOG(UT, Warning, TEXT("RECEIVE HIT %s"), *Other->GetName()); }
 			AUTCharacter* UTChar = Cast<AUTCharacter>(Other);
-			if (UTChar && UTChar->UTCharacterMovement && UTChar->UTCharacterMovement->CanBaseOnLift())
+			if (UTChar && UTChar->IsDead())
+			{
+				UTChar->Destroy();
+				return;
+			}
+			if (UTChar && UTChar->UTCharacterMovement && UTChar->UTCharacterMovement->CanBaseOnLift(EncroachComponent))
 			{
 				// if UTCharacter could stand on me, then base him and keep going
 				bMoveWasBlocked = true;
@@ -54,7 +69,6 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 }
 
 // @TODO FIXMESTEVE support lifts on other lifts, relative movement, and rotation
-// @TODO FIXMESTEVE no triggers
 void AUTLift::MoveLiftTo(FVector NewLocation, FRotator NewRotation)
 {
 	if (EncroachComponent && (!NewLocation.Equals(EncroachComponent->GetComponentLocation()) || !NewRotation.Equals(EncroachComponent->GetComponentRotation())))

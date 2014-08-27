@@ -25,7 +25,7 @@ public:
 	virtual FVector ConsumeInputVector() override;
 
 	/** Try to base on lift that just ran into me, return true if success */
-	virtual bool CanBaseOnLift();
+	virtual bool CanBaseOnLift(UPrimitiveComponent* LiftPrim);
 
 	/** @TODO FIXMESTEVE remove when we get UnableToFollowBaseMove() notify in base engine */
 	virtual void UpdateBasedMovement(float DeltaSeconds) override;
