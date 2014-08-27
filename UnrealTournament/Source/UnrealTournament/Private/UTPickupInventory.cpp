@@ -238,6 +238,24 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 	{
 		Mesh->SetHiddenInGame(bNowHidden, true);
 		Mesh->SetVisibility(!bNowHidden, true);
+		// toggle audio components
+		TArray<USceneComponent*> Children;
+		Mesh->GetChildrenComponents(true, Children);
+		for (int32 i = 0; i < Children.Num(); i++)
+		{
+			UAudioComponent* AC = Cast<UAudioComponent>(Children[i]);
+			if (AC != NULL)
+			{
+				if (bNowHidden)
+				{
+					AC->Stop();
+				}
+				else
+				{
+					AC->Play();
+				}
+			}
+		}
 		// if previously there was no InventoryType or no Mesh then the whole Actor might have been hidden
 		SetActorHiddenInGame(false);
 	}
