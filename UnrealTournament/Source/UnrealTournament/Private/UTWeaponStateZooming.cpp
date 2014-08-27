@@ -33,6 +33,8 @@ void UUTWeaponStateZooming::PendingFireStarted()
 			{
 				Camera->UnlockFOV();
 			}
+
+			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None);
 		}
 	}
 	else
@@ -41,11 +43,18 @@ void UUTWeaponStateZooming::PendingFireStarted()
 		StartZoomTime = GetWorld()->TimeSeconds;
 		ZoomTickHandler.ZoomState = this;
 		ZoomTickHandler.RegisterTickFunction(GetOuterAUTWeapon()->GetLevel());
+
+		if (GetUTOwner()->IsLocallyControlled())
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomInSound, GetUTOwner(), SRT_None);
+			ToggleZoomInSound(true);
+		}
 	}
 }
 void UUTWeaponStateZooming::PendingFireStopped()
 {
 	ZoomTickHandler.UnRegisterTickFunction();
+	ToggleZoomInSound(false);
 }
 
 void UUTWeaponStateZooming::BeginFiringSequence(uint8 FireModeNum)
@@ -71,6 +80,8 @@ void UUTWeaponStateZooming::WeaponBecameInactive()
 		{
 			Camera->UnlockFOV();
 		}
+
+		UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None);
 	}
 }
 
@@ -116,6 +127,44 @@ void UUTWeaponStateZooming::TickZoom(float DeltaTime)
 		if (Camera != NULL)
 		{
 			Camera->SetFOV(Camera->DefaultFOV - (Camera->DefaultFOV - MinFOV) * FMath::Min<float>((GetWorld()->TimeSeconds - StartZoomTime) / ZoomTime, 1.0f));
+
+			if (Camera->LockedFOV <= MinFOV)
+			{
+				OnZoomingFinished();
+			}
+		}
+	}
+}
+
+void UUTWeaponStateZooming::OnZoomingFinished()
+{
+	ZoomTickHandler.UnRegisterTickFunction();
+	ToggleZoomInSound(false);
+}
+
+void UUTWeaponStateZooming::ToggleZoomInSound(bool bNowOn)
+{
+	if (ZoomLoopSound != NULL && Cast<APlayerController>(GetUTOwner()->Controller) && GetUTOwner()->IsLocallyControlled())
+	{
+		if (ZoomLoopComp == NULL)
+		{
+			ZoomLoopComp = ConstructObject<UAudioComponent>(UAudioComponent::StaticClass(), this);
+			ZoomLoopComp->bAutoDestroy = false;
+			ZoomLoopComp->bAutoActivate = false;
+			ZoomLoopComp->Sound = ZoomLoopSound;
+			ZoomLoopComp->bAllowSpatialization = false;
+		}
+		if (bNowOn)
+		{
+			ZoomLoopComp->RegisterComponent();
+			// note we don't need to attach to anything because we disabled spatialization
+			ZoomLoopComp->Play();
+		}
+		else if (ZoomLoopComp->IsRegistered())
+		{
+			ZoomLoopComp->Stop();
+			ZoomLoopComp->DetachFromParent();
+			ZoomLoopComp->UnregisterComponent();
 		}
 	}
 }

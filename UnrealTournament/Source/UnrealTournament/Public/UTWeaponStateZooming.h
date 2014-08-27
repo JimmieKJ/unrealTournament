@@ -28,6 +28,10 @@ protected:
 	float StartZoomTime;
 	FZoomTickFunction ZoomTickHandler;
 
+	// local only looping sound for zooming
+	UPROPERTY()
+	UAudioComponent* ZoomLoopComp;
+
 public:
 	/** minimum FOV angle */
 	UPROPERTY(EditDefaultsOnly, Category = Zoom)
@@ -43,6 +47,15 @@ public:
 	/** material instance for e.g. team coloring */
 	UPROPERTY()
 	UMaterialInstanceDynamic* OverlayMI;
+
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	USoundBase* ZoomInSound;
+
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	USoundBase* ZoomLoopSound;
+
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	USoundBase* ZoomOutSound;
 
 	virtual bool IsFiring() const override
 	{
@@ -60,4 +73,9 @@ public:
 	virtual bool DrawHUD(class UUTHUDWidget* WeaponHudWidget) override;
 
 	virtual void TickZoom(float DeltaTime);
+
+	virtual void OnZoomingFinished();
+
+	//Looping sound is always using firemode 0 the first run; not sure if bug
+	virtual void ToggleZoomInSound(bool bNowOn);
 };
