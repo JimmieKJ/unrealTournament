@@ -432,6 +432,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 		Mesh->AttachTo(UTOwner->FirstPersonMesh);
 		if (Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
 		{
+			Mesh->SetOwnerNoSee(false);
 			Mesh->LastRenderTime = GetWorld()->TimeSeconds;
 			Mesh->bRecentlyRendered = true;
 		}
