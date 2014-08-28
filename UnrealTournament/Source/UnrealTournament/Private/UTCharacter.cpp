@@ -1915,7 +1915,7 @@ void AUTCharacter::UpdateCharOverlays()
 			{
 				OverlayMesh->RegisterComponent();
 				OverlayMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTarget);
-				OverlayMesh->SetRelativeScale3D(FVector(1.015f, 1.015f, 1.015f));
+				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			}
 			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
 			// apply team color, if applicable
