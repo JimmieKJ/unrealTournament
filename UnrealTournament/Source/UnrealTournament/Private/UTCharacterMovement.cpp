@@ -599,6 +599,14 @@ const FVector& NewAccel
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
 
+void UUTCharacterMovement::ResetTimers()
+{
+	DodgeResetTime = 0.f;
+	SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+	DodgeRollTapTime = 0.f;
+	DodgeRollEndTime = 0.f;
+}
+
 float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FHitResult& Hit)
 {
 	if (Hit.ImpactNormal.Z < GetWalkableFloorZ())

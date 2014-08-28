@@ -39,6 +39,9 @@ public:
 	*/
 	virtual bool ShouldCheckForValidLandingSpot(const float DeltaTime, const FVector& Delta, const FHitResult& Hit) const;
 
+	/** Reset timers (called on pawn possessed) */
+	virtual void ResetTimers();
+
 	/** Smoothed speed */
 	UPROPERTY()
 	float AvgSpeed;

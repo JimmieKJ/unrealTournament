@@ -2185,6 +2185,11 @@ void AUTCharacter::PossessedBy(AController* NewController)
 
 	Super::PossessedBy(NewController);
 	NotifyTeamChanged();
+
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->ResetTimers();
+	}
 }
 
 void AUTCharacter::UnPossessed()
