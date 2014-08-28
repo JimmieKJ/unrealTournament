@@ -200,8 +200,6 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 				MoveUpdatedComponent(DeltaPosition, FinalQuat.Rotator(), true);
 				if ((UpdatedComponent->GetComponentLocation() - (OldLocation + DeltaPosition)).IsNearlyZero() == false)
 				{
-					UE_LOG(UT, Warning, TEXT("Couldn't move with mover! %s"), *MovementBase->GetName());
-
 					UnableToFollowBaseMove(DeltaPosition, OldLocation);
 				}
 			}
