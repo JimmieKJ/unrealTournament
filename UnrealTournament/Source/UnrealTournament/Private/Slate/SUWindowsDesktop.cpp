@@ -492,9 +492,9 @@ FReply SUWindowsDesktop::OnChangeTeam(int32 NewTeamIndex)
 }
 FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 {
-	if (PlayerOwner.IsValid())
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
 	{
-		PlayerOwner->ViewportClient->ConsoleCommand(Command);
+		PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
 	}
 
 	CloseMenus();
