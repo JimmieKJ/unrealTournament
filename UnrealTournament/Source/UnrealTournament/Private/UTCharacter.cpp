@@ -989,7 +989,7 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 	{
 		FeignDeath();
 	}
-	else if (Weapon != NULL)
+	else if (Weapon != NULL && EmoteCount == 0)
 	{
 		Weapon->StartFire(FireModeNum);
 	}

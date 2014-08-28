@@ -309,6 +309,8 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 		PlayerCameraManager->UnlockFOV();
 		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
 	}
+
+	BehindViewStacks = 0;
 }
 
 void AUTPlayerController::FOV(float NewFOV)
