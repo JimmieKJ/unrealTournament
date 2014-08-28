@@ -425,7 +425,7 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 		{
 			bLockedOnTarget = true;
 			LastLockedOnTime = GetWorld()->TimeSeconds;
-			if (GetNetMode() != NM_DedicatedServer && UTOwner->IsLocallyControlled())
+			if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL && UTOwner->IsLocallyControlled())
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), LockAcquiredSound, UTOwner, SRT_None);
 			}
