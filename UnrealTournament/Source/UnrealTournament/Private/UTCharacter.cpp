@@ -2411,18 +2411,24 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL,Scale,Scale);
 
 			FVector ScreenPosition = Canvas->Project(GetActorLocation() + (CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.25f) * FVector(0,0,1));
+			float XPos = ScreenPosition.X - (XL * 0.5);
+			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
+			{
+				// Make the team backgrounds darker
+				FLinearColor TeamColor = UTPS->Team->TeamColor;
+				TeamColor.R *= 0.24;
+				TeamColor.G *= 0.24;
+				TeamColor.B *= 0.24;
 
-			// Make the team backgrounds darker
-			FLinearColor TeamColor = UTPS->Team->TeamColor;
-			TeamColor.R *= 0.24;
-			TeamColor.G *= 0.24;
-			TeamColor.B *= 0.24;
+				Canvas->SetLinearDrawColor(TeamColor);
+				Canvas->DrawTile(Canvas->DefaultTexture, XPos - 1, ScreenPosition.Y - YL - 2, XL + 2, YL - (6 * Scale), 0, 0, 1, 1);
 
-			Canvas->SetLinearDrawColor(TeamColor);
-			Canvas->DrawTile(Canvas->DefaultTexture, ScreenPosition.X - (XL * 0.5) - 1, ScreenPosition.Y - YL - 2, XL + 2, YL - (6 * Scale), 0,0, 1,1);
-			Canvas->SetLinearDrawColor(FLinearColor::White);
-			FFontRenderInfo FRI = Canvas->CreateFontRenderInfo(true, false);
-			Canvas->DrawText(TinyFont, PlayerState->PlayerName, ScreenPosition.X - (XL * 0.5), ScreenPosition.Y - YL, Scale, Scale, FRI);
+				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + ScreenPosition.Y - YL)), FText::FromString(PlayerState->PlayerName), TinyFont, FLinearColor::White);
+				TextItem.Scale = FVector2D(Scale, Scale);
+				TextItem.BlendMode = SE_BLEND_Translucent;
+				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+				Canvas->DrawItem(TextItem);
+			}
 		}
 	}
 }
