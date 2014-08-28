@@ -68,7 +68,7 @@ void AUTJumpBoots::Removed()
 }
 void AUTJumpBoots::ClientRemoved_Implementation()
 {
-	if (Role < ROLE_Authority)
+	if (Role < ROLE_Authority && GetUTOwner() != NULL)
 	{
 		AdjustOwner(true);
 	}
