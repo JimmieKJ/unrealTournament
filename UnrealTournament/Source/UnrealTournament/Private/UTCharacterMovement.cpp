@@ -960,8 +960,19 @@ void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlic
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }
 
-bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim)
+bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FVector& LiftMoveDelta)
 {
+	// If character jumped off this lift and is still going up fast enough, then just push him along
+	if (Velocity.Z > 0.f)
+	{
+		FVector LiftVel = MovementBaseUtility::GetMovementBaseVelocity(LiftPrim, NAME_None);
+		if (LiftVel.Z > 0.f)
+		{
+			FHitResult Hit(1.f);
+			SafeMoveUpdatedComponent(LiftMoveDelta, CharacterOwner->GetActorRotation(), true, Hit);
+			return true;
+		}
+	}
 	const FVector PawnLocation = CharacterOwner->GetActorLocation();
 	FFindFloorResult FloorResult;
 	FindFloor(PawnLocation, FloorResult, false);

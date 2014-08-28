@@ -29,6 +29,7 @@ class AUTLift : public AActor
 	UPROPERTY()
 		float LastEncroachNotifyTime;
 
+
 	/** Event when a player starts standing on me */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = "Lift")
 		virtual void AddBasedCharacter(APawn* NewBasedPawn);
@@ -41,4 +42,13 @@ private:
 	/** Used during lift move to identify if movement was incomplete */
 	UPROPERTY()
 		bool bMoveWasBlocked;
+
+	/** Where lift started for current move. */
+	UPROPERTY()
+		FVector LiftStartLocation;
+
+	/** Where lift wants to end for current move. */
+	UPROPERTY()
+		FVector LiftEndLocation;
+
 };

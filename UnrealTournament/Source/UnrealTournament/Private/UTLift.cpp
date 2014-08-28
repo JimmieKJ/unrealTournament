@@ -56,7 +56,7 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				UTChar->Destroy();
 				return;
 			}
-			if (UTChar && UTChar->UTCharacterMovement && UTChar->UTCharacterMovement->CanBaseOnLift(EncroachComponent))
+			if (UTChar && UTChar->UTCharacterMovement && UTChar->UTCharacterMovement->CanBaseOnLift(EncroachComponent, LiftEndLocation - EncroachComponent->GetComponentLocation()))
 			{
 				// if UTCharacter could stand on me, then base him and keep going
 				bMoveWasBlocked = true;
@@ -74,11 +74,14 @@ void AUTLift::MoveLiftTo(FVector NewLocation, FRotator NewRotation)
 	if (EncroachComponent && (!NewLocation.Equals(EncroachComponent->GetComponentLocation()) || !NewRotation.Equals(EncroachComponent->GetComponentRotation())))
 	{
 		bMoveWasBlocked = false;
+		LiftStartLocation = EncroachComponent->GetComponentLocation();
+		LiftEndLocation = NewLocation;
 		EncroachComponent->MoveComponent(NewLocation - EncroachComponent->GetComponentLocation(), EncroachComponent->GetComponentRotation(), true, NULL, MOVECOMP_IgnoreBases);
 
 		// @TODO FIXMESTEVE - really correct would be recurse (with cap)
 		if (bMoveWasBlocked)
 		{
+			LiftStartLocation = EncroachComponent->GetComponentLocation();
 			EncroachComponent->MoveComponent(NewLocation - EncroachComponent->GetComponentLocation(), EncroachComponent->GetComponentRotation(), true, NULL, MOVECOMP_IgnoreBases);
 		}
 	}
