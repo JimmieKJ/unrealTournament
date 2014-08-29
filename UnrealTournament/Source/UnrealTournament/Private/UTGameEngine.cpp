@@ -288,12 +288,7 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	if (bSmoothFrameRate && bAllowFrameRateSmoothing)
 	{
 		MaxTickRate = CurrentMaxTickRate;
-
-		if (SmoothedFrameRate < 0.95f * CurrentMaxTickRate)
-		{
-			MaxTickRate = SmoothedFrameRate;
-		}
-
+		
 		// Make sure that we don't try to smooth below a certain minimum
 		MaxTickRate = FMath::Max(FrameRateMinimum, MaxTickRate);
 	}
@@ -346,10 +341,4 @@ void UUTGameEngine::SmoothFrameRate(float DeltaTime)
 			//UE_LOG(UT, Log, TEXT("Made framerate %f"), CurrentMaxTickRate);
 		}
 	}
-
-	// Keep track of running average over 300 frames, clamping at min of 5 FPS for individual delta times.
-	RunningAverageDeltaTime = FMath::Lerp<float>(RunningAverageDeltaTime, FMath::Min<float>(DeltaTime, 0.2f), 1 / 300.f);
-
-	// Work in FPS domain as that is what the function will return.
-	SmoothedFrameRate = 1.f / RunningAverageDeltaTime;
 }
