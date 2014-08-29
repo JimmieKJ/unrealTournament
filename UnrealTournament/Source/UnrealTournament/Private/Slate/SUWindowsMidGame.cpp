@@ -56,35 +56,37 @@ void SUWindowsMidGame::CreateDesktop()
 					SNew(SOverlay)
 					+ SOverlay::Slot()
 					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.HAlign(HAlign_Fill)
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MidGameMenuBar"))
-						]
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MidGameMenuBar"))
 					]
 					+SOverlay::Slot()
 					[
+
 						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()		// This is the Buffer at the Top
+						+ SVerticalBox::Slot()		// This panel is just for alignment :(
 						.AutoHeight()
-						.HAlign(HAlign_Fill)
+						.HAlign(HAlign_Right)
 						[
-							SNew(SBox)
-							.HeightOverride(7)
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()		// This is the Buffer at the Top
+							.AutoHeight()
+							.HAlign(HAlign_Fill)
 							[
-								SNew(SCanvas)
+								SNew(SBox)
+								.HeightOverride(7)
+								[
+									SNew(SCanvas)
+								]
 							]
-						]
-						+ SVerticalBox::Slot()		// This is the Buffer at the Top
-						.AutoHeight()
-						.HAlign(HAlign_Fill)
-						[
-							SNew(SBox)
-							.HeightOverride(63)
+							+ SVerticalBox::Slot()		// This is the Buffer at the Top
+							.AutoHeight()
+							.HAlign(HAlign_Fill)
 							[
-								BuildMenuBar()
+								SNew(SBox)
+								.HeightOverride(63)
+								[
+									BuildMenuBar()
+								]
 							]
 						]
 					]
@@ -183,6 +185,7 @@ void SUWindowsMidGame::BuildServerBrowserSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Browser", "SERVER BROWSER").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
 		];
 
 	MenuBar->AddSlot()
@@ -207,6 +210,7 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options", "OPTIONS").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
 		];
 
 	DropDownButton->SetMenuContent
@@ -253,29 +257,25 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 }
 void SUWindowsMidGame::BuildExitMatchSubMenu()
 {
-	TSharedPtr<SComboButton> DropDownButton = NULL;
+	TSharedPtr<SButton> Button = NULL;
 
 	FText MenuText = PlayerOwner->GetWorld()->GetNetMode() == NM_Standalone ?
 		NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ExitMatch", "EXIT MATCH") :
 		NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Disconnect", "DISCONNECT");
 
-	SAssignNew(DropDownButton, SComboButton)
-		.Method(SMenuAnchor::UseCurrentWindow)
-		.HasDownArrow(false)
+	SAssignNew(Button, SButton)
 		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
-		.ButtonContent()
-		[
-			SNew(STextBlock)
-			.Text(MenuText.ToString())
-		];
+		.Text(MenuText)
+		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
+		.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("Disconnect")));
 
 	MenuBar->AddSlot()
 		.AutoWidth()
 		.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
 		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Fill)
 		[
-			DropDownButton.ToSharedRef()
+			Button.ToSharedRef()
 		];
 }
-
 

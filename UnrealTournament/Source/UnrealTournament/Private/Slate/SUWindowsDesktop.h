@@ -23,6 +23,9 @@ class SUWindowsDesktop : public SCompoundWidget
 	virtual void OnMenuClosed();
 	virtual void CloseMenus();
 
+	virtual FReply OnMenuConsoleCommand(FString Command);
+	virtual void ConsoleCommand(FString Command);
+
 protected:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;

@@ -15,6 +15,7 @@
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
+#include "SUWServerBrowser.h"
 
 void SUWindowsMainMenu::CreateDesktop()
 {
@@ -84,6 +85,7 @@ void SUWindowsMainMenu::CreateDesktop()
 				+ SOverlay::Slot()
 				[
 					SNew(SCanvas)
+					//SNew(SUWServerBrowser)  -- Not ready.. don't use yet :)
 				]
 			]
 		];
@@ -171,7 +173,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Disconnect", "Disconnect").ToString())
-					.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("Disconnect")))
+					.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("Disconnect")))
 				];
 			}
 			if (PlayerOwner->PlayerController != NULL)
@@ -186,7 +188,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 						.ContentPadding(FMargin(10.0f, 5.0f))
 						.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Reconnect", "Reconnect to {Addr}"), FText::FromString(FString::Printf(TEXT("%s:%i"), *LastNetURL.Host, LastNetURL.Port))).ToString())
-						.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("Reconnect")))
+						.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("Reconnect")))
 					];
 				}
 			}
@@ -208,7 +210,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_ExitGame", "Exit Game").ToString())
-				.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("quit")))
+				.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("quit")))
 			];
 
 		}
@@ -286,7 +288,7 @@ void SUWindowsMainMenu::BuildGameSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Game_Suicide", "Suicide").ToString())
-				.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("suicide")))
+				.OnClicked(this, &SUWindowsDesktop::OnMenuConsoleCommand, FString(TEXT("suicide")))
 			];
 		}
 		DropDownButton->SetMenuContent(Menu.ToSharedRef());
@@ -418,15 +420,6 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 FReply SUWindowsMainMenu::OnChangeTeam(int32 NewTeamIndex)
 {
 	return OnMenuConsoleCommand(FString::Printf(TEXT("changeteam %i"), NewTeamIndex));
-}
-FReply SUWindowsMainMenu::OnMenuConsoleCommand(FString Command)
-{
-	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
-	{
-		PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
-	}
-	CloseMenus();
-	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OpenPlayerSettings()

@@ -22,7 +22,7 @@ public class UnrealTournament : ModuleRules
             PublicDependencyModuleNames.AddRange(new string[] { "SDL2" });
         }
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "OnlineSubsystem", "OnlineSubsystemUtils" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "RHI", "Slate", "SlateCore", "SlateRHIRenderer" });
