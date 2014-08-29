@@ -967,7 +967,9 @@ bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FV
 		if (LiftVel.Z > 0.f)
 		{
 			FHitResult Hit(1.f);
-			SafeMoveUpdatedComponent(LiftMoveDelta, CharacterOwner->GetActorRotation(), true, Hit);
+			FVector MoveDelta(0.f);
+			MoveDelta.Z = LiftMoveDelta.Z;
+			SafeMoveUpdatedComponent(MoveDelta, CharacterOwner->GetActorRotation(), true, Hit);
 			return true;
 		}
 	}
