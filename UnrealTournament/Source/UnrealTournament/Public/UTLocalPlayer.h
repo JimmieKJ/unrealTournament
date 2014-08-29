@@ -23,10 +23,13 @@ public:
 
 protected:
 
-	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;	
+	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
 
 	/** stores a reference to open dialogs so they don't get destroyed */
 	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
+
+	virtual bool IsMenuGame();
+
 };
 
 

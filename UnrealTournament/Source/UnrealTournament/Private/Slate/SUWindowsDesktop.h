@@ -23,24 +23,11 @@ class SUWindowsDesktop : public SCompoundWidget
 	virtual void OnMenuClosed();
 	virtual void CloseMenus();
 
-private:
-	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
-
 protected:
+	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;
-	TSharedPtr<class SHorizontalBox> MenuBar;
 
-	virtual FReply OnMenuConsoleCommand(FString Command);
-	virtual FReply OnCreateGame(bool bOnline);
-	virtual FReply OnConnectIP();
-	virtual void ConnectIPDialogResult(const FString& InputText, bool bCancelled);
-	virtual FReply OnChangeTeam(int32 NewTeamIndex);
-	virtual FReply OpenPlayerSettings();
-	virtual FReply OpenSystemSettings();
-	virtual FReply OpenTPSReport();
-	virtual FReply OpenCredits();
-	virtual FReply OnMenuHTTPButton(FString URL);
-	virtual FReply OpenControlSettings();
+	virtual void CreateDesktop();
 
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual FReply OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent ) override;
@@ -49,12 +36,5 @@ protected:
 
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-
-	virtual TSharedRef<SWidget> BuildMenuBar();
-
-	virtual void BuildFileSubMenu();
-	virtual void BuildGameSubMenu();
-	virtual void BuildOptionsSubMenu();
-	virtual void BuildAboutSubMenu();
 };
 

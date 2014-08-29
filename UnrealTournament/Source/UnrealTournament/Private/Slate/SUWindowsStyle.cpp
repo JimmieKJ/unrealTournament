@@ -60,8 +60,6 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetPressed( BOX_BRUSH("UWindows.Standard.MenuList.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(BOX_BRUSH("UWindows.Standard.MenuList.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			);
-
-
 	}
 
 	{  // Standard Button
@@ -78,6 +76,22 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	
 		Style.Set("UWindows.Desktop.Background", new IMAGE_BRUSH("UWindows.Desktop.Background", FVector2D(512, 512), FLinearColor(1, 1, 1, 1), ESlateBrushTileType::Both));
 		Style.Set("UWindows.Desktop.Background.Logo", new IMAGE_BRUSH("UWindows.Desktop.Background.Logo", FVector2D(1024, 294), FLinearColor(1, 1, 1, 1), ESlateBrushTileType::NoTile));
+	}
+
+
+	{ // MidGame Menu Bar Background
+
+		Style.Set("UWindows.Standard.MidGameMenuButton.TextColor", FLinearColor::White);
+		Style.Set("UWindows.Standard.MidGameMenuBar", new BOX_BRUSH("UWindows.Standard.MidGameMenuBar", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+		Style.Set("UWindows.Standard.MidGameMenuButton", FButtonStyle()
+			.SetNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHovered(BOX_BRUSH("UWindows.Standard.MidGameMenuButton.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("UWindows.Standard.MidGameMenuButton.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			);
+
+
 	}
 
 	return StyleRef;

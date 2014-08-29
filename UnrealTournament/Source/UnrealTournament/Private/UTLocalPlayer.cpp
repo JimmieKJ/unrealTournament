@@ -2,7 +2,10 @@
 
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
+#include "UTMenuGameMode.h"
 #include "Slate/SUWindowsDesktop.h"
+#include "Slate/SUWindowsMainMenu.h"
+#include "Slate/SUWindowsMidGame.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SUWDialog.h"
@@ -48,13 +51,31 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 	}
 }
 
+bool UUTLocalPlayer::IsMenuGame()
+{
+	if (GetWorld()->GetNetMode() == NM_Standalone)
+	{
+		AUTMenuGameMode* GM = Cast<AUTMenuGameMode>(GetWorld()->GetAuthGameMode());
+		return GM != NULL;
+	}
+
+	return false;
+}
+
 
 void UUTLocalPlayer::ShowMenu()
 {
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
-		SAssignNew(DesktopSlateWidget, SUWindowsDesktop).PlayerOwner(this);
+		if (IsMenuGame())
+		{
+			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
+		}
+		else
+		{
+			SAssignNew(DesktopSlateWidget, SUWindowsMidGame).PlayerOwner(this);
+		}
 		if (DesktopSlateWidget.IsValid())
 		{
 			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(DesktopSlateWidget.ToSharedRef()));
