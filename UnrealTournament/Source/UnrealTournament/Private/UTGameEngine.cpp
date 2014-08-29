@@ -12,6 +12,9 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 	GameNetworkVersion = 8003;
 
 	CurrentMaxTickRate = 100.f;
+	// Running average delta time, initial value at 100 FPS so fast machines don't have to creep up
+	// to a good frame rate due to code limiting upward "mobility".
+	RunningAverageDeltaTime = 1 / 100.f;
 }
 
 
@@ -110,6 +113,8 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 			Context.TravelURL = NewURL.ToString();
 		}
 	}
+
+	SmoothFrameRate(DeltaSeconds);
 
 	Super::Tick(DeltaSeconds, bIdleMode);
 }
@@ -279,69 +284,13 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	{
 		return Super::GetMaxTickRate(DeltaTime, bAllowFrameRateSmoothing);
 	}
-
-	// Don't smooth here if we're a listen server
-	UWorld* World = NULL;
-	for (int32 WorldIndex = 0; WorldIndex < WorldList.Num(); ++WorldIndex)
-	{
-		if (WorldList[WorldIndex].WorldType == EWorldType::Game)
-		{
-			World = WorldList[WorldIndex].World();
-			break;
-		}
-	}
-	if (World)
-	{
-		UNetDriver* NetDriver = World->GetNetDriver();
-		if (NetDriver && NetDriver->GetNetMode() == NM_ListenServer)
-		{
-			return Super::GetMaxTickRate(DeltaTime, bAllowFrameRateSmoothing);
-		}
-	}
-	
+		
 	if (bSmoothFrameRate && bAllowFrameRateSmoothing)
 	{
-		// Adjust the maximum tick rate dynamically
-		// As maximum tick rate is met consistently, shorten the time period to try to reach equilibrium faster
-		if (1.f / DeltaTime < CurrentMaxTickRate)
-		{
-			MissedFrames++;
-			MadeFrames = 0;
-			MadeFramesStreak = 0;
-			// Miss enough frames during this sample period, apply MissedFramePenalty
-			if (MissedFrames > MissedFrameThreshold)
-			{
-				CurrentMaxTickRate *= MissedFramePenalty;
-				MissedFrames = 0;
-				MadeFrames = 0;
-				//UE_LOG(UT, Log, TEXT("Missed framerate %f"), CurrentMaxTickRate);
-			}
-		}
-		else
-		{
-			MadeFrames++;
-			if (MadeFrames >= CurrentMaxTickRate * FMath::Max(MadeFrameMinimumThreshold, MadeFrameStartingThreshold - MadeFramesStreak))
-			{
-				// We made framerate enough times in a row, creep max back up
-				MadeFramesStreak++;
-				CurrentMaxTickRate += MadeFrameBonus;
-				MadeFrames = 0;
-				MissedFrames = 0;
-				//UE_LOG(UT, Log, TEXT("Made framerate %f"), CurrentMaxTickRate);
-			}
-		}
-		
-		// Running average delta time, initial value at 100 FPS so fast machines don't have to creep up
-		// to a good frame rate due to code limiting upward "mobility".
-		static float RunningAverageDeltaTime = 1 / 100.f;
+		MaxTickRate = FMath::Min(CurrentMaxTickRate, SmoothedFrameRate);
 
-		// Keep track of running average over 300 frames, clamping at min of 5 FPS for individual delta times.
-		RunningAverageDeltaTime = FMath::Lerp<float>(RunningAverageDeltaTime, FMath::Min<float>(DeltaTime, 0.2f), 1 / 300.f);
-
-		// Work in FPS domain as that is what the function will return.
-		MaxTickRate = 1.f / RunningAverageDeltaTime;
-
-		MaxTickRate = FMath::Min(CurrentMaxTickRate, MaxTickRate);
+		// Make sure that we don't try to smooth below a certain minimum
+		MaxTickRate = FMath::Max(FrameRateMinimum, MaxTickRate);
 	}
 
 	if (CVarUnsteadyFPS.GetValueOnGameThread())
@@ -357,9 +306,45 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	{
 		MaxTickRate = FMath::Min(FrameRateCap, MaxTickRate);
 	}
-
-	// Make sure that we don't try to smooth below a certain minimum
-	MaxTickRate = FMath::Max(FrameRateMinimum, MaxTickRate);
-
+	
 	return MaxTickRate;
+}
+
+void UUTGameEngine::SmoothFrameRate(float DeltaTime)
+{
+	// Adjust the maximum tick rate dynamically
+	// As maximum tick rate is met consistently, shorten the time period to try to reach equilibrium faster
+	if (1.f / DeltaTime <= CurrentMaxTickRate * 0.98f)
+	{
+		MissedFrames++;
+		MadeFrames = 0;
+		MadeFramesStreak = 0;
+		// Miss enough frames during this sample period, apply MissedFramePenalty
+		if (MissedFrames > MissedFrameThreshold)
+		{
+			CurrentMaxTickRate *= MissedFramePenalty;
+			MissedFrames = 0;
+			MadeFrames = 0;
+			//UE_LOG(UT, Log, TEXT("Missed framerate %f"), CurrentMaxTickRate);
+		}
+	}
+	else
+	{
+		MadeFrames++;
+		if (MadeFrames >= CurrentMaxTickRate * FMath::Max(MadeFrameMinimumThreshold, MadeFrameStartingThreshold - MadeFramesStreak))
+		{
+			// We made framerate enough times in a row, creep max back up
+			MadeFramesStreak++;
+			CurrentMaxTickRate += MadeFrameBonus;
+			MadeFrames = 0;
+			MissedFrames = 0;
+			//UE_LOG(UT, Log, TEXT("Made framerate %f"), CurrentMaxTickRate);
+		}
+	}
+
+	// Keep track of running average over 300 frames, clamping at min of 5 FPS for individual delta times.
+	RunningAverageDeltaTime = FMath::Lerp<float>(RunningAverageDeltaTime, FMath::Min<float>(DeltaTime, 0.2f), 1 / 300.f);
+
+	// Work in FPS domain as that is what the function will return.
+	SmoothedFrameRate = 1.f / RunningAverageDeltaTime;
 }

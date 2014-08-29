@@ -67,12 +67,17 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(config)
 	float FrameRateMinimum;
 	
+	float RunningAverageDeltaTime;
+	float SmoothedFrameRate;
+
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) override;
+
+	void SmoothFrameRate(float DeltaTime);
 
 	UT_LOADMAP_DEFINITION()
 };
