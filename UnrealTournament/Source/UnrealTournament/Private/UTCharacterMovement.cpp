@@ -21,9 +21,13 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
+	bAllowJumpMultijumps = true;
 	MultiJumpImpulse = 500.f;
+	DodgeJumpImpulse = 500.f;
 	DodgeLandingSpeedFactor = 0.19f;
+	DodgeJumpLandingSpeedFactor = 0.19f;
 	DodgeResetInterval = 0.35f;
+	DodgeJumpResetInterval = 0.35f;
 	WallDodgeResetInterval = 0.2f;
 	SprintSpeed = 1250.f;
 	SprintAccel = 200.f;
@@ -636,16 +640,16 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging && !CharacterOwner->bClientUpdating)
 			{
-				DodgeResetTime = DodgeRollEndTime + DodgeResetInterval;
+				DodgeResetTime = DodgeRollEndTime + ((CurrentMultiJumpCount > 1) ? DodgeJumpResetInterval : DodgeResetInterval);
 				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
 		}
 		else if (bIsDodging)
 		{
-			Velocity *= DodgeLandingSpeedFactor;
+			Velocity *= ((CurrentMultiJumpCount > 1) ? DodgeJumpLandingSpeedFactor : DodgeLandingSpeedFactor);
 			if (!CharacterOwner->bClientUpdating)
 			{
-				DodgeResetTime = GetCurrentMovementTime() + DodgeResetInterval;
+				DodgeResetTime = GetCurrentMovementTime() + ((CurrentMultiJumpCount > 1) ? DodgeJumpResetInterval : DodgeResetInterval);
 				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
 		}
@@ -720,7 +724,7 @@ bool UUTCharacterMovement::DoMultiJump()
 {
 	if (CharacterOwner)
 	{
-		Velocity.Z = MultiJumpImpulse;
+		Velocity.Z = bIsDodging ? DodgeJumpImpulse : MultiJumpImpulse;
 		if (CharacterOwner->IsA(AUTCharacter::StaticClass()))
 		{
 			static FName NAME_MultiJump(TEXT("MultiJump"));
@@ -734,7 +738,7 @@ bool UUTCharacterMovement::DoMultiJump()
 
 bool UUTCharacterMovement::CanMultiJump()
 {
-	return ((MaxMultiJumpCount > 1) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed));
+	return ((MaxMultiJumpCount > 1) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (bIsDodging || bAllowJumpMultijumps) && (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed));
 }
 
 

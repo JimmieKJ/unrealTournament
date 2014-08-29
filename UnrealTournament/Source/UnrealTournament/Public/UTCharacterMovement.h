@@ -152,9 +152,17 @@ public:
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
 		float DodgeLandingSpeedFactor;
 
+	/** Horizontal speed reduction on dodge jump landing (multiplied). */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
+		float DodgeJumpLandingSpeedFactor;
+
 	/** Time after landing dodge before another can be attempted. */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Reset Interval"))
 		float DodgeResetInterval;
+
+	/** Time after landing dodge-jump before another can be attempted. */
+	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Jump Reset Interval"))
+		float DodgeJumpResetInterval;
 
 	/** Maximum XY velocity of dodge (dodge impulse + current movement combined). */
 	UPROPERTY(Category = "Dodging", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Max Horizontal Velocity"))
@@ -293,6 +301,10 @@ public:
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Allow Dodge Multijumps"))
 	bool bAllowDodgeMultijumps;
 
+	/** Whether to allow multijumps during a jump. */
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Allow Dodge Multijumps"))
+		bool bAllowJumpMultijumps;
+
 	/** Max absolute Z velocity allowed for multijump (low values mean only near jump apex). */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Multijump Z Speed"))
 	float MaxMultiJumpZSpeed;
@@ -300,6 +312,10 @@ public:
 	/** Vertical impulse on multijump. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump impulse (vertical)"))
 	float MultiJumpImpulse;
+
+	/** Vertical impulse on dodge jump. */
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump impulse (vertical)"))
+		float DodgeJumpImpulse;
 
 	/** Air control during multijump . */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multijump)
