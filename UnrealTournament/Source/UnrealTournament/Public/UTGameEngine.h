@@ -63,6 +63,10 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(config)
 	float FrameRateCap;
 
+	/* Frame rate minimum for smoothing to kick in */
+	UPROPERTY(config)
+	float FrameRateMinimum;
+	
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;

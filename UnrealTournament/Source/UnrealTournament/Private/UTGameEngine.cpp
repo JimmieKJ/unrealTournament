@@ -274,11 +274,31 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 {
 	float MaxTickRate = 0;
 
+	// Don't smooth here if we're a dedicated server
 	if (IsRunningDedicatedServer())
 	{
 		return Super::GetMaxTickRate(DeltaTime, bAllowFrameRateSmoothing);
 	}
 
+	// Don't smooth here if we're a listen server
+	UWorld* World = NULL;
+	for (int32 WorldIndex = 0; WorldIndex < WorldList.Num(); ++WorldIndex)
+	{
+		if (WorldList[WorldIndex].WorldType == EWorldType::Game)
+		{
+			World = WorldList[WorldIndex].World();
+			break;
+		}
+	}
+	if (World)
+	{
+		UNetDriver* NetDriver = World->GetNetDriver();
+		if (NetDriver && NetDriver->GetNetMode() == NM_ListenServer)
+		{
+			return Super::GetMaxTickRate(DeltaTime, bAllowFrameRateSmoothing);
+		}
+	}
+	
 	if (bSmoothFrameRate && bAllowFrameRateSmoothing)
 	{
 		// Adjust the maximum tick rate dynamically
@@ -337,6 +357,9 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	{
 		MaxTickRate = FMath::Min(FrameRateCap, MaxTickRate);
 	}
+
+	// Make sure that we don't try to smooth below a certain minimum
+	MaxTickRate = FMath::Max(FrameRateMinimum, MaxTickRate);
 
 	return MaxTickRate;
 }
