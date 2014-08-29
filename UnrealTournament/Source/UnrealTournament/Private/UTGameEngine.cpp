@@ -310,8 +310,18 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 				//UE_LOG(UT, Log, TEXT("Made framerate %f"), CurrentMaxTickRate);
 			}
 		}
+		
+		// Running average delta time, initial value at 100 FPS so fast machines don't have to creep up
+		// to a good frame rate due to code limiting upward "mobility".
+		static float RunningAverageDeltaTime = 1 / 100.f;
 
-		MaxTickRate = CurrentMaxTickRate;
+		// Keep track of running average over 300 frames, clamping at min of 5 FPS for individual delta times.
+		RunningAverageDeltaTime = FMath::Lerp<float>(RunningAverageDeltaTime, FMath::Min<float>(DeltaTime, 0.2f), 1 / 300.f);
+
+		// Work in FPS domain as that is what the function will return.
+		MaxTickRate = 1.f / RunningAverageDeltaTime;
+
+		MaxTickRate = FMath::Min(CurrentMaxTickRate, MaxTickRate);
 	}
 
 	if (CVarUnsteadyFPS.GetValueOnGameThread())
@@ -320,6 +330,12 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 		float RandDelta = FMath::FRandRange(-5.f, 5.f);
 		MaxTickRate = FMath::Clamp(LastMaxTickRate + RandDelta, 85.f, 120.f);
 		LastMaxTickRate = MaxTickRate;
+	}
+
+	// Hard cap at frame rate cap
+	if (FrameRateCap > 0)
+	{
+		MaxTickRate = FMath::Min(FrameRateCap, MaxTickRate);
 	}
 
 	return MaxTickRate;

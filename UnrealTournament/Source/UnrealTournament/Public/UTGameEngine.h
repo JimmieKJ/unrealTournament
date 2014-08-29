@@ -59,6 +59,10 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(config)
 	float MadeFrameMinimumThreshold;
 
+	/* Frame rate cap */
+	UPROPERTY(config)
+	float FrameRateCap;
+
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
