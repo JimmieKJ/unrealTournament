@@ -14,8 +14,6 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FPostConstructIniti
 	MessageFont = Font.Object;
 
 	ScreenPosition = FVector2D(0.5f, 0.25f);
-	Size = FVector2D(10,10);
-	Origin = FVector2D(0.5f,0.5f);
 	AnimationAlpha = 0.0f;
 }
 

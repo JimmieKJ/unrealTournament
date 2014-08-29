@@ -93,18 +93,3 @@ FReply SUWindowsDesktop::OnMouseButtonUp( const FGeometry& MyGeometry, const FPo
 	return FReply::Handled();
 }
 
-void SUWindowsDesktop::ConsoleCommand(FString Command)
-{
-	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
-	{
-		PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
-	}
-}
-
-
-FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
-{
-	ConsoleCommand(Command);
-	CloseMenus();
-	return FReply::Handled();
-}

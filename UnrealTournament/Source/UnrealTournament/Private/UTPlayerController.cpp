@@ -22,9 +22,6 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "Online.h"
-#include "UTOnlineGameSearchBase.h"
-#include "OnlineSubsystemTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -1071,69 +1068,13 @@ void AUTPlayerController::ClientHalftime_Implementation()
 {
 }
 
-void AUTPlayerController::TestOnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
-{
-	UE_LOG(UT,Log,TEXT("LoginComplete: %i"), bWasSuccessful);
-	UE_LOG(UT,Log,TEXT("LoginComplete: %i"), bWasSuccessful);
-	UE_LOG(UT,Log,TEXT("LoginComplete: %i"), bWasSuccessful);
-	UE_LOG(UT,Log,TEXT("LoginComplete: %i"), bWasSuccessful);
-	UE_LOG(UT,Log,TEXT("LoginComplete: %i"), bWasSuccessful);
-	UE_LOG(UT,Log,TEXT("LoginComplete: %i"), bWasSuccessful);
-	UE_LOG(UT,Log,TEXT("LoginComplete: %i"), bWasSuccessful);
-}
 
 
 // LEAVE ME for quick debug commands when we need them.
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-
-	UE_LOG(UT,Log,TEXT("Searching for Sessions"));
-
-	if (TestCommand.ToLower() == TEXT("login"))
-	{
-
-		const auto OnlineSub = IOnlineSubsystem::Get();
-		if (OnlineSub)
-		{
-			const auto IdentityInt = OnlineSub->GetIdentityInterface();
-			if (IdentityInt.IsValid())
-			{
-				IdentityInt->AddOnLoginCompleteDelegate(0, FOnLoginCompleteDelegate::CreateUObject(this, &AUTPlayerController::TestOnLoginComplete));
-				FOnlineAccountCredentials AccountCreds(TEXT("epic"), TEXT("starfighter@gmail.com"), TEXT("!Ep1cGames!"));
-				if (!IdentityInt->Login(0, AccountCreds) )
-				{
-					UE_LOG(UT,Log,TEXT("failed to login"));
-				}
-			}
-		}
-	}
-
-	if (TestCommand.ToLower() == TEXT("find"))
-	{
-		const auto OnlineSub = IOnlineSubsystem::Get();
-		if (OnlineSub)
-		{
-			const auto SessionInterface = OnlineSub->GetSessionInterface();
-			if (SessionInterface.IsValid())
-			{
-				SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
-				SearchSettings->MaxSearchResults = 1000;
-				TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = SearchSettings.ToSharedRef();
-
-				SessionInterface->AddOnFindSessionsCompleteDelegate(FOnFindSessionsCompleteDelegate::CreateUObject(this, &AUTPlayerController::TestOnFindSessionsComplete));
-				SessionInterface->FindSessions(0, SearchSettingsRef);
-				UE_LOG(UT,Log, TEXT("FindSession Called"));
-			}
-		}
-	}
-
+	ServerDebugTest();
 }
-
-void AUTPlayerController::TestOnFindSessionsComplete(bool bWasSuccessful)
-{
-	UE_LOG(UT,Log,TEXT("Search Successful? : %i"), bWasSuccessful);
-}
-
 
 
 void AUTPlayerController::TestResult(uint16 ButtonID)

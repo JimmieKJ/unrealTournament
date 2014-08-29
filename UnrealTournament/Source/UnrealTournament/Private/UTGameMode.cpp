@@ -498,14 +498,6 @@ void AUTGameMode::StartMatch()
 		}
 	}
 
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->StartMatch();
-		}
-	}
 
 }
 
@@ -569,16 +561,6 @@ void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
 	GetWorldTimerManager().SetTimer(this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
-
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->EndMatch();
-		}
-	}
-
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
 	{
@@ -1458,16 +1440,3 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 		];
 }
 
-void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
-{
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->UnRegisterServer();
-		}
-	}
-
-	Super::ProcessServerTravel(URL, bAbsolute);
-}

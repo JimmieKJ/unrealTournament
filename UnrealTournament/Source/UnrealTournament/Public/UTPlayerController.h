@@ -385,11 +385,6 @@ protected:
 
 	virtual void ReceivedPlayer();
 
-
-protected:
-	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
-	virtual void TestOnFindSessionsComplete(bool bWasSuccessful);
-	virtual void TestOnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
 };
 
 

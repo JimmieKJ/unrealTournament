@@ -257,8 +257,6 @@ public:
 		return MapPrefix.Len() == 0 || MapName.StartsWith(MapPrefix + TEXT("-"));
 	}
 
-	virtual void ProcessServerTravel(const FString& URL, bool bAbsolute = false);
-
 protected:
 	/** map prefix for valid maps (not including the dash); you can create more broad handling by overriding SupportsMap() */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
