@@ -287,7 +287,12 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 		
 	if (bSmoothFrameRate && bAllowFrameRateSmoothing)
 	{
-		MaxTickRate = FMath::Min(CurrentMaxTickRate, SmoothedFrameRate);
+		MaxTickRate = CurrentMaxTickRate;
+
+		if (SmoothedFrameRate < 0.95f * CurrentMaxTickRate)
+		{
+			MaxTickRate = SmoothedFrameRate;
+		}
 
 		// Make sure that we don't try to smooth below a certain minimum
 		MaxTickRate = FMath::Max(FrameRateMinimum, MaxTickRate);
@@ -314,7 +319,7 @@ void UUTGameEngine::SmoothFrameRate(float DeltaTime)
 {
 	// Adjust the maximum tick rate dynamically
 	// As maximum tick rate is met consistently, shorten the time period to try to reach equilibrium faster
-	if (1.f / DeltaTime <= CurrentMaxTickRate * 0.98f)
+	if (1.f / DeltaTime < CurrentMaxTickRate * 0.9f)
 	{
 		MissedFrames++;
 		MadeFrames = 0;
