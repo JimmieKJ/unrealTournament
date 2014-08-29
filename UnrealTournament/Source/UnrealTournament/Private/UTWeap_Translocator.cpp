@@ -141,15 +141,23 @@ void AUTWeap_Translocator::FireShot()
 					}
 					FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
 
+					ECollisionChannel SavedObjectType = UTOwner->CapsuleComponent->GetCollisionObjectType();
+					UTOwner->CapsuleComponent->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
+	
 					// test first so we don't drop the flag on an unsuccessful teleport
 					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation))
 					{
+						UTOwner->CapsuleComponent->SetCollisionObjectType(SavedObjectType);
 						UTOwner->DropFlag();
 
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
 						{
 							ConsumeAmmo(CurrentFireMode);
 						}
+					}
+					else
+					{
+						UTOwner->CapsuleComponent->SetCollisionObjectType(SavedObjectType);
 					}
 				}
 				UUTGameplayStatics::UTPlaySound(GetWorld(), TeleSound, UTOwner, SRT_AllButOwner);
