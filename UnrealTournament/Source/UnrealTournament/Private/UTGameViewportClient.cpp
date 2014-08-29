@@ -45,7 +45,7 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		case ENetworkFailure::ConnectionLost		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ConnectionLost","Connection to server Lost!"); break;
 		case ENetworkFailure::ConnectionTimeout		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ConnectionTimeout","Connection to server timed out!"); break;
 		case ENetworkFailure::OutdatedClient		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ClientOutdated","Your client is outdated.  Please update your version of UT.  Go to Forums.UnrealTournament.com for more information."); break;
-		case ENetworkFailure::OutdatedServer		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ServerOutdated","The server you are connecting to is running an older version of UT."); break;
+		case ENetworkFailure::OutdatedServer		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ServerOutdated","The server you are connecting to is running a different version of UT.  Make sure you have the latest version of UT.  Go to Forums.UnrealTournament.com for more information."); break;
 		default:									  NetworkErrorMessage = FText::FromString(ErrorString);
 	}
 
