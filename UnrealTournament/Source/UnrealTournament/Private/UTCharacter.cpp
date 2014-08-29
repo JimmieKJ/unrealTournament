@@ -2450,6 +2450,8 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 		{
 			if (AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], 1.0f))
 			{
+				UTCharacterMovement->bIsEmoting = true;
+
 				CurrentEmote = EmoteAnimations[EmoteIndex];
 				EmoteCount++;
 
@@ -2476,6 +2478,7 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 	if (EmoteCount == 0)
 	{
 		CurrentEmote = nullptr;
+		UTCharacterMovement->bIsEmoting = false;
 	}
 
 	// cancel behind view

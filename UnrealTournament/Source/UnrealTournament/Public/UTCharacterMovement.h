@@ -180,6 +180,9 @@ public:
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bWasDodgeRolling;
 
+	UPROPERTY(Category = "Emote", BlueprintReadOnly)
+	bool bIsEmoting;
+
 	/** Acceleration at start of last PerformMovement. */
 	UPROPERTY(Category = "Saved Acceleration", BlueprintReadOnly)
 	FVector SavedAcceleration;
@@ -435,6 +438,9 @@ public:
 	bool bSavedIsSprinting;
 	bool bSavedIsRolling;
 	bool bSavedWantsSlide;
+
+	// Flag to plant character during emoting
+	bool bSavedIsEmoting;
 
 	virtual void Clear() override;
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;

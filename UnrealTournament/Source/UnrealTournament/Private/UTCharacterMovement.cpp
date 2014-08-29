@@ -547,6 +547,10 @@ float UUTCharacterMovement::GetMaxSpeed() const
 	{
 		return 0.0f;
 	}
+	else if (bIsEmoting)
+	{
+		return 0.0f;
+	}
 	else if (bIsDodgeRolling)
 	{
 		return MaxDodgeRollSpeed;
@@ -816,7 +820,12 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 
 	if (bSavedWantsSlide)
 	{
-		Result |= 32;
+		Result |= FLAG_Custom_1;
+	}
+
+	if (bSavedIsEmoting)
+	{
+		Result |= FLAG_Custom_2;
 	}
 
 	return Result;
@@ -832,6 +841,7 @@ void FSavedMove_UTCharacter::Clear()
 	bSavedIsSprinting = false;
 	bSavedIsRolling = false;
 	bSavedWantsSlide = false;
+	bSavedIsEmoting = false;
 }
 
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
@@ -847,6 +857,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
 		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
 		bSavedWantsSlide = UTCharMov->WantsSlideRoll(); 
+		bSavedIsEmoting = UTCharMov->bIsEmoting;
 	}
 }
 
@@ -1320,6 +1331,8 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);
 
+	bIsEmoting = (Flags & FSavedMove_Character::FLAG_Custom_2) != 0;
+
 	int32 DodgeFlags = (Flags >> 2) & 7;
 	bPressedDodgeForward = (DodgeFlags == 1);
 	bPressedDodgeBack = (DodgeFlags == 2);
@@ -1328,7 +1341,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bIsSprinting = (DodgeFlags == 5);
 	bIsDodgeRolling = (DodgeFlags == 6);
 	bool bOldWillDodgeRoll = bWantsSlideRoll;
-	bWantsSlideRoll = ((Flags & 32) != 0);
+	bWantsSlideRoll = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
 	if (!bOldWillDodgeRoll && bWantsSlideRoll)
 	{
 		DodgeRollTapTime = GetCurrentMovementTime();
