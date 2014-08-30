@@ -35,7 +35,7 @@ class UUTWeaponState : public UObject
 	/** handle request to bring up
 	 * only inactive and equipping states should ever receive this function
 	 */
-	virtual void BringUp()
+	virtual void BringUp(float OverflowTime)
 	{
 		UE_LOG(UT, Warning, TEXT("BringUp() called in state %s"), *GetName());
 	}

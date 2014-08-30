@@ -240,8 +240,9 @@ public:
 
 	/** activates the weapon as part of a weapon switch
 	 * (this weapon has already been set to Pawn->Weapon)
+	 * @param OverflowTime - overflow from timer of previous weapon PutDown() due to tick delta
 	 */
-	virtual void BringUp();
+	virtual void BringUp(float OverflowTime = 0.0f);
 	/** puts the weapon away as part of a weapon switch
 	 * return false to prevent weapon switch (must keep this weapon equipped)
 	 */
@@ -462,11 +463,13 @@ protected:
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> ActiveState;
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
-	TSubobjectPtr<UUTWeaponState> EquippingState;
+	TSubobjectPtr<UUTWeaponStateEquipping> EquippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly,  Category = "States")
 	TSubobjectPtr<UUTWeaponState> UnequippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> InactiveState;
+
+	void GotoEquippingState(float OverflowTime);
 
 	/** overlay mesh for overlay effects */
 	UPROPERTY()

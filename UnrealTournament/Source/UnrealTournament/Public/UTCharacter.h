@@ -201,8 +201,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	bool IsInInventory(const AUTInventory* TestInv) const;
 
-	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up */
-	virtual void WeaponChanged();
+	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up 
+	 * @param OverflowTime - amount of time past end of timer that previous weapon PutDown() used (due to frame delta) - pass onto BringUp() to keep things in sync
+	 */
+	virtual void WeaponChanged(float OverflowTime = 0.0f);
 
 	/** called when the client's current weapon has been invalidated (removed from inventory, etc) */
 	UFUNCTION(Client, Reliable)

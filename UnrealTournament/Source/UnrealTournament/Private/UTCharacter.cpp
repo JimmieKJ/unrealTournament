@@ -1405,7 +1405,7 @@ bool AUTCharacter::ServerSwitchWeapon_Validate(AUTWeapon* NewWeapon)
 	return true;
 }
 
-void AUTCharacter::WeaponChanged()
+void AUTCharacter::WeaponChanged(float OverflowTime)
 {
 	if (PendingWeapon != NULL)
 	{
@@ -1414,12 +1414,12 @@ void AUTCharacter::WeaponChanged()
 		WeaponClass = Weapon->GetClass();
 		UpdateWeaponAttachment();
 		PendingWeapon = NULL;
-		Weapon->BringUp();
+		Weapon->BringUp(OverflowTime);
 	}
 	else if (Weapon != NULL)
 	{
 		// restore current weapon since pending became invalid
-		Weapon->BringUp();
+		Weapon->BringUp(OverflowTime);
 	}
 }
 

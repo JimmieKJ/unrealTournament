@@ -247,6 +247,15 @@ void AUTWeapon::GotoFireMode(uint8 NewFireMode)
 	}
 }
 
+void AUTWeapon::GotoEquippingState(float OverflowTime)
+{
+	GotoState(EquippingState);
+	if (CurrentState == EquippingState)
+	{
+		EquippingState->StartEquip(OverflowTime);
+	}
+}
+
 void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 {
 	Super::GivenTo(NewOwner, bAutoActivate);
@@ -395,11 +404,11 @@ void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 	CurrentState->EndFiringSequence(FireModeNum);
 }
 
-void AUTWeapon::BringUp()
+void AUTWeapon::BringUp(float OverflowTime)
 {
 	AttachToOwner();
 	OnBringUp();
-	CurrentState->BringUp();
+	CurrentState->BringUp(OverflowTime);
 }
 
 bool AUTWeapon::PutDown()

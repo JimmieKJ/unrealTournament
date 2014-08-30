@@ -14,8 +14,8 @@ class UUTWeaponStateInactive : public UUTWeaponState
 	: Super(PCIP)
 	{}
 
-	virtual void BringUp()
+	virtual void BringUp(float OverflowTime)
 	{
-		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->EquippingState);
+		GetOuterAUTWeapon()->GotoEquippingState(OverflowTime);
 	}
 };

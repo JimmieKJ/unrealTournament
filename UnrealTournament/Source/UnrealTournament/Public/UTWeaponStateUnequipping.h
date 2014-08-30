@@ -17,6 +17,13 @@ class UUTWeaponStateUnequipping : public UUTWeaponState
 	// set to amount of equip time that elapsed when exiting early, i.e. to go back up
 	float PartialEquipTime;
 
+	/** unequip time so far; when this reaches UnequipTime, the weapon change happens
+	 * manual timer so that we can track overflow and apply it to the weapon being switched to
+	 */
+	float UnequipTimeElapsed;
+	/** total time to bring down the weapon */
+	float UnequipTime;
+
 	virtual void BeginState(const UUTWeaponState* PrevState) override;
 	virtual void EndState() override
 	{
@@ -25,14 +32,24 @@ class UUTWeaponStateUnequipping : public UUTWeaponState
 
 	void PutDownFinished()
 	{
+		float OverflowTime = UnequipTimeElapsed - UnequipTime;
 		GetOuterAUTWeapon()->DetachFromOwner();
 		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->InactiveState);
-		GetOuterAUTWeapon()->GetUTOwner()->WeaponChanged();
+		GetOuterAUTWeapon()->GetUTOwner()->WeaponChanged(OverflowTime);
 	}
 
-	virtual void BringUp() override
+	virtual void BringUp(float OverflowTime) override
 	{
 		PartialEquipTime = FMath::Max<float>(0.001f, GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(this, &UUTWeaponStateUnequipping::PutDownFinished));
-		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->EquippingState);
+		GetOuterAUTWeapon()->GotoEquippingState(OverflowTime);
+	}
+
+	virtual void Tick(float DeltaTime) override
+	{
+		UnequipTimeElapsed += DeltaTime;
+		if (UnequipTimeElapsed > UnequipTime)
+		{
+			PutDownFinished();
+		}
 	}
 };
