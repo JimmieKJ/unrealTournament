@@ -167,7 +167,13 @@ void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyT
 
 void AUTProjectile::PostNetReceiveLocationAndRotation()
 {
-	Super::PostNetReceiveLocationAndRotation();
+	// FIXME: overwrote super because 4.4 version is busted and fails - check if this is fixed in 4.5...
+	//Super::PostNetReceiveLocationAndRotation();
+	if (RootComponent != NULL && RootComponent->IsRegistered() && (ReplicatedMovement.Location != GetActorLocation() || ReplicatedMovement.Rotation != GetActorRotation()))
+	{
+		TeleportTo(ReplicatedMovement.Location, ReplicatedMovement.Rotation, false, true); // note the 'true' for bNoCheck
+	}
+
 
 	// tick particle systems for e.g. SpawnPerUnit trails
 	if (!bTearOff && !bExploded) // if torn off ShutDown() will do this
