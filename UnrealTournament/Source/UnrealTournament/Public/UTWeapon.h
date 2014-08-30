@@ -384,6 +384,14 @@ public:
 		return CurrentState;
 	}
 
+	/** returns scaling of head for headshot effects
+	 * NOTE: not used by base weapon implementation; stub is here for subclasses and firemodes that use it to avoid needing to cast to a specific weapon type
+	 */
+	virtual float GetHeadshotScale() const
+	{
+		return 0.0f;
+	}
+
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
@@ -463,7 +471,7 @@ protected:
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> ActiveState;
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
-	TSubobjectPtr<UUTWeaponStateEquipping> EquippingState;
+	TSubobjectPtr<class UUTWeaponStateEquipping> EquippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly,  Category = "States")
 	TSubobjectPtr<UUTWeaponState> UnequippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")

@@ -19,6 +19,8 @@ UUTWeaponStateZooming::UUTWeaponStateZooming(const FPostConstructInitializePrope
 {
 	MinFOV = 12.f;
 	ZoomTime = 1.0f;
+	bDrawHeads = true;
+	bDrawPingAdjustedTargets = true;
 }
 
 void UUTWeaponStateZooming::PendingFireStarted()
@@ -108,6 +110,52 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 		Item.UV0 = FVector2D(0.0f, 0.0f);
 		Item.UV1 = FVector2D(1.0f, 1.0f);
 		C->DrawItem(Item);
+
+		if (bDrawHeads && TargetIndicator != NULL)
+		{
+			float HeadScale = GetOuterAUTWeapon()->GetHeadshotScale();
+			if (HeadScale > 0.0f)
+			{
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				APlayerState* OwnerState = GetUTOwner()->PlayerState;
+				float WorldTime = GetWorld()->TimeSeconds;
+				FVector FireStart = GetOuterAUTWeapon()->GetFireStartLoc();
+				for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+				{
+					AUTCharacter* EnemyChar = Cast<AUTCharacter>(*It);
+					if (EnemyChar != NULL && !EnemyChar->IsDead() && EnemyChar->Mesh->LastRenderTime > WorldTime - 0.5f && EnemyChar != GetUTOwner() && (GS == NULL || !GS->OnSameTeam(EnemyChar, GetUTOwner())))
+					{
+						FVector HeadLoc = EnemyChar->GetHeadLocation();
+						static FName NAME_SniperZoom(TEXT("SniperZoom"));
+						if (!GetWorld()->LineTraceTest(FireStart, HeadLoc, ECC_Visibility, FCollisionQueryParams(NAME_SniperZoom, true, GetUTOwner())))
+						{
+							bool bDrawPingAdjust = bDrawPingAdjustedTargets && OwnerState != NULL && OwnerState->Ping > 0 && !EnemyChar->GetVelocity().IsZero();
+							for (int32 i = 0; i < (bDrawPingAdjust ? 2 : 1); i++)
+							{
+								FVector Perpendicular = (HeadLoc - FireStart).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+								FVector PointA = C->Project(HeadLoc + Perpendicular * (EnemyChar->HeadRadius * EnemyChar->HeadScale * HeadScale));
+								FVector PointB = C->Project(HeadLoc - Perpendicular * (EnemyChar->HeadRadius * EnemyChar->HeadScale * HeadScale));
+								FVector2D UpperLeft(FMath::Min<float>(PointA.X, PointB.X), FMath::Min<float>(PointA.Y, PointB.Y));
+								FVector2D BottomRight(FMath::Max<float>(PointA.X, PointB.X), FMath::Max<float>(PointA.Y, PointB.Y));
+								// square-ify
+								float MidY = (UpperLeft.Y + BottomRight.Y) * 0.5f;
+								float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
+								UpperLeft.Y = MidY - SizeY;
+								BottomRight.Y = MidY + SizeY;
+								FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, (i == 0) ? FLinearColor(1.0f, 0.0f, 0.0f, 1.0f) : FLinearColor(0.7f, 0.7f, 0.7f, 0.9f));
+								HeadCircleItem.BlendMode = SE_BLEND_Translucent;
+								C->DrawItem(HeadCircleItem);
+
+								if (OwnerState != NULL)
+								{
+									HeadLoc += EnemyChar->GetVelocity() * (float(OwnerState->Ping * 4) / 1000.0f);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 
 		// temp until there's a decent crosshair in the material
 		return true;

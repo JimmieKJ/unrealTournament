@@ -5,14 +5,16 @@
 #include "UTWeaponState.h"
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateZooming.h"
+#include "Particles/ParticleSystemComponent.h"
 
 AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateZooming>(TEXT("FiringState1")) )
 {
 	BringUpTime = 0.54f;
 	PutDownTime = 0.41f;
-	SlowHeadshotScale = 1.75f;
-	RunningHeadshotScale = 0.8f;
+	SlowHeadshotScale = 1.6f;
+	RunningHeadshotScale = 0.0f;
+	HeadshotDamageMult = 2.0f;
 	ProjClass.Insert(AUTProj_Sniper::StaticClass(), 0);
 	if (FiringState.Num() > 1)
 	{
@@ -24,19 +26,93 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 726, 532, 165, 51);
 }
 
+float AUTWeap_Sniper::GetHeadshotScale() const
+{
+	if ( GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->CharacterMovement->MaxWalkSpeedCrouched + 1.0f &&
+		(GetUTOwner()->bIsCrouched || GetUTOwner()->CharacterMovement == NULL || GetUTOwner()->CharacterMovement->GetCurrentAcceleration().Size() < GetUTOwner()->CharacterMovement->MaxWalkSpeedCrouched + 1.0f) )
+	{
+		return SlowHeadshotScale;
+	}
+	else
+	{
+		return RunningHeadshotScale;
+	}
+}
+
 AUTProjectile* AUTWeap_Sniper::FireProjectile()
 {
 	AUTProj_Sniper* SniperProj = Cast<AUTProj_Sniper>(Super::FireProjectile());
 	if (SniperProj != NULL)
 	{
-		if (GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->CharacterMovement->MaxWalkSpeedCrouched)
-		{
-			SniperProj->HeadScaling *= SlowHeadshotScale;
-		}
-		else
-		{
-			SniperProj->HeadScaling *= RunningHeadshotScale;
-		}
+		SniperProj->HeadScaling *= GetHeadshotScale();
 	}
 	return SniperProj;
+}
+
+void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
+{
+	checkSlow(InstantHitInfo.IsValidIndex(CurrentFireMode));
+
+	const FVector SpawnLocation = GetFireStartLoc();
+	const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+	const FVector FireDir = SpawnRotation.Vector();
+	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
+
+	FHitResult Hit;
+	if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
+	{
+		Hit.Location = EndTrace;
+	}
+	if (Role == ROLE_Authority && Cast<AUTCharacter>(Hit.Actor.Get()) == NULL)
+	{
+		// in some cases the head sphere is partially outside the capsule
+		// so do a second search just for that
+		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(GetUTOwner()->Controller, SpawnLocation, FireDir, 0.996f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
+		if (AltTarget != NULL && AltTarget->IsHeadShot(SpawnLocation, FireDir, GetHeadshotScale(), false))
+		{
+			Hit = FHitResult(AltTarget, AltTarget->CapsuleComponent, SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->CapsuleComponent->GetUnscaledCapsuleRadius()), -FireDir);
+		}
+	}
+
+	if (Role == ROLE_Authority)
+	{
+		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+	}
+	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
+	{
+		int32 Damage = InstantHitInfo[CurrentFireMode].Damage;
+		TSubclassOf<UDamageType> DamageType = InstantHitInfo[CurrentFireMode].DamageType;
+
+		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
+		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true))
+		{
+			Damage *= HeadshotDamageMult;
+			if (HeadshotDamageType != NULL)
+			{
+				DamageType = HeadshotDamageType;
+			}
+		}
+		Hit.Actor->TakeDamage(Damage, FUTPointDamageEvent(Damage, Hit, FireDir, DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
+	}
+	if (OutHit != NULL)
+	{
+		*OutHit = Hit;
+	}
+}
+
+void AUTWeap_Sniper::PlayImpactEffects(const FVector& TargetLoc)
+{
+	Super::PlayImpactEffects(TargetLoc);
+
+	// FIXME: temp hack for effects parity
+	UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this);
+	PSC->bAutoActivate = true;
+	PSC->bAutoDestroy = true;
+	PSC->SetWorldLocationAndRotation(GetFireStartLoc(), (TargetLoc - GetFireStartLoc()).Rotation());
+	PSC->SetTemplate(LoadObject<UParticleSystem>(NULL, TEXT("ParticleSystem'/Game/RestrictedAssets/Weapons/Sniper/Assets/Smoke_Trail_Bullet.Smoke_Trail_Bullet'")));
+	PSC->RegisterComponent();
+	PSC->TickComponent(0.0f, ELevelTick::LEVELTICK_All, NULL);
+	PSC->SetWorldLocation(TargetLoc);
+	PSC->TickComponent(0.0f, ELevelTick::LEVELTICK_All, NULL);
+	PSC->DeactivateSystem();
 }

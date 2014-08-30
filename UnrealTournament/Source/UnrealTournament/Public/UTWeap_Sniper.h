@@ -15,6 +15,17 @@ class AUTWeap_Sniper : public AUTWeapon
 	/** target head area size bonus when moving quickly */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float RunningHeadshotScale;
+	/** damage multiplier for headshot (instant hit only) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
+	float HeadshotDamageMult;
+	/** damage type for headshot (instant hit only, if NULL use standard damage type) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
+	TSubclassOf<UDamageType> HeadshotDamageType;
+
+	virtual float GetHeadshotScale() const override;
 
 	virtual AUTProjectile* FireProjectile();
+	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL);
+
+	virtual void PlayImpactEffects(const FVector& TargetLoc) override;
 };

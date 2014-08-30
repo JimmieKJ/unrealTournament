@@ -50,12 +50,21 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = Zoom)
 	USoundBase* ZoomInSound;
-
 	UPROPERTY(EditDefaultsOnly, Category = Zoom)
 	USoundBase* ZoomLoopSound;
-
 	UPROPERTY(EditDefaultsOnly, Category = Zoom)
 	USoundBase* ZoomOutSound;
+
+	/** whether to display enemy heads while zoomed */
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	bool bDrawHeads;
+	/** whether to ping compensate the head drawing (if enabled) */
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	bool bDrawPingAdjustedTargets;
+
+	/** material for drawing enemy indicators */
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	UTexture2D* TargetIndicator;
 
 	virtual bool IsFiring() const override
 	{

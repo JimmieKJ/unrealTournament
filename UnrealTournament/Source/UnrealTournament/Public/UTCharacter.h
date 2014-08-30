@@ -348,6 +348,8 @@ public:
 
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+	/** returns location of head (origin of headshot zone); will force a skeleton update if mesh hasn't been rendered (or dedicated server) so the provided position is accurate */
+	virtual FVector GetHeadLocation();
 	/** checks for a head shot - called by weapons with head shot bonuses
 	* returns true if it's a head shot, false if a miss or if some armor effect prevents head shots
 	* if bConsumeArmor is true, the first item that prevents an otherwise valid head shot will be consumed

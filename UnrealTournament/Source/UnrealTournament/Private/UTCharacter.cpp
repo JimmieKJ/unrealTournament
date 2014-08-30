@@ -241,6 +241,17 @@ static TAutoConsoleVariable<int32> CVarDebugHeadshots(
 	TEXT("Debug headshot traces"),
 	ECVF_Default);
 
+FVector AUTCharacter::GetHeadLocation()
+{
+	// force mesh update if necessary
+	if (!Mesh->ShouldTickPose())
+	{
+		Mesh->TickAnimation(0.0f);
+		Mesh->RefreshBoneTransforms();
+		Mesh->UpdateComponentToWorld();
+	}
+	return Mesh->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
+}
 bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor)
 {
 	if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
@@ -249,14 +260,7 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 		return false;
 	}
 
-	// force mesh update if necessary
-	if (!Mesh->ShouldTickPose())
-	{
-		Mesh->TickAnimation(0.0f);
-		Mesh->RefreshBoneTransforms();
-		Mesh->UpdateComponentToWorld();
-	}
-	FVector HeadLocation = Mesh->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
+	FVector HeadLocation = GetHeadLocation();
 	bool bHeadShot = FMath::PointDistToLine(HeadLocation, ShotDirection, HitLocation) < HeadRadius * HeadScale * WeaponHeadScaling;
 
 	if (CVarDebugHeadshots.GetValueOnGameThread() != 0)
