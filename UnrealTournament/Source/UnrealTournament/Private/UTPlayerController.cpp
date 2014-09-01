@@ -1056,6 +1056,12 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
 {
+	// remove any FOV shifts when changing targets (e.g. sniper zoom)
+	if (PlayerCameraManager != NULL)
+	{
+		PlayerCameraManager->UnlockFOV();
+	}
+
 	if (FinalViewTarget != NULL)
 	{
 		NewViewTarget = FinalViewTarget;
