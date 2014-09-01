@@ -98,6 +98,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	NetCullDistanceSquared = 500000000.0f;
 
 	OnActorBeginOverlap.AddDynamic(this, &AUTCharacter::OnOverlapBegin);
+	Mesh->OnComponentHit.AddDynamic(this, &AUTCharacter::OnRagdollCollision);
+	Mesh->SetNotifyRigidBodyCollision(true);
 
 	PlayerIndicatorMaxDistance = 2700.0f;
 }
@@ -698,6 +700,7 @@ void AUTCharacter::StartRagdoll()
 	CharacterMovement->ApplyAccumulatedForces(0.0f);
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Mesh->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
 	Mesh->UpdateKinematicBonesToPhysics(true, true);
 	Mesh->SetSimulatePhysics(true);
 	Mesh->RefreshBoneTransforms();
@@ -804,7 +807,9 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 	{
 		if (bFeigningDeath)
 		{
-			if (GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime)
+			FVector TraceOffset = FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.5f);
+			if ( GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime &&
+				 GetWorld()->SweepTest(GetActorLocation() + TraceOffset, GetActorLocation() - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleComponent->GetCollisionShape(), FCollisionQueryParams(false)) )
 			{
 				bFeigningDeath = false;
 				PlayFeignDeath();
@@ -1826,6 +1831,32 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 					FUTPointDamageEvent DamageEvent(FallingDamage, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
 					TakeDamage(DamageEvent.Damage, DamageEvent, Controller, this);
 				}
+			}
+		}
+	}
+}
+
+void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	// cause falling damage on Z axis collisions
+	if (!IsDead() && !bInRagdollRecovery && FMath::Abs<float>(Hit.Normal.Z) > 0.5f)
+	{
+		FVector MeshVelocity = Mesh->GetComponentVelocity();
+		// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
+		// besides, faceplanting ought to hurt more than landing on your feet, right? :)
+		MeshVelocity.Z *= 2.0f;
+		if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
+		{
+			FVector SavedVelocity = CharacterMovement->Velocity;
+			CharacterMovement->Velocity = MeshVelocity;
+			TakeFallingDamage(Hit);
+			CharacterMovement->Velocity = SavedVelocity;
+			// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
+			for (int32 i = 0; i < Mesh->Bodies.Num(); i++)
+			{
+				FVector Vel = Mesh->Bodies[i]->GetUnrealWorldVelocity();
+				Vel.Z = 0.0f;
+				Mesh->Bodies[i]->SetLinearVelocity(Vel, false);
 			}
 		}
 	}
