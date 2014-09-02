@@ -37,13 +37,4 @@ public class UnrealTournamentServerTarget : TargetRules
     {
         return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Development };
     }
-
-    public override List<GUBPFormalBuild> GUBP_GetConfigsForFormalBuilds_MonolithicOnly(UnrealTargetPlatform HostPlatform)
-    {
-        return new List<GUBPFormalBuild> 
-        { 
-            new GUBPFormalBuild(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Development),
-            new GUBPFormalBuild(UnrealTargetPlatform.Linux, UnrealTargetConfiguration.Development)
-        };
-    }
 }
