@@ -9,7 +9,7 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 	bFirstRun = true;
 	ReadEULACaption = NSLOCTEXT("UTGameEngine", "ReadEULACaption", "READ ME FIRST");
 	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
-	GameNetworkVersion = 8003;
+	GameNetworkVersion = 3008003;
 
 	CurrentMaxTickRate = 100.f;
 	// Running average delta time, initial value at 100 FPS so fast machines don't have to creep up
@@ -20,12 +20,9 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
-	if (GEngineNetVersion == 0)
-	{
-		// @TODO FIXMESTEVE temp hack for network compatibility code
-		GEngineNetVersion = GameNetworkVersion;
-		UE_LOG(UT, Warning, TEXT("************************************Set Net Version %d"), GEngineNetVersion);
-	}
+	// @TODO FIXMESTEVE temp hack for network compatibility code
+	GEngineNetVersion = GameNetworkVersion;
+	UE_LOG(UT, Warning, TEXT("************************************Set Net Version %d"), GEngineNetVersion);
 
 	if (bFirstRun)
 	{
