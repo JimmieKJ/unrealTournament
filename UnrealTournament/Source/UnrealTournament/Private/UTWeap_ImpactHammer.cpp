@@ -58,7 +58,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				TraceDist += (ImpactJumpTraceDist - InstantHitInfo[CurrentFireMode].TraceRange) * (FVector(0.f, 0.f, -1.f) | FireDir);
 			}
 
-			const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
+			const FVector EndTrace = SpawnLocation + FireDir * TraceDist;
 			
 			if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, TraceParams))
 			{

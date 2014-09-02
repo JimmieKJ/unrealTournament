@@ -70,9 +70,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
 		float ImpactMaxHorizontalVelocity;
 
-	/** Max total vertical velocity after impact jump. */
+	/** Scales impact impulse to determine max total vertical velocity after impact jump. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
-		float ImpactMaxVerticalVelocity;
+		float ImpactMaxVerticalFactor;
 
 	/** Add an impulse, damped if player would end up going too fast */
 	UFUNCTION(BlueprintCallable, Category = "Impulse")

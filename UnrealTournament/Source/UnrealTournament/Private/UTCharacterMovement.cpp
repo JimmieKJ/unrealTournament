@@ -99,7 +99,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	FullImpactImpulse = 1500.f;
 	FullImpactDamage = 40;
 	ImpactMaxHorizontalVelocity = 1500.f;
-	ImpactMaxVerticalVelocity = 1500.f;
+	ImpactMaxVerticalFactor = 1.f;
 	MaxUndampedImpulse = 2000.f;
 
 	OutofWaterZ = 700.f;
@@ -239,10 +239,7 @@ void UUTCharacterMovement::ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpa
 		NewVelocity = NewVelocity.SafeNormal2D() * ImpactMaxHorizontalVelocity;
 		NewVelocity.Z = VelZ;
 	}
-	if (NewVelocity.Z > ImpactMaxVerticalVelocity)
-	{
-		NewVelocity.Z = ImpactMaxVerticalVelocity;
-	}
+	NewVelocity.Z = FMath::Min(NewVelocity.Z, ImpactMaxVerticalFactor*ImpulseMag);
 	Velocity = NewVelocity;
 	SetMovementMode(MOVE_Falling);
 	bNotifyApex = true;
