@@ -18,6 +18,15 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FPostConstructInitializeProperties& PCI
 	MaxSpread = 0.12f;
 	BringUpTime = 0.3f;
 	PutDownTime = 0.2f;
+	StoppingPower = 30000.f;
+}
+
+float AUTWeap_Enforcer::GetImpartedMomentumMag(AActor* HitActor)
+{
+	AUTCharacter* HitChar = Cast<AUTCharacter>(HitActor);
+	return (HitChar && HitChar->GetWeapon() && HitChar->GetWeapon()->bAffectedByStoppingPower)
+		? StoppingPower
+		: InstantHitInfo[CurrentFireMode].Momentum;
 }
 
 void AUTWeap_Enforcer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)

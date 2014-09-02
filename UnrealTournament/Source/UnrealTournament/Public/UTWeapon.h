@@ -53,15 +53,26 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** ammo cost for one shot of each fire mode */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<int32> AmmoCost;
+
 	/** projectile class for fire mode (if applicable) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray< TSubclassOf<AUTProjectile> > ProjClass;
+
 	/** instant hit data for fire mode (if applicable) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<FInstantHitDamageInfo> InstantHitInfo;
+
 	/** firing state for mode, contains core firing sequence and directs to appropriate global firing functions */
 	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon")
 	TArray<class UUTWeaponStateFiring*> FiringState;
+
+	/** True for melee weapons affected by "stopping power" (momentum added for weapons that don't normally impart much momentum) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	bool bAffectedByStoppingPower;
+
+	UFUNCTION(BlueprintImplementableEvent)
+		virtual	float GetImpartedMomentumMag(AActor* HitActor);
+
 #if WITH_EDITORONLY_DATA
 protected:
 	/** class of firing state to use (workaround for editor limitations - editinlinenew doesn't work) */
