@@ -217,8 +217,13 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			}
 			else
 			{
-				AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
-			}
+                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
+                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
+            }
+            var Chunker = bp.Branch.FindProgram("BuildPatchTool");
+            AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
+            AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
+            AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
         }
         public override string GetTriggerDescText()
         {
