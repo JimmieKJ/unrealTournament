@@ -23,7 +23,7 @@ void UUTWeaponStateFiringBurst::BeginState(const UUTWeaponState* PrevState)
 
 void UUTWeaponStateFiringBurst::IncrementShotTimer()
 {
-	ShotTimeRemaining += (CurrentShot < BurstSize) ? BurstInterval : FMath::Max(0.01f, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - BurstSize*BurstInterval);
+	ShotTimeRemaining += (CurrentShot < BurstSize) ? BurstInterval : FMath::Max(0.01f, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (BurstSize-1)*BurstInterval);
 }
 
 void UUTWeaponStateFiringBurst::UpdateTiming()
@@ -73,3 +73,12 @@ void UUTWeaponStateFiringBurst::Tick(float DeltaTime)
 		RefireCheckTimer();
 	}
 }
+
+void UUTWeaponStateFiringBurst::PutDown()
+{
+	if ((CurrentShot == BurstSize) && (ShotTimeRemaining < FMath::Max(0.01f, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - BurstSize*BurstInterval)))
+	{
+		GetOuterAUTWeapon()->UnEquip();
+	}
+}
+

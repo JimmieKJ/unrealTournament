@@ -424,6 +424,11 @@ bool AUTWeapon::PutDown()
 	}
 }
 
+void AUTWeapon::UnEquip()
+{
+	GotoState(UnequippingState);
+}
+
 void AUTWeapon::AttachToOwner_Implementation()
 {
 	// sanity check some settings

@@ -45,7 +45,7 @@ class UUTWeaponState : public UObject
 	 */
 	virtual void PutDown()
 	{
-		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->UnequippingState);
+		GetOuterAUTWeapon()->UnEquip();
 	}
 	virtual bool IsFiring() const
 	{

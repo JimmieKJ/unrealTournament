@@ -37,6 +37,9 @@ class UUTWeaponStateFiringBurst : public UUTWeaponStateFiring
 	/** sets NextShotTime for the next shot, taking into whether in burst or not */
 	virtual void IncrementShotTimer();
 
+	/** Allow putdown if between bursts */
+	virtual void PutDown() override;
+
 protected:
 
 	/** time until next shot will occur - we have to manually time via Tick() instead of a timer to properly handle overflow with the changing shot intervals

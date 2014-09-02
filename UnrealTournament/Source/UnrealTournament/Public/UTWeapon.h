@@ -461,19 +461,25 @@ public:
 	/** Lag a component of weapon rotation behind player's rotation. */
 	virtual float LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int Index);
 
+	/** Begin unequipping this weapon */
+	virtual void UnEquip();
+
 	//*********
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	uint8 CurrentFireMode;
 
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> ActiveState;
+
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<class UUTWeaponStateEquipping> EquippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly,  Category = "States")
 	TSubobjectPtr<UUTWeaponState> UnequippingState;
+
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	TSubobjectPtr<UUTWeaponState> InactiveState;
 
