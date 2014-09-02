@@ -223,6 +223,19 @@ void AUTCharacter::DeactivateSpawnProtection()
 	// TODO: visual effect
 }
 
+bool AUTCharacter::IsSpawnProtected()
+{
+	if (!bSpawnProtectionEligible)
+	{
+		return false;
+	}
+	else
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		return (GS != NULL && GS->SpawnProtectionTime > 0.0f && GetWorld()->TimeSeconds - CreationTime < GS->SpawnProtectionTime);
+	}
+}
+
 void AUTCharacter::SetHeadScale(float NewHeadScale)
 {
 	HeadScale = NewHeadScale;
@@ -412,7 +425,8 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser);
 			}
-			ModifyDamageTaken(ResultDamage, ResultMomentum, DamageEvent, EventInstigator, DamageCauser);
+			bool bHitArmor = false;
+			ModifyDamageTaken(ResultDamage, ResultMomentum, bHitArmor, DamageEvent, EventInstigator, DamageCauser);
 
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
@@ -498,7 +512,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				CharacterMovement->AddImpulse(ResultMomentum, false);
 			}
 			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, DamageEvent);
-			SetLastTakeHitInfo(ResultDamage, ResultMomentum, DamageEvent);
+			SetLastTakeHitInfo(ResultDamage, ResultMomentum, bHitArmor, DamageEvent);
 			if (Health <= 0)
 			{
 				Died(EventInstigator, DamageEvent);
@@ -526,7 +540,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 	}
 }
 
-void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, bool& bHitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	// check for caused modifiers on instigator
 	AUTCharacter* InstigatorChar = NULL;
@@ -551,7 +565,7 @@ void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 			AUTInventory* NextInv = Inv->GetNext(); // cache here in case Inv is destroyed by damage absorption (e.g. armor)
 			if (Inv->bCallDamageEvents)
 			{
-				Inv->ModifyDamageTaken(Damage, Momentum, DamageEvent, EventInstigator, DamageCauser);
+				Inv->ModifyDamageTaken(Damage, Momentum, bHitArmor, DamageEvent, EventInstigator, DamageCauser);
 			}
 			Inv = NextInv;
 		}
@@ -562,10 +576,11 @@ void AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Mom
 	Damage *= DamageScaling;
 }
 
-void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, const FDamageEvent& DamageEvent)
+void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, bool bHitArmor, const FDamageEvent& DamageEvent)
 {
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
+	LastTakeHitInfo.bHitArmor = bHitArmor;
 	LastTakeHitInfo.Momentum = Momentum;
 
 	FVector NewRelHitLocation;
@@ -591,21 +606,29 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, con
 
 void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
-	if (GetNetMode() != NM_DedicatedServer && LastTakeHitInfo.Damage > 0 && BloodEffect != NULL)
+	if (GetNetMode() != NM_DedicatedServer)
 	{
-		// we want ourselves as the Outer for OwnerNoSee checks yet not attached to us, so the GameplayStatics functions don't get the job done
-		UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
-		PSC->bAutoDestroy = true;
-		PSC->SecondsBeforeInactive = 0.0f;
-		PSC->bAutoActivate = false;
-		PSC->SetTemplate(BloodEffect);
-		PSC->bOverrideLODMethod = false;
-		PSC->RegisterComponentWithWorld(GetWorld());
-		PSC->SetAbsolute(true, true, true);
-		PSC->SetOwnerNoSee(true); // FIXME: !IsFirstPerson()
-		PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
-		PSC->SetRelativeScale3D(FVector(1.f));
-		PSC->ActivateSystem(true);
+		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
+		if (UTDmg != NULL)
+		{
+			UTDmg.GetDefaultObject()->PlayHitEffects(this);
+		}
+		if (LastTakeHitInfo.Damage > 0 && BloodEffect != NULL)
+		{
+			// we want ourselves as the Outer for OwnerNoSee checks yet not attached to us, so the GameplayStatics functions don't get the job done
+			UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+			PSC->bAutoDestroy = true;
+			PSC->SecondsBeforeInactive = 0.0f;
+			PSC->bAutoActivate = false;
+			PSC->SetTemplate(BloodEffect);
+			PSC->bOverrideLODMethod = false;
+			PSC->RegisterComponentWithWorld(GetWorld());
+			PSC->SetAbsolute(true, true, true);
+			PSC->SetOwnerNoSee(true); // FIXME: !IsFirstPerson()
+			PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
+			PSC->SetRelativeScale3D(FVector(1.f));
+			PSC->ActivateSystem(true);
+		}
 	}
 }
 
@@ -2015,6 +2038,30 @@ void AUTCharacter::UpdateSkin()
 	}
 }
 
+void AUTCharacter::SetBodyColorFlash(const UCurveLinearColor* ColorCurve)
+{
+	BodyColorFlashCurve = ColorCurve;
+	BodyColorFlashElapsedTime = 0.0f;
+}
+
+void AUTCharacter::UpdateBodyColorFlash(float DeltaTime)
+{
+	static FName NAME_HitFlashColor(TEXT("HitFlashColor"));
+
+	BodyColorFlashElapsedTime += DeltaTime;
+	float MinTime, MaxTime;
+	BodyColorFlashCurve->GetTimeRange(MinTime, MaxTime);
+	if (BodyColorFlashElapsedTime > MaxTime)
+	{
+		BodyColorFlashCurve = NULL;
+		BodyMI->SetVectorParameterValue(NAME_HitFlashColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+	}
+	else
+	{
+		BodyMI->SetVectorParameterValue(NAME_HitFlashColor, BodyColorFlashCurve->GetLinearColorValue(BodyColorFlashElapsedTime));
+	}
+}
+
 void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -2048,6 +2095,10 @@ void AUTCharacter::Tick(float DeltaTime)
 				}
 			}
 			BodyMI->SetScalarParameterValue(NAME_SpawnProtectionPct, ShaderValue);
+		}
+		if (BodyColorFlashCurve != NULL)
+		{
+			UpdateBodyColorFlash(DeltaTime);
 		}
 	}
 

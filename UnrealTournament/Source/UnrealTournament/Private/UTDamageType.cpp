@@ -85,3 +85,11 @@ bool UUTDamageType::ShouldGib_Implementation(AUTCharacter* Victim) const
 {
 	return (Victim->Health <= GibHealthThreshold || Victim->LastTakeHitInfo.Damage >= GibDamageThreshold);
 }
+
+void UUTDamageType::PlayHitEffects_Implementation(AUTCharacter* HitPawn) const
+{
+	if (BodyDamageColor != NULL && !HitPawn->IsSpawnProtected()) // TODO: not if hit armor?
+	{
+		HitPawn->SetBodyColorFlash(BodyDamageColor);
+	}
+}

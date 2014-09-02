@@ -24,6 +24,11 @@ struct FTakeHitInfo
 	/** the damage type we were hit with */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
 	TSubclassOf<UDamageType> DamageType;
+	/** true if the damage was partially or completely absorbed by armor
+	 * often used to suppress some damage effects in favor of those done by the armor
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	bool bHitArmor;
 };
 
 /** ammo counter */
@@ -287,6 +292,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
 	bool bSpawnProtectionEligible;
 
+	/** returns whether spawn protection currently applies for this character (valid on client) */
+	UFUNCTION(BlueprintCallable, Category = Damage)
+	bool IsSpawnProtected();
+
 	/** set temporarily during client reception of replicated properties because replicated position and switches to ragdoll may be processed out of the desired order 
 	 * when set, OnRep_ReplicatedMovement() will be called after switching to ragdoll
 	 */
@@ -367,7 +376,7 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
-	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, const FDamageEvent& DamageEvent);
+	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, bool bHitArmor, const FDamageEvent& DamageEvent);
 
 	/** TEMP blood effect until we have a better hit effects system */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
@@ -604,6 +613,21 @@ public:
 	UFUNCTION()
 	virtual void UpdateSkin();
 
+	/** timed full body color flash implemented via material parameter */
+	UPROPERTY(BlueprintReadOnly, Category = Effects)
+	const UCurveLinearColor* BodyColorFlashCurve;
+	/** time elapsed in BodyColorFlashCurve */
+	UPROPERTY(BlueprintReadOnly, Category = Effects)
+	float BodyColorFlashElapsedTime;
+	/** set timed body color flash (generally for hit effects)
+	 * NOT REPLICATED
+	 */
+	UFUNCTION(BlueprintCallable, Category = Effects)
+	void SetBodyColorFlash(const UCurveLinearColor* ColorCurve);
+
+	/** updates time and sets BodyColorFlash in the character material */
+	virtual void UpdateBodyColorFlash(float DeltaTime);
+
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual uint8 GetTeamNum() const;
 
@@ -767,7 +791,7 @@ protected:
 
 	/** hook to modify damage taken by this Pawn */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageTaken(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
+	void ModifyDamageTaken(int32& Damage, FVector& Momentum, bool& bHitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
 	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc */
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamageCaused(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser);

@@ -68,6 +68,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	uint32 bForceZMomentum : 1;
 
+	/** optional body color to flash in victim's material when hit with this damage type */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+	const UCurveLinearColor* BodyDamageColor;
+
 	/** if dead Pawn's health <= this value than it gibs (unless hard disabled by client option)
 	 * set to a positive number to never gib (since dead Pawns can't have positive health)
 	 * set to a large negative number to always gib
@@ -83,8 +87,15 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	void ScoreKill(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const;
 
 	/** called on clients for dead characters killed by this damagetype to decide if they should gib instead of ragdoll */
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	bool ShouldGib(AUTCharacter* Victim) const;
+
+	/** spawn/play any visual hit effects this damagetype should cause to the passed in Pawn
+	 * use LastTakeHitInfo to retrieve additional information
+	 * client only
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	void PlayHitEffects(AUTCharacter* HitPawn) const;
 
 	/** This is the console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
