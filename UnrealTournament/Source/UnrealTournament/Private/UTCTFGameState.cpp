@@ -172,17 +172,4 @@ FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName Cur
 
 void AUTCTFGameState::OnHalftimeChanged()
 {
-	if (bHalftime)
-	{
-		// Turn OwnerNoSee off on all meshes
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			AUTCharacter* C = Cast<AUTCharacter>(*It);
-			if (C != NULL)
-			{
-				C->SetMeshVisibility(true);
-				UE_LOG(UT,Log,TEXT("Here %s"),*GetNameSafe(C));
-			}
-		}
-	}
 }

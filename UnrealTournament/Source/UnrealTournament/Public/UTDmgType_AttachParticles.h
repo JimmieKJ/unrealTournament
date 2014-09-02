@@ -47,7 +47,6 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 				UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(HitPawn);
 				PSC->bAutoActivate = true;
 				PSC->bAutoDestroy = true;
-				PSC->bOwnerNoSee = true;
 				PSC->SetTemplate(HitEffect);
 				HitPawn->GetWorldTimerManager().SetTimer(PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
 				PSC->RegisterComponent();

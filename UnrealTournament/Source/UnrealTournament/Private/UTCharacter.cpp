@@ -118,29 +118,10 @@ void AUTCharacter::BaseChange()
 	}
 }
 
-void AUTCharacter::SetMeshVisibility(bool bThirdPersonView)
-{
-	FirstPersonMesh->SetOwnerNoSee(bThirdPersonView);
-
-	Mesh->SetVisibility(bThirdPersonView);
-	Mesh->SetOwnerNoSee(!bThirdPersonView);
-	if (OverlayMesh != NULL)
-	{
-		OverlayMesh->SetVisibility(bThirdPersonView);
-		OverlayMesh->SetOwnerNoSee(!bThirdPersonView);
-	}
-	if (WeaponAttachment != NULL && WeaponAttachment->Mesh != NULL)
-	{
-		WeaponAttachment->Mesh->SetOwnerNoSee(!bThirdPersonView);
-	}
-	if (Weapon != NULL && Weapon->Mesh != NULL)
-	{
-		Weapon->Mesh->SetOwnerNoSee(bThirdPersonView);
-	}
-}
-
 void AUTCharacter::BeginPlay()
 {
+	Mesh->SetOwnerNoSee(false); // compatibility with old content, we're doing this through UpdateHiddenComponents() now
+
 	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
 	{
 		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
@@ -624,7 +605,6 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 			PSC->bOverrideLODMethod = false;
 			PSC->RegisterComponentWithWorld(GetWorld());
 			PSC->SetAbsolute(true, true, true);
-			PSC->SetOwnerNoSee(true); // FIXME: !IsFirstPerson()
 			PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
 			PSC->SetRelativeScale3D(FVector(1.f));
 			PSC->ActivateSystem(true);
@@ -2212,32 +2192,6 @@ void AUTCharacter::Tick(float DeltaTime)
 	{
 		UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
-}
-
-void AUTCharacter::BecomeViewTarget(class APlayerController* PC)
-{
-	Super::BecomeViewTarget(PC);
-
-	if (PC != NULL)
-	{
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
-		if (UTPC != NULL && UTPC->IsLocalController() && UTPC->GetUTCharacter() == this)
-		{
-			SetMeshVisibility(UTPC->IsBehindView());
-			return;
-		}
-	}
-
-	SetMeshVisibility(true);
-}
-
-void AUTCharacter::EndViewTarget( class APlayerController* PC )
-{
-	Super::EndViewTarget(PC);
-	if (PC != NULL && (PC->Player == NULL || PC->IsLocalController()))
-	{
-		SetMeshVisibility(true);
-	}
 }
 
 uint8 AUTCharacter::GetTeamNum() const

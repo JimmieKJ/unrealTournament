@@ -566,9 +566,6 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	bool bCanPlayWallHitSound;
 
-	// Controls if we want to see the first or third person meshes
-	void SetMeshVisibility(bool bThirdPersonView);
-
 	/** sets character overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but only one will be displayed at a time
 	 */
@@ -883,9 +880,6 @@ protected:
 	/** last FootNum for PlayFootstep(), for alternating when animations are disabled */
 	uint8 LastFoot;
 	
-	virtual void BecomeViewTarget(class APlayerController* PC) override;
-	virtual void EndViewTarget( class APlayerController* PC );
-
 	/** replicated overlays, bits match entries in UTGameState's OverlayMaterials array */
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateCharOverlays)
 	uint16 CharOverlayFlags;

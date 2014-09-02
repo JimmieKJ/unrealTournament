@@ -887,6 +887,24 @@ void AUTPlayerController::OnTapRightRelease()
 	}
 }
 
+static void HideComponentTree(const UPrimitiveComponent* Primitive, TSet<FPrimitiveComponentId>& HiddenComponents)
+{
+	if (Primitive != NULL)
+	{
+		HiddenComponents.Add(Primitive->ComponentId);
+		TArray<USceneComponent*> Children;
+		Primitive->GetChildrenComponents(true, Children);
+		for (int32 i = 0; i < Children.Num(); i++)
+		{
+			UPrimitiveComponent* ChildPrim = Cast<UPrimitiveComponent>(Children[i]);
+			if (ChildPrim != NULL)
+			{
+				HiddenComponents.Add(ChildPrim->ComponentId);
+			}
+		}
+	}
+}
+
 void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents)
 {
 	Super::UpdateHiddenComponents(ViewLocation, HiddenComponents);
@@ -905,6 +923,35 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		else if (RecentWeaponPickups[i]->GetMesh() != NULL)
 		{
 			HiddenComponents.Add(RecentWeaponPickups[i]->GetMesh()->ComponentId);
+		}
+	}
+
+	// hide all components that shouldn't be shown in the current 1P/3P state
+	// with bOwnerNoSee/bOnlyOwnerSee not being propagated to children this method is much easier to maintain
+	// although less efficient
+	// TODO: evaluate performance
+	AUTCharacter* P = Cast<AUTCharacter>(GetViewTarget());
+	if (IsBehindView())
+	{
+		// hide first person weapon
+		if (P != NULL && P->GetWeapon() != NULL)
+		{
+			HideComponentTree(P->GetWeapon()->Mesh, HiddenComponents);
+		}
+	}
+	else if (P != NULL)
+	{
+		// hide third person character model
+		HideComponentTree(P->Mesh, HiddenComponents);
+	}
+	else
+	{
+		// for others we can't just hide everything because we don't know where the camera component is and we don't want to hide its attachments
+		// so just hide root
+		UPrimitiveComponent* RootPrim = GetViewTarget()->GetRootPrimitiveComponent();
+		if (RootPrim != NULL)
+		{
+			HiddenComponents.Add(RootPrim->ComponentId);
 		}
 	}
 }
@@ -1028,11 +1075,6 @@ void AUTPlayerController::ClientSetCameraMode_Implementation( FName NewCamMode )
 	if (PlayerCameraManager)
 	{
 		PlayerCameraManager->CameraStyle = NewCamMode;
-	}
-
-	if (UTCharacter != NULL && IsLocalPlayerController())
-	{
-		UTCharacter->SetMeshVisibility(NewCamMode == FName(TEXT("FreeCam")));
 	}
 }
 

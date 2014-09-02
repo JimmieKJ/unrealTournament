@@ -9,7 +9,6 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 {
 	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
-	Mesh->SetOwnerNoSee(true);
 	Mesh->AttachParent = RootComponent;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	AttachSocket = FName((TEXT("WeaponPoint")));
@@ -51,7 +50,6 @@ void AUTWeaponAttachment::RegisterAllComponents()
 		if (MuzzleFlash[i] != NULL)
 		{
 			MuzzleFlash[i]->bAutoActivate = false;
-			MuzzleFlash[i]->SetOwnerNoSee(true);
 		}
 	}
 	Super::RegisterAllComponents();
