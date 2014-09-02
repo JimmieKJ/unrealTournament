@@ -14,10 +14,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	TSubobjectPtr<USphereComponent> CollisionComp;
 
 	/** Projectile movement component */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Movement)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Projectile)
 	TSubobjectPtr<class UProjectileMovementComponent> ProjectileMovement;
 	/** additional Z axis speed added to projectile on spawn - NOTE: blueprint changes only work in defaults or construction script as value is applied to velocity on spawn */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Movement)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Projectile)
 	float TossZ;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
@@ -131,6 +131,14 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	UFUNCTION(BlueprintCallable, Category = Projectile)
 	virtual bool InteractsWithProj(AUTProjectile* OtherProj);
+
+	/** Projectile size for hitting pawns */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Projectile)
+		float OverlapRadius;
+
+	/** Overlap sphere for hitting pawns */
+	UPROPERTY()
+		TSubobjectPtr<USphereComponent> PawnOverlapSphere;
 
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level

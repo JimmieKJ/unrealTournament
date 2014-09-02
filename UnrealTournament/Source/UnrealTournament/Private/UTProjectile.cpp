@@ -25,6 +25,19 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 		RootComponent = CollisionComp;
 	}
 
+	// @TODO FIXMESTEVE move to just projectiles that want this, add warning if no PawnOverlapSphere and set OverlapRadius
+	OverlapRadius = 10.f;
+	PawnOverlapSphere = PCIP.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("AssistSphereComp"));
+	if (PawnOverlapSphere != NULL)
+	{
+		//PawnOverlapSphere->bHiddenInGame = false;
+		//PawnOverlapSphere->bVisible = true;
+		PawnOverlapSphere->InitSphereRadius(OverlapRadius);
+		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileOverlap");
+		PawnOverlapSphere->bTraceComplexOnMove = true;
+		PawnOverlapSphere->AttachParent = RootComponent;
+	}
+
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
@@ -58,6 +71,11 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 void AUTProjectile::BeginPlay()
 {
 	UE_LOG(LogUTProjectile, VeryVerbose, TEXT("%s::BeginPlay()"), *GetName());
+
+	if (PawnOverlapSphere != NULL)
+	{
+		PawnOverlapSphere->SetSphereRadius(OverlapRadius);
+	}
 
 	if (SpawnInstigator != NULL)
 	{
