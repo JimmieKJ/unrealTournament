@@ -32,9 +32,4 @@ public class UnrealTournamentServerTarget : TargetRules
         }
         return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64, UnrealTargetPlatform.Linux };
     }
-
-    public override List<UnrealTargetConfiguration> GUBP_GetConfigs_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
-    {
-        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Development };
-    }
 }

@@ -32,6 +32,8 @@ public class UnrealTournamentEditorTarget : TargetRules
     {
         var Result = new GUBPProjectOptions();
         Result.bIsPromotable = true;
+        Result.bSeparateGamePromotion = true;
+        Result.bCustomWorkflowForPromotion = true;
         return Result;
     }
 }
