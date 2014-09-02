@@ -718,14 +718,14 @@ FVector AUTWeapon::GetFireStartLoc()
 			}
 			{
 				FHitResult Hit;
-				if (UTOwner->CapsuleComponent->SweepComponent(Hit, BaseLoc, FinalLoc, Collider, false))
+				if (UTOwner->CapsuleComponent->SweepComponent(Hit, FinalLoc, BaseLoc, Collider, false))
 				{
 					BaseLoc = Hit.Location;
 				}
 			}
-			FCollisionQueryParams Params(FName(TEXT("WeaponStartLoc")), false);
+			FCollisionQueryParams Params(FName(TEXT("WeaponStartLoc")), false, UTOwner);
 			FHitResult Hit;
-			if (GetWorld()->SweepSingle(Hit, FinalLoc, BaseLoc, FQuat::Identity, COLLISION_TRACE_WEAPON, Collider, Params))
+			if (GetWorld()->SweepSingle(Hit, BaseLoc, FinalLoc, FQuat::Identity, COLLISION_TRACE_WEAPON, Collider, Params))
 			{
 				FinalLoc = Hit.Location - (FinalLoc - BaseLoc).SafeNormal();
 			}
