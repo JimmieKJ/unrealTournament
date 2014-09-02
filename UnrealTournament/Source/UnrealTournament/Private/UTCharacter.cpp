@@ -187,7 +187,11 @@ void AUTCharacter::Restart()
 	// make sure equipped weapon state is synchronized
 	if (IsLocallyControlled())
 	{
-		if (Weapon != NULL)
+		if (PendingWeapon != NULL)
+		{
+			SwitchWeapon(PendingWeapon);
+		}
+		else if (Weapon != NULL)
 		{
 			SwitchWeapon(Weapon);
 		}
@@ -1334,10 +1338,6 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 		{
 			UE_LOG(UT, Warning, TEXT("Illegal SwitchWeapon() call on remote client"));
 		}
-		else if (NewWeapon->Instigator != this || !IsInInventory(NewWeapon))
-		{
-			UE_LOG(UT, Warning, TEXT("Weapon %s is not owned by self"), *GetNameSafe(NewWeapon));
-		}
 		else if (Role == ROLE_Authority)
 		{
 			ClientSwitchWeapon(NewWeapon);
@@ -1354,8 +1354,8 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 
 void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 {
-	// make sure clients don't try to switch to weapons that haven't been fully replicated/initialized
-	if (NewWeapon != NULL && NewWeapon->GetUTOwner() == NULL)
+	// make sure clients don't try to switch to weapons that haven't been fully replicated/initialized or that have been removed and the client doesn't know yet
+	if (NewWeapon != NULL && (NewWeapon->GetUTOwner() == NULL || (Role == ROLE_Authority && !IsInInventory(NewWeapon))))
 	{
 		ClientSwitchWeapon(Weapon);
 	}
