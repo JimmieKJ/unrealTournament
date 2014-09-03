@@ -55,6 +55,25 @@ struct FEmoteRepInfo
 	int32 EmoteIndex;
 };
 
+USTRUCT(BlueprintType)
+struct FSavedPosition
+{
+	GENERATED_USTRUCT_BODY()
+
+	FSavedPosition() : Position(FVector(0.f)), Velocity(FVector(0.f)), Time(0.f) {};
+
+	FSavedPosition(FVector InPos, FVector InVel, float InTime) : Position(InPos), Velocity(InVel), Time(InTime) {};
+
+	/** Position of player at time Time. */
+	UPROPERTY()
+	FVector Position;
+
+	/** Keep velocity also for bots to use in realistic reaction time based aiming error model. */
+	UPROPERTY()
+	FVector Velocity;
+
+	float Time;
+};
 
 UENUM(BlueprintType)
 enum EAllowedSpecialMoveAnims
@@ -100,6 +119,17 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	// Keep track of emote count so we can clear CurrentEmote
 	int32 EmoteCount;
+
+	/** Stored past positions of this player.  Used for bot aim error model, and for server side hit resolution. */
+	UPROPERTY()
+	TArray<FSavedPosition> SavedPositions;	
+
+	/** Maximum interval to hold saved positions for. */
+	UPROPERTY()
+	float MaxSavedPositionAge;
+
+	/** Called by CharacterMovement after movement */
+	virtual void PositionUpdated();
 
 	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
 	UPROPERTY()

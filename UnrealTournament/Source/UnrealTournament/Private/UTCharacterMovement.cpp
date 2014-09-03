@@ -518,6 +518,11 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	Super::PerformMovement(DeltaSeconds);
 	bWantsToCrouch = bSavedWantsToCrouch;
 	GroundFriction = RealGroundFriction;
+
+	if (Cast<AUTCharacter>(CharacterOwner))
+	{
+		((AUTCharacter*)CharacterOwner)->PositionUpdated();
+	}
 }
 
 float UUTCharacterMovement::GetMaxAcceleration() const

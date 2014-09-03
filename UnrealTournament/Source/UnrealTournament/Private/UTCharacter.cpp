@@ -102,6 +102,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	Mesh->SetNotifyRigidBodyCollision(true);
 
 	PlayerIndicatorMaxDistance = 2700.0f;
+	MaxSavedPositionAge = 0.3f;
 }
 
 
@@ -149,6 +150,18 @@ void AUTCharacter::PostInitializeComponents()
 	{
 		BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
 	}
+}
+
+void AUTCharacter::PositionUpdated()
+{
+	new(SavedPositions) FSavedPosition(GetActorLocation(), CharacterMovement->Velocity, GetWorld()->GetTimeSeconds());
+	
+	if (SavedPositions[0].Time < GetWorld()->GetTimeSeconds() - MaxSavedPositionAge)
+	{
+		SavedPositions.RemoveAt(0);
+	}
+
+	DrawDebugSphere(GetWorld(), SavedPositions[0].Position + (GetWorld()->GetTimeSeconds() - SavedPositions[0].Time) * SavedPositions[0].Velocity, 30.f, 8, FColor::Yellow);
 }
 
 void AUTCharacter::RecalculateBaseEyeHeight()
