@@ -95,6 +95,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             P4Change = P4Env.ChangelistString;
             P4Branch = P4Env.BuildRootEscaped;
         }
+				
 		var Params = new ProjectParams
 		(
 			// Shared
@@ -204,10 +205,11 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 
 class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 {
-    public class WaitForUnrealTournamentBuildUserInputNode : GUBP.WaitForUserInput
+    public class UnrealTournamentBuildNode : GUBP.GUBPNode
     {
         BranchInfo.BranchUProject GameProj;
-        public WaitForUnrealTournamentBuildUserInputNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
+
+        public UnrealTournamentBuildNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
         {
             GameProj = InGameProj;
 			
@@ -224,40 +226,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
             AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
             AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
-        }
-        public override string GetTriggerDescText()
-        {
-            return "UT is ready to begin a formal build.";
-        }
-        public override string GetTriggerActionText()
-        {
-            return "Make a formal UT build.";
-        }
-        public override string GetTriggerStateName()
-        {
-            return GetFullName();
-        }
-        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj)
-        {
-            return InGameProj.GameName + "_WaitToMakeBuild";
-        }
-        public override string GetFullName()
-        {
-            return StaticGetFullName(GameProj);
-        }
-        public override string GameNameIfAnyForTempStorage()
-        {
-            return GameProj.GameName;
-        }
-    }
-    public class UnrealTournamentBuildNode : GUBP.GUBPNode
-    {
-        BranchInfo.BranchUProject GameProj;
-
-        public UnrealTournamentBuildNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
-        {
-            GameProj = InGameProj;
-            AddDependency(WaitForUnrealTournamentBuildUserInputNode.StaticGetFullName(GameProj));
         }
 
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj)
@@ -291,7 +259,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             }
             else
             {
-                  LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -SkipCook -NoSubmit -Chunk");
+                  LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -Cook -NoSubmit -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
             
@@ -315,7 +283,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             {
                 // fort is in this branch
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
-                bp.AddNode(new WaitForUnrealTournamentBuildUserInputNode(bp, GameProj, InHostPlatform));
                 bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
             }
         }
