@@ -240,10 +240,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             return GameProj.GameName;
         }
-        public override bool IsSticky()
-        {
-            return true;
-        }
         public override bool SendSuccessEmail()
         {
             return true;
