@@ -260,7 +260,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             }
             else
             {
-                  LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -Cook -NoSubmit -Chunk");
+                  LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -Cook -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
 
