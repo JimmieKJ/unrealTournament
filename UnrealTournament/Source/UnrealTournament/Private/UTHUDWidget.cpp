@@ -354,6 +354,11 @@ void UUTHUDWidget::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidget::PostDraw(float RenderedTime)
 {
+
+/* -- Show the bounds of a widget.  Uncompress to work on sizing/etc.
+	Canvas->SetDrawColor(255,255,255,255);
+	Canvas->K2_DrawBox(RenderPosition, RenderSize, 1.0);
+*/
 	LastRenderTime = RenderedTime;
 	Canvas = NULL;
 	UTPlayerOwner = NULL;
