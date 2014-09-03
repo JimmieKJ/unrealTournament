@@ -70,6 +70,19 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetPressed( BOX_BRUSH("UWindows.Standard.Button.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(BOX_BRUSH("UWindows.Standard.Button.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			);
+
+		Style.Set("UWindows.Standard.MainMenuButton.TextStyle", FTextBlockStyle()
+			//SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetFont(TTF_FONT("Roboto-Regular", 14))
+			.SetColorAndOpacity(FLinearColor::Blue)
+			);
+
+		Style.Set("UWindows.Standard.MainMenuButton.SubMenu.TextStyle", FTextBlockStyle()
+			//.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Roboto-Regular", 12))
+			.SetColorAndOpacity(FLinearColor::Blue)
+			);
+
 	}
 
 	{ // Background Image
@@ -92,6 +105,11 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 
+		Style.Set("UWindows.Standard.MidGameMenuButton.TextStyle", FTextBlockStyle()
+			//.SetFont(TTF_FONT("Exo2-ExtraBold", 18))
+			.SetFont(TTF_FONT("Roboto-Regular", 18))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
 	}
 
 	return StyleRef;

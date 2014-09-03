@@ -53,6 +53,7 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 
 bool UUTLocalPlayer::IsMenuGame()
 {
+	return true;
 	if (GetWorld()->GetNetMode() == NM_Standalone)
 	{
 		AUTMenuGameMode* GM = Cast<AUTMenuGameMode>(GetWorld()->GetAuthGameMode());

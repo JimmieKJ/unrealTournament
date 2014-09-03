@@ -79,7 +79,7 @@ void SUWindowsMidGame::CreateDesktop()
 						]
 						+ SVerticalBox::Slot()		// This is the Buffer at the Top
 						.AutoHeight()
-						.HAlign(HAlign_Fill)
+						.HAlign(HAlign_Right)
 						[
 							SNew(SBox)
 							.HeightOverride(63)
@@ -125,8 +125,8 @@ void SUWindowsMidGame::BuildTeamSubMenu()
 		.ButtonContent()
 		[
 			SNew(STextBlock)
-			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams", "TEAMS/SPECTATOR").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
+			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams", "CHANGE TEAMS").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 		];
 	}
 	else
@@ -144,7 +144,7 @@ void SUWindowsMidGame::BuildTeamSubMenu()
 			[
 				SNew(STextBlock)
 				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_PLAY", "PLAY").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 			];
 		}
 		else
@@ -157,7 +157,7 @@ void SUWindowsMidGame::BuildTeamSubMenu()
 			[
 				SNew(STextBlock)
 				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_Spectate", "SPECTATE").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 			];
 		}
 	}
@@ -183,6 +183,7 @@ void SUWindowsMidGame::BuildServerBrowserSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Browser", "SERVER BROWSER").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 		];
 
 	MenuBar->AddSlot()
@@ -207,6 +208,7 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options", "OPTIONS").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 		];
 
 	DropDownButton->SetMenuContent
@@ -267,6 +269,7 @@ void SUWindowsMidGame::BuildExitMatchSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(MenuText.ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 		];
 
 	MenuBar->AddSlot()

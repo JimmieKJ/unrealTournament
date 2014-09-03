@@ -29,7 +29,7 @@ void SUWindowsMainMenu::CreateDesktop()
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SBox)
-				.HeightOverride(26)
+				.HeightOverride(42)
 				[
 					SNew(SOverlay)
 					+ SOverlay::Slot()
@@ -134,6 +134,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 	[
 		SNew(STextBlock)
 		.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_File","File").ToString())
+		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")
 	];
 	
 	if ( DropDownButton.IsValid() ) 
@@ -150,6 +151,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateLocal", "Create Local Game").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnCreateGame, false)
 			];
 			(*Menu).AddSlot()
@@ -159,6 +161,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateOnline", "Create Multiplayer Server").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnCreateGame, true)
 			];
 
@@ -171,6 +174,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Disconnect", "Disconnect").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 					.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("Disconnect")))
 				];
 			}
@@ -186,6 +190,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 						.ContentPadding(FMargin(10.0f, 5.0f))
 						.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Reconnect", "Reconnect to {Addr}"), FText::FromString(FString::Printf(TEXT("%s:%i"), *LastNetURL.Host, LastNetURL.Port))).ToString())
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 						.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("Reconnect")))
 					];
 				}
@@ -198,6 +203,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_ConnectIP", "Connect To IP").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnConnectIP)
 			];
 
@@ -208,6 +214,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_ExitGame", "Exit Game").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("quit")))
 			];
 
@@ -236,6 +243,7 @@ void SUWindowsMainMenu::BuildGameSubMenu()
 	[
 		SNew(STextBlock)
 		.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_Game","Game").ToString())
+		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")
 	];
 	
 	if ( DropDownButton.IsValid() ) 
@@ -261,6 +269,7 @@ void SUWindowsMainMenu::BuildGameSubMenu()
 							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 							.ContentPadding(FMargin(10.0f, 5.0f))
 							.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Game_ChangeTeamBlue", "Switch to Blue").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 							.OnClicked(this, &SUWindowsMainMenu::OnChangeTeam, 1)
 						];
 					}
@@ -273,6 +282,7 @@ void SUWindowsMainMenu::BuildGameSubMenu()
 							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 							.ContentPadding(FMargin(10.0f, 5.0f))
 							.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Game_ChangeTeamRed", "Switch to Red").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 							.OnClicked(this, &SUWindowsMainMenu::OnChangeTeam, 0)
 						];
 					}
@@ -286,6 +296,7 @@ void SUWindowsMainMenu::BuildGameSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Game_Suicide", "Suicide").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("suicide")))
 			];
 		}
@@ -313,6 +324,7 @@ void SUWindowsMainMenu::BuildOptionsSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options", "Options").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")
 		];
 
 	DropDownButton->SetMenuContent
@@ -325,6 +337,7 @@ void SUWindowsMainMenu::BuildOptionsSubMenu()
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 			.OnClicked(this, &SUWindowsMainMenu::OpenPlayerSettings)
 		]
 		+ SVerticalBox::Slot()
@@ -334,6 +347,7 @@ void SUWindowsMainMenu::BuildOptionsSubMenu()
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 			.OnClicked(this, &SUWindowsMainMenu::OpenSystemSettings)
 		]
 		+ SVerticalBox::Slot()
@@ -343,6 +357,7 @@ void SUWindowsMainMenu::BuildOptionsSubMenu()
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 			.OnClicked(this, &SUWindowsMainMenu::OpenControlSettings)
 		]
 	);
@@ -371,6 +386,7 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About", "About").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")
 		]
 		.MenuContent()
 		[
@@ -382,6 +398,7 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_TPSReport", "Third Party Software").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OpenTPSReport)
 			]
 			+ SVerticalBox::Slot()
@@ -391,6 +408,7 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OpenCredits)
 			]
 			+ SVerticalBox::Slot()
@@ -400,6 +418,7 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTSite", "UnrealTournament.com").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnMenuHTTPButton, FString(TEXT("http://www.unrealtournament.com/")))
 			]
 			+ SVerticalBox::Slot()
@@ -409,6 +428,7 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTForums", "Forums").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnMenuHTTPButton, FString(TEXT("http://forums.unrealtournament.com/")))
 			]
 		]
