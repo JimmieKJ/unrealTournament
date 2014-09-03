@@ -279,7 +279,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         //if (!bp.BranchOptions.ExcludeNodes.Contains("UnrealTournament"))
         {            
             var GameProj = bp.Branch.FindGame("UnrealTournament");
-            if (GameProj != null && InHostPlatform == UnrealTargetPlatform.Win64)
+            if (GameProj != null && InHostPlatform == UnrealTargetPlatform.Win64 && !GUBP.bBuildRocket)
             {
                 // fort is in this branch
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
