@@ -94,3 +94,22 @@ float UUTGameUserSettings::GetSoundClassVolume(EUTSoundClass::Type Category)
 	return (Category < ARRAY_COUNT(SoundClassVolumes)) ? SoundClassVolumes[Category] : 0.0f;
 }
 
+FString UUTGameUserSettings::GetEpicID()
+{
+	return EpicIDLogin;
+}
+void UUTGameUserSettings::SetEpicID(FString NewID)
+{
+	EpicIDLogin = NewID;
+}
+
+FString UUTGameUserSettings::GetEpicAuth()
+{
+	return EpicIDAuthToken;
+}
+
+void UUTGameUserSettings::SetEpicAuth(FString NewAuth)
+{
+	EpicIDAuthToken = NewAuth;
+}
+

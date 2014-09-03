@@ -72,7 +72,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("UWindows.Standard.MainMenuButton.TextStyle", FTextBlockStyle()
-			//SetFont(TTF_FONT("Exo2-Bold", 14))
+			//.SetFont(TTF_FONT("Exo2-Bold", 14))
 			.SetFont(TTF_FONT("Roboto-Regular", 14))
 			.SetColorAndOpacity(FLinearColor::Blue)
 			);

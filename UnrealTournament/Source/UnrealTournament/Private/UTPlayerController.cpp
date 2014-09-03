@@ -22,6 +22,10 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "Online.h"
+#include "UTOnlineGameSearchBase.h"
+#include "OnlineSubsystemTypes.h"
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 

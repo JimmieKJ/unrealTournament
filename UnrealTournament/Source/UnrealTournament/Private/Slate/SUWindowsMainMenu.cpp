@@ -15,6 +15,7 @@
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
+#include "SUWServerBrowser.h"
 
 void SUWindowsMainMenu::CreateDesktop()
 {
@@ -53,14 +54,13 @@ void SUWindowsMainMenu::CreateDesktop()
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
 			[
-				SNew(SOverlay)
+				SAssignNew(Desktop, SOverlay)
 
 				+ SOverlay::Slot()
 				[
 					SNew(SImage)
 					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
 				]
-				/* -- Remove until I can get a hi-rez logo
 				+ SOverlay::Slot()
 				[
 					SNew(SVerticalBox)
@@ -80,11 +80,7 @@ void SUWindowsMainMenu::CreateDesktop()
 						]
 					]
 				]
-				*/
-				+ SOverlay::Slot()
-				[
-					SNew(SCanvas)
-				]
+
 			]
 		];
 }
@@ -164,6 +160,18 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnCreateGame, true)
 			];
+
+			(*Menu).AddSlot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_ServerBrowser", "Server Browser").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")			
+				.OnClicked(this, &SUWindowsMainMenu::OnShowServerBrowser)
+			];
+
 
 			if (GWorld->GetWorld()->GetNetMode() == NM_Client)
 			{
@@ -439,15 +447,6 @@ FReply SUWindowsMainMenu::OnChangeTeam(int32 NewTeamIndex)
 {
 	return OnMenuConsoleCommand(FString::Printf(TEXT("changeteam %i"), NewTeamIndex));
 }
-FReply SUWindowsMainMenu::OnMenuConsoleCommand(FString Command)
-{
-	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
-	{
-		PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
-	}
-	CloseMenus();
-	return FReply::Handled();
-}
 
 FReply SUWindowsMainMenu::OpenPlayerSettings()
 {
@@ -542,5 +541,25 @@ FReply SUWindowsMainMenu::OnMenuHTTPButton(FString URL)
 								.ButtonsMask(UTDIALOG_BUTTON_OK)
 								);
 	}
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnShowServerBrowser()
+{
+	if (ActiveMenu.IsValid())
+	{
+		Desktop->RemoveSlot(ActiveMenu->AsShared());
+		ActiveMenu.Reset();
+		return FReply::Handled();
+	}
+
+	TSharedPtr<class SCompoundWidget> Browser;
+	Desktop->AddSlot()
+	[
+		SAssignNew(Browser, SUWServerBrowser)
+		.PlayerOwner(PlayerOwner)
+	];
+
+	ActiveMenu = Browser;
 	return FReply::Handled();
 }

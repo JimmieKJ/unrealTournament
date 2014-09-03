@@ -56,35 +56,37 @@ void SUWindowsMidGame::CreateDesktop()
 					SNew(SOverlay)
 					+ SOverlay::Slot()
 					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.HAlign(HAlign_Fill)
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MidGameMenuBar"))
-						]
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MidGameMenuBar"))
 					]
 					+SOverlay::Slot()
 					[
+
 						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()		// This is the Buffer at the Top
-						.AutoHeight()
-						.HAlign(HAlign_Fill)
-						[
-							SNew(SBox)
-							.HeightOverride(7)
-							[
-								SNew(SCanvas)
-							]
-						]
-						+ SVerticalBox::Slot()		// This is the Buffer at the Top
+						+ SVerticalBox::Slot()		// This panel is just for alignment :(
 						.AutoHeight()
 						.HAlign(HAlign_Right)
 						[
-							SNew(SBox)
-							.HeightOverride(63)
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()		// This is the Buffer at the Top
+							.AutoHeight()
+							.HAlign(HAlign_Fill)
 							[
-								BuildMenuBar()
+								SNew(SBox)
+								.HeightOverride(7)
+								[
+									SNew(SCanvas)
+								]
+							]
+							+ SVerticalBox::Slot()		// This is the Buffer at the Top
+							.AutoHeight()
+							.HAlign(HAlign_Fill)
+							[
+								SNew(SBox)
+								.HeightOverride(63)
+								[
+									BuildMenuBar()
+								]
 							]
 						]
 					]
@@ -125,8 +127,8 @@ void SUWindowsMidGame::BuildTeamSubMenu()
 		.ButtonContent()
 		[
 			SNew(STextBlock)
-			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams", "CHANGE TEAMS").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams", "TEAMS/SPECTATOR").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
 		];
 	}
 	else
@@ -280,5 +282,3 @@ void SUWindowsMidGame::BuildExitMatchSubMenu()
 			DropDownButton.ToSharedRef()
 		];
 }
-
-

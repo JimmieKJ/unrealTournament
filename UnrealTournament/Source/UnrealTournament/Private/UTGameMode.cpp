@@ -263,6 +263,11 @@ void AUTGameMode::InitGameState()
 	{
 		UE_LOG(UT,Error, TEXT("UTGameState is NULL %s"), *GameStateClass->GetFullName());
 	}
+
+	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		GameSession->RegisterServer();
+	}
 }
 
 void AUTGameMode::PreInitializeComponents()
@@ -498,6 +503,14 @@ void AUTGameMode::StartMatch()
 		}
 	}
 
+	if (GameSession != NULL)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession != NULL)
+		{
+			UTGameSession->StartMatch();
+		}
+	}
 
 }
 
@@ -571,6 +584,16 @@ void AUTGameMode::EndMatch()
 			Pawn->TurnOff();
 		}
 	}
+
+	if (GameSession != NULL)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession != NULL)
+		{
+			UTGameSession->EndMatch();
+		}
+	}
+
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
@@ -1255,6 +1278,21 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 	}
 }
 
+void AUTGameMode::PostLogin( APlayerController* NewPlayer )
+{
+	Super::PostLogin(NewPlayer);
+
+	if (GameSession != NULL)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession != NULL)
+		{
+			UTGameSession->UpdateGameState();
+		}
+	}
+}
+
+
 void AUTGameMode::Logout(AController* Exiting)
 {
 	if (BaseMutator != NULL)
@@ -1280,6 +1318,17 @@ void AUTGameMode::Logout(AController* Exiting)
 	}
 
 	Super::Logout(Exiting);
+
+	if (GameSession != NULL)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession != NULL)
+		{
+			UTGameSession->UpdateGameState();
+		}
+	}
+
+
 }
 
 bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
@@ -1440,3 +1489,16 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 		];
 }
 
+void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
+{
+	if (GameSession != NULL)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession != NULL)
+		{
+			UTGameSession->UnRegisterServer();
+		}
+	}
+
+	Super::ProcessServerTravel(URL, bAbsolute);
+}

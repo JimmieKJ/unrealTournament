@@ -177,6 +177,7 @@ public:
 
 	virtual void OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState) override;
 	virtual void GenericPlayerInitialization(AController* C) override;
+	virtual void PostLogin( APlayerController* NewPlayer );
 	virtual void Logout(AController* Exiting) override;
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
@@ -256,6 +257,8 @@ public:
 	{
 		return MapPrefix.Len() == 0 || MapName.StartsWith(MapPrefix + TEXT("-"));
 	}
+
+	virtual void ProcessServerTravel(const FString& URL, bool bAbsolute = false);
 
 protected:
 	/** map prefix for valid maps (not including the dash); you can create more broad handling by overriding SupportsMap() */

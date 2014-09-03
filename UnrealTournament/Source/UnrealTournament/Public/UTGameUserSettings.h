@@ -21,6 +21,12 @@ public:
 	virtual void SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue);
 	virtual float GetSoundClassVolume(EUTSoundClass::Type Category);
 
+	virtual FString GetEpicID();
+	virtual void SetEpicID(FString NewID);
+
+	virtual FString GetEpicAuth();
+	virtual void SetEpicAuth(FString NewAuth);
+
 protected:
 	UPROPERTY(config)
 	FString PlayerName;
@@ -30,4 +36,11 @@ protected:
 
 	UPROPERTY(config)
 	float SoundClassVolumes[EUTSoundClass::MAX];
+
+	UPROPERTY(config)
+	FString EpicIDLogin;
+
+	UPROPERTY(config)
+	FString EpicIDAuthToken;
+
 };

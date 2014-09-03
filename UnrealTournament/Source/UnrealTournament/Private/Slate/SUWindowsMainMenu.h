@@ -4,14 +4,17 @@
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
 
+
 class SUWindowsMainMenu : public SUWindowsDesktop
 {
 protected:
 	TSharedPtr<class SHorizontalBox> MenuBar;
+	TSharedPtr<class SOverlay> Desktop;
+	TSharedPtr<class SWidget> ActiveMenu;
 
 	virtual void CreateDesktop();
 
-	virtual FReply OnMenuConsoleCommand(FString Command);
+	virtual FReply OnShowServerBrowser();
 	virtual FReply OnCreateGame(bool bOnline);
 	virtual FReply OnConnectIP();
 	virtual void ConnectIPDialogResult(const FString& InputText, bool bCancelled);
