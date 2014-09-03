@@ -469,6 +469,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void StopFiring();
 
+	// redirect engine version
+	virtual void PawnStartFire(uint8 FireModeNum = 0) override
+	{
+		StartFire(FireModeNum);
+	}
+
 	/** Return true if character is currently able to dodge. */
 	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
 	bool CanDodge() const;

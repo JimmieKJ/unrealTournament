@@ -292,6 +292,14 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 		Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 		AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 	}
+	if (CharacterOwner != NULL)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(CharacterOwner->Controller);
+		if (PC != NULL && PC->PlayerInput != NULL)
+		{
+			PC->ApplyDeferredFireInputs();
+		}
+	}
 }
 
 void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted)

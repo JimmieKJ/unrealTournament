@@ -496,16 +496,9 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 
 void AUTPlayerController::OnFire()
 {
-	if (UTCharacter != NULL)
+	if (GetPawn() != NULL)
 	{
-		if (StateName == NAME_Playing)
-		{
-			UTCharacter->StartFire(0);
-		}
-	}
-	else if (GetPawn() != nullptr)
-	{
-		GetPawn()->PawnStartFire(0);
+		new(DeferredFireInputs) FDeferredFireInput(0, true);
 	}
 	else
 	{
@@ -515,26 +508,23 @@ void AUTPlayerController::OnFire()
 }
 void AUTPlayerController::OnStopFire()
 {
-	if (UTCharacter != NULL)
+	if (GetPawn() != NULL)
 	{
-		UTCharacter->StopFire(0);
+		new(DeferredFireInputs) FDeferredFireInput(0, false);
 	}
 }
 void AUTPlayerController::OnAltFire()
 {
-	if (UTCharacter != NULL)
+	if (GetPawn() != NULL)
 	{
-		if (StateName == NAME_Playing)
-		{
-			UTCharacter->StartFire(1);
-		}
+		new(DeferredFireInputs) FDeferredFireInput(1, true);
 	}
 }
 void AUTPlayerController::OnStopAltFire()
 {
-	if (UTCharacter != NULL)
+	if (GetPawn() != NULL)
 	{
-		UTCharacter->StopFire(1);
+		new(DeferredFireInputs) FDeferredFireInput(1, false);
 	}
 }
 
@@ -1146,6 +1136,11 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		UpdateRotation(DeltaTime);
 	}
+	// if we have no UTCharacterMovement, we need to apply firing here since it won't happen from the component
+	if (GetPawn() == NULL || Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent()) == NULL)
+	{
+		ApplyDeferredFireInputs();
+	}
 }
 
 void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
@@ -1359,4 +1354,30 @@ void AUTPlayerController::ReceivedPlayer()
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
 		}
 	}
+}
+
+void AUTPlayerController::ApplyDeferredFireInputs()
+{
+	for (FDeferredFireInput& Input : DeferredFireInputs)
+	{
+		if (Input.bStartFire)
+		{
+			if (UTCharacter != NULL)
+			{
+				if (StateName == NAME_Playing)
+				{
+					UTCharacter->StartFire(Input.FireMode);
+				}
+			}
+			else if (GetPawn() != nullptr)
+			{
+				GetPawn()->PawnStartFire(Input.FireMode);
+			}
+		}
+		else if (UTCharacter != NULL)
+		{
+			UTCharacter->StopFire(Input.FireMode);
+		}
+	}
+	DeferredFireInputs.Empty();
 }

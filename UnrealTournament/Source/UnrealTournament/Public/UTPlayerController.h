@@ -10,6 +10,18 @@
 
 class UUTAnnouncer;
 
+struct FDeferredFireInput
+{
+	/** the fire mode */
+	uint8 FireMode;
+	/** if true, call StartFire(), false call StopFire() */
+	bool bStartFire;
+
+	FDeferredFireInput(uint8 InFireMode, bool bInStartFire)
+		: FireMode(InFireMode), bStartFire(bInStartFire)
+	{}
+};
+
 UCLASS(config=Game)
 class UNREALTOURNAMENT_API AUTPlayerController : public APlayerController, public IUTTeamInterface
 {
@@ -385,6 +397,12 @@ protected:
 
 	virtual void ReceivedPlayer();
 
+	/** stores fire inputs until after movement has been executed (default would be fire -> movement -> render, this causes movement -> fire -> render)
+	 * makes weapons feel a little more responsive while strafing
+	 */
+	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
+public:
+	void ApplyDeferredFireInputs();
 };
 
 
