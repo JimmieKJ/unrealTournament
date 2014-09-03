@@ -53,17 +53,14 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 
         if (Cmd.ParseParam("mac"))
         {
-            ClientPlatforms.Add(UnrealTargetPlatform.Mac);
+            //ClientPlatforms.Add(UnrealTargetPlatform.Mac);
         }
         else
         {
+            ClientPlatforms.Add(UnrealTargetPlatform.Win64);
             if (!Cmd.ParseParam("nolinux"))
             {
-                ClientPlatforms.Add(UnrealTargetPlatform.Linux);
-            }
-            else
-            {
-                ClientPlatforms.Add(UnrealTargetPlatform.Win64);
+                //ClientPlatforms.Add(UnrealTargetPlatform.Linux);
             }
         }
 
@@ -208,13 +205,22 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
     public class UnrealTournamentBuildNode : GUBP.GUBPNode
     {
         BranchInfo.BranchUProject GameProj;
+        UnrealTargetPlatform HostPlat;
 
         public UnrealTournamentBuildNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
         {
             GameProj = InGameProj;
-			
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
+            HostPlat = HostPlatform;
+
+            if (HostPlat == UnrealTargetPlatform.Mac)
+            {
+                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Mac));
+            }
+            else
+            {
+                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
+                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux)); 
+            }
 				
             var Chunker = bp.Branch.FindProgram("BuildPatchTool");
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
@@ -222,13 +228,18 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
         }
 
-        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj)
+        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
         {
+            if (HostPlatform == UnrealTargetPlatform.Mac)
+            {
+                return InGameProj.GameName + "_MakeBuild_OnMac";
+            }
+
             return InGameProj.GameName + "_MakeBuild";
         }
         public override string GetFullName()
         {
-            return StaticGetFullName(GameProj);
+            return StaticGetFullName(GameProj, HostPlat);
         }
         public override string GameNameIfAnyForTempStorage()
         {
@@ -252,8 +263,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                   LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -Cook -NoSubmit -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
-            
-            if (CommandUtils.P4Enabled)
+
+            if (CommandUtils.P4Enabled && HostPlat == UnrealTargetPlatform.Win64)
             {
                 // Write the working cl to a file so github has a way to see what we built
                 string RecordOfSuccess = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Build", "build.properties");
@@ -269,11 +280,17 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         //if (!bp.BranchOptions.ExcludeNodes.Contains("UnrealTournament"))
         {            
             var GameProj = bp.Branch.FindGame("UnrealTournament");
-            if (GameProj != null && InHostPlatform == UnrealTargetPlatform.Win64 && !GUBP.bBuildRocket)
+            if (GameProj != null && !GUBP.bBuildRocket)
             {
-                // fort is in this branch
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
-                bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
+                if (InHostPlatform == UnrealTargetPlatform.Win64)
+                {
+                    bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
+                }
+                else if (InHostPlatform == UnrealTargetPlatform.Mac)
+                {
+                    //bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
+                }
             }
         }
     }
