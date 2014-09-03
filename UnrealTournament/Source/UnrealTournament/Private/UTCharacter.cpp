@@ -160,8 +160,6 @@ void AUTCharacter::PositionUpdated()
 	{
 		SavedPositions.RemoveAt(0);
 	}
-
-	DrawDebugSphere(GetWorld(), SavedPositions[0].Position + (GetWorld()->GetTimeSeconds() - SavedPositions[0].Time) * SavedPositions[0].Velocity, 30.f, 8, FColor::Yellow);
 }
 
 void AUTCharacter::RecalculateBaseEyeHeight()
