@@ -635,6 +635,8 @@ float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FH
 
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
+	bIsAgainstWall = false;
+
 	if (CharacterOwner)
 	{
 		bIsDodgeRolling = bWantsSlideRoll;
@@ -1046,6 +1048,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	bool bSkipLandingAssist = true;
 	bApplyWallSlide = false;
 	FHitResult Hit(1.f);
+	bIsAgainstWall = false;
 	if (!HasRootMotion())
 	{
 		// test for slope to avoid using air control to climb walls 
@@ -1070,6 +1073,13 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					// Only matters if we can't walk there
 					if (!IsValidLandingSpot(Result.Location, Result))
 					{
+						// We are against the wall, store info about it
+						bIsAgainstWall = true;
+						WallHitInfo = Result;
+						
+						FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0,0,1));
+						WallDirection = FVector::DotProduct(Lat, WallHitInfo.Normal);
+
 						TickAirControl = 0.f;
 						CheckWallSlide(Result);
 					}

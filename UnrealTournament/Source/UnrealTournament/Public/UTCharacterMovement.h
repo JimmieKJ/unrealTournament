@@ -411,6 +411,18 @@ public:
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bApplyWallSlide;
 
+	/** If true, the player is against the wall and WallHitInfo will describe the touch. */
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
+	bool bIsAgainstWall;
+
+	/** Holds the touch/trace info of the current wall the player is pressed against.  Only valid if bIsAgainstWall is true. */
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
+	FHitResult WallHitInfo;
+
+	/** Holds the direction of the wall.  < 0 for left, >0 for right. */
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
+	float WallDirection;
+
 	virtual void HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta) override;
 
 	virtual float GetGravityZ() const override;
