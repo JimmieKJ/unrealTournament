@@ -141,6 +141,8 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerDebugTest();
 
+	virtual void PawnLeavingGame() override;
+
 	/**	We override player tick to keep updating the player's rotation when the game is over. */
 	virtual void PlayerTick(float DeltaTime);
 

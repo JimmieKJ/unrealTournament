@@ -1131,7 +1131,18 @@ void AUTPlayerController::ServerDebugTest_Implementation()
 
 bool AUTPlayerController::ServerDebugTest_Validate() {return true;}
 
-
+void AUTPlayerController::PawnLeavingGame()
+{
+	if (UTCharacter != NULL)
+	{
+		UTCharacter->PlayerSuicide();
+	}
+	// TODO: vehicles
+	else
+	{
+		UnPossess();
+	}
+}
 
 void AUTPlayerController::PlayerTick( float DeltaTime )
 {
