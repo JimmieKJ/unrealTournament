@@ -52,13 +52,17 @@ FRotator AUTWeap_FlakCannon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 	FRotator BaseAim = Super::GetAdjustedAim_Implementation(StartFireLoc);
 	if ((CurrentFireMode == 1) && UTOwner && Cast<APlayerController>(UTOwner->GetController()))
 	{
-		if (BaseAim.Pitch > 270.f)
+		BaseAim.Pitch = FMath::UnwindDegrees(BaseAim.Pitch);
+		if (BaseAim.Pitch < 0.f)
 		{
-			BaseAim.Pitch += 3.f;
+			if (BaseAim.Pitch > -90.f)
+			{
+				BaseAim.Pitch += 3.f;
+			}
 		}
 		else if (BaseAim.Pitch < 90.f)
 		{
-			BaseAim.Pitch += (90.f - BaseAim.Pitch) / 32.f;
+			BaseAim.Pitch += (90.f - BaseAim.Pitch) / 30.f;
 		}
 	}
 	return BaseAim;
