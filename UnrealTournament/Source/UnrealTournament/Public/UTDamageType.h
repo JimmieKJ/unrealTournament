@@ -71,6 +71,9 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	/** optional body color to flash in victim's material when hit with this damage type */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	const UCurveLinearColor* BodyDamageColor;
+	/** if set apply BodyDamageColor to character edges only (rim shader) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+	bool bBodyDamageColorRimOnly;
 
 	/** if dead Pawn's health <= this value than it gibs (unless hard disabled by client option)
 	 * set to a positive number to never gib (since dead Pawns can't have positive health)

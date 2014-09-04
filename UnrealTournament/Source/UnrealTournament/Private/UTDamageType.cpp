@@ -16,6 +16,10 @@ UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 	GibHealthThreshold = -50;
 	GibDamageThreshold = 99;
 
+	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> DefaultFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/RedHitFlash.RedHitFlash'"));
+	BodyDamageColor = DefaultFlash.Object;
+	bBodyDamageColorRimOnly = true;
+
 	ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages","GenericConsoleDeathMessage","{Player1Name} killed {Player2Name} with the {WeaponName}.");
 	MaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericMaleSuicideMessage","{Player2Name} killed himself with the {WeaponName}.");
 	FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericFemaleSuicideMessage","{Player2Name} killed herself with the {WeaponName}.");
@@ -90,6 +94,6 @@ void UUTDamageType::PlayHitEffects_Implementation(AUTCharacter* HitPawn) const
 {
 	if (BodyDamageColor != NULL && !HitPawn->IsSpawnProtected()) // TODO: not if hit armor?
 	{
-		HitPawn->SetBodyColorFlash(BodyDamageColor);
+		HitPawn->SetBodyColorFlash(BodyDamageColor, bBodyDamageColorRimOnly);
 	}
 }

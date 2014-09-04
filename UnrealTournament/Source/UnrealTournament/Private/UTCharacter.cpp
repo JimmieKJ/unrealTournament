@@ -2128,10 +2128,15 @@ void AUTCharacter::UpdateSkin()
 	}
 }
 
-void AUTCharacter::SetBodyColorFlash(const UCurveLinearColor* ColorCurve)
+void AUTCharacter::SetBodyColorFlash(const UCurveLinearColor* ColorCurve, bool bRimOnly)
 {
 	BodyColorFlashCurve = ColorCurve;
 	BodyColorFlashElapsedTime = 0.0f;
+	if (BodyMI != NULL)
+	{
+		static FName NAME_FullBodyFlashPct(TEXT("FullBodyFlashPct"));
+		BodyMI->SetScalarParameterValue(NAME_FullBodyFlashPct, bRimOnly ? 0.0f : 1.0f);
+	}
 }
 
 void AUTCharacter::UpdateBodyColorFlash(float DeltaTime)

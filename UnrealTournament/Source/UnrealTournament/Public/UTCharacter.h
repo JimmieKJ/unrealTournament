@@ -695,7 +695,7 @@ public:
 	 * NOT REPLICATED
 	 */
 	UFUNCTION(BlueprintCallable, Category = Effects)
-	void SetBodyColorFlash(const UCurveLinearColor* ColorCurve);
+	virtual void SetBodyColorFlash(const UCurveLinearColor* ColorCurve, bool bRimOnly);
 
 	/** updates time and sets BodyColorFlash in the character material */
 	virtual void UpdateBodyColorFlash(float DeltaTime);
