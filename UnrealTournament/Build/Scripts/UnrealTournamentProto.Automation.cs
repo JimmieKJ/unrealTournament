@@ -60,7 +60,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             ClientPlatforms.Add(UnrealTargetPlatform.Win64);
             if (!Cmd.ParseParam("nolinux"))
             {
-                //ClientPlatforms.Add(UnrealTargetPlatform.Linux);
+                ClientPlatforms.Add(UnrealTargetPlatform.Linux);
             }
         }
 
@@ -151,10 +151,19 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 		Project.Run(Params);
         
 		if (WorkingCL > 0)
-		{
-			// Check everything in!
-			int SubmittedCL;
-			P4.Submit(WorkingCL, out SubmittedCL, true, true);
+        {
+            bool Pending;
+            if (P4.ChangeFiles(WorkingCL, out Pending).Count == 0)
+            {
+                Log("************************* No files to submit.");
+                P4.DeleteChange(WorkingCL);
+            }
+            else
+            {
+                // Check everything in!
+                int SubmittedCL;
+                P4.Submit(WorkingCL, out SubmittedCL, true, true);
+            }
 
 			P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
 		}
@@ -263,15 +272,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                   LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -Cook -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
-
-            if (CommandUtils.P4Enabled && HostPlat == UnrealTargetPlatform.Win64)
-            {
-                // Write the working cl to a file so github has a way to see what we built
-                string RecordOfSuccess = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Build", "build.properties");
-                CommandUtils.CreateDirectory(Path.GetDirectoryName(RecordOfSuccess));
-                CommandUtils.WriteAllText(RecordOfSuccess, CommandUtils.P4Env.ChangelistString);
-                AddBuildProduct(RecordOfSuccess);
-            }
         }
     }
 
