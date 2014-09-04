@@ -210,22 +210,14 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
     public class UnrealTournamentBuildNode : GUBP.GUBPNode
     {
         BranchInfo.BranchUProject GameProj;
-        UnrealTargetPlatform HostPlat;
 
         public UnrealTournamentBuildNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
         {
             GameProj = InGameProj;
-            HostPlat = HostPlatform;
 
-            if (HostPlat == UnrealTargetPlatform.Mac)
-            {
-                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Mac));
-            }
-            else
-            {
-                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
-                AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux)); 
-            }
+            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
+            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
+            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux)); 
 				
             var Chunker = bp.Branch.FindProgram("BuildPatchTool");
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
@@ -233,18 +225,13 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
         }
 
-        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
+        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj)
         {
-            if (HostPlatform == UnrealTargetPlatform.Mac)
-            {
-                return InGameProj.GameName + "_MakeBuild_OnMac";
-            }
-
             return InGameProj.GameName + "_MakeBuild";
         }
         public override string GetFullName()
         {
-            return StaticGetFullName(GameProj, HostPlat);
+            return StaticGetFullName(GameProj);
         }
         public override string GameNameIfAnyForTempStorage()
         {
@@ -282,10 +269,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 if (InHostPlatform == UnrealTargetPlatform.Win64)
                 {
                     bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
-                }
-                else if (InHostPlatform == UnrealTargetPlatform.Mac)
-                {
-                    //bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
                 }
             }
         }
