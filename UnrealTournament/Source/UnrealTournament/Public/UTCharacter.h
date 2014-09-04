@@ -24,6 +24,12 @@ struct FTakeHitInfo
 	/** the damage type we were hit with */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
 	TSubclassOf<UDamageType> DamageType;
+	/** shot direction pitch, manually compressed */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	uint8 ShotDirPitch;
+	/** shot direction yaw, manually compressed */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	uint8 ShotDirYaw;
 	/** true if the damage was partially or completely absorbed by armor
 	 * often used to suppress some damage effects in favor of those done by the armor
 	 */
@@ -81,6 +87,26 @@ enum EAllowedSpecialMoveAnims
 	EASM_Any,
 	EASM_UpperBodyOnly, 
 	EASM_None,
+};
+
+USTRUCT(BlueprintType)
+struct FBloodDecalInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** material to use for the decal */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
+	UMaterialInterface* Material;
+	/** Base scale of decal */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
+	FVector2D BaseScale;
+	/** range of random scaling applied (always uniform) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
+	FVector2D ScaleMultRange;
+
+	FBloodDecalInfo()
+		: Material(NULL), BaseScale(32.0f, 32.0f), ScaleMultRange(0.8f, 1.2f)
+	{}
 };
 
 UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoExposure,LensFlares,AmbientOcclusion,DepthOfField,MotionBlur,Misc,ScreenSpaceReflections,Bloom,SceneColor,Film,AmbientCubemap,AgentPhysics,Attachment,Avoidance,PlanarMovement,AI,Replication,Input,Actor,Tags,GlobalIllumination))
@@ -408,9 +434,22 @@ public:
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
 	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, bool bHitArmor, const FDamageEvent& DamageEvent);
 
-	/** TEMP blood effect until we have a better hit effects system */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	UParticleSystem* BloodEffect;
+	/** blood effects (chosen at random when spawning blood)
+	 * note that these are intentionally split instead of a UTImpactEffect because the sound, particles, and decals are all handled with separate logic
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Effects)
+	TArray<UParticleSystem*> BloodEffects;
+	/** blood decal materials placed on nearby world geometry */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Effects)
+	TArray<FBloodDecalInfo> BloodDecals;
+
+	/** trace to nearest world geometry and spawn a blood decal at the hit location (if any) */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
+	virtual void SpawnBloodDecal(const FVector& TraceStart, const FVector& TraceDir);
+
+	/** last time ragdolling corpse spawned a blood decal */
+	UPROPERTY(BlueprintReadWrite, Category = Effects)
+	float LastDeathDecalTime;
 
 	/** plays clientside hit effects using the data previously stored in LastTakeHitInfo */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)

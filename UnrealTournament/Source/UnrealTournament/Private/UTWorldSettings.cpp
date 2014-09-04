@@ -39,7 +39,7 @@ void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect)
 	UParticleSystemComponent* PSC = Cast <UParticleSystemComponent>(NewEffect);
 	if (PSC != NULL)
 	{
-		if (PSC->bAutoDestroy && PSC->Template != NULL && IsLoopingParticleSystem(PSC->Template))
+		if (PSC->bAutoDestroy && PSC->Template != NULL && !IsLoopingParticleSystem(PSC->Template))
 		{
 			bNeedsTiming = false;
 		}

@@ -16,6 +16,7 @@
 #include "UTDmgType_Telefragged.h"
 #include "UTReplicatedEmitter.h"
 #include "UTLift.h"
+#include "UTWorldSettings.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -530,6 +531,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 			Mesh->AddImpulseAtLocation(ResultMomentum, HitLocation);
+			if (GetNetMode() != NM_DedicatedServer)
+			{
+				// note: won't be replicated in this case since already torn off but we still need it for clientside impact effects on the corpse
+				SetLastTakeHitInfo(Damage, ResultMomentum, false, DamageEvent);
+			}
 		}
 	
 		return float(ResultDamage);
@@ -579,14 +585,17 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, boo
 	LastTakeHitInfo.bHitArmor = bHitArmor;
 	LastTakeHitInfo.Momentum = Momentum;
 
-	FVector NewRelHitLocation;
+	FVector NewRelHitLocation(FVector::ZeroVector);
+	FVector ShotDir(FVector::ZeroVector);
 	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 	{
 		NewRelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetActorLocation();
+		ShotDir = ((FPointDamageEvent*)&DamageEvent)->ShotDirection;
 	}
 	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
 		NewRelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetActorLocation();
+		ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).SafeNormal();
 	}
 	// make sure there's a difference from the last time so replication happens
 	if ((NewRelHitLocation - LastTakeHitInfo.RelHitLocation).IsNearlyZero(1.0f))
@@ -594,6 +603,12 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, boo
 		NewRelHitLocation.Z += 1.0f;
 	}
 	LastTakeHitInfo.RelHitLocation = NewRelHitLocation;
+
+	// set shot rotation
+	// this differs from momentum in cases of e.g. damage types that kick upwards
+	FRotator ShotRot = ShotDir.Rotation();
+	LastTakeHitInfo.ShotDirPitch = FRotator::CompressAxisToByte(ShotRot.Pitch);
+	LastTakeHitInfo.ShotDirYaw = FRotator::CompressAxisToByte(ShotRot.Yaw);
 
 	LastTakeHitTime = GetWorld()->TimeSeconds;
 			
@@ -609,20 +624,93 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 		{
 			UTDmg.GetDefaultObject()->PlayHitEffects(this);
 		}
-		if (LastTakeHitInfo.Damage > 0 && BloodEffect != NULL)
+		// check blood effects
+		if (LastTakeHitInfo.Damage > 0) // TODO: maybe not if hit armor?
 		{
-			// we want ourselves as the Outer for OwnerNoSee checks yet not attached to us, so the GameplayStatics functions don't get the job done
-			UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
-			PSC->bAutoDestroy = true;
-			PSC->SecondsBeforeInactive = 0.0f;
-			PSC->bAutoActivate = false;
-			PSC->SetTemplate(BloodEffect);
-			PSC->bOverrideLODMethod = false;
-			PSC->RegisterComponentWithWorld(GetWorld());
-			PSC->SetAbsolute(true, true, true);
-			PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
-			PSC->SetRelativeScale3D(FVector(1.f));
-			PSC->ActivateSystem(true);
+			bool bRecentlyRendered = GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f;
+			// TODO: gore setting check
+			if (bRecentlyRendered && BloodEffects.Num() > 0)
+			{
+				UParticleSystem* Blood = BloodEffects[FMath::RandHelper(BloodEffects.Num())];
+				if (Blood != NULL)
+				{
+					// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
+					UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+					PSC->bAutoDestroy = true;
+					PSC->SecondsBeforeInactive = 0.0f;
+					PSC->bAutoActivate = false;
+					PSC->SetTemplate(Blood);
+					PSC->bOverrideLODMethod = false;
+					PSC->RegisterComponentWithWorld(GetWorld());
+					PSC->AttachTo(Mesh);
+					PSC->SetAbsolute(true, true, true);
+					PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
+					PSC->SetRelativeScale3D(FVector(1.f));
+					PSC->ActivateSystem(true);
+				}
+			}
+			// spawn decal
+			bool bSpawnDecal = bRecentlyRendered;
+			if (!bSpawnDecal)
+			{
+				// spawn blood decals for player locally viewed even in first person mode
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+				{
+					if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+					{
+						bSpawnDecal = true;
+						break;
+					}
+				}
+			}
+			if (bSpawnDecal)
+			{
+				SpawnBloodDecal(LastTakeHitInfo.RelHitLocation + GetActorLocation(), FRotator(FRotator::DecompressAxisFromByte(LastTakeHitInfo.ShotDirPitch), FRotator::DecompressAxisFromByte(LastTakeHitInfo.ShotDirYaw), 0.0f).Vector());
+			}
+		}
+	}
+}
+
+void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& TraceDir)
+{
+	// TODO: gore setting check
+	if (BloodDecals.Num() > 0)
+	{
+		const FBloodDecalInfo& DecalInfo = BloodDecals[FMath::RandHelper(BloodDecals.Num())];
+		if (DecalInfo.Material != NULL)
+		{
+			// FIXME: hack to prevent decals from SM4- until engine is fixed (4.5?)
+			if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::SM4)
+			{
+				UMaterial* Mat = DecalInfo.Material->GetMaterial();
+				if (Mat != NULL && Mat->DecalBlendMode > DBM_Emissive)
+				{
+					return;
+				}
+			}
+
+			static FName NAME_BloodDecal(TEXT("BloodDecal"));
+			FHitResult Hit;
+			if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (CapsuleComponent->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)))
+			{
+				UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
+				Decal->SetAbsolute(true, true, true);
+				FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
+				Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
+				Decal->SetWorldLocation(Hit.Location);
+				Decal->SetWorldRotation((-Hit.Normal).Rotation() + FRotator(0.0f, 0.0f, 360.0f * FMath::FRand()));
+				Decal->SetDecalMaterial(DecalInfo.Material);
+				Decal->RegisterComponentWithWorld(GetWorld());
+				AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+				if (Settings != NULL)
+				{
+					Settings->AddImpactEffect(Decal);
+				}
+				else
+				{
+					GetWorldTimerManager().SetTimer(Decal, &UDecalComponent::DestroyComponent, 30.0f, false);
+				}
+			}
 		}
 	}
 }
@@ -798,6 +886,8 @@ void AUTCharacter::PlayDying()
 	SetLocalAmbientSound(NULL);
 
 	// TODO: damagetype effects, etc
+	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
+	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -1852,8 +1942,17 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 
 void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+	if (IsDead())
+	{
+		// maybe spawn blood as the ragdoll smacks into things
+		if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastDeathDecalTime > 0.25f)
+		{
+			SpawnBloodDecal(GetActorLocation(), -Hit.Normal);
+			LastDeathDecalTime = GetWorld()->TimeSeconds;
+		}
+	}
 	// cause falling damage on Z axis collisions
-	if (!IsDead() && !bInRagdollRecovery && FMath::Abs<float>(Hit.Normal.Z) > 0.5f)
+	else if (!bInRagdollRecovery && FMath::Abs<float>(Hit.Normal.Z) > 0.5f)
 	{
 		FVector MeshVelocity = Mesh->GetComponentVelocity();
 		// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
