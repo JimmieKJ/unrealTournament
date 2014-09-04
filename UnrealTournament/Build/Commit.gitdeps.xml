@@ -354,6 +354,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Effects/fabiom/P_WP_Linkgun_Projectile_v1.uasset" Hash="2b2a4aa47f7c3f3843d1f5d19c648e67ae861bfa" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Effects/fabiom/P_WP_RocketLauncher_RocketExplosion_Version1.uasset" Hash="19b51a5bf982983dff54e8e80e0ee60c7333a2ed" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Effects/fabiom/P_WP_ShockRifle_Ball.uasset" Hash="f7f68715ed24cbc7795cbba3eda8dc9ee594634d" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Effects/fabiom/P_WP_ShockRifle_Ball_2.uasset" Hash="4f2a0c300c7a797f73fba07a91d9bfba6548f913" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Effects/fabiom/P_WP_ShockRifle_Beam_1P.uasset" Hash="e9c4d362bb5ab6476d8e36b15575a617fd21aab4" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Effects/fabiom/plasmamuzzle.uasset" Hash="b7279d9217546904dd4127a6011bcf7b45140146" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Effects/fabiom/Redeemer_Explosion.uasset" Hash="ee18f2798048e2d160a801879718a0676e6bc409" />
@@ -3363,6 +3364,7 @@
     <Blob Hash="4ec686446f49846995885cb1e0c4a21816cc0107" Size="102025" PackHash="23718fe7884334d87224b9dd7dacba2366c00e05" PackOffset="194895" />
     <Blob Hash="4ed49c963744964d1b9cac8969bc4742923dbd3b" Size="1358" PackHash="160744c25ef50c8ce317deb29b02dfdea443938a" PackOffset="687162" />
     <Blob Hash="4f00a6cf3d22996b9952427ff32a08c1a34c8e77" Size="21483499" PackHash="cb2350b9db82a15ca791ce60fd5fc99bea4d6da7" PackOffset="8" />
+    <Blob Hash="4f2a0c300c7a797f73fba07a91d9bfba6548f913" Size="278073" PackHash="6aafef6ca5b0f7551c98730db00bda3ee29d9eb2" PackOffset="8" />
     <Blob Hash="4f2a433e91b5395c04809c0160526063cdd11636" Size="4748284" PackHash="155fdcfbbc1661d2e8b303d56707098b88aa87c7" PackOffset="8" />
     <Blob Hash="4f4aacbd0cb8799b3060f65938921c96e113c963" Size="644266" PackHash="b6d2de8fc169f6d45d402aa2b92f70a9d283f72b" PackOffset="682404" />
     <Blob Hash="4f7743c54bf40fb74d166aefbb5aa6d2068f93ee" Size="6279" PackHash="9665ec562fa4047f852c4868b0887959d0c0160f" PackOffset="2002929" />
@@ -5286,6 +5288,7 @@
     <Pack Hash="6aa1f85e55f2fcd5e15b3c5d4729eca1e9fc2325" Size="1535379" CompressedSize="866242" RemotePath="0-b537f692bab156589edf8db3831e1233fdcdaabc" />
     <Pack Hash="6aaa4cfe07aaf129da787ac43314086e75aca996" Size="2052922" CompressedSize="2051349" RemotePath="0-c88fe22e17a60c7b0d11b2a5250c510405e32c70" />
     <Pack Hash="6aaa5cadd815f21bac9a02a0fb731a57e4519bf2" Size="1227562" CompressedSize="1227037" RemotePath="0-7ed1c88b023e9856b767bb174b1f659fdd7a8b4f" />
+    <Pack Hash="6aafef6ca5b0f7551c98730db00bda3ee29d9eb2" Size="278081" CompressedSize="197157" RemotePath="0-4faea7ef2ba8eeb067e05b54d172cc6e5455a53c" />
     <Pack Hash="6b81ec4f5126d0be3eb00d8960af062d3b5b2d86" Size="6701341" CompressedSize="6701894" RemotePath="0-47786c932ea154244a2eea7ebc359747448ccb88" />
     <Pack Hash="6be5bfdb072d4bddba82d6bfdba1e9bef1f8b53f" Size="20253143" CompressedSize="16870702" RemotePath="0-330c2e44c0c1ad302ded3c9f91f07bea9ed18066" />
     <Pack Hash="6c2083aab81048b2bdc9406ce67ce27ad1c3e62d" Size="1634902" CompressedSize="1634385" RemotePath="0-fd84a205d99f60e3971218e4102d8f27be2e5416" />
