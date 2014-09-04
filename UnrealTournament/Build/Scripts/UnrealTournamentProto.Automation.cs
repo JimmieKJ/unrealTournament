@@ -122,6 +122,12 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 	}
 	public override void ExecuteBuild()
 	{
+        if (ParseParam("CIS"))
+        {
+            Log("Not archiving UT build for CIS");
+            return;
+        }
+
 		Log("************************* UnrealTournamentProto_BasicBuild");
 
 		var Params = GetParams(this);
