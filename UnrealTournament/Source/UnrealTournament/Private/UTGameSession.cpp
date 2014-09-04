@@ -252,6 +252,7 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 }
 void AUTGameSession::UpdateGameState()
 {
+	return; // TEMP Return until we can block it. 
 	if (OnlineGameSettings.IsValid())
 	{
 		OnlineGameSettings->UpdateGameSettings(UTGameMode);
