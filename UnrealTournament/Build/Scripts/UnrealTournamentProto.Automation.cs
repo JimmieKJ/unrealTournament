@@ -11,7 +11,6 @@ using EpicGames.MCP.Config;
 
 public class UnrealTournamentBuild
 {
-    // Use old-style UAT version for Fortnite
     // TODO this should probably use the new Engine Version stuff.
     static string CreateBuildVersion()
     {
@@ -122,10 +121,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 
 			// if we are running, we assume this is a local test and don't chunk
 			Run: Cmd.ParseParam("Run"),
-			StageDirectoryParam: CombinePaths(IsBuildMachine ?
-			NetworkStage :
-			Path.GetFullPath(CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds")),
-            P4Branch + "-CL-" + P4Change)
+            StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
 		);
 		Params.ValidateAndLog();
 		return Params;
@@ -180,7 +176,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         Platform ClientPlatformInst = Params.ClientTargetPlatformInstances[0];
         string TargetCook = ClientPlatformInst.GetCookPlatform(false, Params.HasDedicatedServerAndClient, "");
 
-        string RawImagePath = CombinePaths(UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this).StagingDir, TargetCook);
+        string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), TargetCook);
         string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
 
         if (!FileExists(RawImageManifest))
@@ -200,7 +196,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
         });
 
-        var BuildLocation = CombinePaths(Params.BaseArchiveDirectory, TargetCook);
+        var BuildLocation = CombinePaths(Params.StageDirectoryParam, TargetCook);
         if (!DirectoryExists(BuildLocation))
         {
             throw new BuildException("Build directory {0} does not exist.", BuildLocation);
@@ -269,7 +265,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             }
             else
             {
-                  LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -Cook -Chunk");
+                  LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -SkipCook -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
         }
