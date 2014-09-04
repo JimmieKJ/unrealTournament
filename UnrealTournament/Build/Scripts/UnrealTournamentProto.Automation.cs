@@ -164,7 +164,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 			P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
 		}
         
-        if (ParseParam("Chunk"))
+        if (ParseParam("Chunk") && !ParseParam("mac"))
 		{
 		    Chunk(Params);
 		}
@@ -285,7 +285,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 }
                 else if (InHostPlatform == UnrealTargetPlatform.Mac)
                 {
-                    //bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
+                    bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
                 }
             }
         }
