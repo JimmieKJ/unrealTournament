@@ -272,6 +272,10 @@ static TAutoConsoleVariable<int32> CVarUnsteadyFPS(
 	TEXT("ut.UnsteadyFPS"), 0,
 	TEXT("Causes FPS to bounce around randomly in the 85-120 range."));
 
+static TAutoConsoleVariable<int32> CVarSmoothFrameRate(
+	TEXT("ut.SmoothFrameRate"), 1,
+	TEXT("Enable frame rate smoothing."));
+
 float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing)
 {
 	float MaxTickRate = 0;
@@ -282,7 +286,7 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 		return Super::GetMaxTickRate(DeltaTime, bAllowFrameRateSmoothing);
 	}
 		
-	if (bSmoothFrameRate && bAllowFrameRateSmoothing)
+	if (bSmoothFrameRate && bAllowFrameRateSmoothing && CVarSmoothFrameRate.GetValueOnGameThread())
 	{
 		MaxTickRate = CurrentMaxTickRate;
 		
