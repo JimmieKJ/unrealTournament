@@ -285,7 +285,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 }
                 else if (InHostPlatform == UnrealTargetPlatform.Mac)
                 {
-                    bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
+                    //bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
                 }
             }
         }
