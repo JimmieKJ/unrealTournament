@@ -15,6 +15,19 @@ class AUTProj_FlakShard : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
+	/** projectile mesh */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
+	TSubobjectPtr<class UMeshComponent> Mesh;
+	/** spins the mesh */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
+	TSubobjectPtr<class URotatingMovementComponent> MeshSpinner;
+	/** material instance to apply heat amount to mesh */
+	UPROPERTY(BlueprintReadWrite, Category = Effects)
+	UMaterialInstanceDynamic* MeshMI;
+	/** particle component for trail */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
+	TSubobjectPtr<class UParticleSystemComponent> Trail;
+
 	/** Limit number of bounces */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 	int32 BouncesRemaining;
@@ -33,7 +46,21 @@ class AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
 	float DamageAttenuationDelay;
 
+	/** amount of time for the hot effects to fade */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	float HeatFadeTime;
+	/** color for trail particles when hot */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	FLinearColor HotTrailColor;
+	/** color for trail particles after HeadFadeTime */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	FLinearColor ColdTrailColor;
+
+	virtual void PostInitializeComponents() override;
+
 	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
 	virtual FRadialDamageParams GetDamageParams_Implementation(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const override;
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
+
+	virtual void Tick(float DeltaTime) override;
 };

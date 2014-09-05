@@ -85,6 +85,31 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	virtual void BeginPlay();
 	virtual void TornOff();
 	
+	/** simulate LifeSpan on the client side
+	 * this is harmless because the Destroy() call won't work if the projectile isn't torn off
+	 * and makes simulating lifetime related projectile effects easier on clients
+	 */
+	virtual void SetLifeSpan(float InLifespan) override
+	{
+		// Store the new value
+		InitialLifeSpan = InLifespan;
+		if (InLifespan > 0.0f)
+		{
+			GetWorldTimerManager().SetTimer(this, &AActor::LifeSpanExpired, InLifespan);
+		}
+		else
+		{
+			GetWorldTimerManager().ClearTimer(this, &AActor::LifeSpanExpired);
+		}
+	}
+	// this override is needed because for some reason the above timer is considered a different delegate than that created by calling the same code in AActor...
+	float GetLifeSpan() const override
+	{
+		// Timer remaining returns -1.0f if there is no such timer - return this as ZERO
+		float CurrentLifespan = GetWorldTimerManager().GetTimerRemaining(this, &AActor::LifeSpanExpired);
+		return (CurrentLifespan != -1.0f) ? CurrentLifespan : 0.0f;
+	}
+
 	virtual void PostNetReceiveLocationAndRotation() override;
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
