@@ -122,12 +122,6 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 	}
 	public override void ExecuteBuild()
 	{
-        if (ParseParam("CIS"))
-        {
-            Log("Not archiving UT build for CIS");
-            return;
-        }
-
 		Log("************************* UnrealTournamentProto_BasicBuild");
 
 		var Params = GetParams(this);
@@ -207,22 +201,56 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 
 class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 {
+
+    public class WaitForUnrealTournamentBuildUserInputNode : GUBP.WaitForUserInput
+    {
+        BranchInfo.BranchUProject GameProj;
+        public WaitForUnrealTournamentBuildUserInputNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
+        {
+            GameProj = InGameProj;
+
+            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
+            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
+            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
+
+            var Chunker = bp.Branch.FindProgram("BuildPatchTool");
+            AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
+            AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
+            AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
+        }
+        public override string GetTriggerDescText()
+        {
+            return "UT is ready to begin a formal build.";
+        }
+        public override string GetTriggerActionText()
+        {
+            return "Make a formal UT build.";
+        }
+        public override string GetTriggerStateName()
+        {
+            return GetFullName();
+        }
+        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj)
+        {
+            return InGameProj.GameName + "_WaitToMakeBuild";
+        }
+        public override string GetFullName()
+        {
+            return StaticGetFullName(GameProj);
+        }
+        public override string GameNameIfAnyForTempStorage()
+        {
+            return GameProj.GameName;
+        }
+    }
+
     public class UnrealTournamentBuildNode : GUBP.GUBPNode
     {
         BranchInfo.BranchUProject GameProj;
 
         public UnrealTournamentBuildNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
         {
-            GameProj = InGameProj;
-
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux)); 
-				
-            var Chunker = bp.Branch.FindProgram("BuildPatchTool");
-            AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
-            AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
-            AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
+            AddDependency(WaitForUnrealTournamentBuildUserInputNode.StaticGetFullName(GameProj));
         }
 
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj)
@@ -268,6 +296,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
                 if (InHostPlatform == UnrealTargetPlatform.Win64)
                 {
+                    bp.AddNode(new WaitForUnrealTournamentBuildUserInputNode(bp, GameProj, InHostPlatform));
                     bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
                 }
             }
