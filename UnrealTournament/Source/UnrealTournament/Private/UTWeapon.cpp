@@ -789,13 +789,19 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
-		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
+		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * GetImpartedMomentumMag(Hit.Actor.Get())), UTOwner->Controller, this);
 	}
 	if (OutHit != NULL)
 	{
 		*OutHit = Hit;
 	}
 }
+
+float AUTWeapon::GetImpartedMomentumMag(AActor* HitActor)
+{
+	return InstantHitInfo[CurrentFireMode].Momentum;
+}
+
 void AUTWeapon::K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit)
 {
 	if (!InstantHitInfo.IsValidIndex(CurrentFireMode))

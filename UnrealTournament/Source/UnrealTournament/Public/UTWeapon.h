@@ -70,8 +70,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	bool bAffectedByStoppingPower;
 
-	UFUNCTION(BlueprintImplementableEvent)
-		virtual	float GetImpartedMomentumMag(AActor* HitActor);
+	virtual	float GetImpartedMomentumMag(AActor* HitActor);
 
 #if WITH_EDITORONLY_DATA
 protected:
