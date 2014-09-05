@@ -323,10 +323,10 @@ void UUTGameEngine::SmoothFrameRate(float DeltaTime)
 		// Miss enough frames during this sample period, apply MissedFramePenalty
 		if (MissedFrames > MissedFrameThreshold)
 		{
-			CurrentMaxTickRate *= MissedFramePenalty;
+			CurrentMaxTickRate -= MissedFramePenalty;
 			MissedFrames = 0;
 			MadeFrames = 0;
-			//UE_LOG(UT, Log, TEXT("Missed framerate %f"), CurrentMaxTickRate);
+			//UE_LOG(UT, Log, TEXT("Missed framerate %f %f"), CurrentMaxTickRate, 1.f / DeltaTime);
 		}
 	}
 	else
@@ -337,9 +337,15 @@ void UUTGameEngine::SmoothFrameRate(float DeltaTime)
 			// We made framerate enough times in a row, creep max back up
 			MadeFramesStreak++;
 			CurrentMaxTickRate += MadeFrameBonus;
+
+			if (FrameRateCap > 0)
+			{
+				CurrentMaxTickRate = FMath::Min(CurrentMaxTickRate, FrameRateCap);
+			}
+
 			MadeFrames = 0;
 			MissedFrames = 0;
-			//UE_LOG(UT, Log, TEXT("Made framerate %f"), CurrentMaxTickRate);
+			//UE_LOG(UT, Log, TEXT("Made framerate %f %f"), CurrentMaxTickRate, 1.f / DeltaTime);
 		}
 	}
 }

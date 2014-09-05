@@ -39,7 +39,7 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY()
 	int32 MissedFrames;
 
-	/* The percentage reduction in maximum frame rate for missing frame rate too often */
+	/* How much to reduce maximum frame rate for missing frame rate too often */
 	UPROPERTY(config)
 	float MissedFramePenalty;
 	
