@@ -51,6 +51,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         List<UnrealTargetPlatform> ClientPlatforms = new List<UnrealTargetPlatform>();
 
         ClientPlatforms.Add(UnrealTargetPlatform.Win64);
+        ClientPlatforms.Add(UnrealTargetPlatform.Win32);
         ClientPlatforms.Add(UnrealTargetPlatform.Mac);
         if (!Cmd.ParseParam("nolinux"))
         {
@@ -211,6 +212,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
+            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win32));
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
 
             var Chunker = bp.Branch.FindProgram("BuildPatchTool");

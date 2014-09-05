@@ -47,6 +47,6 @@ public class UnrealTournamentTarget : TargetRules
         {
             return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Mac };
         }
-        return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64, UnrealTargetPlatform.Linux };
+        return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win32, UnrealTargetPlatform.Win64, UnrealTargetPlatform.Linux };
     }
 }
