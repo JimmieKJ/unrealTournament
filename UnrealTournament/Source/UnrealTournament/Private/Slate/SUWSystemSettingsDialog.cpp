@@ -198,6 +198,20 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
 					]
 				]
+				+ SVerticalBox::Slot()
+				.HAlign(HAlign_Center)
+				.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+				[
+					SAssignNew(SmoothFrameRate, SCheckBox)
+					.ForegroundColor(FLinearColor::Black)
+					.IsChecked(GEngine->bSmoothFrameRate ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+					.Content()
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FLinearColor::Black)
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
+					]
+				]
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
 				+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
@@ -334,6 +348,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+	GEngine->bSmoothFrameRate = SmoothFrameRate->IsChecked();
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
