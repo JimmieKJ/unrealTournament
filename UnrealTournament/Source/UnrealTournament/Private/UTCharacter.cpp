@@ -2776,7 +2776,6 @@ void AUTCharacter::GatherCurrentMovement()
 
 void AUTCharacter::OnRep_UTReplicatedMovement()
 {
-	/*
 	if (RootComponent && RootComponent->IsSimulatingPhysics())
 	{
 		PostNetReceivePhysicState();
