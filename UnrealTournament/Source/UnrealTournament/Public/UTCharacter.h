@@ -7,6 +7,86 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCharacterDiedSignature, class AController*, Killer, const class UDamageType*, DamageType);
 
+/** Replicated movement data of our RootComponent.
+* More efficient than engine's FRepMovement
+*/
+USTRUCT()
+struct FRepUTMovement
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** @TODO FIXMESTEVE version that just replicates XY components */
+	UPROPERTY()
+	FVector_NetQuantize LinearVelocity;
+
+	UPROPERTY()
+	FVector_NetQuantize10 Location;
+
+	/** @TODO FIXMESTEVE only need a few bits for this */
+	UPROPERTY()
+	FVector_NetQuantize Acceleration;
+
+	/** @TODO FIXMESTEVE just replicate yaw */
+	UPROPERTY()
+	FRotator Rotation;
+
+	FRepUTMovement()
+		: LinearVelocity(ForceInit)
+		, Location(ForceInit)
+		, Acceleration(ForceInit)
+		, Rotation(ForceInit)
+	{}
+
+	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+	{
+		bOutSuccess = true;
+
+		bool bOutSuccessLocal = true;
+
+		// update location, linear velocity
+		Location.NetSerialize(Ar, Map, bOutSuccessLocal);
+		bOutSuccess &= bOutSuccessLocal;
+		Rotation.NetSerialize(Ar, Map, bOutSuccessLocal);
+		bOutSuccess &= bOutSuccessLocal;
+		LinearVelocity.NetSerialize(Ar, Map, bOutSuccessLocal);
+		bOutSuccess &= bOutSuccessLocal;
+		Acceleration.NetSerialize(Ar, Map, bOutSuccessLocal);
+		bOutSuccess &= bOutSuccessLocal;
+
+		return true;
+	}
+
+	bool operator==(const FRepUTMovement& Other) const
+	{
+		if (LinearVelocity != Other.LinearVelocity)
+		{
+			return false;
+		}
+
+		if (Location != Other.Location)
+		{
+			return false;
+		}
+
+		if (Rotation != Other.Rotation)
+		{
+			return false;
+		}
+
+		if (Acceleration != Other.Acceleration)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	bool operator!=(const FRepUTMovement& Other) const
+	{
+		return !(*this == Other);
+	}
+};
+
 USTRUCT(BlueprintType)
 struct FTakeHitInfo
 {
@@ -113,6 +193,29 @@ UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoEx
 class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
+
+	//====================================
+	// Networking
+
+	/** Used for replication of our RootComponent's position and velocity */
+//	UPROPERTY(ReplicatedUsing = OnRep_ReplicatedMovement)
+//	struct FRepUTMovement UTReplicatedMovement;
+
+	/** @TODO FIXMESTEVE Temporary different name until engine team makes UpdateSimulatedPosition() virtual */
+	virtual void UTUpdateSimulatedPosition(const FVector & NewLocation, const FRotator & NewRotation, const FVector& NewVelocity);
+
+	virtual void PostNetReceiveLocationAndRotation();
+
+	// @TODO FIXMESTEVE move these properties to FNetworkPredictionData_Client_UTChar(?)  also needed by projectiles
+	/** Estimated value of server contribution to ping, used when calculating how far to simulated ahead */
+	UPROPERTY(EditAnywhere, Category = Network)
+		float ServerPingContribution;
+
+	/** Max amount of ping to predict ahead for */
+	UPROPERTY(EditAnywhere, Category = Network)
+	float MaxPredictionPing;
+
+	//====================================
 
 	/** Pawn mesh: 1st person view (arms; seen only by self) */
 	UPROPERTY(VisibleDefaultsOnly, Category=Mesh)
@@ -552,7 +655,7 @@ public:
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 	virtual void OnRep_ReplicatedMovement() override;
-	
+
 	/** Also call UTCharacterMovement ClearJumpInput() */
 	virtual void ClearJumpInput() override;
 
@@ -881,8 +984,6 @@ protected:
 	/** spawn/destroy/replace the current weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()
 	virtual void UpdateWeaponAttachment();
-
-	
 
 	// firemodes with input currently being held down (pending or actually firing)
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")

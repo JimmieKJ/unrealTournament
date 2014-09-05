@@ -221,7 +221,8 @@ void UUTCharacterMovement::UnableToFollowBaseMove(FVector DeltaPosition, FVector
 	UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
 
 	// @TODO FIXMESTEVE handle case where we should adjust player position so he doesn't encroach, but don't need to make lift return
-	if (MovementBase && Cast<AUTLift>(MovementBase->GetOwner()))// && UpdatedComponent->IsOverlappingComponent(MovementBase))
+	// Test if lift is moving up/sideways, otherwise ignore this (may need more sophisticated test)
+	if (MovementBase && Cast<AUTLift>(MovementBase->GetOwner()) && (MovementBase->ComponentVelocity.Z < 0.f))// && UpdatedComponent->IsOverlappingComponent(MovementBase))
 	{
 		Cast<AUTLift>(MovementBase->GetOwner())->OnEncroachActor(CharacterOwner);
 	}
@@ -888,6 +889,8 @@ FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() 
 	{
 		UUTCharacterMovement* MutableThis = const_cast<UUTCharacterMovement*>(this);
 		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_UTChar();
+		MutableThis->ClientPredictionData->MaxSmoothNetUpdateDist = 92.f; // 2X character capsule radius
+		MutableThis->ClientPredictionData->NoSmoothNetUpdateDist = 140.f;
 	}
 
 	return ClientPredictionData;
@@ -1384,3 +1387,91 @@ void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, 
 		Super::ClientAdjustPosition_Implementation(TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition, ServerMovementMode);
 	}
 }
+
+void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
+{
+	if (!HasValidData() || GetNetMode() != NM_Client)
+	{
+		return;
+	}
+
+	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+	if (ClientData && ClientData->bSmoothNetUpdates)
+	{
+		// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
+		if ((DeltaSeconds < ClientData->SmoothNetUpdateTime) && CharacterOwner->Mesh && !CharacterOwner->Mesh->IsSimulatingPhysics())
+		{
+			float SmoothTime = Velocity.IsZero() ? 0.05f : ClientData->SmoothNetUpdateTime;
+			ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
+		}
+		else
+		{
+			ClientData->MeshTranslationOffset = FVector::ZeroVector;
+		}
+
+		if (IsMovingOnGround())
+		{
+			// don't smooth Z position if walking on ground
+			ClientData->MeshTranslationOffset.Z = 0;
+		}
+
+		if (CharacterOwner->Mesh)
+		{
+			const FVector NewRelTranslation = CharacterOwner->ActorToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset + CharacterOwner->GetBaseTranslationOffset());
+			CharacterOwner->Mesh->SetRelativeLocation(NewRelTranslation);
+		}
+		//DrawDebugSphere(GetWorld(), CharacterOwner->GetActorLocation(), 30.f, 8, FColor::Yellow);
+	}
+}
+
+void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
+{
+	if (!HasValidData() || UpdatedComponent->IsSimulatingPhysics())
+	{
+		return;
+	}
+
+	bool bWasFalling = (MovementMode == MOVE_Falling);
+	FVector RealVelocity = Velocity; // Remove if we start using actual acceleration.  Used now to keep our forced clientside decel from affecting animation
+
+	float RemainingTime = DeltaSeconds;
+	while (RemainingTime > 0.001f)
+	{
+		Velocity = SimulatedVelocity;
+		float DeltaTime = RemainingTime;
+		if (RemainingTime > MaxSimulationTimeStep)
+		{
+			DeltaTime = FMath::Min(0.5f*RemainingTime, MaxSimulationTimeStep);
+		}
+		RemainingTime -= DeltaTime;
+		Super::SimulateMovement(DeltaTime);
+
+		if (CharacterOwner->Role == ROLE_SimulatedProxy)
+		{
+			// update velocity with replicated acceleration - handle falling also
+			// For now, pretend 0 accel if walking on ground
+			if (MovementMode == MOVE_Walking)
+			{
+				float Speed = Velocity.Size();
+				if (bWasFalling && (Speed > MaxWalkSpeed))
+				{
+					if (Speed > SprintSpeed)
+					{
+						SimulatedVelocity = DodgeLandingSpeedFactor * Velocity.SafeNormal2D();
+					}
+					else
+					{
+						SimulatedVelocity = MaxWalkSpeed * Velocity.SafeNormal2D();
+					}
+				}
+				else if (Speed > 0.5f * MaxWalkSpeed)
+				{
+					SimulatedVelocity *= (1.f - 2.f*DeltaTime);
+				}
+			}
+			// @TODO FIXMESTEVE - need to update falling velocity after simulate also
+		}
+	}
+	Velocity = RealVelocity;
+}
+

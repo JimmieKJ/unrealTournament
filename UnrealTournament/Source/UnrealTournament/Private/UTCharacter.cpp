@@ -104,6 +104,9 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	PlayerIndicatorMaxDistance = 2700.0f;
 	MaxSavedPositionAge = 0.3f;
+
+	ServerPingContribution = 15.f;
+	MaxPredictionPing = 0.f; // 200.f;
 }
 
 
@@ -2663,3 +2666,129 @@ float AUTCharacter::GetRemoteViewPitch()
 	ClampedPitch = ClampedPitch > 90 ? ClampedPitch - 360 : ClampedPitch;
 	return FMath::Clamp<float>(ClampedPitch, -90.0, 90.0);
 }
+
+void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const FRotator & NewRotation, const FVector& NewVelocity)
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->SimulatedVelocity = NewVelocity;
+
+		// Always consider Location as changed if we were spawned this tick as in that case our replicated Location was set as part of spawning, before PreNetReceive()
+		if ((NewLocation != GetActorLocation()) || (CreationTime == GetWorld()->TimeSeconds))
+		{
+			FVector FinalLocation = NewLocation;
+			if (GetWorld()->EncroachingBlockingGeometry(this, NewLocation, NewRotation))
+			{
+				bSimGravityDisabled = true;
+			}
+			else
+			{
+				bSimGravityDisabled = false;
+			}
+
+			// Don't use TeleportTo(), that clears our base.
+			SetActorLocationAndRotation(FinalLocation, NewRotation, false);
+			//DrawDebugSphere(GetWorld(), FinalLocation, 30.f, 8, FColor::Red);
+			CharacterMovement->bJustTeleported = true;
+			check(CharacterMovement->Velocity == NewVelocity);
+
+			// forward simulate this character to match estimated current position on server, based on my ping
+			APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+			if (PC && PC->PlayerState && (MaxPredictionPing > 0.f))
+			{
+				// exact ping is in msec, divide by 1000 to get time in seconds
+				CharacterMovement->SimulateMovement(0.0005f*FMath::Clamp(PC->PlayerState->ExactPing - ServerPingContribution, 0.f, MaxPredictionPing));
+			}
+		}
+		else if (NewRotation != GetActorRotation())
+		{
+			GetRootComponent()->MoveComponent(FVector::ZeroVector, NewRotation, false);
+		}
+	}
+}
+
+void AUTCharacter::PostNetReceiveLocationAndRotation()
+{
+	if (Role == ROLE_SimulatedProxy)
+	{
+		// Don't change transform if using relative position (it should be nearly the same anyway, or base may be slightly out of sync)
+		if (!ReplicatedBasedMovement.HasRelativeLocation())
+		{
+			const FVector OldLocation = GetActorLocation();
+			UTUpdateSimulatedPosition(ReplicatedMovement.Location, ReplicatedMovement.Rotation, ReplicatedMovement.LinearVelocity);
+
+			INetworkPredictionInterface* PredictionInterface = InterfaceCast<INetworkPredictionInterface>(GetMovementComponent());
+			if (PredictionInterface)
+			{
+				PredictionInterface->SmoothCorrection(OldLocation);
+			}
+		}
+	}
+}
+
+/*
+void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
+{
+	Super::PreReplication(ChangedPropertyTracker);
+
+	if (bReplicateMovement || AttachmentReplication.AttachParent)
+	{
+		GatherCurrentMovement();
+	}
+
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, bReplicateMovement); 
+}
+
+void AUTCharacter::GatherCurrentMovement()
+{
+	Super::GatherCurrentMovement();
+
+	UPrimitiveComponent* RootPrimComp = Cast<UPrimitiveComponent>(GetRootComponent());
+	if (RootPrimComp && RootPrimComp->IsSimulatingPhysics())
+	{
+		FRigidBodyState RBState;
+		RootPrimComp->GetRigidBodyState(RBState);
+
+		ReplicatedMovement.FillFrom(RBState);
+	}
+	else if (RootComponent != NULL)
+	{
+		// If we are attached, don't replicate absolute position
+		if (RootComponent->AttachParent != NULL)
+		{
+			// Networking for attachments assumes the RootComponent of the AttachParent actor. 
+			// If that's not the case, we can't update this, as the client wouldn't be able to resolve the Component and would detach as a result.
+			if (AttachmentReplication.AttachParent != NULL)
+			{
+				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
+				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
+			}
+		}
+		else
+		{
+			ReplicatedMovement.Location = RootComponent->GetComponentLocation();
+			ReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
+			ReplicatedMovement.LinearVelocity = GetVelocity();
+			ReplicatedMovement.bRepPhysics = false;
+		}
+	}
+}
+
+void AUTCharacter::OnRep_UTReplicatedMovement()
+{
+	/*
+	if (RootComponent && RootComponent->IsSimulatingPhysics())
+	{
+		PostNetReceivePhysicState();
+	}
+	else
+	{
+		if (Role == ROLE_SimulatedProxy)
+		{
+			PostNetReceiveVelocity(ReplicatedMovement.LinearVelocity);
+			PostNetReceiveLocationAndRotation();
+		}
+	}
+}
+*/
+

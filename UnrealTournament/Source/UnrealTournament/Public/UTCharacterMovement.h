@@ -433,6 +433,14 @@ public:
 	//=========================================
 	// Networking
 
+	virtual void SmoothClientPosition(float DeltaTime) override;
+
+	virtual void SimulateMovement(float DeltaTime) override;
+
+	/** Used for remote client simulation */
+	UPROPERTY()
+	FVector SimulatedVelocity;
+
 	/** Time server is using for this move, from timestamp passed by client */
 	UPROPERTY()
 	float CurrentServerMoveTime;
