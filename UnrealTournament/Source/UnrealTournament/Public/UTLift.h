@@ -27,12 +27,18 @@ class AUTLift : public AActor
 	virtual void MoveLiftTo(FVector NewLocation, FRotator NewRotation);
 
 	UPROPERTY()
-		float LastEncroachNotifyTime;
+	float LastEncroachNotifyTime;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Lift")
+	FVector LiftVelocity;
+
+	virtual FVector GetVelocity() const override;
 
 	/** Event when a player starts standing on me */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = "Lift")
 		virtual void AddBasedCharacter(APawn* NewBasedPawn);
+
+	virtual void Tick(float DeltaTime) override;
 
 private:
 	/** Component to test for encroachment */
@@ -49,6 +55,9 @@ private:
 
 	/** Where lift wants to end for current move. */
 	UPROPERTY()
-		FVector LiftEndLocation;
+	FVector LiftEndLocation;
 
+	/**  Where lift was at end of last tick */
+	UPROPERTY()
+		FVector TickLocation;
 };

@@ -6,8 +6,12 @@
 AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.TickGroup = TG_PostPhysics;
 	LastEncroachNotifyTime = -10.f;
 	bAlwaysRelevant = true;
+	LiftVelocity = FVector(0.f);
+	TickLocation = EncroachComponent ? EncroachComponent->GetComponentLocation() : GetActorLocation();
 }
 
 void AUTLift::SetEncroachComponent(class UPrimitiveComponent* NewEncroachComponent)
@@ -85,4 +89,22 @@ void AUTLift::MoveLiftTo(FVector NewLocation, FRotator NewRotation)
 			EncroachComponent->MoveComponent(NewLocation - EncroachComponent->GetComponentLocation(), EncroachComponent->GetComponentRotation(), true, NULL, MOVECOMP_IgnoreBases);
 		}
 	}
+}
+
+void AUTLift::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (EncroachComponent && (DeltaTime > 0.f))
+	{
+		FVector NewLoc = EncroachComponent->GetComponentLocation();
+		LiftVelocity = (NewLoc - TickLocation) / DeltaTime;
+		EncroachComponent->ComponentVelocity = LiftVelocity;
+		TickLocation = NewLoc;
+	}
+}
+
+FVector AUTLift::GetVelocity() const
+{
+	return LiftVelocity;
 }
