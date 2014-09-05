@@ -252,6 +252,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
         public UnrealTournamentBuildNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
         {
+            GameProj = InGameProj;
+
             AddDependency(WaitForUnrealTournamentBuildUserInputNode.StaticGetFullName(GameProj));
         }
 
