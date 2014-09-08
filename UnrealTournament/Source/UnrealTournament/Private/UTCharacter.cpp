@@ -537,7 +537,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			if (GetNetMode() != NM_DedicatedServer)
 			{
 				// note: won't be replicated in this case since already torn off but we still need it for clientside impact effects on the corpse
-				SetLastTakeHitInfo(Damage, ResultMomentum, false, DamageEvent);
+				SetLastTakeHitInfo(Damage, ResultMomentum, NULL, DamageEvent);
 			}
 		}
 	
