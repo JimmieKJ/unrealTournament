@@ -772,6 +772,11 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		return;
 	}
 
+	if (aPlayer->PlayerState->bOnlySpectator)
+	{
+		return;
+	}
+
 	bSetPlayerDefaultsSpawnInventory = true;
 	Super::RestartPlayer(aPlayer);
 	bSetPlayerDefaultsSpawnInventory = false;

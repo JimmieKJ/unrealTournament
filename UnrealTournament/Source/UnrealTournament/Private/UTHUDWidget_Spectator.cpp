@@ -42,7 +42,22 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 
 			if (!UTGameState->IsMatchInOvertime())
 			{
-				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
+				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
+				{
+					AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
+					AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
+					if (ViewCharacter && ViewCharacter->PlayerState)
+					{
+						FFormatNamedArguments Args;
+						Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
+						SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Now watching {PlayerName}"), Args);						
+					}
+					else
+					{
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [FIRE] to change viewpoint...");
+					}
+				}
+				else if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
 				{
 					FFormatNamedArguments Args;
 					uint32 WaitTime = uint32(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime) + 1;

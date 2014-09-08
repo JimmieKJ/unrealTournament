@@ -504,6 +504,10 @@ void AUTPlayerController::OnFire()
 	{
 		new(DeferredFireInputs) FDeferredFireInput(0, true);
 	}
+	else if (IsInState(NAME_Spectating))
+	{
+		ServerViewNextPlayer();
+	}
 	else
 	{
 		ServerRestartPlayer();
