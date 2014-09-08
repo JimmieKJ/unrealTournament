@@ -3,18 +3,10 @@
 #include "../Public/UnrealTournament.h"
 #include "SUWPlayerSettingsDialog.h"
 #include "SUWindowsStyle.h"
+#include "AssetData.h"
 
 // scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
 static const float BOB_SCALING_FACTOR = 2.0f;
-
-void SUWPlayerSettingsDialog::AddWeapon(const FString& WeaponPath)
-{
-	UClass* WeaponClass = LoadClass<AUTWeapon>(NULL, *WeaponPath, NULL, 0, NULL);
-	if (WeaponClass != NULL)
-	{
-		WeaponList.Add(WeaponClass);
-	}
-}
 
 void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 {
@@ -26,16 +18,26 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 
-	// TODO: some way to detect all available weapon classes
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/Enforcer/Enforcer.Enforcer_C"));
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_FlakCannon.BP_FlakCannon_C"));
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun.BP_LinkGun_C"));
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/Minigun/BP_Minigun.BP_Minigun_C"));
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockRifle.ShockRifle_C"));
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper.BP_Sniper_C"));
-	AddWeapon(TEXT("/Game/UserContent/BioRifle/BP_BioRifle.BP_BioRifle_C"));
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.BP_RocketLauncher_C"));
-	AddWeapon(TEXT("/Game/RestrictedAssets/Weapons/ImpactHammer/BP_ImpactHammer.BP_ImpactHammer_C"));
+	WeaponLibrary = UObjectLibrary::CreateLibrary(AUTWeapon::StaticClass(), true, false);
+	WeaponLibrary->LoadBlueprintAssetDataFromPath(TEXT("/Game/")); // TODO: do we need to iterate through all the root paths?
+	WeaponLibrary->LoadBlueprintAssetDataFromPaths(TArray<FString>()); // HACK: library code doesn't properly handle giving it a root path
+	{
+		TArray<FAssetData> AssetList;
+		WeaponLibrary->GetAssetDataList(AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
+				{
+					WeaponList.Add(TestClass);
+				}
+			}
+		}
+	}
 
 	struct FWeaponListSort
 	{

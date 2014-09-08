@@ -4,11 +4,14 @@
 #include "Slate.h"
 #include "SUWDialog.h"
 
-class SUWPlayerSettingsDialog : public SUWDialog
+class SUWPlayerSettingsDialog : public SUWDialog, public FGCObject
 {
 public:
 	void Construct(const FArguments& InArgs);
 protected:
+
+	/** library of weapon classes pulled from asset registry */
+	UObjectLibrary* WeaponLibrary;
 
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
@@ -29,6 +32,9 @@ protected:
 	void PlayerColorChanged(FLinearColor NewValue);
 	void OnNameTextChanged(const FText& NewText);
 	TSharedRef<ITableRow> GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
-	// find/load weapon class and add to WeaponList
-	void AddWeapon(const FString& WeaponPath);
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(WeaponLibrary);
+	}
 };

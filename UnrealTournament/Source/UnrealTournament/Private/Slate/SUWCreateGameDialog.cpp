@@ -4,6 +4,7 @@
 #include "SUWCreateGameDialog.h"
 #include "SUWindowsStyle.h"
 #include "UTDMGameMode.h"
+#include "AssetData.h"
 
 void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 {
@@ -16,7 +17,26 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			AllGametypes.Add(*It);
 		}
 	}
-	// TODO: need to get blueprint classes somehow (asset registry?)
+	GametypeLibrary = UObjectLibrary::CreateLibrary(AUTGameMode::StaticClass(), true, false);
+	GametypeLibrary->LoadBlueprintAssetDataFromPath(TEXT("/Game/")); // TODO: do we need to iterate through all the root paths?
+	GametypeLibrary->LoadBlueprintAssetDataFromPaths(TArray<FString>()); // HACK: library code doesn't properly handle giving it a root path
+	{
+		TArray<FAssetData> AssetList;
+		GametypeLibrary->GetAssetDataList(AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()))
+				{
+					AllGametypes.Add(TestClass);
+				}
+			}
+		}
+	}
 
 	TSubclassOf<AUTGameMode> InitialSelectedGameClass = AUTDMGameMode::StaticClass(); // FIXME remember prev selection
 
