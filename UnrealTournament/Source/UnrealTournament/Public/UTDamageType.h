@@ -98,7 +98,7 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	 * client only
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void PlayHitEffects(AUTCharacter* HitPawn) const;
+	void PlayHitEffects(AUTCharacter* HitPawn, bool bPlayedArmorEffect) const;
 
 	/** This is the console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)

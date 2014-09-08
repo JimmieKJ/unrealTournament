@@ -106,7 +106,13 @@ public:
 	uint32 bCallOwnerEvent : 1;
 
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageTaken(int32& Damage, FVector& Momentum, bool& bHitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser);
+	void ModifyDamageTaken(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser); // TODO: UHT doesn't handle TSubclassOf<AUTInventory>&
+	/** when a character takes damage that is reduced by inventory, the inventory item is included in the hit info and this function is called for all clients on the inventory DEFAULT OBJECT
+	 * used to play shield/armor effects
+	 * @return whether an effect was played
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	bool PlayArmorEffects(AUTCharacter* HitPawn) const;
 	/** return true to prevent an incoming head shot
 	* if bConsumeArmor is true, prevention should also consume the item (or a charge or whatever mechanic of degradation is being used)
 	*/

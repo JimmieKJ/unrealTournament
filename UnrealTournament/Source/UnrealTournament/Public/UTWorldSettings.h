@@ -23,10 +23,44 @@ struct FTimedImpactEffect
 	{}
 };
 
+/** used to animate a material parameter over time from any Actor */
+USTRUCT()
+struct FTimedMaterialParameter
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** the material to set parameters on */
+	UPROPERTY()
+	TWeakObjectPtr<class UMaterialInstanceDynamic> MI;
+	/** parameter name */
+	UPROPERTY()
+	FName ParamName;
+	/** the curve to retrieve values from */
+	UPROPERTY()
+	UCurveBase* ParamCurve;
+	/** elapsed time along the curve */
+	UPROPERTY()
+	float ElapsedTime;
+	/** whether to clear the parameter when the curve completes */
+	UPROPERTY()
+	bool bClearOnComplete;
+
+	FTimedMaterialParameter()
+		: MI(NULL)
+	{}
+	FTimedMaterialParameter(UMaterialInstanceDynamic* InMI, FName InParamName, UCurveBase* InCurve, bool bInClearOnComplete = true)
+		: MI(InMI), ParamName(InParamName), ParamCurve(InCurve), bClearOnComplete(bInClearOnComplete), ElapsedTime(0.0f)
+	{}
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 {
 	GENERATED_UCLASS_BODY()
+
+	/** returns the world settings for K2 */
+	UFUNCTION(BlueprintCallable, Category = World)
+	static AUTWorldSettings* GetWorldSettings(UObject* WorldContextObject);
 
 	/** maximum lifetime while onscreen of impact effects that don't end on their own such as decals
 	 * set to zero for infinity
@@ -50,4 +84,13 @@ class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 
 	/** checks lifetime on all active effects and culls as necessary */
 	virtual void ExpireImpactEffects();
+
+	UPROPERTY()
+	TArray<FTimedMaterialParameter> MaterialParamCurves;
+
+	/** adds a material parameter curve to manage timing for */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
+	virtual void AddTimedMaterialParameter(UMaterialInstanceDynamic* InMI, FName InParamName, UCurveBase* InCurve, bool bInClearOnComplete = true);
+
+	virtual void Tick(float DeltaTime) override;
 };

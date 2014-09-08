@@ -12,6 +12,15 @@ AUTWorldSettings::AUTWorldSettings(const FPostConstructInitializeProperties& PCI
 
 	MaxImpactEffectVisibleLifetime = 60.0f;
 	MaxImpactEffectInvisibleLifetime = 30.0f;
+
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
+}
+
+AUTWorldSettings* AUTWorldSettings::GetWorldSettings(UObject* WorldContextObject)
+{
+	UWorld* World = (WorldContextObject != NULL) ? WorldContextObject->GetWorld() : NULL;
+	return (World != NULL) ? Cast<AUTWorldSettings>(World->GetWorldSettings()) : NULL;
 }
 
 void AUTWorldSettings::BeginPlay()
@@ -88,6 +97,80 @@ void AUTWorldSettings::ExpireImpactEffects()
 				TimedEffects[i].EffectComp->DetachFromParent();
 				TimedEffects[i].EffectComp->DestroyComponent();
 				TimedEffects.RemoveAt(i--);
+			}
+		}
+	}
+}
+
+void AUTWorldSettings::AddTimedMaterialParameter(UMaterialInstanceDynamic* InMI, FName InParamName, UCurveBase* InCurve, bool bInClearOnComplete)
+{
+	for (int32 i = 0; i < MaterialParamCurves.Num(); i++)
+	{
+		if (MaterialParamCurves[i].MI == InMI && MaterialParamCurves[i].ParamName == InParamName)
+		{
+			MaterialParamCurves[i] = FTimedMaterialParameter(InMI, InParamName, InCurve, bInClearOnComplete);
+			return;
+		}
+	}
+
+	new(MaterialParamCurves) FTimedMaterialParameter(InMI, InParamName, InCurve, bInClearOnComplete);
+}
+
+void AUTWorldSettings::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	for (int32 i = 0; i < MaterialParamCurves.Num(); i++)
+	{
+		if (!MaterialParamCurves[i].MI.IsValid() || MaterialParamCurves[i].ParamCurve == NULL)
+		{
+			MaterialParamCurves.RemoveAt(i--, 1);
+		}
+		else
+		{
+			MaterialParamCurves[i].ElapsedTime += DeltaTime;
+			bool bAtEnd = false;
+			{
+				float MinTime, MaxTime;
+				MaterialParamCurves[i].ParamCurve->GetTimeRange(MinTime, MaxTime);
+				bAtEnd = MaterialParamCurves[i].ElapsedTime > MaxTime;
+			}
+			UCurveFloat* FloatCurve = Cast<UCurveFloat>(MaterialParamCurves[i].ParamCurve);
+			if (FloatCurve != NULL)
+			{
+				if (bAtEnd && MaterialParamCurves[i].bClearOnComplete && MaterialParamCurves[i].MI->Parent != NULL)
+				{
+					// there's no clear single parameter in UMaterialInstance...
+					float ParentValue = 0.0f;
+					MaterialParamCurves[i].MI->Parent->GetScalarParameterValue(MaterialParamCurves[i].ParamName, ParentValue);
+					MaterialParamCurves[i].MI->SetScalarParameterValue(MaterialParamCurves[i].ParamName, ParentValue);
+				}
+				else
+				{
+					MaterialParamCurves[i].MI->SetScalarParameterValue(MaterialParamCurves[i].ParamName, FloatCurve->GetFloatValue(MaterialParamCurves[i].ElapsedTime));
+				}
+			}
+			else
+			{
+				UCurveLinearColor* ColorCurve = Cast<UCurveLinearColor>(MaterialParamCurves[i].ParamCurve);
+				if (ColorCurve != NULL)
+				{
+					if (bAtEnd && MaterialParamCurves[i].bClearOnComplete && MaterialParamCurves[i].MI->Parent != NULL)
+					{
+						// there's no clear single parameter in UMaterialInstance...
+						FLinearColor ParentValue = FLinearColor::Black;
+						MaterialParamCurves[i].MI->Parent->GetVectorParameterValue(MaterialParamCurves[i].ParamName, ParentValue);
+						MaterialParamCurves[i].MI->SetVectorParameterValue(MaterialParamCurves[i].ParamName, ParentValue);
+					}
+					else
+					{
+						MaterialParamCurves[i].MI->SetVectorParameterValue(MaterialParamCurves[i].ParamName, ColorCurve->GetLinearColorValue(MaterialParamCurves[i].ElapsedTime));
+					}
+				}
+			}
+			if (bAtEnd)
+			{
+				MaterialParamCurves.RemoveAt(i--, 1);
 			}
 		}
 	}

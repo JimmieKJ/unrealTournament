@@ -30,11 +30,14 @@ void AUTArmor::Removed()
 	Super::Removed();
 }
 
-void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, bool& bHitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
+void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (Damage > 0)
 	{
-		bHitArmor = true;
+		if (HitArmor == NULL)
+		{
+			HitArmor = this;
+		}
 		int32 Absorb = FMath::Min<int32>(ArmorAmount, FMath::Max<int32>(1, Damage * AbsorptionPct));
 		if (bAbsorbMomentum)
 		{

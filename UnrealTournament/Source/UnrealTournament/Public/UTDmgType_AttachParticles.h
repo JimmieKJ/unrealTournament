@@ -36,9 +36,9 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Effects)
 	bool bSpawnOnAnyPass;
 
-	virtual void PlayHitEffects_Implementation(AUTCharacter* HitPawn) const override
+	virtual void PlayHitEffects_Implementation(AUTCharacter* HitPawn, bool bPlayedArmorEffect) const override
 	{
-		if (HitEffect != NULL)
+		if (HitEffect != NULL && HitPawn->LastTakeHitInfo.Damage > 0)
 		{
 			bool bDamagePassed = (HitPawn->LastTakeHitInfo.Damage >= DamageThreshold);
 			bool bHealthPassed = (HitPawn->Health <= HealthThreshold);

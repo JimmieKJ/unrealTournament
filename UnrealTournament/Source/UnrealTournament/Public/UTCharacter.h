@@ -110,11 +110,11 @@ struct FTakeHitInfo
 	/** shot direction yaw, manually compressed */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
 	uint8 ShotDirYaw;
-	/** true if the damage was partially or completely absorbed by armor
-	 * often used to suppress some damage effects in favor of those done by the armor
+	/** if damage was partially or completely absorbed by inventory, the item that did so
+	 * used to play different effects
 	 */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
-	bool bHitArmor;
+	TSubclassOf<class AUTInventory> HitArmor;
 };
 
 /** ammo counter */
@@ -535,7 +535,7 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
-	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, bool bHitArmor, const FDamageEvent& DamageEvent);
+	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
 
 	/** blood effects (chosen at random when spawning blood)
 	 * note that these are intentionally split instead of a UTImpactEffect because the sound, particles, and decals are all handled with separate logic
@@ -754,6 +754,12 @@ public:
 	UFUNCTION()
 	virtual void UpdateCharOverlays();
 
+	/** returns the material instance currently applied to the character's overlay mesh, if any
+	 * if not NULL, it is safe to change parameters on this material
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
+	virtual UMaterialInstanceDynamic* GetCharOverlayMI();
+
 	/** sets weapon overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but the default in the weapon code is to only display one at a time
 	 */
@@ -966,7 +972,7 @@ protected:
 
 	/** hook to modify damage taken by this Pawn */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageTaken(int32& Damage, FVector& Momentum, bool& bHitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
+	void ModifyDamageTaken(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
 	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc */
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamageCaused(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser);

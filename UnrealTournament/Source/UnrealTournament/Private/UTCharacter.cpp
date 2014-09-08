@@ -425,8 +425,8 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser);
 			}
-			bool bHitArmor = false;
-			ModifyDamageTaken(ResultDamage, ResultMomentum, bHitArmor, DamageEvent, EventInstigator, DamageCauser);
+			AUTInventory* HitArmor = NULL;
+			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
 
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
@@ -512,7 +512,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				CharacterMovement->AddImpulse(ResultMomentum, false);
 			}
 			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, DamageEvent);
-			SetLastTakeHitInfo(ResultDamage, ResultMomentum, bHitArmor, DamageEvent);
+			SetLastTakeHitInfo(ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			if (Health <= 0)
 			{
 				Died(EventInstigator, DamageEvent);
@@ -545,7 +545,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 	}
 }
 
-void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, bool& bHitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	// check for caused modifiers on instigator
 	AUTCharacter* InstigatorChar = NULL;
@@ -570,7 +570,7 @@ void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 			AUTInventory* NextInv = Inv->GetNext(); // cache here in case Inv is destroyed by damage absorption (e.g. armor)
 			if (Inv->bCallDamageEvents)
 			{
-				Inv->ModifyDamageTaken(Damage, Momentum, bHitArmor, DamageEvent, EventInstigator, DamageCauser);
+				Inv->ModifyDamageTaken(Damage, Momentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
 			}
 			Inv = NextInv;
 		}
@@ -581,11 +581,11 @@ void AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Mom
 	Damage *= DamageScaling;
 }
 
-void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, bool bHitArmor, const FDamageEvent& DamageEvent)
+void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
 {
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
-	LastTakeHitInfo.bHitArmor = bHitArmor;
+	LastTakeHitInfo.HitArmor = (HitArmor != NULL) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
 	LastTakeHitInfo.Momentum = Momentum;
 
 	FVector NewRelHitLocation(FVector::ZeroVector);
@@ -622,10 +622,11 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
+		bool bPlayedArmorEffect = (LastTakeHitInfo.HitArmor != NULL) ? LastTakeHitInfo.HitArmor.GetDefaultObject()->PlayArmorEffects(this) : false;
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
 		if (UTDmg != NULL)
 		{
-			UTDmg.GetDefaultObject()->PlayHitEffects(this);
+			UTDmg.GetDefaultObject()->PlayHitEffects(this, bPlayedArmorEffect);
 		}
 		// check blood effects
 		if (LastTakeHitInfo.Damage > 0) // TODO: maybe not if hit armor?
@@ -2069,22 +2070,28 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			}
 			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
+			// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
+			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
 			// apply team color, if applicable
 			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 			if (PS != NULL && PS->Team != NULL)
 			{
-				UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
 				static FName NAME_TeamColor(TEXT("TeamColor"));
 				MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-				FirstOverlay = MID;
 			}
 			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 			{
-				OverlayMesh->SetMaterial(i, FirstOverlay);
+				OverlayMesh->SetMaterial(i, MID);
 			}
 		}
 	}
 }
+
+UMaterialInstanceDynamic* AUTCharacter::GetCharOverlayMI()
+{
+	return (OverlayMesh != NULL && OverlayMesh->IsRegistered()) ? Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0)) : NULL;
+}
+
 void AUTCharacter::UpdateWeaponOverlays()
 {
 	if (Weapon != NULL)

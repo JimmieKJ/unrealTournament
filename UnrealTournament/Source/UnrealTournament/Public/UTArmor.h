@@ -34,7 +34,7 @@ class AUTArmor : public AUTInventory
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual void Removed() override;
 
-	virtual void ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, bool& bHitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser) override;
+	virtual void ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser) override;
 
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 };
