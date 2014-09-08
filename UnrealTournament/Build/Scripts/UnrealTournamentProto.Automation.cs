@@ -51,7 +51,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         List<UnrealTargetPlatform> ClientPlatforms = new List<UnrealTargetPlatform>();
 
         ClientPlatforms.Add(UnrealTargetPlatform.Win64);
-        //ClientPlatforms.Add(UnrealTargetPlatform.Win32);
+        ClientPlatforms.Add(UnrealTargetPlatform.Win32);
         ClientPlatforms.Add(UnrealTargetPlatform.Mac);
         if (!Cmd.ParseParam("nolinux"))
         {
