@@ -172,7 +172,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         string TargetCook = ClientPlatformInst.GetCookPlatform(false, Params.HasDedicatedServerAndClient, "");
 
         string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), TargetCook);
-        string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
+        string RawImageManifest = CombinePaths(RawImagePath, ClientPlatformInst.PlatformType.ToString(), "Manifest_NonUFSFiles.txt");
 
         if (!FileExists(RawImageManifest))
         {
