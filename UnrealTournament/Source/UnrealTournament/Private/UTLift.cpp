@@ -66,6 +66,11 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				bMoveWasBlocked = true;
 				return;
 			}
+			if (Cast<AUTGib>(Other))
+			{
+				Other->Destroy();
+				return;
+			}
 			OnEncroachActor(Other);
 			LastEncroachNotifyTime = GetWorld()->GetTimeSeconds();
 		}
