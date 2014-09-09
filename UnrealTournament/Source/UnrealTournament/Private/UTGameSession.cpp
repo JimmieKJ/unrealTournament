@@ -94,7 +94,7 @@ void AUTGameSession::RegisterServer()
 			OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnCreateSessionComplete);
 			SessionInterface->AddOnCreateSessionCompleteDelegate(OnCreateSessionCompleteDelegate);
 
-			OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 32));
+			TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 32));
 			if (OnlineGameSettings.IsValid() && UTGameMode)
 			{
 				OnlineGameSettings->ApplyGameSettings(UTGameMode);
@@ -104,7 +104,6 @@ void AUTGameSession::RegisterServer()
 		}
 	}
 	UE_LOG(UT,Log,TEXT("Couldn't register the server."))
-	OnlineGameSettings = NULL;
 }
 
 void AUTGameSession::UnRegisterServer()
@@ -119,12 +118,9 @@ void AUTGameSession::UnRegisterServer()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			if (OnlineGameSettings.IsValid())
-			{
-				OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnDestroySessionComplete);
-				SessionInterface->AddOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
-				SessionInterface->DestroySession(GameSessionName);
-			}
+			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnDestroySessionComplete);
+			SessionInterface->AddOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
+			SessionInterface->DestroySession(GameSessionName);
 		}
 	}
 }
@@ -141,12 +137,9 @@ void AUTGameSession::StartMatch()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			if (OnlineGameSettings.IsValid())
-			{
-				OnStartSessionCompleteDelegate = FOnStartSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnStartSessionComplete);
-				SessionInterface->AddOnStartSessionCompleteDelegate(OnStartSessionCompleteDelegate);
-				SessionInterface->StartSession(GameSessionName);
-			}
+			OnStartSessionCompleteDelegate = FOnStartSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnStartSessionComplete);
+			SessionInterface->AddOnStartSessionCompleteDelegate(OnStartSessionCompleteDelegate);
+			SessionInterface->StartSession(GameSessionName);
 		}
 	}
 }
@@ -162,12 +155,9 @@ void AUTGameSession::EndMatch()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			if (OnlineGameSettings.IsValid())
-			{
-				OnEndSessionCompleteDelegate = FOnEndSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnEndSessionComplete);
-				SessionInterface->AddOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
-				SessionInterface->EndSession(GameSessionName);
-			}
+			OnEndSessionCompleteDelegate = FOnEndSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnEndSessionComplete);
+			SessionInterface->AddOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
+			SessionInterface->EndSession(GameSessionName);
 		}
 	}
 	
@@ -180,7 +170,6 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 	if (!bWasSuccessful)
 	{
 		UE_LOG(UT,Log,TEXT("Failed to Create the session '%s' so this match will not be visible.  See the logs!"), *SessionName.ToString());
-		OnlineGameSettings = NULL;
 	}
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
@@ -209,6 +198,7 @@ void AUTGameSession::OnStartSessionComplete(FName SessionName, bool bWasSuccessf
 		if (SessionInterface.IsValid())
 		{
 			SessionInterface->ClearOnStartSessionCompleteDelegate(OnStartSessionCompleteDelegate);
+			UpdateGameState();		// Immediately perform an update so as to pickup any players that have joined since.
 		}
 	}
 
@@ -252,17 +242,22 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 }
 void AUTGameSession::UpdateGameState()
 {
-	return; // TEMP Return until we can block it. 
-	if (OnlineGameSettings.IsValid())
+	const auto OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
-		OnlineGameSettings->UpdateGameSettings(UTGameMode);
-		const auto OnlineSub = IOnlineSubsystem::Get();
-		if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
+		const auto SessionInterface = OnlineSub->GetSessionInterface();
+		if (SessionInterface.IsValid())
 		{
-			const auto SessionInterface = OnlineSub->GetSessionInterface();
-			if (SessionInterface.IsValid())
+			EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
+			if (State != EOnlineSessionState::Creating && State != EOnlineSessionState::Ended && State != EOnlineSessionState::Ending)
 			{
-				SessionInterface->UpdateSession(SessionName, *OnlineGameSettings, true);
+				AUTGameMode* CurrentGame = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+				FUTOnlineGameSettingsBase* OGS = (FUTOnlineGameSettingsBase*)SessionInterface->GetSessionSettings(GameSessionName);
+
+				OGS->Set(SETTING_PLAYERSONLINE, CurrentGame->NumPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_SPECTATORSONLINE, CurrentGame->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
+				SessionInterface->UpdateSession(SessionName, *OGS, true);
 			}
 		}
 	}

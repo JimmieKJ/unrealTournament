@@ -11,6 +11,7 @@ AUTTeamDMGameMode::AUTTeamDMGameMode(const FPostConstructInitializeProperties& P
 	bScoreTeamKills = true;
 	GoalScore = 50;
 	HUDClass = AUTHUD_TeamDM::StaticClass();
+	FriendlyGameName = TEXT("TDM");
 }
 
 void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)

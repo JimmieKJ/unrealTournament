@@ -29,6 +29,9 @@ public:
 	// Number of Spectators
 	uint32 NumSpectators;
 
+	// Max. # of players allowed on this server
+	uint32 MaxPlayers;
+
 	// What UT/UE4 version the server is running
 	FString Version;
 
@@ -36,21 +39,22 @@ public:
 	uint32 Ping;
 
 
-	FServerData( FString inName, FString inIP, FString inGameMode, FString inMap, uint32 inNumPlayers, uint32 inNumSpecators, FString inVersion, uint32 inPing)
+	FServerData( FString inName, FString inIP, FString inGameMode, FString inMap, uint32 inNumPlayers, uint32 inNumSpecators, uint32 inMaxPlayers, FString inVersion, uint32 inPing)
 	: Name( inName )
 	, IP( inIP )
 	, GameMode( inGameMode )
 	, Map ( inMap )
 	, NumPlayers( inNumPlayers )
 	, NumSpectators( inNumSpecators )
+	, MaxPlayers( inMaxPlayers )
 	, Version( inVersion ) 
 	, Ping( inPing )
 	{		
 	}
 
-	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inGameMode, FString inMap, uint32 inNumPlayers, uint32 inNumSpecators, FString inVersion, uint32 inPing)
+	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inGameMode, FString inMap, uint32 inNumPlayers, uint32 inNumSpecators, uint32 inMaxPlayers, FString inVersion, uint32 inPing)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inVersion, inPing ) );
+		return MakeShareable( new FServerData( inName, inIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing ) );
 	}
 
 };
@@ -72,6 +76,8 @@ public:
 		{}
 
 		SLATE_ARGUMENT( TSharedPtr<FServerData>, ServerData)
+		SLATE_STYLE_ARGUMENT( FTableRowStyle, Style )
+
 
 	SLATE_END_ARGS()
 	
@@ -84,12 +90,12 @@ public:
 	{
 		ServerData = InArgs._ServerData;
 		
-		FSuperRowType::Construct( FSuperRowType::FArguments().Padding(1), InOwnerTableView );	
+		FSuperRowType::Construct( FSuperRowType::FArguments().Padding(1).Style(InArgs._Style), InOwnerTableView );	
 	}
 
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
 	{
-		FSlateFontInfo ItemEditorFont = FCoreStyle::Get().GetFontStyle(TEXT("NormalFont"));
+		FSlateFontInfo ItemEditorFont = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Font.Small"); //::Get().GetFontStyle(TEXT("NormalFont"));
 
 		FText ColumnText;
 		if (ServerData.IsValid())
@@ -99,7 +105,7 @@ public:
 			else if (ColumnName == FName(TEXT("ServerGame"))) ColumnText = FText::FromString(ServerData->GameMode);
 			else if (ColumnName == FName(TEXT("ServerMap"))) ColumnText = FText::FromString(ServerData->Map);
 			else if (ColumnName == FName(TEXT("ServerVer"))) ColumnText = FText::FromString(ServerData->Version);
-			else if (ColumnName == FName(TEXT("ServerNumPlayers"))) ColumnText = FText::AsNumber(ServerData->NumPlayers);
+			else if (ColumnName == FName(TEXT("ServerNumPlayers"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumPlayers), FText::AsNumber(ServerData->MaxPlayers));
 			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) ColumnText = FText::AsNumber(ServerData->NumSpectators);
 			else if (ColumnName == FName(TEXT("ServerPing"))) ColumnText = FText::AsNumber(ServerData->Ping);
 			
@@ -150,9 +156,13 @@ protected:
 	TSharedPtr<class SEditableTextBox> UserNameEditBox;
 	TSharedPtr<class SButton> RefreshButton;
 	TSharedPtr<class STextBlock> StatusText;
+	TSharedPtr<class SComboButton> GameFilter;
+	TSharedPtr<class STextBlock> GameFilterText;
 
 	TSharedPtr< SListView< TSharedPtr<FServerData> > > InternetServerList;
-	
+
+	TArray< TSharedPtr< FServerData > > FilteredServers;
+
 	TArray< TSharedPtr< FServerData > > InternetServers;
 	TArray< TSharedPtr< FServerData > > LanServers;
 
@@ -171,14 +181,24 @@ protected:
 	virtual void SetBrowserState(FName NewBrowserState);
 
 	virtual void OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer);
+	virtual void OnSort(EColumnSortPriority::Type, const FName&, EColumnSortMode::Type);
 	virtual FReply OnJoinClick(bool bSpectate);
 	virtual void ConnectTo(FServerData ServerData,bool bSpectate);
 
+	virtual void AddGameFilters();
+	virtual FReply OnGameFilterSelection(FString Filter);
+
+	void SortServers(FName ColumnName);
+	virtual void FilterServers();
+
 private:
+
+	bool bDescendingSort;
+	FName CurrentSortColumn;
+
 	FOnLoginCompleteDelegate OnLoginCompleteDelegate;
 	FOnFindSessionsCompleteDelegate OnFindSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
-
 
 };
 

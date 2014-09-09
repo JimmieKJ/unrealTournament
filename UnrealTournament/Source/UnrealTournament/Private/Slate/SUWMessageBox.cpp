@@ -26,7 +26,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 			SNew(SBorder)
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
-			.BorderImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
+			.BorderImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
 			[
 				SNew(SOverlay)
 				+SOverlay::Slot()
@@ -37,7 +37,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Fill)
 					[
 						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
 					]
 				]
 				+ SOverlay::Slot()
@@ -52,6 +52,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 						SNew(STextBlock)
 						.ColorAndOpacity(FLinearColor::Black)
 						.Text(InArgs._MessageTitle)
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
 					]
 					+ SVerticalBox::Slot()
 					.Padding(MessageTextPaddingX, 0.0f, MessageTextPaddingX, 0.0f)
@@ -64,6 +65,7 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 							SAssignNew(MessageTextBlock, STextBlock)
 							.ColorAndOpacity(FLinearColor::Black)
 							.Text(InArgs._MessageText)
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
 							//.AutoWrapText(true) // manually wrapped due to bug, see below
 						]
 					]

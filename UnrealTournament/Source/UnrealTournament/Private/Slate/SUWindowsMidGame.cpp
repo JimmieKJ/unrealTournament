@@ -51,7 +51,7 @@ void SUWindowsMidGame::CreateDesktop()
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SBox)
-				.HeightOverride(70)
+				.HeightOverride(58)
 				[
 					SNew(SOverlay)
 					+ SOverlay::Slot()
@@ -83,7 +83,7 @@ void SUWindowsMidGame::CreateDesktop()
 							.HAlign(HAlign_Fill)
 							[
 								SNew(SBox)
-								.HeightOverride(63)
+								.HeightOverride(51)
 								[
 									BuildMenuBar()
 								]
@@ -128,7 +128,7 @@ void SUWindowsMidGame::BuildTeamSubMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams", "TEAMS/SPECTATOR").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextColor")
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 		];
 	}
 	else
@@ -202,9 +202,7 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 	TSharedPtr<SComboButton> DropDownButton = NULL;
 
 	SAssignNew(DropDownButton, SComboButton)
-		.Method(SMenuAnchor::UseCurrentWindow)
 		.HasDownArrow(false)
-		.MenuPlacement(MenuPlacement_AboveAnchor)
 		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
 		.ButtonContent()
 		[

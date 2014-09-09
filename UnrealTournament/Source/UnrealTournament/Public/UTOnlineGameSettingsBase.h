@@ -2,11 +2,11 @@
 
 #pragma once
 
-#define SETTING_SERVERNAME FName(TEXT("SERVERNAME"))
-#define SETTING_MOTD FName(TEXT("MOTD"))
-#define SETTING_PLAYERSONLINE FName(TEXT("PLAYERONLINE"))
-#define SETTING_SPECTATORSONLINE FName(TEXT("SPECTATORSONLINE"))
-
+#define SETTING_SERVERNAME FName(TEXT("UT_SERVERNAME"))
+#define SETTING_SERVERVERSION FName(TEXT("UT_SERVERVERSION"))
+#define SETTING_SERVERMOTD FName(TEXT("UT_SERVERMOTD"))
+#define SETTING_PLAYERSONLINE FName(TEXT("UT_PLAYERONLINE"))
+#define SETTING_SPECTATORSONLINE FName(TEXT("UT_SPECTATORSONLINE"))
 
 class FUTOnlineGameSettingsBase : public FOnlineSessionSettings
 {
@@ -15,5 +15,4 @@ public:
 	virtual ~FUTOnlineGameSettingsBase(){}
 
 	virtual void ApplyGameSettings(AUTGameMode* CurrentGame);
-	virtual void UpdateGameSettings(AUTGameMode* CurrentGame);
 };

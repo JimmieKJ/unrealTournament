@@ -17,10 +17,7 @@ public:
 
 	// Cached reference to the Game Mode
 	AUTGameMode* UTGameMode;
-
-	/* Cached version of our OnlineGameSettings.  NOTE: It's only available on the server/host. */
-	TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings;
-
+	
 public:		// Online Subsystem stuff
 
 	// Make sure to clean everything up

@@ -38,7 +38,7 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Fill)
 					[
 						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
 					]
 				]
 				+SOverlay::Slot()
@@ -51,8 +51,9 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Center)
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
 						.Text(InArgs._MessageTitle)
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+
 					]
 					+SVerticalBox::Slot()
 					.VAlign(VAlign_Center)
@@ -60,8 +61,8 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 					.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
 						.Text(InArgs._MessageText)
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
 						.AutoWrapText(true)
 					]
 					+ SVerticalBox::Slot()

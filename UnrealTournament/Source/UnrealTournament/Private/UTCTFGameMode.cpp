@@ -39,6 +39,8 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	//Add the translocator here for now :(
 	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/UserContent/Translocator/BP_Translocator.BP_Translocator_C'"));
 	DefaultInventory.Add(WeapTranslocator.Object);
+
+	FriendlyGameName = TEXT("CTF");
 }
 
 void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

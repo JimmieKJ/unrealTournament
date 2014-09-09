@@ -30,7 +30,7 @@ void SUWindowsMainMenu::CreateDesktop()
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SBox)
-				.HeightOverride(42)
+				.HeightOverride(49)
 				[
 					SNew(SOverlay)
 					+ SOverlay::Slot()
@@ -45,7 +45,28 @@ void SUWindowsMainMenu::CreateDesktop()
 					]
 					+SOverlay::Slot()
 					[
-						BuildMenuBar()
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()		// This is the Buffer at the Top
+						.AutoHeight()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SBox)
+							.HeightOverride(42)
+							[
+								BuildMenuBar()
+							]
+						]
+
+						+ SVerticalBox::Slot()		// This is the Buffer at the Top
+						.AutoHeight()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SBox)
+							.HeightOverride(7)
+							[
+								SNew(SCanvas)
+							]
+						]
 					]
 				]
 			]
@@ -438,6 +459,16 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTForums", "Forums").ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnMenuHTTPButton, FString(TEXT("http://forums.unrealtournament.com/")))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("widgetreflector")))
 			]
 		]
 	];
