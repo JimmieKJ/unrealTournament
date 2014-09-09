@@ -138,6 +138,7 @@ public:
 	 **/
 	virtual FLinearColor GetBaseHUDColor();
 
+	virtual void ShowDebugInfo(float& YL, float& YPos) override;
 
 protected:
 

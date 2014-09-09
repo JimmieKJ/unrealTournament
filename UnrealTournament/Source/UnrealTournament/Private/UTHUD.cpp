@@ -14,6 +14,7 @@
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
 #include "Json.h"
+#include "DisplayDebugHelpers.h"
 
 
 AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
@@ -82,6 +83,24 @@ void AUTHUD::PostInitializeComponents()
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
 }
 
+
+void AUTHUD::ShowDebugInfo(float& YL, float& YPos)
+{
+	if (!DebugDisplay.Contains(TEXT("Bones")))
+	{
+		FLinearColor BackgroundColor(0.f, 0.f, 0.f, 0.2f);
+		DebugCanvas->Canvas->DrawTile(0, 0, 0.5f*DebugCanvas->ClipX, 0.5f*DebugCanvas->ClipY, 0.f, 0.f, 0.f, 0.f, BackgroundColor);
+	}
+
+	FDebugDisplayInfo DisplayInfo(DebugDisplay, ToggledDebugCategories);
+	PlayerOwner->PlayerCameraManager->ViewTarget.Target->DisplayDebug(DebugCanvas, DisplayInfo, YL, YPos);
+
+	if (ShouldDisplayDebug(NAME_Game))
+	{
+		GetWorld()->GetAuthGameMode()->DisplayDebug(DebugCanvas, DisplayInfo, YL, YPos);
+	}
+}
+
 UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 {
 	switch (FontSizeIndex)
@@ -95,7 +114,6 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 
 	return MediumFont;
 }
-
 
 TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceName)
 {
