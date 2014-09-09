@@ -23,9 +23,6 @@ UUTWeaponStateFiringOnce(const class FPostConstructInitializeProperties& PCIP)
 
 	virtual void BeginState(const UUTWeaponState* PrevState)
 	{
-		static int bla = 0;
-		bla++;
-
 		Super::BeginState(PrevState);
 		bFinishedCooldown = false;
 	}

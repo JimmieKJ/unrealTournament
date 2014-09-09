@@ -42,6 +42,10 @@ class AUTWeap_Translocator : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
 	float AmmoRechargeRate;
 
+	/** alternate (usually shorter) refire delay on the disk recall */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+	float RecallFireInterval;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Telefrag)
 	float TelefragDamage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Telefrag)

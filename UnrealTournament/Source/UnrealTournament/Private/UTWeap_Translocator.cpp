@@ -27,6 +27,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 	Ammo = 5;
 	MaxAmmo = 5;
 	AmmoRechargeRate = 1.0f;
+
+	RecallFireInterval = 0.2f;
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
@@ -100,6 +102,13 @@ void AUTWeap_Translocator::FireShot()
 				ClearDisk();
 
 				UUTGameplayStatics::UTPlaySound(GetWorld(), RecallSound, UTOwner, SRT_AllButOwner);
+
+				// special recovery time for recall
+				typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
+				if (Cast<UUTWeaponStateFiringOnce>(CurrentState) != NULL && GetWorldTimerManager().IsTimerActive(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer))
+				{
+					GetWorldTimerManager().SetTimer(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, RecallFireInterval, false);
+				}
 			}
 		}
 		else if (TransDisk != NULL)
