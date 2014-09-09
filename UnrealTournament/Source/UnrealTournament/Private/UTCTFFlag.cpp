@@ -48,7 +48,6 @@ void AUTCTFFlag::DefaultTimer()
 		{
 			for (int i = 0; i < CTFGameState->FlagBases.Num(); i++)
 			{
-				UE_LOG(UT, Log, TEXT("Holder of flag %i = %s"), i, *GetNameSafe(CTFGameState->FlagBases[i]->GetCarriedObjectHolder()));
 				if (CTFGameState->FlagBases[i] != NULL && CTFGameState->FlagBases[i]->GetCarriedObjectHolder() == NULL)
 				{
 					return;

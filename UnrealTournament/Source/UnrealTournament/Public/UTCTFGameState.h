@@ -28,6 +28,9 @@ class AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
 	TArray<AUTCTFFlagBase*> FlagBases;
 
+	/** Will be true if the game is playing advantage going in to half-time */
+	UPROPERTY(Replicated)
+	uint32 bPlayingAdvantage : 1;
 
 
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */

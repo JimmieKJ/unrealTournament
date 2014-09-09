@@ -12,7 +12,7 @@ namespace MatchState
 	extern const FName MatchExitingHalftime;		// Exiting Halftime
 	extern const FName MatchEnteringSuddenDeath;	// The match is entering sudden death
 	extern const FName MatchIsInSuddenDeath;		// The match is in sudden death
-}
+} 
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
@@ -54,7 +54,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual bool IsAWinner(AUTPlayerController* PC);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
-	virtual AUTPlayerState* FindBestPlayerOnTeam(int TeamNumToTest);
 
 	virtual void SetMatchState(FName NewState);
 
@@ -163,6 +162,12 @@ protected:
 
 	virtual bool IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum=255);
 
+	// returns true if the thinks advantage should be played
+	virtual bool IsPlayingAdvantage();
+
+	// Holds the amount of time to give a flag carrier who has the flag out going in to half-time
+	int AdvantageTime;
+	float LastAdvantageCheckDistance;		// Smallest Distance to the flag at the last check.  
 };
 
 

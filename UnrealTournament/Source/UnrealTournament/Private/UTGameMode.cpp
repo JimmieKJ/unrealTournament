@@ -52,6 +52,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	RespawnWaitTime = 1.5f;
 	bPlayersMustBeReady = false;
 	MinPlayersToStart = 1;
+	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
@@ -97,6 +98,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	FString InOpt = ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
+
+	InOpt = ParseOption(Options, TEXT("OnlyStrong"));
+	bOnlyTheStrongSurvive = EvalBoolOptions(InOpt, bOnlyTheStrongSurvive);
 
 	InOpt = ParseOption(Options, TEXT("MustBeReady"));
 	bPlayersMustBeReady = EvalBoolOptions(InOpt, bPlayersMustBeReady);
@@ -326,6 +330,21 @@ void AUTGameMode::DefaultTimer()
 			}
 		}
 	}
+
+	// Look to see if we should restart the game due to server inactivity
+	if (GetNumPlayers() <= 0 && HasMatchStarted())
+	{
+		EmptyServerTime++;
+		if (EmptyServerTime >= AutoRestartTime)
+		{
+			TravelToNextMap();
+		}
+	}
+	else
+	{
+		EmptyServerTime = 0;
+	}
+
 }
 
 
@@ -1136,50 +1155,54 @@ void AUTGameMode::SetMatchState(FName NewState)
 
 void AUTGameMode::HandleEnteringOvertime()
 {
-	// We are entering overtime, kill off anyone not at the top of the leader board....
-
-	AUTPlayerState* BestPlayer = NULL;
-	AUTPlayerState* KillPlayer = NULL;
-	float BestScore = 0.0;
-
-	for (int PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
+	if (bOnlyTheStrongSurvive)
 	{
-		if (UTGameState->PlayerArray[PlayerIdx] != NULL)
-		{
-			if (BestPlayer == NULL || UTGameState->PlayerArray[PlayerIdx]->Score > BestScore)
-			{
-				if (BestPlayer != NULL)
-				{
-					KillPlayer = BestPlayer;
-				}
-				BestPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-				BestScore = BestPlayer->Score;
-			}
-			else if (UTGameState->PlayerArray[PlayerIdx]->Score < BestScore)
-			{
-				KillPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-			}
-		}
+		// We are entering overtime, kill off anyone not at the top of the leader board....
 
-		if (KillPlayer != NULL)
+		AUTPlayerState* BestPlayer = NULL;
+		AUTPlayerState* KillPlayer = NULL;
+		float BestScore = 0.0;
+
+		for (int PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 		{
-			// No longer the best.. kill him.. KILL HIM NOW!!!!!
-			AController* COwner = Cast<AController> (KillPlayer->GetOwner());
-			if (COwner != NULL && COwner->GetPawn() != NULL)
+			if (UTGameState->PlayerArray[PlayerIdx] != NULL)
 			{
-				AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
-				if (UTChar != NULL)
+				if (BestPlayer == NULL || UTGameState->PlayerArray[PlayerIdx]->Score > BestScore)
 				{
-					UE_LOG(UT,Log,TEXT("    -- Calling Died"));
-					// Kill off the pawn...
-					UTChar->Died(NULL,FDamageEvent(UUTDamageType::StaticClass()));
-					// Send this character a message/taunt about not making the cut....
+					if (BestPlayer != NULL)
+					{
+						KillPlayer = BestPlayer;
+					}
+					BestPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+					BestScore = BestPlayer->Score;
+				}
+				else if (UTGameState->PlayerArray[PlayerIdx]->Score < BestScore)
+				{
+					KillPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 				}
 			}
 
-			KillPlayer = NULL;
+			if (KillPlayer != NULL)
+			{
+				// No longer the best.. kill him.. KILL HIM NOW!!!!!
+				AController* COwner = Cast<AController>(KillPlayer->GetOwner());
+				if (COwner != NULL && COwner->GetPawn() != NULL)
+				{
+					AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
+					if (UTChar != NULL)
+					{
+						UE_LOG(UT, Log, TEXT("    -- Calling Died"));
+						// Kill off the pawn...
+						UTChar->Died(NULL, FDamageEvent(UUTDamageType::StaticClass()));
+						// Send this character a message/taunt about not making the cut....
+					}
+				}
+
+				KillPlayer = NULL;
+			}
 		}
 	}
+
 	SetMatchState(MatchState::MatchIsInOvertime);
 }
 

@@ -74,6 +74,10 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 
 				}
 			}
+			else if (CGS->bPlayingAdvantage)
+			{
+				DrawText(NSLOCTEXT("GameClock", "Advantage", "!! Playing Advantage !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
+			}
 			else
 			{
 				FText HalfText = !CGS->bSecondHalf ? NSLOCTEXT("CTFScore","FirstHalf","First Half") : NSLOCTEXT("CTFScore","SecondHalf","Second Half");

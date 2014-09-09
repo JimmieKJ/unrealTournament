@@ -27,6 +27,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
 
 	TeamMomentumPct = 0.3f;
 	bTeamGame = true;
+
 }
 
 void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -60,6 +61,9 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 		Teams.Add(NewTeam);
 		checkSlow(Teams[i] == NewTeam);
 	}
+
+	// TDM never kills off players going in to overtime
+	bOnlyTheStrongSurvive = false;
 }
 
 void AUTTeamGameMode::InitGameState()
@@ -204,30 +208,21 @@ float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 {
-	AUTTeamInfo* PotentialWinner = NULL;
-	bool bTie = false;
-	int32 BestScore = GoalScore - 1;
-
+	AUTTeamInfo* WinningTeam = NULL;
 	for (int32 i = 0; i < Teams.Num(); i++)
 	{
 		if (Teams[i]->Score >= GoalScore)
 		{
-			if (Teams[i]->Score == BestScore)
-			{
-				bTie = true;
-			}
-			else if (Teams[i]->Score > BestScore)
-			{
-				PotentialWinner = Teams[i];
-				BestScore = Teams[i]->Score;
-				bTie = false;
-			}
+			WinningTeam = Teams[i];
+			break;
 		}
 	}
 
-	if (!bTie && PotentialWinner != NULL)
+	if (WinningTeam != NULL)
 	{
-		EndGame(Scorer, TEXT("fraglimit")); // TODO: rework 'reason'
+		AUTPlayerState* BestPlayer = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
+		if (BestPlayer == NULL) BestPlayer = Scorer;
+		EndGame(BestPlayer, TEXT("fraglimit")); 
 		return true;
 	}
 	else
@@ -261,3 +256,18 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 		]
 	];
 }
+
+AUTPlayerState* AUTTeamGameMode::FindBestPlayerOnTeam(int TeamNumToTest)
+{
+	AUTPlayerState* Best = NULL;
+	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS != NULL && PS->GetTeamNum() == TeamNumToTest && (Best == NULL || Best->Score < PS->Score))
+		{
+			Best = PS;
+		}
+	}
+	return Best;
+}
+

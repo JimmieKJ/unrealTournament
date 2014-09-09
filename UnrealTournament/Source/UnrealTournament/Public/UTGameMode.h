@@ -90,6 +90,10 @@ public:
 	UPROPERTY()
 	int32 CountDown;
 
+	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
+	UPROPERTY(Config)
+	bool bOnlyTheStrongSurvive;
+
 	/** Holds the last place any player started from */
 	UPROPERTY()
 	class AActor* LastStartSpot;    // last place any player started from
@@ -128,6 +132,13 @@ public:
 
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
+
+	/** How long should the server wait when there is no one on it before auto-restarting */
+	UPROPERTY(Config)
+	int32 AutoRestartTime;
+
+	/** How long has the server been empty */
+	int32 EmptyServerTime;
 
 	/** first mutator; mutators are a linked list */
 	UPROPERTY(BlueprintReadOnly, Category = Mutator)
@@ -261,6 +272,8 @@ public:
 	virtual void ProcessServerTravel(const FString& URL, bool bAbsolute = false);
 
 protected:
+
+
 	/** map prefix for valid maps (not including the dash); you can create more broad handling by overriding SupportsMap() */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
 	FString MapPrefix;
