@@ -42,7 +42,7 @@ void UUTCTFScoreboard::DrawPlayers(float RenderDelta, float X, float Y, float Cl
 	{
 
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS)
+		if (PS && !PS->bOnlySpectator)
 		{
 			if (TeamFilter < 0 || (PS->Team != NULL && PS->Team->GetTeamNum() == TeamFilter))
 			{
