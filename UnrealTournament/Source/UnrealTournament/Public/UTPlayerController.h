@@ -267,6 +267,17 @@ public:
 	UFUNCTION()
 	virtual void SlowerEmote();
 
+	virtual void ClientSetViewTarget_Implementation(AActor* A, FViewTargetTransitionParams TransitionParams) override;
+
+	UPROPERTY()
+	class AUTCharacter* LastSpectatedCharacter;
+
+	UPROPERTY()
+	class APlayerState* LastSpectatedPlayerState;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerViewPawn(APawn* PawnToView);
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

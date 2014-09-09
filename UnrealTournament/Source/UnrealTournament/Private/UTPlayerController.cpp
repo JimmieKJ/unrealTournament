@@ -1163,6 +1163,27 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		ApplyDeferredFireInputs();
 	}
+
+	// Follow the last spectated player again when they respawn
+	if (StateName == NAME_Spectating)
+	{
+		APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
+		AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
+		if (ViewTargetPawn == nullptr || (ViewTargetCharacter != nullptr && ViewTargetCharacter->IsDead()))
+		{
+			if (LastSpectatedPlayerState != nullptr)
+			{
+				for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+				{
+					APawn* Pawn = *Iterator;
+					if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+					{
+						ServerViewPawn(*Iterator);
+					}
+				}
+			}
+		}
+	}
 }
 
 void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
@@ -1418,4 +1439,29 @@ void AUTPlayerController::SlowerEmote()
 	{
 		UTCharacter->ServerSlowerEmote();
 	}
+}
+
+void AUTPlayerController::ClientSetViewTarget_Implementation(AActor* A, FViewTargetTransitionParams TransitionParams)
+{
+	if (StateName == NAME_Spectating)
+	{
+		AUTCharacter* Char = Cast<AUTCharacter>(A);
+		if (Char)
+		{
+			LastSpectatedCharacter = Char;
+			LastSpectatedPlayerState = Char->PlayerState;
+		}
+	}
+
+	Super::ClientSetViewTarget_Implementation(A, TransitionParams);
+}
+
+bool AUTPlayerController::ServerViewPawn_Validate(APawn* PawnToView)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewPawn_Implementation(APawn* PawnToView)
+{
+	SetViewTarget(PawnToView->PlayerState);
 }
