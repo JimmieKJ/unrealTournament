@@ -61,6 +61,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	HeadRadius = 18.0f;
 	HeadHeight = 8.0f;
 	HeadBone = FName(TEXT("b_Head"));
+	EmoteSpeed = 1.0f;
 
 	BobTime = 0.f;
 	WeaponBobMagnitude = FVector(0.f, 0.8f, 0.4f);
@@ -1664,6 +1665,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepDodgeRolling, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteReplicationInfo, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteSpeed, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 }
 
@@ -2598,6 +2600,41 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	}
 }
 
+bool AUTCharacter::ServerFasterEmote_Validate()
+{
+	return true;
+}
+
+void AUTCharacter::ServerFasterEmote_Implementation()
+{
+	EmoteSpeed = FMath::Min(EmoteSpeed + 0.05f, 3.0f);
+	
+	OnRepEmoteSpeed();
+}
+
+bool AUTCharacter::ServerSlowerEmote_Validate()
+{
+	return true;
+}
+
+void AUTCharacter::ServerSlowerEmote_Implementation()
+{
+	EmoteSpeed = FMath::Max(EmoteSpeed - 0.05f, 0.05f);
+	OnRepEmoteSpeed();
+}
+
+void AUTCharacter::OnRepEmoteSpeed()
+{
+	if (CurrentEmote)
+	{
+		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+		if (AnimInstance != NULL)
+		{
+			AnimInstance->Montage_SetPlayRate(CurrentEmote, EmoteSpeed);
+		}
+	}
+}
+
 void AUTCharacter::OnRepEmote()
 {
 	PlayEmote(EmoteReplicationInfo.EmoteIndex);
@@ -2613,7 +2650,7 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
-			if (AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], 1.0f))
+			if (AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], EmoteSpeed))
 			{
 				UTCharacterMovement->bIsEmoting = true;
 

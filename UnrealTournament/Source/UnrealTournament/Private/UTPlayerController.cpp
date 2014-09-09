@@ -181,6 +181,9 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("Talk", IE_Pressed, this, &AUTPlayerController::Talk);
 	InputComponent->BindAction("TeamTalk", IE_Pressed, this, &AUTPlayerController::TeamTalk);
+
+	InputComponent->BindAction("FasterEmote", IE_Pressed, this, &AUTPlayerController::FasterEmote);
+	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -1399,4 +1402,20 @@ void AUTPlayerController::ApplyDeferredFireInputs()
 		}
 	}
 	DeferredFireInputs.Empty();
+}
+
+void AUTPlayerController::FasterEmote()
+{
+	if (UTCharacter != nullptr && UTCharacter->EmoteCount > 0)
+	{
+		UTCharacter->ServerFasterEmote();
+	}
+}
+
+void AUTPlayerController::SlowerEmote()
+{
+	if (UTCharacter != nullptr && UTCharacter->EmoteCount > 0)
+	{
+		UTCharacter->ServerSlowerEmote();
+	}
 }

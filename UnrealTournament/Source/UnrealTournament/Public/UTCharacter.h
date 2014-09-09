@@ -231,9 +231,21 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UPROPERTY(replicatedUsing=OnRepEmote)
 	FEmoteRepInfo EmoteReplicationInfo;
-
+	
 	UFUNCTION()
 	virtual void OnRepEmote();
+
+	UPROPERTY(replicatedUsing=OnRepEmoteSpeed)
+	float EmoteSpeed;
+	
+	UFUNCTION()
+	virtual void OnRepEmoteSpeed();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerFasterEmote();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSlowerEmote();
 
 	void PlayEmote(int32 EmoteIndex);
 
