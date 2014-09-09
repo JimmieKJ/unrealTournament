@@ -23,6 +23,7 @@ void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
 	}
+	Super::ActorEnteredVolume(Other);
 }
 
 void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
@@ -31,6 +32,7 @@ void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
 	}
+	Super::ActorLeavingVolume(Other);
 }
 
 void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
@@ -39,6 +41,7 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
 	}
+	Super::ActorEnteredVolume(Other);
 }
 
 void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
@@ -47,6 +50,7 @@ void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
 	}
+	Super::ActorLeavingVolume(Other);
 }
 
 
