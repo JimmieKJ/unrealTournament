@@ -198,8 +198,8 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	// Networking
 
 	/** Used for replication of our RootComponent's position and velocity */
-//	UPROPERTY(ReplicatedUsing = OnRep_ReplicatedMovement)
-//	struct FRepUTMovement UTReplicatedMovement;
+	UPROPERTY(ReplicatedUsing = OnRep_UTReplicatedMovement)
+	struct FRepUTMovement UTReplicatedMovement;
 
 	/** @TODO FIXMESTEVE Temporary different name until engine team makes UpdateSimulatedPosition() virtual */
 	virtual void UTUpdateSimulatedPosition(const FVector & NewLocation, const FRotator & NewRotation, const FVector& NewVelocity);
@@ -209,11 +209,25 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	// @TODO FIXMESTEVE move these properties to FNetworkPredictionData_Client_UTChar(?)  also needed by projectiles
 	/** Estimated value of server contribution to ping, used when calculating how far to simulated ahead */
 	UPROPERTY(EditAnywhere, Category = Network)
-		float ServerPingContribution;
+	float ServerPingContribution;
 
 	/** Max amount of ping to predict ahead for */
 	UPROPERTY(EditAnywhere, Category = Network)
 	float MaxPredictionPing;
+
+	UPROPERTY(BluePrintReadOnly, Category = Network)
+	FVector ReplicatedAccel;
+
+	/** UTReplicatedMovement struct replication event */
+	UFUNCTION()
+	virtual void OnRep_UTReplicatedMovement();
+
+	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
+
+	/** UTCharacter version of GatherMovement(), gathers into UTReplicatedMovement.  Return true if using UTReplicatedMovement rather than ReplicatedMovement */
+	virtual bool GatherUTMovement();
+
+	virtual void OnRep_ReplicatedMovement() override;
 
 	//====================================
 
@@ -664,9 +678,6 @@ public:
 
 	/** Handles up and down when swimming or flying */
 	virtual void MoveUp(float Val);
-
-	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
-	virtual void OnRep_ReplicatedMovement() override;
 
 	/** Also call UTCharacterMovement ClearJumpInput() */
 	virtual void ClearJumpInput() override;

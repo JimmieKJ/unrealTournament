@@ -1618,34 +1618,12 @@ void AUTCharacter::FireRateChanged()
 	}
 }
 
-void AUTCharacter::OnRep_ReplicatedMovement()
-{
-	if ((bTearOff || bFeigningDeath) && (RootComponent == NULL || !RootComponent->IsSimulatingPhysics()))
-	{
-		bDeferredReplicatedMovement = true;
-	}
-	else
-	{
-		Super::OnRep_ReplicatedMovement();
-		if (bFeigningDeath && Mesh->IsSimulatingPhysics())
-		{
-			// making the velocity apply to all bodies is more likely to be correct
-			Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance()->GetUnrealWorldVelocity());
-		}
-	}
-}
-
-void AUTCharacter::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
-{
-	Super::PreReplication(ChangedPropertyTracker);
-
-	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
-}
-
 void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+
+	DOREPLIFETIME_CONDITION(AUTCharacter, UTReplicatedMovement, COND_SimulatedOrPhysics);
 	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
@@ -2770,29 +2748,65 @@ void AUTCharacter::PostNetReceiveLocationAndRotation()
 	}
 }
 
-/*
 void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
-	Super::PreReplication(ChangedPropertyTracker);
-
-	if (bReplicateMovement || AttachmentReplication.AttachParent)
+	if ((bReplicateMovement || AttachmentReplication.AttachParent) && GatherUTMovement())
 	{
-		GatherCurrentMovement();
+		DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, UTReplicatedMovement, bReplicateMovement);
+	}
+	else
+	{
+		DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, bReplicateMovement);
 	}
 
-	DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, bReplicateMovement); 
+	const FAnimMontageInstance * RootMotionMontageInstance = GetRootMotionAnimMontageInstance();
+
+	if (RootMotionMontageInstance)
+	{
+		// Is position stored in local space?
+		RepRootMotion.bRelativePosition = BasedMovement.HasRelativeLocation();
+		RepRootMotion.bRelativeRotation = BasedMovement.HasRelativeRotation();
+		RepRootMotion.Location = RepRootMotion.bRelativePosition ? BasedMovement.Location : GetActorLocation();
+		RepRootMotion.Rotation = RepRootMotion.bRelativeRotation ? BasedMovement.Rotation : GetActorRotation();
+		RepRootMotion.MovementBase = BasedMovement.MovementBase;
+		RepRootMotion.MovementBaseBoneName = BasedMovement.BoneName;
+		RepRootMotion.AnimMontage = RootMotionMontageInstance->Montage;
+		RepRootMotion.Position = RootMotionMontageInstance->Position;
+
+		DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RepRootMotion, true);
+	}
+	else
+	{
+		RepRootMotion.Clear();
+		DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RepRootMotion, false);
+	}
+
+	ReplicatedMovementMode = CharacterMovement->PackNetworkMovementMode();
+	ReplicatedBasedMovement = BasedMovement;
+
+	// Optimization: only update and replicate these values if they are actually going to be used.
+	if (BasedMovement.HasRelativeLocation())
+	{
+		// When velocity becomes zero, force replication so the position is updated to match the server (it may have moved due to simulation on the client).
+		ReplicatedBasedMovement.bServerHasVelocity = !CharacterMovement->Velocity.IsZero();
+
+		// Make sure absolute rotations are updated in case rotation occurred after the base info was saved.
+		if (!BasedMovement.HasRelativeRotation())
+		{
+			ReplicatedBasedMovement.Rotation = GetActorRotation();
+		}
+	}
+
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
 }
 
-void AUTCharacter::GatherCurrentMovement()
+bool AUTCharacter::GatherUTMovement()
 {
-	Super::GatherCurrentMovement();
-
 	UPrimitiveComponent* RootPrimComp = Cast<UPrimitiveComponent>(GetRootComponent());
 	if (RootPrimComp && RootPrimComp->IsSimulatingPhysics())
 	{
 		FRigidBodyState RBState;
 		RootPrimComp->GetRigidBodyState(RBState);
-
 		ReplicatedMovement.FillFrom(RBState);
 	}
 	else if (RootComponent != NULL)
@@ -2810,28 +2824,48 @@ void AUTCharacter::GatherCurrentMovement()
 		}
 		else
 		{
-			ReplicatedMovement.Location = RootComponent->GetComponentLocation();
-			ReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
-			ReplicatedMovement.LinearVelocity = GetVelocity();
-			ReplicatedMovement.bRepPhysics = false;
+			// @TODO FIXMESTEVE make sure not replicated to owning client!!!
+			UTReplicatedMovement.Location = RootComponent->GetComponentLocation();
+			UTReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
+			UTReplicatedMovement.Acceleration = CharacterMovement->GetCurrentAcceleration();
+			UTReplicatedMovement.LinearVelocity = GetVelocity();
+			return true;
 		}
 	}
+	return false;
 }
 
 void AUTCharacter::OnRep_UTReplicatedMovement()
 {
-	if (RootComponent && RootComponent->IsSimulatingPhysics())
+	if (Role == ROLE_SimulatedProxy)
 	{
-		PostNetReceivePhysicState();
+		ReplicatedAccel = UTReplicatedMovement.Acceleration;
+		ReplicatedMovement.Location = UTReplicatedMovement.Location;
+		ReplicatedMovement.Rotation = UTReplicatedMovement.Rotation;
+		ReplicatedMovement.LinearVelocity = UTReplicatedMovement.LinearVelocity;
+		ReplicatedMovement.AngularVelocity = FVector(0.f);
+		ReplicatedMovement.bSimulatedPhysicSleep = false;
+		ReplicatedMovement.bRepPhysics = false;
+
+		OnRep_ReplicatedMovement();
+	}
+}
+
+void AUTCharacter::OnRep_ReplicatedMovement()
+{
+	if ((bTearOff || bFeigningDeath) && (RootComponent == NULL || !RootComponent->IsSimulatingPhysics()))
+	{
+		bDeferredReplicatedMovement = true;
 	}
 	else
 	{
-		if (Role == ROLE_SimulatedProxy)
+		Super::OnRep_ReplicatedMovement();
+		if (bFeigningDeath && Mesh->IsSimulatingPhysics())
 		{
-			PostNetReceiveVelocity(ReplicatedMovement.LinearVelocity);
-			PostNetReceiveLocationAndRotation();
+			// making the velocity apply to all bodies is more likely to be correct
+			Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance()->GetUnrealWorldVelocity());
 		}
 	}
 }
-*/
+
 
