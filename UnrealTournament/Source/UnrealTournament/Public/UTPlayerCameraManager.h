@@ -11,6 +11,11 @@ class AUTPlayerCameraManager : public APlayerCameraManager
 	/** post process settings used when there are no post process volumes */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PostProcess)
 	FPostProcessSettings DefaultPPSettings;
+	
+	FVector LastThirdPersonCameraLoc;
+
+	UPROPERTY()
+	float ThirdPersonCameraSmoothingSpeed;
 
 	virtual void UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime) override;
 

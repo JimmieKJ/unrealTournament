@@ -836,6 +836,9 @@ void AUTCharacter::StartRagdoll()
 	{
 		Mesh->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity * FVector(1.0f, 1.0f, 0.5f), false); // gravity doesn't seem to be the same magnitude for ragdolls...
 	}
+
+	CharacterMovement->StopActiveMovement();
+	CharacterMovement->Velocity = FVector::ZeroVector;
 }
 
 void AUTCharacter::StopRagdoll()
@@ -924,8 +927,9 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 		if (bFeigningDeath)
 		{
 			FVector TraceOffset = FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.5f);
+			FCollisionQueryParams FeignDeathTrace(FName(TEXT("FeignDeath"), false);
 			if ( GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime &&
-				 GetWorld()->SweepTest(GetActorLocation() + TraceOffset, GetActorLocation() - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleComponent->GetCollisionShape(), FCollisionQueryParams(false)) )
+				GetWorld()->SweepTest(GetActorLocation() + TraceOffset, GetActorLocation() - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleComponent->GetCollisionShape(), FeignDeathTrace))
 			{
 				bFeigningDeath = false;
 				PlayFeignDeath();
