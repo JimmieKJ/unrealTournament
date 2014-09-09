@@ -14,11 +14,11 @@ class AUTJumpPad : public AActor, public INavLinkHostInterface, public INavRelev
 	GENERATED_UCLASS_BODY()
 
 	/** Static mesh for the Jump Pad */
-	UPROPERTY(VisibleAnywhere, Category = JumpPad)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpPad)
 	TSubobjectPtr<class UStaticMeshComponent> Mesh;
 
 	/** The Player will Jump when overlapping this box */
-	UPROPERTY(VisibleAnywhere, Category = JumpPad)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpPad)
 	TSubobjectPtr<class UBoxComponent> TriggerBox;
 
 	/** Sound to play when we jump*/
