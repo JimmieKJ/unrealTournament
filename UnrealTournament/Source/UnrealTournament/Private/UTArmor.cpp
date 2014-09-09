@@ -20,7 +20,10 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	{
 		NewOwner->SetCharacterOverlay(OverlayMaterial, true);
 	}
+
+	NewOwner->CheckArmorStacking();
 }
+
 void AUTArmor::Removed()
 {
 	if (OverlayMaterial != NULL)
@@ -44,11 +47,16 @@ void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum
 			Momentum *= 1.0f - float(Absorb) / float(Damage);
 		}
 		Damage -= Absorb;
-		ArmorAmount -= Absorb;
-		if (ArmorAmount <= 0)
-		{
-			Destroy();
-		}
+		ReduceArmor(Absorb);
+	}
+}
+
+void AUTArmor::ReduceArmor(int Amount)
+{
+	ArmorAmount -= Amount;
+	if (ArmorAmount <= 0)
+	{
+		Destroy();
 	}
 }
 

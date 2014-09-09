@@ -17,6 +17,7 @@
 #include "UTReplicatedEmitter.h"
 #include "UTLift.h"
 #include "UTWorldSettings.h"
+#include "UTArmor.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -108,6 +109,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	ServerPingContribution = 15.f;
 	MaxPredictionPing = 0.f; // 200.f;
+
+	MaxStackedArmor = 200;
 }
 
 
@@ -2424,6 +2427,42 @@ AUTCarriedObject* AUTCharacter::GetCarriedObject()
 	return NULL;
 }
 
+void AUTCharacter::CheckArmorStacking()
+{
+	int32 TotalArmor = 0;
+	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	{
+		AUTArmor* Armor = Cast<AUTArmor>(Inv);
+		if (Armor)
+		{
+			TotalArmor += Armor->ArmorAmount;
+		}
+	}
+
+	// find the lowest absorption armors, and reduce them
+	while (TotalArmor > MaxStackedArmor)
+	{
+		TotalArmor -= ReduceArmorStack(TotalArmor-MaxStackedArmor);
+	}
+}
+
+int32 AUTCharacter::ReduceArmorStack(int32 Amount)
+{
+	AUTArmor* WorstArmor = NULL;
+	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	{
+		AUTArmor* Armor = Cast<AUTArmor>(Inv);
+		if (Armor && (!WorstArmor || (Armor->AbsorptionPct < WorstArmor->AbsorptionPct)))
+		{
+			WorstArmor = Armor;
+		}
+	}
+	check(WorstArmor);
+
+	int32 ReducedAmount = FMath::Min(Amount, WorstArmor->ArmorAmount);
+	WorstArmor->ReduceArmor(ReducedAmount);
+	return ReducedAmount;
+}
 
 /** This is only here for legacy. */
 void AUTCharacter::DropFlag()

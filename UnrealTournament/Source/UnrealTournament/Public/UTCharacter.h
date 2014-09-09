@@ -286,6 +286,17 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Called by CharacterMovement after movement */
 	virtual void PositionUpdated();
 
+	/** Limit to armor stacking */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Pawn")
+	int32 MaxStackedArmor;
+
+	/** Find existing armor, make sure total doesn't exceed MaxStackedArmor */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual void CheckArmorStacking();
+
+	/** Remove excess armor from the lowest absorption armor type.  Returns amount of armor removed. */
+	virtual int32 ReduceArmorStack(int32 Amount);
+
 	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
 	UPROPERTY()
 	TArray<FStoredAmmo> SavedAmmo;
