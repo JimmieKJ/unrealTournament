@@ -70,6 +70,7 @@ bool AUTArmor::StackPickup_Implementation(AUTInventory* ContainedInv)
 	{
 		ArmorAmount = GetClass()->GetDefaultObject<AUTArmor>()->ArmorAmount;
 	}
+	GetUTOwner()->CheckArmorStacking();
 	return true;
 }
 
