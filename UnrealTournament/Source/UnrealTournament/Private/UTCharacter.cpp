@@ -927,7 +927,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 		if (bFeigningDeath)
 		{
 			FVector TraceOffset = FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.5f);
-			FCollisionQueryParams FeignDeathTrace(FName(TEXT("FeignDeath"), false);
+			FCollisionQueryParams FeignDeathTrace(FName(TEXT("FeignDeath")), false);
 			if ( GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime &&
 				GetWorld()->SweepTest(GetActorLocation() + TraceOffset, GetActorLocation() - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleComponent->GetCollisionShape(), FeignDeathTrace))
 			{
