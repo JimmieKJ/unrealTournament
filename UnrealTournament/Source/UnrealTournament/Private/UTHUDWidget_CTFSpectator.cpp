@@ -31,7 +31,7 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 			FFormatNamedArguments Args;
 			uint32 WaitTime = GameState->RemainingTime;
 			Args.Add("Time", FText::AsNumber(WaitTime));
-			FText Msg = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","HalfTime","HALFTIME - Take a break - Game resumes in {Time}"),Args);
+			FText Msg = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","HalfTime","HALFTIME - Take a break - Game restarts in {Time}"),Args);
 			DrawSimpleMessage(Msg, DeltaTime);
 
 		}
