@@ -273,9 +273,16 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 	// Throw the object.
 	if (ObjectHolder != NULL)
 	{
-		FRotator Dir = ObjectHolder->Health > 0 ? ObjectHolder->GetActorRotation() : FRotator(0, 0, 0);
-		SetActorLocationAndRotation(ObjectHolder->GetActorLocation(), Dir);
-		MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + (900.0f * Dir.Vector()) + 218.0f * (0.5f + FMath::FRand()) + FMath::VRand();
+		FVector Extra = FVector::ZeroVector;
+		if (ObjectHolder->Health > 0)
+		{
+			Extra = ObjectHolder->GetActorRotation().Vector() * 900.0f;
+		}
+		FVector Loc = ObjectHolder->GetActorLocation();
+		Loc.Z -= ObjectHolder->CapsuleComponent->GetUnscaledCapsuleHalfHeight();
+		Loc.Z += Collision->GetUnscaledCapsuleHalfHeight() * 1.1f;
+		SetActorLocationAndRotation(Loc, Extra.IsZero() ? FRotator::ZeroRotator : Extra.Rotation());
+		MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + Extra + (218.0f * (0.5f + FMath::FRand()) * FMath::VRand() + FVector(0.0f, 0.0f, 100.0f));
 	}
 	
 }
