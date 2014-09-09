@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTLift.h"
 #include "UTCharacterMovement.h"
+#include "UTGib.h"
 
 AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
