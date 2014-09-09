@@ -16,6 +16,9 @@ class UUTDmg_SniperHeadshot : public UUTDamageType
 		static ConstructorHelpers::FObjectFinder<UClass> MessageContentClass(TEXT("Class'/Game/RestrictedAssets/Blueprints/HeadShotMessage.HeadShotMessage_C'"));
 
 		MessageClass = MessageContentClass.Object;
+
+		GibHealthThreshold = -10000000;
+		GibDamageThreshold = 1000000;
 	}
 
 	virtual void ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const
@@ -25,5 +28,11 @@ class UUTDmg_SniperHeadshot : public UUTDamageType
 		{
 			PC->ClientReceiveLocalizedMessage(MessageClass);
 		}
+	}
+
+	virtual void PlayDeathEffects_Implementation(AUTCharacter* DyingPawn) const override
+	{
+		DyingPawn->SpawnGib(DyingPawn->HeadBone);
+		DyingPawn->SetHeadScale(0.0f);
 	}
 };

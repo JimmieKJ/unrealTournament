@@ -18,6 +18,8 @@
 #include "UTLift.h"
 #include "UTWorldSettings.h"
 #include "UTArmor.h"
+#include "UTImpactEffect.h"
+#include "UTGib.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -540,8 +542,14 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			Mesh->AddImpulseAtLocation(ResultMomentum, HitLocation);
 			if (GetNetMode() != NM_DedicatedServer)
 			{
+				Health -= int32(Damage);
 				// note: won't be replicated in this case since already torn off but we still need it for clientside impact effects on the corpse
 				SetLastTakeHitInfo(Damage, ResultMomentum, NULL, DamageEvent);
+				TSubclassOf<UUTDamageType> UTDmg(*DamageEvent.DamageTypeClass);
+				if (UTDmg != NULL && UTDmg.GetDefaultObject()->ShouldGib(this))
+				{
+					GibExplosion();
+				}
 			}
 		}
 	
@@ -811,6 +819,12 @@ void AUTCharacter::StartRagdoll()
 	bDisallowWeaponFiring = true;
 	bInRagdollRecovery = false;
 	
+	if (!Mesh->ShouldTickPose())
+	{
+		Mesh->TickAnimation(0.0f);
+		Mesh->RefreshBoneTransforms();
+		Mesh->UpdateComponentToWorld();
+	}
 	CharacterMovement->ApplyAccumulatedForces(0.0f);
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -896,19 +910,83 @@ void AUTCharacter::PlayDying()
 	SetAmbientSound(NULL);
 	SetLocalAmbientSound(NULL);
 
-	// TODO: damagetype effects, etc
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		StartRagdoll();
-		SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
+		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
+		if (UTDmg != NULL && UTDmg.GetDefaultObject()->ShouldGib(this))
+		{
+			GibExplosion();
+		}
+		else
+		{
+			StartRagdoll();
+			if (UTDmg != NULL)
+			{
+				UTDmg.GetDefaultObject()->PlayDeathEffects(this);
+			}
+			SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
+		}
 	}
 	else
 	{
 		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SetLifeSpan(0.25f);
+	}
+}
+
+void AUTCharacter::GibExplosion_Implementation()
+{
+	if (GibExplosionEffect != NULL)
+	{
+		GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), Mesh, this, NULL, SRT_None);
+	}
+	for (FName BoneName : GibExplosionBones)
+	{
+		SpawnGib(BoneName, *LastTakeHitInfo.DamageType);
+	}
+
+	if (GetNetMode() == NM_Client || GetNetMode() == NM_Standalone)
+	{
+		Destroy();
+	}
+	else
+	{
+		// need to delay for replication
+		SetActorHiddenInGame(true);
+		SetActorEnableCollision(false);
+		SetLifeSpan(0.25f);
+	}
+}
+
+void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
+{
+	if (GibClass != NULL)
+	{
+		FTransform SpawnPos = Mesh->GetSocketTransform(BoneName);
+		FActorSpawnParameters Params;
+		Params.bNoCollisionFail = true;
+		Params.Instigator = this;
+		Params.Owner = this;
+		AUTGib* Gib = GetWorld()->SpawnActor<AUTGib>(GibClass, SpawnPos.GetLocation(), SpawnPos.Rotator(), Params);
+		if (Gib != NULL)
+		{
+			Gib->BloodDecals = BloodDecals;
+			Gib->BloodEffects = BloodEffects;
+			Gib->SetActorScale3D(Gib->GetActorScale3D() * SpawnPos.GetScale3D());
+			if (Gib->Mesh != NULL)
+			{
+				FVector Vel = (Mesh == RootComponent) ? Mesh->GetComponentVelocity() : CharacterMovement->Velocity;
+				Vel += (Gib->GetActorLocation() - GetActorLocation()).SafeNormal() * Vel.Size() * 0.25f;
+				Gib->Mesh->SetPhysicsLinearVelocity(Vel, false);
+			}
+			if (DmgType != NULL)
+			{
+				DmgType.GetDefaultObject()->PlayGibEffects(Gib);
+			}
+		}
 	}
 }
 
@@ -1936,7 +2014,7 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 	if (IsDead())
 	{
 		// maybe spawn blood as the ragdoll smacks into things
-		if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastDeathDecalTime > 0.25f)
+		if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastDeathDecalTime > 0.25f && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f)
 		{
 			SpawnBloodDecal(GetActorLocation(), -Hit.Normal);
 			LastDeathDecalTime = GetWorld()->TimeSeconds;

@@ -76,8 +76,8 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	bool bBodyDamageColorRimOnly;
 
 	/** if dead Pawn's health <= this value than it gibs (unless hard disabled by client option)
-	 * set to a positive number to never gib (since dead Pawns can't have positive health)
-	 * set to a large negative number to always gib
+	 * set to a positive number to always gib (since dead Pawns can't have positive health)
+	 * set to a large negative number to never gib
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = DamageType)
 	int32 GibHealthThreshold;
@@ -97,8 +97,18 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	 * use LastTakeHitInfo to retrieve additional information
 	 * client only
 	 */
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void PlayHitEffects(AUTCharacter* HitPawn, bool bPlayedArmorEffect) const;
+
+	/** spawn/play any clientside effects for a Pawn killed by this damagetype
+	 * not called if the character is gibbed (ShouldGib())
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	void PlayDeathEffects(AUTCharacter* DyingPawn) const;
+
+	/** spawn/play any clientside effects on gibs */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	void PlayGibEffects(class AUTGib* Gib) const;
 
 	/** This is the console death message that will be sent to everyone not involved when someone dies of this damage type.  Supports all of the {xxx} varaiable commands of the messaging system*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)

@@ -97,3 +97,11 @@ void UUTDamageType::PlayHitEffects_Implementation(AUTCharacter* HitPawn, bool bP
 		HitPawn->SetBodyColorFlash(BodyDamageColor, bBodyDamageColorRimOnly);
 	}
 }
+
+void UUTDamageType::PlayDeathEffects_Implementation(AUTCharacter* DyingPawn) const
+{
+}
+
+void UUTDamageType::PlayGibEffects_Implementation(AUTGib* Gib) const
+{
+}

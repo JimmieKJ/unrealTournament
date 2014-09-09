@@ -1,0 +1,37 @@
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "UTCharacter.h"
+
+#include "UTGib.generated.h"
+
+UCLASS(Abstract, BlueprintType)
+class AUTGib : public AActor
+{
+	GENERATED_UCLASS_BODY()
+
+	/** gib mesh */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gib)
+	TSubobjectPtr<UStaticMeshComponent> Mesh;
+	/** list of alternate meshes to randomly apply to Mesh instead of the default */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Gib)
+	TArray<class UStaticMesh*> MeshChoices;
+	/** destroy after this much time alive if out of view (InitialLifeSpan indicates visible lifespan) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gib)
+	float InvisibleLifeSpan;
+	/** blood effects mirrored from owning Pawn */
+	UPROPERTY(BlueprintReadWrite, Category = Effects)
+	TArray<UParticleSystem*> BloodEffects;
+	UPROPERTY(BlueprintReadWrite, Category = Effects)
+	TArray<FBloodDecalInfo> BloodDecals;
+
+	/** last time we spawned blood effect/decal */
+	UPROPERTY(BlueprintReadWrite, Category = Effects)
+	float LastBloodTime;
+
+	virtual void PreInitializeComponents() override;
+
+	UFUNCTION()
+	virtual void OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+};

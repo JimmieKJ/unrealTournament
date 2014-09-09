@@ -4,6 +4,7 @@
 
 #include "Particles/ParticleSystemComponent.h"
 #include "UTCharacter.h"
+#include "UTGib.h"
 
 #include "UTDmgType_AttachParticles.generated.h"
 
@@ -17,7 +18,8 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 	{
 		DamageThreshold = 35;
 		HealthThreshold = 100000;
-		EffectLifeSpan = 3.0f;
+		EffectLifeSpan = 2.5f;
+		AttachToGibChance = 0.4f;
 	}
 
 	/** the effect to spawn */
@@ -26,6 +28,9 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 	/** lifespan of the effect */
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Effects)
 	float EffectLifeSpan;
+	/** chance to attach the effect to gibs */
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Effects)
+	float AttachToGibChance;
 	/** only hits of this damage or higher spawn the effect (0 to ignore) */
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Effects)
 	int32 DamageThreshold;
@@ -52,6 +57,20 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 				PSC->RegisterComponent();
 				PSC->AttachTo(HitPawn->Mesh, HitPawn->Mesh->FindClosestBone(HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation), EAttachLocation::SnapToTarget);
 			}
+		}
+	}
+
+	virtual void PlayGibEffects_Implementation(AUTGib* Gib) const override
+	{
+		if (HitEffect != NULL && FMath::FRand() < AttachToGibChance)
+		{
+			UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(Gib);
+			PSC->bAutoActivate = true;
+			PSC->bAutoDestroy = true;
+			PSC->SetTemplate(HitEffect);
+			Gib->GetWorldTimerManager().SetTimer(PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
+			PSC->RegisterComponent();
+			PSC->AttachTo(Gib->GetRootComponent(), NAME_None, EAttachLocation::SnapToTarget);
 		}
 	}
 };
