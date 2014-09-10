@@ -242,6 +242,7 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 }
 void AUTGameSession::UpdateGameState()
 {
+	return;
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
