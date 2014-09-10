@@ -39,7 +39,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxWallDodges = 99;
 	WallDodgeMinNormal = 0.5f; 
 	MaxConsecutiveWallDodgeDP = 0.97f;
-	WallDodgeGraceVelocityZ = -600.f;
+	WallDodgeGraceVelocityZ = -2400.f;
+	PendingFallVelocityZ = 0.f;
 	AirControl = 0.4f;
 	MultiJumpAirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
@@ -475,6 +476,8 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		}
 		else if ((VelocityZ < 0.f) && (VelocityZ > WallDodgeGraceVelocityZ))
 		{
+			// allowing dodge with loss of downward velocity is no free lunch for falling damage
+			PendingFallVelocityZ = VelocityZ;
 			VelocityZ = 0.f;
 		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);

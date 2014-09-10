@@ -1950,6 +1950,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	UTCharacterMovement->OldZ = GetActorLocation().Z;
 
 	TakeFallingDamage(Hit);
+	UTCharacterMovement->PendingFallVelocityZ = 0.f;
 
 	Super::Landed(Hit);
 
@@ -1982,9 +1983,10 @@ void AUTCharacter::MoveBlockedBy(const FHitResult& Impact)
 
 void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 {
-	if (Role == ROLE_Authority)
+	if (Role == ROLE_Authority && UTCharacterMovement)
 	{
-		float FallingSpeed = CharacterMovement->Velocity.Z;
+		float FallingSpeed = CharacterMovement->Velocity.Z + UTCharacterMovement->PendingFallVelocityZ;
+		UTCharacterMovement->PendingFallVelocityZ = 0.f;
 		if (FallingSpeed < -1.f * MaxSafeFallSpeed && !HandleFallingDamage(FallingSpeed, Hit))
 		{
 			/* TODO: water
@@ -1995,10 +1997,7 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
 			if (FallingSpeed < -1.f * MaxSafeFallSpeed)
 			{
 				float FallingDamage = -100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed;
-				if (UTCharacterMovement)
-				{
-					FallingDamage -= UTCharacterMovement->FallingDamageReduction(FallingDamage, Hit);
-				}
+				FallingDamage -= UTCharacterMovement->FallingDamageReduction(FallingDamage, Hit);
 				if (FallingDamage >= 1.0f)
 				{
 					FUTPointDamageEvent DamageEvent(FallingDamage, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());

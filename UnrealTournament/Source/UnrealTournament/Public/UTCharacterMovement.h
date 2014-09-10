@@ -241,6 +241,10 @@ public:
 	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
 	float FallingDamageRollReduction;
 
+	/** Extra velocity to be considered for falling damage on landing (lost by dodge grace) */
+	UPROPERTY()
+	float PendingFallVelocityZ;
+
 	/** Amount of falling damage reduction */
 	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
 	virtual	float FallingDamageReduction(float FallingDamage, const FHitResult& Hit);
