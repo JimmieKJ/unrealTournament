@@ -171,8 +171,8 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         Platform ClientPlatformInst = Params.ClientTargetPlatformInstances[0];
         string TargetCook = ClientPlatformInst.GetCookPlatform(false, Params.HasDedicatedServerAndClient, "");
 
-        string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), TargetCook);
-        string RawImageManifest = CombinePaths(RawImagePath, ClientPlatformInst.PlatformType.ToString(), "Manifest_NonUFSFiles.txt");
+        string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), ClientPlatformInst.PlatformType.ToString(), TargetCook);
+        string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
 
         if (!FileExists(RawImageManifest))
         {
@@ -191,11 +191,6 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
         });
 
-        var BuildLocation = CombinePaths(Params.StageDirectoryParam, TargetCook);
-        if (!DirectoryExists(BuildLocation))
-        {
-            throw new BuildException("Build directory {0} does not exist.", BuildLocation);
-        }
         PrintRunTime();
     }
 }
