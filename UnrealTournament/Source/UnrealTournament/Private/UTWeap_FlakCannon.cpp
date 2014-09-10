@@ -45,6 +45,8 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 	MultiShotCount[0] = 9;
 
 	MultiShotProjClass.SetNumZeroed(1);
+
+	AltFireIncline = 3.f;
 }
 
 FRotator AUTWeap_FlakCannon::GetAdjustedAim_Implementation(FVector StartFireLoc)
@@ -57,12 +59,12 @@ FRotator AUTWeap_FlakCannon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 		{
 			if (BaseAim.Pitch > -90.f)
 			{
-				BaseAim.Pitch += 3.f;
+				BaseAim.Pitch += AltFireIncline;
 			}
 		}
 		else if (BaseAim.Pitch < 90.f)
 		{
-			BaseAim.Pitch += (90.f - BaseAim.Pitch) / 30.f;
+			BaseAim.Pitch += (90.f - BaseAim.Pitch) * AltFireIncline/90.f;
 		}
 	}
 	return BaseAim;

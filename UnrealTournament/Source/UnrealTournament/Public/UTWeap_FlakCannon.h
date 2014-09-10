@@ -20,6 +20,10 @@ class AUTWeap_FlakCannon : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 
+	/** Added inclination in degrees for alt fire direction */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float AltFireIncline;
+
 	/** Number of projectiles to fire.
 	* When firing multiple projectiles at once, main projectile will be fired at crosshair.
 	* Remaining projectiles will be fired in a circle pattern */
