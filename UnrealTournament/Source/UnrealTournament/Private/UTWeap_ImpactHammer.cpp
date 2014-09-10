@@ -3,6 +3,7 @@
 #include "UTWeap_ImpactHammer.h"
 #include "UTWeaponStateFiringCharged.h"
 #include "UTCharacterMovement.h"
+#include "UTLift.h"
 
 AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState0")))
@@ -106,7 +107,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					}
 				}
 			}
-			else if ((Hit.Component != NULL) && UTOwner->UTCharacterMovement)
+			if ((Hit.Component != NULL) && (Hit.Actor != NULL) && UTOwner->UTCharacterMovement && (!Hit.Actor->bCanBeDamaged || Cast<AUTLift>(Hit.Actor.Get())))
 			{
 				// if we hit something undamageable (world geometry, etc) then the damage is caused to ourselves instead
 				// Special case of fixed damage and momentum
