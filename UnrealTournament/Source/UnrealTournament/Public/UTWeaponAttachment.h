@@ -51,6 +51,9 @@ public:
 	/** optional effect for instant hit endpoint */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray< TSubclassOf<class AUTImpactEffect> > ImpactEffect;
+	/** if set, get impact effect from weapon class (most weapons use same instant hit impact for 1p and 3p) */
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	bool bCopyWeaponImpactEffect;
 
 	virtual void BeginPlay() override;
 	virtual void RegisterAllComponents() override;

@@ -14,7 +14,9 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 	AttachSocket = FName((TEXT("WeaponPoint")));
 
 	PickupScaleOverride = FVector(2.0f, 2.0f, 2.0f);
-	WeaponStance=0;
+	WeaponStance = 0;
+
+	bCopyWeaponImpactEffect = true;
 }
 
 void AUTWeaponAttachment::BeginPlay()
@@ -27,6 +29,10 @@ void AUTWeaponAttachment::BeginPlay()
 	if (UTOwner != NULL)
 	{
 		WeaponType = UTOwner->GetWeaponClass();
+		if (WeaponType != NULL && bCopyWeaponImpactEffect && ImpactEffect.Num() == 0)
+		{
+			ImpactEffect = WeaponType.GetDefaultObject()->ImpactEffect;
+		}
 		AttachToOwner();
 	}
 	else
