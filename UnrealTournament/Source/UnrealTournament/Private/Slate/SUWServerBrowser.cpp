@@ -92,7 +92,7 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 				.VAlign(VAlign_Center)
 				.AutoWidth()
 				[
-					SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","UserName","User Name:"))
+					SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","UserName","Forum Email:"))
 				]
 				+SHorizontalBox::Slot().AutoWidth() .Padding(20,0,0,0) .VAlign(VAlign_Center)
 				[

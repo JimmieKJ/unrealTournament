@@ -77,13 +77,18 @@ void SUWindowsMainMenu::CreateDesktop()
 			.HAlign(HAlign_Fill)
 			[
 				SAssignNew(Desktop, SOverlay)
+			]
+		];
 
-				+ SOverlay::Slot()
+		if (PlayerOwner->IsMenuGame())
+		{
+			Desktop->AddSlot()
 				[
 					SNew(SImage)
 					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
-				]
-				+ SOverlay::Slot()
+				];
+
+			Desktop->AddSlot()
 				[
 					SNew(SVerticalBox)
 					+ SVerticalBox::Slot()
@@ -101,10 +106,8 @@ void SUWindowsMainMenu::CreateDesktop()
 							]
 						]
 					]
-				]
-
-			]
-		];
+				];
+		}
 }
 
 /****************************** [ Build Sub Menus ] *****************************************/
@@ -162,26 +165,43 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 		SAssignNew(Menu, SVerticalBox);
 		if (Menu.IsValid())
 		{
-			(*Menu).AddSlot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateLocal", "Create Local Game").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnCreateGame, false, DropDownButton)
-			];
-			(*Menu).AddSlot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateOnline", "Create Multiplayer Server").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnCreateGame, true, DropDownButton)
-			];
+			if (PlayerOwner->IsMenuGame())
+			{
+				(*Menu).AddSlot()
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateLocal", "Create Local Game").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+					.OnClicked(this, &SUWindowsMainMenu::OnCreateGame, false, DropDownButton)
+				];
+				(*Menu).AddSlot()
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_CreateOnline", "Create Multiplayer Server").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+					.OnClicked(this, &SUWindowsMainMenu::OnCreateGame, true, DropDownButton)
+				];
+			}
+			else
+			{
+				(*Menu).AddSlot()
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Disconnect", "Leave Match").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+					.OnClicked(this, &SUWindowsMainMenu::OnLeaveMatch, DropDownButton)
+				];
+			}
+			
 
 			(*Menu).AddSlot()
 			.AutoHeight()
@@ -195,19 +215,6 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 			];
 
 
-			if (GWorld->GetWorld()->GetNetMode() == NM_Client)
-			{
-				(*Menu).AddSlot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
-					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_Disconnect", "Disconnect").ToString())
-					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
-					.OnClicked(this, &SUWindowsMainMenu::OnMenuConsoleCommand, FString(TEXT("Disconnect")), DropDownButton)
-				];
-			}
 			if (PlayerOwner->PlayerController != NULL)
 			{
 				const FURL& LastNetURL = GEngine->GetWorldContextFromWorldChecked(PlayerOwner->PlayerController->GetWorld()).LastRemoteURL;
@@ -642,5 +649,13 @@ FReply SUWindowsMainMenu::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButto
 	];
 
 	ActiveMenu = Browser;
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnLeaveMatch(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	PlayerOwner->HideMenu();
+	ConsoleCommand(TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"));
 	return FReply::Handled();
 }
