@@ -937,7 +937,10 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 		}
 		else if (bAllowSlopeDodgeBoost && (((CharacterOwner->GetActorLocation() - Hit.ImpactPoint).Size2D() > 0.93f * PawnRadius) || (Hit.ImpactNormal.Z > 0.2f))) // @TODO FIXMESTEVE tweak magic numbers
 		{
-			Result.Z *= SlopeDodgeScaling;
+			if (Result.Z > Delta.Z*Time)
+			{
+				Result.Z *= SlopeDodgeScaling;
+			}
 		}
 		else
 		{
