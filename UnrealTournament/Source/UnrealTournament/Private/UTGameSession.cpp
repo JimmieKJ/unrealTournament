@@ -242,7 +242,6 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 }
 void AUTGameSession::UpdateGameState()
 {
-	return;
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
@@ -250,7 +249,7 @@ void AUTGameSession::UpdateGameState()
 		if (SessionInterface.IsValid())
 		{
 			EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
-			if (State != EOnlineSessionState::Creating && State != EOnlineSessionState::Ended && State != EOnlineSessionState::Ending)
+			if (State != EOnlineSessionState::Creating && State != EOnlineSessionState::Ended && State != EOnlineSessionState::Ending && State != EOnlineSessionState::Destroying && State != EOnlineSessionState::NoSession )
 			{
 				AUTGameMode* CurrentGame = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 				FUTOnlineGameSettingsBase* OGS = (FUTOnlineGameSettingsBase*)SessionInterface->GetSessionSettings(GameSessionName);

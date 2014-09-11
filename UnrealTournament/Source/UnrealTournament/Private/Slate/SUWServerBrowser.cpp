@@ -595,7 +595,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 	if (bWasSuccessful)
 	{
 		// See the server list
-		//InternetServers.Empty();
+		InternetServers.Empty();
 		if (SearchSettings->SearchResults.Num() > 0)
 		{
 			for (int32 ServerIndex = 0; ServerIndex < SearchSettings->SearchResults.Num(); ServerIndex++)
