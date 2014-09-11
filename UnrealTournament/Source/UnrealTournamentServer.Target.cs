@@ -22,6 +22,10 @@ public class UnrealTournamentServerTarget : TargetRules
 		)
 	{
         OutExtraModuleNames.Add("UnrealTournament");
+        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        {
+            OutExtraModuleNames.Add("OnlineSubsystemMcp");
+        }
     }
 
     public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
