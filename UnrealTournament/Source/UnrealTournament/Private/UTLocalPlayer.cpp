@@ -53,7 +53,6 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 
 bool UUTLocalPlayer::IsMenuGame()
 {
-	return true;
 	if (GetWorld()->GetNetMode() == NM_Standalone)
 	{
 		AUTMenuGameMode* GM = Cast<AUTMenuGameMode>(GetWorld()->GetAuthGameMode());
@@ -69,7 +68,7 @@ void UUTLocalPlayer::ShowMenu()
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
-		if (IsMenuGame())
+		if (true) // IsMenuGame())
 		{
 			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
 		}
@@ -107,9 +106,9 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 	TSharedPtr<class SUWDialog> NewDialog;
 	SAssignNew(NewDialog, SUWMessageBox)
 		.PlayerOwner(this)
-		.MessageTitle(MessageTitle)
+		.DialogTitle(MessageTitle)
 		.MessageText(MessageText)
-		.ButtonsMask(Buttons)
+		.ButtonMask(Buttons)
 		.OnDialogResult(Callback);
 
 

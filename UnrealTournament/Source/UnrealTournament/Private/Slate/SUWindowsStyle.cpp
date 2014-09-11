@@ -78,7 +78,16 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{
 		Style.Set("UWindows.Standard.Dialog.Background", new BOX_BRUSH("UWindows.Standard.Dialog.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 		Style.Set("UWindows.Standard.Dialog.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 10))
+			.SetFont(TTF_FONT("Roboto-Medium", 12))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+		Style.Set("UWindows.Standard.Dialog.Title.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+			);
+
+		Style.Set("UWindows.Standard.Dialog.TextStyle.Legal", FTextBlockStyle()
+			.SetFont(TTF_FONT("Roboto-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 

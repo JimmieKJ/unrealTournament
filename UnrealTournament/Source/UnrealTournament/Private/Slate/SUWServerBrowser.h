@@ -171,7 +171,7 @@ protected:
 	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 	virtual FReply OnRefreshClick();
 
-	void CommitPassword(const FString& InputText, bool bCancelled);
+	virtual void CommitPassword(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	void AttemptLogin(FString UserID, FString Password, bool bIsToken = false);
 	void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
 

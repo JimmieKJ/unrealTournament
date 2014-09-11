@@ -6,13 +6,13 @@
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
+#include "SUWDialog.h"
 #include "SUWServerBrowser.h"
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
 #include "OnlineSubsystemTypes.h"
 #include "SUWMessageBox.h"
-#include "SUWDialog.h"
 #include "SUWInputBox.h"
 #include "UTGameEngine.h"
 
@@ -469,23 +469,33 @@ FReply SUWServerBrowser::OnRefreshClick()
 	{
 		// We need to get the password for this login id.  So Start that process.
 
+
 		PlayerOwner->OpenDialog(
 							SNew(SUWInputBox)
 							.OnDialogResult(this, &SUWServerBrowser::CommitPassword)
 							.PlayerOwner(PlayerOwner)
-							.MessageTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
+							.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
 							.MessageText(NSLOCTEXT("SUWServerBrowser", "LoginPasswordRequiredText", "Please enter your password:"))
 							);
+
 
 	}
 	return FReply::Handled();
 }
 
-void SUWServerBrowser::CommitPassword(const FString& InputText, bool bCancelled)
+void SUWServerBrowser::CommitPassword(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
-	if (!bCancelled)
+	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		AttemptLogin(UserNameEditBox->GetText().ToString(), *InputText);
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			FString InputText = Box->GetInputText();
+			if (InputText.Len())
+			{
+				AttemptLogin(UserNameEditBox->GetText().ToString(), *InputText);
+			}
+		}
 	}
 }
 

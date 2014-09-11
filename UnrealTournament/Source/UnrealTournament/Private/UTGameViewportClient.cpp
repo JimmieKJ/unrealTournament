@@ -27,13 +27,15 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
 		{
 			LastAttemptedURL = NetDriver->ServerConnection->URL;
+
 			FirstPlayer->OpenDialog(SNew(SUWInputBox)
-									.OnDialogResult(FInputBoxResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
+									.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
 									.PlayerOwner(FirstPlayer)
-									.MessageTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
+									.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
 									.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
 									);
-		
+
+
 
 		}
 		return;
@@ -56,7 +58,7 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 	
 }
 
-void UUTGameViewportClient::NetworkFailureDialogResult(uint16 ButtonID)
+void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
 	if (ButtonID == UTDIALOG_BUTTON_RECONNECT)
 	{
@@ -66,13 +68,21 @@ void UUTGameViewportClient::NetworkFailureDialogResult(uint16 ButtonID)
 	ReconnectDialog.Reset();
 }
 
-void UUTGameViewportClient::ConnectPasswordResult(const FString& InputText, bool bCancelled)
+void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
-
-	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
-	if (!bCancelled && !InputText.IsEmpty() && FirstPlayer != NULL)
+	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
-		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			FString InputText = Box->GetInputText();
+
+			UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+			if (!InputText.IsEmpty() && FirstPlayer != NULL)
+			{
+				FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
+				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+			}
+		}
 	}
 }

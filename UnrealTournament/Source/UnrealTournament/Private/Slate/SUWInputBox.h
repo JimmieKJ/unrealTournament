@@ -5,37 +5,45 @@
 #include "Slate.h"
 #include "SUWDialog.h"
 
-DECLARE_DELEGATE_TwoParams(FInputBoxResultDelegate, const FString&, bool);
 /** function called to filter characters that are input; return true to keep it, false to remove it */
 DECLARE_DELEGATE_RetVal_OneParam(bool, FInputBoxFilterDelegate, TCHAR);
 
 class SUWInputBox : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWInputBox)
+	: _DialogSize(FVector2D(400,200))
+	, _bDialogSizeIsRelative(false)
+	, _DialogPosition(FVector2D(0.5f,0.5f))
+	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
+	, _ContentPadding(FVector2D(10.0f, 5.0f))
+	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 	{}
-	SLATE_ARGUMENT(TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner)
-	SLATE_ARGUMENT(FText, MessageTitle)
+	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
+	SLATE_ARGUMENT(FText, DialogTitle)											
+	SLATE_ARGUMENT(FVector2D, DialogSize)										
+	SLATE_ARGUMENT(bool, bDialogSizeIsRelative)									
+	SLATE_ARGUMENT(FVector2D, DialogPosition)									
+	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
+	SLATE_ARGUMENT(FVector2D, ContentPadding)									
+	SLATE_ARGUMENT(uint16, ButtonMask)											
+	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
+
 	SLATE_ARGUMENT(FText, MessageText)
 	SLATE_ARGUMENT(FString, DefaultInput)
-	SLATE_EVENT(FInputBoxResultDelegate, OnDialogResult)
 	SLATE_EVENT(FInputBoxFilterDelegate, TextFilter)
 	SLATE_END_ARGS()
 
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 
+	FString GetInputText();
+
 protected:
-	TSharedPtr<class SCanvas> Canvas;
 	TSharedPtr<class SEditableTextBox> EditBox;
-	FInputBoxResultDelegate OnDialogResult;
 	FInputBoxFilterDelegate TextFilter;
 	
 	virtual void OnDialogOpened() override;
-
-	TSharedRef<class SWidget> BuildButtonBar();
-	void BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText, uint16 ButtonID, uint32& ButtonCount);
 	void OnTextChanged(const FText& NewText);
 	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
-	virtual FReply OnButtonClick(uint16 ButtonID);
 };
 

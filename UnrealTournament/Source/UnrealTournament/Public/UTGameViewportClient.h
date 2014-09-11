@@ -1,6 +1,8 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "Slate.h"
+#include "Slate/SlateGameResources.h"
 #include "UTGameViewportClient.generated.h"
 
 UCLASS()
@@ -18,10 +20,7 @@ protected:
 	// Holds the IP/Port of the last connect so we can try to reconnect
 	FURL LastAttemptedURL;
 
-	UFUNCTION()
-	virtual void NetworkFailureDialogResult(uint16 ButtonID);
-
-	UFUNCTION()
-	virtual void ConnectPasswordResult(const FString& InputText, bool bCancelled);
+	virtual void NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	virtual void ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 };
 

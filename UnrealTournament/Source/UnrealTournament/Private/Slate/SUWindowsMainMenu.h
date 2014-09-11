@@ -12,19 +12,21 @@ protected:
 	TSharedPtr<class SOverlay> Desktop;
 	TSharedPtr<class SWidget> ActiveMenu;
 
+	TArray< TSharedPtr<SComboButton> > MenuButtons;
+
 	virtual void CreateDesktop();
 
-	virtual FReply OnShowServerBrowser();
-	virtual FReply OnCreateGame(bool bOnline);
-	virtual FReply OnConnectIP();
-	virtual void ConnectIPDialogResult(const FString& InputText, bool bCancelled);
-	virtual FReply OnChangeTeam(int32 NewTeamIndex);
-	virtual FReply OpenPlayerSettings();
-	virtual FReply OpenSystemSettings();
-	virtual FReply OpenTPSReport();
-	virtual FReply OpenCredits();
-	virtual FReply OnMenuHTTPButton(FString URL);
-	virtual FReply OpenControlSettings();
+	virtual FReply OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnCreateGame(bool bOnline,TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnConnectIP(TSharedPtr<SComboButton> MenuButton);
+	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	virtual FReply OnChangeTeam(int32 NewTeamIndex, TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenTPSReport(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenCredits(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnMenuHTTPButton(FString URL, TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenControlSettings(TSharedPtr<SComboButton> MenuButton);
 
 	virtual TSharedRef<SWidget> BuildMenuBar();
 

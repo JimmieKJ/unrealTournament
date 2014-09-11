@@ -23,7 +23,7 @@ class SUWindowsDesktop : public SCompoundWidget
 	virtual void OnMenuClosed();
 	virtual void CloseMenus();
 
-	virtual FReply OnMenuConsoleCommand(FString Command);
+	virtual FReply OnMenuConsoleCommand(FString Command, TSharedPtr<SComboButton> MenuButton);
 	virtual void ConsoleCommand(FString Command);
 
 protected:

@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "../Private/Slate/SUWDialog.h"
 #include "UTLocalPlayer.generated.h"
 
 UCLASS()
@@ -21,6 +22,8 @@ public:
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog);
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
 
+	virtual bool IsMenuGame();
+
 protected:
 
 	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
@@ -28,7 +31,6 @@ protected:
 	/** stores a reference to open dialogs so they don't get destroyed */
 	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
 
-	virtual bool IsMenuGame();
 
 };
 
