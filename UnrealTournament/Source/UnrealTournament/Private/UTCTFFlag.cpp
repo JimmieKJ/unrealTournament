@@ -75,6 +75,8 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 			{
 				SendGameMessage(2, CarriedFlag->Holder, NULL);
 				CarriedFlag->Score( FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);		
+				CarriedFlag->Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
+				CarriedFlag->Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 				return false;
 			}
 		}
@@ -127,5 +129,8 @@ void AUTCTFFlag::OnObjectStateChanged()
 
 void AUTCTFFlag::AutoReturn()
 {
+	SendGameMessage(1, NULL, NULL);
+	Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
+	Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 	SendHome();
 }

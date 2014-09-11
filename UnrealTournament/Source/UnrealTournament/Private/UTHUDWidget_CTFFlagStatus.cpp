@@ -42,8 +42,18 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				}
 				else
 				{
-					StatusText = EnemyHasFlagText;
+					if (CGS->GetFlagState(MyTeamNum) == CarriedObjectState::Dropped)
+					{
+						return;
+					}
+					else
+					{
+						StatusText = EnemyHasFlagText;
+					}
 				}
+
+
+
 			}
 			else if (OwnerPS->CarriedObject != NULL && Cast<AUTCTFFlag>(OwnerPS->CarriedObject) != NULL)
 			{

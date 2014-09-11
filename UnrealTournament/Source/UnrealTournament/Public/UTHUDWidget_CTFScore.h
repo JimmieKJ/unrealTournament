@@ -10,6 +10,9 @@ class UUTHUDWidget_CTFScore : public UUTHUDWidget_TeamScore
 {
 	GENERATED_UCLASS_BODY()
 
+	float RedPulseScale;
+	float BluePulseScale;
+
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void DrawFlagIcon(float CenterX, float CenterY, float Width, float Height, float U, float V, float UL, float VL, FLinearColor DrawColor, float Scale);
 };
