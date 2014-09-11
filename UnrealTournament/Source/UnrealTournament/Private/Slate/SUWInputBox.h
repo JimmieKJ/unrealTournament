@@ -17,6 +17,7 @@ class SUWInputBox : public SUWDialog
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
+	, _IsPassword(false)
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
 	SLATE_ARGUMENT(FText, DialogTitle)											
@@ -27,7 +28,7 @@ class SUWInputBox : public SUWDialog
 	SLATE_ARGUMENT(FVector2D, ContentPadding)									
 	SLATE_ARGUMENT(uint16, ButtonMask)
 	/** Sets whether this text box is for storing a password */
-	SLATE_ATTRIBUTE(bool, IsPassword)
+	SLATE_ARGUMENT(bool, IsPassword)
 	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
 
 	SLATE_ARGUMENT(FText, MessageText)
