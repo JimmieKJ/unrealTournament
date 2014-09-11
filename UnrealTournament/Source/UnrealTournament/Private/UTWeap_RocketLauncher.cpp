@@ -186,7 +186,18 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 			FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 
 			//Adjust from the center of the gun to the barrel
-			SpawnLocation += FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
+			{
+				FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
+				FHitResult Hit;
+				if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
+				{
+					SpawnLocation = Hit.Location - (AdjustedSpawnLoc - SpawnLocation).SafeNormal();
+				}
+				else
+				{
+					SpawnLocation = AdjustedSpawnLoc;
+				}
+			}
 
 			FActorSpawnParameters Params;
 			Params.Instigator = UTOwner;
@@ -302,6 +313,14 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				{
 					SpreadLoc = SpawnLocation - 2.0f * ((FMath::Sin(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Y) - (FMath::Cos(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Z)) - SpawnRotMat.GetUnitAxis(EAxis::X) * 8.0f * FMath::FRand();
 				}
+				//Adjust from the center of the gun to the barrel
+				{
+					FHitResult Hit;
+					if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, SpreadLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
+					{
+						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).SafeNormal();
+					}
+				}
 
 				SeekerList.Add(GetWorld()->SpawnActor<AUTProjectile>(RocketProjClass, SpreadLoc, SpawnRotation, Params));
 				if (i == 0)
@@ -336,6 +355,13 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				SpawnRotation.Roll = RotDegree * i;
 				FVector Up = FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z);
 				FVector SpreadLoc = SpawnLocation + (Up * BarrelRadius);
+				{
+					FHitResult Hit;
+					if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, SpreadLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
+					{
+						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).SafeNormal();
+					}
+				}
 				AUTProjectile* SpawnedProjectile = GetWorld()->SpawnActor<AUTProjectile>(RocketProjClass, SpreadLoc, SpawnRotation, Params);
 				//Spread the TossZ
 				SpawnedProjectile->ProjectileMovement->Velocity.Z += i * GetSpread();
