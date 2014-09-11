@@ -48,7 +48,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FPostConstructInitial
 
 	BarrelRadius = 9.0f;
 
-	GracePeriod = 1.0f;
+	GracePeriod = 0.5f;
 }
 
 void AUTWeap_RocketLauncher::BeginLoadRocket()
@@ -494,8 +494,6 @@ void AUTWeap_RocketLauncher::UpdateLock()
 		}
 	}
 }
-
-
 
 void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
