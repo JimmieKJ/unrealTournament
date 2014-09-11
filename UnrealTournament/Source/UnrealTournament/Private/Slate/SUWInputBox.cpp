@@ -19,6 +19,7 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 	TextFilter = InArgs._TextFilter;
+	IsPassword = InArgs._IsPassword;
 
 	if (DialogContent.IsValid())
 	{
@@ -45,6 +46,7 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 				SAssignNew(EditBox, SEditableTextBox)
 				.OnTextChanged(this, &SUWInputBox::OnTextChanged)
 				.OnTextCommitted(this, &SUWInputBox::OnTextCommited)
+				.IsPassword(IsPassword)
 				.MinDesiredWidth(300.0f)
 				.Text(FText::FromString(InArgs._DefaultInput))
 			]

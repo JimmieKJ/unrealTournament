@@ -25,7 +25,9 @@ class SUWInputBox : public SUWDialog
 	SLATE_ARGUMENT(FVector2D, DialogPosition)									
 	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
 	SLATE_ARGUMENT(FVector2D, ContentPadding)									
-	SLATE_ARGUMENT(uint16, ButtonMask)											
+	SLATE_ARGUMENT(uint16, ButtonMask)
+	/** Sets whether this text box is for storing a password */
+	SLATE_ATTRIBUTE(bool, IsPassword)
 	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
 
 	SLATE_ARGUMENT(FText, MessageText)
@@ -41,6 +43,9 @@ class SUWInputBox : public SUWDialog
 protected:
 	TSharedPtr<class SEditableTextBox> EditBox;
 	FInputBoxFilterDelegate TextFilter;
+
+	/** Sets whether this text box is for storing a password */
+	TAttribute< bool > IsPassword;
 	
 	virtual void OnDialogOpened() override;
 	void OnTextChanged(const FText& NewText);

@@ -474,6 +474,7 @@ FReply SUWServerBrowser::OnRefreshClick()
 							SNew(SUWInputBox)
 							.OnDialogResult(this, &SUWServerBrowser::CommitPassword)
 							.PlayerOwner(PlayerOwner)
+							.IsPassword(true)
 							.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
 							.MessageText(NSLOCTEXT("SUWServerBrowser", "LoginPasswordRequiredText", "Please enter your password:"))
 							);
