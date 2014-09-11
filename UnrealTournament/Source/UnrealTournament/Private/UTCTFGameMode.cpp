@@ -672,6 +672,9 @@ bool AUTCTFGameMode::IsPlayingAdvantage()
 	}
 
 	uint8 CarriedFlagNum = Flags[0]->ObjectState == CarriedObjectState::Held ? 0 : 1;
+
+	if (Flags[CarriedFlagNum] == NULL || Flags[CarriedFlagNum]->ObjectState != CarriedObjectState::Held) return false;
+
 	uint8 HomeBaseNum = 1 - CarriedFlagNum;
 
 	float Dist = (Flags[CarriedFlagNum]->HoldingPawn->GetActorLocation() - Flags[HomeBaseNum]->HomeBase->GetActorLocation()).Size();
