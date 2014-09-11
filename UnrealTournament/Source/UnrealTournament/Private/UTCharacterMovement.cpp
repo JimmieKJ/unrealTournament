@@ -224,7 +224,7 @@ void UUTCharacterMovement::UnableToFollowBaseMove(FVector DeltaPosition, FVector
 
 	// @TODO FIXMESTEVE handle case where we should adjust player position so he doesn't encroach, but don't need to make lift return
 	// Test if lift is moving up/sideways, otherwise ignore this (may need more sophisticated test)
-	if (MovementBase && Cast<AUTLift>(MovementBase->GetOwner()) && (MovementBase->ComponentVelocity.Z < 0.f))// && UpdatedComponent->IsOverlappingComponent(MovementBase))
+	if (MovementBase && Cast<AUTLift>(MovementBase->GetOwner()) && (MovementBase->GetOwner()->GetVelocity().Z >= 0.f))// && UpdatedComponent->IsOverlappingComponent(MovementBase))
 	{
 		Cast<AUTLift>(MovementBase->GetOwner())->OnEncroachActor(CharacterOwner);
 	}
