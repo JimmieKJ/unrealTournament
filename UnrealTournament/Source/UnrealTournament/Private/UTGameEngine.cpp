@@ -81,6 +81,15 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 			return true;
 		}
 	}
+	else if (FParse::Command(&Cmd, TEXT("GAMEVER")) || FParse::Command(&Cmd, TEXT("GAMEVERSION")))
+	{
+		FString VersionString = FString::Printf(TEXT("GameVersion Date: %s Time: %s"),
+			TEXT(__DATE__), TEXT(__TIME__));
+
+		Out.Logf(*VersionString);
+		FPlatformMisc::ClipboardCopy(*VersionString);
+		return true;
+	}
 	else
 	{
 		return Super::Exec(InWorld, Cmd, Out);
