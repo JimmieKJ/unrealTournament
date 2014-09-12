@@ -24,8 +24,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 
 	AmmoCost.Add(0);
 	AmmoCost.Add(1);
-	Ammo = 5;
-	MaxAmmo = 5;
+	Ammo = 8;
+	MaxAmmo = 8;
 	AmmoRechargeRate = 1.0f;
 
 	RecallFireInterval = 0.2f;
