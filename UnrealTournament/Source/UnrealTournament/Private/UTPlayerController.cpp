@@ -397,7 +397,7 @@ void AUTPlayerController::ToggleTranslocator()
 }
 void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {
-	if (UTCharacter != NULL && IsLocalPlayerController())
+	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0)
 	{
 		if (UTCharacter->GetWeapon() == NULL)
 		{
@@ -1423,6 +1423,14 @@ void AUTPlayerController::ApplyDeferredFireInputs()
 		}
 	}
 	DeferredFireInputs.Empty();
+}
+
+void AUTPlayerController::SetEmoteSpeed(float NewEmoteSpeed)
+{
+	if (UTCharacter != nullptr)
+	{
+		UTCharacter->ServerSetEmoteSpeed(NewEmoteSpeed);
+	}
 }
 
 void AUTPlayerController::FasterEmote()

@@ -256,6 +256,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	virtual void OnRepEmoteSpeed();
 
 	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetEmoteSpeed(float NewEmoteSpeed);
+
+	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerFasterEmote();
 
 	UFUNCTION(Server, Reliable, WithValidation)

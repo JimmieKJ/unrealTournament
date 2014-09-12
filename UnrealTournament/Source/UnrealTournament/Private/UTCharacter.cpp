@@ -2705,8 +2705,7 @@ bool AUTCharacter::ServerFasterEmote_Validate()
 
 void AUTCharacter::ServerFasterEmote_Implementation()
 {
-	EmoteSpeed = FMath::Min(EmoteSpeed + 0.05f, 3.0f);
-	
+	EmoteSpeed = FMath::Min(EmoteSpeed + 0.25f, 3.0f);	
 	OnRepEmoteSpeed();
 }
 
@@ -2717,7 +2716,18 @@ bool AUTCharacter::ServerSlowerEmote_Validate()
 
 void AUTCharacter::ServerSlowerEmote_Implementation()
 {
-	EmoteSpeed = FMath::Max(EmoteSpeed - 0.05f, 0.05f);
+	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, 0.0f);
+	OnRepEmoteSpeed();
+}
+
+bool AUTCharacter::ServerSetEmoteSpeed_Validate(float NewEmoteSpeed)
+{
+	return true;
+}
+
+void AUTCharacter::ServerSetEmoteSpeed_Implementation(float NewEmoteSpeed)
+{
+	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, 0.0f, 3.0f);
 	OnRepEmoteSpeed();
 }
 

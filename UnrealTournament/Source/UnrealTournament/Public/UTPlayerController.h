@@ -267,6 +267,9 @@ public:
 	UFUNCTION()
 	virtual void SlowerEmote();
 
+	UFUNCTION(Exec)
+	virtual void SetEmoteSpeed(float NewEmoteSpeed);
+
 	virtual void ClientSetViewTarget_Implementation(AActor* A, FViewTargetTransitionParams TransitionParams) override;
 
 	UPROPERTY()
