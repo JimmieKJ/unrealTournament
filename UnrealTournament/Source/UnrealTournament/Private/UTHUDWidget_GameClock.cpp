@@ -76,7 +76,9 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 			}
 			else if (CGS->bPlayingAdvantage)
 			{
-				DrawText(NSLOCTEXT("GameClock", "Advantage", "!! Playing Advantage !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
+				FText AdvantageText = CGS->AdvantageTeamIndex == 1 ? NSLOCTEXT("GameClock", "RedAdvantage", "!! Red Advantage !!") : NSLOCTEXT("GameClock", "BlueAdvantage", "!! Blue Advantage !!");
+				FLinearColor AdvantageColor = CGS->AdvantageTeamIndex == 1 ? FLinearColor::Red : FLinearColor::Blue;
+				DrawText(AdvantageText, 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, AdvantageColor, ETextHorzPos::Center);
 			}
 			else
 			{

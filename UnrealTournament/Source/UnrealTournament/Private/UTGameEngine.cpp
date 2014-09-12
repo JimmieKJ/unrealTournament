@@ -94,6 +94,7 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 	{
 		return Super::Exec(InWorld, Cmd, Out);
 	}
+
 }
 
 void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
@@ -123,6 +124,12 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 	SmoothFrameRate(DeltaSeconds);
 
 	Super::Tick(DeltaSeconds, bIdleMode);
+
+	if(GIsRequestingExit )
+	{
+		SmoothFrameRate(DeltaSeconds);
+	}
+
 }
 
 #if PLATFORM_LINUX

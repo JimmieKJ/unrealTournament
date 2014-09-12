@@ -425,10 +425,6 @@ public:
 	UPROPERTY()
 	bool bHasCheckedAgainstWall;
 
-	/** Holds the touch/trace info of the current wall the player is pressed against.  Only valid if bIsAgainstWall is true. */
-	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
-	FHitResult WallHitInfo;
-
 	/** Holds the direction of the wall.  < 0 for left, >0 for right. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	float WallDirection;

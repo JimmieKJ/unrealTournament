@@ -21,6 +21,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, bHalftime);
 	DOREPLIFETIME(AUTCTFGameState, FlagBases);
 	DOREPLIFETIME(AUTCTFGameState, bPlayingAdvantage);
+	DOREPLIFETIME(AUTCTFGameState, AdvantageTeamIndex);
 }
 
 void AUTCTFGameState::SetMaxNumberOfTeams(int TeamCount)

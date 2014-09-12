@@ -32,6 +32,8 @@ class AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 	uint32 bPlayingAdvantage : 1;
 
+	UPROPERTY(Replicated)
+	uint8 AdvantageTeamIndex;
 
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */
 	virtual void SetMaxNumberOfTeams(int TeamCount);

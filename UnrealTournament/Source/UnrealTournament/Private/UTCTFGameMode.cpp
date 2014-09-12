@@ -210,6 +210,7 @@ void AUTCTFGameMode::CheckGameTime()
 	}
 	else if ( CTFGameState->IsMatchInProgress() )
 	{
+		UE_LOG(UT,Log, TEXT("Time Remaining %i %i"),CTFGameState->RemainingTime, CTFGameState->bPlayingAdvantage);
 		if ( CTFGameState->RemainingTime <= 0 )
 		{
 			// Halftime?? then exit it
@@ -231,37 +232,41 @@ void AUTCTFGameMode::CheckGameTime()
 					EndGame(NULL, FName(TEXT("TimeLimit")));	
 				}
 			}
-			else if ( CTFGameState->bSecondHalf )
+			else
 			{
-				AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
-				if (WinningTeam != NULL)
+				if ( CTFGameState->bSecondHalf )
 				{
-					AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
-					EndGame(WinningPS, FName(TEXT("TimeLimit")));	
+					AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
+					if (WinningTeam != NULL)
+					{
+						AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
+						EndGame(WinningPS, FName(TEXT("TimeLimit")));	
 				
-				}
-				else if (!IsPlayingAdvantage())
-				{
-					if (bAllowOvertime)
-					{
-						SetMatchState(MatchState::MatchEnteringHalftime);
 					}
-					else
+					else 
 					{
-						// Match is over....
-						EndGame(NULL, FName(TEXT("TimeLimit")));
+						if (bAllowOvertime)
+						{
+							SetMatchState(MatchState::MatchEnteringHalftime);
+						}
+						else
+						{
+							// Match is over....
+							EndGame(NULL, FName(TEXT("TimeLimit")));
+						}
 					}
 				}
-			}
-			else 
-			{
-
-				// We are looking to enter halftime.. look to see if we should delay it a bit because a flag is being run...
-
-				if ( !IsPlayingAdvantage() )
+				else 
 				{
 					SetMatchState(MatchState::MatchEnteringHalftime);
 				}
+			}
+		}
+		else if (CTFGameState->bPlayingAdvantage)
+		{
+			if (!CheckAdvantage())
+			{
+				CTFGameState->SetTimeLimit(0);
 			}
 		}
 	}
@@ -401,6 +406,7 @@ void AUTCTFGameMode::HandleExitingHalftime()
 	CTFGameState->ResetFlags();
 	CTFGameState->bHalftime = false;
 	CTFGameState->bPlayingAdvantage = false;
+	CTFGameState->AdvantageTeamIndex = -1;
 	
 	if (CTFGameState->bSecondHalf)
 	{
@@ -583,7 +589,22 @@ void AUTCTFGameMode::SetMatchState(FName NewState)
 	{
 		return;
 	}
-	
+
+	// Look to see if one team has an advantage.  If they do set for advantage instead of half-time..
+
+	if (NewState == MatchState::MatchEnteringHalftime && !CTFGameState->bPlayingAdvantage)		// Only check if we aren't already playing advantage
+	{
+		int32 AdvantageTeam = TeamWithAdvantage();
+		if (AdvantageTeam >= 0)
+		{
+			// A team has advantage.. so set the flags.
+			CTFGameState->bPlayingAdvantage = true;
+			CTFGameState->AdvantageTeamIndex = AdvantageTeam;
+			CTFGameState->SetTimeLimit(60);
+			return;
+		}
+	}
+
 	Super::SetMatchState(NewState);
 
 	if (NewState == MatchState::MatchEnteringHalftime)
@@ -658,7 +679,7 @@ void AUTCTFGameMode::ScoreHolder(AUTPlayerState* Holder)
 	Holder->Score += FlagHolderPointsPerSecond;
 }
 
-bool AUTCTFGameMode::IsPlayingAdvantage()
+uint8 AUTCTFGameMode::TeamWithAdvantage()
 {
 	AUTCTFFlag* Flags[2];
 	Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
@@ -667,36 +688,44 @@ bool AUTCTFGameMode::IsPlayingAdvantage()
 	if ((Flags[0]->ObjectState == CarriedObjectState::Held && Flags[1]->ObjectState == CarriedObjectState::Held) ||
 		(Flags[0]->ObjectState == CarriedObjectState::Home && Flags[1]->ObjectState == CarriedObjectState::Home))
 	{
-		// Both flags are either at home or held, so we enter halftime
-		return false;
+		// Both flags are either at home or held the no one has advantage.
+		return -1;
 	}
 
-	uint8 CarriedFlagNum = Flags[0]->ObjectState == CarriedObjectState::Held ? 0 : 1;
+	int8 AdvantageNum = Flags[0]->ObjectState == CarriedObjectState::Held ? 0 : 1;
+	if (AdvantageNum < 0 || AdvantageNum > 1 || Flags[AdvantageNum] == NULL || Flags[AdvantageNum]->ObjectState == CarriedObjectState::Dropped) return -1;
 
-	if (Flags[CarriedFlagNum] == NULL || Flags[CarriedFlagNum]->ObjectState != CarriedObjectState::Held) return false;
+	return AdvantageNum;
+}
 
-	uint8 HomeBaseNum = 1 - CarriedFlagNum;
+bool AUTCTFGameMode::CheckAdvantage()
+{
+	AUTCTFFlag* Flags[2];
+	Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
+	Flags[1] = CTFGameState->FlagBases[1]->MyFlag;
 
-	float Dist = (Flags[CarriedFlagNum]->HoldingPawn->GetActorLocation() - Flags[HomeBaseNum]->HomeBase->GetActorLocation()).Size();
-	if (CTFGameState->bPlayingAdvantage)
+	uint8 OtherTeam = 1 - CTFGameState->AdvantageTeamIndex;
+
+	// The Flag was returned so advantage lost
+	if (Flags[CTFGameState->AdvantageTeamIndex]->ObjectState == CarriedObjectState::Home) 
 	{
-		if (Dist < LastAdvantageCheckDistance)
-		{
-			LastAdvantageCheckDistance = Dist;
-		}
-		else
-		{
-			AdvantageTime--;
-			return (AdvantageTime > 0);
-		}
+		UE_LOG(UT,Log,TEXT("Advantage Flag Home"));
+		return false;	
+	}
 
+	if (Flags[OtherTeam]->ObjectState == CarriedObjectState::Held)
+	{
+		AdvantageGraceTime++;
+		if (AdvantageGraceTime >= 5)		// 5 second grace period.. make this config :)
+		{
+			UE_LOG(UT,Log,TEXT("Timer"));
+			return false;
+		}
 	}
 	else
 	{
-		CTFGameState->bPlayingAdvantage = true;
-		LastAdvantageCheckDistance = Dist;
-		AdvantageTime = 10;
+		AdvantageGraceTime = 0;
 	}
-
+		
 	return true;
 }

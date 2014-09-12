@@ -1530,3 +1530,17 @@ void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 
 	Super::ProcessServerTravel(URL, bAbsolute);
 }
+
+void AUTGameMode::Destroyed()
+{
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	UE_LOG(UT,Log,TEXT("DESTROYED"));
+	
+	Super::Destroyed();
+}

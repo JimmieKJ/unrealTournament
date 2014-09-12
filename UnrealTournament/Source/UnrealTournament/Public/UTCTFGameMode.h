@@ -162,12 +162,14 @@ protected:
 
 	virtual bool IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum=255);
 
-	// returns true if the thinks advantage should be played
-	virtual bool IsPlayingAdvantage();
+	// returns the team index of a team with advatage or < 0 if no team has one
+	virtual uint8 TeamWithAdvantage();
+
+	// Look to see if the team that had advantage still has it
+	virtual bool CheckAdvantage();
 
 	// Holds the amount of time to give a flag carrier who has the flag out going in to half-time
-	int AdvantageTime;
-	float LastAdvantageCheckDistance;		// Smallest Distance to the flag at the last check.  
+	int AdvantageGraceTime;
 };
 
 

@@ -1086,10 +1086,9 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					{
 						// We are against the wall, store info about it
 						bIsAgainstWall = true;
-						WallHitInfo = Result;
 						
 						FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0,0,1));
-						WallDirection = FVector::DotProduct(Lat, WallHitInfo.Normal);
+						WallDirection = FVector::DotProduct(Lat, Result.Normal);
 
 						TickAirControl = 0.f;
 						CheckWallSlide(Result);
@@ -1511,7 +1510,9 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 	if (Hit.IsValidBlockingHit())
 	{
 		bIsAgainstWall = true;
-		WallHitInfo = Hit;
+		FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0,0,1));
+		WallDirection = FVector::DotProduct(Lat, Hit.Normal);
+
 		SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, false);
 	}
 	else if (!bHasCheckedAgainstWall)
@@ -1529,7 +1530,10 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 		if (bHit)
 		{
 			bIsAgainstWall = true;
-			WallHitInfo = Hit;
+
+			FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0,0,1));
+			WallDirection = FVector::DotProduct(Lat, Hit.Normal);
+
 		}
 	}
 }
