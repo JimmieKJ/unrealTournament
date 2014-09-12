@@ -26,7 +26,7 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FPostConstructInitializePropert
 
 	// Flak shell
 	ShardSpawnCount = 5;
-	ShardSpawnAngle = 85.0f;
+	ShardSpawnAngle = 30.0f;
 }
 
 void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
@@ -56,8 +56,10 @@ void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const
 
 			for (int32 i = 0; i < ShardSpawnCount; ++i)
 			{
-				// Randomize spawn direction along hit normal
-				const FRotator SpawnRotation = FMath::VRandCone(HitNormal, FMath::DegreesToRadians(ShardSpawnAngle)).Rotation();
+				FVector MovementDir = GetActorRotation().Vector();
+				FVector ShardDir = (MovementDir - 2.0f * HitNormal * (MovementDir | HitNormal));
+				// Randomize spawn direction along bounce direction
+				const FRotator SpawnRotation = FMath::VRandCone(ShardDir, FMath::DegreesToRadians(ShardSpawnAngle)).Rotation();
 
 				// Spawn shard
 				AUTProjectile* Proj = GetWorld()->SpawnActor<AUTProjectile>(ShardClass, SpawnPos, SpawnRotation, Params);
