@@ -46,7 +46,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 
 	MultiShotProjClass.SetNumZeroed(1);
 
-	AltFireIncline = 3.f;
+	AltFireIncline = 0.f;
 }
 
 FRotator AUTWeap_FlakCannon::GetAdjustedAim_Implementation(FVector StartFireLoc)
