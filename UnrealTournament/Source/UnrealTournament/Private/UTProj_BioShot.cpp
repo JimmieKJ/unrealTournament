@@ -15,7 +15,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	ProjectileMovement->MaxSpeed = 3000.0f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bInitialVelocityInLocalSpace = true;
-	ProjectileMovement->ProjectileGravityScale = 2.0f;
+	ProjectileMovement->ProjectileGravityScale = 0.9f;
 	ProjectileMovement->bShouldBounce = false;
 
 	DamageParams.BaseDamage = 21.0f;

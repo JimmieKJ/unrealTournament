@@ -49,7 +49,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxAcceleration = 4200.f; 
 	BrakingDecelerationWalking = 4800.f;
 	BrakingDecelerationSwimming = 3000.f;
-	GravityScale = 2.2f;
+	GravityScale = 1.f;
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;

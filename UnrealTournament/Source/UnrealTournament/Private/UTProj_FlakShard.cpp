@@ -87,7 +87,7 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 	ProjectileMovement->Velocity = 0.6f * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
 
 	// Set gravity on bounce
-	ProjectileMovement->ProjectileGravityScale = 2.2f;
+	ProjectileMovement->ProjectileGravityScale = 1.f;
 
 	// Limit number of bounces
 	BouncesRemaining--;
@@ -111,7 +111,7 @@ void AUTProj_FlakShard::Tick(float DeltaTime)
 
 	if (GetLifeSpan() < 1.0f)
 	{
-		ProjectileMovement->ProjectileGravityScale = 1.0f;
+		ProjectileMovement->ProjectileGravityScale = 1.f;
 	}
 
 	if (HeatFadeTime > 0.0f)

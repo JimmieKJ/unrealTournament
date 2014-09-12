@@ -18,7 +18,7 @@ AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 	Mesh->AttachParent = RootComponent;
 	Mesh->SetAbsolute(false, false, true);
 
-	MovementComponent->ProjectileGravityScale=3.0;
+	MovementComponent->ProjectileGravityScale=1.3f;
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
 }

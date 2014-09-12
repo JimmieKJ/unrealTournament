@@ -848,7 +848,7 @@ void AUTCharacter::StartRagdoll()
 	}
 	else
 	{
-		Mesh->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity * FVector(1.0f, 1.0f, 0.5f), false); // gravity doesn't seem to be the same magnitude for ragdolls...
+		Mesh->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false); 
 	}
 
 	CharacterMovement->StopActiveMovement();
