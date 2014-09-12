@@ -72,4 +72,6 @@ class AUTWeap_Translocator : public AUTWeapon
 
 	/**Dont drop Weapon when killed. Kill the disk*/
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
+
+	virtual void DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta) override;
 };

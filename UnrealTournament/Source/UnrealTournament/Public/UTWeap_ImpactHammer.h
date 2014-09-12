@@ -46,4 +46,6 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL) override;
 
 	virtual void Tick(float DeltaTime) override;
+
+	virtual void DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta) override;
 };

@@ -20,7 +20,7 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 	TelefragDamage = 1337.0f;
 
 	BringUpTime = 0.35f;
-	PutDownTime = 0.25f;
+	PutDownTime = 0.22f;
 
 	AmmoCost.Add(0);
 	AmmoCost.Add(1);
@@ -28,7 +28,18 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 	MaxAmmo = 8;
 	AmmoRechargeRate = 1.0f;
 
-	RecallFireInterval = 0.2f;
+	RecallFireInterval = 0.16f;
+}
+
+void AUTWeap_Translocator::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
+{
+	if (Ammo < 1)
+	{
+		UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
+		FString AmmoStr = FString::Printf(TEXT("OVERHEAT"));
+		FText AmmoText = FText::FromString(AmmoStr);
+		WeaponHudWidget->DrawText(AmmoText, 0, 0, Font, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Bottom);
+	}
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
