@@ -95,6 +95,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	bApplyWallSlide = false;
 	SavedAcceleration = FVector(0.f);
 	bMaintainSlideRollAccel = true;
+	bHasCheckedAgainstWall = false;
 
 	EasyImpactImpulse = 1050.f;
 	EasyImpactDamage = 25;
@@ -1457,8 +1458,13 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 		{
 			// update velocity with replicated acceleration - handle falling also
 			// For now, pretend 0 accel if walking on ground
+			if (MovementMode != MOVE_Falling)
+			{
+				bHasCheckedAgainstWall = false;
+			}
 			if (MovementMode == MOVE_Walking)
 			{
+				bIsAgainstWall = false;
 				float Speed = Velocity.Size();
 				if (bWasFalling && (Speed > MaxWalkSpeed))
 				{
@@ -1480,5 +1486,51 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 		}
 	}
 	Velocity = RealVelocity;
+}
+
+
+void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult)
+{
+	//@TODO FIXMESTEVE - really just want MoveSmooth() to add a hit notification
+	if ((MovementMode != MOVE_Falling) || !HasValidData() || (CharacterOwner->Role != ROLE_SimulatedProxy))
+	{
+		Super::MoveSmooth(InVelocity, DeltaSeconds, OutStepDownResult);
+		return;
+	}
+	FVector Delta = InVelocity * DeltaSeconds;
+	if (Delta.IsZero())
+	{
+		return;
+	}
+
+	FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
+
+	FHitResult Hit(1.f);
+	SafeMoveUpdatedComponent(Delta, CharacterOwner->GetActorRotation(), true, Hit);
+
+	if (Hit.IsValidBlockingHit())
+	{
+		bIsAgainstWall = true;
+		WallHitInfo = Hit;
+		SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, false);
+	}
+	else if (!bHasCheckedAgainstWall)
+	{
+		bHasCheckedAgainstWall = true;
+		static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
+		const float TestWalkTime = FMath::Max(DeltaSeconds, 0.05f);
+		const FVector TestWalk = (FVector(0.f, 0.f, GetGravityZ()) * TestWalkTime + Velocity) * TestWalkTime;
+		FCollisionQueryParams CapsuleQuery(FallingTraceParamsTag, false, CharacterOwner);
+		FCollisionResponseParams ResponseParam;
+		InitCollisionParams(CapsuleQuery, ResponseParam);
+		const FVector PawnLocation = CharacterOwner->GetActorLocation();
+		const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
+		const bool bHit = GetWorld()->SweepSingle(Hit, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+		if (bHit)
+		{
+			bIsAgainstWall = true;
+			WallHitInfo = Hit;
+		}
+	}
 }
 

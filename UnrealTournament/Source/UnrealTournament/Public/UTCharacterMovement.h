@@ -10,6 +10,8 @@ class UUTCharacterMovement : public UCharacterMovementComponent
 
 public:
 
+	virtual void MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult = NULL) override;
+		
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
 	virtual bool ClientUpdatePositionAfterServerUpdate() override;
@@ -418,6 +420,10 @@ public:
 	/** If true, the player is against the wall and WallHitInfo will describe the touch. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bIsAgainstWall;
+
+	/** Used to gate client=side checking whether other characters are falling against a wall. */
+	UPROPERTY()
+	bool bHasCheckedAgainstWall;
 
 	/** Holds the touch/trace info of the current wall the player is pressed against.  Only valid if bIsAgainstWall is true. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
