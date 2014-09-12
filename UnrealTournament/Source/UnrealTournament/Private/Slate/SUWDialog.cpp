@@ -77,8 +77,13 @@ void SUWDialog::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot()													
 					.Padding(InArgs._ContentPadding.X, InArgs._ContentPadding.Y, InArgs._ContentPadding.X, InArgs._ContentPadding.Y)
 					[
-						// Add an Overlay
-						SAssignNew(DialogContent, SOverlay)
+						SNew(SScrollBox)
+						+ SScrollBox::Slot()
+						.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+						[
+							// Add an Overlay
+							SAssignNew(DialogContent, SOverlay)
+						]
 					]
 
 					// The ButtonBar
@@ -178,12 +183,10 @@ FReply SUWDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyboardEvent& InK
 {
 	if (InKeyboardEvent.GetKey() == EKeys::Escape)
 	{
-		return FReply::Handled();
+		OnButtonClick(UTDIALOG_BUTTON_CANCEL);
 	}
-	else
-	{
-		return FReply::Unhandled();
-	}
+
+	return FReply::Unhandled();
 }
 
 FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent)

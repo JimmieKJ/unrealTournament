@@ -6,6 +6,7 @@
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
 #include "Slate/SUWindowsMidGame.h"
+#include "Slate/SUWServerBrowser.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SUWDialog.h"
@@ -126,4 +127,15 @@ void UUTLocalPlayer::CloseDialog(TSharedRef<SUWDialog> Dialog)
 {
 	Dialog->OnDialogClosed();
 	GEngine->GameViewport->RemoveViewportWidgetContent(Dialog);
+}
+
+TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
+{
+	if (!ServerBrowserWidget.IsValid())
+	{
+		SAssignNew(ServerBrowserWidget, SUWServerBrowser)
+			.PlayerOwner(this);
+	}
+
+	return ServerBrowserWidget;
 }

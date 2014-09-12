@@ -18,6 +18,7 @@
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
+	DesktopSlotIndex = -1;
 	CreateDesktop();
 }
 
@@ -108,4 +109,31 @@ FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command, TSharedPtr<SCombo
 	ConsoleCommand(Command);
 	CloseMenus();
 	return FReply::Handled();
+}
+
+void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SWidget> PanelToActivate)
+{
+	if ( !Desktop.IsValid() ) return;		// Quick out if no place to put it
+	// Don't reactivate the current panel
+	if (ActivePanel != PanelToActivate)
+	{
+		if ( ActivePanel.IsValid() )
+		{
+			DeactivatePanel(ActivePanel.ToSharedRef());
+		}	
+
+		SOverlay::FOverlaySlot& Slot = Desktop->AddSlot()
+			[
+				PanelToActivate.ToSharedRef()
+			];
+		
+		DesktopSlotIndex = Slot.ZOrder;
+	}
+}
+
+void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SWidget> PanelToDeactivate)
+{
+	Desktop->RemoveSlot(DesktopSlotIndex);
+	DesktopSlotIndex = -1;
+	ActivePanel.Reset();
 }

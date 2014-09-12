@@ -3,6 +3,7 @@
 
 #include "Slate/SlateGameResources.h"
 #include "UTOnlineGameSearchBase.h"
+#include "SUWindowsStyle.h"
 
 /*
 	Holds data about a server.  
@@ -136,7 +137,6 @@ class SUWServerBrowser : public SCompoundWidget
 	{}
 
 	SLATE_ARGUMENT(TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner)
-	SLATE_ARGUMENT(TWeakObjectPtr<SUWindowsDesktop>, DesktopOwner)
 	SLATE_END_ARGS()
 
 	/** needed for every widget */
@@ -152,7 +152,6 @@ protected:
 	IOnlineSessionPtr OnlineSessionInterface;
 
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
-	TWeakObjectPtr<class SUWindowsDesktop> DesktopOwner;
 	TSharedPtr<class SEditableTextBox> UserNameEditBox;
 	TSharedPtr<class SButton> RefreshButton;
 	TSharedPtr<class STextBlock> StatusText;

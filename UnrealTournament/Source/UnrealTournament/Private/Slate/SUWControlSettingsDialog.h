@@ -42,6 +42,26 @@ struct FSimpleBind
 class SUWControlSettingsDialog : public SUWDialog
 {
 public:
+
+	SLATE_BEGIN_ARGS(SUWControlSettingsDialog)
+	: _DialogSize(FVector2D(0.5f,0.8f))
+	, _bDialogSizeIsRelative(true)
+	, _DialogPosition(FVector2D(0.5f,0.5f))
+	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
+	, _ContentPadding(FVector2D(10.0f, 5.0f))
+	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
+	{}
+	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
+	SLATE_ARGUMENT(FText, DialogTitle)											
+	SLATE_ARGUMENT(FVector2D, DialogSize)										
+	SLATE_ARGUMENT(bool, bDialogSizeIsRelative)									
+	SLATE_ARGUMENT(FVector2D, DialogPosition)									
+	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
+	SLATE_ARGUMENT(FVector2D, ContentPadding)									
+	SLATE_ARGUMENT(uint16, ButtonMask)
+	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
+	SLATE_END_ARGS()
+
 	void Construct(const FArguments& InArgs);
 protected:
 
@@ -50,6 +70,8 @@ protected:
 	SVerticalBox::FSlot& AddHeader(const FString& Header);
 
 	TArray<TSharedPtr<FSimpleBind> > Binds;
+
+	virtual FReply OnButtonClick(uint16 ButtonID);	
 
 	FReply OKClick();
 	FReply CancelClick();

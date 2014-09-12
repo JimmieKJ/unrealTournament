@@ -17,48 +17,68 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 	float RedScale  = UTHUDOwner->UTPlayerOwner->GetTeamNum() == 0 ? 1.25 : 1.0;
 	float BlueScale = UTHUDOwner->UTPlayerOwner->GetTeamNum() == 1 ? 1.25 : 1.0;
 
+
 	// Draw the Red Score...
 
 	AUTCTFGameState* CGS = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
 	if (CGS != NULL && CGS->Teams.Num() >= 2 && CGS->Teams[0] != NULL && CGS->Teams[1] != NULL)
 	{
-		// Draw the Red Flag State...
+		// Draw the Flag State...
+
+		DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,41, 843, 87, 43,41, FLinearColor::Blue, BlueScale);
+		DrawFlagIcon(-46 * RedScale,53 * RedScale, 43,41, 843, 87, 43,41, FLinearColor::Red, RedScale);
 
 		FName FlagState = CGS->GetFlagState(0);
 
+		float RedHolderScaleModifier = 1.0;
+		if (FlagState == CarriedObjectState::Held)
+		{
+			RedPulseScale += DeltaTime * 3;
+			RedHolderScaleModifier = 0.3 * FMath::Abs(FMath::Sin(RedPulseScale));
+		}
+		else
+		{
+			RedPulseScale = 0;
+		}
+
 		if (FlagState == CarriedObjectState::Dropped)
 		{
-			DrawFlagIcon(-46 * RedScale,53 * RedScale, 25,34, 894, 1, 25,34, FLinearColor::Red, RedScale);
+			DrawFlagIcon(-46 * RedScale,53 * RedScale, 25,34, 894, 1, 25,34, FLinearColor::Yellow, RedScale);
 		}
 		else if (FlagState == CarriedObjectState::Held)
 		{
-			DrawFlagIcon(-46 * RedScale,53 * RedScale, 43,35, 843, 50, 43,35, FLinearColor::Red, RedScale);
+			DrawFlagIcon(-46 * RedScale,53 * RedScale, 43,35, 843, 50, 43,35, FLinearColor::Blue, RedScale - RedHolderScaleModifier);
 			if (CGS->GetFlagHolder(0) != nullptr && !CGS->GetFlagHolder(0)->PlayerName.IsEmpty())
 			{
 				DrawText(FText::FromString(CGS->GetFlagHolder(0)->PlayerName), -75* RedScale, 56 * RedScale, UTHUDOwner->GetFontFromSizeIndex(0), RedScale,1.0, FLinearColor::White, ETextHorzPos::Right);
 			}
 		}
-		else
-		{
-			DrawFlagIcon(-46 * RedScale,53 * RedScale, 43,41, 843, 87, 43,41, FLinearColor::Red, RedScale);
-		}
 
 		FlagState = CGS->GetFlagState(1);
+
+		float BlueHolderScaleModifier = 1.0;
+		if (FlagState == CarriedObjectState::Held)
+		{
+			BluePulseScale += DeltaTime * 3;
+			BlueHolderScaleModifier = 0.3 * FMath::Abs(FMath::Sin(BluePulseScale));
+		}
+		else
+		{
+			BluePulseScale = 0;
+		}
+
+
 		if (FlagState == CarriedObjectState::Dropped)
 		{
-			DrawFlagIcon(46 * BlueScale,53 * BlueScale, 25,34, 894, 1, 25,34, FLinearColor::Blue, BlueScale);
+			DrawFlagIcon(46 * BlueScale,53 * BlueScale, 25,34, 894, 1, 25,34, FLinearColor::Yellow, BlueScale);
 		}
 		else if (FlagState == CarriedObjectState::Held)
 		{
-			DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,35, 843, 50, 43,35, FLinearColor::Blue, RedScale);
+			DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,35, 843, 50, 43,35, FLinearColor::Red, RedScale - BlueHolderScaleModifier);
 			if (CGS->GetFlagHolder(1) != nullptr && !CGS->GetFlagHolder(1)->PlayerName.IsEmpty())
 			{
 				DrawText(FText::FromString(CGS->GetFlagHolder(1)->PlayerName), 75* BlueScale, 56 * BlueScale, UTHUDOwner->GetFontFromSizeIndex(0), BlueScale,1.0, FLinearColor::White);
 			}
-		}
-		else
-		{
-			DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,41, 843, 87, 43,41, FLinearColor::Blue, BlueScale);
 		}
 	}
 }

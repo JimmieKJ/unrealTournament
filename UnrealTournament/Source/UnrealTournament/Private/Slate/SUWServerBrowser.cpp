@@ -47,7 +47,6 @@ struct FCompareServerByPingDesc	{FORCEINLINE bool operator()( const TSharedPtr< 
 void SUWServerBrowser::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
-	DesktopOwner = InArgs._DesktopOwner;
 
 	TSharedRef<SScrollBar> ExternalScrollbar = SNew(SScrollBar);
 

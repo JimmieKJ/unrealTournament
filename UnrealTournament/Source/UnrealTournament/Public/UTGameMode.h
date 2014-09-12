@@ -149,10 +149,10 @@ public:
 		Super::PostInitProperties();
 		DisplayName = FText::FromName(GetClass()->GetFName());
 	}
-	UPROPERTY(Config)
+	UPROPERTY(GlobalConfig)
 	FString ServerPassword;
 
-	UPROPERTY(Config)
+	UPROPERTY(GlobalConfig)
 	uint32 bRequirePassword:1;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Game)

@@ -518,21 +518,21 @@ FReply SUWindowsMainMenu::OnChangeTeam(int32 NewTeamIndex,TSharedPtr<SComboButto
 FReply SUWindowsMainMenu::OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	PlayerOwner->OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner));
+	PlayerOwner->OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","PlayerSettings","Player Settings")));
 	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OpenSystemSettings(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	PlayerOwner->OpenDialog(SNew(SUWSystemSettingsDialog).PlayerOwner(PlayerOwner));
+	PlayerOwner->OpenDialog(SNew(SUWSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","System","System Settings")));
 	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OpenControlSettings(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	PlayerOwner->OpenDialog(SNew(SUWControlSettingsDialog).PlayerOwner(PlayerOwner));
+	PlayerOwner->OpenDialog(SNew(SUWControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","Controls","Control Settings")));
 	return FReply::Handled();
 }
 
@@ -633,22 +633,14 @@ FReply SUWindowsMainMenu::OnMenuHTTPButton(FString URL,TSharedPtr<SComboButton> 
 
 FReply SUWindowsMainMenu::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton)
 {
+
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	if (ActiveMenu.IsValid())
+
+	TSharedPtr<class SWidget> Browser = PlayerOwner->GetServerBrowser();
+	if (Browser.IsValid())
 	{
-		Desktop->RemoveSlot(ActiveMenu->AsShared());
-		ActiveMenu.Reset();
-		return FReply::Handled();
+		ActivatePanel(Browser);
 	}
-
-	TSharedPtr<class SCompoundWidget> Browser;
-	Desktop->AddSlot()
-	[
-		SAssignNew(Browser, SUWServerBrowser)
-		.PlayerOwner(PlayerOwner)
-	];
-
-	ActiveMenu = Browser;
 	return FReply::Handled();
 }
 

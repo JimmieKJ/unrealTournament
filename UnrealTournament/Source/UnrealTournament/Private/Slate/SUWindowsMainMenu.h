@@ -9,9 +9,6 @@ class SUWindowsMainMenu : public SUWindowsDesktop
 {
 protected:
 	TSharedPtr<class SHorizontalBox> MenuBar;
-	TSharedPtr<class SOverlay> Desktop;
-	TSharedPtr<class SWidget> ActiveMenu;
-
 	TArray< TSharedPtr<SComboButton> > MenuButtons;
 
 	virtual void CreateDesktop();

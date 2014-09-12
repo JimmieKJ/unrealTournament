@@ -29,14 +29,9 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 		TSharedPtr<STextBlock> MessageTextBlock;
 		DialogContent->AddSlot()
 		[
-			SNew(SScrollBox)
-			+ SScrollBox::Slot()
-			.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
-			[
-				SAssignNew(MessageTextBlock, STextBlock)
-				.Text(InArgs._MessageText)
-				.TextStyle(SUWindowsStyle::Get(), *InArgs._MessageTextStyleName)
-			]
+			SAssignNew(MessageTextBlock, STextBlock)
+			.Text(InArgs._MessageText)
+			.TextStyle(SUWindowsStyle::Get(), *InArgs._MessageTextStyleName)
 		];
 
 		// we have to manually apply the wrapping because SlateWordWrapper::WrapText() has a bug where it discards multi-line breaks and replaces with a single line break

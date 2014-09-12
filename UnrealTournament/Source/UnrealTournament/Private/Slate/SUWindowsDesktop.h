@@ -26,8 +26,15 @@ class SUWindowsDesktop : public SCompoundWidget
 	virtual FReply OnMenuConsoleCommand(FString Command, TSharedPtr<SComboButton> MenuButton);
 	virtual void ConsoleCommand(FString Command);
 
+	virtual void ActivatePanel(TSharedPtr<class SWidget> PanelToActivate);
+	virtual void DeactivatePanel(TSharedPtr<class SWidget> PanelToDeactivate);
+
 protected:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
+
+	TSharedPtr<class SOverlay> Desktop;
+	int32 DesktopSlotIndex;
+	TSharedPtr<class SWidget> ActivePanel;
 	TSharedPtr<class SWidget> GameViewportWidget;
 
 	virtual void CreateDesktop();

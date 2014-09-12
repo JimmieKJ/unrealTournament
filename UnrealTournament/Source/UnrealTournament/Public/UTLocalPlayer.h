@@ -24,9 +24,14 @@ public:
 
 	virtual bool IsMenuGame();
 
+	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
+
 protected:
 
 	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
+	
+	// Holds a persistent reference to the server browser.
+	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
 
 	/** stores a reference to open dialogs so they don't get destroyed */
 	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
