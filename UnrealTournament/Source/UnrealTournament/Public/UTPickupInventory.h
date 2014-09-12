@@ -45,6 +45,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType);
+	inline TSubclassOf<AUTInventory> GetInventoryType()
+	{
+		return InventoryType;
+	}
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void InventoryTypeUpdated();
 
