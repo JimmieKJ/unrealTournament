@@ -34,14 +34,9 @@ void AUTWeap_Enforcer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	// burst mode takes care of spread variation itself
 	if (!Cast<UUTWeaponStateFiringBurst>(FiringState[GetCurrentFireMode()]))
 	{
-		if (UTOwner->GetWorld()->GetTimeSeconds() - LastFireTime > SpreadResetInterval)
-		{
-			Spread[GetCurrentFireMode()] = 0.f;
-		}
-		else
-		{
-			Spread[GetCurrentFireMode()] = FMath::Min(MaxSpread, Spread[GetCurrentFireMode()] + SpreadIncrease);
-		}
+		float TimeSinceFired = UTOwner->GetWorld()->GetTimeSeconds() - LastFireTime;
+		float SpreadScalingOverTime = FMath::Max(0.f, 1.f - (TimeSinceFired - FireInterval[GetCurrentFireMode()]) / (SpreadResetInterval - FireInterval[GetCurrentFireMode()]));
+		Spread[GetCurrentFireMode()] = FMath::Min(MaxSpread, Spread[GetCurrentFireMode()] + SpreadIncrease) * SpreadScalingOverTime;
 	}
 	Super::FireInstantHit(bDealDamage, OutHit);
 	if (UTOwner)
