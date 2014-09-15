@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UnrealNetwork.h"
 #include "UTProjectileMovementComponent.h"
 #include "UTImpactEffect.h"
 #include "UTRemoteRedeemer.h"
@@ -189,8 +190,15 @@ void AUTRemoteRedeemer::BlowUp()
 	}
 }
 
+void AUTRemoteRedeemer::OnRep_PlayExplosionEffects()
+{
+	PlayExplosionEffects();
+}
+
 void AUTRemoteRedeemer::PlayExplosionEffects()
 {
+	bPlayExplosionEffects = true;
+
 	if (ExplosionEffects != NULL)
 	{
 		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
@@ -357,4 +365,11 @@ bool AUTRemoteRedeemer::IsRelevancyOwnerFor(AActor* ReplicatedActor, AActor* Act
 	}
 
 	return Super::IsRelevancyOwnerFor(ReplicatedActor, ActorOwner, ConnectionActor);
+}
+
+void AUTRemoteRedeemer::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(AUTRemoteRedeemer, bPlayExplosionEffects, COND_None);
 }

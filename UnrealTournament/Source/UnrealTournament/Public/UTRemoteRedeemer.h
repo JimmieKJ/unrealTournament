@@ -101,6 +101,12 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	void ExplodeStage(float RangeMultiplier);
 
+	UPROPERTY(ReplicatedUsing=OnRep_PlayExplosionEffects)
+	bool bPlayExplosionEffects;
+
+	UFUNCTION()
+	void OnRep_PlayExplosionEffects();
+
 	void PlayExplosionEffects();
 
 	UFUNCTION()
