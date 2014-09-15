@@ -465,7 +465,7 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 }
 void AUTPlayerController::SwitchWeapon(int32 Group)
 {
-	if (UTCharacter != NULL && IsLocalPlayerController())
+	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0)
 	{
 		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
 		// if it is, then pick next highest slot, or wrap around to lowest if no higher slot
