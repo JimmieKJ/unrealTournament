@@ -417,7 +417,7 @@ public:
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bApplyWallSlide;
 
-	/** If true, the player is against the wall and WallHitInfo will describe the touch. */
+	/** If true, the player is against the wall and WallDirection will describe the touch. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bIsAgainstWall;
 

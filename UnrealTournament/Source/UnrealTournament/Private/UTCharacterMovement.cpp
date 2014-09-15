@@ -477,8 +477,12 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		}
 		else if ((VelocityZ < 0.f) && (VelocityZ > WallDodgeGraceVelocityZ))
 		{
+			if (Velocity.Z < -1.f * JumpZVelocity)
+			{
+				CurrentWallImpulse = FMath::Max(WallDodgeSecondImpulseVertical, WallDodgeImpulseVertical + Velocity.Z + JumpZVelocity);
+			}
 			// allowing dodge with loss of downward velocity is no free lunch for falling damage
-			PendingFallVelocityZ = VelocityZ;
+			PendingFallVelocityZ = FMath::Min(0.f, VelocityZ + CurrentWallImpulse);
 			VelocityZ = 0.f;
 		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);
