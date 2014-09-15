@@ -16,18 +16,23 @@ public:
 	virtual void ShowMenu();
 	virtual void HideMenu();
 
+#if !UE_SERVER
 	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
 
 	/** utilities for opening and closing dialogs */
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog);
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
+#endif
 
 	virtual bool IsMenuGame();
 
+#if !UE_SERVER
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
+#endif
 
 protected:
 
+#if !UE_SERVER
 	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
 	
 	// Holds a persistent reference to the server browser.
@@ -35,7 +40,7 @@ protected:
 
 	/** stores a reference to open dialogs so they don't get destroyed */
 	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
-
+#endif
 
 };
 

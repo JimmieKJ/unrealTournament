@@ -1259,7 +1259,7 @@ void AUTPlayerController::HideMenu()
 	}
 }
 
-
+#if !UE_SERVER
 void AUTPlayerController::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
@@ -1268,7 +1268,7 @@ void AUTPlayerController::ShowMessage(FText MessageTitle, FText MessageText, uin
 		LP->ShowMessage(MessageTitle, MessageText, Buttons, Callback);
 	}	
 }
-
+#endif
 
 void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {

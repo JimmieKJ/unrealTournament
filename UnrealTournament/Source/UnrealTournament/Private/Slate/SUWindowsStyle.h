@@ -1,6 +1,6 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
-
+#if !UE_SERVER
 class SUWindowsStyle 
 {
 public:
@@ -15,4 +15,4 @@ private:
 	static TSharedRef<class FSlateStyleSet> Create();
 	static TSharedPtr<class FSlateStyleSet> UWindowsStyleInstance;
 };
-
+#endif

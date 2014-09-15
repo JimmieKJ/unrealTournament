@@ -6,6 +6,8 @@
 #include "SUWindowsStyle.h"
 #include "SlateWordWrapper.h"
 
+#if !UE_SERVER
+
 void SUWMessageBox::Construct(const FArguments& InArgs)
 {
 	// Let the Dialog construct itself.
@@ -47,3 +49,4 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 	}
 }
 
+#endif

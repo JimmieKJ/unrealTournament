@@ -8,6 +8,8 @@
 #include "Scalability.h"
 #include "UTWorldSettings.h"
 
+#if !UE_SERVER
+
 SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue)
 {
 	return SVerticalBox::Slot()
@@ -394,3 +396,5 @@ FReply SUWSystemSettingsDialog::OnButtonClick(uint16 ButtonID)
 	else if (ButtonID == UTDIALOG_BUTTON_CANCEL) CancelClick();
 	return FReply::Handled();
 }
+
+#endif

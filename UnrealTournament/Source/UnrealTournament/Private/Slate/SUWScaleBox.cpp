@@ -3,6 +3,8 @@
 #include "../Public/UnrealTournament.h"
 #include "SUWScaleBox.h"
 
+#if !UE_SERVER
+
 void SUWScaleBox::Construct(const SUWScaleBox::FArguments& InArgs)
 {
 	ChildSlot
@@ -49,3 +51,5 @@ void SUWScaleBox::SetContent(TSharedRef<SWidget> InContent)
 			InContent
 		];
 }
+
+#endif

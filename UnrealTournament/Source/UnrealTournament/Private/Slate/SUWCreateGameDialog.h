@@ -5,6 +5,8 @@
 #include "Slate.h"
 #include "SUWDialog.h"
 
+#if !UE_SERVER
+
 class SUWCreateGameDialog : public SUWDialog, public FGCObject
 {
 public:
@@ -54,3 +56,5 @@ protected:
 		Collector.AddReferencedObject(GametypeLibrary);
 	}
 };
+
+#endif

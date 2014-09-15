@@ -5,6 +5,7 @@
 #include "UTOnlineGameSearchBase.h"
 #include "SUWindowsStyle.h"
 
+#if !UE_SERVER
 /*
 	Holds data about a server.  
 */
@@ -201,3 +202,4 @@ private:
 
 };
 
+#endif

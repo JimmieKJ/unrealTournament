@@ -15,6 +15,7 @@
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 
+#if !UE_SERVER
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
@@ -137,3 +138,4 @@ void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SWidget> PanelToDeactiva
 	DesktopSlotIndex = -1;
 	ActivePanel.Reset();
 }
+#endif

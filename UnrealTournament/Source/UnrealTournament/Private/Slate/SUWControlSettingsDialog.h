@@ -7,6 +7,8 @@
 #include "SKeyBind.h"
 #include "SNumericEntryBox.h"
 
+#if !UE_SERVER
+
 struct FSimpleBind
 {
 	FString DisplayName;
@@ -129,3 +131,5 @@ protected:
 	}
 
 };
+
+#endif

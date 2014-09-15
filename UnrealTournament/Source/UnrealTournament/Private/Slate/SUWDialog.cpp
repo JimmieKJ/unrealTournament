@@ -5,6 +5,8 @@
 #include "SUWDialog.h"
 #include "SUWindowsStyle.h"
 
+#if !UE_SERVER
+
 void SUWDialog::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
@@ -215,3 +217,5 @@ TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InIt
 			.Text(*InItem.Get())
 		];
 }
+
+#endif

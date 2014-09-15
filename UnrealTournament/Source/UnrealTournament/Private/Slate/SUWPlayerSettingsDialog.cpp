@@ -8,6 +8,7 @@
 // scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
 static const float BOB_SCALING_FACTOR = 2.0f;
 
+#if !UE_SERVER
 void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 {
 	SUWDialog::Construct(SUWDialog::FArguments()
@@ -421,3 +422,5 @@ FReply SUWPlayerSettingsDialog::OnButtonClick(uint16 ButtonID)
 	else if (ButtonID == UTDIALOG_BUTTON_CANCEL) CancelClick();
 	return FReply::Handled();
 }
+
+#endif

@@ -4,6 +4,7 @@
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
 
+#if !UE_SERVER
 class SUWindowsDesktop : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWindowsDesktop)
@@ -47,4 +48,4 @@ protected:
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 };
-
+#endif

@@ -4,6 +4,8 @@
 #include "Slate.h"
 #include "SUWDialog.h"
 
+#if !UE_SERVER
+
 class SUWMessageBox : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWMessageBox)
@@ -34,3 +36,4 @@ class SUWMessageBox : public SUWDialog
 	void Construct(const FArguments& InArgs);
 };
 
+#endif

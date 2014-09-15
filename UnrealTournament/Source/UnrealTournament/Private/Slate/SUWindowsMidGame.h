@@ -4,6 +4,7 @@
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
 
+#if !UE_SERVER
 class SUWindowsMidGame : public SUWindowsDesktop
 {
 
@@ -28,3 +29,4 @@ protected:
 	virtual void BuildExitMatchSubMenu();
 };
 
+#endif

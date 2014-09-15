@@ -159,6 +159,7 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 // FIXME: workaround for engine crash on DX10
 static inline bool ForceDisableComponent(USceneComponent* TestComp)
 {
+#if !UE_SERVER
 	if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::SM4)
 	{
 		UDecalComponent* Decal = Cast<UDecalComponent>(TestComp);
@@ -176,6 +177,9 @@ static inline bool ForceDisableComponent(USceneComponent* TestComp)
 	{
 		return false;
 	}
+#else 
+	return false;
+#endif
 }
 
 void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const

@@ -4,7 +4,7 @@
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
 
-
+#if !UE_SERVER
 class SUWindowsMainMenu : public SUWindowsDesktop
 {
 protected:
@@ -33,4 +33,4 @@ protected:
 	virtual void BuildOptionsSubMenu();
 	virtual void BuildAboutSubMenu();
 };
-
+#endif

@@ -16,6 +16,7 @@
 #include "SUWInputBox.h"
 #include "UTGameEngine.h"
 
+#if !UE_SERVER
 /** List Sort helpers */
 
 struct FCompareServerByName		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->Name < B->Name);}};
@@ -667,3 +668,5 @@ void SUWServerBrowser::FilterServers()
 	}
 	SortServers(CurrentSortColumn);
 }
+
+#endif

@@ -36,6 +36,7 @@ void AUTGib::PreInitializeComponents()
 
 void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+#if !UE_SERVER
 	// maybe spawn blood as we smack into things
 	if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastBloodTime > 0.5f && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f)
 	{
@@ -88,4 +89,5 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 		}
 		LastBloodTime = GetWorld()->TimeSeconds;
 	}
+#endif
 }

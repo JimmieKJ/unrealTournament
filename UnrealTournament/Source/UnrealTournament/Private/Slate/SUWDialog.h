@@ -3,6 +3,8 @@
 
 #include "Slate.h"
 
+#if !UE_SERVER
+
 // Our Result delegate.  It passes in a reference to the dialog triggering it, as well as the button id 
 DECLARE_DELEGATE_TwoParams(FDialogResultDelegate, TSharedPtr<SCompoundWidget>, uint16);
 
@@ -90,3 +92,5 @@ private:
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
 };
+
+#endif

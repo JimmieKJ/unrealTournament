@@ -5,6 +5,8 @@
 #include "SUWindowsStyle.h"
 #include "SKeyBind.h"
 
+#if !UE_SERVER
+
 FSimpleBind::FSimpleBind(const FText& InDisplayName)
 {
 	DisplayName = InDisplayName.ToString();
@@ -748,3 +750,5 @@ FReply SUWControlSettingsDialog::OnButtonClick(uint16 ButtonID)
 	return FReply::Handled();
 
 }
+
+#endif

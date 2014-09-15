@@ -5,6 +5,7 @@
 #include "Slate.h"
 #include "SUWDialog.h"
 
+#if !UE_SERVER
 /** function called to filter characters that are input; return true to keep it, false to remove it */
 DECLARE_DELEGATE_RetVal_OneParam(bool, FInputBoxFilterDelegate, TCHAR);
 
@@ -53,3 +54,4 @@ protected:
 	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 };
 
+#endif

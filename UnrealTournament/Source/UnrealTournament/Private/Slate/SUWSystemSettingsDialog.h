@@ -5,6 +5,8 @@
 #include "SUWDialog.h"
 #include "UTAudioSettings.h"
 
+#if !UE_SERVER
+
 class SUWSystemSettingsDialog : public SUWDialog
 {
 public:
@@ -73,3 +75,5 @@ protected:
 	SVerticalBox::FSlot& AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue);
 	SVerticalBox::FSlot& AddGeneralSliderWidget(const FString& Desc, TSharedPtr<SSlider>& SliderWidget, float SettingValue);
 };
+
+#endif

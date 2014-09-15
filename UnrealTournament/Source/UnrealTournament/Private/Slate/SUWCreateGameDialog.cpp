@@ -6,6 +6,8 @@
 #include "UTDMGameMode.h"
 #include "AssetData.h"
 
+#if !UE_SERVER
+
 void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 {
 	SUWDialog::Construct(SUWDialog::FArguments().PlayerOwner(InArgs._PlayerOwner));
@@ -353,3 +355,5 @@ FReply SUWCreateGameDialog::CancelClick()
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
 }
+
+#endif

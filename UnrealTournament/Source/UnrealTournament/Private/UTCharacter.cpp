@@ -690,6 +690,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 
 void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& TraceDir)
 {
+#if !UE_SERVER
 	// TODO: gore setting check
 	if (BloodDecals.Num() > 0)
 	{
@@ -730,6 +731,7 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 			}
 		}
 	}
+#endif
 }
 
 void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)

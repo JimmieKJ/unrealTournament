@@ -33,7 +33,9 @@ FString UUTLocalPlayer::GetNickname() const
 
 void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID)
 {
+#if !UE_SERVER
 	SUWindowsStyle::Initialize();
+#endif
 	Super::PlayerAdded(InViewportClient, InControllerID);
 
 	if (FUTAnalytics::IsAvailable())
@@ -66,6 +68,7 @@ bool UUTLocalPlayer::IsMenuGame()
 
 void UUTLocalPlayer::ShowMenu()
 {
+#if !UE_SERVER
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
@@ -90,18 +93,21 @@ void UUTLocalPlayer::ShowMenu()
 		DesktopSlateWidget->SetVisibility(EVisibility::Visible);
 		DesktopSlateWidget->OnMenuOpened();
 	}
+#endif
 }
 void UUTLocalPlayer::HideMenu()
 {
+#if !UE_SERVER
 	if (DesktopSlateWidget.IsValid())
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(DesktopSlateWidget.ToSharedRef());
 		DesktopSlateWidget->OnMenuClosed();
 		DesktopSlateWidget.Reset();
 	}
-
+#endif
 }
 
+#if !UE_SERVER
 TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
 {
 	TSharedPtr<class SUWDialog> NewDialog;
@@ -139,3 +145,4 @@ TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
 
 	return ServerBrowserWidget;
 }
+#endif

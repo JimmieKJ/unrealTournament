@@ -15,7 +15,7 @@ UUTGameViewportClient::UUTGameViewportClient(const class FPostConstructInitializ
 void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 	Super::PeekNetworkFailureMessages(World, NetDriver, FailureType, ErrorString);
-
+#if !UE_SERVER
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 
 	FText NetworkErrorMessage;
@@ -55,7 +55,7 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 	{
 		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","NetworkErrorDialogTitle","Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 	}
-	
+#endif
 }
 
 void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
@@ -70,6 +70,7 @@ void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidge
 
 void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
+#if !UE_SERVER
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
 		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
@@ -85,4 +86,5 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 			}
 		}
 	}
+#endif
 }

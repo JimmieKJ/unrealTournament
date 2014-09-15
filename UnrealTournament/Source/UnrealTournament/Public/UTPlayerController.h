@@ -164,7 +164,9 @@ public:
 	UFUNCTION(exec)
 	virtual void HideMenu();
 
+#if !UE_SERVER
 	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
+#endif
 
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)

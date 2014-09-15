@@ -18,6 +18,8 @@
 #include "UTGameEngine.h"
 #include "SUWServerBrowser.h"
 
+#if !UE_SERVER
+
 void SUWindowsMainMenu::CreateDesktop()
 {
 	MenuBar = NULL;
@@ -651,3 +653,5 @@ FReply SUWindowsMainMenu::OnLeaveMatch(TSharedPtr<SComboButton> MenuButton)
 	ConsoleCommand(TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"));
 	return FReply::Handled();
 }
+
+#endif

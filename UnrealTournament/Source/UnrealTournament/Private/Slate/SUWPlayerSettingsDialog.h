@@ -4,6 +4,7 @@
 #include "Slate.h"
 #include "SUWDialog.h"
 
+#if !UE_SERVER
 class SUWPlayerSettingsDialog : public SUWDialog, public FGCObject
 {
 public:
@@ -61,3 +62,4 @@ protected:
 		Collector.AddReferencedObject(WeaponLibrary);
 	}
 };
+#endif

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "Slate.h"
-
+#if !UE_SERVER
 class SUWScaleBox : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWScaleBox)
@@ -22,3 +22,4 @@ class SUWScaleBox : public SCompoundWidget
 	void SetContent(TSharedRef<SWidget> InContent);
 
 };
+#endif

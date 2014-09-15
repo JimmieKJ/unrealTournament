@@ -5,6 +5,8 @@
 #include "SUWInputBox.h"
 #include "SUWindowsStyle.h"
 
+#if !UE_SERVER
+
 void SUWInputBox::Construct(const FArguments& InArgs)
 {
 	SUWDialog::Construct(SUWDialog::FArguments()
@@ -96,3 +98,4 @@ FString SUWInputBox::GetInputText()
 	return TEXT("");
 }
 
+#endif

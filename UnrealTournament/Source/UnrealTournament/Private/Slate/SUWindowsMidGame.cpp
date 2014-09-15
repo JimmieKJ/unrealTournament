@@ -16,6 +16,7 @@
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 
+#if !UE_SERVER
 void SUWindowsMidGame::CreateDesktop()
 {
 	MenuBar = NULL;
@@ -280,3 +281,4 @@ void SUWindowsMidGame::BuildExitMatchSubMenu()
 			DropDownButton.ToSharedRef()
 		];
 }
+#endif

@@ -6,6 +6,7 @@
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsStyle.h"
 
+#if !UE_SERVER
 TSharedPtr<FSlateStyleSet> SUWindowsStyle::UWindowsStyleInstance = NULL;
 
 void SUWindowsStyle::Initialize()
@@ -244,3 +245,4 @@ const ISlateStyle& SUWindowsStyle::Get()
 {
 	return * UWindowsStyleInstance;
 }
+#endif
