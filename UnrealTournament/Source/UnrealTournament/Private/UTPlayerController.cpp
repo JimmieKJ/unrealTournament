@@ -509,7 +509,14 @@ void AUTPlayerController::OnFire()
 	}
 	else if (IsInState(NAME_Spectating))
 	{
-		ServerViewNextPlayer();
+		if (bPlayerIsWaiting)
+		{
+			ServerRestartPlayer();
+		}
+		else
+		{
+			ServerViewNextPlayer();
+		}
 	}
 	else
 	{
