@@ -113,6 +113,8 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 
 bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 {
+	BlowUp();
+
 	AController* C = Controller;
 	if (Driver && C)
 	{
@@ -165,23 +167,24 @@ void AUTRemoteRedeemer::Destroyed()
 
 void AUTRemoteRedeemer::BlowUp()
 {
-	GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
-	DriverLeave(true);
-
-	ProjectileMovement->SetActive(false);
-
-	TArray<USceneComponent*> Components;
-	GetComponents<USceneComponent>(Components);
-	for (int32 i = 0; i < Components.Num(); i++)
-	{
-		Components[i]->SetHiddenInGame(true);
-	}
-
 	if (!bExploded)
 	{
+		bExploded = true;
+
+		GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
+		DriverLeave(true);
+
+		ProjectileMovement->SetActive(false);
+
+		TArray<USceneComponent*> Components;
+		GetComponents<USceneComponent>(Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			Components[i]->SetHiddenInGame(true);
+		}
+
 		PlayExplosionEffects();
 
-		bExploded = true;
 		ExplodeStage1();
 	}
 }
@@ -190,7 +193,7 @@ void AUTRemoteRedeemer::PlayExplosionEffects()
 {
 	if (ExplosionEffects != NULL)
 	{
-		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, Controller);
+		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
 	}
 }
 

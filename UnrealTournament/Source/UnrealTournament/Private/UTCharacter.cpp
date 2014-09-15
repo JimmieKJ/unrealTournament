@@ -20,6 +20,7 @@
 #include "UTArmor.h"
 #include "UTImpactEffect.h"
 #include "UTGib.h"
+#include "UTRemoteRedeemer.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -788,8 +789,27 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		// TODO: GameInfo::PreventDeath()
 
 		bTearOff = true; // important to set this as early as possible so IsDead() returns true
+		
+		AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
+		if (Redeemer != nullptr)
+		{
+			Redeemer->DriverLeave(true);
+		}
 
-		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, (Controller != NULL) ? Controller : Cast<AController>(GetOwner()), this, DamageEvent.DamageTypeClass);
+		AController* ControllerKilled = Controller;
+		if (ControllerKilled == nullptr)
+		{
+			ControllerKilled = Cast<AController>(GetOwner());
+			if (ControllerKilled == nullptr)
+			{
+				if (DrivenVehicle != nullptr)
+				{
+					ControllerKilled = DrivenVehicle->Controller;
+				}
+			}
+		}
+
+		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
 
 		Health = FMath::Min<int32>(Health, 0);
 
@@ -800,9 +820,9 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			PS->CarriedObject->Drop(EventInstigator);
 		}
 
-		if (Controller != NULL)
+		if (ControllerKilled != nullptr)
 		{
-			Controller->PawnPendingDestroy(this);
+			ControllerKilled->PawnPendingDestroy(this);
 		}
 
 		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
