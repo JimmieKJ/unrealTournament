@@ -69,4 +69,8 @@ class UUTGameplayStatics : public UBlueprintFunctionLibrary
 	, float* BestAim = NULL, float* BestDist = NULL
 #endif
 	);
+
+	/** returns PlayerController at the specified player index */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Player", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	APlayerController* GetLocalPlayerController(UObject* WorldContextObject, int32 PlayerIndex = 0);
 };

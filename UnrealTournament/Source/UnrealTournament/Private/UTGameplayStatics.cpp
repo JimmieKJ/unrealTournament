@@ -306,3 +306,24 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 		return BestTarget;
 	}
 }
+
+APlayerController* UUTGameplayStatics::GetLocalPlayerController(UObject* WorldContextObject, int32 PlayerIndex)
+{
+	UWorld* World = (WorldContextObject != NULL) ? WorldContextObject->GetWorld() : NULL;
+	if (World == NULL)
+	{
+		return NULL;
+	}
+	else
+	{
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			PlayerIndex--;
+			if (PlayerIndex < 0)
+			{
+				return It->PlayerController;
+			}
+		}
+		return NULL;
+	}
+}
