@@ -113,6 +113,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             SkipStage: Cmd.ParseParam("skipstage"),
             NoDebugInfo: Cmd.ParseParam("NoDebugInfo"),
             CrashReporter: !Cmd.ParseParam("mac"), // @todo Mac: change to true when Mac implementation is ready
+            StageNonMonolithic: true,
 
 			// if we are running, we assume this is a local test and don't chunk
 			Run: Cmd.ParseParam("Run"),

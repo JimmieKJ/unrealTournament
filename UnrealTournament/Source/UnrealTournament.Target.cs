@@ -40,7 +40,17 @@ public class UnrealTournamentTarget : TargetRules
         // Turn on shipping logging, this will only apply to monolithic builds
         UEBuildConfiguration.bUseLoggingInShipping = true;
     }
-    
+
+    public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+    {
+        if (InPlatform == UnrealTargetPlatform.Mac || InPlatform == UnrealTargetPlatform.Linux)
+        {
+            return base.ShouldCompileMonolithic(InPlatform, InConfiguration);
+        }
+
+        return false;
+    }
+
     public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
     {
         if (HostPlatform == UnrealTargetPlatform.Mac)

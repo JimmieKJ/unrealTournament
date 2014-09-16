@@ -28,6 +28,11 @@ public class UnrealTournamentServerTarget : TargetRules
         }
     }
 
+    public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+    {
+        return false;
+    }
+
     public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
     {
         if (HostPlatform == UnrealTargetPlatform.Mac)
