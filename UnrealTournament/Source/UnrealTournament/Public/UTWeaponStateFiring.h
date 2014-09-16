@@ -37,10 +37,7 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	/** called after the refire delay to see what we should do next (generally, fire or go back to active state) */
 	virtual void RefireCheckTimer();
 
-	virtual void PutDown() override
-	{
-		// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
-	}
+	virtual void PutDown() override;
 
 	/** called when the owner starts a pending fire for this mode (pressed button but may or may not move to this state yet)
 	 * this function is called even if another fire mode is in use

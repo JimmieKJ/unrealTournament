@@ -18,6 +18,7 @@ void UUTWeaponStateFiring::EndState()
 	GetOuterAUTWeapon()->StopFiringEffects();
 	GetOuterAUTWeapon()->GetUTOwner()->ClearFiringInfo();
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::RefireCheckTimer);
+	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::PutDown);
 }
 
 void UUTWeaponStateFiring::ToggleLoopingEffects(bool bNowOn)
@@ -51,3 +52,21 @@ void UUTWeaponStateFiring::FireShot()
 {
 	GetOuterAUTWeapon()->FireShot();
 }
+
+void UUTWeaponStateFiring::PutDown()
+{
+	// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
+	// However, allow putdown time to overlap with reload time - start a timer to do an early check
+	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiring::RefireCheckTimer);
+	if (TimeTillPutDown <= GetOuterAUTWeapon()->PutDownTime)
+	{
+		Super::PutDown();
+	}
+	else
+	{
+		TimeTillPutDown -= GetOuterAUTWeapon()->PutDownTime;
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::PutDown, TimeTillPutDown, false);
+	}
+}
+
+// FIX PUTDOWN FOR CHARGING modes

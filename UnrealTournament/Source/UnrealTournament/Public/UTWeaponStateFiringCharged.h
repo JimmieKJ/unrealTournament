@@ -111,4 +111,12 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 			}
 		}
 	}
+
+	virtual void PutDown() override
+	{
+		if (!bCharging)
+		{
+			Super::PutDown();
+		}
+	}
 };
