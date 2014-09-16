@@ -431,6 +431,11 @@ void AUTWeapon::UnEquip()
 
 void AUTWeapon::AttachToOwner_Implementation()
 {
+	if (UTOwner == NULL)
+	{
+		return;
+	}
+
 	// sanity check some settings
 	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
 	{
