@@ -210,7 +210,7 @@ void AUTCTFGameMode::CheckGameTime()
 	}
 	else if ( CTFGameState->IsMatchInProgress() )
 	{
-		UE_LOG(UT,Log, TEXT("Time Remaining %i %i"),CTFGameState->RemainingTime, CTFGameState->bPlayingAdvantage);
+		// UE_LOG(UT,Log, TEXT("Time Remaining %i %i"),CTFGameState->RemainingTime, CTFGameState->bPlayingAdvantage);
 		if ( CTFGameState->RemainingTime <= 0 )
 		{
 			// Halftime?? then exit it
