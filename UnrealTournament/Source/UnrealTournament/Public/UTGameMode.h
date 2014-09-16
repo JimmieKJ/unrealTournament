@@ -102,6 +102,10 @@ public:
 	UPROPERTY()
 	float EndTime;
 
+	/** whether weapon stay is active */
+	UPROPERTY()
+	bool bWeaponStayActive;
+
 	/** Which actor in the game should all other actors focus on after the game is over */
 	UPROPERTY()
 	class AActor* EndGameFocus;

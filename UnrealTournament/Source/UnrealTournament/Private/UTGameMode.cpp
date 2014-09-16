@@ -181,6 +181,10 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		}
 	}
 
+	InOpt = ParseOption(Options, TEXT("WeaponStay"));
+	bWeaponStayActive = EvalBoolOptions(InOpt, true);
+	UE_LOG(UT, Log, TEXT("WeaponStay %d"), bWeaponStayActive);
+
 	PostInitGame(Options);
 }
 
@@ -262,6 +266,7 @@ void AUTGameMode::InitGameState()
 		UTGameState->RespawnWaitTime = RespawnWaitTime;
 		UTGameState->bPlayerMustBeReady = bPlayersMustBeReady;
 		UTGameState->bTeamGame = bTeamGame;
+		UTGameState->bWeaponStay = bWeaponStayActive;
 	}
 	else
 	{
