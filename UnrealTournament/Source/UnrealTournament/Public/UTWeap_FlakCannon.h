@@ -20,10 +20,6 @@ class AUTWeap_FlakCannon : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 
-	/** Added inclination in degrees for alt fire direction */
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	float AltFireIncline;
-
 	/** Number of projectiles to fire.
 	* When firing multiple projectiles at once, main projectile will be fired at crosshair.
 	* Remaining projectiles will be fired in a circle pattern */
@@ -60,7 +56,4 @@ class AUTWeap_FlakCannon : public AUTWeapon
 	FRotator GetFireRotationForMultiShot(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation);
 
 	virtual AUTProjectile* FireProjectile() override;
-
-	/** Point the barrel up a little when firing shell. */
-	virtual FRotator GetAdjustedAim_Implementation(FVector StartFireLoc) override;
 };

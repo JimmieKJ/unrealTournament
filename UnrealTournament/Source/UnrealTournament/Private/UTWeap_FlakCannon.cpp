@@ -13,7 +13,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 	Group = 7;
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 131.000000, 429.000000, 132.000000, 52.000000);
 
-	BringUpTime = 0.68f;
+	BringUpTime = 0.54f;
 
 	// Firing
 	ProjClass.SetNumZeroed(2);
@@ -24,14 +24,12 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 	AmmoCost.SetNum(2);
 	AmmoCost[0] = 1;
 	AmmoCost[1] = 1;
-
 	Ammo = 10;
 	MaxAmmo = 30;
 
 	FireOffset = FVector(75.f, 18.f, -15.f);
 
 	// MultiShot
-
 	MultiShotLocationSpread.SetNum(1);
 	MultiShotLocationSpread[0] = FVector(0, 1, 1);
 
@@ -45,29 +43,6 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 	MultiShotCount[0] = 9;
 
 	MultiShotProjClass.SetNumZeroed(1);
-
-	AltFireIncline = 0.f;
-}
-
-FRotator AUTWeap_FlakCannon::GetAdjustedAim_Implementation(FVector StartFireLoc)
-{
-	FRotator BaseAim = Super::GetAdjustedAim_Implementation(StartFireLoc);
-	if ((CurrentFireMode == 1) && UTOwner && Cast<APlayerController>(UTOwner->GetController()))
-	{
-		BaseAim.Pitch = FMath::UnwindDegrees(BaseAim.Pitch);
-		if (BaseAim.Pitch < 0.f)
-		{
-			if (BaseAim.Pitch > -90.f)
-			{
-				BaseAim.Pitch += AltFireIncline;
-			}
-		}
-		else if (BaseAim.Pitch < 90.f)
-		{
-			BaseAim.Pitch += (90.f - BaseAim.Pitch) * AltFireIncline/90.f;
-		}
-	}
-	return BaseAim;
 }
 
 FVector AUTWeap_FlakCannon::GetFireLocationForMultiShot_Implementation(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation)
