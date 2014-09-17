@@ -10,10 +10,7 @@
 AUTHUD_CTF::AUTHUD_CTF(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	bShowOverlays=true;
-
 }
-
 
 void AUTHUD_CTF::PostRender()
 {
@@ -29,7 +26,5 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 	{
 		TeamColor = PS->Team->TeamColor;
 	}
-
-
 	return TeamColor;
 }

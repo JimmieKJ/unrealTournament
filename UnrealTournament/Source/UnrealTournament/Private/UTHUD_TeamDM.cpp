@@ -9,9 +9,7 @@
 AUTHUD_TeamDM::AUTHUD_TeamDM(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	bShowOverlays=true;
 }
-
 
 FLinearColor AUTHUD_TeamDM::GetBaseHUDColor()
 {
@@ -22,7 +20,5 @@ FLinearColor AUTHUD_TeamDM::GetBaseHUDColor()
 	{
 		TeamColor = PS->Team->TeamColor;
 	}
-
-
 	return TeamColor;
 }

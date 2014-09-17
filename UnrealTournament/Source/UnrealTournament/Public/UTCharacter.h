@@ -986,8 +986,13 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FCharacterDiedSignature OnDied;
 
+	/** Max distance for enemy player indicator */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category =  HUD)
 	float PlayerIndicatorMaxDistance;
+
+	/** Max distance for same team player indicator */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	float TeamPlayerIndicatorMaxDistance;
 
 	virtual void RecalculateBaseEyeHeight() override;
 

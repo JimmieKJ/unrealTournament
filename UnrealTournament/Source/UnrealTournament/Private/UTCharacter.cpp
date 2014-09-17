@@ -107,7 +107,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	Mesh->OnComponentHit.AddDynamic(this, &AUTCharacter::OnRagdollCollision);
 	Mesh->SetNotifyRigidBodyCollision(true);
 
-	PlayerIndicatorMaxDistance = 2700.0f;
+	TeamPlayerIndicatorMaxDistance = 2700.0f;
+	PlayerIndicatorMaxDistance = 1200.f;
 	MaxSavedPositionAge = 0.3f;
 
 	ServerPingContribution = 15.f;
@@ -2684,13 +2685,13 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if ( UTPS != NULL && UTPS->Team != NULL && PC != NULL && PC->GetPawn() != NULL && PC->GetViewTarget() != this && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
-		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL && GS->OnSameTeam(PC->GetPawn(), this) )
+	if ( UTPS != NULL && PC != NULL && PC->GetPawn() != NULL && PC->GetViewTarget() != this && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
+		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if (Dist <= PlayerIndicatorMaxDistance)
+		if (Dist <= (GS->OnSameTeam(PC->GetPawn(), this) ? TeamPlayerIndicatorMaxDistance : PlayerIndicatorMaxDistance))
 		{
-			float XL,YL;
+			float XL, YL;
 
 			float Scale = Canvas->ClipX / 1920;
 
@@ -2702,7 +2703,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
 				// Make the team backgrounds darker
-				FLinearColor TeamColor = UTPS->Team->TeamColor;
+				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
 				TeamColor.R *= 0.24;
 				TeamColor.G *= 0.24;
 				TeamColor.B *= 0.24;

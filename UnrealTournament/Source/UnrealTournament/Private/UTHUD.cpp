@@ -49,6 +49,8 @@ AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCI
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
 	LastConfirmedHitTime = -100.0f;
+
+	bShowOverlays = true;
 }
 
 void AUTHUD::BeginPlay()
