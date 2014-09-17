@@ -44,7 +44,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	AirControl = 0.4f;
 	MultiJumpAirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
-	MaxStepHeight = 50.f;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 4200.f; 
 	BrakingDecelerationWalking = 4800.f;

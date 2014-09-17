@@ -34,7 +34,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 		//PawnOverlapSphere->bVisible = true;
 		PawnOverlapSphere->InitSphereRadius(OverlapRadius);
 		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileOverlap");
-		PawnOverlapSphere->bTraceComplexOnMove = true;
+		PawnOverlapSphere->bTraceComplexOnMove = true; // @TODO FIXMESTEVE should be false?
 		PawnOverlapSphere->AttachParent = RootComponent;
 	}
 
@@ -70,8 +70,6 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 
 void AUTProjectile::BeginPlay()
 {
-	UE_LOG(LogUTProjectile, VeryVerbose, TEXT("%s::BeginPlay()"), *GetName());
-
 	if (PawnOverlapSphere != NULL)
 	{
 		PawnOverlapSphere->SetSphereRadius(OverlapRadius);
