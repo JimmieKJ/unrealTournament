@@ -21,6 +21,10 @@ class AUTTeleporter : public AActor, public INavLinkHostInterface, public INavRe
 	UPROPERTY(VisibleAnywhere, Category = Teleporter)
 	TSubobjectPtr<class UArrowComponent> ExitArrow;
 
+	/** arrow component to show entry direction defined in TeleportTarget if bSetRotation is true */
+	UPROPERTY(VisibleAnywhere, Category = Teleporter)
+		TSubobjectPtr<class UArrowComponent> EntryArrow;
+
 	/** if set then lock the TeleportTarget when moving/rotating the teleporter */
 	UPROPERTY(EditAnywhere, Category = Editor)
 	bool bLockTeleportTarget;

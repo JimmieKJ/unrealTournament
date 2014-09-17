@@ -19,6 +19,14 @@ AUTTeleporter::AUTTeleporter(const FPostConstructInitializeProperties& PCIP)
 		ExitArrow->AttachParent = RootComponent;
 		ExitArrow->ArrowColor = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f);
 	}
+
+	EntryArrow = PCIP.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("EntryArrow"));
+	if (EntryArrow != NULL)
+	{
+		EntryArrow->AttachParent = RootComponent;
+		EntryArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
+	}
+
 	bLockTeleportTarget = true;
 #endif
 
@@ -54,6 +62,7 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		{
 			TargetRot.Pitch = 0.0f;
 			TargetRot.Roll = 0.0f;
+			TargetRot.Yaw = TargetRot.Yaw + FMath::UnwindDegrees(OtherActor->GetActorRotation().Yaw) - FMath::UnwindDegrees(GetActorRotation().Yaw);
 		}
 		if (OtherActor->TeleportTo(AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
 		{
