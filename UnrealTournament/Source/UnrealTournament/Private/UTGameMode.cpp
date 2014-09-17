@@ -895,6 +895,30 @@ AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& Incomin
 
 AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 {
+	if (GetWorld()->WorldType == EWorldType::PIE)
+	{
+		for (int32 i = 0; i < PlayerStarts.Num(); i++)
+		{
+			APlayerStart* P = PlayerStarts[i];
+
+			if (P->IsA(APlayerStartPIE::StaticClass()))
+			{
+				// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
+				return P;
+			}
+		}
+	}
+	
+	// Always randomize the list order a bit to prevent groups of bad starts from permanently making the next decent start overused
+	for (int i = 0; i < 2; i++)
+	{
+		int32 RandIndexOne = FMath::RandHelper(PlayerStarts.Num());
+		int32 RandIndexTwo = FMath::RandHelper(PlayerStarts.Num());
+		APlayerStart* SavedStart = PlayerStarts[RandIndexOne]; 
+		PlayerStarts[RandIndexOne] = PlayerStarts[RandIndexTwo];
+		PlayerStarts[RandIndexTwo] = SavedStart;
+	}
+
 	// Start by choosing a random start
 	int32 RandStart = FMath::RandHelper(PlayerStarts.Num());
 
@@ -904,15 +928,9 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 	{
 		APlayerStart* P = PlayerStarts[i];
 
-		if (P->IsA(APlayerStartPIE::StaticClass()))
-		{
-			// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
-			return P;
-		}
-
 		float NewRating = RatePlayerStart(P,Player);
 
-		if (NewRating >= 30.0f && GetWorld()->WorldType != EWorldType::PIE)
+		if (NewRating >= 30.0f)
 		{
 			// this PlayerStart is good enough
 			return P;
@@ -927,15 +945,9 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 	{
 		APlayerStart* P = PlayerStarts[i];
 
-		if (P->IsA(APlayerStartPIE::StaticClass()))
-		{
-			// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
-			return P;
-		}
-
 		float NewRating = RatePlayerStart(P,Player);
 
-		if (NewRating >= 30.0f && GetWorld()->WorldType != EWorldType::PIE)
+		if (NewRating >= 30.0f)
 		{
 			// this PlayerStart is good enough
 			return P;
@@ -945,10 +957,6 @@ AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
 			BestRating = NewRating;
 			BestStart = P;
 		}
-	}
-	if (BestRating < 20.0f)
-	{
-		UE_LOG(UT, Log, TEXT("ChoosePlayerStart(): No ideal PlayerStart found for %s: Best was %s rating %f"), *GetNameSafe(Player), *GetNameSafe(BestStart), BestRating);
 	}
 	return (BestStart != NULL) ? BestStart : Super::ChoosePlayerStart(Player);
 }
@@ -968,7 +976,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 	if (Player != NULL)
 	{
-		FVector StartLoc = P->GetActorLocation();
+		FVector StartLoc = P->GetActorLocation() + AUTCharacter::StaticClass()->GetDefaultObject<AUTCharacter>()->BaseEyeHeight ;
 		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 		{
 			AController* OtherController = *Iterator;
@@ -985,30 +993,29 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 				float NextDist = (OtherCharacter->GetActorLocation() - StartLoc).Size();
 				static FName NAME_RatePlayerStart = FName(TEXT("RatePlayerStart"));
+				bool bIsLastKiller = (OtherCharacter->PlayerState == Cast<AUTPlayerState>(Player->PlayerState)->LastKillerPlayerState);
 
-				if ( NextDist < 6000.0f && !UTGameState->OnSameTeam(Player, OtherController) &&
-					!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)) )
+				if (((NextDist < 8000.0f) || bTwoPlayerGame) && !UTGameState->OnSameTeam(Player, OtherController))
 				{
-					// Avoid the last person that killed me
-					if (OtherCharacter->PlayerState == Cast<AUTPlayerState>(Player->PlayerState)->LastKillerPlayerState)
+					if (!GetWorld()->LineTraceTest(StartLoc, OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)))
 					{
-						Score -= 7.f;
+						// Avoid the last person that killed me
+						if (bIsLastKiller)
+						{
+							Score -= 7.f;
+						}
+
+						Score -= (5.f - 0.0003f * NextDist);
 					}
-
-					Score -= (5.f - 0.0006f * NextDist);
-				}
-				else if (NextDist < 3000.0f && OtherCharacter->PlayerState == Cast<AUTPlayerState>(Player->PlayerState)->LastKillerPlayerState)
-				{
-					// Avoid the last person that killed me
-					Score -= 7.f;
-				}
-				else if (bTwoPlayerGame)
-				{
-					// in 2 player game, look for any visibility
-					Score += FMath::Min(2.f,0.0008f*NextDist);
-					if (!GetWorld()->LineTraceTest(OtherCharacter->GetActorLocation(), StartLoc, ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
+					else if (NextDist < 4000.0f)
 					{
-						Score -= 5.f;
+						// Avoid the last person that killed me
+						Score -= bIsLastKiller ? 5.f : 0.0005f * (5000.f - NextDist);
+
+						if (!GetWorld()->LineTraceTest(StartLoc, OtherCharacter->GetActorLocation(), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
+						{
+							Score -= 2.f;
+						}
 					}
 				}
 			}
