@@ -46,11 +46,12 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	* @param FFInstigatedBy (optional) - Controller that gets credit for damage to enemies on the same team as InstigatedByController (including damaging itself)
 	*									this is used to grant two way kill credit for mechanics where the opposition is partially responsible for the damage (e.g. blowing up an enemy's projectile in flight)
 	* @param FFDamageType (optional) - when FFInstigatedBy is assigned for damage credit, optionally also use this damage type instead of the default (primarily for death message clarity)
+	* @Parama CollisionFreeRadius (optional) - allow damage to be dealt inside this radius even if visibilty checks would fail
 	* @return true if damage was applied to at least one actor.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game|Damage", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "IgnoreActors"))
 	static bool UTHurtRadius( UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff,
-								TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, AController* FFInstigatedBy = NULL, TSubclassOf<UDamageType> FFDamageType = NULL );
+								TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, AController* FFInstigatedBy = NULL, TSubclassOf<UDamageType> FFDamageType = NULL, float CollisionFreeRadius = 0 );
 
 	/** select visible controlled enemy Pawn for which direction from StartLoc is closest to FireDir and within aiming cone/distance constraints
 	 * commonly used for autoaim, homing locks, etc

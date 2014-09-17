@@ -55,6 +55,8 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 	ExplosionRadii[3] = 0.65f;
 	ExplosionRadii[4] = 0.825f;
 	ExplosionRadii[5] = 1.0f;
+
+	CollisionFreeRadius = 1200;
 }
 
 void AUTRemoteRedeemer::BeginPlay()
@@ -300,7 +302,7 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 			FVector ExplosionCenter = GetActorLocation() + FVector(0, 0, 400);
 
 			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, ExplosionCenter, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
-				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator);
+				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, CollisionFreeRadius);
 		}
 	}
 	else

@@ -94,6 +94,7 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	float ExplosionTimings[5];
 	float ExplosionRadii[6];
+	float CollisionFreeRadius;
 
 	bool bExploded;
 

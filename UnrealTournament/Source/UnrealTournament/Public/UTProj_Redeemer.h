@@ -14,6 +14,7 @@ class AUTProj_Redeemer : public AUTProjectile
 
 	float ExplosionTimings[5];
 	float ExplosionRadii[6];
+	float CollisionFreeRadius;
 
 	void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
 

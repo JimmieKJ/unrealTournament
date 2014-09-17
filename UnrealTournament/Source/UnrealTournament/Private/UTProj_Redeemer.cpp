@@ -26,6 +26,8 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FPostConstructInitializePropertie
 	ExplosionRadii[4] = 0.825f;
 	ExplosionRadii[5] = 1.0f;
 
+	CollisionFreeRadius = 1200;
+
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
 }
@@ -69,7 +71,7 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 		}
 
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
-			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType);
+			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);
 	}
 }
 
