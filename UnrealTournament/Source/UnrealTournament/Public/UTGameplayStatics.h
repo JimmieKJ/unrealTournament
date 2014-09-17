@@ -14,7 +14,7 @@ enum ESoundReplicationType
 };
 
 UCLASS(CustomConstructor)
-class UUTGameplayStatics : public UBlueprintFunctionLibrary
+class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 

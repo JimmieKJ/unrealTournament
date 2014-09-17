@@ -34,7 +34,7 @@ private:
 };
 
 UCLASS(BlueprintType, Blueprintable)
-class UUTHUDWidget : public UObject
+class UNREALTOURNAMENT_API UUTHUDWidget : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
