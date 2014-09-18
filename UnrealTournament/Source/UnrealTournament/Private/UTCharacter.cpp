@@ -3021,4 +3021,12 @@ void AUTCharacter::OnRep_ReplicatedMovement()
 	}
 }
 
+void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
+{
+	if (EmoteCount > 0)
+	{
+		return;
+	}
 
+	Super::FaceRotation(NewControlRotation, DeltaTime);
+}

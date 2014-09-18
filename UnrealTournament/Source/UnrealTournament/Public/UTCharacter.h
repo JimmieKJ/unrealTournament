@@ -627,6 +627,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
 	virtual void ForceFeignDeath(float MinRecoveryDelay);
 
+	/** Updates Pawn's rotation to the given rotation, assumed to be the Controller's ControlRotation. Respects the bUseControllerRotation* settings. */
+	virtual void FaceRotation(FRotator NewControlRotation, float DeltaTime = 0.f) override;
+
 	/** blood explosion played when gibbing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
