@@ -9,7 +9,7 @@
 //#include "UTProfileSettings.h"
 #include "UTLocalPlayer.generated.h"
 
-DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
+DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
 UCLASS()
 class UUTLocalPlayer : public ULocalPlayer
