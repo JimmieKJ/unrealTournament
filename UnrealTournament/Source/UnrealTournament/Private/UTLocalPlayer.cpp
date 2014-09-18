@@ -198,9 +198,11 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		// Begin the Login Process....
 		if (!OnlineIdentityInterface->Login(ControllerId, AccountCreds) )
 		{
+#if !UE_SERVER
 			// We should never fail here unless something has gone horribly wrong
 			ShowMessage(NSLOCTEXT("MCPMessages","OnlineError","Online Error"), NSLOCTEXT("MCPMessages","UnknownLoginFailuire","Could not connect to the online subsystem.  Please check your connection and try again."), UTDIALOG_BUTTON_OK, NULL);
 			return;
+#endif
 		}
 	}
 }
@@ -212,9 +214,11 @@ void UUTLocalPlayer::Logout()
 		// Begin the Login Process....
 		if (!OnlineIdentityInterface->Logout(ControllerId))
 		{
+#if !UE_SERVER
 			// We should never fail here unless something has gone horribly wrong
 			ShowMessage(NSLOCTEXT("MCPMessages","OnlineError","Online Error"), NSLOCTEXT("MCPMessages","UnknownLogoutFailuire","Could not log out from the online subsystem.  Please check your connection and try again."), UTDIALOG_BUTTON_OK, NULL);
 			return;
+#endif
 		}
 	}
 }
