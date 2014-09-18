@@ -273,3 +273,7 @@ AUTPlayerState* AUTTeamGameMode::FindBestPlayerOnTeam(int TeamNumToTest)
 	return Best;
 }
 
+bool AUTTeamGameMode::IsAWinner(AUTPlayerController* PC)
+{
+	return (PC->UTPlayerState->Team != NULL && UTGameState->WinningTeam != NULL && PC->UTPlayerState->Team == UTGameState->WinningTeam);
+}

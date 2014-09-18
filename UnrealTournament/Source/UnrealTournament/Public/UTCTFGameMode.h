@@ -51,7 +51,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
 	virtual void ScoreHolder(AUTPlayerState* Holder);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
-	virtual bool IsAWinner(AUTPlayerController* PC);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
 

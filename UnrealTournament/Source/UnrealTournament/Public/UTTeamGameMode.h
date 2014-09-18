@@ -60,5 +60,6 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	 * Find the best player on a given team
 	 */
 	virtual AUTPlayerState* FindBestPlayerOnTeam(int TeamNumToTest);
+	virtual bool IsAWinner(AUTPlayerController* PC);
 	
 };

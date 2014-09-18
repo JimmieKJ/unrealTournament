@@ -197,10 +197,6 @@ bool AUTCTFGameMode::CheckScore(AUTPlayerState* Scorer)
 	return true;
 }
 
-bool AUTCTFGameMode::IsAWinner(AUTPlayerController* PC)
-{
-	return (PC->UTPlayerState->Team != NULL && UTGameState->WinningTeam != NULL && PC->UTPlayerState->Team == UTGameState->WinningTeam);
-}
 
 void AUTCTFGameMode::CheckGameTime()
 {
@@ -595,7 +591,7 @@ void AUTCTFGameMode::SetMatchState(FName NewState)
 	if (NewState == MatchState::MatchEnteringHalftime && !CTFGameState->bPlayingAdvantage)		// Only check if we aren't already playing advantage
 	{
 		int32 AdvantageTeam = TeamWithAdvantage();
-		if (AdvantageTeam >= 0)
+		if (AdvantageTeam >= 0 && AdvantageTeam <= 1)
 		{
 			// A team has advantage.. so set the flags.
 			CTFGameState->bPlayingAdvantage = true;
@@ -689,11 +685,11 @@ uint8 AUTCTFGameMode::TeamWithAdvantage()
 		(Flags[0]->ObjectState == CarriedObjectState::Home && Flags[1]->ObjectState == CarriedObjectState::Home))
 	{
 		// Both flags are either at home or held the no one has advantage.
-		return -1;
+		return 255;
 	}
 
 	int8 AdvantageNum = Flags[0]->ObjectState == CarriedObjectState::Held ? 0 : 1;
-	if (AdvantageNum < 0 || AdvantageNum > 1 || Flags[AdvantageNum] == NULL || Flags[AdvantageNum]->ObjectState == CarriedObjectState::Dropped) return -1;
+	if (AdvantageNum < 0 || AdvantageNum > 1 || Flags[AdvantageNum] == NULL || Flags[AdvantageNum]->ObjectState == CarriedObjectState::Dropped) return 255;
 
 	return AdvantageNum;
 }
