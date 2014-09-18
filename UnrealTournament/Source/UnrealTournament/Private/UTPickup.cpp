@@ -13,7 +13,12 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 	Collision = PCIP.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->InitCapsuleSize(64.0f, 75.0f);
-	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTPickup::OnOverlapBegin);
+
+	if (!IsPendingKill())
+	{
+		Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTPickup::OnOverlapBegin);
+	}
+
 	RootComponent = Collision;
 
 	// can't - not exposed
