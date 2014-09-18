@@ -48,14 +48,12 @@ struct FCompareServerByPingDesc	{FORCEINLINE bool operator()( const TSharedPtr< 
 void SUWServerBrowser::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
-
+	bAutoRefresh = false;
 	TSharedRef<SScrollBar> ExternalScrollbar = SNew(SScrollBar);
 
 	OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
-
-	bool bIsLoggedIn = OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(0);
 
 	this->ChildSlot
 	[
@@ -88,30 +86,6 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 			.Padding( 25.0f, 5.0f, 5.0f, 5.0f )
 			[
 				SNew( SHorizontalBox )
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","UserName","Forum Email:"))
-				]
-				+SHorizontalBox::Slot().AutoWidth() .Padding(20,0,0,0) .VAlign(VAlign_Center)
-				[
-					SAssignNew(UserNameEditBox, SEditableTextBox)
-					.OnTextCommitted(this, &SUWServerBrowser::OnTextCommited)
-					.MinDesiredWidth(300.0f)
-				]
-				+SHorizontalBox::Slot().AutoWidth()
-				.Padding(5.0f)
-				[
-					SNew(SBox)
-					.VAlign(VAlign_Center)
-					[
-						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
-						SAssignNew(RefreshButton, SButton)
-						.Text(bIsLoggedIn ? NSLOCTEXT("SUWServerBrowser","Refresh","Refresh") : NSLOCTEXT("SUWServerBrowser","Login","Login"))
-						.OnClicked(this, &SUWServerBrowser::OnRefreshClick)
-					]
-				]
 				+SHorizontalBox::Slot()
 				.VAlign(VAlign_Center)
 				.AutoWidth()
@@ -226,6 +200,15 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerVerColumnToolTip", "The version of UT this server is running.") )
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
+
+									+ SHeaderRow::Column("ServerFlags") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerFlagsColumn", "Flags")).HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+											.HeaderContent()
+											[
+												SNew(STextBlock)
+													.Text(NSLOCTEXT("SUWServerBrowser","ServerFlagsColumn", "Flags"))
+													.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerFlagsColumnToolTip", "Server Flags") )
+													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+											]
 								
 									+ SHeaderRow::Column("ServerPing") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerPingColumn", "Ping")).HAlignCell(HAlign_Right) .HAlignHeader(HAlign_Right).OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
@@ -252,6 +235,18 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 			.Padding( 5.0f )
 			[
 				SNew( SHorizontalBox )
+				+SHorizontalBox::Slot().AutoWidth()
+				.Padding(5.0f)
+				[
+					SNew(SBox)
+					.VAlign(VAlign_Center)
+					[
+						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
+						SAssignNew(RefreshButton, SButton)
+						.Text( NSLOCTEXT("SUWServerBrowser","Refresh","Refresh"))
+						.OnClicked(this, &SUWServerBrowser::OnRefreshClick)
+					]
+				]
 				+SHorizontalBox::Slot().HAlign(HAlign_Fill)
 				.Padding(10.0f)
 				[
@@ -278,30 +273,8 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 
 	];
 
-	UUTGameUserSettings* Settings;
-	Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (Settings != NULL)
-	{
-		FString EpicID = Settings->GetEpicID();
-		if (!EpicID.IsEmpty() && EpicID != TEXT(""))
-		{
-			UserNameEditBox->SetText(FText::FromString(EpicID));
-			FString AuthToken = Settings->GetEpicAuth();
-			if (!AuthToken.IsEmpty() && AuthToken != TEXT(""))
-			{
-				// Attempt to Login....
-				if (!bIsLoggedIn)
-				{
-					AttemptLogin(EpicID, AuthToken,true);						
-				}
-			}
-		}
-	}
-
 	bDescendingSort = false;
 	CurrentSortColumn = FName(TEXT("ServerPing"));
-
-
 
 	// Create some fake servers until I can hook up the server list
 	InternetServers.Empty();
@@ -328,21 +301,42 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 		InternetServers.Add( NewServer );
 	}
 */
-	AddGameFilters();
 	FilterServers();
 	InternetServerList->RequestListRefresh();
 
-	if (bIsLoggedIn)
+	if (PlayerOwner->IsLoggedIn())
 	{
+		SetBrowserState(BrowserState::NAME_ServerIdle);
 		RefreshServers();
 	}
 	else
-	{
-		SetBrowserState(FName(TEXT("NotLoggedIn")));
+	{	
+		SetBrowserState(BrowserState::NAME_NotLoggedIn);
 	}
 
+	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWServerBrowser::OwnerLoginStatusChanged);
+	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 
 }
+
+void SUWServerBrowser::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
+{
+	if (NewStatus == ELoginStatus::LoggedIn)
+	{
+		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Refresh","Refresh")));
+		if (bAutoRefresh)
+		{
+			SetBrowserState(BrowserState::NAME_ServerIdle);
+			bAutoRefresh = false;
+			OnRefreshClick();
+		}
+	}
+	else
+	{
+		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Login","Login")));
+	}
+}
+
 
 void SUWServerBrowser::AddGameFilters()
 {
@@ -426,150 +420,47 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForList( TSharedPtr<FSer
 void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 {
 	BrowserState = NewBrowserState;
-	if (BrowserState == FName(TEXT("NotLoggedIn"))) 
+	if (BrowserState == BrowserState::NAME_NotLoggedIn) 
 	{
 		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","NotLoggedIn","Login Required!"));
 		RefreshButton->SetVisibility(EVisibility::All);
 	}
-	else if (BrowserState == FName(TEXT("Idle"))) 
+	else if (BrowserState == BrowserState::NAME_ServerIdle) 
 	{
 		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","Idle","Idle!"));
 		RefreshButton->SetVisibility(EVisibility::All);
 	}
-	else if (BrowserState == FName(TEXT("Auth"))) 
+	else if (BrowserState == BrowserState::NAME_AuthInProgress) 
 	{
 		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","Auth","Authenticating..."));
 		RefreshButton->SetVisibility(EVisibility::Hidden);
 	}
-	else if (BrowserState == FName(TEXT("RequestingServerList"))) 
+	else if (BrowserState == BrowserState::NAME_RequestInProgress) 
 	{
 		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","RecieveingServer","Receiving Server List..."));
 		RefreshButton->SetVisibility(EVisibility::Hidden);
 	}
 }
 
-
-
-void SUWServerBrowser::OnTextCommited(const FText& NewText, ETextCommit::Type CommitType)
-{
-	if (CommitType == ETextCommit::OnEnter)
-	{
-		OnRefreshClick();
-	}
-}
-
 FReply SUWServerBrowser::OnRefreshClick()
 {
-	bool bIsLoggedIn = OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(0);
-	if (bIsLoggedIn)
+	if (PlayerOwner->IsLoggedIn())
 	{
 		RefreshServers();
 	}
 	else
 	{
-		// We need to get the password for this login id.  So Start that process.
-
-
-		PlayerOwner->OpenDialog(
-							SNew(SUWInputBox)
-							.OnDialogResult(this, &SUWServerBrowser::CommitPassword)
-							.PlayerOwner(PlayerOwner)
-							.IsPassword(true)
-							.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
-							.MessageText(NSLOCTEXT("SUWServerBrowser", "LoginPasswordRequiredText", "Please enter your password:"))
-							);
-
-
+		bAutoRefresh = true;
+		PlayerOwner->LoginOnline(TEXT(""),TEXT(""),false);
 	}
 	return FReply::Handled();
 }
 
-void SUWServerBrowser::CommitPassword(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
-{
-	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
-	{
-		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
-		if (Box.IsValid())
-		{
-			FString InputText = Box->GetInputText();
-			if (InputText.Len())
-			{
-				AttemptLogin(UserNameEditBox->GetText().ToString(), *InputText);
-			}
-		}
-	}
-}
-
-void SUWServerBrowser::AttemptLogin(FString UserID, FString Password, bool bIsToken)
-{
-	if (!OnLoginCompleteDelegate.IsBound())
-	{
-		OnLoginCompleteDelegate.BindSP(this, &SUWServerBrowser::OnLoginComplete);
-		OnlineIdentityInterface->AddOnLoginCompleteDelegate(0, OnLoginCompleteDelegate);
-	}
-
-	UUTGameUserSettings* Settings;
-	Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (Settings != NULL)
-	{
-		Settings->SetEpicID(UserID);
-		Settings->SaveConfig();
-	}
-
-
-	FOnlineAccountCredentials AccountCreds(TEXT("epic"), UserID, Password);
-	if (bIsToken) AccountCreds.Type = TEXT("refresh");
-	if (!OnlineIdentityInterface->Login(0, AccountCreds) )
-	{
-		SetBrowserState(FName(TEXT("Auth")));
-		PlayerOwner->ShowMessage(NSLOCTEXT("SUWServerBrowser","LoginFailedTitle","Login Failure"),
-				NSLOCTEXT("SUWServerBrowser","LoginFailed","Could not log in.  Please check your credentials."), UTDIALOG_BUTTON_OK, NULL);
-
-		return;
-	}
-}
-
-void SUWServerBrowser::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
-{
-	UUTGameUserSettings* Settings;
-	Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (bWasSuccessful)
-	{
-		if (Settings != NULL)
-		{
-			TSharedPtr<FUserOnlineAccount> Account = OnlineIdentityInterface->GetUserAccount(UserId);
-			if (Account.IsValid())
-			{
-				FString AuthToken;
-				Account->GetAuthAttribute(TEXT("refresh_token"), AuthToken);
-				Settings->SetEpicAuth(AuthToken);
-				Settings->SaveConfig();
-			}
-		}
-		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Refresh","Refresh")));
-		RefreshServers();
-	}
-	else
-	{
-		if (Settings != NULL)
-		{
-			Settings->SetEpicAuth(TEXT(""));
-			Settings->SaveConfig();
-		}
-
-		SetBrowserState(FName(TEXT("NotLoggedIn")));
-		PlayerOwner->ShowMessage(NSLOCTEXT("SUWServerBrowser","LoginFailedTitle","Login Failure"),
-				NSLOCTEXT("SUWServerBrowser","LoginFailed","Could not log in.  Please check your credentials and try again"), UTDIALOG_BUTTON_OK, NULL);
-
-	}
-}
-
 void SUWServerBrowser::RefreshServers()
 {
-	bool bIsLoggedIn = OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(0);
-	if (bIsLoggedIn && OnlineSessionInterface.IsValid())
+	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == BrowserState::NAME_ServerIdle)
 	{
-		SetBrowserState(FName(TEXT("RequestingServerList")));
+		SetBrowserState(BrowserState::NAME_RequestInProgress);
 
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
@@ -587,7 +478,7 @@ void SUWServerBrowser::RefreshServers()
 	}
 	else
 	{
-		SetBrowserState(FName(TEXT("NotLoggedIn")));	
+		SetBrowserState(BrowserState::NAME_NotLoggedIn);	
 	}
 }
 
@@ -617,16 +508,20 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				int32 ServerMaxPlayers = Result.Session.NumOpenPublicConnections;
 				FString ServerVer; 
 				Result.Session.SessionSettings.Get(SETTING_SERVERVERSION, ServerVer);
+				int32 ServerFlags = 0x0000;
+				Result.Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
 				uint32 ServerPing = 0;
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, ServerGame, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing);
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, ServerGame, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing, ServerFlags);
+
 				InternetServers.Add( NewServer );
 			}
 		}
+		AddGameFilters();
 		FilterServers();
 		InternetServerList->RequestListRefresh();
 	}
 
-	SetBrowserState(FName(TEXT("Idle")));	
+	SetBrowserState(BrowserState::NAME_ServerIdle);	
 
 }
 

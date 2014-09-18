@@ -12,6 +12,8 @@ void SUWDialog::Construct(const FArguments& InArgs)
 	PlayerOwner = InArgs._PlayerOwner;
 	checkSlow(PlayerOwner != NULL);
 
+	TabStop = 0;
+
 	OnDialogResult = InArgs._OnDialogResult;
 
 	FVector2D ViewportSize;
@@ -105,12 +107,13 @@ void SUWDialog::Construct(const FArguments& InArgs)
 
 void SUWDialog::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText, uint16 ButtonID, uint32 &ButtonCount)
 {
+	TSharedPtr<SButton> Button;
 	if (Bar.IsValid())
 	{
 		Bar->AddSlot(ButtonCount,0)
 			.HAlign(HAlign_Fill)
 			[
-				SNew(SButton)
+				SAssignNew(Button,SButton)
 				.HAlign(HAlign_Center)
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 				.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
@@ -119,6 +122,10 @@ void SUWDialog::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText,
 			];
 
 		ButtonCount++;
+		if (Button.IsValid())
+		{
+			TabTable.AddUnique(Button);
+		}
 	};
 }
 
@@ -191,11 +198,6 @@ FReply SUWDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyboardEvent& InK
 	return FReply::Unhandled();
 }
 
-FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent)
-{
-	return FReply::Handled();
-}
-
 
 FReply SUWDialog::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
@@ -217,5 +219,21 @@ TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InIt
 			.Text(*InItem.Get())
 		];
 }
+
+FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent)
+{
+	if (InKeyboardEvent.GetKey() == EKeys::Tab)
+	{
+
+		int32 NewStop = (InKeyboardEvent.IsLeftShiftDown() || InKeyboardEvent.IsRightShiftDown()) ? -1 : 1;
+		TabStop = (TabStop + NewStop) % TabTable.Num();
+
+		FSlateApplication::Get().SetKeyboardFocus(TabTable[TabStop], EKeyboardFocusCause::Keyboard);	
+	}
+	return FReply::Handled();
+
+
+}
+
 
 #endif

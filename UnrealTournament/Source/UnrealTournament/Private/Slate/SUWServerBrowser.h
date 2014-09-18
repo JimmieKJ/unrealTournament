@@ -3,6 +3,7 @@
 
 #include "Slate/SlateGameResources.h"
 #include "UTOnlineGameSearchBase.h"
+#include "UTOnlineGameSettingsBase.h"
 #include "SUWindowsStyle.h"
 
 #if !UE_SERVER
@@ -26,13 +27,13 @@ public:
 	FString Map;
 
 	// Number of players on this server
-	uint32 NumPlayers;
+	int32 NumPlayers;
 
 	// Number of Spectators
-	uint32 NumSpectators;
+	int32 NumSpectators;
 
 	// Max. # of players allowed on this server
-	uint32 MaxPlayers;
+	int32 MaxPlayers;
 
 	// What UT/UE4 version the server is running
 	FString Version;
@@ -40,8 +41,10 @@ public:
 	// What is the player's current ping to this server
 	uint32 Ping;
 
+	// Server Flags
+	int32 Flags;
 
-	FServerData( FString inName, FString inIP, FString inGameMode, FString inMap, uint32 inNumPlayers, uint32 inNumSpecators, uint32 inMaxPlayers, FString inVersion, uint32 inPing)
+	FServerData( FString inName, FString inIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
 	: Name( inName )
 	, IP( inIP )
 	, GameMode( inGameMode )
@@ -51,12 +54,13 @@ public:
 	, MaxPlayers( inMaxPlayers )
 	, Version( inVersion ) 
 	, Ping( inPing )
+	, Flags( inFlags )
 	{		
 	}
 
-	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inGameMode, FString inMap, uint32 inNumPlayers, uint32 inNumSpecators, uint32 inMaxPlayers, FString inVersion, uint32 inPing)
+	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing ) );
+		return MakeShareable( new FServerData( inName, inIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing, inFlags ) );
 	}
 
 };
@@ -110,6 +114,22 @@ public:
 			else if (ColumnName == FName(TEXT("ServerNumPlayers"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumPlayers), FText::AsNumber(ServerData->MaxPlayers));
 			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) ColumnText = FText::AsNumber(ServerData->NumSpectators);
 			else if (ColumnName == FName(TEXT("ServerPing"))) ColumnText = FText::AsNumber(ServerData->Ping);
+			else if (ColumnName == FName(TEXT("ServerFlags"))) 
+			{
+				TSharedPtr<SHorizontalBox> IconBox;
+				SAssignNew(IconBox, SHorizontalBox);
+				
+				if ( (ServerData->Flags & 0x01) != 0)
+				{
+					IconBox->AddSlot()
+						[
+							SNew( SImage )		
+								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.Lock"))
+						];
+				}
+
+				return IconBox->AsShared();
+			}
 			
 			else ColumnText = NSLOCTEXT("SUWServerBrowser","UnknownColumnText","n/a");
 		}
@@ -132,6 +152,15 @@ private:
 	TSharedPtr<FServerData> ServerData;
 };
 
+namespace BrowserState
+{
+	// Compressed Texture Formats
+	static FName NAME_NotLoggedIn(TEXT("NotLoggedIn"));
+	static FName NAME_ServerIdle(TEXT("ServerIdle"));
+	static FName NAME_AuthInProgress(TEXT("AuthInProgress"));
+	static FName NAME_RequestInProgress(TEXT("RequrestInProgress"));
+}
+
 class SUWServerBrowser : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWServerBrowser)
@@ -153,7 +182,6 @@ protected:
 	IOnlineSessionPtr OnlineSessionInterface;
 
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
-	TSharedPtr<class SEditableTextBox> UserNameEditBox;
 	TSharedPtr<class SButton> RefreshButton;
 	TSharedPtr<class STextBlock> StatusText;
 	TSharedPtr<class SComboButton> GameFilter;
@@ -168,16 +196,10 @@ protected:
 
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 	
-	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 	virtual FReply OnRefreshClick();
-
-	virtual void CommitPassword(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-	void AttemptLogin(FString UserID, FString Password, bool bIsToken = false);
-	void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
-
 	virtual void RefreshServers();
-	void OnFindSessionsComplete(bool bWasSuccessful);
 
+	void OnFindSessionsComplete(bool bWasSuccessful);
 	virtual void SetBrowserState(FName NewBrowserState);
 
 	virtual void OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer);
@@ -191,12 +213,14 @@ protected:
 	void SortServers(FName ColumnName);
 	virtual void FilterServers();
 
-private:
+	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
+	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
+private:
+	bool bAutoRefresh;
 	bool bDescendingSort;
 	FName CurrentSortColumn;
 
-	FOnLoginCompleteDelegate OnLoginCompleteDelegate;
 	FOnFindSessionsCompleteDelegate OnFindSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
 

@@ -2335,6 +2335,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/SortUpArrows.png" Hash="daf7e9c1800922ae2580ef3384e37be84a7e3a67" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/UWindows.Standard.ServerBrowser.HeaderBar.Hovered.png" Hash="1699e27fc8eb196a457c4c5d0fd2aef813ee181a" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/UWindows.Standard.ServerBrowser.HeaderBar.png" Hash="181cad722df8583cd044fcb241c771c4f872fcb5" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/UWindows.Standard.ServerBrowser.Lock.png" Hash="7b142826e6326a7b31166ed61622ec305217f696" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/UWindows.Standard.ServerBrowser.MenuButton.Hovered.png" Hash="42560824983b25614f81f2334d1acf4a6bac3a8b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/UWindows.Standard.ServerBrowser.MenuButton.png" Hash="0a9750a5f1315b754b7aee5b5a34592f41c08014" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even.png" Hash="9e86660d773a3d29a8044b438b76e74b93e941ce" />
@@ -2345,6 +2346,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/ServerBrowser/UWindows.Standard.ServerBrowser.RowBrushSelected.png" Hash="609b750ff59729497c4f881f9c1caa52be63997e" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Desktop.Background.Logo.png" Hash="8e11781ed83eb08df496b47ac562aa874c399a2f" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Desktop.Background.png" Hash="35decf050b4a3aaffe16955e5dd094b64aaab8f8" />
+    <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Logos.Epic_logo200.png" Hash="80d2029506c5705dc2adeeec1ddf7be005d80d67" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Standard.Backdrop.png" Hash="4cc128bc8b0803f4545c82e06abc8eeeb16bb17b" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Standard.Button.Disabled.png" Hash="48e890c1fd568295aa698c23a609f1da5c62cb10" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Slate/UWindows.Standard.Button.Hovered.png" Hash="b7c0abb6eb73db34a9cbeb92ee28a3a445b275c7" />
@@ -3999,6 +4001,7 @@
     <Blob Hash="7aa04325488f331b45f0eb38049b5ce64656f9a4" Size="9337" PackHash="8d0cff0bd75b161be2160a4640a2a967742a4a23" PackOffset="2061089" />
     <Blob Hash="7ab37da8b79aea81fb993abe336afac13d966315" Size="142363" PackHash="8d0cff0bd75b161be2160a4640a2a967742a4a23" PackOffset="1070551" />
     <Blob Hash="7ad30fd1d26285cddd822ee23da325ffafec8171" Size="93144" PackHash="ba9ca522dd919c747cc8d333e869e5f3bdd87f25" PackOffset="782809" />
+    <Blob Hash="7b142826e6326a7b31166ed61622ec305217f696" Size="1298" PackHash="11fa04b7ac901dab47c33028776cc307b448c323" PackOffset="8" />
     <Blob Hash="7b98c2a91f1c9292d6302b942d90ca06209aa2b6" Size="79189" PackHash="9d1fa1eee552d199361333f4bb60aacb213bfc98" PackOffset="878220" />
     <Blob Hash="7bc1055ad16fac45b7a91778cee818bd0c34a2ae" Size="5292" PackHash="c952475bcef5e82113a5d5df99d401e76c8d7cd0" PackOffset="1900405" />
     <Blob Hash="7be899ba5bccf605e9e7b3a14e4e8aecc951e2d1" Size="89589" PackHash="ea1974d8721f9cce163223575359e46015bffeb5" PackOffset="300390" />
@@ -4058,6 +4061,7 @@
     <Blob Hash="806ca2eb3e2a824906417b44028b1ee2472c5278" Size="1149435" PackHash="45f84dc1fedb893f689086b51751870c534ad16f" PackOffset="8" />
     <Blob Hash="807d9170f74c2f83afc548ae1128c29496f6dbfb" Size="4067" PackHash="bdf1180e95adf07979ed543cd603accc341d8aa4" PackOffset="399350" />
     <Blob Hash="80b7f423111d346ec6cbe025f957024d28e60de4" Size="77565" PackHash="d3bcfa2feba546b07cc990ed1ed4ee6398273c2d" PackOffset="365000" />
+    <Blob Hash="80d2029506c5705dc2adeeec1ddf7be005d80d67" Size="37889" PackHash="11fa04b7ac901dab47c33028776cc307b448c323" PackOffset="1306" />
     <Blob Hash="8112423cf84a592d7556d36b3f4c045f26052377" Size="382" PackHash="c952475bcef5e82113a5d5df99d401e76c8d7cd0" PackOffset="8" />
     <Blob Hash="8119705af4f08ee00a1039239fd59f5c691d88ba" Size="2954" PackHash="490811e78a62f85b73eea01e3c8c92ff1fd6be6d" PackOffset="2073506" />
     <Blob Hash="8134d1d6a3b37b7aa01a1b0f0a3e55c8e4818055" Size="44091" PackHash="ba9ca522dd919c747cc8d333e869e5f3bdd87f25" PackOffset="314621" />
@@ -5386,6 +5390,7 @@
     <Pack Hash="0ffd06b643c6cab811156cdd94cc49507b3e3ffd" Size="6139764" CompressedSize="6140817" RemotePath="0-dd15d29aed3ead2794db9c914b47b2291d057915" />
     <Pack Hash="10bac906ea9371140f03b9707fbdb126dd2d5041" Size="2073222" CompressedSize="2072842" RemotePath="0-fd84a205d99f60e3971218e4102d8f27be2e5416" />
     <Pack Hash="11a379ecbb1ba64c7380588894b4dc370fd4a7c4" Size="8063872" CompressedSize="8064436" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
+    <Pack Hash="11fa04b7ac901dab47c33028776cc307b448c323" Size="39195" CompressedSize="38832" RemotePath="0-b21518acecd10b52c3e66e60a9920e60d72898b8" />
     <Pack Hash="12e83a1706449d05bad2ecb02b3a170c92d99679" Size="6181530" CompressedSize="6181880" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
     <Pack Hash="13448a0ceafd67d56a15b2c93e36ce23bc33e240" Size="2096901" CompressedSize="2091106" RemotePath="0-2166aa0bda4a2a2268b4193bf541e6f03ce03db6" />
     <Pack Hash="134506c7945aaa03849243b3a48ad46cb89cb047" Size="6932210" CompressedSize="6932912" RemotePath="0-8bb9896754abb7faf6a50adb1f098c3a3e84043a" />

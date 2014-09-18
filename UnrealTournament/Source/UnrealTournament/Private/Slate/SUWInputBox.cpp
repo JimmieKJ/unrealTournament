@@ -31,19 +31,19 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
+			.AutoHeight()
 			.HAlign(HAlign_Center)
 			.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
-			[
+			[ 
 				SNew(STextBlock)
 				.Text(InArgs._MessageText)
 				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
 				.AutoWrapText(true)
 			]
 			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
+			.VAlign(VAlign_Bottom)
 			.HAlign(HAlign_Fill)
-			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
 			[
 				SAssignNew(EditBox, SEditableTextBox)
 				.OnTextChanged(this, &SUWInputBox::OnTextChanged)

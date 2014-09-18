@@ -36,5 +36,8 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTGameMode* CurrentGame)
 		
 	FString GameVer = FString::Printf(TEXT("%i"),GetDefault<UUTGameEngine>()->GameNetworkVersion);
 	Set(SETTING_SERVERVERSION, GameVer, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
+	int32 ServerFlags = 0x0;
+	if (CurrentGame->bRequirePassword) ServerFlags = ServerFlags | SERVERFLAG_RequiresPassword;			// Passworded
 }
 

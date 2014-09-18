@@ -78,6 +78,11 @@ protected:
 	// Our internal OnClick handler.  
 	virtual FReply OnButtonClick(uint16 ButtonID);	
 
+	// The current tab index.  Used to determine when tab and shift tab should work :(
+	int32 TabStop;
+	// Stores a list of widgets that are tab'able
+	TArray<TSharedPtr<SWidget>> TabTable;
+
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;

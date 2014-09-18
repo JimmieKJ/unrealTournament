@@ -65,6 +65,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FVector2D Icon40x40(40.0f, 40.0f);
 	const FVector2D Icon64x64(64.0f, 64.0f);
 	const FVector2D Icon36x24(36.0f, 24.0f);
+	const FVector2D Icon17x22(17.0f, 22.0f);
 	const FVector2D Icon128x128(128.0f, 128.0f);
 
 	// These are the Slate colors which reference the dynamic colors in FSlateCoreStyle; these are the colors to put into the style
@@ -75,12 +76,18 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FSlateColor SelectionColor_Inactive( MakeShareable( new FLinearColor( 0.807f, 0.596f, 0.388f ) ) );
 	const FSlateColor SelectionColor_Pressed(  MakeShareable( new FLinearColor( 0.701f, 0.225f, 0.003f ) ) );
 
+	Style.Set("UWindows.Logos.Epic_Logo200", new IMAGE_BRUSH( "UWindows.Logos.Epic_Logo200", FVector2D(132,150), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
 	// Dialogs
 	{
 		Style.Set("UWindows.Standard.Dialog.Background", new BOX_BRUSH("UWindows.Standard.Dialog.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 		Style.Set("UWindows.Standard.Dialog.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Roboto-Medium", 12))
 			.SetColorAndOpacity(FLinearColor::White)
+			);
+		Style.Set("UWindows.Standard.Dialog.ErrorTextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Roboto-Medium", 10))
+			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 		Style.Set("UWindows.Standard.Dialog.Title.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 12))
@@ -97,6 +104,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	// Server Browser
 	{
+
+		Style.Set("UWindows.Standard.ServerBrowser.Lock", new IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.Lock", Icon17x22, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 		Style.Set( "UWindows.Standard.ServerBrowser.Row", FTableRowStyle()
 			.SetEvenRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
