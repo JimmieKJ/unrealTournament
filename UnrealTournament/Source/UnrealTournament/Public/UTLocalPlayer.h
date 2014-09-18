@@ -6,7 +6,7 @@
 #include "../Private/Slate/SUWDialog.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
-#include "UTProfileSettings.h"
+//#include "UTProfileSettings.h"
 #include "UTLocalPlayer.generated.h"
 
 DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
@@ -105,9 +105,10 @@ protected:
 #endif
 
 	// Call this function to Attempt to load the Online Profile Settings for this user.
+/*
 	virtual void LoadOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToFill);
 	virtual void SaveOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToSave);
-
+*/
 	virtual void GetAuth(bool bLastFailed=false);
 
 private:

@@ -218,7 +218,7 @@ void UUTLocalPlayer::Logout()
 		}
 	}
 }
-
+/*
 void UUTLocalPlayer::LoadOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToFill)
 {
 }
@@ -226,7 +226,7 @@ void UUTLocalPlayer::LoadOnlineProfileSettings(UUTProfileSettings* ProfileSettin
 void UUTLocalPlayer::SaveOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToSave)
 {
 }
-
+*/
 
 void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 {
