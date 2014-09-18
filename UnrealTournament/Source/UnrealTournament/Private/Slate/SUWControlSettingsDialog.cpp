@@ -343,6 +343,9 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 		DialogContent->AddSlot()
 		[
 			SNew(SVerticalBox)
+
+			// Tab bar
+
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			.HAlign(HAlign_Left)
@@ -378,20 +381,26 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 					.OnClicked(this, &SUWControlSettingsDialog::OnTabClickMovement)
 				]
 			]
+
+			// Content
+
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.HAlign(HAlign_Left)
-			.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+			.HAlign(HAlign_Fill)
+			.Padding(5.0f, 0.0f, 5.0f, 0.0f)
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
 				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 				.AutoHeight()
 				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Center)
+				.HAlign(HAlign_Fill)
 				[
 					//Keyboard Settings
 					SAssignNew(TabWidget, SWidgetSwitcher)
+
+					// Key binds
+
 					+ SWidgetSwitcher::Slot()
 					[
 						SNew(SVerticalBox)
@@ -430,7 +439,9 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 								.Text(NSLOCTEXT("SUWControlSettingsDialog", "KeyBinds", "Alternate Key").ToString())
 							]
 						]
+					
 						//Key bind list
+
 						+ SVerticalBox::Slot()
 						.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 						[
@@ -460,63 +471,64 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 					]
+
 					//Mouse Settings
+
 					+ SWidgetSwitcher::Slot()
+					.HAlign(HAlign_Fill)
 					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+						SNew(SBox)
+						.VAlign(VAlign_Fill)
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-							.AutoWidth()
-							.VAlign(VAlign_Center)
-							.HAlign(HAlign_Center)
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 							[
-								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
-								.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSensitivity", "Mouse Sensitivity").ToString())
-							]
-							+ SHorizontalBox::Slot()
-							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(SBox)
-								.Content()
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 								[
-									SAssignNew(MouseSensitivity, SSlider)
-									.Orientation(Orient_Horizontal)
-									.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity() - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
+									SNew(STextBlock)
+									.ColorAndOpacity(FLinearColor::Black)
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSensitivity", "Mouse Sensitivity").ToString())
+								]
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								[
+									SNew(SBox)
+									.Content()
+									[
+										SAssignNew(MouseSensitivity, SSlider)
+										.Orientation(Orient_Horizontal)
+										.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity() - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
+									]
 								]
 							]
-						]
-						+ SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						[
-							SAssignNew(MouseSmoothing, SCheckBox)
-							.ForegroundColor(FLinearColor::Black)
-							.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-							.Content()
+							+ SVerticalBox::Slot()
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
-								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
-								.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSmoothing", "Mouse Smoothing").ToString())
+								SAssignNew(MouseSmoothing, SCheckBox)
+								.ForegroundColor(FLinearColor::Black)
+								.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+								.Content()
+								[
+									SNew(STextBlock)
+									.ColorAndOpacity(FLinearColor::Black)
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSmoothing", "Mouse Smoothing").ToString())
+								]
 							]
-						]
-						+ SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						[
-							SAssignNew(MouseInvert, SCheckBox)
-							.ForegroundColor(FLinearColor::Black)
-							.IsChecked(bMouseInverted ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-							.Content()
+							+ SVerticalBox::Slot()
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
-								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
-								.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseInvert", "Invert Mouse").ToString())
+								SAssignNew(MouseInvert, SCheckBox)
+								.ForegroundColor(FLinearColor::Black)
+								.IsChecked(bMouseInverted ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+								.Content()
+								[
+									SNew(STextBlock)
+									.ColorAndOpacity(FLinearColor::Black)
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseInvert", "Invert Mouse").ToString())
+								]
 							]
 						]
 					]
