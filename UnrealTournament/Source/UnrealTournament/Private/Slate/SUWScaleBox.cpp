@@ -7,6 +7,9 @@
 
 void SUWScaleBox::Construct(const SUWScaleBox::FArguments& InArgs)
 {
+
+	bMaintainAspectRatio = InArgs._bMaintainAspectRatio;
+
 	ChildSlot
 		[
 			InArgs._Content.Widget
@@ -19,16 +22,39 @@ void SUWScaleBox::OnArrangeChildren(const FGeometry& AllottedGeometry, FArranged
 	if (ArrangedChildren.Accepts(ChildVisibility))
 	{
 		FVector2D DesiredSize = ChildSlot.Widget->GetDesiredSize();
-		if (DesiredSize.X > AllottedGeometry.Size.X)
+		FVector2D FinalOffset(0, 0);
+
+		if (bMaintainAspectRatio)
 		{
-			float Aspect = DesiredSize.Y / DesiredSize.X;
-			DesiredSize.X = AllottedGeometry.Size.X;
-			DesiredSize.Y = DesiredSize.X * Aspect;
+
+			if (AllottedGeometry.Size != DesiredSize)
+			{
+				float Aspect = DesiredSize.X / DesiredSize.Y;
+				FVector2D Delta = AllottedGeometry.Size - DesiredSize;
+
+				if (FMath::Abs(Delta.X) < FMath::Abs(Delta.Y))	// X is closer
+				{
+					DesiredSize.X = AllottedGeometry.Size.X;
+					DesiredSize.Y = DesiredSize.X / Aspect;
+				}
+				else
+				{
+					DesiredSize.Y = AllottedGeometry.Size.Y;
+					DesiredSize.X = DesiredSize.Y * Aspect;
+			
+				}
+
+				FinalOffset.X = AllottedGeometry.Size.X * 0.5 - DesiredSize.X * 0.5;
+				FinalOffset.Y = AllottedGeometry.Size.Y * 0.5 - DesiredSize.Y * 0.5;
+			}
+		}
+		else
+		{
+			DesiredSize = AllottedGeometry.Size;
 		}
 
 		float FinalScale = 1;
 
-		FVector2D FinalOffset(0, 0);
 		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild(
 			ChildSlot.Widget,
 			FinalOffset,

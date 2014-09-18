@@ -86,16 +86,32 @@ void SUWindowsMainMenu::CreateDesktop()
 		{
 			Desktop->AddSlot()
 				[
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SUWScaleBox)
+							.bMaintainAspectRatio(false)
+							[
+								SNew(SImage)
+								//.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
+								.Image(SUWindowsStyle::Get().GetBrush("OldSchool.Background"))
+							]
+						]
+					]
 				];
 
 			Desktop->AddSlot()
 				[
 					SNew(SVerticalBox)
 					+ SVerticalBox::Slot()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
 					[
 						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
@@ -104,7 +120,9 @@ void SUWindowsMainMenu::CreateDesktop()
 							SNew(SUWScaleBox)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background.Logo"))
+//								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background.Logo"))
+								.Image(SUWindowsStyle::Get().GetBrush("OldSchool.AnniLogo"))
+								
 							]
 						]
 					]

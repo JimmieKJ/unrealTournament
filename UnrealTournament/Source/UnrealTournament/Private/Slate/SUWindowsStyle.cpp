@@ -76,7 +76,15 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FSlateColor SelectionColor_Inactive( MakeShareable( new FLinearColor( 0.807f, 0.596f, 0.388f ) ) );
 	const FSlateColor SelectionColor_Pressed(  MakeShareable( new FLinearColor( 0.701f, 0.225f, 0.003f ) ) );
 
+	const FSlateSound ButtonHoverSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
+	const FSlateSound ButtonPressSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
+
+
+
+
 	Style.Set("UWindows.Logos.Epic_Logo200", new IMAGE_BRUSH( "UWindows.Logos.Epic_Logo200", FVector2D(132,150), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("OldSchool.AnniLogo", new IMAGE_BRUSH( "OldSchool.AnniLogo", FVector2D(1024,768), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("OldSchool.Background", new IMAGE_BRUSH( "OldSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 	// Dialogs
 	{
@@ -175,6 +183,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetHovered( BOX_BRUSH("UWindows.Standard.MenuButton.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetPressed( BOX_BRUSH("UWindows.Standard.MenuButton.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(BOX_BRUSH("UWindows.Standard.MenuButton.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
 			);
 
 		Style.Set("UWindows.Standard.MenuList", FButtonStyle()
@@ -182,6 +192,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetHovered( BOX_BRUSH("UWindows.Standard.MenuList.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetPressed( BOX_BRUSH("UWindows.Standard.MenuList.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(BOX_BRUSH("UWindows.Standard.MenuList.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
 			);
 	}
 
@@ -192,17 +204,17 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetHovered( BOX_BRUSH("UWindows.Standard.Button.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetPressed( BOX_BRUSH("UWindows.Standard.Button.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(BOX_BRUSH("UWindows.Standard.Button.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
 			);
 
 		Style.Set("UWindows.Standard.MainMenuButton.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 14))
-			//.SetFont(TTF_FONT("Roboto-Regular", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UWindows.Standard.MainMenuButton.SubMenu.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Medium", 12))
-			//.SetFont(TTF_FONT("Roboto-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::Blue)
 			);
 
@@ -225,6 +237,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetHovered(BOX_BRUSH("UWindows.Standard.MidGameMenuButton.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetPressed(BOX_BRUSH("UWindows.Standard.MidGameMenuButton.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
 			);
 
 
