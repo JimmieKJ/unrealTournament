@@ -187,8 +187,8 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this),
             BuildRoot = RawImagePath,
             FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
-            AppLaunchCmd = @".\UnrealTournament\Binaries\Win64\UnrealTournament.exe",
-            AppLaunchCmdArgs = "-pak",
+            AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
+            AppLaunchCmdArgs = "UnrealTournament",
             AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
         });
 
