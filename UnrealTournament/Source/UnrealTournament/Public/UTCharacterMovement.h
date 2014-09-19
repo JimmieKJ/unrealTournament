@@ -304,11 +304,11 @@ public:
 	int32 CurrentMultiJumpCount;
 
 	/** Whether to allow multijumps during a dodge. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Allow Dodge Multijumps"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
 	bool bAllowDodgeMultijumps;
 
 	/** Whether to allow multijumps during a jump. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Allow Dodge Multijumps"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
 		bool bAllowJumpMultijumps;
 
 	/** Max absolute Z velocity allowed for multijump (low values mean only near jump apex). */
@@ -320,12 +320,16 @@ public:
 	float MultiJumpImpulse;
 
 	/** Vertical impulse on dodge jump. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump impulse (vertical)"))
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge jump impulse (vertical)"))
 		float DodgeJumpImpulse;
 
 	/** Air control during multijump . */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multijump)
 	float MultiJumpAirControl;
+
+	/** Whether to count wall dodges as part of multijumps. */
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
+		bool bCountWallDodgeMultijumps;
 
 	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) override;
 

@@ -22,8 +22,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
 	bAllowJumpMultijumps = true;
-	MultiJumpImpulse = 500.f;
-	DodgeJumpImpulse = 500.f;
+	bCountWallDodgeMultijumps = true;
+	MultiJumpImpulse = 600.f;
+	DodgeJumpImpulse = 600.f;
 	DodgeLandingSpeedFactor = 0.19f;
 	DodgeJumpLandingSpeedFactor = 0.19f;
 	DodgeResetInterval = 0.35f;
@@ -465,6 +466,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	if (!IsFalling())
 	{
 		Velocity.Z = DodgeImpulseVertical;
+		CurrentMultiJumpCount++;
 	}
 	else if ((VelocityZ < MaxAdditiveDodgeJumpSpeed) && (VelocityZ > MinAdditiveDodgeFallSpeed))
 	{
@@ -485,15 +487,22 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			VelocityZ = 0.f;
 		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);
+		if (bCountWallDodgeMultijumps)
+		{
+			CurrentMultiJumpCount++;
+		}
 		//UE_LOG(UT, Warning, TEXT("Wall dodge at %f velZ %f"), CharacterOwner->GetWorld()->GetTimeSeconds(), Velocity.Z);
 	}
 	else
 	{
 		Velocity.Z = VelocityZ;
+		if (bCountWallDodgeMultijumps)
+		{
+			CurrentMultiJumpCount++;
+		}
 	}
 	bIsDodging = true;
 	bNotifyApex = true;
-	CurrentMultiJumpCount++;
 	SetMovementMode(MOVE_Falling);
 	return true;
 }
