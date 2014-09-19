@@ -835,25 +835,26 @@ AUTProjectile* AUTWeapon::FireProjectile()
 	else if (Role == ROLE_Authority)
 	{
 		checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
-
-		// try and fire a projectile
+		UTOwner->IncrementFlashCount(CurrentFireMode);
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-
-		//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
-
-		UTOwner->IncrementFlashCount(CurrentFireMode);
-
-		// spawn the projectile at the muzzle
-		FActorSpawnParameters Params;
-		Params.Instigator = UTOwner;
-		Params.Owner = UTOwner;
-		return GetWorld()->SpawnActor<AUTProjectile>(ProjClass[CurrentFireMode], SpawnLocation, SpawnRotation, Params);
+		return SpawnNetPredictedProjectile(ProjClass[CurrentFireMode], SpawnLocation, SpawnRotation);
 	}
 	else
 	{
 		return NULL;
 	}
+}
+
+AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile> ProjectileClass, FVector SpawnLocation, FRotator SpawnRotation)
+{
+	//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
+
+	// spawn the projectile at the muzzle
+	FActorSpawnParameters Params;
+	Params.Instigator = UTOwner;
+	Params.Owner = UTOwner;
+	return GetWorld()->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, Params);
 }
 
 float AUTWeapon::GetRefireTime(uint8 FireModeNum)

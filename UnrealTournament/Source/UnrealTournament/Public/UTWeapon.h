@@ -335,9 +335,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireProjectile();
 
+	/** Spawn a projectile on both server and owning client, and forward predict it by 1/2 ping on server. */
+	virtual AUTProjectile* SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile> ProjectileClass, FVector SpawnLocation, FRotator SpawnRotation);
+
 	/** returns whether we can meet AmmoCost for the given fire mode */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual bool HasAmmo(uint8 FireModeNum);
+
 	/** returns whether we have ammo for any fire mode */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual bool HasAnyAmmo();

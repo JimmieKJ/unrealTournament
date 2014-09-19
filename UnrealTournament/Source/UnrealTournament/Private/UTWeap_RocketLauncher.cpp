@@ -199,12 +199,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 				}
 			}
 
-			FActorSpawnParameters Params;
-			Params.Instigator = UTOwner;
-			Params.Owner = UTOwner;
-
-			AUTProjectile* SpawnedProjectile = GetWorld()->SpawnActor<AUTProjectile>(GetRocketProjectile(), SpawnLocation, SpawnRotation, Params);
-
+			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(GetRocketProjectile(), SpawnLocation, SpawnRotation);
 			if (Cast<AUTProj_RocketSeeking>(SpawnedProjectile) != NULL)
 			{
 				Cast<AUTProj_RocketSeeking>(SpawnedProjectile)->TargetActor = LockedTarget;
@@ -287,7 +282,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			for (uint32 i = 0; i < NumLoadedRockets; i++)
 			{
 				FRotator SpreadRot = SpawnRotation + FRotator(0.0f, GetSpread() * i + StartSpread, 0.0f);
-				SeekerList.Add(GetWorld()->SpawnActor<AUTProjectile>(RocketProjClass, SpawnLocation, SpreadRot, Params));
+				SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot));
 				if (i == 0)
 				{
 					ResultProj = SeekerList[0];
@@ -322,7 +317,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 					}
 				}
 
-				SeekerList.Add(GetWorld()->SpawnActor<AUTProjectile>(RocketProjClass, SpreadLoc, SpawnRotation, Params));
+				SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpreadLoc, SpawnRotation));
 				if (i == 0)
 				{
 					ResultProj = SeekerList[0];
@@ -362,7 +357,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).SafeNormal();
 					}
 				}
-				AUTProjectile* SpawnedProjectile = GetWorld()->SpawnActor<AUTProjectile>(RocketProjClass, SpreadLoc, SpawnRotation, Params);
+				AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpreadLoc, SpawnRotation);
 				//Spread the TossZ
 				SpawnedProjectile->ProjectileMovement->Velocity.Z += i * GetSpread();
 				if (i == 0)

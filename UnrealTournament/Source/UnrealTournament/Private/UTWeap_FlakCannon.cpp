@@ -98,11 +98,6 @@ AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 		// increment 3rd person muzzle flash count
 		UTOwner->IncrementFlashCount(CurrentFireMode);
 
-		// Setup spawn parameters
-		FActorSpawnParameters Params;
-		Params.Instigator = UTOwner;
-		Params.Owner = UTOwner;
-
 		// Get muzzle location and rotation
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
@@ -123,7 +118,7 @@ AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 			}
 
 			// Spawn projectile
-			AUTProjectile* MultiShot = GetWorld()->SpawnActor<AUTProjectile>(ProjectileClass, MultiShotLocation, MultiShotRotation, Params);
+			AUTProjectile* MultiShot = SpawnNetPredictedProjectile(ProjectileClass, MultiShotLocation, MultiShotRotation);
 			if (MainProjectile == NULL)
 			{
 				MainProjectile = MultiShot;
