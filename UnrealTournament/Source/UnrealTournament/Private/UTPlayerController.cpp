@@ -509,7 +509,7 @@ void AUTPlayerController::OnFire()
 	}
 	else if (IsInState(NAME_Spectating))
 	{
-		if (bPlayerIsWaiting)
+		if (!PlayerState->bOnlySpectator && bPlayerIsWaiting)
 		{
 			ServerRestartPlayer();
 		}
