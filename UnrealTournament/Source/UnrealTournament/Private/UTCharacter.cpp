@@ -2932,6 +2932,10 @@ void AUTCharacter::PostNetReceiveLocationAndRotation()
 				PredictionInterface->SmoothCorrection(OldLocation);
 			}
 		}
+		else if (UTCharacterMovement)
+		{
+			UTCharacterMovement->SimulatedVelocity = ReplicatedMovement.LinearVelocity;
+		}
 	}
 }
 
