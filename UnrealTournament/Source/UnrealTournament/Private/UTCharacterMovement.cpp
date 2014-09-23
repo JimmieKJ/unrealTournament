@@ -1550,3 +1550,31 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 	}
 }
 
+void UUTCharacterMovement::SendClientAdjustment()
+{
+	// @TODO FIXMESTEVE component RPC replication too inefficient to use, so UT uses UTCharacter replicated property instead.  Remove when engine fixes.
+	if (!HasValidData())
+	{
+		return;
+	}
+
+	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
+	check(ServerData);
+
+	if (ServerData->PendingAdjustment.TimeStamp <= 0.f)
+	{
+		return;
+	}
+
+	if (ServerData->PendingAdjustment.bAckGoodMove && Cast<AUTCharacter>(CharacterOwner))
+	{
+		Cast<AUTCharacter>(CharacterOwner)->GoodMoveAckTime = ServerData->PendingAdjustment.TimeStamp;
+		ServerData->PendingAdjustment.TimeStamp = 0;
+		ServerData->PendingAdjustment.bAckGoodMove = false;
+	}
+	else
+	{
+		Super::SendClientAdjustment();
+	}
+
+}

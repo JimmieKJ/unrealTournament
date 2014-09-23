@@ -113,10 +113,10 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	ServerPingContribution = 15.f;
 	MaxPredictionPing = 0.f; // 200.f;
+	GoodMoveAckTime = 0.f;
 
 	MaxStackedArmor = 200;
 }
-
 
 void AUTCharacter::BaseChange()
 {
@@ -1740,8 +1740,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-
 	DOREPLIFETIME_CONDITION(AUTCharacter, UTReplicatedMovement, COND_SimulatedOrPhysics);
+	DOREPLIFETIME_CONDITION(AUTCharacter, GoodMoveAckTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
@@ -2494,6 +2494,14 @@ void AUTCharacter::OnRep_PlayerState()
 	if (PlayerState != NULL)
 	{
 		NotifyTeamChanged();
+	}
+}
+
+void AUTCharacter::OnRep_GoodMoveAckTime()
+{
+	if (CharacterMovement)
+	{
+		CharacterMovement->ClientAckGoodMove_Implementation(GoodMoveAckTime);
 	}
 }
 

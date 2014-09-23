@@ -443,6 +443,8 @@ public:
 	//=========================================
 	// Networking
 
+	virtual void SendClientAdjustment() override;
+
 	virtual void SmoothClientPosition(float DeltaTime) override;
 
 	virtual void SimulateMovement(float DeltaTime) override;
