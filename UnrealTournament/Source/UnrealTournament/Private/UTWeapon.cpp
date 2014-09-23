@@ -1020,7 +1020,7 @@ FLinearColor AUTWeapon::GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const
 bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState *& HitPlayerState) const
 {
 	bool bDrawFriendlyIndicator = false;
-	HitPlayerState = false;
+	HitPlayerState = nullptr;
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS != NULL)
 	{
