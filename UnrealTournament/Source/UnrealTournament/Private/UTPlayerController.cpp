@@ -318,6 +318,7 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	}
 
 	BehindViewStacks = 0;
+	SetCameraMode("Default");
 }
 
 void AUTPlayerController::FOV(float NewFOV)
