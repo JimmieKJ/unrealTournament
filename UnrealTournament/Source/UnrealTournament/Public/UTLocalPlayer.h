@@ -79,10 +79,7 @@ public:
 
 	// Log this local player out
 	virtual void Logout();
-
-	// Auto-Login if the proper creds are available
-	virtual void PostInitProperties() override;
-
+	
 	/**
 	 *	Gives a call back to an object looking to know when a player's status changed.
 	 **/

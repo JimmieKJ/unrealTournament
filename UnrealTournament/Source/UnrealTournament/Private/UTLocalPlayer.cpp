@@ -75,6 +75,32 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CPUBrand"), FPlatformMisc::GetCPUBrand()));
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("SystemInfo"), ParamArray );
 	}
+
+	// We don't want to start the auto-logon process from the default object or in PIE
+	UUTLocalPlayer* Obj = GetClass()->GetDefaultObject<UUTLocalPlayer>();
+	if (!GetWorld()->IsPlayInEditor() && Obj != this)
+	{
+		// Initialize the Online Subsystem for this player
+		InitializeOnlineSubsystem();
+
+		FString LoginName = LastEpicIDLogin;
+		FString Token = LastEpicRememberMeToken;
+
+		FString CmdLineLoginName;
+		FParse::Value(FCommandLine::Get(), TEXT("EpicID="), CmdLineLoginName);
+
+		FString CmdLineToken = TEXT("");
+		FParse::Value(FCommandLine::Get(), TEXT("EpicToken="), CmdLineToken);
+
+		if (CmdLineLoginName != TEXT("")) LoginName = CmdLineLoginName;
+		if (CmdLineToken != TEXT("")) Token = CmdLineToken;
+
+		if (!LoginName.IsEmpty() && LoginName != TEXT("") && !Token.IsEmpty() && Token != TEXT(""))
+		{
+			// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
+			LoginOnline(LoginName, Token, true, true);
+		}
+	}
 }
 
 bool UUTLocalPlayer::IsMenuGame()
@@ -322,38 +348,6 @@ void UUTLocalPlayer::AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16
 }
 
 #endif
-
-void UUTLocalPlayer::PostInitProperties()
-{
-	Super::PostInitProperties();
-
-	UUTLocalPlayer* Obj = GetClass()->GetDefaultObject<UUTLocalPlayer>();
-	if (Obj != this)
-	{
-		// Initialize the Online Subsystem for this player
-		InitializeOnlineSubsystem();
-
-		FString LoginName = LastEpicIDLogin;
-		FString Token = LastEpicRememberMeToken;
-
-		FString CmdLineLoginName;
-		FParse::Value(FCommandLine::Get(), TEXT("EpicID="), CmdLineLoginName);
-		
-		FString CmdLineToken = TEXT("");
-		FParse::Value(FCommandLine::Get(), TEXT("EpicToken="), CmdLineToken);
-
-		if (CmdLineLoginName != TEXT("")) LoginName = CmdLineLoginName;
-		if (CmdLineToken != TEXT("")) Token = CmdLineToken;
-
-		// We don't want to start the auto-logon process from the default object.
-		if (!LoginName.IsEmpty() && LoginName != TEXT("") && !Token.IsEmpty() && Token != TEXT(""))
-		{
-			// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
-			LoginOnline(LoginName, Token, true, true);
-		}
-	}
-
-}
 
 void UUTLocalPlayer::AddPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate NewDelegate)
 {
