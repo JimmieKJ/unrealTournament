@@ -23,17 +23,17 @@ struct FRepUTMovement
 	FVector_NetQuantize10 Location;
 
 	/** @TODO FIXMESTEVE only need a few bits for this */
-	UPROPERTY()
-	FVector_NetQuantize Acceleration;
+	//UPROPERTY()
+	//FVector_NetQuantize Acceleration;
 
-	/** @TODO FIXMESTEVE just replicate yaw */
+	/** @TODO FIXMESTEVE just replicate yaw and remoteviewpitch here */
 	UPROPERTY()
 	FRotator Rotation;
 
 	FRepUTMovement()
 		: LinearVelocity(ForceInit)
 		, Location(ForceInit)
-		, Acceleration(ForceInit)
+		//, Acceleration(ForceInit)
 		, Rotation(ForceInit)
 	{}
 
@@ -50,8 +50,8 @@ struct FRepUTMovement
 		bOutSuccess &= bOutSuccessLocal;
 		LinearVelocity.NetSerialize(Ar, Map, bOutSuccessLocal);
 		bOutSuccess &= bOutSuccessLocal;
-		Acceleration.NetSerialize(Ar, Map, bOutSuccessLocal);
-		bOutSuccess &= bOutSuccessLocal;
+		//Acceleration.NetSerialize(Ar, Map, bOutSuccessLocal);
+		//bOutSuccess &= bOutSuccessLocal;
 
 		return true;
 	}
@@ -72,12 +72,12 @@ struct FRepUTMovement
 		{
 			return false;
 		}
-
+		/*
 		if (Acceleration != Other.Acceleration)
 		{
 			return false;
 		}
-
+		*/
 		return true;
 	}
 
@@ -219,6 +219,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(EditAnywhere, Category = Network)
 	float MaxPredictionPing;
 
+	/** @TODO FIXMESTEVE USE IT OR LOSE IT! */
 	UPROPERTY(BluePrintReadOnly, Category = Network)
 	FVector ReplicatedAccel;
 

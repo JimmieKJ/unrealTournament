@@ -3020,7 +3020,7 @@ bool AUTCharacter::GatherUTMovement()
 			// @TODO FIXMESTEVE make sure not replicated to owning client!!!
 			UTReplicatedMovement.Location = RootComponent->GetComponentLocation();
 			UTReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
-			UTReplicatedMovement.Acceleration = CharacterMovement->GetCurrentAcceleration();
+			//UTReplicatedMovement.Acceleration = CharacterMovement->GetCurrentAcceleration();
 			UTReplicatedMovement.LinearVelocity = GetVelocity();
 			return true;
 		}
@@ -3032,7 +3032,7 @@ void AUTCharacter::OnRep_UTReplicatedMovement()
 {
 	if (Role == ROLE_SimulatedProxy)
 	{
-		ReplicatedAccel = UTReplicatedMovement.Acceleration;
+		//ReplicatedAccel = UTReplicatedMovement.Acceleration;
 		ReplicatedMovement.Location = UTReplicatedMovement.Location;
 		ReplicatedMovement.Rotation = UTReplicatedMovement.Rotation;
 		ReplicatedMovement.LinearVelocity = UTReplicatedMovement.LinearVelocity;
