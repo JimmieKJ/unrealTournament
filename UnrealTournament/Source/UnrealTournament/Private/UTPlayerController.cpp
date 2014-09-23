@@ -359,7 +359,7 @@ void AUTPlayerController::SwitchToBestWeapon()
 		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-			if (Weap != NULL && Weap->HasAnyAmmo())
+			if (Weap != NULL && Weap->HasAnyAmmo() && Weap->GetOwner() != nullptr)
 			{
 				float TestPriority = Weap->GetAutoSwitchPriority();
 				if (TestPriority > BestPriority)

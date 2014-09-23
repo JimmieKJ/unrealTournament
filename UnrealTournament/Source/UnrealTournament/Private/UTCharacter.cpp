@@ -21,6 +21,7 @@
 #include "UTImpactEffect.h"
 #include "UTGib.h"
 #include "UTRemoteRedeemer.h"
+#include "UTDroppedPickup.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -1050,6 +1051,11 @@ void AUTCharacter::PlayFeignDeath()
 	{
 		DropFlag();
 
+		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr)
+		{
+			TossInventory(Weapon, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
+		}
+
 		// force behind view
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
@@ -1489,10 +1495,6 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 				if (IsLocallyControlled())
 				{
 					SwitchToBestWeapon();
-				}
-				else
-				{
-					ClientWeaponLost((AUTWeapon*)InvToRemove);
 				}
 			}
 		}

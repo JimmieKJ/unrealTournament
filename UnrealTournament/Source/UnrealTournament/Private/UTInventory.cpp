@@ -100,7 +100,7 @@ void AUTInventory::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	UTOwner = NewOwner;
 	PrimaryActorTick.AddPrerequisite(UTOwner, UTOwner->PrimaryActorTick);
 	eventGivenTo(NewOwner, bAutoActivate);
-	ClientGivenTo(bAutoActivate);
+	ClientGivenTo(Instigator, bAutoActivate);
 }
 
 void AUTInventory::Removed()
@@ -125,7 +125,7 @@ void AUTInventory::CheckPendingClientGivenTo()
 	if (bPendingClientGivenTo && Instigator != NULL)
 	{
 		bPendingClientGivenTo = false;
-		ClientGivenTo_Implementation(bPendingAutoActivate);
+		ClientGivenTo_Implementation(nullptr, bPendingAutoActivate);
 	}
 }
 void AUTInventory::OnRep_Instigator()
@@ -134,8 +134,13 @@ void AUTInventory::OnRep_Instigator()
 	CheckPendingClientGivenTo();
 }
 
-void AUTInventory::ClientGivenTo_Implementation(bool bAutoActivate)
+void AUTInventory::ClientGivenTo_Implementation(APawn* NewInstigator, bool bAutoActivate)
 {
+	if (NewInstigator != nullptr)
+	{
+		Instigator = NewInstigator;
+	}
+
 	if (Instigator == NULL || !Cast<AUTCharacter>(Instigator)->IsInInventory(this))
 	{
 		bPendingClientGivenTo = true;
@@ -170,7 +175,12 @@ void AUTInventory::ClientRemoved_Implementation()
 	SetOwner(NULL);
 	UTOwner = NULL;
 	Instigator = NULL;
-	NextInventory = NULL;
+
+	// This will come through replication
+	if (Role == ROLE_Authority)
+	{
+		NextInventory = NULL;
+	}
 }
 
 void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

@@ -35,7 +35,7 @@ protected:
 
 	/** client side handling of owner transition */
 	UFUNCTION(Client, Reliable)
-	void ClientGivenTo(bool bAutoActivate);
+	void ClientGivenTo(APawn* NewInstigator, bool bAutoActivate);
 	virtual void ClientGivenTo_Internal(bool bAutoActivate);
 	/** called only on the client that is given the item */
 	UFUNCTION(BlueprintImplementableEvent)
