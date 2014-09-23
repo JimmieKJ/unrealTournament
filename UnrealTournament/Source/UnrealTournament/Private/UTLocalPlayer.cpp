@@ -78,7 +78,7 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 
 	// We don't want to start the auto-logon process from the default object or in PIE
 	UUTLocalPlayer* Obj = GetClass()->GetDefaultObject<UUTLocalPlayer>();
-	if (!GetWorld()->IsPlayInEditor() && Obj != this)
+	if (Obj != this)
 	{
 		// Initialize the Online Subsystem for this player
 		InitializeOnlineSubsystem();
@@ -206,7 +206,10 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 {
 	if (!IsLoggedIn() && OnlineIdentityInterface.IsValid())
 	{
-		if (EpicID == TEXT("")) EpicID = LastEpicIDLogin;
+		if (EpicID == TEXT(""))
+		{
+			EpicID = LastEpicIDLogin;
+		}
 
 		// Save this for later.
 		PendingLoginUserName = EpicID;
@@ -219,14 +222,24 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		}
 
 		FOnlineAccountCredentials AccountCreds(TEXT("epic"), EpicID, Auth);
-		if (bIsRememberToken) AccountCreds.Type = TEXT("refresh");
+		if (bIsRememberToken)
+		{
+			AccountCreds.Type = TEXT("refresh");
+		}
 
-		// Begin the Login Process....
-		if (!OnlineIdentityInterface->Login(ControllerId, AccountCreds) )
+		// Begin the Login Process...
+		if (!OnlineIdentityInterface->Login(ControllerId, AccountCreds))
 		{
 #if !UE_SERVER
 			// We should never fail here unless something has gone horribly wrong
-			ShowMessage(NSLOCTEXT("MCPMessages","OnlineError","Online Error"), NSLOCTEXT("MCPMessages","UnknownLoginFailuire","Could not connect to the online subsystem.  Please check your connection and try again."), UTDIALOG_BUTTON_OK, NULL);
+			if (bSilentLoginFail)
+			{
+				UE_LOG(UT, Warning, TEXT("Could not connect to the online subsystem. Please check your connection and try again."));
+			}
+			else
+			{
+				ShowMessage(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "UnknownLoginFailuire", "Could not connect to the online subsystem.  Please check your connection and try again."), UTDIALOG_BUTTON_OK, NULL);
+			}
 			return;
 #endif
 		}
