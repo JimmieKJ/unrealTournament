@@ -1310,22 +1310,6 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	}
 }
 
-bool UUTCharacterMovement::ShouldCheckForValidLandingSpot(const float DeltaTime, const FVector& Delta, const FHitResult& Hit) const
-{
-	// See if we hit an edge of a surface on the lower portion of the capsule.
-	// In this case the normal will not equal the impact normal, and a downward sweep may find a walkable surface on top of the edge.
-	if (Hit.Normal.Z > KINDA_SMALL_NUMBER && !Hit.Normal.Equals(Hit.ImpactNormal))
-	{
-		const FVector PawnLocation = UpdatedComponent->GetComponentLocation();
-		if (IsWithinEdgeTolerance(PawnLocation, Hit.ImpactPoint, CharacterOwner->CapsuleComponent->GetScaledCapsuleRadius()))
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 void UUTCharacterMovement::NotifyJumpApex()
 {
 	if (Cast<AUTCharacter>(CharacterOwner))
