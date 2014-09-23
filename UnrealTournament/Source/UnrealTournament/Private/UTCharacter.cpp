@@ -1060,13 +1060,19 @@ void AUTCharacter::PlayFeignDeath()
 			}
 		}
 
-		WeaponAttachment->SetActorHiddenInGame(true);
+		if (WeaponAttachment != nullptr)
+		{
+			WeaponAttachment->SetActorHiddenInGame(true);
+		}
 
 		StartRagdoll();
 	}
 	else
 	{
-		WeaponAttachment->SetActorHiddenInGame(false);
+		if (WeaponAttachment != nullptr)
+		{
+			WeaponAttachment->SetActorHiddenInGame(false);
+		}
 
 		StopRagdoll();
 	}
