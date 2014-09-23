@@ -2926,15 +2926,24 @@ void AUTCharacter::PostNetReceiveLocationAndRotation()
 
 void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
-	if ((bReplicateMovement || AttachmentReplication.AttachParent) && GatherUTMovement())
+	if (bReplicateMovement || AttachmentReplication.AttachParent)
 	{
-		DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, UTReplicatedMovement, bReplicateMovement);
+		if (GatherUTMovement())
+		{
+			DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, UTReplicatedMovement, bReplicateMovement);
+			DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, false);
+		}
+		else
+		{
+			DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, UTReplicatedMovement, false);
+			DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, bReplicateMovement);
+		}
 	}
 	else
 	{
-		DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, bReplicateMovement);
+		DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, false);
+		DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, UTReplicatedMovement, false);
 	}
-
 	const FAnimMontageInstance * RootMotionMontageInstance = GetRootMotionAnimMontageInstance();
 
 	if (RootMotionMontageInstance)
