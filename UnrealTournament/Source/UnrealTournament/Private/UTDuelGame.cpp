@@ -19,6 +19,7 @@ AUTDuelGame::AUTDuelGame(const class FPostConstructInitializeProperties& PCIP)
 	GoalScore = 15;
 	TimeLimit = 0.f;
 	bPlayersMustBeReady = true;
+	bForceRespawn = true;
 }
 
 
