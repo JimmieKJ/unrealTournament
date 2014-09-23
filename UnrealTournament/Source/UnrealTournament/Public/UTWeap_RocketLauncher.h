@@ -118,16 +118,7 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	virtual void BeginLoadRocket();
 	virtual void EndLoadRocket();
 	virtual void ClearLoadedRockets();
-
-	float GetSpread()
-	{
-		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode))
-		{
-			return RocketFireModes[CurrentRocketFireMode].Spread;
-		}
-		return 0.0f;
-	}
-
+	virtual float GetSpread(int32 ModeIndex);
 	virtual void FireShot() override;
 	virtual AUTProjectile* FireProjectile() override;
 	virtual void PlayFiringEffects() override;

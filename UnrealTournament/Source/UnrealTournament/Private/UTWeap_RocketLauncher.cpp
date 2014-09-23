@@ -278,10 +278,10 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	{
 		case 0://spread
 		{
-			float StartSpread = (NumLoadedRockets - 1) * GetSpread() * -0.5;
+			float StartSpread = (NumLoadedRockets - 1) * GetSpread(0) * -0.5;
 			for (uint32 i = 0; i < NumLoadedRockets; i++)
 			{
-				FRotator SpreadRot = SpawnRotation + FRotator(0.0f, GetSpread() * i + StartSpread, 0.0f);
+				FRotator SpreadRot = SpawnRotation + FRotator(0.0f, GetSpread(0) * i + StartSpread, 0.0f);
 				SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot));
 				if (i == 0)
 				{
@@ -344,6 +344,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 		}
 		case 2://Grenade
 		{
+			float GrenadeSpread = GetSpread(0);
 			float RotDegree = 360.0f / MaxLoadedRockets;
 			for (uint32 i = 0; i < NumLoadedRockets; i++)
 			{
@@ -357,9 +358,11 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).SafeNormal();
 					}
 				}
-				AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpreadLoc, SpawnRotation);
+				FRotator SpreadRot = SpawnRotation;
+				SpreadRot.Yaw += GrenadeSpread*float(i) - GrenadeSpread;
+				AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpreadLoc, SpreadRot);
 				//Spread the TossZ
-				SpawnedProjectile->ProjectileMovement->Velocity.Z += i * GetSpread();
+				SpawnedProjectile->ProjectileMovement->Velocity.Z += i * GetSpread(2);
 				if (i == 0)
 				{
 					ResultProj = SpawnedProjectile;
@@ -387,9 +390,17 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 }
 
 
+float AUTWeap_RocketLauncher::GetSpread(int32 ModeIndex)
+{
+	if (RocketFireModes.IsValidIndex(ModeIndex))
+	{
+		return RocketFireModes[ModeIndex].Spread;
+	}
+	return 0.0f;
+}
+
+
 // Target Locking Code
-
-
 void AUTWeap_RocketLauncher::StateChanged()
 {
 	if (Role == ROLE_Authority && CurrentState != InactiveState && CurrentState != EquippingState && CurrentState != UnequippingState)
