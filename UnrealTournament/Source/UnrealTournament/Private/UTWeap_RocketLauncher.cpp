@@ -548,9 +548,14 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		}
 
 		WeaponHudWidget->DrawTexture(Tex, 0, 0, W * Scale, H * Scale, 0.0, 0.0, W, H, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f), CrosshairRot);
-		if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner))
+		AUTPlayerState* PS;
+		if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
 		{
 			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex, 0, 0, W * Scale * 0.75f, H * Scale * 0.75f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
+		}
+		else
+		{
+			UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 		}
 	}
 

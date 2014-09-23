@@ -413,12 +413,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	FLinearColor GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const;
 
+	/** The player state of the player currently under the crosshair */
+	AUTPlayerState* TargetPlayerState;
+
+	/** The time this player was last seen under the crosshaiar */
+	float TargetLastSeenTime;
+
 	/** returns whether we should draw the friendly fire indicator on the crosshair */
 	UFUNCTION(BlueprintCallable, Category = Weapon)
-	bool ShouldDrawFFIndicator(APlayerController* Viewer) const;
+	bool ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState *& HitPlayerState ) const;
 
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
+
+	UFUNCTION()
+	void UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
 	/** helper for shared overlay code between UTWeapon and UTWeaponAttachment
 	 * NOTE: can called on default object!

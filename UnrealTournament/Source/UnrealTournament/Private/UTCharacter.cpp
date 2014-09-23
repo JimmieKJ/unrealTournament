@@ -2689,7 +2689,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if (Dist <= (GS->OnSameTeam(PC->GetPawn(), this) ? TeamPlayerIndicatorMaxDistance : PlayerIndicatorMaxDistance))
+		if (GS->OnSameTeam(PC->GetPawn(), this) && Dist <= TeamPlayerIndicatorMaxDistance)
 		{
 			float XL, YL;
 
@@ -3029,4 +3029,9 @@ void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 	}
 
 	Super::FaceRotation(NewControlRotation, DeltaTime);
+}
+
+bool AUTCharacter::IsFeigningDeath()
+{
+	return bFeigningDeath;
 }

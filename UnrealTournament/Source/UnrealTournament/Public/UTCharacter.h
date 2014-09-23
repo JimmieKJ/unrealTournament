@@ -527,6 +527,8 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	virtual void BaseChange() override;
 
+	virtual bool IsFeigningDeath();
+
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = PlayFeignDeath, Category = Pawn)

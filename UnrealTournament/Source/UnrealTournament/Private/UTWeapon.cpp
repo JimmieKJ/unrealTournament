@@ -1017,9 +1017,10 @@ FLinearColor AUTWeapon::GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const
 	return CrosshairColor;
 }
 
-bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer) const
+bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState *& HitPlayerState) const
 {
 	bool bDrawFriendlyIndicator = false;
+	HitPlayerState = false;
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS != NULL)
 	{
@@ -1030,7 +1031,16 @@ bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer) const
 		GetWorld()->LineTraceSingle(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CrosshairFriendIndicator")), false, UTOwner));
 		if (Hit.Actor != NULL)
 		{
-			bDrawFriendlyIndicator = GS->OnSameTeam(Hit.Actor.Get(), UTOwner);
+			AUTCharacter* Char = Cast<AUTCharacter>(Hit.Actor.Get());
+			if (Char != NULL)
+			{
+				bDrawFriendlyIndicator = GS->OnSameTeam(Hit.Actor.Get(), UTOwner);
+
+				if (Char != NULL && !Char->IsFeigningDeath() && Char->PlayerState != NULL)
+				{
+					HitPlayerState = Cast<AUTPlayerState>(Char->PlayerState);
+				}
+			}
 		}
 	}
 	return bDrawFriendlyIndicator;
@@ -1055,17 +1065,54 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 			float Scale = WeaponHudWidget->GetRenderScale();
 			
 			// draw a different indicator if there is a friendly where the camera is pointing
-			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner))
+			AUTPlayerState* PS;
+			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
 			{
 				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale * 2.0f, H * Scale * 2.0f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
 			}
 			else
 			{
 				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+				UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 			}
 		}
 	}
 }
+
+void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUDWidget* WeaponHudWidget, float RenderDelta)
+{
+	if (NewCrosshairTarget != NULL)
+	{
+		TargetPlayerState = NewCrosshairTarget;
+		TargetLastSeenTime = GetWorld()->GetTimeSeconds();
+	}
+
+	if (TargetPlayerState != NULL)
+	{
+		float Alpha = GetWorld()->GetTimeSeconds() - TargetLastSeenTime;
+		if (Alpha < 0.75)
+		{
+			if (Alpha > 0.5)
+			{
+				Alpha = 1.0 - ((Alpha - 0.5) / 0.25f);
+			}
+			else
+			{
+				Alpha = 1.0;
+			}
+
+			float H = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex->GetSurfaceHeight();
+			UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
+			FText PlayerName = FText::FromString(TargetPlayerState->PlayerName);
+			WeaponHudWidget->DrawText(PlayerName, 0, H * 2, Font, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black,1.0, Alpha, FLinearColor::Red, ETextHorzPos::Center);
+		}
+		else
+		{
+			TargetPlayerState = NULL;
+		}
+	}
+}
+
 
 void AUTWeapon::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
