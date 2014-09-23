@@ -51,6 +51,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FPostConstructInitializePropert
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+	bNetTemporary = true;
 }
 
 void AUTProj_FlakShard::PostInitializeComponents()
