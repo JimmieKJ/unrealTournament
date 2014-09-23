@@ -157,7 +157,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 
 		if (OverlapActor != NULL && OverlapActor->bCanBeDamaged && Overlap.Component.IsValid())
 		{
-			FHitResult Hit;
+			FHitResult Hit(OverlapActor, Overlap.Component.Get(), OverlapActor->GetActorLocation(), FVector(0,0,1.f));
 			if ((OverlapActor->GetActorLocation() - Origin).Size() <= CollisionFreeRadius || 
 				ComponentIsVisibleFrom(Overlap.Component.Get(), Origin, DamageCauser, IgnoreActors, Hit))
 			{
