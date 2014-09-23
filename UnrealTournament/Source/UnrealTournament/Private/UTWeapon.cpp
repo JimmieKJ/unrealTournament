@@ -1096,17 +1096,12 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 
 	if (TargetPlayerState != NULL)
 	{
-		float Alpha = GetWorld()->GetTimeSeconds() - TargetLastSeenTime;
-		if (Alpha < 0.75)
+		float TimeSinceSeen = GetWorld()->GetTimeSeconds() - TargetLastSeenTime;
+		static float MAXNAMEDRAWTIME = 0.3f;
+		if (TimeSinceSeen < MAXNAMEDRAWTIME)
 		{
-			if (Alpha > 0.5)
-			{
-				Alpha = 1.0 - ((Alpha - 0.5) / 0.25f);
-			}
-			else
-			{
-				Alpha = 1.0;
-			}
+			static float MAXNAMEFULLALPHA = 0.22f;
+			float Alpha = (TimeSinceSeen < MAXNAMEFULLALPHA) ? 1.f : (1.f - ((TimeSinceSeen - MAXNAMEFULLALPHA) / (MAXNAMEDRAWTIME - MAXNAMEFULLALPHA)));
 
 			float H = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex->GetSurfaceHeight();
 			UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
@@ -1119,7 +1114,6 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 		}
 	}
 }
-
 
 void AUTWeapon::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
