@@ -545,6 +545,10 @@ void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
 	PlayerOwner->HideMenu();
 	FString Command = FString::Printf(TEXT("open %s"), *ServerData.IP);
+	if (bSpectate)
+	{
+		Command += FString(TEXT("?spectatoronly=1"));
+	}
 	PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
 }
 
