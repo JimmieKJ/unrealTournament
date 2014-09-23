@@ -2991,6 +2991,9 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 	}
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
+
+	// @TODO FIXMESTEVE - just don't want this ever replicated
+	DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RemoteViewPitch, false);
 }
 
 bool AUTCharacter::GatherUTMovement()
@@ -3020,6 +3023,7 @@ bool AUTCharacter::GatherUTMovement()
 			// @TODO FIXMESTEVE make sure not replicated to owning client!!!
 			UTReplicatedMovement.Location = RootComponent->GetComponentLocation();
 			UTReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
+			UTReplicatedMovement.Rotation.Pitch = RemoteViewPitch;
 			//UTReplicatedMovement.Acceleration = CharacterMovement->GetCurrentAcceleration();
 			UTReplicatedMovement.LinearVelocity = GetVelocity();
 			return true;
@@ -3035,6 +3039,8 @@ void AUTCharacter::OnRep_UTReplicatedMovement()
 		//ReplicatedAccel = UTReplicatedMovement.Acceleration;
 		ReplicatedMovement.Location = UTReplicatedMovement.Location;
 		ReplicatedMovement.Rotation = UTReplicatedMovement.Rotation;
+		RemoteViewPitch = ReplicatedMovement.Rotation.Pitch;
+		ReplicatedMovement.Rotation.Pitch = 0.f;
 		ReplicatedMovement.LinearVelocity = UTReplicatedMovement.LinearVelocity;
 		ReplicatedMovement.AngularVelocity = FVector(0.f);
 		ReplicatedMovement.bSimulatedPhysicSleep = false;
