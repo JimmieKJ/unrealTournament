@@ -2858,10 +2858,13 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 
 EAllowedSpecialMoveAnims AUTCharacter::AllowedSpecialMoveAnims()
 {
+	// All emotes are full body at the moment and we're having issues with remote clients not seeing full body emotes
+	/*
 	if (CharacterMovement != NULL && (!CharacterMovement->IsMovingOnGround() || !CharacterMovement->GetCurrentAcceleration().IsNearlyZero()))
 	{
 		return EASM_UpperBodyOnly;
 	}
+	*/
 
 	return EASM_Any;
 }
