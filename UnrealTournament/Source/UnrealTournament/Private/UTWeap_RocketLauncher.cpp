@@ -104,7 +104,7 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 			CurrentRocketFireMode++;
 			bDrawRocketModeString = true;
 
-			if (CurrentRocketFireMode >= (uint32)RocketFireModes.Num())
+			if (CurrentRocketFireMode >= RocketFireModes.Num())
 			{
 				CurrentRocketFireMode = 0;
 			}
@@ -236,7 +236,7 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 		//muzzle flash for each loaded rocket
 		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash)
 		{
-			for (uint32 i = 0; i < NumLoadedRockets; i++)
+			for (int32 i = 0; i < NumLoadedRockets; i++)
 			{
 				if (MuzzleFlash.IsValidIndex(i) && MuzzleFlash[i] != NULL && MuzzleFlash[i]->Template != NULL)
 				{
@@ -279,7 +279,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 		case 0://spread
 		{
 			float StartSpread = (NumLoadedRockets - 1) * GetSpread(0) * -0.5;
-			for (uint32 i = 0; i < NumLoadedRockets; i++)
+			for (int32 i = 0; i < NumLoadedRockets; i++)
 			{
 				FRotator SpreadRot = SpawnRotation + FRotator(0.0f, GetSpread(0) * i + StartSpread, 0.0f);
 				SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot));
@@ -293,7 +293,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 		case 1://spiral
 		{
 			float RotDegree = 360.0f / NumLoadedRockets;
-			for (uint32 i = 0; i < NumLoadedRockets; i++)
+			for (int32 i = 0; i < NumLoadedRockets; i++)
 			{
 				FVector SpreadLoc = SpawnLocation;
 				SpawnRotation.Roll = RotDegree * i;
@@ -346,7 +346,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 		{
 			float GrenadeSpread = GetSpread(0);
 			float RotDegree = 360.0f / MaxLoadedRockets;
-			for (uint32 i = 0; i < NumLoadedRockets; i++)
+			for (int32 i = 0; i < NumLoadedRockets; i++)
 			{
 				SpawnRotation.Roll = RotDegree * i;
 				FVector Up = FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z);

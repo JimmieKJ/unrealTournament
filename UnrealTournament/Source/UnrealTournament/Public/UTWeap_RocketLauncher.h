@@ -86,15 +86,15 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	TArray<FRocketFireMode> RocketFireModes;
-	uint32 CurrentRocketFireMode;
+	int32 CurrentRocketFireMode;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	TSubclassOf<AUTProj_RocketSeeking> SeekingProjClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
-	uint32 MaxLoadedRockets;
+	int32 MaxLoadedRockets;
 	UPROPERTY(BlueprintReadOnly, Category = RocketLauncher)
-	uint32 NumLoadedRockets;
+	int32 NumLoadedRockets;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float RocketLoadTime;
