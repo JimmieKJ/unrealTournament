@@ -22,6 +22,7 @@
 #include "UTGib.h"
 #include "UTRemoteRedeemer.h"
 #include "UTDroppedPickup.h"
+//#include "UTBot.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -130,6 +131,15 @@ void AUTCharacter::BaseChange()
 			BaseLift->AddBasedCharacter(this);
 		}
 	}
+}
+
+void AUTCharacter::OnWalkingOffLedge_Implementation()
+{
+	/*AUTBot* B = Cast<AUTBot>(Controller);
+	if (B != NULL)
+	{
+		B->NotifyWalkingOffLedge();
+	}*/
 }
 
 void AUTCharacter::BeginPlay()
@@ -1364,7 +1374,7 @@ void AUTCharacter::AddAmmo(const FStoredAmmo& AmmoToAdd)
 	}
 }
 
-bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type)
+bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type) const
 {
 	if (Type != NULL)
 	{
@@ -1393,6 +1403,31 @@ bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type)
 	}
 }
 
+int32 AUTCharacter::GetAmmoAmount(TSubclassOf<AUTWeapon> Type) const
+{
+	if (Type == NULL)
+	{
+		return 0;
+	}
+	else
+	{
+		int32 Amount = 0;
+		for (int32 i = 0; i < SavedAmmo.Num(); i++)
+		{
+			if (SavedAmmo[i].Type == Type)
+			{
+				Amount += SavedAmmo[i].Amount;
+			}
+		}
+		AUTWeapon* Weapon = FindInventoryType<AUTWeapon>(Type, true);
+		if (Weapon != NULL)
+		{
+			Amount += Weapon->Ammo;
+		}
+		return Amount;
+	}
+}
+
 void AUTCharacter::AllAmmo()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1412,7 +1447,7 @@ void AUTCharacter::UnlimitedAmmo()
 	bUnlimitedAmmo = !bUnlimitedAmmo;
 }
 
-AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass)
+AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass) const
 {
 	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
 	{
@@ -1928,7 +1963,7 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 	}
 }
 
-void AUTCharacter::PlayJump()
+void AUTCharacter::PlayJump_Implementation()
 {
 	DesiredJumpBob = WeaponJumpBob;
 	TargetEyeOffset.Z = EyeOffsetJumpBob;

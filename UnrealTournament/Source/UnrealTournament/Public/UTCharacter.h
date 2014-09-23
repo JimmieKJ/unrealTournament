@@ -318,7 +318,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	/** returns whether the character (via SavedAmmo, active weapon, or both) has the maximum allowed ammo for the passed in weapon */
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual bool HasMaxAmmo(TSubclassOf<AUTWeapon> Type);
+	virtual bool HasMaxAmmo(TSubclassOf<AUTWeapon> Type) const;
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual int32 GetAmmoAmount(TSubclassOf<AUTWeapon> Type) const;
 
 	// Cheat, only works if called server side
 	void AllAmmo();
@@ -342,10 +345,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	/** find an inventory item of a specified type */
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual AUTInventory* K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass = false);
+	virtual AUTInventory* K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass = false) const;
 
 	template<typename InvClass>
-	inline InvClass* FindInventoryType(TSubclassOf<InvClass> Type, bool bExactClass = false)
+	inline InvClass* FindInventoryType(TSubclassOf<InvClass> Type, bool bExactClass = false) const
 	{
 		InvClass* Result = (InvClass*)K2_FindInventoryType(Type, bExactClass);
 		checkSlow(Result == NULL || Result->IsA(InvClass::StaticClass()));
@@ -536,7 +539,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	virtual void BaseChange() override;
 
+
 	virtual bool IsFeigningDeath();
+
+	// AI hooks
+	virtual void OnWalkingOffLedge_Implementation() override;
 
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
@@ -741,8 +748,8 @@ public:
 	virtual void PlayFootstep(uint8 FootNum);
 
 	/** play jumping sound/effects; should be called on server and owning client */
-	UFUNCTION(BlueprintCallable, Category = Effects)
-	virtual void PlayJump();
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Effects)
+	void PlayJump();
 
 	/** Landing at faster than this velocity results in damage (note: use positive number) */
 	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite)
