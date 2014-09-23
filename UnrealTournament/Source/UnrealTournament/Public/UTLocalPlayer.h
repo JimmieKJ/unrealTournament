@@ -58,8 +58,12 @@ protected:
 	// The RememberMe Token for this profile. 
 	UPROPERTY(config)
 	FString LastEpicRememberMeToken;
-
+	
 public:
+	// Last text entered in Connect To IP
+	UPROPERTY(config)
+	FString LastConnectToIP;
+
 	// Called after creation on non-default objects to setup the online Subsystem
 	virtual void InitializeOnlineSubsystem();
 

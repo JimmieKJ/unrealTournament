@@ -556,15 +556,12 @@ FReply SUWindowsMainMenu::OpenControlSettings(TSharedPtr<SComboButton> MenuButto
 	return FReply::Handled();
 }
 
-/** last input to connect IP dialog */
-static FString LastIP;
-
 FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->OpenDialog(
 							SNew(SUWInputBox)
-							.DefaultInput(LastIP)
+							.DefaultInput(PlayerOwner->LastConnectToIP)
 							.DialogSize(FVector2D(600,200))
 							.OnDialogResult(this, &SUWindowsMainMenu::ConnectIPDialogResult)
 							.PlayerOwner(PlayerOwner)
@@ -597,7 +594,8 @@ void SUWindowsMainMenu::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget
 			if (InputText.Len() > 0 && PlayerOwner.IsValid())
 			{
 				FString AdjustedText = InputText.Replace(TEXT("://"), TEXT(""));
-				LastIP = AdjustedText;
+				PlayerOwner->LastConnectToIP = AdjustedText;
+				PlayerOwner->SaveConfig();
 				PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
 			}
 		}
