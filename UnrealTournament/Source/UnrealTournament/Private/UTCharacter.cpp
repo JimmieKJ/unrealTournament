@@ -2413,6 +2413,19 @@ uint8 AUTCharacter::GetTeamNum() const
 	{
 		return TeamInterface->GetTeamNum();
 	}
+	else if (DrivenVehicle != nullptr)
+	{
+		const IUTTeamInterface* VehicleTeamInterface = InterfaceCast<IUTTeamInterface>(DrivenVehicle->Controller);
+		if (VehicleTeamInterface != nullptr)
+		{
+			return VehicleTeamInterface->GetTeamNum();
+		}
+		else
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(DrivenVehicle->PlayerState);
+			return (PS != NULL && PS->Team != NULL) ? PS->Team->TeamIndex : 255;
+		}
+	}
 	else
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);

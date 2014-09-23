@@ -1036,9 +1036,16 @@ bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState 
 			{
 				bDrawFriendlyIndicator = GS->OnSameTeam(Hit.Actor.Get(), UTOwner);
 
-				if (Char != NULL && !Char->IsFeigningDeath() && Char->PlayerState != NULL)
+				if (Char != NULL && !Char->IsFeigningDeath())
 				{
-					HitPlayerState = Cast<AUTPlayerState>(Char->PlayerState);
+					if (Char->PlayerState != nullptr)
+					{
+						HitPlayerState = Cast<AUTPlayerState>(Char->PlayerState);
+					}
+					else if (Char->DrivenVehicle != nullptr && Char->DrivenVehicle->PlayerState != nullptr)
+					{
+						HitPlayerState = Cast<AUTPlayerState>(Char->DrivenVehicle->PlayerState);
+					}
 				}
 			}
 		}
