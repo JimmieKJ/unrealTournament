@@ -25,6 +25,7 @@
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
+#include "UTDroppedPickup.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
@@ -166,6 +167,7 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("PrevWeapon", IE_Pressed, this, &AUTPlayerController::PrevWeapon);
 	InputComponent->BindAction("NextWeapon", IE_Released, this, &AUTPlayerController::NextWeapon);
+	InputComponent->BindAction("ThrowWeapon", IE_Released, this, &AUTPlayerController::ThrowWeapon);
 	InputComponent->BindAction("ToggleTranslocator", IE_Pressed, this, &AUTPlayerController::ToggleTranslocator);
 
 	InputComponent->BindAction("StartFire", IE_Pressed, this, &AUTPlayerController::OnFire);
@@ -396,6 +398,35 @@ void AUTPlayerController::ToggleTranslocator()
 	}
 
 }
+
+void AUTPlayerController::ThrowWeapon()
+{
+	if (UTCharacter != NULL && IsLocalPlayerController() && !UTCharacter->IsRagdoll())
+	{
+		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr)
+		{
+			ServerThrowWeapon();
+		}
+	}
+}
+
+bool AUTPlayerController::ServerThrowWeapon_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerThrowWeapon_Implementation()
+{
+	if (UTCharacter != NULL && !UTCharacter->IsRagdoll())
+	{
+		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr)
+		{
+			UTCharacter->TossInventory(UTCharacter->GetWeapon(), FVector(200.0f, 0, 200.f));
+		}
+	}
+}
+
+
 void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())

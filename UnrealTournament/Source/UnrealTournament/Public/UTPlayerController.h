@@ -352,6 +352,12 @@ protected:
 	void PrevWeapon();
 	void NextWeapon();
 	void ToggleTranslocator();
+	
+	void ThrowWeapon();
+	
+	UFUNCTION(Reliable, Server, WithValidation)
+	virtual void ServerThrowWeapon();
+
 	int32 PreviousWeaponGroup;
 
 	virtual void SwitchWeaponInSequence(bool bPrev);
