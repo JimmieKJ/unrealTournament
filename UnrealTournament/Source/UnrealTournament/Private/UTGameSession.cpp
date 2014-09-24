@@ -31,19 +31,23 @@ void AUTGameSession::InitOptions( const FString& Options )
 FString AUTGameSession::ApproveLogin(const FString& Options)
 {
 	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
-	UE_LOG(UT,Log,TEXT("ApproveLogin: %s"),*Options);
 
-	if (!GameMode->HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
+	if (GameMode)
 	{
-		UE_LOG(UT, Warning, TEXT("********************************YOU MUST UPDATE TO A NEW VERSION %s"), *Options);
-		return TEXT("You must update to a the latest version.  For more information, go to forums.unrealtournament.com");
-	}
-	if (GameMode->bRequirePassword && !GameMode->ServerPassword.IsEmpty())
-	{
-		FString Password = GameMode->ParseOption(Options, TEXT("Password"));
-		if (Password.IsEmpty() || Password != GameMode->ServerPassword)
+		UE_LOG(UT, Log, TEXT("ApproveLogin: %s"), *Options);
+
+		if (!GameMode->HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 		{
-			return TEXT("NEEDPASS");
+			UE_LOG(UT, Warning, TEXT("********************************YOU MUST UPDATE TO A NEW VERSION %s"), *Options);
+			return TEXT("You must update to a the latest version.  For more information, go to forums.unrealtournament.com");
+		}
+		if (GameMode->bRequirePassword && !GameMode->ServerPassword.IsEmpty())
+		{
+			FString Password = GameMode->ParseOption(Options, TEXT("Password"));
+			if (Password.IsEmpty() || Password != GameMode->ServerPassword)
+			{
+				return TEXT("NEEDPASS");
+			}
 		}
 	}
 
