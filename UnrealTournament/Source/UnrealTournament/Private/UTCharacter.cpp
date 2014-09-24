@@ -3067,7 +3067,7 @@ bool AUTCharacter::GatherUTMovement()
 			// @TODO FIXMESTEVE make sure not replicated to owning client!!!
 			UTReplicatedMovement.Location = RootComponent->GetComponentLocation();
 			UTReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
-			UTReplicatedMovement.Rotation.Pitch = RemoteViewPitch;
+			UTReplicatedMovement.Rotation.Pitch = GetControlRotation().Pitch;
 			//UTReplicatedMovement.Acceleration = CharacterMovement->GetCurrentAcceleration();
 			UTReplicatedMovement.LinearVelocity = GetVelocity();
 			return true;
@@ -3083,7 +3083,7 @@ void AUTCharacter::OnRep_UTReplicatedMovement()
 		//ReplicatedAccel = UTReplicatedMovement.Acceleration;
 		ReplicatedMovement.Location = UTReplicatedMovement.Location;
 		ReplicatedMovement.Rotation = UTReplicatedMovement.Rotation;
-		RemoteViewPitch = ReplicatedMovement.Rotation.Pitch;
+		RemoteViewPitch = (uint8)(ReplicatedMovement.Rotation.Pitch * 255.f / 360.f);
 		ReplicatedMovement.Rotation.Pitch = 0.f;
 		ReplicatedMovement.LinearVelocity = UTReplicatedMovement.LinearVelocity;
 		ReplicatedMovement.AngularVelocity = FVector(0.f);

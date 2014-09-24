@@ -15,18 +15,17 @@ struct FRepUTMovement
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** @TODO FIXMESTEVE version that just replicates XY components */
+	/** @TODO FIXMESTEVE version that just replicates XY components, plus could quantize to tens easily */
 	UPROPERTY()
 	FVector_NetQuantize LinearVelocity;
 
 	UPROPERTY()
-	FVector_NetQuantize10 Location;
+	FVector_NetQuantize Location;
 
-	/** @TODO FIXMESTEVE only need a few bits for this */
+	/** @TODO FIXMESTEVE only need a few bits for this - maybe hide in Rotation.Roll */
 	//UPROPERTY()
 	//FVector_NetQuantize Acceleration;
 
-	/** @TODO FIXMESTEVE just replicate yaw and remoteviewpitch here */
 	UPROPERTY()
 	FRotator Rotation;
 
@@ -46,8 +45,7 @@ struct FRepUTMovement
 		// update location, linear velocity
 		Location.NetSerialize(Ar, Map, bOutSuccessLocal);
 		bOutSuccess &= bOutSuccessLocal;
-		Rotation.NetSerialize(Ar, Map, bOutSuccessLocal);
-		bOutSuccess &= bOutSuccessLocal;
+		Rotation.SerializeCompressed(Ar);
 		LinearVelocity.NetSerialize(Ar, Map, bOutSuccessLocal);
 		bOutSuccess &= bOutSuccessLocal;
 		//Acceleration.NetSerialize(Ar, Map, bOutSuccessLocal);
