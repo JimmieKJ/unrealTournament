@@ -767,7 +767,7 @@ public:
 	bool HandleFallingDamage(float FallingSpeed, const FHitResult& Hit);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual void TakeFallingDamage(const FHitResult& Hit);
+		virtual void TakeFallingDamage(const FHitResult& Hit, float FallingSpeed);
 
 	virtual void Landed(const FHitResult& Hit) override;
 

@@ -2019,8 +2019,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 	}
 	UTCharacterMovement->OldZ = GetActorLocation().Z;
 
-	TakeFallingDamage(Hit);
-	UTCharacterMovement->PendingFallVelocityZ = 0.f;
+	TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
 
 	Super::Landed(Hit);
 
@@ -2045,18 +2044,16 @@ void AUTCharacter::MoveBlockedBy(const FHitResult& Impact)
 	{
 		if (Impact.ImpactNormal.Z > 0.4f)
 		{
-			TakeFallingDamage(Impact);
+			TakeFallingDamage(Impact, CharacterMovement->Velocity.Z);
 		}
 		LastWallHitNotifyTime = GetWorld()->GetTimeSeconds();
 	}
 }
 
-void AUTCharacter::TakeFallingDamage(const FHitResult& Hit)
+void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 {
 	if (Role == ROLE_Authority && UTCharacterMovement)
 	{
-		float FallingSpeed = CharacterMovement->Velocity.Z + UTCharacterMovement->PendingFallVelocityZ;
-		UTCharacterMovement->PendingFallVelocityZ = 0.f;
 		if (FallingSpeed < -1.f * MaxSafeFallSpeed && !HandleFallingDamage(FallingSpeed, Hit))
 		{
 			/* TODO: water
@@ -2100,7 +2097,7 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 		{
 			FVector SavedVelocity = CharacterMovement->Velocity;
 			CharacterMovement->Velocity = MeshVelocity;
-			TakeFallingDamage(Hit);
+			TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
 			CharacterMovement->Velocity = SavedVelocity;
 			// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
 			for (int32 i = 0; i < Mesh->Bodies.Num(); i++)

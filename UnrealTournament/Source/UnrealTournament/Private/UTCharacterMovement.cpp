@@ -16,7 +16,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MaxCustomMovementSpeed = MaxWalkSpeed;
 
 	WallDodgeTraceDist = 50.f;
-	MinAdditiveDodgeFallSpeed = -2400.f;  // same as UTCharacter->MaxSafeFallSpeed - @TODO FIXMESTEVE probably get rid of this property
+	MinAdditiveDodgeFallSpeed = -5000.f;  
 	MaxAdditiveDodgeJumpSpeed = 700.f;  
 	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
@@ -41,7 +41,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	WallDodgeMinNormal = 0.5f; 
 	MaxConsecutiveWallDodgeDP = 0.97f;
 	WallDodgeGraceVelocityZ = -2400.f;
-	PendingFallVelocityZ = 0.f;
 	AirControl = 0.4f;
 	MultiJumpAirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
@@ -483,7 +482,10 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 				CurrentWallImpulse = FMath::Max(WallDodgeSecondImpulseVertical, WallDodgeImpulseVertical + Velocity.Z + JumpZVelocity);
 			}
 			// allowing dodge with loss of downward velocity is no free lunch for falling damage
-			PendingFallVelocityZ = FMath::Min(0.f, VelocityZ + CurrentWallImpulse);
+			FHitResult Hit(1.f);
+			Hit.ImpactNormal = FVector(0.f, 0.f, 1.f);
+			Hit.Normal = Hit.ImpactNormal;
+			Cast<AUTCharacter>(CharacterOwner)->TakeFallingDamage(Hit, VelocityZ - CurrentWallImpulse);
 			VelocityZ = 0.f;
 		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);

@@ -121,7 +121,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				{
 					// take falling damage, but give credit for it against impact damage
 					float OldHealth = UTOwner->Health;
-					UTOwner->TakeFallingDamage(Hit);
+					UTOwner->TakeFallingDamage(Hit, UTOwner->CharacterMovement->Velocity.Z);
 					FinalDamage = FMath::Max(0.f, FinalDamage - (OldHealth - UTOwner->Health));
 				}
 				FVector JumpDir = -1.f*FireDir;
