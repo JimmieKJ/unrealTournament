@@ -36,7 +36,6 @@ void UUTGameUserSettings::UpdateVersion()
 void UUTGameUserSettings::SetToDefaults()
 {
 	Super::SetToDefaults();
-	PlayerName = TEXT("Player");
 	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
@@ -48,33 +47,10 @@ void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 {
 	Super::ApplySettings(bCheckForCommandLineOverrides);
 
-	// Set the player name on the first player
-	TArray<APlayerController*> PlayerList;
-	GEngine->GetAllLocalPlayerControllers(PlayerList);
-	for (auto It = PlayerList.CreateIterator(); It; ++It)
-	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
-		if (PC != NULL)
-		{
-			PC->SetName(PlayerName);
-		}
-		break;
-	}
-
 	for (int32 i = 0; i < ARRAY_COUNT(SoundClassVolumes); i++)
 	{
 		SetSoundClassVolume(EUTSoundClass::Type(i), SoundClassVolumes[i]);
 	}
-}
-
-void UUTGameUserSettings::SetPlayerName(FString NewPlayerName)
-{
-	PlayerName = NewPlayerName;
-}
-
-FString UUTGameUserSettings::GetPlayerName()
-{
-	return PlayerName;
 }
 
 void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)

@@ -93,7 +93,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					SAssignNew(PlayerName, SEditableTextBox)
 					.OnTextChanged(this, &SUWPlayerSettingsDialog::OnNameTextChanged)
 					.MinDesiredWidth(300.0f)
-					.Text(FText::FromString(Settings->GetPlayerName()))
+					.Text(FText::FromString(GetPlayerOwner()->GetNickname()))
 				]
 			]
 			+ SVerticalBox::Slot()
@@ -375,7 +375,7 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	// name
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setname %s%s"), *PlayerName->GetText().ToString()));
-	Settings->SetPlayerName(PlayerName->GetText().ToString());
+	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
 	// auto weapon switch, weapon/view bob
 	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
 	{

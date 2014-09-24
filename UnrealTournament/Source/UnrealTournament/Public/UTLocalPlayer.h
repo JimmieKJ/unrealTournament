@@ -6,7 +6,8 @@
 #include "../Private/Slate/SUWDialog.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
-//#include "UTProfileSettings.h"
+#include "../Private/Slate/SUWToast.h"
+#include "UTProfileSettings.h"
 #include "UTLocalPlayer.generated.h"
 
 DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
@@ -17,11 +18,15 @@ class UUTLocalPlayer : public ULocalPlayer
 	GENERATED_UCLASS_BODY()
 
 public:
+
+	virtual bool IsMenuGame();
+
 	virtual FString GetNickname() const;
 	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
 
 	virtual void ShowMenu();
 	virtual void HideMenu();
+	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
 
 #if !UE_SERVER
 	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
@@ -29,13 +34,9 @@ public:
 	/** utilities for opening and closing dialogs */
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog);
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
-#endif
-
-	virtual bool IsMenuGame();
-
-#if !UE_SERVER
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
 #endif
+
 
 protected:
 
@@ -47,22 +48,18 @@ protected:
 
 	/** stores a reference to open dialogs so they don't get destroyed */
 	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
+	TArray<TSharedPtr<class SUWToast>> ToastList;
+
+	virtual void AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay);
+
 #endif
 
-	// ONLINE ------
 
-	// What is the Epic ID associated with this profile.
-	UPROPERTY(config)
-	FString LastEpicIDLogin;
-	
-	// The RememberMe Token for this profile. 
-	UPROPERTY(config)
-	FString LastEpicRememberMeToken;
-	
 public:
 	// Last text entered in Connect To IP
 	UPROPERTY(config)
 	FString LastConnectToIP;
+// ONLINE ------
 
 	// Called after creation on non-default objects to setup the online Subsystem
 	virtual void InitializeOnlineSubsystem();
@@ -89,7 +86,23 @@ public:
 	 **/
 	virtual void AddPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate NewDelegate);
 
+#if !UE_SERVER
+	virtual void ToastCompleted();
+#endif
+
 protected:
+
+
+	bool bInitialSignInAttempt;
+
+	// What is the Epic ID associated with this player.
+	UPROPERTY(config)
+	FString LastEpicIDLogin;
+	
+	// The RememberMe Token for this player. 
+	UPROPERTY(config)
+	FString LastEpicRememberMeToken;
+
 	// Called to insure the OSS is cleaned up properly
 	virtual void CleanUpOnlineSubSystyem();
 
@@ -106,10 +119,6 @@ protected:
 #endif
 
 	// Call this function to Attempt to load the Online Profile Settings for this user.
-/*
-	virtual void LoadOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToFill);
-	virtual void SaveOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToSave);
-*/
 	virtual void GetAuth(bool bLastFailed=false);
 
 private:
@@ -122,11 +131,34 @@ private:
 
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
+	IOnlineUserCloudPtr OnlineUserCloudInterface;
 
 	// Our delegate references....
 	FOnLoginCompleteDelegate OnLoginCompleteDelegate;		
 	FOnLoginStatusChangedDelegate OnLoginStatusChangedDelegate;
 	FOnLogoutCompleteDelegate OnLogoutCompleteDelegate;
+
+	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
+	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
+
+public:
+	virtual void LoadProfileSettings();
+	virtual void SaveProfileSettings();
+	virtual void ApplyProfileSettings();
+
+	virtual void SetNickname(FString NewName);
+
+
+protected:
+
+	// Holds the current profile settings.  
+	UPROPERTY()
+	UUTProfileSettings* CurrentProfileSettings;
+
+	virtual FString GetProfileFilename();	
+
+	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
+	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 };
 
 

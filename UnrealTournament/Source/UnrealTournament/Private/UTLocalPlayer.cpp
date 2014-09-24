@@ -12,6 +12,7 @@
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SUWDialog.h"
+#include "Slate/SUWToast.h"
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWLoginDialog.h"
 #include "UTAnalytics.h"
@@ -22,12 +23,17 @@
 UUTLocalPlayer::UUTLocalPlayer(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
+	bInitialSignInAttempt = true;
 }
 
 void UUTLocalPlayer::InitializeOnlineSubsystem()
 {
 	OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	if (OnlineSubsystem) 
+	{
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		OnlineUserCloudInterface = OnlineSubsystem->GetUserCloudInterface();
+	}
 
 	if (OnlineIdentityInterface.IsValid())
 	{
@@ -40,18 +46,28 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnLogoutCompleteDelegate = FOnLogoutCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnLogoutComplete);
 		OnlineIdentityInterface->AddOnLogoutCompleteDelegate(ControllerId, OnLogoutCompleteDelegate);
 	}
+
+	if (OnlineUserCloudInterface.IsValid())
+	{
+
+	    OnReadUserFileCompleteDelegate = FOnReadUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadUserFileComplete);
+		OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate(OnReadUserFileCompleteDelegate);
+
+	    OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnWriteUserFileComplete);
+		OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate(OnWriteUserFileCompleteDelegate);
+
+	}
+
 }
 
 FString UUTLocalPlayer::GetNickname() const
 {
-	UUTGameUserSettings* Settings;
-	Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (Settings) 
+	if (CurrentProfileSettings)
 	{
-		return Settings->GetPlayerName();
+		return CurrentProfileSettings->GetPlayerName();
 	}
 
-	return TEXT("");
+	return TEXT("Malcolm");
 }
 
 void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID)
@@ -80,26 +96,15 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 	UUTLocalPlayer* Obj = GetClass()->GetDefaultObject<UUTLocalPlayer>();
 	if (Obj != this)
 	{
+		// Force the loading of the local profile settings before the player has a chance to sign in.
+		LoadProfileSettings();
+
 		// Initialize the Online Subsystem for this player
 		InitializeOnlineSubsystem();
 
-		FString LoginName = LastEpicIDLogin;
-		FString Token = LastEpicRememberMeToken;
 
-		FString CmdLineLoginName;
-		FParse::Value(FCommandLine::Get(), TEXT("EpicID="), CmdLineLoginName);
-
-		FString CmdLineToken = TEXT("");
-		FParse::Value(FCommandLine::Get(), TEXT("EpicToken="), CmdLineToken);
-
-		if (CmdLineLoginName != TEXT("")) LoginName = CmdLineLoginName;
-		if (CmdLineToken != TEXT("")) Token = CmdLineToken;
-
-		if (!LoginName.IsEmpty() && LoginName != TEXT("") && !Token.IsEmpty() && Token != TEXT(""))
-		{
-			// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
-			LoginOnline(LoginName, Token, true, true);
-		}
+		// Attempt to Auto-Login to MCP
+		OnlineIdentityInterface->AutoLogin(ControllerId);
 	}
 }
 
@@ -261,15 +266,7 @@ void UUTLocalPlayer::Logout()
 		}
 	}
 }
-/*
-void UUTLocalPlayer::LoadOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToFill)
-{
-}
 
-void UUTLocalPlayer::SaveOnlineProfileSettings(UUTProfileSettings* ProfileSettingsToSave)
-{
-}
-*/
 
 void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 {
@@ -302,8 +299,20 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 
 		PendingLoginUserName = TEXT("");
 
-		// We are online, pull the profile information/etc.
+		LoadProfileSettings();
+		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*OnlineIdentityInterface->GetPlayerNickname(0)));
+		ShowToast(WelcomeToast);
+
 	}
+
+	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
+	else if (bInitialSignInAttempt && LastEpicIDLogin != TEXT("") && LastEpicRememberMeToken != TEXT(""))
+	{
+		bInitialSignInAttempt = false;
+		LoginOnline(LastEpicIDLogin, LastEpicRememberMeToken, true, true);
+	}
+
+	// Otherwise if this is the first attempt, then silently fair
 	else if (!bSilentLoginFail)
 	{
 		GetAuth(true);
@@ -383,3 +392,155 @@ void UUTLocalPlayer::AddPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChan
 		PlayerLoginStatusChangedListeners.Add(NewDelegate);
 	}
 }
+
+
+void UUTLocalPlayer::ShowToast(FText ToastText)
+{
+#if !UE_SERVER
+
+	// Build the Toast to Show...
+
+	TSharedPtr<SUWToast> Toast;
+	SAssignNew(Toast, SUWToast)
+		.PlayerOwner(this)
+		.ToastText(ToastText);
+
+	if (Toast.IsValid())
+	{
+		ToastList.Add(Toast);
+
+		// Auto show if it's the first toast..
+		if (ToastList.Num() == 1)
+		{
+			AddToastToViewport(ToastList[0]);
+		}
+	}
+#endif
+}
+
+#if !UE_SERVER
+void UUTLocalPlayer::AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay)
+{
+	GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(ToastToDisplay.ToSharedRef()),10000);
+}
+
+void UUTLocalPlayer::ToastCompleted()
+{
+	GEngine->GameViewport->RemoveViewportWidgetContent(ToastList[0].ToSharedRef());
+	ToastList.RemoveAt(0,1);
+
+	if (ToastList.Num() > 0)
+	{
+		AddToastToViewport(ToastList[0]);
+	}
+}
+
+#endif
+
+FString UUTLocalPlayer::GetProfileFilename()
+{
+	if (IsLoggedIn())
+	{
+		FString AccountUserName = OnlineIdentityInterface->GetPlayerNickname(ControllerId);
+		FString ProfileFilename = FString::Printf(TEXT("%s.user.profile"), *AccountUserName);
+		return ProfileFilename;
+	}
+
+	return TEXT("local.user.profile");
+}
+
+
+void UUTLocalPlayer::LoadProfileSettings()
+{
+	if (CurrentProfileSettings == NULL)
+	{
+		CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(),GetTransientPackage());
+	}
+
+	if (IsLoggedIn())
+	{
+		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename() );
+	}
+	else
+	{
+		FString LocalFilename =  FPaths::GameSavedDir() / "Profiles" / *GetProfileFilename();
+		if (FPaths::FileExists(*LocalFilename))
+		{
+			TArray<uint8> FileContents;
+			FFileHelper::LoadFileToArray(FileContents, *LocalFilename);
+
+			FMemoryReader MemoryReader(FileContents, true);
+			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, false);
+			CurrentProfileSettings->Serialize(Ar);
+		}
+	}
+}
+
+void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
+{
+	if (FileName == GetProfileFilename())
+	{
+		// We were attempting to read the profile.. see if it was successful.	
+
+		if (bWasSuccessful)	
+		{
+			TArray<uint8> FileContents;
+			OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents);
+			
+			// Serialize the object
+			FMemoryReader MemoryReader(FileContents, true);
+			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, false);
+			CurrentProfileSettings->Serialize(Ar);
+		}
+		else
+		{
+			// We couldn't load our profile, so save it out for the first time.
+			SaveProfileSettings();
+		}
+	}
+}
+
+void UUTLocalPlayer::SaveProfileSettings()
+{
+	if ( CurrentProfileSettings != NULL )
+	{
+		// Build a blob of the profile contents
+		TArray<uint8> FileContents;
+		FMemoryWriter MemoryWriter(FileContents, true);
+		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+		CurrentProfileSettings->Serialize(Ar);
+
+		if (IsLoggedIn())
+		{
+			// Save the blob to the cloud
+			TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+			OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
+		}
+		else
+		{
+			FString LocalFilename =  FPaths::GameSavedDir() / "Profiles" / *GetProfileFilename();
+			FFileHelper::SaveArrayToFile(FileContents,*LocalFilename);
+		}
+	}
+}
+
+void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
+{
+	// Should give a warning here if it fails.
+}
+
+
+void UUTLocalPlayer::ApplyProfileSettings()
+{
+}
+
+void UUTLocalPlayer::SetNickname(FString NewName)
+{
+	if (CurrentProfileSettings)
+	{
+		CurrentProfileSettings->SetPlayerName(NewName);
+		SaveProfileSettings();
+	}
+}
+

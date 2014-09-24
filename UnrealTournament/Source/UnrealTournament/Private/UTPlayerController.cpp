@@ -976,7 +976,7 @@ void AUTPlayerController::SetName(const FString& S)
 		Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 		if (Settings)
 		{
-			Settings->SetPlayerName(S);
+			//Settings->SetPlayerName(S);
 			Settings->SaveSettings();
 		}
 	}
@@ -1131,7 +1131,35 @@ void AUTPlayerController::ClientHalftime_Implementation()
 // LEAVE ME for quick debug commands when we need them.
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
+
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
+	{
+//		LP->ShowToast(NSLOCTEXT("Test","TestTesT","Welcome Back Joe"));
+		if (TestCommand == TEXT("load"))
+		{
+			LP->LoadProfileSettings();
+		}
+		else if (TestCommand == TEXT("save"))
+		{
+			LP->SaveProfileSettings();
+		}
+	}
+/*
+
+	UUTGameUserSettings* Settings;
+	Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (Settings)
+	{
+		//Settings->SetPlayerName("Test");
+		TArray<uint8> ObjectBytes;
+		FMemoryWriter MemoryWriter(ObjectBytes, true);
+		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+		Settings->Serialize(Ar);
+	}
+		
 	ServerDebugTest();
+*/
 }
 
 

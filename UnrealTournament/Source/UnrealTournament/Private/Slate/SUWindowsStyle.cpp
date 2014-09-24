@@ -109,7 +109,14 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	}
 
-
+	// Toasts
+	{
+		Style.Set("UWindows.Standard.Toast.Background", new BOX_BRUSH("UWindows.Standard.Toast.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+		Style.Set("UWindows.Standard.Toast.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetColorAndOpacity(FLinearColor(0,0.05,0.59))
+			);
+	}
 	// Server Browser
 	{
 

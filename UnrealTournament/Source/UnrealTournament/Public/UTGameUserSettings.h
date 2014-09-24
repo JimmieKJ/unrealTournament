@@ -15,9 +15,6 @@ public:
 	virtual void UpdateVersion();
 	virtual bool IsVersionValid();
 
-	virtual FString GetPlayerName();
-	virtual void SetPlayerName(FString NewPlayerName);
-
 	virtual void SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue);
 	virtual float GetSoundClassVolume(EUTSoundClass::Type Category);
 
@@ -28,9 +25,6 @@ public:
 	virtual void SetEpicAuth(FString NewAuth);
 
 protected:
-	UPROPERTY(config)
-	FString PlayerName;
-
 	UPROPERTY(config)
 	uint32 UTVersion;
 
