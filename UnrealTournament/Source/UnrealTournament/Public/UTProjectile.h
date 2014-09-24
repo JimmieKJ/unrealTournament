@@ -16,9 +16,14 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** Projectile movement component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Projectile)
 	TSubobjectPtr<class UProjectileMovementComponent> ProjectileMovement;
+
 	/** additional Z axis speed added to projectile on spawn - NOTE: blueprint changes only work in defaults or construction script as value is applied to velocity on spawn */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Projectile)
 	float TossZ;
+
+	/** Percentage of instigator's velocity imparted to this projectile */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Projectile)
+	float InstigatorVelocityPct;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	FRadialDamageParams DamageParams;

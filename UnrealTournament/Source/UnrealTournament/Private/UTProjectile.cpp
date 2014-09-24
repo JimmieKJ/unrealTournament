@@ -54,6 +54,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	DamageParams.BaseDamage = 20;
 	DamageParams.DamageFalloff = 1.0;
 	Momentum = 50000.0f;
+	InstigatorVelocityPct = 0.f;
 
 	SetReplicates(true);
 	bNetTemporary = false;

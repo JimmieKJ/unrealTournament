@@ -11,8 +11,8 @@ static const float GOO_TIMER_TICK = 0.5f;
 AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	ProjectileMovement->InitialSpeed = 3000.0f;
-	ProjectileMovement->MaxSpeed = 3000.0f;
+	ProjectileMovement->InitialSpeed = 4000.0f;
+	ProjectileMovement->MaxSpeed = 5000.0f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bInitialVelocityInLocalSpace = true;
 	ProjectileMovement->ProjectileGravityScale = 0.9f;
