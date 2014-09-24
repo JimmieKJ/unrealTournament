@@ -24,15 +24,26 @@ public class UnrealTournamentBuild
         return P4Branch + "-CL-" + P4Change;
     }
 
-    static BuildPatchToolStagingInfo UTBuildPatchToolStagingInfo = null;
+    static BuildPatchToolStagingInfo UTBuildPatchToolStagingInfoWindows = null;
 
     public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfo(BuildCommand InOwnerCommand)
     {
-        if (UTBuildPatchToolStagingInfo == null)
+        if (UTBuildPatchToolStagingInfoWindows == null)
         {
-            UTBuildPatchToolStagingInfo = new BuildPatchToolStagingInfo(InOwnerCommand, "UnrealTournament", "UnrealTournament", 1, CreateBuildVersion(), MCPPlatform.Windows, "UnrealTournament");
+            UTBuildPatchToolStagingInfoWindows = new BuildPatchToolStagingInfo(InOwnerCommand, "UnrealTournament", "UnrealTournament", 1, CreateBuildVersion(), MCPPlatform.Windows, "UnrealTournament");
         }
-        return UTBuildPatchToolStagingInfo;
+        return UTBuildPatchToolStagingInfoWindows;
+    }
+
+    static BuildPatchToolStagingInfo UTBuildPatchToolStagingInfoMac = null;
+
+    public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfoMac(BuildCommand InOwnerCommand)
+    {
+        if (UTBuildPatchToolStagingInfoMac == null)
+        {
+            UTBuildPatchToolStagingInfoMac = new BuildPatchToolStagingInfo(InOwnerCommand, "UnrealTournament", "UnrealTournament", 1, CreateBuildVersion(), MCPPlatform.Mac, "UnrealTournament");
+        }
+        return UTBuildPatchToolStagingInfoMac;
     }
 
     public static string GetArchiveDir()
@@ -114,7 +125,6 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             NoDebugInfo: Cmd.ParseParam("NoDebugInfo"),
             CrashReporter: !Cmd.ParseParam("mac"), // @todo Mac: change to true when Mac implementation is ready
             StageNonMonolithic: true,
-
 			// if we are running, we assume this is a local test and don't chunk
 			Run: Cmd.ParseParam("Run"),
             StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
@@ -169,10 +179,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
     public void Chunk(ProjectParams Params)
     {
         // verify the files we need exist first
-        Platform ClientPlatformInst = Params.ClientTargetPlatformInstances[0];
-        string TargetCook = ClientPlatformInst.GetCookPlatform(false, Params.HasDedicatedServerAndClient, "");
-
-        string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), ClientPlatformInst.PlatformType.ToString(), TargetCook);
+        string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win64", "WindowsNoEditor");
         string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
 
         if (!FileExists(RawImageManifest))
@@ -189,6 +196,28 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
             AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
             AppLaunchCmdArgs = "UnrealTournament",
+            AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+        });
+
+
+        // verify the files we need exist first
+        string RawImagePathMac = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacNoEditor");
+        string RawImageManifestMac = CombinePaths(RawImagePathMac, "Manifest_NonUFSFiles.txt");
+
+        if (!FileExists(RawImageManifestMac))
+        {
+            throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifestMac);
+        }
+
+        // run the patch tool
+        BuildPatchToolBase.Get().Execute(
+        new BuildPatchToolBase.PatchGenerationOptions
+        {
+            StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfoMac(this),
+            BuildRoot = RawImagePathMac,
+            FileIgnoreList = CommandUtils.CombinePaths(RawImagePathMac, "Manifest_DebugFiles.txt"),
+            AppLaunchCmd = @".\UnrealTournament\Binaries\Mac\UnrealTournament.app",
+            AppLaunchCmdArgs = "",
             AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
         });
 
