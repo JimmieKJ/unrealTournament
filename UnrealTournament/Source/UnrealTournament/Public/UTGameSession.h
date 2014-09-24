@@ -4,6 +4,8 @@
 
 #include "UTGameMode.h"
 #include "Online.h"
+#include "OnlineBeaconHost.h"
+#include "UTServerBeaconHost.h"
 #include "UTGameSession.generated.h"
 
 UCLASS()
@@ -35,7 +37,16 @@ public:		// Online Subsystem stuff
 
 	virtual void UpdateGameState();
 
+	void InitHostBeacon(FOnlineSessionSettings* SessionSettings);
+	void DestroyHostBeacon();
+
 protected:
+
+	/** General beacon listener for registering beacons with */
+	AOnlineBeaconHost* BeaconHostListener;
+	/** Beacon controlling access to this game */
+	UPROPERTY(Transient)
+	AUTServerBeaconHost* BeaconHost;
 
 	FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
 	FOnStartSessionCompleteDelegate OnStartSessionCompleteDelegate;

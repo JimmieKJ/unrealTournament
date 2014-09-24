@@ -101,6 +101,7 @@ void AUTGameSession::RegisterServer()
 			TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 32));
 			if (OnlineGameSettings.IsValid() && UTGameMode)
 			{
+				InitHostBeacon(OnlineGameSettings.Get());
 				OnlineGameSettings->ApplyGameSettings(UTGameMode);
 				SessionInterface->CreateSession(0, GameSessionName, *OnlineGameSettings);
 				return;
@@ -122,6 +123,7 @@ void AUTGameSession::UnRegisterServer()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
+			DestroyHostBeacon();
 			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnDestroySessionComplete);
 			SessionInterface->AddOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
 			SessionInterface->DestroySession(GameSessionName);
@@ -267,3 +269,43 @@ void AUTGameSession::UpdateGameState()
 	}
 }
 
+
+void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
+{
+	UWorld* const World = GetWorld();
+	UE_LOG(LogOnlineGame, Verbose, TEXT("Creating host beacon."));
+	check(!BeaconHost);
+
+	// Always create a new beacon host
+	BeaconHostListener = World->SpawnActor<AOnlineBeaconHost>(AOnlineBeaconHost::StaticClass());
+	check(BeaconHostListener);
+	BeaconHost = World->SpawnActor<AUTServerBeaconHost>(AUTServerBeaconHost::StaticClass());
+	check(BeaconHost);
+
+	// Initialize beacon state, either new or from a seamless travel
+	bool bBeaconInit = false;
+	if (BeaconHostListener && BeaconHostListener->InitHost())
+	{
+		BeaconHostListener->RegisterHost(BeaconHost);
+	}
+
+	// Update the beacon port
+	if (SessionSettings)
+	{
+		SessionSettings->Set(SETTING_BEACONPORT, BeaconHostListener->GetListenPort(), EOnlineDataAdvertisementType::ViaOnlineService);
+	}
+}
+
+void AUTGameSession::DestroyHostBeacon()
+{
+	if (BeaconHost)
+	{
+		UE_LOG(LogOnlineGame, Verbose, TEXT("Destroying Host Beacon."));
+		BeaconHostListener->UnregisterHost(BeaconHost->GetBeaconType());
+		BeaconHost->Destroy();
+		BeaconHost = NULL;
+
+		BeaconHostListener->DestroyBeacon();
+		BeaconHostListener = NULL;
+	}
+}
