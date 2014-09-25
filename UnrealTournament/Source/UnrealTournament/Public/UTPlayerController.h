@@ -201,6 +201,10 @@ public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapWallDodge;
 
+	/** If true (and bSingleTapWallDodge is true), single tap wall dodge only enabled after intentional jump. */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
+	bool bSingleTapAfterJump;
+
 	/** If true, holding slide/roll (shift) will keep current acceleration if no movement keys are pressed. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bHoldAccelWithSlideRoll;

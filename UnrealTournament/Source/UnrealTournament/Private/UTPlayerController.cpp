@@ -40,12 +40,13 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	bAutoWeaponSwitch = true;
 
 	MaxDodgeClickTime = 0.25f;
-	MaxDodgeTapTime = 0.25f;
+	MaxDodgeTapTime = 0.3f;
 	LastTapLeftTime = -10.f;
 	LastTapRightTime = -10.f;
 	LastTapForwardTime = -10.f;
 	LastTapBackTime = -10.f;
 	bSingleTapWallDodge = true;
+	bSingleTapAfterJump = true;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -914,7 +915,7 @@ void AUTPlayerController::OnTapRight()
 void AUTPlayerController::OnTapForwardRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
 	{
 		CheckDodge(LastTapForwardTime, MaxDodgeTapTime, true, false, false, false);
 	}
@@ -923,7 +924,7 @@ void AUTPlayerController::OnTapForwardRelease()
 void AUTPlayerController::OnTapBackRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
 	{
 		CheckDodge(LastTapBackTime, MaxDodgeTapTime, false, true, false, false);
 	}
@@ -932,7 +933,7 @@ void AUTPlayerController::OnTapBackRelease()
 void AUTPlayerController::OnTapLeftRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
 	{
 		CheckDodge(LastTapLeftTime, MaxDodgeTapTime, false, false, true, false);
 	}
@@ -941,7 +942,7 @@ void AUTPlayerController::OnTapLeftRelease()
 void AUTPlayerController::OnTapRightRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling())
+	if (MyCharMovement && bSingleTapWallDodge && MyCharMovement->IsFalling() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
 	{
 		CheckDodge(LastTapRightTime, MaxDodgeTapTime, false, false, false, true);
 	}
