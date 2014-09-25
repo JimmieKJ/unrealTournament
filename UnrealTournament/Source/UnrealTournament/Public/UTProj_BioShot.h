@@ -60,7 +60,7 @@ class AUTProj_BioShot : public AUTProjectile
 	virtual void Landed(UPrimitiveComponent* HitComp);
 
 	/** hook to spawn effects when the glob lands*/
-	UFUNCTION(BlueprintNativeEvent, Category = Bio)
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Bio)
 	void OnLanded();
 
 	/**Overridden to do the landing*/
