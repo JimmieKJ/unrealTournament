@@ -160,6 +160,7 @@ void UUTLocalPlayer::HideMenu()
 		GEngine->GameViewport->RemoveViewportWidgetContent(DesktopSlateWidget.ToSharedRef());
 		DesktopSlateWidget->OnMenuClosed();
 		DesktopSlateWidget.Reset();
+		PlayerController->bShowMouseCursor = false;
 	}
 #endif
 }
