@@ -167,8 +167,8 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 		float OverlapRadius;
 
 	/** Overlap sphere for hitting pawns */
-	UPROPERTY()
-		TSubobjectPtr<USphereComponent> PawnOverlapSphere;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Projectile)
+	TSubobjectPtr<USphereComponent> PawnOverlapSphere;
 
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level
