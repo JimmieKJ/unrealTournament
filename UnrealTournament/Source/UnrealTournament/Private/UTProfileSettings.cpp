@@ -27,16 +27,19 @@ void UUTProfileSettings::GatherInputSettings()
 
 	if (DefaultInputSettingsObject)
 	{
+		ActionMappings.Empty();
 		for (int i=0;i<DefaultInputSettingsObject->ActionMappings.Num();i++)
 		{
 			ActionMappings.Add(DefaultInputSettingsObject->ActionMappings[i]);
 		}
 
+		AxisMappings.Empty();
 		for (int i=0;i<DefaultInputSettingsObject->AxisMappings.Num();i++)
 		{
 			AxisMappings.Add(DefaultInputSettingsObject->AxisMappings[i]);
 		}
 
+		AxisConfig.Empty();
 		for (int i=0;i < DefaultInputSettingsObject->AxisConfig.Num() ;i++)
 		{
 			AxisConfig.Add(DefaultInputSettingsObject->AxisConfig[i]);
@@ -57,6 +60,7 @@ void UUTProfileSettings::GatherInputSettings()
 	UUTPlayerInput* UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
 	if (UTPlayerInput)
 	{
+		CustomBinds.Empty();
 		for (int i=0;i < UTPlayerInput->CustomBinds.Num() ;i++)
 		{
 			CustomBinds.Add(UTPlayerInput->CustomBinds[i]);
@@ -131,8 +135,11 @@ void UUTProfileSettings::ApplyInputSettings()
 	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
 	{
 		UUTPlayerInput* UTPlayerInput = *It;
-		UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
-		UTPlayerInput->UTForceRebuildingKeyMaps(true);
+		if (UTPlayerInput != DefaultUTPlayerInput)
+		{
+			UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
+			UTPlayerInput->UTForceRebuildingKeyMaps(true);
+		}
 	}
 
 }

@@ -9,8 +9,8 @@
 #include "UTPlayerInput.h"
 #include "UTProfileSettings.generated.h"
 
-static const uint32 VALID_PROFILESETTINGS_VERSION = 1;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 1;
+static const uint32 VALID_PROFILESETTINGS_VERSION = 2;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 2;
 
 UCLASS()
 class UUTProfileSettings : public UObject

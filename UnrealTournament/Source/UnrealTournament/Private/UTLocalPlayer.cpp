@@ -548,7 +548,12 @@ void UUTLocalPlayer::ApplyProfileSettings()
 {
 	if (CurrentProfileSettings)
 	{
-		if (CurrentProfileSettings->SettingsRevisionNum < VALID_PROFILESETTINGS_VERSION)
+
+		FString CmdLineSwitch = TEXT("");
+		bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
+
+
+		if (CurrentProfileSettings->SettingsRevisionNum < VALID_PROFILESETTINGS_VERSION || bClearProfile )
 		{
 			// These settings are no longer valid period.  Kill them and start over.
 
