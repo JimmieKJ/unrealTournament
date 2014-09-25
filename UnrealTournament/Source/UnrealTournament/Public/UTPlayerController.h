@@ -87,6 +87,12 @@ public:
 	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
 
+	UFUNCTION(exec)
+	virtual void NP();
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerNP();
+
 	inline void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
 		// insert new pickups at the beginning so the order should be newest->oldest

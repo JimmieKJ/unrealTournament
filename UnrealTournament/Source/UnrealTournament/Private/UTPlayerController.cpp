@@ -63,6 +63,25 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	bHoldAccelWithSlideRoll = true;
 }
 
+void AUTPlayerController::NP()
+{
+// @TODO FIXMESTEVE uncomment for server network bandwidth profiling.  
+	// ServerNP();
+}
+
+bool AUTPlayerController::ServerNP_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerNP_Implementation()
+{
+	if (Player)
+	{
+		Player->Exec(GetWorld(), *FString::Printf(TEXT("NETPROFILE")), *GLog);
+	}
+}
+
 void AUTPlayerController::ToggleSingleTap()
 {
 	bSingleTapWallDodge = !bSingleTapWallDodge;
