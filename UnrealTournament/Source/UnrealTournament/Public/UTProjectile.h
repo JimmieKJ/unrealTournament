@@ -10,7 +10,7 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	GENERATED_UCLASS_BODY()
 
 	/** Sphere collision component */
-	UPROPERTY(VisibleDefaultsOnly, Category=Projectile)
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
 	TSubobjectPtr<USphereComponent> CollisionComp;
 
 	/** Projectile movement component */
