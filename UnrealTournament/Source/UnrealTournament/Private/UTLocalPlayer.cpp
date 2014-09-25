@@ -147,6 +147,8 @@ void UUTLocalPlayer::ShowMenu()
 		// Widget is already valid, just make it visible.
 		DesktopSlateWidget->SetVisibility(EVisibility::Visible);
 		DesktopSlateWidget->OnMenuOpened();
+
+		PlayerController->bShowMouseCursor = true;
 	}
 #endif
 }
