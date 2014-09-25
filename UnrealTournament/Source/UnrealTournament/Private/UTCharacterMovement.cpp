@@ -53,6 +53,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
 	CrouchedHalfHeight = 64.0f;
+	RollHalfHeight = 46.f;
 	SlopeDodgeScaling = 0.93f;
 
 	DodgeRollAcceleration = 2000.f;
@@ -522,6 +523,14 @@ FVector UUTCharacterMovement::ConsumeInputVector()
 	return NewInputVector;
 }
 
+void UUTCharacterMovement::Crouch(bool bClientSimulation)
+{
+	float RealCrouchHeight = CrouchedHalfHeight;
+	CrouchedHalfHeight = bIsDodgeRolling ? RollHalfHeight : CrouchedHalfHeight;
+	Super::Crouch(bClientSimulation);
+	CrouchedHalfHeight = RealCrouchHeight;
+}
+
 void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 {
 	float RealGroundFriction = GroundFriction;
@@ -983,6 +992,11 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 
 bool UUTCharacterMovement::CanCrouchInCurrentState() const
 {
+	// @TODO FIXMESTEVE Temp hack until we can get the crouch control code split out from PerformMovement()
+	if (IsCrouching() && !bIsDodgeRolling && (CharacterOwner->CapsuleComponent->GetScaledCapsuleHalfHeight() < CrouchedHalfHeight))
+	{
+		return false;
+	}
 	return CanEverCrouch() && IsMovingOnGround();
 }
 
@@ -1330,7 +1344,7 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 		return;
 	}
 	bJumpAssisted = true;
-	//UE_LOG(UT, Warning, TEXT("Try Assist"));
+
 	// See if stepping up/forward in acceleration direction would result in valid landing
 	FHitResult Result(1.f);
 	static const FName LandAssistTraceParamsTag = FName(TEXT("LandAssist"));
@@ -1349,13 +1363,13 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 
 	if (IsValidLandingSpot(Result.Location, Result))
 	{
+		// Found a valid landing spot, so boost the player up onto it.
 		bJustTeleported = true;
 		if (Cast<AUTCharacter>(CharacterOwner))
 		{
 			Cast<AUTCharacter>(CharacterOwner)->OnLandingAssist();
 		}
 		Velocity.Z = LandingAssistBoost; 
-		//UE_LOG(UT, Warning, TEXT("LANDING ASSIST BOOST"));
 	}
 }
 
@@ -1562,5 +1576,4 @@ void UUTCharacterMovement::SendClientAdjustment()
 	{
 		Super::SendClientAdjustment();
 	}
-
 }

@@ -1026,6 +1026,8 @@ public:
 
 	virtual void OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust) override;
 
+	virtual void Crouch(bool bClientSimulation = false) override;
+
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor);

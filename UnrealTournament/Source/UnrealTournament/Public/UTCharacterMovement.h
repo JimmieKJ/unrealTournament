@@ -205,8 +205,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = Movement)
 	bool bAutoSlide;
 
+	/** Half height of capsule when rolling */
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
+	float RollHalfHeight;
+
 	/** Horizontal speed reduction on roll ending (multiplied). */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge Landing Speed Factor"))
+	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
 	float RollEndingSpeedFactor;
 
 	/** Acceleration during a dodge roll. */
@@ -260,6 +264,8 @@ public:
 	/** Update bWantsSlideRoll and DodgeRollTapTime */
 	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
 	virtual bool WantsSlideRoll();
+
+	virtual void Crouch(bool bClientSimulation = false) override;
 
 	/** Dodge roll out (holding bRollSlide while dodging on ground) */
 	virtual void PerformRoll(const FVector& DodgeDir);

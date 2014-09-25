@@ -190,6 +190,14 @@ void AUTCharacter::RecalculateBaseEyeHeight()
 	BaseEyeHeight = bIsCrouched ? CrouchedEyeHeight : DefaultBaseEyeHeight;
 }
 
+void AUTCharacter::Crouch(bool bClientSimulation)
+{
+	if (CharacterMovement)
+	{
+		CharacterMovement->bWantsToCrouch = true;
+	}
+}
+
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
