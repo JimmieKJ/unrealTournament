@@ -5,6 +5,7 @@
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
 #include "UTMenuGameMode.h"
+#include "UTProfileSettings.h"
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
 #include "Slate/SUWindowsMidGame.h"
@@ -126,7 +127,7 @@ void UUTLocalPlayer::ShowMenu()
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
-		if (true) // IsMenuGame())
+		if (true) //( IsMenuGame() )
 		{
 			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
 		}
@@ -306,10 +307,13 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
-	else if (bInitialSignInAttempt && LastEpicIDLogin != TEXT("") && LastEpicRememberMeToken != TEXT(""))
+	else if (bInitialSignInAttempt)
 	{
-		bInitialSignInAttempt = false;
-		LoginOnline(LastEpicIDLogin, LastEpicRememberMeToken, true, true);
+		if (LastEpicIDLogin != TEXT("") && LastEpicRememberMeToken != TEXT(""))
+		{
+			bInitialSignInAttempt = false;
+			LoginOnline(LastEpicIDLogin, LastEpicRememberMeToken, true, true);
+		}
 	}
 
 	// Otherwise if this is the first attempt, then silently fair
@@ -492,6 +496,9 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			FMemoryReader MemoryReader(FileContents, true);
 			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, false);
 			CurrentProfileSettings->Serialize(Ar);
+
+			ApplyProfileSettings();
+
 		}
 		else
 		{
@@ -505,6 +512,9 @@ void UUTLocalPlayer::SaveProfileSettings()
 {
 	if ( CurrentProfileSettings != NULL )
 	{
+		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
+		CurrentProfileSettings->GatherInputSettings();
+
 		// Build a blob of the profile contents
 		TArray<uint8> FileContents;
 		FMemoryWriter MemoryWriter(FileContents, true);
@@ -533,6 +543,19 @@ void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 
 void UUTLocalPlayer::ApplyProfileSettings()
 {
+	if (CurrentProfileSettings)
+	{
+		if (CurrentProfileSettings->SettingsRevisionNum < VALID_PROFILESETTINGS_VERSION)
+		{
+			// These settings are no longer valid period.  Kill them and start over.
+
+			CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(),GetTransientPackage());				
+			SaveProfileSettings();
+			return;
+		}
+
+		CurrentProfileSettings->ApplyInputSettings();
+	}
 }
 
 void UUTLocalPlayer::SetNickname(FString NewName)

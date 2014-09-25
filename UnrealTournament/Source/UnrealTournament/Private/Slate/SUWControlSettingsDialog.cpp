@@ -749,6 +749,8 @@ FReply SUWControlSettingsDialog::OKClick()
 	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
+	GetPlayerOwner()->SaveProfileSettings();
+
 	return FReply::Handled();
 }
 

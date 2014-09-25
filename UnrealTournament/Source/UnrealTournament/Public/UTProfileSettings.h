@@ -5,7 +5,12 @@
 
 #pragma once
 
+#include "GameFramework/InputSettings.h"
+#include "UTPlayerInput.h"
 #include "UTProfileSettings.generated.h"
+
+static const uint32 VALID_PROFILESETTINGS_VERSION = 1;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 1;
 
 UCLASS()
 class UUTProfileSettings : public UObject
@@ -14,6 +19,12 @@ class UUTProfileSettings : public UObject
 
 	void SetPlayerName(FString NewName);
 	FString GetPlayerName();
+
+	void GatherInputSettings();
+	void ApplyInputSettings();
+
+	UPROPERTY()
+	uint32 SettingsRevisionNum;
 
 protected:
 
@@ -25,4 +36,49 @@ protected:
 	UPROPERTY()
 	FString PlayerName;
 
+	// The UInputSettings object converted in to raw data for storage.
+	UPROPERTY()
+	TArray<uint8> RawInputSettings;
+
+	UPROPERTY()
+	TArray<struct FInputActionKeyMapping> ActionMappings;
+
+	UPROPERTY()
+	TArray<struct FInputAxisKeyMapping> AxisMappings;
+
+	UPROPERTY()
+	TArray<struct FInputAxisConfigEntry> AxisConfig;
+
+	UPROPERTY()
+	TArray<FCustomKeyBinding> CustomBinds;
+
+	UPROPERTY()
+	uint32 bEnableMouseSmoothing:1;
+
+	UPROPERTY()
+	uint32 bEnableFOVScaling:1;
+
+	UPROPERTY()
+	uint32 bInvertMouse;
+
+	UPROPERTY()
+	float FOVScale;
+
+	UPROPERTY()
+	float DoubleClickTime;
+
+	UPROPERTY()
+	float MouseSensitivity;
+
+	UPROPERTY()
+	float MaxDodgeClickTimeValue;
+
+	UPROPERTY()
+	float MaxDodgeTapTimeValue;
+
+	UPROPERTY()
+	uint32 bSingleTapWallDodge:1;
+
+	UPROPERTY()
+	FKey ConsoleKey;
 };

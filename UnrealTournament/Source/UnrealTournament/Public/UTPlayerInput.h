@@ -26,4 +26,5 @@ class UUTPlayerInput : public UPlayerInput
 	TArray<FCustomKeyBinding> CustomBinds;
 
 	virtual bool ExecuteCustomBind(FKey Key, EInputEvent EventType);
+	virtual void UTForceRebuildingKeyMaps(const bool bRestoreDefaults = false); 
 };

@@ -22,3 +22,15 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 	}
 	return false;
 }
+
+void UUTPlayerInput::UTForceRebuildingKeyMaps(const bool bRestoreDefaults)
+{
+	CustomBinds.Empty();
+	if (bRestoreDefaults)
+	{
+		CustomBinds = GetDefault<UUTPlayerInput>()->CustomBinds;
+	}	
+
+	ForceRebuildingKeyMaps(bRestoreDefaults);
+
+}

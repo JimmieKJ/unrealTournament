@@ -407,6 +407,8 @@ FReply SUWPlayerSettingsDialog::OKClick()
 
 	Settings->SaveSettings();
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
+	GetPlayerOwner()->SaveProfileSettings();
+
 	return FReply::Handled();
 }
 

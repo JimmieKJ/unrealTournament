@@ -1003,12 +1003,11 @@ void AUTPlayerController::SetName(const FString& S)
 	{
 		Super::SetName(S);
 
-		UUTGameUserSettings* Settings;
-		Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-		if (Settings)
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+		if (LP != NULL)
 		{
-			//Settings->SetPlayerName(S);
-			Settings->SaveSettings();
+			LP->SetNickname(S);
+			LP->SaveProfileSettings();
 		}
 	}
 }
