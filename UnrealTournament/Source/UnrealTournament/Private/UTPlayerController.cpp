@@ -380,6 +380,11 @@ void AUTPlayerController::SwitchToBestWeapon()
 		float BestPriority = 0.0f;
 		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
+			if (Inv->GetOwner() == nullptr)
+			{
+				break;
+			}
+
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
 			if (Weap != NULL && Weap->HasAnyAmmo() && Weap->GetOwner() != nullptr)
 			{
@@ -463,6 +468,11 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			int32 CurrentSlot = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon()->GroupSlot : UTCharacter->GetWeapon()->GroupSlot;
 			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 			{
+				if (Inv->GetOwner() == nullptr)
+				{
+					break;
+				}
+
 				AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
 				if (Weap != NULL && Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 				{
@@ -526,6 +536,11 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 		AUTWeapon* NextSlotWeapon = NULL;
 		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
+			if (Inv->GetOwner() == nullptr)
+			{
+				break;
+			}
+
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
 			if (Weap != NULL && Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 			{

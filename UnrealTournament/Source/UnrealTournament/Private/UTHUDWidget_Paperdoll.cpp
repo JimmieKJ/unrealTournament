@@ -44,6 +44,11 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		bool bHasJumpBoots = false;
 		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
+			if (Inv->GetOwner() == nullptr)
+			{
+				break;
+			}
+
 			AUTArmor* Armor = Cast<AUTArmor>(Inv);
 			if (Armor != NULL)
 			{

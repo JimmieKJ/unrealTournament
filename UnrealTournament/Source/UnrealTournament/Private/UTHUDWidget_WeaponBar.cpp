@@ -53,6 +53,11 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		// Get the weapon list.
 		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
+			if (Inv->GetOwner() == nullptr)
+			{
+				break;
+			}
+
 			AUTWeapon* Weapon = Cast<AUTWeapon>(Inv);
 			if (Weapon != NULL)
 			{

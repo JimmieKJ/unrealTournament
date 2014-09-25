@@ -285,6 +285,11 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	// assign GroupSlot if required
 	for (AUTInventory* Inv = UTOwner->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 	{
+		if (Inv->GetOwner() == nullptr)
+		{
+			break;
+		}
+
 		if (Inv != this)
 		{
 			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);

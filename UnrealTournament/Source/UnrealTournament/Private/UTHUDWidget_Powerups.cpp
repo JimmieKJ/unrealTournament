@@ -24,6 +24,11 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 			FVector2D TotalSize;
 			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 			{
+				if (Inv->GetOwner() == nullptr)
+				{
+					break;
+				}
+
 				AUTTimedPowerup* PowerUp = Cast<AUTTimedPowerup>(Inv);
 				if (PowerUp != NULL)
 				{
