@@ -31,13 +31,13 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 
 	// MultiShot
 	MultiShotLocationSpread.SetNum(1);
-	MultiShotLocationSpread[0] = FVector(0, 1, 1);
+	MultiShotLocationSpread[0] = FVector(0, 8, 8);
 
 	MultiShotRotationSpread.SetNum(1);
 	MultiShotRotationSpread[0] = 1.5f;
 
 	MultiShotAngle.SetNum(1);
-	MultiShotAngle[0] = FRotator(0, 3, 0);
+	MultiShotAngle[0] = FRotator(0, 4, 0);
 
 	MultiShotCount.SetNum(1);
 	MultiShotCount[0] = 9;
