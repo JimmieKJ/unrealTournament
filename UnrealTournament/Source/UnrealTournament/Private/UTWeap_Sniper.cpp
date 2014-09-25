@@ -99,20 +99,3 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		*OutHit = Hit;
 	}
 }
-
-void AUTWeap_Sniper::PlayImpactEffects(const FVector& TargetLoc)
-{
-	Super::PlayImpactEffects(TargetLoc);
-
-	// FIXME: temp hack for effects parity
-	UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this);
-	PSC->bAutoActivate = true;
-	PSC->bAutoDestroy = true;
-	PSC->SetWorldLocationAndRotation(GetFireStartLoc(), (TargetLoc - GetFireStartLoc()).Rotation());
-	PSC->SetTemplate(LoadObject<UParticleSystem>(NULL, TEXT("ParticleSystem'/Game/RestrictedAssets/Weapons/Sniper/Assets/Smoke_Trail_Bullet.Smoke_Trail_Bullet'")));
-	PSC->RegisterComponent();
-	PSC->TickComponent(0.0f, ELevelTick::LEVELTICK_All, NULL);
-	PSC->SetWorldLocation(TargetLoc);
-	PSC->TickComponent(0.0f, ELevelTick::LEVELTICK_All, NULL);
-	PSC->DeactivateSystem();
-}
