@@ -218,14 +218,12 @@ void AUTCTFGameMode::CheckGameTime()
 			// If we are in Overtime, look to see if we should start sudden death
 			else if ( CTFGameState->IsMatchInOvertime() )
 			{
-				if (!CTFGameState->IsMatchInSuddenDeath() && bSuddenDeath)
-				{
-					SetMatchState(MatchState::MatchEnteringSuddenDeath);				
-				}
-				else if ( CTFGameState->FindLeadingTeam() != NULL )
+				AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
+				if ( WinningTeam != NULL )
 				{
 					// Match is over....
-					EndGame(NULL, FName(TEXT("TimeLimit")));	
+					AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
+					EndGame(WinningPS, FName(TEXT("TimeLimit")));	
 				}
 			}
 			else
@@ -243,7 +241,7 @@ void AUTCTFGameMode::CheckGameTime()
 					{
 						if (bAllowOvertime)
 						{
-							SetMatchState(MatchState::MatchEnteringHalftime);
+							SetMatchState(MatchState::MatchIsInOvertime);
 						}
 						else
 						{
