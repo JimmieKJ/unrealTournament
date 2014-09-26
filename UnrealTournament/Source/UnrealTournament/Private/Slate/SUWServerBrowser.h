@@ -5,6 +5,7 @@
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
 #include "SUWindowsStyle.h"
+#include "UTServerBeaconClient.h"
 
 #if !UE_SERVER
 /*
@@ -19,6 +20,9 @@ public:
 
 	// The Server IP Address
 	FString IP;
+
+	// The Server Beacon IP Address
+	FString BeaconIP;
 
 	// The Game mode running on the server
 	FString GameMode;
@@ -43,10 +47,11 @@ public:
 
 	// Server Flags
 	int32 Flags;
-
-	FServerData( FString inName, FString inIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
+	
+	FServerData( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
 	: Name( inName )
 	, IP( inIP )
+	, BeaconIP( inBeaconIP )
 	, GameMode( inGameMode )
 	, Map ( inMap )
 	, NumPlayers( inNumPlayers )
@@ -58,9 +63,9 @@ public:
 	{		
 	}
 
-	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
+	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing, inFlags ) );
+		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing, inFlags ) );
 	}
 
 };
@@ -194,6 +199,8 @@ protected:
 	TArray< TSharedPtr< FServerData > > InternetServers;
 	TArray< TSharedPtr< FServerData > > LanServers;
 
+	TArray< AUTServerBeaconClient* > QoSQueries;
+
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 	
 	virtual FReply OnRefreshClick();
@@ -201,6 +208,7 @@ protected:
 
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	virtual void SetBrowserState(FName NewBrowserState);
+	virtual void CleanupQoS();
 
 	virtual void OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer);
 	virtual void OnSort(EColumnSortPriority::Type, const FName&, EColumnSortMode::Type);

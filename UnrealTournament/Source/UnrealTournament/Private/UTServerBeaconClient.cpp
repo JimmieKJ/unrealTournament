@@ -28,8 +28,12 @@ void AUTServerBeaconClient::OnFailure()
 
 void AUTServerBeaconClient::ClientPing_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("Ping"));
-	Ping = GetWorld()->RealTimeSeconds - PingStartTime;
+	Ping = (GetWorld()->RealTimeSeconds - PingStartTime) * 1000.0f;
+
+	UE_LOG(LogBeacon, Log, TEXT("Ping %f"), Ping);
+
+	// We have successfully pinged, destroy the connection
+	DestroyBeacon();
 }
 
 bool AUTServerBeaconClient::ServerPong_Validate()
@@ -41,4 +45,10 @@ void AUTServerBeaconClient::ServerPong_Implementation()
 {
 	UE_LOG(LogBeacon, Log, TEXT("Pong"));
 	ClientPing();
+}
+
+void AUTServerBeaconClient::SetBeaconNetDriverName(FString InBeaconName)
+{
+	BeaconNetDriverName = FName(*InBeaconName);
+	NetDriverName = BeaconNetDriverName;
 }

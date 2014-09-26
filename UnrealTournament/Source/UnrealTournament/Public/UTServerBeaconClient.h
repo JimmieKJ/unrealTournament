@@ -24,6 +24,8 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	float PingStartTime;
 	float Ping;
 
+	virtual void SetBeaconNetDriverName(FString InBeaconName);
+
 	/** Send a ping RPC to the client */
 	UFUNCTION(client, reliable)
 	virtual void ClientPing();

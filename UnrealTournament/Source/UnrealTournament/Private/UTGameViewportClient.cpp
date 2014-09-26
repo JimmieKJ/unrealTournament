@@ -16,6 +16,13 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 {
 	Super::PeekNetworkFailureMessages(World, NetDriver, FailureType, ErrorString);
 #if !UE_SERVER
+
+	// Don't care about net drivers that aren't the game net driver, they are probably just beacon net drivers
+	if (NetDriver->NetDriverName != NAME_GameNetDriver)
+	{
+		return;
+	}
+
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 
 	FText NetworkErrorMessage;

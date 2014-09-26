@@ -15,6 +15,7 @@
 #include "SUWMessageBox.h"
 #include "SUWInputBox.h"
 #include "UTGameEngine.h"
+#include "UTServerBeaconClient.h"
 
 #if !UE_SERVER
 /** List Sort helpers */
@@ -527,6 +528,8 @@ void SUWServerBrowser::RefreshServers()
 
 void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	CleanupQoS();
+
 	if (bWasSuccessful)
 	{
 		// See the server list
@@ -554,7 +557,27 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				int32 ServerFlags = 0x0000;
 				Result.Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
 				uint32 ServerPing = 0;
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, ServerGame, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing, ServerFlags);
+
+				FString BeaconIP;
+				if (OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP))
+				{
+					// @hack
+					//BeaconIP = TEXT("127.0.0.1:15000");
+
+					// Start a QoS query to this server
+					AUTServerBeaconClient *BeaconClient = PlayerOwner->GetWorld()->SpawnActor<AUTServerBeaconClient>(AUTServerBeaconClient::StaticClass());
+					if (BeaconClient)
+					{
+						FString BeaconNetDriverName(TEXT("BeaconDriver"));
+						BeaconNetDriverName += BeaconIP;
+						BeaconClient->SetBeaconNetDriverName(BeaconNetDriverName);
+						FURL BeaconURL(nullptr, *BeaconIP, TRAVEL_Absolute);
+						BeaconClient->InitClient(BeaconURL);
+						QoSQueries.Add(BeaconClient);
+					}
+				}
+
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGame, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing, ServerFlags);
 
 				InternetServers.Add( NewServer );
 			}
@@ -566,6 +589,19 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 	SetBrowserState(BrowserState::NAME_ServerIdle);	
 
+}
+
+void SUWServerBrowser::CleanupQoS()
+{
+	for (int32 i = 0; i < QoSQueries.Num(); i++)
+	{
+		if (QoSQueries[i])
+		{
+			QoSQueries[i]->DestroyBeacon();
+		}
+	}
+
+	QoSQueries.Empty();
 }
 
 void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer)
