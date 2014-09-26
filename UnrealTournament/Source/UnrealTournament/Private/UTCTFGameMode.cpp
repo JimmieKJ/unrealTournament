@@ -173,14 +173,14 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					}
 				}
 			}
+
+			if (CTFGameState->IsMatchInOvertime())
+			{
+				EndGame(Holder, FName(TEXT("GoldenCap")));	
+			}
 		}
 
 		UE_LOG(UT,Log,TEXT("========================================="));
-
-		if (CTFGameState->IsMatchInOvertime())
-		{
-			EndGame(Holder, FName(TEXT("GoldenCap")));	
-		}
 	}
 }
 

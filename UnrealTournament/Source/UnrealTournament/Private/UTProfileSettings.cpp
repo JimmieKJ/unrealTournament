@@ -132,14 +132,11 @@ void UUTProfileSettings::ApplyInputSettings()
 		DefaultUTPlayerInput->SetMouseSensitivity(MouseSensitivity);
 	}
 
-	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
+	for (TObjectIterator<UUTPlayerInput> It(RF_ClassDefaultObject); It; ++It)
 	{
 		UUTPlayerInput* UTPlayerInput = *It;
-		if (UTPlayerInput != DefaultUTPlayerInput)
-		{
-			UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
-			UTPlayerInput->UTForceRebuildingKeyMaps(true);
-		}
+		UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
+		UTPlayerInput->UTForceRebuildingKeyMaps(true);
 	}
 
 }

@@ -58,6 +58,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, ObjectState);
 	DOREPLIFETIME(AUTCarriedObject, Holder);
 	DOREPLIFETIME(AUTCarriedObject, Team);
+	DOREPLIFETIME_CONDITION(AUTCarriedObject, HomeBase, COND_InitialOnly);
 }
 
 

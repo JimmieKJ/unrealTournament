@@ -24,6 +24,9 @@ public:
 	virtual FString GetEpicAuth();
 	virtual void SetEpicAuth(FString NewAuth);
 
+	virtual float GetServerBrowserColumnWidth(int32 ColumnIndex);
+	virtual void SetServerBrowserColumnWidth(int32 ColumnIndex, float NewWidth);
+
 protected:
 	UPROPERTY(config)
 	uint32 UTVersion;
@@ -36,5 +39,8 @@ protected:
 
 	UPROPERTY(config)
 	FString EpicIDAuthToken;
+
+	UPROPERTY(config)
+	float ServerBrowserColumnWidths[9];
 
 };

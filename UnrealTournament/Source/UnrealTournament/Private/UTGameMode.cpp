@@ -115,21 +115,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
 
-	InOpt = ParseOption(Options, TEXT("bRequirePassword"));
-	bRequirePassword= EvalBoolOptions(InOpt, bRequirePassword);
-	if (bRequirePassword)
-	{
-		InOpt = ParseOption(Options, TEXT("ServerPassword"));
-		if (!InOpt.IsEmpty())
-		{
-			ServerPassword = InOpt;
-		}
-
-		if (ServerPassword.IsEmpty())
-		{
-			bRequirePassword = false;
-		}
-	}
+	ServerPassword = TEXT("");
+	InOpt = ParseOption(Options, TEXT("ServerPassword"));
+	bRequirePassword = !InOpt.IsEmpty();
 
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
 
@@ -276,6 +264,19 @@ void AUTGameMode::InitGameState()
 	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
 		GameSession->RegisterServer();
+		GetWorldTimerManager().SetTimer(this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
+	}
+}
+
+void AUTGameMode::UpdateOnlineServer()
+{
+	if (GameSession &&  GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		AUTGameSession* GS = Cast<AUTGameSession>(GameSession);
+		if (GS)
+		{
+			GS->UpdateGameState();
+		}
 	}
 }
 
@@ -526,16 +527,6 @@ void AUTGameMode::StartMatch()
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("NewMatch"), ParamArray );
 		}
 	}
-
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->StartMatch();
-		}
-	}
-
 }
 
 void AUTGameMode::HandleMatchHasStarted()

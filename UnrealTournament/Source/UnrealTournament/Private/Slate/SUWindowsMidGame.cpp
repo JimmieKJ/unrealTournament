@@ -41,7 +41,7 @@ void SUWindowsMidGame::CreateDesktop()
 			]
 
 			+ SVerticalBox::Slot()		// Chat
-			.VAlign(VAlign_Fill)
+			.VAlign(VAlign_Fill) 
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SCanvas)
@@ -204,6 +204,8 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 
 	SAssignNew(DropDownButton, SComboButton)
 		.HasDownArrow(false)
+		.MenuPlacement(MenuPlacement_AboveAnchor)
+		.Method(SMenuAnchor::UseCurrentWindow)
 		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
 		.ButtonContent()
 		[

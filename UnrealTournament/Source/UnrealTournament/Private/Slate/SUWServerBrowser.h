@@ -216,6 +216,10 @@ protected:
 	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
+	TSharedPtr<class SHeaderRow> HeaderRow;
+	bool bRequireSave;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+
 private:
 	bool bAutoRefresh;
 	bool bDescendingSort;

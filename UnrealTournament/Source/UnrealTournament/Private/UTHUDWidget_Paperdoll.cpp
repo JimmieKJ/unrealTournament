@@ -41,7 +41,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		bool bHasThighPads = false;
 		bool bHasChest = false;
 		bool bHasHelmet = false;
-		bool bHasJumpBoots = false;
+		int JumpBootsCharges = 0;
 		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
 		{
 			if (Inv->GetOwner() == nullptr)
@@ -61,7 +61,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			}
 			else if (Cast<AUTJumpBoots>(Inv) != NULL)
 			{
-				bHasJumpBoots = true;
+				JumpBootsCharges = Cast<AUTJumpBoots>(Inv)->NumJumps;
 			}
 		}
 
@@ -85,9 +85,10 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			DrawTexture(PaperDollTexture, 20,-2, 23.0f, 25.0, 192.0f, 265.0f, 23.0f, 25.0f, 1.0f);
 		}
 
-		if (bHasJumpBoots)
+		if (JumpBootsCharges)
 		{
 			DrawTexture(PaperDollTexture, 5,84, 54.0f, 25.0, 222.0f, 263.0f, 54.0f, 25.0f, 1.0f);
+			DrawText(FText::AsNumber(JumpBootsCharges), 32, 90, UTHUDOwner->GetFontFromSizeIndex(0), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center);
 		}
 
 		DrawTexture(PaperDollTexture, 58.0f, 26.0f, 26.0f, 33.0f, 233.0f, 67.0f, 26.0f, 33.0f);

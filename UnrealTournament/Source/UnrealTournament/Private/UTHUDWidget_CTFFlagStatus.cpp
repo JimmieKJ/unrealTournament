@@ -74,6 +74,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			{
 				AnimationAlpha = 0.0f;
 			}
+
 		}
 	}	
 }

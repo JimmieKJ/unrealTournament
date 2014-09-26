@@ -134,8 +134,8 @@ void AUTGameSession::UnRegisterServer()
 void AUTGameSession::StartMatch()
 {
 
-	UE_LOG(UT,Log,TEXT("--------------[START MATCH] ----------------"));
-	UE_LOG(UT,Log,TEXT("--------------[START MATCH] ----------------"));
+	UE_LOG(UT,Log,TEXT("--------------[MCP START MATCH] ----------------"));
+	UE_LOG(UT,Log,TEXT("--------------[MCP START MATCH] ----------------"));
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
@@ -152,8 +152,8 @@ void AUTGameSession::StartMatch()
 
 void AUTGameSession::EndMatch()
 {
-	UE_LOG(UT,Log,TEXT("--------------[END MATCH] ----------------"));
-	UE_LOG(UT,Log,TEXT("--------------[END MATCH] ----------------"));
+	UE_LOG(UT,Log,TEXT("--------------[MCP END MATCH] ----------------"));
+	UE_LOG(UT,Log,TEXT("--------------[MCP END MATCH] ----------------"));
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
@@ -173,10 +173,16 @@ void AUTGameSession::EndMatch()
 void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	// If we were not successful, then clear the online game settings member and move on
-	if (!bWasSuccessful)
+	if (bWasSuccessful)
+	{
+		// Immediately start the online session
+		StartMatch();
+	}
+	else
 	{
 		UE_LOG(UT,Log,TEXT("Failed to Create the session '%s' so this match will not be visible.  See the logs!"), *SessionName.ToString());
 	}
+
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)

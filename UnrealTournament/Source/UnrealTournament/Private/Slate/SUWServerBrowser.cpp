@@ -136,10 +136,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 
 								.HeaderRow
 								(
-									SNew(SHeaderRow) 
+									SAssignNew(HeaderRow, SHeaderRow) 
 									.Style(SUWindowsStyle::Get(),"UWindows.Standard.ServerBrowser.Header")
 
-									+ SHeaderRow::Column("ServerName").OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerName")
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -148,7 +149,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
 
-									+ SHeaderRow::Column("ServerIP") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerIPColumn", "IP")) .HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerIP") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerIPColumn", "IP")) 
+											.HAlignCell(HAlign_Center) 
+											.HAlignHeader(HAlign_Center)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -157,7 +162,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
 
-									+ SHeaderRow::Column("ServerGame") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerGameColumn", "Game")).HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerGame") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerGameColumn", "Game"))
+											.HAlignCell(HAlign_Center) 
+											.HAlignHeader(HAlign_Center)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -166,7 +175,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
 
-									+ SHeaderRow::Column("ServerMap") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerMapColumn", "Map")).HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerMap") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerMapColumn", "Map"))
+											.HAlignCell(HAlign_Center) 
+											.HAlignHeader(HAlign_Center)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -175,7 +188,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
 
-									+ SHeaderRow::Column("ServerNumPlayers") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerNumPlayerColumn", "Players")).HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerNumPlayers") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerNumPlayerColumn", "Players"))
+											.HAlignCell(HAlign_Center) 
+											.HAlignHeader(HAlign_Center)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -184,7 +201,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
 							
-									+ SHeaderRow::Column("ServerNumSpecs") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerNumSpecsColumn", "Spectators")).HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerNumSpecs") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerNumSpecsColumn", "Spectators"))
+											.HAlignCell(HAlign_Center) 
+											.HAlignHeader(HAlign_Center)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -192,7 +213,12 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerNumSpecsColumnToolTip", "The # of spectators on this server.") )
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
-									+ SHeaderRow::Column("ServerVer") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerVerColumn", "Version")).HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+
+									+ SHeaderRow::Column("ServerVer") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerVerColumn", "Version"))
+											.HAlignCell(HAlign_Center) 
+											.HAlignHeader(HAlign_Center)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -201,7 +227,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
 
-									+ SHeaderRow::Column("ServerFlags") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerFlagsColumn", "Flags")).HAlignCell(HAlign_Center) .HAlignHeader(HAlign_Center).OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerFlags") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerFlagsColumn", "Flags"))
+											.HAlignCell(HAlign_Center) 
+											.HAlignHeader(HAlign_Center)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -210,7 +240,11 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 											]
 								
-									+ SHeaderRow::Column("ServerPing") .DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerPingColumn", "Ping")).HAlignCell(HAlign_Right) .HAlignHeader(HAlign_Right).OnSort(this, &SUWServerBrowser::OnSort)
+									+ SHeaderRow::Column("ServerPing") 
+											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerPingColumn", "Ping"))
+											.HAlignCell(HAlign_Right) 
+											.HAlignHeader(HAlign_Right)
+											.OnSort(this, &SUWServerBrowser::OnSort)
 											.HeaderContent()
 											[
 												SNew(STextBlock)
@@ -317,6 +351,15 @@ void SUWServerBrowser::Construct(const FArguments& InArgs)
 	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWServerBrowser::OwnerLoginStatusChanged);
 	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	const TIndirectArray<SHeaderRow::FColumn>& Columns = HeaderRow->GetColumns();		
+	for (int32 i=0;i<Columns.Num();i++)
+	{
+		if (GS->GetServerBrowserColumnWidth(i) > 0.0)
+		{
+			HeaderRow->SetColumnWidth(Columns[i].ColumnId, GS->GetServerBrowserColumnWidth(i) );
+		}
+	}
 }
 
 void SUWServerBrowser::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
@@ -566,6 +609,38 @@ void SUWServerBrowser::FilterServers()
 		}
 	}
 	SortServers(CurrentSortColumn);
+}
+
+
+void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	bool bRequiresUpdate = false;
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (GS != NULL)
+	{
+		const TIndirectArray<SHeaderRow::FColumn>& Columns = HeaderRow->GetColumns();		
+		for (int32 i=0;i<Columns.Num();i++)
+		{
+			if (GS->GetServerBrowserColumnWidth(i) != Columns[i].GetWidth())
+			{
+				GS->SetServerBrowserColumnWidth(i, Columns[i].GetWidth());
+				bRequiresUpdate = true;
+				break;
+			}
+		}
+
+		if (bRequiresUpdate && !bRequireSave)
+		{
+			bRequireSave = true;
+		}
+
+		if (!bRequiresUpdate && bRequireSave)
+		{
+			GS->SaveConfig();
+			bRequireSave = false;
+		}
+	}
+
 }
 
 #endif

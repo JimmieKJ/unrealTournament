@@ -93,9 +93,7 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("SystemInfo"), ParamArray );
 	}
 
-	// We don't want to start the auto-logon process from the default object or in PIE
-	UUTLocalPlayer* Obj = GetClass()->GetDefaultObject<UUTLocalPlayer>();
-	if (Obj != this)
+	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
 		// Force the loading of the local profile settings before the player has a chance to sign in.
 		LoadProfileSettings();

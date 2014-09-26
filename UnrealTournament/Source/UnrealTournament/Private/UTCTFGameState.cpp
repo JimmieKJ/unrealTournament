@@ -103,6 +103,17 @@ AUTPlayerState* AUTCTFGameState::GetFlagHolder(uint8 TeamNum)
 	return NULL;
 }
 
+AUTCTFFlagBase* AUTCTFGameState::GetFlagBase(uint8 TeamNum)
+{
+	if (TeamNum < FlagBases.Num())
+	{
+		return FlagBases[TeamNum];
+	}
+
+	return NULL;
+}
+
+
 void AUTCTFGameState::ResetFlags()
 {
 	for (int i=0; i < FlagBases.Num(); i++)

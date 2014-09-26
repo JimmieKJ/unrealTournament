@@ -45,6 +45,8 @@ class AUTCTFGameState: public AUTGameState
 	virtual FName GetFlagState(uint8 TeamNum);
 
 	virtual AUTPlayerState* GetFlagHolder(uint8 TeamNum);
+	virtual AUTCTFFlagBase* GetFlagBase(uint8 TeamNum);
+
 	virtual void ResetFlags();
 
 	/** Find the current team that is in the lead */

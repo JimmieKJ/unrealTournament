@@ -58,7 +58,7 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	AUTCharacter* HoldingPawn;
 
 	// Holds the home base for this object.
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
 	class AUTGameObjective* HomeBase;
 
 	// Holds the team that this object belongs to

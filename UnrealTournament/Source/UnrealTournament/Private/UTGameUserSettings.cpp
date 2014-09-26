@@ -89,3 +89,15 @@ void UUTGameUserSettings::SetEpicAuth(FString NewAuth)
 	EpicIDAuthToken = NewAuth;
 }
 
+float UUTGameUserSettings::GetServerBrowserColumnWidth(int32 ColumnIndex)
+{
+	return (ColumnIndex >= 0 && ColumnIndex < 9) ? ServerBrowserColumnWidths[ColumnIndex] : 0;
+}
+void UUTGameUserSettings::SetServerBrowserColumnWidth(int32 ColumnIndex, float NewWidth)
+{
+	if (ColumnIndex >=0 && ColumnIndex < 9)
+	{
+		ServerBrowserColumnWidths[ColumnIndex] = NewWidth;	
+	}
+}
+

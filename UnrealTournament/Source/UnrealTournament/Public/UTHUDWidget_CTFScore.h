@@ -3,7 +3,9 @@
 #pragma once
 
 #include "UTHUDWidget_TeamScore.h"
+#include "UTCTFFlagBase.h"
 #include "UTHUDWidget_CTFScore.generated.h"
+
 
 UCLASS()
 class UUTHUDWidget_CTFScore : public UUTHUDWidget_TeamScore
@@ -14,5 +16,6 @@ class UUTHUDWidget_CTFScore : public UUTHUDWidget_TeamScore
 	float BluePulseScale;
 
 	virtual void Draw_Implementation(float DeltaTime);
+	virtual void DrawBasePosition(AUTCTFFlagBase* Base, float CenterX, float CenterY, float Scale);
 	virtual void DrawFlagIcon(float CenterX, float CenterY, float Width, float Height, float U, float V, float UL, float VL, FLinearColor DrawColor, float Scale);
 };

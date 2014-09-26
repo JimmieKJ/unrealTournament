@@ -23,9 +23,8 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 	AUTCTFGameState* CGS = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
 	if (CGS != NULL && CGS->Teams.Num() >= 2 && CGS->Teams[0] != NULL && CGS->Teams[1] != NULL)
 	{
-		// Draw the Flag State...
+		// Draw the Red Flag State...
 
-		DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,41, 843, 87, 43,41, FLinearColor::Blue, BlueScale);
 		DrawFlagIcon(-46 * RedScale,53 * RedScale, 43,41, 843, 87, 43,41, FLinearColor::Red, RedScale);
 
 		FName FlagState = CGS->GetFlagState(0);
@@ -54,6 +53,12 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 			}
 		}
 
+		DrawBasePosition(CGS->GetFlagBase(0), -46, 53, RedScale);
+
+		// Draw the Blue Flag
+
+		DrawFlagIcon(46 * BlueScale,53 * BlueScale, 43,41, 843, 87, 43,41, FLinearColor::Blue, BlueScale);
+
 		FlagState = CGS->GetFlagState(1);
 
 		float BlueHolderScaleModifier = 1.0;
@@ -80,6 +85,18 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 				DrawText(FText::FromString(CGS->GetFlagHolder(1)->PlayerName), 75* BlueScale, 56 * BlueScale, UTHUDOwner->GetFontFromSizeIndex(0), BlueScale,1.0, FLinearColor::White);
 			}
 		}
+
+		DrawBasePosition(CGS->GetFlagBase(1), 46, 53, BlueScale);
+	}
+}
+
+void UUTHUDWidget_CTFScore::DrawBasePosition(AUTCTFFlagBase* Base, float CenterX, float CenterY, float Scale)
+{
+	if (Base && UTCharacterOwner)
+	{
+		FRotator Dir = (Base->GetActorLocation() - UTCharacterOwner->GetActorLocation()).Rotation();
+		float Yaw = (Dir.Yaw - UTCharacterOwner->GetViewRotation().Yaw);
+		DrawTexture(IconTexture, CenterX * Scale, CenterY * Scale, 52* Scale, 52 * Scale, 897,452,43,43, 1.0f, FLinearColor::White,FVector2D(0.5,0.5), Yaw);
 	}
 }
 
