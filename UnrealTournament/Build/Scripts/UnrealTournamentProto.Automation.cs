@@ -187,17 +187,31 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
         }
 
+
+		var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this);
+
         // run the patch tool
         BuildPatchToolBase.Get().Execute(
         new BuildPatchToolBase.PatchGenerationOptions
         {
-            StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this),
+            StagingInfo = StagingInfo,
             BuildRoot = RawImagePath,
             FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
             AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
             AppLaunchCmdArgs = "UnrealTournament",
             AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
         });
+
+		// post the Windows build to build info service on gamedev
+		string McpConfigName = "MainGameDevNet";
+		CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
+		BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+		CommandUtils.Log("Labeling new build as Latest in MCP.");
+		string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
+		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+		// For backwards compatibility, also label as Production-Latest
+		LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
+		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
 
 
         // verify the files we need exist first
@@ -209,17 +223,28 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifestMac);
         }
 
+		StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfoMac(this);
         // run the patch tool
         BuildPatchToolBase.Get().Execute(
         new BuildPatchToolBase.PatchGenerationOptions
         {
-            StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfoMac(this),
+			StagingInfo = StagingInfo,
             BuildRoot = RawImagePathMac,
             FileIgnoreList = CommandUtils.CombinePaths(RawImagePathMac, "Manifest_DebugFiles.txt"),
-            AppLaunchCmd = @".\UnrealTournament\Binaries\Mac\UnrealTournament.app",
+            AppLaunchCmd = "./UnrealTournament/Binaries/Mac/UnrealTournament.app",
             AppLaunchCmdArgs = "",
             AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
         });
+
+		// post the Mac build to build info service on gamedev
+		CommandUtils.Log("Posting Unreal Tournament for Mac to MCP.");
+		BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+		CommandUtils.Log("Labeling new build as Latest in MCP.");
+		LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Mac);
+		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+		// For backwards compatibility, also label as Production-Latest
+		LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Mac);
+		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
 
         PrintRunTime();
     }
