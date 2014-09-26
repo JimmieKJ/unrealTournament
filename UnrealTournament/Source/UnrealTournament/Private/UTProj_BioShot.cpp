@@ -158,10 +158,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 				SurfaceType = HIT_Wall;
 			}
 
-			//Find the actual contact point with the floor and move to it
-			FHitResult Hit;
-			GetWorld()->LineTraceSingle(Hit, GetActorLocation(), GetActorLocation() + (-SurfaceNormal * 1000.0f), COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove));
-			SetActorLocation(Hit.ImpactPoint);
+			SetActorLocation(HitLocation);
 
 			Landed(OtherComp);
 		}
