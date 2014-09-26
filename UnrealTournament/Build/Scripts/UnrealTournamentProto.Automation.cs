@@ -432,7 +432,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 [Help("SkipLabeling", "Optional.  Perform the promotion step but don't apply the new label to the build.")]
 [Help("OnlyLabel", "Optional.  Perform the labeling step but don't perform any additional promotion actions.")]
 [Help("TestLivePromotion", "Optional.  Use fake production labels and don't perform any actions that would go out to the public, eg. installer redirect.")]
-// NOTE: PROMOTION JOB IS ONLY EVER RUN OUT OF UE4-FORTNITE, REGARDLESS OF WHICH BRANCH'S BUILD IS BEING PROMOTED
+// NOTE: PROMOTION JOB IS ONLY EVER RUN OUT OF UE4-UT, REGARDLESS OF WHICH BRANCH'S BUILD IS BEING PROMOTED
 class UnrealTournament_PromoteBuild : BuildCommand
 {
 	public override void ExecuteBuild()
@@ -543,7 +543,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 				BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
 
 				// Check for the manifest on the prod CDN
-				Log("Verifying manifest for prod promotion of Fortnite {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
+				Log("Verifying manifest for prod promotion of Unreal Tournament {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
 				bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
 				if (!bWasManifestFound)
 				{
