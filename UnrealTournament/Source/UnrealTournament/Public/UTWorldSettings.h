@@ -49,7 +49,7 @@ struct FTimedMaterialParameter
 		: MI(NULL)
 	{}
 	FTimedMaterialParameter(UMaterialInstanceDynamic* InMI, FName InParamName, UCurveBase* InCurve, bool bInClearOnComplete = true)
-		: MI(InMI), ParamName(InParamName), ParamCurve(InCurve), bClearOnComplete(bInClearOnComplete), ElapsedTime(0.0f)
+		: MI(InMI), ParamName(InParamName), ParamCurve(InCurve), ElapsedTime(0.0f), bClearOnComplete(bInClearOnComplete)
 	{}
 };
 
