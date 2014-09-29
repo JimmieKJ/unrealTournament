@@ -357,9 +357,15 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				}
 				FRotator SpreadRot = SpawnRotation;
 				SpreadRot.Yaw += GrenadeSpread*float(i) - GrenadeSpread;
+				
 				AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpreadLoc, SpreadRot);
-				//Spread the TossZ
-				SpawnedProjectile->ProjectileMovement->Velocity.Z += i * GetSpread(2);
+				
+				if (SpawnedProjectile != nullptr)
+				{
+					//Spread the TossZ
+					SpawnedProjectile->ProjectileMovement->Velocity.Z += i * GetSpread(2);
+				}
+
 				if (i == 0)
 				{
 					ResultProj = SpawnedProjectile;
@@ -368,7 +374,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			break;
 		}
 		default:
-			UE_LOG(UT, Warning, TEXT("%s::FireRocketProjectile(): Invalid CurrentRocketFireMode"));
+			UE_LOG(UT, Warning, TEXT("%s::FireRocketProjectile(): Invalid CurrentRocketFireMode"), *GetName());
 			break;
 		}
 
