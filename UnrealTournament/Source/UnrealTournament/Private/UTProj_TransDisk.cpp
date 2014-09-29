@@ -95,7 +95,7 @@ void AUTProj_TransDisk::OnDisrupted_Implementation()
 			ULightComponent* LC = Cast<ULightComponent>(Components[i]);
 			if (LC != NULL)
 			{
-				LC->SetBrightness(0.0F);
+				LC->SetIntensity(0.0F);
 			}
 		}
 	}

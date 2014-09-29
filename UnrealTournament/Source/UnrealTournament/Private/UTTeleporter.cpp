@@ -98,14 +98,7 @@ void AUTTeleporter::UpdateExitArrow()
 void AUTTeleporter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	UpdateNavigationRelevancy();
-
-	if (PropertyChangedEvent.Property && IsNavigationRelevant() && GetWorld() != NULL && GetWorld()->GetNavigationSystem() != NULL)
-	{
-		GetWorld()->GetNavigationSystem()->UpdateNavOctree(this);
-	}
-
+	
 	UpdateExitArrow();
 }
 // below editor functions are a workaround to the editor FTransform widget not having a setting to work in world space
@@ -143,33 +136,3 @@ void AUTTeleporter::EditorApplyScale(const FVector& DeltaScale, const FVector* P
 	UpdateExitArrow();
 }
 #endif
-
-bool AUTTeleporter::UpdateNavigationRelevancy()
-{
-	PointLink = FNavigationLink(FVector(0.0f), TeleportTarget.GetLocation());
-	PointLink.Direction = ENavLinkDirection::LeftToRight;
-	PointLink.AreaClass = UNavArea_Default::StaticClass(); // TODO: figure out the right setting here
-
-	SetNavigationRelevancy(true);
-	return true;
-}
-
-bool AUTTeleporter::GetNavigationRelevantData(struct FNavigationRelevantData& Data) const
-{
-	TArray<FNavigationLink> TempList;
-	TempList.Add(PointLink);
-
-	NavigationHelper::ProcessNavLinkAndAppend(&Data.Modifiers, this, TempList);
-	return false;
-}
-
-bool AUTTeleporter::GetNavigationLinksClasses(TArray<TSubclassOf<class UNavLinkDefinition> >& OutClasses) const
-{
-	return false;
-}
-
-bool AUTTeleporter::GetNavigationLinksArray(TArray<FNavigationLink>& OutLink, TArray<FNavigationSegmentLink>& OutSegments) const
-{
-	OutLink.Add(PointLink);
-	return true;
-}

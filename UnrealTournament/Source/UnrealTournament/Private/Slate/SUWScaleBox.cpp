@@ -18,10 +18,10 @@ void SUWScaleBox::Construct(const SUWScaleBox::FArguments& InArgs)
 
 void SUWScaleBox::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
 {
-	const EVisibility ChildVisibility = ChildSlot.Widget->GetVisibility();
+	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 	if (ArrangedChildren.Accepts(ChildVisibility))
 	{
-		FVector2D DesiredSize = ChildSlot.Widget->GetDesiredSize();
+		FVector2D DesiredSize = ChildSlot.GetWidget()->GetDesiredSize();
 		FVector2D FinalOffset(0, 0);
 
 		if (bMaintainAspectRatio)
@@ -56,7 +56,7 @@ void SUWScaleBox::OnArrangeChildren(const FGeometry& AllottedGeometry, FArranged
 		float FinalScale = 1;
 
 		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild(
-			ChildSlot.Widget,
+			ChildSlot.GetWidget(),
 			FinalOffset,
 			DesiredSize,
 			FinalScale

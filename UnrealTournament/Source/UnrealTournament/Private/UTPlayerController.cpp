@@ -1033,7 +1033,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	{
 		// for others we can't just hide everything because we don't know where the camera component is and we don't want to hide its attachments
 		// so just hide root
-		UPrimitiveComponent* RootPrim = GetViewTarget()->GetRootPrimitiveComponent();
+		UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(GetViewTarget()->GetRootComponent());
 		if (RootPrim != NULL)
 		{
 			HiddenComponents.Add(RootPrim->ComponentId);

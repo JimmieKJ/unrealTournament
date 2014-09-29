@@ -15,7 +15,7 @@ public class UnrealTournament : ModuleRules
 				"AnalyticsET",
 			}
 		);
-
+        
         if (Target.Platform == UnrealTargetPlatform.Linux)
         {
             // Hack for LINUXMessageBoxExt
@@ -25,7 +25,7 @@ public class UnrealTournament : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "OnlineSubsystem", "OnlineSubsystemUtils" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
-            PublicDependencyModuleNames.AddRange(new string[] { "RHI", "Slate", "SlateCore", "SlateRHIRenderer" });
+            PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "Slate", "SlateCore", "SlateRHIRenderer" });
         }
         if (Target.Type == TargetRules.TargetType.Editor)
         {

@@ -328,7 +328,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Scalability::SetQualityLevels(UserSettings->ScalabilityQuality);
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
-	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
 	GEngine->bSmoothFrameRate = SmoothFrameRate->IsChecked();
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);

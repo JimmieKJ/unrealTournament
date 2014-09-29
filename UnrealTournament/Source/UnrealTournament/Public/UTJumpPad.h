@@ -9,7 +9,7 @@
  * jump pad for launching characters
  */
 UCLASS(Blueprintable)
-class AUTJumpPad : public AActor, public INavLinkHostInterface, public INavRelevantActorInterface
+class AUTJumpPad : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -66,20 +66,7 @@ protected:
 	/** Launches the actor */
 	UFUNCTION(BlueprintNativeEvent)
 	void Launch(AActor* Actor);
-
-	// BEGIN INavRelevantActorInterface
-	virtual bool UpdateNavigationRelevancy() override;
-	virtual bool GetNavigationRelevantData(struct FNavigationRelevantData& Data) const override;
-	// END INavRelevantActorInterface
-
-	// BEGIN INavLinkHostInterface
-	virtual bool GetNavigationLinksClasses(TArray<TSubclassOf<class UNavLinkDefinition> >& OutClasses) const override;
-	virtual bool GetNavigationLinksArray(TArray<FNavigationLink>& OutLink, TArray<FNavigationSegmentLink>& OutSegments) const override;
-	// END INavLinkHostInterface
-
-	/** The Nav link between the Jump pad and the Target */
-	FNavigationLink PointLink;
-
+	
 	/** Actors we want to Jump next tick */
 	TArray<AActor*> PendingJumpActors;
 

@@ -745,9 +745,9 @@ void UUTCharacterMovement::PerformRoll(const FVector& DodgeDir)
 	}
 }
 
-bool UUTCharacterMovement::DoJump()
+bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 {
-	if ( IsFalling() ? DoMultiJump() : Super::DoJump())
+	if (IsFalling() ? DoMultiJump() : Super::DoJump(bReplayingMoves))
 	{
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{

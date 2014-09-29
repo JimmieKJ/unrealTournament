@@ -38,10 +38,10 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 
 	virtual bool MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit);
 
-	virtual FVector CalculateVelocity(FVector OldVelocity, float DeltaTime)
+	virtual FVector CalculateVelocity(FVector OldVelocity, float DeltaTime, bool bGravityEnabled) override
 	{
 		OldVelocity += OldVelocity.SafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
-		return Super::CalculateVelocity(OldVelocity, DeltaTime);
+		return Super::CalculateVelocity(OldVelocity, DeltaTime, bGravityEnabled);
 	}
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

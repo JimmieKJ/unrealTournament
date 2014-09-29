@@ -339,7 +339,7 @@ void UUTLocalPlayer::GetAuth(bool bLastFailed)
 #endif
 }
 
-void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
+void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
 {
 	UE_LOG(UT,Log,TEXT("***[LoginStatusChanged]*** - User %i - %i"), LocalUserNum, int32(LoginStatus));
 

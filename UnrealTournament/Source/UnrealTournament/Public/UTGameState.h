@@ -161,7 +161,7 @@ protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()
 	 */
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = Effects)
+	UPROPERTY(Replicated)
 	UMaterialInterface* OverlayMaterials[16];
 };
 

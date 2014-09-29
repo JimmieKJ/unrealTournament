@@ -8,7 +8,7 @@
 * jump pad for launching characters
 */
 UCLASS(Blueprintable, Abstract)
-class AUTTeleporter : public AActor, public INavLinkHostInterface, public INavRelevantActorInterface
+class AUTTeleporter : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -61,16 +61,4 @@ class AUTTeleporter : public AActor, public INavLinkHostInterface, public INavRe
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
 #endif
 
-	/** The Nav link between the teleporter and the target */
-	FNavigationLink PointLink;
-
-	// BEGIN INavRelevantActorInterface
-	virtual bool UpdateNavigationRelevancy() override;
-	virtual bool GetNavigationRelevantData(struct FNavigationRelevantData& Data) const override;
-	// END INavRelevantActorInterface
-
-	// BEGIN INavLinkHostInterface
-	virtual bool GetNavigationLinksClasses(TArray<TSubclassOf<class UNavLinkDefinition> >& OutClasses) const override;
-	virtual bool GetNavigationLinksArray(TArray<FNavigationLink>& OutLink, TArray<FNavigationSegmentLink>& OutSegments) const override;
-	// END INavLinkHostInterface
 };

@@ -3,6 +3,7 @@
 #include "../Public/UnrealTournament.h"
 #include "SUWPlayerSettingsDialog.h"
 #include "SUWindowsStyle.h"
+#include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
 #include "AssetData.h"
 
 // scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)

@@ -636,10 +636,10 @@ void SUWServerBrowser::FilterServers()
 {
 	FilteredServers.Empty();
 
-	FString GameFilter = GameFilterText->GetText();
+	FString GameFilter = GameFilterText->GetText().ToString();
 	for (int i=0;i<InternetServers.Num();i++)
 	{
-		if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || InternetServers[i]->GameMode == GameFilterText->GetText())
+		if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || InternetServers[i]->GameMode == GameFilter)
 		{
 			FilteredServers.Add(InternetServers[i]);
 		}

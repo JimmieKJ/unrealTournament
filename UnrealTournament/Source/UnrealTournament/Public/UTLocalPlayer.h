@@ -108,7 +108,7 @@ protected:
 
 	// Out Delegates
 	virtual void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UniqueID, const FString& ErrorMessage);
-	virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
+	virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
 	virtual void OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful);
 
 	// Array of delegates to call.

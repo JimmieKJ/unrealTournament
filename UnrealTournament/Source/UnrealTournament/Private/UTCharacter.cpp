@@ -1869,7 +1869,7 @@ void AUTCharacter::CheckJumpInput(float DeltaTime)
 	}
 	else if (bPressedJump)
 	{
-		DoJump(bClientUpdating);
+		UTCharacterMovement->DoJump(bClientUpdating);
 	}
 	else
 	{
@@ -3011,7 +3011,7 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 		RepRootMotion.MovementBase = BasedMovement.MovementBase;
 		RepRootMotion.MovementBaseBoneName = BasedMovement.BoneName;
 		RepRootMotion.AnimMontage = RootMotionMontageInstance->Montage;
-		RepRootMotion.Position = RootMotionMontageInstance->Position;
+		RepRootMotion.Position = RootMotionMontageInstance->GetPosition();
 
 		DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RepRootMotion, true);
 	}

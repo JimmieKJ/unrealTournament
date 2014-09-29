@@ -321,7 +321,7 @@ FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 	SelectedGameClass.GetDefaultObject()->SaveConfig();
 	AUTGameState::StaticClass()->GetDefaultObject()->SaveConfig();
 
-	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMap->GetText(), *SelectedGameClass->GetPathName());
+	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMap->GetText().ToString(), *SelectedGameClass->GetPathName());
 
 	if (Mode == SERVER_Dedicated)
 	{

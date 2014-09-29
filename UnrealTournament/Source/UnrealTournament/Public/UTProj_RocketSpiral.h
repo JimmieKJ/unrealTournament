@@ -27,7 +27,7 @@ class AUTProj_RocketSpiral : public AUTProjectile
 	/** other rockets in the spiral group 
 	 * TODO: historically, this was bad for replication because it took two server ticks to get the whole list across due to serialization ordering and such - need to see if that's still true
 	 */
-	UPROPERTY(BlueprintReadWrite, Replicated, Category = Rocket)
+	UPROPERTY(Replicated)
 	AUTProj_RocketSpiral* Flock[2];
 	/** whether to curl around the other rockets */
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Rocket)

@@ -109,12 +109,6 @@ void AUTJumpPad::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	UpdateNavigationRelevancy();
-
-	if (PropertyChangedEvent.Property && IsNavigationRelevant() && GetWorld() && GetWorld()->GetNavigationSystem())
-	{
-		GetWorld()->GetNavigationSystem()->UpdateNavOctree(this);
-	}
 }
 void AUTJumpPad::CheckForErrors()
 {
@@ -150,34 +144,3 @@ void AUTJumpPad::CheckForErrors()
 	}
 }
 #endif // WITH_EDITOR
-
-
-bool AUTJumpPad::UpdateNavigationRelevancy()
-{
-	PointLink = FNavigationLink(FVector(0.0f), JumpTarget);
-	PointLink.Direction = ENavLinkDirection::LeftToRight;
-	PointLink.AreaClass = AreaClass;
-
-	SetNavigationRelevancy(true);
-	return true;
-}
-
-bool AUTJumpPad::GetNavigationRelevantData(struct FNavigationRelevantData& Data) const
-{
-	TArray<FNavigationLink> TempList; 
-	TempList.Add(PointLink);
-
-	NavigationHelper::ProcessNavLinkAndAppend(&Data.Modifiers, this, TempList);
-	return false;
-}
-
-bool AUTJumpPad::GetNavigationLinksClasses(TArray<TSubclassOf<class UNavLinkDefinition> >& OutClasses) const
-{
-	return false;
-}
-
-bool AUTJumpPad::GetNavigationLinksArray(TArray<FNavigationLink>& OutLink, TArray<FNavigationSegmentLink>& OutSegments) const
-{
-	OutLink.Add(PointLink);
-	return true;
-}

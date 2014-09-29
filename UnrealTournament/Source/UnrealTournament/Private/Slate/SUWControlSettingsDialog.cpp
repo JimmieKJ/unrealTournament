@@ -94,7 +94,7 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 	//Special Console case
 	if (Mapping.Compare(TEXT("Console")) == 0)
 	{
-		*Key = InputSettings->ConsoleKey;
+		*Key = InputSettings->ConsoleKey_DEPRECATED;
 	}
 	return this;
 }
@@ -181,7 +181,7 @@ void FSimpleBind::WriteBind() const
 	//Special Console case
 	if (DisplayName.Compare(TEXT("Console")) == 0)
 	{
-		InputSettings->ConsoleKey = *Key;
+		InputSettings->ConsoleKey_DEPRECATED = *Key;
 	}
 }
 
@@ -611,11 +611,51 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 	{
 		if (Bind->bHeader)
 		{
-			ControlList->AddSlot() = AddHeader(Bind->DisplayName);
+			ControlList->AddSlot()
+			.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(FLinearColor::Black)
+					.Text(Bind->DisplayName)
+				]
+			];
 		}
 		else
 		{
-			ControlList->AddSlot() = AddKeyBind(Bind);
+			ControlList->AddSlot()
+			.Padding(FMargin(10.0f, 2.0f, 10.0f, 2.0f))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Left)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(FLinearColor::Black)
+					.Text(Bind->DisplayName)
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				[
+					SAssignNew(Bind->KeyWidget, SKeyBind)
+					.Key(Bind->Key)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				[
+					SAssignNew(Bind->AltKeyWidget, SKeyBind)
+					.Key(Bind->AltKey)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+				]
+			];
 		}
 	}
 }
