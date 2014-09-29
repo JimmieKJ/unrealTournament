@@ -54,7 +54,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			if (!AutoHitTarget->ActorLineTraceSingle(Hit, SpawnLocation, SpawnLocation + (AutoHitTarget->GetActorLocation() - SpawnLocation) * 2.0f, COLLISION_TRACE_WEAPON, TraceParams))
 			{
-				Hit = FHitResult(AutoHitTarget, AutoHitTarget->GetRootPrimitiveComponent(), AutoHitTarget->GetActorLocation(), -FireDir);
+				Hit = FHitResult(AutoHitTarget, Cast<UPrimitiveComponent>(AutoHitTarget->GetRootComponent()), AutoHitTarget->GetActorLocation(), -FireDir);
 			}
 		}
 		else
