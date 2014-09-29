@@ -208,15 +208,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	virtual void PostNetReceiveLocationAndRotation();
 
-	// @TODO FIXMESTEVE move these properties to FNetworkPredictionData_Client_UTChar(?)  also needed by projectiles
-	/** Estimated value of server contribution to ping, used when calculating how far to simulated ahead */
-	UPROPERTY(EditAnywhere, Category = Network)
-	float ServerPingContribution;
-
-	/** Max amount of ping to predict ahead for */
-	UPROPERTY(EditAnywhere, Category = Network)
-	float MaxPredictionPing;
-
 	/** @TODO FIXMESTEVE USE IT OR LOSE IT! */
 	UPROPERTY(BluePrintReadOnly, Category = Network)
 	FVector ReplicatedAccel;

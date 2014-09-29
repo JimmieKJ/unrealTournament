@@ -26,6 +26,7 @@
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
 #include "UTDroppedPickup.h"
+#include "UTGameEngine.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
@@ -62,12 +63,20 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 
 	bAutoSlide = false;
 	bHoldAccelWithSlideRoll = true;
+
+	ServerPingContribution = 35.f;
+	MaxPredictionPing = 0.f; // 200.f
+}
+
+float AUTPlayerController::GetPredictionTime()
+{
+	// exact ping is in msec, divide by 1000 to get time in seconds
+	return PlayerState ? (0.0005f*FMath::Clamp(PlayerState->ExactPing - ServerPingContribution, 0.f, MaxPredictionPing)) : 0.f;
 }
 
 void AUTPlayerController::NP()
 {
-// @TODO FIXMESTEVE uncomment for server network bandwidth profiling.  
-	// ServerNP();
+	ServerNP();
 }
 
 bool AUTPlayerController::ServerNP_Validate()
@@ -77,7 +86,7 @@ bool AUTPlayerController::ServerNP_Validate()
 
 void AUTPlayerController::ServerNP_Implementation()
 {
-	if (Player)
+	if (Player && UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bAllowClientNetProfile)
 	{
 		Player->Exec(GetWorld(), *FString::Printf(TEXT("NETPROFILE")), *GLog);
 	}

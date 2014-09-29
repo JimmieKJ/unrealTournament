@@ -23,6 +23,10 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY()
 	int32 GameNetworkVersion;
 
+	/* Set true to allow clients to toggle netprofiling using the NP console command. @TODO FIXMESTEVE temp until we have adminlogin/admin server console command executing */
+	UPROPERTY(config)
+	bool bAllowClientNetProfile;
+
 	// Maximum tick rate for a client
 	UPROPERTY()
 	float CurrentMaxTickRate;
@@ -66,7 +70,7 @@ class UUTGameEngine : public UGameEngine
 	/* Frame rate minimum for smoothing to kick in */
 	UPROPERTY(config)
 	float FrameRateMinimum;
-	
+
 	float RunningAverageDeltaTime;
 	float SmoothedFrameRate;
 

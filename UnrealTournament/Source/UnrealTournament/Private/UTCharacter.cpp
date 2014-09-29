@@ -113,8 +113,6 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	PlayerIndicatorMaxDistance = 1200.f;
 	MaxSavedPositionAge = 0.3f;
 
-	ServerPingContribution = 15.f;
-	MaxPredictionPing = 0.f; // 200.f;
 	GoodMoveAckTime = 0.f;
 
 	MaxStackedArmor = 200;
@@ -2944,11 +2942,11 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 			check(CharacterMovement->Velocity == NewVelocity);
 
 			// forward simulate this character to match estimated current position on server, based on my ping
-			APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
-			if (PC && PC->PlayerState && (MaxPredictionPing > 0.f))
+			AUTPlayerController* PC = Cast<AUTPlayerController>(GEngine->GetFirstLocalPlayerController(GetWorld()));
+			float PredictionTime = PC ? PC->GetPredictionTime() : 0.f;
+			if (PredictionTime > 0.f)
 			{
-				// exact ping is in msec, divide by 1000 to get time in seconds
-				CharacterMovement->SimulateMovement(0.0005f*FMath::Clamp(PC->PlayerState->ExactPing - ServerPingContribution, 0.f, MaxPredictionPing));
+				CharacterMovement->SimulateMovement(PredictionTime);
 			}
 		}
 		else if (NewRotation != GetActorRotation())

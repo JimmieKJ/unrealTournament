@@ -293,6 +293,21 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPawn(APawn* PawnToView);
 
+	/** Estimated value of server contribution to ping, used when calculating how far to simulated ahead */
+	UPROPERTY(EditAnywhere, Category = Network)
+		float ServerPingContribution;
+
+	/** Max amount of ping to predict ahead for */
+	UPROPERTY(EditAnywhere, Category = Network)
+		float MaxPredictionPing;
+
+	/** Return amount of time to tick or simulate to make up for network lag */
+	virtual float GetPredictionTime();
+
+	/** List of fake projectiles currently out there for this client */
+	UPROPERTY()
+	TArray<class AUTProjectile*> FakeProjectiles;
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.
