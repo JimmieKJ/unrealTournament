@@ -199,6 +199,7 @@ protected:
 	TArray< TSharedPtr< FServerData > > InternetServers;
 	TArray< TSharedPtr< FServerData > > LanServers;
 
+	UPROPERTY()
 	TArray< AUTServerBeaconClient* > QoSQueries;
 
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );

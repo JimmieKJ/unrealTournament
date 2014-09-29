@@ -10,8 +10,8 @@
 class SUWLoginDialog : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWLoginDialog)
-	: _DialogSize(FVector2D(400,200))
-	, _DialogTitle(NSLOCTEXT("MCPMessages","LogonDialogTitle","Log in to Epic"))
+	: _DialogTitle(NSLOCTEXT("MCPMessages", "LogonDialogTitle", "Log in to Epic"))
+	, _DialogSize(FVector2D(400, 200))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
