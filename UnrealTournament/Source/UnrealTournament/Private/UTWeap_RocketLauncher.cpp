@@ -164,52 +164,49 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		UE_LOG(UT, Warning, TEXT("%s::FireProjectile(): Weapon is not owned (owner died during firing sequence)"), *GetName());
 		return NULL;
 	}
-	else if (Role == ROLE_Authority)
+
+	//For the alternate fire, the number of flashes are replicated by the FireMode. 
+	if (CurrentFireMode == 1)
 	{
-		//For the alternate fire, the number of flashes are replicated by the FireMode. 
-		if (CurrentFireMode == 1)
+		//Only play Muzzle flashes if the Rocket mode permits ie: Grenades no flash
+		if ((Role == ROLE_Authority) && RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash)
 		{
-			//Only play Muzzle flashes if the Rocket mode permits ie: Grenades no flash
-			if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash)
-			{
-				UTOwner->IncrementFlashCount(NumLoadedRockets);
-			}
+			UTOwner->IncrementFlashCount(NumLoadedRockets);
+		}
 			
-			return FireRocketProjectile();
-		}
-		else
-		{
-			checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
-			UTOwner->IncrementFlashCount(CurrentFireMode);
-
-			FVector SpawnLocation = GetFireStartLoc();
-			FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-
-			//Adjust from the center of the gun to the barrel
-			{
-				FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
-				FHitResult Hit;
-				if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
-				{
-					SpawnLocation = Hit.Location - (AdjustedSpawnLoc - SpawnLocation).SafeNormal();
-				}
-				else
-				{
-					SpawnLocation = AdjustedSpawnLoc;
-				}
-			}
-
-			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(GetRocketProjectile(), SpawnLocation, SpawnRotation);
-			if (Cast<AUTProj_RocketSeeking>(SpawnedProjectile) != NULL)
-			{
-				Cast<AUTProj_RocketSeeking>(SpawnedProjectile)->TargetActor = LockedTarget;
-			}
-			return SpawnedProjectile;
-		}
+		return FireRocketProjectile();
 	}
 	else
 	{
-		return NULL;
+		checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
+		if (Role == ROLE_Authority)
+		{
+			UTOwner->IncrementFlashCount(CurrentFireMode);
+		}
+
+		FVector SpawnLocation = GetFireStartLoc();
+		FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+
+		//Adjust from the center of the gun to the barrel
+		{
+			FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
+			FHitResult Hit;
+			if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
+			{
+				SpawnLocation = Hit.Location - (AdjustedSpawnLoc - SpawnLocation).SafeNormal();
+			}
+			else
+			{
+				SpawnLocation = AdjustedSpawnLoc;
+			}
+		}
+
+		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(GetRocketProjectile(), SpawnLocation, SpawnRotation);
+		if (Cast<AUTProj_RocketSeeking>(SpawnedProjectile) != NULL)
+		{
+			Cast<AUTProj_RocketSeeking>(SpawnedProjectile)->TargetActor = LockedTarget;
+		}
+		return SpawnedProjectile;
 	}
 }
 

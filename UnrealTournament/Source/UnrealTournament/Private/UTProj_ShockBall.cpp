@@ -13,6 +13,39 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FPostConstructInitializePropert
 	bIsEnergyProjectile = true;
 }
 
+void AUTProj_ShockBall::BeginPlay()
+{
+	if (Role < ROLE_Authority)
+	{
+		TArray<USphereComponent*> Components;
+		GetComponents<USphereComponent>(Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			
+			if (Components[i] != CollisionComp)
+			{
+				Components[i]->SetCollisionResponseToAllChannels(ECR_Ignore);
+			}
+		}
+	}
+	Super::BeginPlay();
+}
+
+void AUTProj_ShockBall::InitFakeProjectile()
+{
+	Super::InitFakeProjectile();
+	TArray<USphereComponent*> Components;
+	GetComponents<USphereComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		if (Components[i] != CollisionComp)
+		{
+			Components[i]->SetCollisionResponseToAllChannels(ECR_Ignore);
+		}
+	}
+}
+
+
 void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
 {
 	if (Role == ROLE_Authority && ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))

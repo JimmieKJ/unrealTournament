@@ -84,12 +84,24 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	 */
 	bool bForceNextRepMovement;
 
+	/** Fake client side projectile (spawned on owning client). */
+	UPROPERTY()
+	bool bFakeClientProjectile;
+
+	/** Fake projectile on this client providing visuals for me */
+	UPROPERTY()
+	AUTProjectile* MyFakeProjectile;
+
+	/** Perform any custom initialization for this projectile as fake client side projectile */
+	virtual void InitFakeProjectile();
+
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
 
-	virtual void BeginPlay();
-	virtual void TornOff();
-	
+	virtual void BeginPlay() override;
+	virtual void TornOff() override;
+	virtual void Destroyed() override;
+
 	/** simulate LifeSpan on the client side
 	 * this is harmless because the Destroy() call won't work if the projectile isn't torn off
 	 * and makes simulating lifetime related projectile effects easier on clients

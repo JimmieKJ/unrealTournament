@@ -67,6 +67,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 
 	bAlwaysShootable = false;
 	bIsEnergyProjectile = false;
+	bFakeClientProjectile = false;
 }
 
 void AUTProjectile::BeginPlay()
@@ -97,6 +98,77 @@ void AUTProjectile::BeginPlay()
 		{
 			InitialReplicationTick.Target = this;
 			InitialReplicationTick.RegisterTickFunction(GetLevel());
+		}
+	}
+	else
+	{
+		AUTPlayerController* MyPlayer = Cast<AUTPlayerController>(InstigatorController ? InstigatorController : GEngine->GetFirstLocalPlayerController(GetWorld()));
+		if (MyPlayer)
+		{
+			// Move projectile to match where it is on server now (to make up for replication time)
+			float CatchupTickDelta = MyPlayer->GetPredictionTime();
+			if ((CatchupTickDelta > 0.f) && ProjectileMovement)
+			{
+				ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
+			}
+
+			// look for associated fake client projectile
+			AUTProjectile* BestMatch = NULL;
+			FVector VelDir = GetVelocity().SafeNormal();
+			for (int32 i = 0; i < MyPlayer->FakeProjectiles.Num(); i++)
+			{
+				AUTProjectile* Fake = MyPlayer->FakeProjectiles[i];
+				if (!Fake || Fake->IsPendingKillPending())
+				{
+					MyPlayer->FakeProjectiles.RemoveAt(i, 1);
+					i--;
+				}
+				else if (Fake->GetClass() == GetClass())
+				{
+					if (BestMatch)
+					{
+						// see if new one is better
+						// must share direction unless falling! 
+						if ((BestMatch->ProjectileMovement->ProjectileGravityScale > 0.f) || ((Fake->GetVelocity().SafeNormal() | VelDir) > 0.95f))
+						{
+							if ((BestMatch->GetActorLocation() - GetActorLocation()).Size() > (Fake->GetActorLocation() - GetActorLocation()).Size())
+							{
+								BestMatch = Fake;
+							}
+						}
+					}
+					else
+					{
+						BestMatch = Fake;
+					}
+				}
+			}
+			if (BestMatch)
+			{
+				// @TODO FIXMESTEVE - teleport to bestmatch location and interpolate?
+				// @TODO FIXMESTEVE - rep to server to reduce error by changing Server ping overhead value
+
+				float Error = (GetActorLocation() - BestMatch->GetActorLocation()).Size();
+				UE_LOG(UT, Warning, TEXT("%s CORRECTION %f in msec %f"), *GetName(), Error, 1000.f * Error/GetVelocity().Size());
+
+				BestMatch->ReplicatedMovement.Location = GetActorLocation();
+				BestMatch->ReplicatedMovement.Rotation = GetActorRotation();
+				BestMatch->PostNetReceiveLocationAndRotation();
+				MyFakeProjectile = BestMatch;
+
+				// @TODO FIXMESTEVE Can I move components instead of having two actors?
+				// @TODO FIXMESTEVE if not, should interp fake projectile to my location instead of teleporting?
+				TArray<USceneComponent*> Components;
+				GetComponents<USceneComponent>(Components);
+				for (int32 i = 0; i < Components.Num(); i++)
+				{
+					Components[i]->SetHiddenInGame(true);
+					Components[i]->SetVisibility(false);
+				}
+
+				//BestMatch->Destroy();
+				// @TODO FIXMESTEVE If bNetTemporary, destroy me right away (after fully replicated - need to copy over those properties), let fake become real
+			}
 		}
 	}
 }
@@ -191,18 +263,40 @@ void AUTProjectile::PostNetReceiveLocationAndRotation()
 		TeleportTo(ReplicatedMovement.Location, ReplicatedMovement.Rotation, false, true); // note the 'true' for bNoCheck
 	}
 
-
-	// tick particle systems for e.g. SpawnPerUnit trails
-	if (!bTearOff && !bExploded) // if torn off ShutDown() will do this
+	// forward predict to get to position on server now
+	if (!bFakeClientProjectile)
 	{
-		TArray<USceneComponent*> Components;
-		GetComponents<USceneComponent>(Components);
-		for (int32 i = 0; i < Components.Num(); i++)
+		AUTPlayerController* MyPlayer = Cast<AUTPlayerController>(InstigatorController ? InstigatorController : GEngine->GetFirstLocalPlayerController(GetWorld()));
+		if (MyPlayer)
 		{
-			UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
-			if (PSC != NULL)
+			float CatchupTickDelta = MyPlayer->GetPredictionTime();
+			if ((CatchupTickDelta > 0.f) && ProjectileMovement)
 			{
-				PSC->TickComponent(0.0f, LEVELTICK_All, NULL);
+				ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
+			}
+		}
+	}
+
+	if (MyFakeProjectile)
+	{
+		MyFakeProjectile->ReplicatedMovement.Location = GetActorLocation();
+		MyFakeProjectile->ReplicatedMovement.Rotation = GetActorRotation();
+		MyFakeProjectile->PostNetReceiveLocationAndRotation();
+	}
+	else
+	{
+		// tick particle systems for e.g. SpawnPerUnit trails
+		if (!bTearOff && !bExploded) // if torn off ShutDown() will do this
+		{
+			TArray<USceneComponent*> Components;
+			GetComponents<USceneComponent>(Components);
+			for (int32 i = 0; i < Components.Num(); i++)
+			{
+				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
+				if (PSC != NULL)
+				{
+					PSC->TickComponent(0.0f, LEVELTICK_All, NULL);
+				}
 			}
 		}
 	}
@@ -211,6 +305,10 @@ void AUTProjectile::PostNetReceiveLocationAndRotation()
 void AUTProjectile::PostNetReceiveVelocity(const FVector& NewVelocity)
 {
 	ProjectileMovement->Velocity = NewVelocity;
+	if (MyFakeProjectile)
+	{
+		MyFakeProjectile->ProjectileMovement->Velocity = NewVelocity;
+	}
 }
 
 void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -254,7 +352,12 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 
 bool AUTProjectile::InteractsWithProj(AUTProjectile* OtherProj)
 {
-	return bAlwaysShootable || OtherProj->bAlwaysShootable || (bIsEnergyProjectile && OtherProj->bIsEnergyProjectile);
+	return (bAlwaysShootable || OtherProj->bAlwaysShootable || (bIsEnergyProjectile && OtherProj->bIsEnergyProjectile)) && (!bFakeClientProjectile && !OtherProj->bFakeClientProjectile);
+}
+
+void AUTProjectile::InitFakeProjectile()
+{
+	bFakeClientProjectile = true;
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
@@ -262,12 +365,17 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 	UE_LOG(LogUTProjectile, Verbose, TEXT("%s::ProcessHit OtherActor:%s"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
 
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
-	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds)
+	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds)
 		// don't blow up on non-blocking volumes
 		// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
 		&& ((Cast<AUTTeleporter>(OtherActor) == NULL && Cast<AVolume>(OtherActor) == NULL) || GetVelocity().IsZero())
 		&& (Cast<AUTProjectile>(OtherActor) == NULL || InteractsWithProj(Cast<AUTProjectile>(OtherActor))) )
 	{
+		if (bFakeClientProjectile)
+		{
+			ShutDown();
+			return;
+		}
 		if (OtherActor != NULL)
 		{
 			DamageImpactedActor(OtherActor, OtherComp, HitLocation, HitNormal);
@@ -304,6 +412,10 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 
 void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	if (bFakeClientProjectile)
+	{
+		return;
+	}
 	AController* ResolvedInstigator = InstigatorController;
 	TSubclassOf<UDamageType> ResolvedDamageType = MyDamageType;
 	if (FFInstigatorController != NULL && InstigatorController != NULL)
@@ -351,42 +463,58 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 	if (!bExploded)
 	{
 		bExploded = true;
-		float AdjustedMomentum = Momentum;
-		FRadialDamageParams AdjustedDamageParams = GetDamageParams(NULL, HitLocation, AdjustedMomentum);
-		if (AdjustedDamageParams.OuterRadius > 0.0f)
+		if (!bFakeClientProjectile)
 		{
-			TArray<AActor*> IgnoreActors;
-			if (ImpactedActor != NULL)
+			float AdjustedMomentum = Momentum;
+			FRadialDamageParams AdjustedDamageParams = GetDamageParams(NULL, HitLocation, AdjustedMomentum);
+			if (AdjustedDamageParams.OuterRadius > 0.0f)
 			{
-				IgnoreActors.Add(ImpactedActor);
+				TArray<AActor*> IgnoreActors;
+				if (ImpactedActor != NULL)
+				{
+					IgnoreActors.Add(ImpactedActor);
+				}
+				UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
+					MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType);
 			}
-			UUTGameplayStatics::UTHurtRadius( this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
-												MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType );
-		}
-		if (Role == ROLE_Authority)
-		{
-			bTearOff = true;
-			bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
-		}
-		if (ExplosionEffects != NULL)
-		{
-			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
-		}
-		// TODO: remove when no longer used
-		else
-		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-			if (GetNetMode() != NM_DedicatedServer)
+			if (Role == ROLE_Authority)
 			{
-				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
+				bTearOff = true;
+				bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
+			}
+			if (ExplosionEffects != NULL)
+			{
+				ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
+			}
+			// TODO: remove when no longer used
+			else
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
+				if (GetNetMode() != NM_DedicatedServer)
+				{
+					UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
+				}
 			}
 		}
 		ShutDown();
 	}
 }
 
+void AUTProjectile::Destroyed()
+{
+	if (MyFakeProjectile)
+	{
+		MyFakeProjectile->Destroy();
+	}
+	Super::Destroyed();
+}
+
 void AUTProjectile::ShutDown()
 {
+	if (MyFakeProjectile)
+	{
+		MyFakeProjectile->ShutDown();
+	}
 	if (!bPendingKillPending)
 	{
 		SetActorEnableCollision(false);

@@ -79,6 +79,11 @@ void AUTProj_BioShot::GrowCollision()
 
 void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 {
+	if (bFakeClientProjectile)
+	{
+		ShutDown();
+		return;
+	}
 	if (!bLanded)
 	{
 		bLanded = true;
@@ -139,6 +144,11 @@ void AUTProj_BioShot::OnLanded_Implementation()
 
 void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	if (bFakeClientProjectile)
+	{
+		ShutDown();
+		return;
+	}
 	if (Cast<AUTProj_BioGlob>(OtherActor) == NULL) // bio glob's ProcessHit() will absorb us
 	{
 		if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)

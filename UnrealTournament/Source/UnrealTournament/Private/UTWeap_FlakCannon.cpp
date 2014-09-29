@@ -86,7 +86,7 @@ FRotator AUTWeap_FlakCannon::GetFireRotationForMultiShot_Implementation(int32 Mu
 
 AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 {
-	if (GetUTOwner() == NULL || Role < ROLE_Authority || !MultiShotCount.IsValidIndex(CurrentFireMode) || MultiShotCount[CurrentFireMode] <= 1)
+	if (GetUTOwner() == NULL || !MultiShotCount.IsValidIndex(CurrentFireMode) || MultiShotCount[CurrentFireMode] <= 1)
 	{
 		return Super::FireProjectile();
 	}

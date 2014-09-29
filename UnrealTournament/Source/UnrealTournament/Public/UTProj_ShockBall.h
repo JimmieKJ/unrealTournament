@@ -10,15 +10,22 @@ class AUTProj_ShockBall : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void BeginPlay() override;
+	virtual void InitFakeProjectile() override;
+
 	/** combo parameters */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)
 	FRadialDamageParams ComboDamageParams;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)
 	float ComboMomentum;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)
 	TSubclassOf<UUTDamageType> ComboDamageType;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)
 	TSubclassOf<UUTDamageType> ComboTriggerType;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)
 	int32 ComboAmmoCost;
 

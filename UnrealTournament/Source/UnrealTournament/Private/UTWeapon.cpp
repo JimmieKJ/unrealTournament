@@ -837,29 +837,51 @@ AUTProjectile* AUTWeapon::FireProjectile()
 		UE_LOG(LogUTWeapon, Warning, TEXT("%s::FireProjectile(): Weapon is not owned (owner died during firing sequence)"), *GetName());
 		return NULL;
 	}
-	else if (Role == ROLE_Authority)
+
+	checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
+	if (Role == ROLE_Authority)
 	{
-		checkSlow(ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL);
 		UTOwner->IncrementFlashCount(CurrentFireMode);
-		const FVector SpawnLocation = GetFireStartLoc();
-		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-		return SpawnNetPredictedProjectile(ProjClass[CurrentFireMode], SpawnLocation, SpawnRotation);
 	}
-	else
-	{
-		return NULL;
-	}
+	// spawn the projectile at the muzzle
+	const FVector SpawnLocation = GetFireStartLoc();
+	const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+	return SpawnNetPredictedProjectile(ProjClass[CurrentFireMode], SpawnLocation, SpawnRotation);
 }
 
 AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile> ProjectileClass, FVector SpawnLocation, FRotator SpawnRotation)
 {
 	//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
+	AUTPlayerController* OwningPlayer = Cast<AUTPlayerController>(UTOwner->GetController());
+	float CatchupTickDelta = 
+		(UTOwner && (GetNetMode() != NM_Standalone) && OwningPlayer)
+		? OwningPlayer->GetPredictionTime()
+		: 0.f;
 
-	// spawn the projectile at the muzzle
 	FActorSpawnParameters Params;
 	Params.Instigator = UTOwner;
 	Params.Owner = UTOwner;
-	return GetWorld()->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, Params);
+	AUTProjectile* NewProjectile = 
+		((Role == ROLE_Authority) || (CatchupTickDelta > 0.f))
+		? GetWorld()->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, Params)
+		: NULL;
+	if (NewProjectile)
+	{
+		if (Role == ROLE_Authority)
+		{
+			if ((CatchupTickDelta > 0.f) && NewProjectile->ProjectileMovement)
+			{
+				// server ticks projectile to match with when client actually fired
+				NewProjectile->ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
+			}
+		}
+		else
+		{
+			NewProjectile->InitFakeProjectile();
+			OwningPlayer->FakeProjectiles.Add(NewProjectile);
+		}
+	}
+	return NewProjectile;
 }
 
 float AUTWeapon::GetRefireTime(uint8 FireModeNum)
