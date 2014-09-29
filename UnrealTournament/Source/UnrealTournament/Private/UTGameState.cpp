@@ -30,6 +30,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);
 	DOREPLIFETIME(AUTGameState, TimeLimit);
 	DOREPLIFETIME(AUTGameState, bTeamGame);
+	DOREPLIFETIME(AUTGameState, bOnlyTheStrongSurvive);
 	
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);

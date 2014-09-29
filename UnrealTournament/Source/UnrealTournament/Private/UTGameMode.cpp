@@ -1365,7 +1365,7 @@ void AUTGameMode::Logout(AController* Exiting)
 bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 {
 	// Can't restart in overtime
-	if (UTGameState->IsMatchInOvertime())
+	if (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime())
 	{
 		return false;
 	}

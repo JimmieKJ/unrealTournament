@@ -57,6 +57,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated)
 	uint32 RemainingMinute;
 
+	UPROPERTY(Replicated)
+	uint32 bOnlyTheStrongSurvive:1;
+
 	/** How much time is remaining in this match. */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 RemainingTime;

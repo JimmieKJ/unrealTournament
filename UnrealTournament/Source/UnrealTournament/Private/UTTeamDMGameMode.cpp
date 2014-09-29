@@ -14,6 +14,13 @@ AUTTeamDMGameMode::AUTTeamDMGameMode(const FPostConstructInitializeProperties& P
 	FriendlyGameName = TEXT("TDM");
 }
 
+void AUTTeamDMGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+	bOnlyTheStrongSurvive = false;
+}
+
+
 void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
 {
 	AUTPlayerState* KillerState = (Killer != NULL) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
@@ -53,4 +60,47 @@ void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubc
 	}
 
 	Super::ScoreKill(Killer, Other, DamageType);
+}
+
+AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner(uint32& bTied)
+{
+	AUTTeamInfo* BestTeam = NULL;
+	bTied = false;
+	for (int32 i=0; i < UTGameState->Teams.Num(); i++)
+	{
+		if (UTGameState->Teams[i] != NULL)
+		{
+			if (BestTeam == NULL || UTGameState->Teams[i]->Score > BestTeam->Score)
+			{
+				BestTeam = UTGameState->Teams[i];
+				bTied = false;
+			}
+			else if (UTGameState->Teams[i]->Score == BestTeam->Score)
+			{
+				bTied = true;
+			}
+		}
+	}
+
+	AUTPlayerState* BestPlayer = NULL;
+	if (!bTied)
+	{
+		float BestScore = 0.0;
+
+		for (int PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+			if (PS != NULL && PS->Team == BestTeam)
+			{
+				if (BestPlayer == NULL || PS->Score > BestScore)
+				{
+					BestPlayer = PS;
+					BestScore = BestPlayer->Score;
+				}
+			}
+		}
+	}
+
+	return BestPlayer;
+
 }

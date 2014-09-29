@@ -71,7 +71,22 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			}
 			else
 			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","Overtime","You didn't make the Cut!");
+				if (UTGameState->bOnlyTheStrongSurvive)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","Overtime","You didn't make the Cut!");
+				}
+				else if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
+				{
+					FFormatNamedArguments Args;
+					uint32 WaitTime = uint32(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime) + 1;
+					Args.Add("RespawnTime", FText::AsNumber(WaitTime));
+					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
+				}
+				else
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnMessage","Press [FIRE] to respawn...");
+				}
+
 			}
 
 		}
