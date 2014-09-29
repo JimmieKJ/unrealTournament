@@ -304,6 +304,9 @@ public:
 	/** Return amount of time to tick or simulate to make up for network lag */
 	virtual float GetPredictionTime();
 
+	/** How long fake projectile should sleep before starting to simulate (because client ping is greater than MaxPredictionPing). */
+	virtual float GetProjectileSleepTime();
+
 	/** List of fake projectiles currently out there for this client */
 	UPROPERTY()
 	TArray<class AUTProjectile*> FakeProjectiles;

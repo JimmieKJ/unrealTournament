@@ -74,6 +74,11 @@ float AUTPlayerController::GetPredictionTime()
 	return PlayerState ? (0.0005f*FMath::Clamp(PlayerState->ExactPing - ServerPingContribution, 0.f, MaxPredictionPing)) : 0.f;
 }
 
+float AUTPlayerController::GetProjectileSleepTime()
+{
+	return 0.001f * FMath::Max(0.f, PlayerState->ExactPing - ServerPingContribution - MaxPredictionPing);
+}
+
 void AUTPlayerController::NP()
 {
 	ServerNP();

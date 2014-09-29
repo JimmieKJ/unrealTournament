@@ -852,12 +852,28 @@ AUTProjectile* AUTWeapon::FireProjectile()
 AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile> ProjectileClass, FVector SpawnLocation, FRotator SpawnRotation)
 {
 	//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
-	AUTPlayerController* OwningPlayer = Cast<AUTPlayerController>(UTOwner->GetController());
+	AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
 	float CatchupTickDelta = 
-		(UTOwner && (GetNetMode() != NM_Standalone) && OwningPlayer)
+		((GetNetMode() != NM_Standalone) && OwningPlayer)
 		? OwningPlayer->GetPredictionTime()
 		: 0.f;
 
+	if ((CatchupTickDelta > 0.f) && (Role != ROLE_Authority))
+	{
+		// lag is so high need to delay spawn
+		float SleepTime = OwningPlayer->GetProjectileSleepTime();
+		if (SleepTime > 0.f)
+		{
+			if (!GetWorldTimerManager().IsTimerActive(this, &AUTWeapon::SpawnDelayedFakeProjectile))
+			{
+				DelayedProjectile.ProjectileClass = ProjectileClass;
+				DelayedProjectile.SpawnLocation = SpawnLocation;
+				DelayedProjectile.SpawnRotation = SpawnRotation;
+				GetWorldTimerManager().SetTimer(this, &AUTWeapon::SpawnDelayedFakeProjectile, SleepTime, false);
+			}
+			return NULL;
+		}
+	}
 	FActorSpawnParameters Params;
 	Params.Instigator = UTOwner;
 	Params.Owner = UTOwner;
@@ -877,11 +893,23 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		}
 		else
 		{
-			NewProjectile->InitFakeProjectile();
-			OwningPlayer->FakeProjectiles.Add(NewProjectile);
+			NewProjectile->InitFakeProjectile(OwningPlayer);
 		}
 	}
 	return NewProjectile;
+}
+
+void AUTWeapon::SpawnDelayedFakeProjectile()
+{
+	FActorSpawnParameters Params;
+	Params.Instigator = UTOwner;
+	Params.Owner = UTOwner;
+	AUTProjectile* NewProjectile = GetWorld()->SpawnActor<AUTProjectile>(DelayedProjectile.ProjectileClass, DelayedProjectile.SpawnLocation, DelayedProjectile.SpawnRotation, Params);
+	if (NewProjectile)
+	{
+		AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
+		NewProjectile->InitFakeProjectile(OwningPlayer);
+	}
 }
 
 float AUTWeapon::GetRefireTime(uint8 FireModeNum)

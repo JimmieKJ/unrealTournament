@@ -31,9 +31,9 @@ void AUTProj_ShockBall::BeginPlay()
 	Super::BeginPlay();
 }
 
-void AUTProj_ShockBall::InitFakeProjectile()
+void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 {
-	Super::InitFakeProjectile();
+	Super::InitFakeProjectile(OwningPlayer);
 	TArray<USphereComponent*> Components;
 	GetComponents<USphereComponent>(Components);
 	for (int32 i = 0; i < Components.Num(); i++)

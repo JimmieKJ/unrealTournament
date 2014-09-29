@@ -355,9 +355,10 @@ bool AUTProjectile::InteractsWithProj(AUTProjectile* OtherProj)
 	return (bAlwaysShootable || OtherProj->bAlwaysShootable || (bIsEnergyProjectile && OtherProj->bIsEnergyProjectile)) && (!bFakeClientProjectile && !OtherProj->bFakeClientProjectile);
 }
 
-void AUTProjectile::InitFakeProjectile()
+void AUTProjectile::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 {
 	bFakeClientProjectile = true;
+	OwningPlayer->FakeProjectiles.Add(this);
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)

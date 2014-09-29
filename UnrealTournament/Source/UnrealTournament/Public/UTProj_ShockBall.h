@@ -11,7 +11,7 @@ class AUTProj_ShockBall : public AUTProjectile
 	GENERATED_UCLASS_BODY()
 
 	virtual void BeginPlay() override;
-	virtual void InitFakeProjectile() override;
+	virtual void InitFakeProjectile(AUTPlayerController* OwningPlayer) override;
 
 	/** combo parameters */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)

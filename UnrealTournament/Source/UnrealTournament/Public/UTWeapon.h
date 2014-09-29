@@ -27,6 +27,25 @@ struct FInstantHitDamageInfo
 	{}
 };
 
+USTRUCT()
+struct FDelayedProjectileInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	TSubclassOf<AUTProjectile> ProjectileClass;
+
+	UPROPERTY()
+		FVector SpawnLocation;
+
+	UPROPERTY()
+		FRotator SpawnRotation;
+
+	FDelayedProjectileInfo()
+		: ProjectileClass(NULL), SpawnLocation(ForceInit), SpawnRotation(ForceInit)
+	{}
+};
+
 UCLASS(Blueprintable, Abstract, NotPlaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 {
@@ -142,6 +161,13 @@ public:
 	/** Firing offset from weapon for weapons fire. If bFPFireFromCenter is true and it's a player in first person mode, this is from the camera center */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	FVector FireOffset;
+
+	/** Delayed projectile information */
+	UPROPERTY()
+	FDelayedProjectileInfo DelayedProjectile;
+
+	/** Spawn a delayed projectile, delayed because client ping above max forward prediction limit. */
+	virtual void SpawnDelayedFakeProjectile();
 
 	/** time to bring up the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")

@@ -93,7 +93,7 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	AUTProjectile* MyFakeProjectile;
 
 	/** Perform any custom initialization for this projectile as fake client side projectile */
-	virtual void InitFakeProjectile();
+	virtual void InitFakeProjectile(class AUTPlayerController* OwningPlayer);
 
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
