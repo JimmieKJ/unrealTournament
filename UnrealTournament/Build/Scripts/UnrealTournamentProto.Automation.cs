@@ -75,26 +75,25 @@ public class UnrealTournamentBuild
 		UnrealTournamentDev,
 	}
 
-
 	// Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
     public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, MCPPlatform InPlatform, UnrealTournamentAppName AppName)
 	{
 		// Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
-		return new BuildPatchToolStagingInfo(InOwnerCommand, AppName.ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament", "");
+		return new BuildPatchToolStagingInfo(InOwnerCommand, AppName.ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
 	}
 
 	// Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
 	public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, MCPPlatform InPlatform, string BranchName)
 	{
 		// Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
-		return new BuildPatchToolStagingInfo(InOwnerCommand, BranchNameToAppName(BranchName).ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament", "");
+		return new BuildPatchToolStagingInfo(InOwnerCommand, BranchNameToAppName(BranchName).ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
 	}
 
 	// Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
 	public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, UnrealTargetPlatform InPlatform, string BranchName)
 	{
 		// Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
-		return new BuildPatchToolStagingInfo(InOwnerCommand, BranchNameToAppName(BranchName).ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament", "");
+		return new BuildPatchToolStagingInfo(InOwnerCommand, BranchNameToAppName(BranchName).ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
 	}
 
 	// Get a basic StagingInfo based on buildversion of command currently running
