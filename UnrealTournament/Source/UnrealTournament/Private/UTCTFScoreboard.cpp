@@ -56,7 +56,7 @@ void UUTCTFScoreboard::DrawPlayers(float RenderDelta, float X, float Y, float Cl
 
 				DrawY += 26 * TextScale;
 
-				FString Stats = FString::Printf(TEXT("c: %i  r: %i  a: %i  k: %i  d: %i"), PS->FlagCaptures, PS->FlagReturns, PS->Assists, PS->Kills, PS->Deaths);
+				FString Stats = FString::Printf(TEXT("c: %i  r: %i  a: %i  k: %i  d: %i ping: %i"), PS->FlagCaptures, PS->FlagReturns, PS->Assists, PS->Kills, PS->Deaths, int32(PS->Ping * 4));
 				UTHUDOwner->DrawString(FText::FromString(Stats), NameX, DrawY, ETextHorzPos::Left, ETextVertPos::Top, UTHUDOwner->MediumFont, DrawColor,TextScale * 0.5,true);
 				DrawY += 22 * TextScale;
 			}
