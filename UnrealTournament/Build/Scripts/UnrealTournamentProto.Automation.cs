@@ -170,6 +170,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             ServerTargetPlatforms: GetServerTargetPlatforms(Cmd),
             Build: !Cmd.ParseParam("skipbuild"),
             Cook: true,
+            CulturesToCook: new ParamList<string>("en"),
             SkipCook: Cmd.ParseParam("skipcook"),
             Clean: !Cmd.ParseParam("NoClean") && !Cmd.ParseParam("skipcook") && !Cmd.ParseParam("skippak") && !Cmd.ParseParam("skipstage") && !Cmd.ParseParam("skipbuild"),
             DedicatedServer: true,
