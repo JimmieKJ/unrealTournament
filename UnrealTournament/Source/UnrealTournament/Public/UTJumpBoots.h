@@ -36,4 +36,6 @@ class AUTJumpBoots : public AUTInventory
 	virtual void ClientRemoved_Implementation() override;
 	virtual void OwnerEvent_Implementation(FName EventName) override;
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
+
+	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 };

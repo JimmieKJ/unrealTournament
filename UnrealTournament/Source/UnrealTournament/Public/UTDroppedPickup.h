@@ -34,6 +34,7 @@ public:
 	TSubobjectPtr<UUTProjectileMovementComponent> Movement;
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override
 	{
 		Movement->Velocity = NewVelocity;
@@ -64,4 +65,11 @@ public:
 	/** defer Instigator picking the item back up */
 	UFUNCTION()
 	void EnableInstigatorTouch();
+
+	/** returns how much the given Pawn (generally AI controlled) wants this item, where anything >= 1.0 is considered very important
+	* note that it isn't necessary for this function to modify the weighting based on the path distance as that is handled internally;
+	* the distance is supplied so that the code can make timing decisions and cost/benefit analysis
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
+	float BotDesireability(APawn* Asker, float PathDistance);
 };

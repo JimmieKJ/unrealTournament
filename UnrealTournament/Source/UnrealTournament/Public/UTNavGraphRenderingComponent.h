@@ -1,0 +1,86 @@
+// renders the pathnode layer on top of the navmesh (intended for editor use)
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "PrimitiveSceneProxy.h"
+#include "DebugRenderSceneProxy.h"
+#include "UTRecastNavMesh.h"
+
+#include "UTNavGraphRenderingComponent.generated.h"
+
+UCLASS(MinimalAPI)
+class UUTNavGraphRenderingComponent : public UPrimitiveComponent
+{
+	GENERATED_UCLASS_BODY()
+
+	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
+
+	virtual FBoxSphereBounds CalcBounds(const FTransform &LocalToWorld) const override;
+};
+
+struct UNREALTOURNAMENT_API FUTPathLinkRenderProxy
+{
+	/** endpoint */
+	FVector EndLocation;
+	int32 CollisionRadius;
+	int32 CollisionHeight;
+	FLinearColor PathColor;
+	/** optional ReachSpec that can render the path differently
+	 * TODO: is this safe?
+	 */
+	TWeakObjectPtr<UUTReachSpec> Spec;
+
+	FUTPathLinkRenderProxy(const FUTPathLink& RealLink, const AUTRecastNavMesh* NavData);
+};
+struct UNREALTOURNAMENT_API FUTPathNodeRenderProxy
+{
+	/** center of encompassed polys */
+	FVector Location;
+	/** center of each polygon that makes up the node's area */
+	TArray<FVector> PolyCenters;
+	/** location of POIs */
+	TArray<FVector> POILocations;
+	/** links to other paths */
+	TArray<FUTPathLinkRenderProxy> Paths;
+	/** drawing color for poly centers */
+	FLinearColor PolyColor;
+
+	FUTPathNodeRenderProxy(const UUTPathNode* RealNode, const AUTRecastNavMesh* NavData);
+};
+
+class UNREALTOURNAMENT_API FNavGraphSceneProxy : public FDebugRenderSceneProxy
+{
+public:
+	FNavGraphSceneProxy(UUTNavGraphRenderingComponent* InComponent);
+
+	virtual void DrawDynamicElements(FPrimitiveDrawInterface* PDI, const FSceneView* View) override;
+
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	{
+		const bool bVisible = View->Family->EngineShowFlags.Navigation != 0;
+		FPrimitiveViewRelevance Result;
+		Result.bDrawRelevance = bVisible && IsShown(View);
+		Result.bDynamicRelevance = true;
+		Result.bNormalTranslucencyRelevance = bVisible && IsShown(View);
+		return Result;
+	}
+
+	virtual uint32 GetMemoryFootprint() const
+	{
+		uint32 Size = sizeof(*this);
+		Size += sizeof(FUTPathNodeRenderProxy) * PathNodes.Num();
+		for (const FUTPathNodeRenderProxy& Node : PathNodes)
+		{
+			Size += sizeof(FVector) * Node.PolyCenters.Num();
+			Size += sizeof(FVector) * Node.POILocations.Num();
+			Size += sizeof(FUTPathLinkRenderProxy) * Node.Paths.Num();
+		}
+		return Size;
+	}
+protected:
+	/** mirror of nodes from owner */
+	TArray<FUTPathNodeRenderProxy> PathNodes;
+	/** whether to draw individual polygon information */
+	bool bDrawPolyEdges;
+};

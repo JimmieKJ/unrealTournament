@@ -19,6 +19,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FPostConstructInitializeProperties& PCI
 	BringUpTime = 0.3f;
 	PutDownTime = 0.2f;
 	StoppingPower = 30000.f;
+	BaseAISelectRating = 0.4f;
 }
 
 float AUTWeap_Enforcer::GetImpartedMomentumMag(AActor* HitActor)

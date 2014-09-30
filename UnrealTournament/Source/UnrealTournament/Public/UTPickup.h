@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTResetInterface.h"
+#include "UTPathBuilderInterface.h"
 #include "UTPlayerState.h"
 #include "UTPickup.generated.h"
 
@@ -32,7 +33,7 @@ struct FPickupReplicatedState
 };
 
 UCLASS(abstract, Blueprintable, meta = (ChildCanTick))
-class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface
+class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -85,6 +86,7 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void PreNetReceive();
@@ -120,6 +122,18 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface
 	
 	// Handle creating the MID and hiding timer sprite by default
 	void SetupTimerSprite();
+
+	/** base desireability for AI acquisition/inventory searches (i.e. BotDesireability()) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	float BaseDesireability;
+
+	/** returns how much the given Pawn (generally AI controlled) wants this item, where anything >= 1.0 is considered very important
+	 * called only when either the pickup is active now, or if timing is enabled and the pickup will become active by the time Asker can cross the distance
+	 * note that it isn't necessary for this function to modify the weighting based on the path distance as that is handled internally;
+	 * the distance is supplied so that the code can make timing decisions and cost/benefit analysis
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
+	float BotDesireability(APawn* Asker, float PathDistance);
 
 protected:
 	/** used to replicate remaining respawn time to newly joining clients */

@@ -21,4 +21,6 @@ class AUTPickupHealth : public AUTPickup
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
+
+	virtual float BotDesireability_Implementation(APawn* Asker, float PathDistance) override;
 };

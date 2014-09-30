@@ -513,7 +513,17 @@ public:
 	/** Begin unequipping this weapon */
 	virtual void UnEquip();
 
-	//*********
+	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
+	/** base weapon selection rating for AI
+	 * this is often used to determine if the AI has a good enough weapon to not pursue further pickups,
+	 * since GetAIRating() will fluctuate wildly depending on the combat scenario
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	float BaseAISelectRating;
+	/** AI switches to the weapon that returns the highest rating */
+	UFUNCTION(BlueprintNativeEvent, Category = AI)
+	float GetAISelectRating();
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;

@@ -14,6 +14,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "UTBot.h"
 
 UUTResetInterface::UUTResetInterface(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -54,6 +55,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	MinPlayersToStart = 1;
 	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
+	GameDifficulty = 3.0f;
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
 	GameMessageClass=UUTGameMessage::StaticClass();
@@ -114,6 +116,16 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	MinPlayersToStart = FMath::Max(1, GetIntOption( Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
+
+	// alias for testing convenience
+	if (HasOption(Options, TEXT("Bots")))
+	{
+		BotFillCount = GetIntOption(Options, TEXT("BotFill"), BotFillCount) + 1;
+	}
+	else
+	{
+		BotFillCount = GetIntOption(Options, TEXT("BotFill"), BotFillCount);
+	}
 
 	ServerPassword = TEXT("");
 	InOpt = ParseOption(Options, TEXT("ServerPassword"));
@@ -312,6 +324,30 @@ APlayerController* AUTGameMode::Login(class UPlayer* NewPlayer, const FString& P
 	return Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
 }
 
+AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
+{
+	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
+	if (NewBot != NULL)
+	{
+		// TODO: real name
+		static int32 NameCount = 0;
+		NewBot->PlayerState->SetPlayerName(FString(TEXT("TestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
+		NameCount++;
+
+		NewBot->Skill = GameDifficulty;
+		NumBots++;
+		ChangeTeam(NewBot, TeamNum);
+		GenericPlayerInitialization(NewBot);
+	}
+	return NewBot;
+}
+
+AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
+{
+	BotFillCount = FMath::Max<int32>(BotFillCount, NumPlayers + NumBots + 1);
+	return AddBot(TeamNum);
+}
+
 /**
  *	DefaultTimer is called once per second and is useful for consistent timed events that don't require to be 
  *  done every frame.
@@ -337,6 +373,25 @@ void AUTGameMode::DefaultTimer()
 		}
 	}
 
+	if (NumPlayers + NumBots > BotFillCount)
+	{
+		for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+		{
+			if (It->Get()->GetPawn() == NULL)
+			{
+				AUTBot* B = Cast<AUTBot>(It->Get());
+				if (B != NULL)
+				{
+					B->Destroy();
+				}
+			}
+		}
+	}
+	else while (NumPlayers + NumBots < BotFillCount)
+	{
+		AddBot();
+	}
+
 	// Look to see if we should restart the game due to server inactivity
 	if (GetNumPlayers() <= 0 && HasMatchStarted())
 	{
@@ -350,7 +405,6 @@ void AUTGameMode::DefaultTimer()
 	{
 		EmptyServerTime = 0;
 	}
-
 }
 
 
@@ -421,6 +475,17 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
+	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+	{
+		if (It->IsValid())
+		{
+			AUTBot* B = Cast<AUTBot>(It->Get());
+			if (B != NULL)
+			{
+				B->UTNotifyKilled(Killer, Killed, KilledPawn, DamageType.GetDefaultObject());
+			}
+		}
+	}
 }
 
 void AUTGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
@@ -760,17 +825,17 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
 	if (aPlayer == NULL)
 	{
-		UE_LOG(UT,Log,TEXT("[BAD] RestartPlayer with a bad player"));
+		UE_LOG(UT, Warning, TEXT("RestartPlayer with a bad player"));
 		return;
 	}
 	else if (aPlayer->PlayerState == NULL)
 	{
-		UE_LOG(UT,Log,TEXT("[BAD] RestartPlayer with bad player state"));
+		UE_LOG(UT, Warning, TEXT("RestartPlayer with bad player state"));
 		return;
 	}
 	else if (aPlayer->PlayerState->PlayerName.IsEmpty())
 	{
-		UE_LOG(UT,Log,TEXT("[BAD] RestartPlayer with an empty player name"));
+		UE_LOG(UT, Warning, TEXT("RestartPlayer with an empty player name"));
 		return;
 	}
 	

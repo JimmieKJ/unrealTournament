@@ -1,9 +1,8 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTTeleporter.h"
-#include "AI/Navigation/NavAreas/NavArea_Default.h"
-#include "AI/NavigationSystemHelpers.h"
-#include "AI/NavigationOctree.h"
+#include "UTRecastNavMesh.h"
+#include "UTReachSpec_Teleport.h"
 
 AUTTeleporter::AUTTeleporter(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -58,15 +57,15 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		FVector AdjustedTeleportLoc = WorldTransform.GetLocation();
 		FRotator TargetRot = WorldTransform.Rotator();
 		// don't pitch or roll Pawns
-		if (OtherActor->IsA(APawn::StaticClass()))
+		APawn* P = Cast<APawn>(OtherActor);
+		if (P != NULL)
 		{
 			TargetRot.Pitch = 0.0f;
 			TargetRot.Roll = 0.0f;
-			TargetRot.Yaw = TargetRot.Yaw + FMath::UnwindDegrees(OtherActor->GetActorRotation().Yaw) - FMath::UnwindDegrees(GetActorRotation().Yaw);
+			TargetRot.Yaw = TargetRot.Yaw + FMath::UnwindDegrees(P->GetActorRotation().Yaw) - FMath::UnwindDegrees(GetActorRotation().Yaw);
 		}
 		if (OtherActor->TeleportTo(AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
 		{
-			APawn* P = Cast<APawn>(OtherActor);
 			if (P != NULL && P->Controller != NULL)
 			{
 				P->Controller->ClientSetLocation(P->GetActorLocation(), P->GetActorRotation());
@@ -75,6 +74,15 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		else
 		{
 			UE_LOG(UT, Warning, TEXT("Teleporter %s failed to teleport %s"), *GetName(), *OtherActor->GetName());
+		}
+
+		if (P != NULL)
+		{
+			AUTBot* B = Cast<AUTBot>(P->Controller);
+			if (B != NULL)
+			{
+				B->ClearMoveTarget();
+			}
 		}
 
 		CurrentlyTeleportingActor = NULL;
@@ -136,3 +144,26 @@ void AUTTeleporter::EditorApplyScale(const FVector& DeltaScale, const FVector* P
 	UpdateExitArrow();
 }
 #endif
+
+void AUTTeleporter::AddSpecialPaths(UUTPathNode* MyNode, AUTRecastNavMesh* NavData)
+{
+	NavNodeRef MyPoly = NavData->FindNearestPoly(GetActorLocation(), GetSimpleCollisionCylinderExtent());
+	FTransform WorldTransform = TeleportTarget * ActorToWorld();
+	FVector AdjustedTeleportLoc = WorldTransform.GetLocation();
+	NavNodeRef TargetPoly = NavData->FindNearestPoly(AdjustedTeleportLoc, FVector(NavData->AgentRadius, NavData->AgentRadius, NavData->AgentHeight));
+	if (MyPoly != INVALID_NAVNODEREF && TargetPoly != INVALID_NAVNODEREF)
+	{
+		UUTPathNode* End = NavData->GetNodeFromPoly(TargetPoly);
+		if (End != NULL)
+		{
+			// TODO: eventually we will probably need a special UUTReachSpec class to exclude vehicles, etc
+			UUTReachSpec_Teleport* TeleportSpec = NewObject<UUTReachSpec_Teleport>(MyNode);
+			TeleportSpec->Teleporter = this;
+			FUTPathLink* NewLink = new(MyNode->Paths) FUTPathLink(MyNode, MyPoly, End, TargetPoly, TeleportSpec, FMath::TruncToInt(NavData->AgentRadius), FMath::TruncToInt(NavData->AgentHeight), 0);
+			for (NavNodeRef StartPoly : MyNode->Polys)
+			{
+				NewLink->Distances.Add(NavData->CalcPolyDistance(StartPoly, MyPoly) + 100);
+			}
+		}
+	}
+}

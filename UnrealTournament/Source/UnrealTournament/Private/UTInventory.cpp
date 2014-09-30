@@ -22,6 +22,8 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 	}
 
 	DroppedPickupClass = AUTDroppedPickup::StaticClass();
+
+	BasePickupDesireability = 0.5f;
 }
 
 void AUTInventory::PostInitProperties()
@@ -260,4 +262,9 @@ void AUTInventory::OwnerEvent_Implementation(FName EventName)
 
 void AUTInventory::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size)
 {
+}
+
+float AUTInventory::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+{
+	return BasePickupDesireability;
 }

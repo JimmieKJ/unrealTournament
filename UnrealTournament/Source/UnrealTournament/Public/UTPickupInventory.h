@@ -55,4 +55,16 @@ public:
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
 	virtual void SetPickupHidden(bool bNowHidden) override;
+
+	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
+	{
+		if (InventoryType == NULL)
+		{
+			return 0.0f;
+		}
+		else
+		{
+			return InventoryType.GetDefaultObject()->BotDesireability(Asker, this, TotalDistance);
+		}
+	}
 };

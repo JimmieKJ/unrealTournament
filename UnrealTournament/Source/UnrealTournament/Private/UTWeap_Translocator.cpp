@@ -29,6 +29,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 	AmmoRechargeRate = 1.0f;
 
 	RecallFireInterval = 0.16f;
+
+	BaseAISelectRating = -1.0f; // AI shouldn't select this unless wanted by pathing
 }
 
 void AUTWeap_Translocator::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)

@@ -8,6 +8,7 @@ AUTPickupHealth::AUTPickupHealth(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
 	HealAmount = 25;
+	BaseDesireability = 0.4f;
 }
 
 int32 AUTPickupHealth::GetHealMax_Implementation(AUTCharacter* P)
@@ -40,5 +41,45 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 	if (P != NULL)
 	{
 		P->Health = FMath::Max<int32>(P->Health, FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)));
+	}
+}
+
+float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		float Desire = FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)) - P->Health;
+
+		if (P->GetWeapon() != NULL && P->GetWeapon()->BaseAISelectRating > 0.5f)
+		{
+			Desire *= 1.7f;
+		}
+		if (bSuperHeal || P->Health < 45)
+		{
+			Desire = FMath::Min<float>(0.025f * Desire, 2.2);
+			/*if (bSuperHeal && !WorldInfo.Game.bTeamGame && UTBot(C) != None && UTBot(C).Skill >= 4.0)
+			{
+				// high skill bots keep considering powerups that they don't need if they can still pick them up
+				// to deny the enemy any chance of getting them
+				desire = FMax(desire, 0.001);
+			}*/
+			return Desire;
+		}
+		else
+		{
+			if (Desire > 6.0f)
+			{
+				Desire = FMath::Max<float>(Desire, 25.0f);
+			}
+			//else if (UTBot(C) != None && UTBot(C).bHuntPlayer)
+			//	return 0;
+				
+			return FMath::Min<float>(0.017f * Desire, 2.0);
+		}
 	}
 }

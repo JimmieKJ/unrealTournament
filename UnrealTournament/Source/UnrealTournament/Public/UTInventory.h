@@ -127,4 +127,18 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawInventoryHUD(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size);
+
+	/** base AI desireability for picking up this item on the ground */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = AI)
+	float BasePickupDesireability;
+
+	/** returns how much the given Pawn (generally AI controlled) wants this item (as pickup), where anything >= 1.0 is considered very important
+	* called only when either the pickup is active now, or if timing is enabled and the pickup will become active by the time Asker can cross the distance
+	* note that it isn't necessary for this function to modify the weighting based on the path distance as that is handled internally;
+	* the distance is supplied so that the code can make timing decisions and cost/benefit analysis
+	* note: this function is called on the default object, not a live instance
+	* note: Pickup could be class UTPickup or class UTDroppedPickup
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
+	float BotDesireability(APawn* Asker, AActor* Pickup, float PathDistance) const;
 };

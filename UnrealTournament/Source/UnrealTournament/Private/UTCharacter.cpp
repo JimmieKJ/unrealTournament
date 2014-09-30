@@ -22,7 +22,6 @@
 #include "UTGib.h"
 #include "UTRemoteRedeemer.h"
 #include "UTDroppedPickup.h"
-//#include "UTBot.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -133,11 +132,11 @@ void AUTCharacter::BaseChange()
 
 void AUTCharacter::OnWalkingOffLedge_Implementation()
 {
-	/*AUTBot* B = Cast<AUTBot>(Controller);
+	AUTBot* B = Cast<AUTBot>(Controller);
 	if (B != NULL)
 	{
 		B->NotifyWalkingOffLedge();
-	}*/
+	}
 }
 
 void AUTCharacter::BeginPlay()
@@ -2047,6 +2046,11 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 void AUTCharacter::MoveBlockedBy(const FHitResult& Impact) 
 {
+	AUTBot* B = Cast<AUTBot>(Controller);
+	if (B != NULL)
+	{
+		B->NotifyMoveBlocked(Impact);
+	}
 	if (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - LastWallHitNotifyTime > 0.5f))
 	{
 		if (Impact.ImpactNormal.Z > 0.4f)
@@ -2199,6 +2203,11 @@ void AUTCharacter::UpdateCharOverlays()
 			{
 				OverlayMesh = ConstructObject<USkeletalMeshComponent>(Mesh->GetClass(), this, NAME_None, RF_NoFlags, Mesh, true);
 				OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+				{
+					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+					OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+					OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
+				}
 				OverlayMesh->SetMasterPoseComponent(Mesh);
 			}
 			if (!OverlayMesh->IsRegistered())

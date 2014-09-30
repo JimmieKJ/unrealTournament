@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "UTPathBuilderInterface.h"
+
 #include "UTTeleporter.generated.h"
 
 /**
 * jump pad for launching characters
 */
 UCLASS(Blueprintable, Abstract)
-class AUTTeleporter : public AActor
+class AUTTeleporter : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -23,7 +25,7 @@ class AUTTeleporter : public AActor
 
 	/** arrow component to show entry direction defined in TeleportTarget if bSetRotation is true */
 	UPROPERTY(VisibleAnywhere, Category = Teleporter)
-		TSubobjectPtr<class UArrowComponent> EntryArrow;
+	TSubobjectPtr<class UArrowComponent> EntryArrow;
 
 	/** if set then lock the TeleportTarget when moving/rotating the teleporter */
 	UPROPERTY(EditAnywhere, Category = Editor)
@@ -61,4 +63,5 @@ class AUTTeleporter : public AActor
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
 #endif
 
+	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData) override;
 };

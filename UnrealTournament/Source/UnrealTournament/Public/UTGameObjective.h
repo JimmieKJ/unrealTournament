@@ -3,11 +3,12 @@
 #pragma once
 
 #include "UTCharacter.h"
+#include "UTPathBuilderInterface.h"
 
 #include "UTGameObjective.generated.h"
 
 UCLASS()
-class AUTGameObjective : public AActor
+class AUTGameObjective : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 

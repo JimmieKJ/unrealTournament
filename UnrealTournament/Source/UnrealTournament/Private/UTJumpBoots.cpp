@@ -12,6 +12,7 @@ AUTJumpBoots::AUTJumpBoots(const FPostConstructInitializeProperties& PCIP)
 	SuperJumpZ = 1500.0f;
 	MultiJumpAirControl = 0.8f;
 	bCallOwnerEvent = true;
+	BasePickupDesireability = 0.8f;
 }
 
 void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
@@ -128,4 +129,18 @@ void AUTJumpBoots::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTJumpBoots, NumJumps, COND_OwnerOnly);
+}
+
+float AUTJumpBoots::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P != NULL)
+	{
+		AUTJumpBoots* AlreadyHas = P->FindInventoryType<AUTJumpBoots>(GetClass());
+		return (AlreadyHas != NULL) ? (BasePickupDesireability / (1 + AlreadyHas->NumJumps)) : BasePickupDesireability;
+	}
+	else
+	{
+		return 0.0f;
+	}
 }

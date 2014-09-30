@@ -53,6 +53,11 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
 
+	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
+	{
+		return (IsTaken(Asker) ? 0.0f : Super::BotDesireability_Implementation(Asker, TotalDistance));
+	}
+
 #if WITH_EDITOR
 	virtual void CreateEditorPickupMesh() override
 	{

@@ -40,4 +40,5 @@ class AUTArmor : public AUTInventory
 
 	virtual void ReduceArmor(int Amount);
 
+	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 };

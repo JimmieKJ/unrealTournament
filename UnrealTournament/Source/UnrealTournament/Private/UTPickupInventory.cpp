@@ -17,6 +17,12 @@ void AUTPickupInventory::BeginPlay()
 	SetupTimerSprite();
 
 	SetInventoryType(InventoryType);
+
+	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+	if (NavData != NULL)
+	{
+		NavData->AddToNavigation(this);
+	}
 }
 
 #if WITH_EDITOR

@@ -71,6 +71,21 @@ void AUTDroppedPickup::PhysicsStopped(const FHitResult& ImpactResult)
 	{
 		Collision->AttachTo(ImpactResult.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
 	}
+	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+	if (NavData != NULL)
+	{
+		NavData->AddToNavigation(this);
+	}
+}
+
+void AUTDroppedPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+	if (NavData != NULL)
+	{
+		NavData->RemoveFromNavigation(this);
+	}
 }
 
 void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -123,4 +138,26 @@ void AUTDroppedPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTDroppedPickup, InventoryType, COND_None);
+}
+
+float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+{
+	if (InventoryType == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		// make sure Asker can actually get here before the pickup times out
+		float LifeSpan = GetLifeSpan();
+		if (LifeSpan > 0.0)
+		{
+			ACharacter* C = Cast<ACharacter>(Asker);
+			return (C == NULL || PathDistance / C->CharacterMovement->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
+		}
+		else
+		{
+			return InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
+		}
+	}
 }

@@ -10,6 +10,7 @@ AUTArmor::AUTArmor(const FPostConstructInitializeProperties& PCIP)
 	ArmorAmount = 50;
 	AbsorptionPct = 0.333f;
 	bCallDamageEvents = true;
+	BasePickupDesireability = 1.5f;
 }
 
 void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
@@ -78,4 +79,42 @@ void AUTArmor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetim
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTArmor, ArmorAmount, COND_None);
+}
+
+float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		int32 MatchingArmor = 0;
+		int32 TotalArmor = 0;
+		float MaxAbsorbPct = 0.0f;
+		for (AUTInventory* Inv = P->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		{
+			AUTArmor* Armor = Cast<AUTArmor>(Inv);
+			if (Armor != NULL)
+			{
+				TotalArmor += Armor->ArmorAmount;
+				MaxAbsorbPct = FMath::Max<float>(MaxAbsorbPct, Armor->AbsorptionPct);
+				if (Armor->GetClass() == GetClass())
+				{
+					MatchingArmor += Armor->ArmorAmount;
+				}
+			}
+		}
+		// if this armor will overwrite other armor consider full value regardless of stacking
+		int32 Value = (MaxAbsorbPct < AbsorptionPct) ? (ArmorAmount - MatchingArmor) : FMath::Min<int32>(P->MaxStackedArmor - TotalArmor, ArmorAmount - MatchingArmor);
+		float Desire = 0.013f * BasePickupDesireability * float(Value);
+		//if (!WorldInfo.Game.bTeamGame && UTBot(C) != None && UTBot(C).Skill >= 4.0)
+		//{
+			// high skill bots keep considering powerups that they don't need if they can still pick them up
+			// to deny the enemy any chance of getting them
+		//	Desire = FMax(Desire, 0.001);
+		//}
+		return Desire;
+	}
 }

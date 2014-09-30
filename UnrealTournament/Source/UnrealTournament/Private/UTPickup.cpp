@@ -3,6 +3,8 @@
 #include "UnrealTournament.h"
 #include "UTPickup.h"
 #include "UnrealNetwork.h"
+#include "UTRecastNavMesh.h"
+
 static FName NAME_PercentComplete(TEXT("PercentComplete"));
 
 AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
@@ -79,6 +81,23 @@ void AUTPickup::BeginPlay()
 	{
 		StartSleeping();
 	}*/
+	
+	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+	if (NavData != NULL)
+	{
+		NavData->AddToNavigation(this);
+	}
+}
+
+void AUTPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+	if (NavData != NULL)
+	{
+		NavData->RemoveFromNavigation(this);
+	}
 }
 
 void AUTPickup::Reset_Implementation()
@@ -250,6 +269,11 @@ void AUTPickup::Tick(float DeltaTime)
 			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 1.0f - World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer) / RespawnTime);
 		}
 	}
+}
+
+float AUTPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+{
+	return BaseDesireability;
 }
 
 static FPickupReplicatedState PreRepState;

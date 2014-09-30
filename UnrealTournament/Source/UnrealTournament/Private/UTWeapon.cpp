@@ -71,6 +71,8 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	// default icon texture
 	static ConstructorHelpers::FObjectFinder<UTexture> WeaponTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseB.UI_HUD_BaseB'"));
 	HUDIcon.Texture = WeaponTexture.Object;
+
+	BaseAISelectRating = 0.55f;
 }
 
 void AUTWeapon::PostInitProperties()
@@ -1236,4 +1238,53 @@ void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
 			Mesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTWeapon>()->Mesh->GetMaterial(i));
 		}
 	}
+}
+
+float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		float Desire = BasePickupDesireability;
+
+		AUTBot* B = Cast<AUTBot>(P->Controller);
+		if (B != NULL && B->IsFavoriteWeapon(GetClass()))
+		{
+			Desire *= 1.5f;
+		}
+
+		// see if bot already has a weapon of this type
+		AUTWeapon* AlreadyHas = P->FindInventoryType<AUTWeapon>(GetClass());
+		if (AlreadyHas != NULL)
+		{
+			//if (Bot.bHuntPlayer)
+			//	return 0;
+			if (AlreadyHas->Ammo >= AlreadyHas->MaxAmmo)
+			{
+				return 0.25f * Desire;
+			}
+			// bot wants this weapon for the ammo it holds
+			else
+			{
+				return Desire * FMath::Max<float>(0.25f, float(AlreadyHas->MaxAmmo - AlreadyHas->Ammo) / float(AlreadyHas->MaxAmmo));
+			}
+		}
+		//else if (Bot.bHuntPlayer && (desire * 0.833 < P.Weapon.AIRating - 0.1))
+		//{
+		//	return 0;
+		//}
+		else
+		{
+			return (B != NULL && B->NeedsWeapon()) ? (2.0f * Desire) : Desire;
+		}
+	}
+}
+
+float AUTWeapon::GetAISelectRating_Implementation()
+{
+	return HasAnyAmmo() ? BaseAISelectRating : 0.0f;
 }

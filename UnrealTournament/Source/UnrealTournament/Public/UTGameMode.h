@@ -52,6 +52,10 @@ public:
 	UPROPERTY()
 	bool bPlayersMustBeReady;
 
+	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
+	UPROPERTY(Config)
+	bool bOnlyTheStrongSurvive;
+
 	/** human readable localized name for the game mode */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
 	FText DisplayName;
@@ -72,27 +76,27 @@ public:
 	UPROPERTY()
 	uint32 bTeamGame:1;
 
+	/** TRUE if we have started the count down to the match starting */
+	UPROPERTY()
+	bool bStartedCountDown;
+
 	UPROPERTY()
 	bool bFirstBloodOccurred;
 
 	UPROPERTY()
 	int32 MinPlayersToStart;
 
+	/** add bots until NumPlayers + NumBots is this number */
+	UPROPERTY()
+	int32 BotFillCount;
+
 	// How long a player must wait before respawning.  Set to 0 for no delay.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Rules)
 	float RespawnWaitTime;
 
-	/** TRUE if we have started the count down to the match starting */
-	UPROPERTY()
-	uint32 bStartedCountDown:1;
-
 	/** # of seconds before the match begins */
 	UPROPERTY()
 	int32 CountDown;
-
-	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
-	UPROPERTY(Config)
-	bool bOnlyTheStrongSurvive;
 
 	/** Holds the last place any player started from */
 	UPROPERTY()
@@ -233,6 +237,14 @@ public:
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 	virtual bool PlayerCanRestart( APlayerController* Player );
+
+protected:
+	/** adds a bot to the game */
+	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
+public:
+	/** adds a bot to the game, ignoring game settings */
+	UFUNCTION(Exec, BlueprintCallable, Category = AI)
+	virtual class AUTBot* ForceAddBot(uint8 TeamNum = 255);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser);

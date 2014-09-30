@@ -26,6 +26,8 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
 	bAffectedByStoppingPower = true;
+
+	BaseAISelectRating = 0.35f;
 }
 
 void AUTWeap_ImpactHammer::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)

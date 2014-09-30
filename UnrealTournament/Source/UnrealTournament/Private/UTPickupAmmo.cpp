@@ -9,6 +9,7 @@ AUTPickupAmmo::AUTPickupAmmo(const FPostConstructInitializeProperties& PCIP)
 {
 	Ammo.Amount = 10;
 	bDisplayRespawnTimer = false;
+	BaseDesireability = 0.2f;
 }
 
 void AUTPickupAmmo::ProcessTouch_Implementation(APawn* TouchedBy)
@@ -25,5 +26,39 @@ void AUTPickupAmmo::GiveTo_Implementation(APawn* Target)
 	if (P != NULL)
 	{
 		P->AddAmmo(Ammo);
+	}
+}
+
+float AUTPickupAmmo::BotDesireability_Implementation(APawn* Asker, float TotalDistance)
+{
+	//Bot = UTBot(C);
+	//if (Bot != None && !Bot.bHuntPlayer)
+	if (Ammo.Type == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		AUTCharacter* P = Cast<AUTCharacter>(Asker);
+		if (P == NULL)
+		{
+			return 0.0f;
+		}
+		else
+		{
+			int32 MaxAmmo = Ammo.Type.GetDefaultObject()->MaxAmmo;
+			AUTWeapon* W = P->FindInventoryType<AUTWeapon>(Ammo.Type, true);
+			if (W != NULL)
+			{
+				MaxAmmo = W->MaxAmmo;
+			}
+			float Result = BaseDesireability * (1.0f - float(P->GetAmmoAmount(Ammo.Type)) / float(MaxAmmo));
+			// increase desireability for the bot's favorite weapon
+			//if (ClassIsChildOf(TargetWeapon, Bot.FavoriteWeapon))
+			//{
+			//	Result *= 1.5;
+			//}
+			return Result;
+		}
 	}
 }
