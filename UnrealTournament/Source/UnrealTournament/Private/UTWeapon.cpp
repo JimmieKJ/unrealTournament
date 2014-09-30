@@ -1197,6 +1197,11 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			{
 				InOverlayMesh = ConstructObject<USkeletalMeshComponent>(InMesh->GetClass(), WeaponActor, NAME_None, RF_NoFlags, InMesh, true);
 				InOverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+				{
+					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+					InOverlayMesh->PrimaryComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+					InOverlayMesh->PostPhysicsComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
+				}
 				InOverlayMesh->SetMasterPoseComponent(InMesh);
 			}
 			if (!InOverlayMesh->IsRegistered())
