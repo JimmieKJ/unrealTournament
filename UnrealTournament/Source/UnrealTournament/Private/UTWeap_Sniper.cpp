@@ -59,10 +59,11 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
 	FHitResult Hit;
-	if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
-	{
-		Hit.Location = EndTrace;
-	}
+	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
+	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
+	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
+
+	// @TODO FIXMESTEVE this needs to work in rewind
 	if (Role == ROLE_Authority && Cast<AUTCharacter>(Hit.Actor.Get()) == NULL)
 	{
 		// in some cases the head sphere is partially outside the capsule
@@ -84,6 +85,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		TSubclassOf<UDamageType> DamageType = InstantHitInfo[CurrentFireMode].DamageType;
 
 		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
+		// @TODO FIXMESTEVE is headshot needs to work in rewind!!!
 		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true))
 		{
 			Damage *= HeadshotDamageMult;

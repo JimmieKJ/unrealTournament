@@ -71,7 +71,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 float AUTPlayerController::GetPredictionTime()
 {
 	// exact ping is in msec, divide by 1000 to get time in seconds
-	return PlayerState ? (0.0005f*FMath::Clamp(PlayerState->ExactPing - ServerPingContribution, 0.f, MaxPredictionPing)) : 0.f;
+	return (PlayerState && (GetNetMode() != NM_Standalone)) ? (0.0005f*FMath::Clamp(PlayerState->ExactPing - ServerPingContribution, 0.f, MaxPredictionPing)) : 0.f;
 }
 
 float AUTPlayerController::GetProjectileSleepTime()

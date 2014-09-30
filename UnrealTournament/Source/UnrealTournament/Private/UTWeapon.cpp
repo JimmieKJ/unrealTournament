@@ -783,6 +783,74 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 	}
 }
 
+void AUTWeapon::HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult& Hit, float PredictionTime)
+{
+	bool bRewindPlayers = ((PredictionTime > 0.f) && (Role == ROLE_Authority));
+	ECollisionChannel TraceChannel = bRewindPlayers ? COLLISION_TRACE_WEAPONNOCHARACTER : COLLISION_TRACE_WEAPON;
+	if (!GetWorld()->LineTraceSingle(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
+	{
+		Hit.Location = EndTrace;
+	}
+	if (bRewindPlayers && !(Hit.Location - StartLocation).IsNearlyZero())
+	{
+		AUTCharacter* BestTarget = NULL;
+		FVector BestPoint(0.f);
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		{
+			AUTCharacter* Target = Cast<AUTCharacter>(*Iterator);
+			if (Target && (Target != UTOwner))
+			{
+				FVector TargetLocation = Target->GetActorLocation();
+				// find appropriate rewind position, and test against trace from StartLocation to Hit.Location
+				// @TODO FIXMESTEVE:  currently just using fixed position - should interpolate based on velocity!
+				for (int32 i = Target->SavedPositions.Num() - 1; i >= 0; i--)
+				{
+					if (Target->SavedPositions[i].Time > GetWorld()->GetTimeSeconds() - PredictionTime)
+					{
+						// we've passed how far we need to rewind
+						break;
+					}
+					else
+					{
+						TargetLocation = Target->SavedPositions[i].Position;
+					}
+				}
+
+				// now see if trace would hit the capsule
+				// @TODO FIXMESTEVE actually make this a check against a capsule, not a cylinder
+				float CollisionRadius = Target->CapsuleComponent->GetScaledCapsuleRadius();
+				float CollisionHeight = Target->CapsuleComponent->GetScaledCapsuleHalfHeight();
+				FVector ClosestPoint = FMath::ClosestPointOnSegment(TargetLocation, StartLocation, Hit.Location);
+				// if ClosestPoint is end of segment, then almost certainly something else was hit first
+				if (!(ClosestPoint - Hit.Location).IsNearlyZero()
+					&& (FMath::Abs(TargetLocation.Z - ClosestPoint.Z) < CollisionHeight)
+					&& ((TargetLocation - ClosestPoint).Size2D() < CollisionRadius))
+				{
+					// we would hit this character - see if it is the best hit
+					if (!BestTarget || ((ClosestPoint - StartLocation).SizeSquared() < (BestPoint - StartLocation).SizeSquared()))
+					{
+						BestTarget = Target;
+						BestPoint = ClosestPoint;
+					}
+				}
+			}
+		}
+		if (BestTarget)
+		{
+			// we found a player to hit, so update hit result
+			// @TODO FIXMESTEVE - need proper hit location for shot on surface of capsule
+			Hit.Location = BestPoint;
+			Hit.Normal = (EndTrace - StartLocation).SafeNormal();
+			Hit.ImpactNormal = Hit.Normal;
+			Hit.Actor = BestTarget;
+			Hit.bBlockingHit = true;
+			Hit.Component = BestTarget->CapsuleComponent.Get();
+			Hit.ImpactPoint = BestPoint; //FIXME
+			Hit.Time = (BestPoint - StartLocation).Size() / (EndTrace - StartLocation).Size();
+		}
+	}
+}
+
 void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 {
 	UE_LOG(LogUTWeapon, Verbose, TEXT("%s::FireInstantHit()"), *GetName());
@@ -795,16 +863,14 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
 	FHitResult Hit;
-	if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
-	{
-		Hit.Location = EndTrace;
-	}
 	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
+	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
+	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 	}
-	else if (UTPC && (UTPC->GetPredictionTime() > 0.f))
+	else if (PredictionTime > 0.f)
 	{
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 		PlayImpactEffects(Hit.Location);

@@ -368,8 +368,13 @@ public:
 	virtual void ConsumeAmmo(uint8 FireModeNum);
 
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL);
+
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	void K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit);
+
+	/** Handles rewind functionality for net games with ping prediction */
+	virtual void HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult& Hit, float PredictionTime);
+
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireProjectile();
 

@@ -110,7 +110,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
 	PlayerIndicatorMaxDistance = 1200.f;
-	MaxSavedPositionAge = 0.3f;
+	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this
 
 	GoodMoveAckTime = 0.f;
 
