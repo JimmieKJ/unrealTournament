@@ -13,24 +13,6 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FPostConstructInitializePropert
 	bIsEnergyProjectile = true;
 }
 
-void AUTProj_ShockBall::BeginPlay()
-{
-	if (Role < ROLE_Authority)
-	{
-		TArray<USphereComponent*> Components;
-		GetComponents<USphereComponent>(Components);
-		for (int32 i = 0; i < Components.Num(); i++)
-		{
-			
-			if (Components[i] != CollisionComp)
-			{
-				Components[i]->SetCollisionResponseToAllChannels(ECR_Ignore);
-			}
-		}
-	}
-	Super::BeginPlay();
-}
-
 void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 {
 	Super::InitFakeProjectile(OwningPlayer);
@@ -45,27 +27,47 @@ void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 	}
 }
 
-
 void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
 {
-	if (Role == ROLE_Authority && ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
+	if (ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
 	{
-		//Consume extra ammo for the combo
-		AUTWeapon* Weapon = Cast<AUTWeapon>(DamageCauser);
-		if (Weapon != NULL)
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
+		bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
+		if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 		{
-			Weapon->AddAmmo(-ComboAmmoCost);
+			PerformCombo(InstigatedBy, DamageCauser);
 		}
-
-		//The player who combos gets the credit
-		InstigatorController = InstigatedBy;
-
-		// Replicate combo and execute locally
-		bComboExplosion = true;
-		OnRep_ComboExplosion();
-
-		Explode(GetActorLocation(), FVector(0.0f,0.0f,1.0f));
+		else if ((Role != ROLE_Authority) && bUsingClientSideHits)
+		{
+			UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
+		}
 	}
+}
+
+void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
+{
+	// @TODO FIXMESTEVE - do I limit how far I move combo, so fair to all?
+	SetActorLocation(HitLocation);
+	PerformCombo(InstigatedBy, DamageCauser);
+}
+
+void AUTProj_ShockBall::PerformCombo(class AController* InstigatedBy, class AActor* DamageCauser)
+{
+	//Consume extra ammo for the combo
+	AUTWeapon* Weapon = Cast<AUTWeapon>(DamageCauser);
+	if (Weapon != NULL)
+	{
+		Weapon->AddAmmo(-ComboAmmoCost);
+	}
+
+	//The player who combos gets the credit
+	InstigatorController = InstigatedBy;
+
+	// Replicate combo and execute locally
+	bComboExplosion = true;
+	OnRep_ComboExplosion();
+
+	Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 }
 
 void AUTProj_ShockBall::OnRep_ComboExplosion()

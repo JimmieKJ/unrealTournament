@@ -65,7 +65,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	bHoldAccelWithSlideRoll = true;
 
 	ServerPingContribution = 35.f;
-	MaxPredictionPing = 0.f; // 200.f
+	MaxPredictionPing = 0.f; // 200.f;
 }
 
 float AUTPlayerController::GetPredictionTime()
@@ -94,6 +94,20 @@ void AUTPlayerController::ServerNP_Implementation()
 	if (Player && UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bAllowClientNetProfile)
 	{
 		Player->Exec(GetWorld(), *FString::Printf(TEXT("NETPROFILE")), *GLog);
+	}
+}
+
+bool AUTPlayerController::ServerNotifyProjectileHit_Validate(AUTProjectile* HitProj, FVector HitLocation, AActor* DamageCauser, float TimeStamp)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerNotifyProjectileHit_Implementation(AUTProjectile* HitProj, FVector HitLocation, AActor* DamageCauser, float TimeStamp)
+{
+	// @TODO FIXMESTEVE - need to verify shot from player's location at timestamp to HitLocation is valid, and that projectile should have been there at that time
+	if (HitProj)
+	{
+		HitProj->NotifyClientSideHit(this, HitLocation, DamageCauser);
 	}
 }
 

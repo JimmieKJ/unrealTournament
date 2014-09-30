@@ -93,6 +93,10 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void ServerNP();
 
+	/** Notification from client that it detected a client side projectile hit (like a shock combo) */
+	UFUNCTION(server, unreliable, withvalidation)
+	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector HitLocation, AActor* DamageCauser, float TimeStamp);
+
 	inline void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
 		// insert new pickups at the beginning so the order should be newest->oldest

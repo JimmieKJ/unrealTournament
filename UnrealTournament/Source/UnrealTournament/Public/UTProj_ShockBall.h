@@ -10,8 +10,8 @@ class AUTProj_ShockBall : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual void BeginPlay() override;
 	virtual void InitFakeProjectile(AUTPlayerController* OwningPlayer) override;
+	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser) override;
 
 	/** combo parameters */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShockCombo)
@@ -44,6 +44,8 @@ class AUTProj_ShockBall : public AUTProjectile
 
 	/** Overridden to do the combo */
 	virtual void ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser) override;
+
+	virtual void PerformCombo(class AController* InstigatedBy, class AActor* DamageCauser);
 
 	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL);
 };

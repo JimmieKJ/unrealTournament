@@ -79,6 +79,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** send initial replication to all clients for which the projectile is relevant, called via InitialReplicationTick */
 	void SendInitialReplication();
 
+	/** InstigatedBy received a notification of a client-side hit of this projectile */
+	virtual void NotifyClientSideHit(class AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser);
+
 	/** set to force bReplicatedMovement for the next replication pass; this is used with SendInitialReplication() to make sure the client receives the post-physics location in addition
 	 * to spawning with the pre-physics location
 	 */

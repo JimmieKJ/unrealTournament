@@ -240,6 +240,10 @@ void AUTProjectile::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFu
 	}
 }
 
+void AUTProjectile::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
+{
+}
+
 void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
 	if (bForceNextRepMovement)
