@@ -2,7 +2,10 @@
 
 #pragma once
 
+#if WITH_EDITOR
 #include "TickableEditorObject.h"
+#endif
+
 #include "UTReachSpec.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "UTPathNode.h"
