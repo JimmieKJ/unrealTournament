@@ -51,6 +51,18 @@ public:
 	/** optional effect for instant hit endpoint */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray< TSubclassOf<class AUTImpactEffect> > ImpactEffect;
+	/** throttling for impact effects - don't spawn another unless last effect is farther than this away or longer ago than MaxImpactEffectSkipTime */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float ImpactEffectSkipDistance;
+	/** throttling for impact effects - don't spawn another unless last effect is farther than ImpactEffectSkipDistance away or longer ago than this */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float MaxImpactEffectSkipTime;
+	/** FlashLocation for last played impact effect */
+	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
+	FVector LastImpactEffectLocation;
+	/** last time an impact effect was played */
+	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
+	float LastImpactEffectTime;
 	/** if set, get impact effect from weapon class (most weapons use same instant hit impact for 1p and 3p) */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	bool bCopyWeaponImpactEffect;
