@@ -339,6 +339,11 @@ public:
 
 inline AUTRecastNavMesh* GetUTNavData(UWorld* World)
 {
+	if (World->GetNavigationSystem() == NULL)
+	{
+		// workaround because engine doesn't want to create on clients by default
+		World->SetNavigationSystem(NewObject<UNavigationSystem>(World, GEngine->NavigationSystemClass));
+	}
 	return Cast<AUTRecastNavMesh>(World->GetNavigationSystem()->GetMainNavData(FNavigationSystem::ECreateIfEmpty::DontCreate));
 }
 
