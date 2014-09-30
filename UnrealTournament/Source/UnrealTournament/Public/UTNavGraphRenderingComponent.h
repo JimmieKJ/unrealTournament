@@ -49,6 +49,9 @@ struct UNREALTOURNAMENT_API FUTPathNodeRenderProxy
 	FUTPathNodeRenderProxy(const UUTPathNode* RealNode, const AUTRecastNavMesh* NavData);
 };
 
+
+#if !UE_SERVER
+
 class UNREALTOURNAMENT_API FNavGraphSceneProxy : public FDebugRenderSceneProxy
 {
 public:
@@ -84,3 +87,5 @@ protected:
 	/** whether to draw individual polygon information */
 	bool bDrawPolyEdges;
 };
+
+#endif

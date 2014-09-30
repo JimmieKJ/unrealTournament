@@ -17,7 +17,11 @@ UUTNavGraphRenderingComponent::UUTNavGraphRenderingComponent(const FPostConstruc
 
 FPrimitiveSceneProxy* UUTNavGraphRenderingComponent::CreateSceneProxy()
 {
+#if !UE_SERVER
 	return new FNavGraphSceneProxy(this);
+#else
+	return nullptr;
+#endif
 }
 
 FBoxSphereBounds UUTNavGraphRenderingComponent::CalcBounds(const FTransform & LocalToWorld) const
@@ -30,6 +34,8 @@ FBoxSphereBounds UUTNavGraphRenderingComponent::CalcBounds(const FTransform & Lo
 	}
 	return FBoxSphereBounds(BoundingBox);
 }
+
+#if !UE_SERVER
 
 FUTPathNodeRenderProxy::FUTPathNodeRenderProxy(const UUTPathNode* RealNode, const AUTRecastNavMesh* NavData)
 : Location(FVector::ZeroVector), PolyColor(FColor::MakeRandomColor())
@@ -97,3 +103,5 @@ void FNavGraphSceneProxy::DrawDynamicElements(FPrimitiveDrawInterface* PDI, cons
 	}
 	FDebugRenderSceneProxy::DrawDynamicElements(PDI, View);
 }
+
+#endif
