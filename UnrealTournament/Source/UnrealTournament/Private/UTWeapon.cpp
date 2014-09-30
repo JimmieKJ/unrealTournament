@@ -792,10 +792,15 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		Hit.Location = EndTrace;
 	}
-
+	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+	}
+	else if (UTPC && (UTPC->GetPredictionTime() > 0.f))
+	{
+		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+		PlayImpactEffects(Hit.Location);
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
