@@ -134,6 +134,18 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 
+	virtual FVector GetVelocity() const
+	{
+		if (RootComponent != NULL && (RootComponent->IsSimulatingPhysics() || ProjectileMovement == NULL))
+		{
+			return GetRootComponent()->GetComponentVelocity();
+		}
+		else
+		{
+			return ProjectileMovement->Velocity;
+		}
+	}
+
 	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 
 	/** turns off projectile ambient effects, collision, physics, etc
