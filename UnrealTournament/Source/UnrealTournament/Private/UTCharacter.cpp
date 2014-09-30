@@ -2396,7 +2396,14 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (CharacterMovement->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativeLocation(BasedMovement.MovementBase))
 	{
 		// smooth up/down stairs
-		EyeOffset.Z += (UTCharacterMovement->OldZ - GetActorLocation().Z);
+		if (CharacterMovement->bJustTeleported && (FMath::Abs(UTCharacterMovement->OldZ - GetActorLocation().Z) > CharacterMovement->MaxStepHeight))
+		{
+			EyeOffset.Z = 0.f;
+		}
+		else
+		{
+			EyeOffset.Z += (UTCharacterMovement->OldZ - GetActorLocation().Z);
+		}
 
 		// avoid clipping
 		if (CrouchEyeOffset.Z + EyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight - 12.f)
