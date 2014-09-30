@@ -186,7 +186,9 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 {
 	// Sanity Checks
 	if (NewHolder == NULL || NewHolder->bPendingKillPending || NewHolder->PlayerState == NULL || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL) return; 
-	
+
+	ChangeState(CarriedObjectState::Held);
+
 	// If this object is on it's base, tell the base it's been picked up
 	HomeBase->ObjectWasPickedUp(NewHolder);
 
@@ -226,7 +228,6 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 	Holder->SetCarriedObject(this);
 	HoldingPawn->MakeNoise(2.0);
-	ChangeState(CarriedObjectState::Held);
 
 	SendGameMessage(4, Holder, NULL);
 }
