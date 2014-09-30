@@ -21,8 +21,6 @@ public class UnrealTournamentServer : ModuleRules
 			new string[] {
 				"AssetRegistry",
 				"OnlineSubsystem",
-                "Slate", // We want to remove this
-				"SlateCore", // We want to remove this
 			}
 		);
 
