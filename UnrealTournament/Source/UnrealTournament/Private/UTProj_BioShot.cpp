@@ -72,6 +72,16 @@ void AUTProj_BioShot::RemainingRestTimer()
 	}
 }
 
+void AUTProj_BioShot::SetRemainingRestTime(float NewValue)
+{
+	RestTime = NewValue;
+	RemainingRestTime = NewValue;
+	if (!bPendingKillPending && GetWorld()->GetTimerManager().IsTimerActive(this, &AUTProj_BioShot::RemainingRestTimer))
+	{
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, NewValue, false);
+	}
+}
+
 void AUTProj_BioShot::GrowCollision()
 {
 	CollisionComp->SetSphereRadius(FloorCollisionRadius, false);

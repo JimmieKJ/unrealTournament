@@ -41,7 +41,11 @@ class AUTProj_BioShot : public AUTProjectile
 
 	/**Server: Update RemainingRestTime and explode when finished
 	Client: explode when called*/
+	UFUNCTION()
 	void RemainingRestTimer();
+
+	UFUNCTION(BlueprintCallable, Category = Bio)
+	virtual void SetRemainingRestTime(float NewValue);
 
 	/**Set when the glob sticks to a wall*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
