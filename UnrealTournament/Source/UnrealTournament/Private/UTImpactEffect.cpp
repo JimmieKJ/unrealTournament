@@ -132,6 +132,7 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 		if (Prim->IsA(UParticleSystemComponent::StaticClass()))
 		{
 			((UParticleSystemComponent*)Prim)->bAutoDestroy = true;
+			((UParticleSystemComponent*)Prim)->SecondsBeforeInactive = 0.0f;
 		}
 		else if (Prim->IsA(UAudioComponent::StaticClass()))
 		{
