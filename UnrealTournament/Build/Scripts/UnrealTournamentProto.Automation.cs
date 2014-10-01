@@ -109,10 +109,98 @@ public class UnrealTournamentBuild
 }
 
 [RequireP4]
+class UnrealTournamentProto_ChunkBuild : BuildCommand
+{
+    public override void ExecuteBuild()
+    {
+        Log("************************* UnrealTournamentProto_ChunkBuild");
+        
+        var BranchName = "";
+        if (CommandUtils.P4Enabled)
+        {
+            BranchName = CommandUtils.P4Env.BuildRootP4;
+        }
+
+        if (ParseParam("mac"))
+        {
+            // verify the files we need exist first
+            string RawImagePathMac = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacNoEditor");
+            string RawImageManifestMac = CombinePaths(RawImagePathMac, "Manifest_NonUFSFiles.txt");
+
+            if (!FileExists(RawImageManifestMac))
+            {
+                throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifestMac);
+            }
+
+            var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Mac, BranchName);
+
+            // run the patch tool
+            BuildPatchToolBase.Get().Execute(
+            new BuildPatchToolBase.PatchGenerationOptions
+            {
+                StagingInfo = StagingInfo,
+                BuildRoot = RawImagePathMac,
+                FileIgnoreList = CommandUtils.CombinePaths(RawImagePathMac, "Manifest_DebugFiles.txt"),
+                AppLaunchCmd = "./UnrealTournament/Binaries/Mac/UnrealTournament.app",
+                AppLaunchCmdArgs = "",
+                AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+            });
+
+            // post the Mac build to build info service on gamedev
+            string McpConfigName = "MainGameDevNet";
+            CommandUtils.Log("Posting Unreal Tournament for Mac to MCP.");
+            BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+            CommandUtils.Log("Labeling new build as Latest in MCP.");
+            string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Mac);
+            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+            // For backwards compatibility, also label as Production-Latest
+            LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Mac);
+            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+        }
+        else
+        {
+            // verify the files we need exist first
+            string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win64", "WindowsNoEditor");
+            string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
+
+            if (!FileExists(RawImageManifest))
+            {
+                throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
+            }
+
+            var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
+
+            // run the patch tool
+            BuildPatchToolBase.Get().Execute(
+            new BuildPatchToolBase.PatchGenerationOptions
+            {
+                StagingInfo = StagingInfo,
+                BuildRoot = RawImagePath,
+                FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
+                AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
+                AppLaunchCmdArgs = "UnrealTournament",
+                AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+            });
+
+            // post the Windows build to build info service on gamedev
+            string McpConfigName = "MainGameDevNet";
+            CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
+            BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+            CommandUtils.Log("Labeling new build as Latest in MCP.");
+            string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
+            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+            // For backwards compatibility, also label as Production-Latest
+            LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
+            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+        }
+
+        PrintRunTime();
+    }
+}
+
+[RequireP4]
 class UnrealTournamentProto_BasicBuild : BuildCommand
 {
-	static public string NetworkStage = @"P:\Builds\UnrealTournament";
-
     static List<UnrealTargetPlatform> GetClientTargetPlatforms(BuildCommand Cmd)
     {
         List<UnrealTargetPlatform> ClientPlatforms = new List<UnrealTargetPlatform>();
@@ -226,91 +314,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 
 			P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
 		}
-        
-        if (ParseParam("Chunk") && !ParseParam("mac"))
-		{
-		    Chunk(Params);
-		}
 	}
-
-    public void Chunk(ProjectParams Params)
-    {
-        // verify the files we need exist first
-        string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win64", "WindowsNoEditor");
-        string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
-
-        if (!FileExists(RawImageManifest))
-        {
-            throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
-        }
-		
-        var BranchName = "";
-        if (CommandUtils.P4Enabled)
-        {
-            BranchName = CommandUtils.P4Env.BuildRootP4;
-        }
-		
-		var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
-
-        // run the patch tool
-        BuildPatchToolBase.Get().Execute(
-        new BuildPatchToolBase.PatchGenerationOptions
-        {
-            StagingInfo = StagingInfo,
-            BuildRoot = RawImagePath,
-            FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
-            AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
-            AppLaunchCmdArgs = "UnrealTournament",
-            AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-        });
-
-		// post the Windows build to build info service on gamedev
-		string McpConfigName = "MainGameDevNet";
-		CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
-		BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-		CommandUtils.Log("Labeling new build as Latest in MCP.");
-		string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
-		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-		// For backwards compatibility, also label as Production-Latest
-		LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
-		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-
-
-        // verify the files we need exist first
-        string RawImagePathMac = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacNoEditor");
-        string RawImageManifestMac = CombinePaths(RawImagePathMac, "Manifest_NonUFSFiles.txt");
-
-        if (!FileExists(RawImageManifestMac))
-        {
-            throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifestMac);
-        }
-
-		StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Mac, BranchName);
-		
-        // run the patch tool
-        BuildPatchToolBase.Get().Execute(
-        new BuildPatchToolBase.PatchGenerationOptions
-        {
-			StagingInfo = StagingInfo,
-            BuildRoot = RawImagePathMac,
-            FileIgnoreList = CommandUtils.CombinePaths(RawImagePathMac, "Manifest_DebugFiles.txt"),
-            AppLaunchCmd = "./UnrealTournament/Binaries/Mac/UnrealTournament.app",
-            AppLaunchCmdArgs = "",
-            AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-        });
-
-		// post the Mac build to build info service on gamedev
-		CommandUtils.Log("Posting Unreal Tournament for Mac to MCP.");
-		BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-		CommandUtils.Log("Labeling new build as Latest in MCP.");
-		LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Mac);
-		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-		// For backwards compatibility, also label as Production-Latest
-		LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Mac);
-		BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-
-        PrintRunTime();
-    }
 }
 
 class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
@@ -332,6 +336,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
             AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
             AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
+
+            // Make sure we have the mac version of Chunker as well
+            AddDependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
+            AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
+            AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
         }
         public override string GetTriggerDescText()
         {
@@ -356,6 +365,59 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         public override string GameNameIfAnyForTempStorage()
         {
             return GameProj.GameName;
+        }
+    }
+
+    public class UnrealTournamentChunkNode : GUBP.GUBPNode
+    {
+        BranchInfo.BranchUProject GameProj;
+        UnrealTargetPlatform HostPlatform;
+
+        public UnrealTournamentChunkNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+        {
+            GameProj = InGameProj;
+            HostPlatform = InHostPlatform;
+
+            AddDependency(UnrealTournamentBuildNode.StaticGetFullName(GameProj));
+        }
+
+        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+        {
+            return InGameProj.GameName + "_ChunkBuild_" + InHostPlatform.ToString();
+        }
+        public override string GetFullName()
+        {
+            return StaticGetFullName(GameProj, HostPlatform);
+        }
+        public override string GameNameIfAnyForTempStorage()
+        {
+            return GameProj.GameName;
+        }
+        public override bool SendSuccessEmail()
+        {
+            return true;
+        }
+
+        public override void DoBuild(GUBP bp)
+        {
+            BuildProducts = new List<string>();
+            string LogFile = "Just a record of success.";
+            if (GUBP.bPreflightBuild)
+            {
+                CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
+            }
+            else
+            {
+                if (HostPlatform == UnrealTargetPlatform.Mac)
+                {
+                    LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_ChunkBuild -mac");
+                }
+                else
+                {
+                    LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_ChunkBuild");
+                }
+            }
+            SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
         }
     }
 
@@ -415,6 +477,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 {
                     bp.AddNode(new WaitForUnrealTournamentBuildUserInputNode(bp, GameProj, InHostPlatform));
                     bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
+                    bp.AddNode(new UnrealTournamentChunkNode(bp, GameProj, InHostPlatform));
+                }
+                else if (InHostPlatform == UnrealTargetPlatform.Mac)
+                {
+                    bp.AddNode(new UnrealTournamentChunkNode(bp, GameProj, InHostPlatform));
                 }
             }
         }
