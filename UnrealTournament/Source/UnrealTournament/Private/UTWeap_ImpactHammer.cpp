@@ -113,7 +113,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 					}
 				}
 			}
-			if ((Hit.Component != NULL) && UTOwner->UTCharacterMovement && (!Hit.Actor.IsValid() || !Hit.Actor->bCanBeDamaged || Cast<AUTLift>(Hit.Actor.Get())))
+			if ((Hit.Component != NULL) && UTOwner != nullptr && UTOwner->UTCharacterMovement && (!Hit.Actor.IsValid() || !Hit.Actor->bCanBeDamaged || Cast<AUTLift>(Hit.Actor.Get())))
 			{
 				// if we hit something undamageable (world geometry, etc) then the damage is caused to ourselves instead
 				// Special case of fixed damage and momentum
