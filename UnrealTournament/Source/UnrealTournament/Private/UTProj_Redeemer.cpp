@@ -32,6 +32,25 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FPostConstructInitializePropertie
 	bAlwaysShootable = true;
 }
 
+void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
+{
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
+	bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
+	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
+	{
+		Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CollisionComp);
+	}
+	else if ((Role != ROLE_Authority) && bUsingClientSideHits)
+	{
+		UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
+	}
+}
+
+void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
+{
+	Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CollisionComp);
+}
+
 void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
 	if (!bExploded)

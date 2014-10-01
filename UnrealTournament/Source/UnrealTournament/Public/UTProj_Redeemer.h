@@ -9,6 +9,9 @@ class AUTProj_Redeemer : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser) override;
+	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser) override;
+
 	FVector ExplodeHitLocation;
 	float ExplodeMomentum;
 
