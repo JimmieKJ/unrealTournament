@@ -94,7 +94,7 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 	//Special Console case
 	if (Mapping.Compare(TEXT("Console")) == 0)
 	{
-		*Key = InputSettings->ConsoleKey_DEPRECATED;
+		*Key = InputSettings->ConsoleKeys[0];
 	}
 	return this;
 }
@@ -181,7 +181,8 @@ void FSimpleBind::WriteBind() const
 	//Special Console case
 	if (DisplayName.Compare(TEXT("Console")) == 0)
 	{
-		InputSettings->ConsoleKey_DEPRECATED = *Key;
+		InputSettings->ConsoleKeys.Empty(1);
+		InputSettings->ConsoleKeys[0] = *Key;
 	}
 }
 
