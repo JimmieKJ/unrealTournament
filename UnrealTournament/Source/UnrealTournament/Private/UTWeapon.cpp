@@ -800,21 +800,8 @@ void AUTWeapon::HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult
 			AUTCharacter* Target = Cast<AUTCharacter>(*Iterator);
 			if (Target && (Target != UTOwner))
 			{
-				FVector TargetLocation = Target->GetActorLocation();
 				// find appropriate rewind position, and test against trace from StartLocation to Hit.Location
-				// @TODO FIXMESTEVE:  currently just using fixed position - should interpolate based on velocity!
-				for (int32 i = Target->SavedPositions.Num() - 1; i >= 0; i--)
-				{
-					if (Target->SavedPositions[i].Time > GetWorld()->GetTimeSeconds() - PredictionTime)
-					{
-						// we've passed how far we need to rewind
-						break;
-					}
-					else
-					{
-						TargetLocation = Target->SavedPositions[i].Position;
-					}
-				}
+				FVector TargetLocation = Target->GetRewindLocation(PredictionTime);
 
 				// now see if trace would hit the capsule
 				// @TODO FIXMESTEVE actually make this a check against a capsule, not a cylinder

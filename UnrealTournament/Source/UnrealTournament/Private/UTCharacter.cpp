@@ -183,6 +183,28 @@ void AUTCharacter::PositionUpdated()
 	}
 }
 
+FVector AUTCharacter::GetRewindLocation(float PredictionTime)
+{
+	FVector TargetLocation = GetActorLocation();
+	if (PredictionTime > 0.f)
+	{
+		// @TODO FIXMESTEVE:  currently just using fixed position - should interpolate based on velocity!
+		for (int32 i = SavedPositions.Num() - 1; i >= 0; i--)
+		{
+			if (SavedPositions[i].Time > GetWorld()->GetTimeSeconds() - PredictionTime)
+			{
+				// we've passed how far we need to rewind
+				break;
+			}
+			else
+			{
+				TargetLocation = SavedPositions[i].Position;
+			}
+		}
+	}
+	return TargetLocation;
+}
+
 void AUTCharacter::RecalculateBaseEyeHeight()
 {
 	BaseEyeHeight = bIsCrouched ? CrouchedEyeHeight : DefaultBaseEyeHeight;
@@ -281,7 +303,7 @@ static TAutoConsoleVariable<int32> CVarDebugHeadshots(
 	TEXT("Debug headshot traces"),
 	ECVF_Default);
 
-FVector AUTCharacter::GetHeadLocation()
+FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 {
 	// force mesh update if necessary
 	if (!Mesh->ShouldTickPose())
@@ -290,9 +312,13 @@ FVector AUTCharacter::GetHeadLocation()
 		Mesh->RefreshBoneTransforms();
 		Mesh->UpdateComponentToWorld();
 	}
-	return Mesh->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
+	FVector Result = Mesh->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
+	
+	// offset based on PredictionTime to previous position
+	return Result + GetRewindLocation(PredictionTime) - GetActorLocation();
 }
-bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor)
+
+bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, float PredictionTime)
 {
 	if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
 	{

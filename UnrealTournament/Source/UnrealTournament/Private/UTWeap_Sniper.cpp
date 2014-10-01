@@ -63,13 +63,12 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
 
-	// @TODO FIXMESTEVE this needs to work in rewind
 	if (Role == ROLE_Authority && Cast<AUTCharacter>(Hit.Actor.Get()) == NULL)
 	{
 		// in some cases the head sphere is partially outside the capsule
 		// so do a second search just for that
 		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(GetUTOwner()->Controller, SpawnLocation, FireDir, 0.99f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
-		if (AltTarget != NULL && AltTarget->IsHeadShot(SpawnLocation, FireDir, GetHeadshotScale(), false))
+		if (AltTarget != NULL && AltTarget->IsHeadShot(SpawnLocation, FireDir, GetHeadshotScale(), false, PredictionTime))
 		{
 			Hit = FHitResult(AltTarget, AltTarget->CapsuleComponent, SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->CapsuleComponent->GetUnscaledCapsuleRadius()), -FireDir);
 		}
@@ -85,8 +84,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		TSubclassOf<UDamageType> DamageType = InstantHitInfo[CurrentFireMode].DamageType;
 
 		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
-		// @TODO FIXMESTEVE is headshot needs to work in rewind!!!
-		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true))
+		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, PredictionTime))
 		{
 			Damage *= HeadshotDamageMult;
 			if (HeadshotDamageType != NULL)
