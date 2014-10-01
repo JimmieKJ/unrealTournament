@@ -3,7 +3,7 @@
 #include "UTNavGraphRenderingComponent.h"
 #include "UTRecastNavMesh.h"
 #include "Runtime/Engine/Private/AI/Navigation/PImplRecastNavMesh.h"
-#include "Runtime/NavMesh/Public/Detour/DetourNavMesh.h"
+#include "Runtime/Navmesh/Public/Detour/DetourNavMesh.h"
 #include "Runtime/Engine/Private/AI/Navigation/RecastHelpers.h"
 
 UUTNavGraphRenderingComponent::UUTNavGraphRenderingComponent(const FPostConstructInitializeProperties& PCIP)

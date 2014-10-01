@@ -4,9 +4,9 @@
 #include "UTNavGraphRenderingComponent.h"
 #include "RecastNavMeshGenerator.h"
 #include "Runtime/Engine/Private/AI/Navigation/PImplRecastNavMesh.h"
-#include "Runtime/NavMesh/Public/Detour/DetourNavMesh.h"
-#include "Runtime/NavMesh/Public/Detour/DetourNavMeshQuery.h"
-#include "Runtime/NavMesh/Public/DetourCrowd/DetourPathCorridor.h"
+#include "Runtime/Navmesh/Public/Detour/DetourNavMesh.h"
+#include "Runtime/Navmesh/Public/Detour/DetourNavMeshQuery.h"
+#include "Runtime/Navmesh/Public/DetourCrowd/DetourPathCorridor.h"
 #include "Runtime/Engine/Private/AI/Navigation/RecastHelpers.h"
 #include "UTPathBuilderInterface.h"
 #if WITH_EDITOR
