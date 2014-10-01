@@ -123,6 +123,11 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 	{
 		C->UnPossess();
 		Driver->SetOwner(C);
+		AUTCharacter *UTChar = Cast<AUTCharacter>(Driver);
+		if (UTChar)
+		{
+			UTChar->StopDriving(this);
+		}
 		C->Possess(Driver);
 	}
 
@@ -249,22 +254,6 @@ void AUTRemoteRedeemer::FaceRotation(FRotator NewControlRotation, float DeltaTim
 		}
 		
 		ProjectileMovement->Acceleration = ProjectileMovement->Acceleration.SafeNormal() * AccelRate;
-
-		// Roll the camera when there's yaw acceleration
-		FRotator RolledRotation = ProjectileMovement->Velocity.Rotation();
-		float YawMag = ProjectileMovement->Acceleration | Y;
-		if (YawMag > 0)
-		{
-			RolledRotation.Roll = FMath::Min(MaximumRoll, RollMultiplier * YawMag);
-		}
-		else
-		{
-			RolledRotation.Roll = FMath::Max(-MaximumRoll, RollMultiplier * YawMag);
-		}
-		
-		float SmoothRoll = FMath::Min(1.0f, RollSmoothingMultiplier * DeltaTime);
-		RolledRotation.Roll = RolledRotation.Roll * SmoothRoll + Rotation.Roll * (1.0f - SmoothRoll);
-		SetActorRotation(RolledRotation);
 	}
 }
 
@@ -374,4 +363,33 @@ void AUTRemoteRedeemer::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTRemoteRedeemer, bPlayExplosionEffects, COND_None);
+}
+
+void AUTRemoteRedeemer::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (Role != ROLE_SimulatedProxy)
+	{
+		FRotator Rotation = GetActorRotation();
+		FVector X, Y, Z;
+		FRotationMatrix R(Rotation);
+		R.GetScaledAxes(X, Y, Z);
+
+		// Roll the camera when there's yaw acceleration
+		FRotator RolledRotation = ProjectileMovement->Velocity.Rotation();
+		float YawMag = ProjectileMovement->Acceleration | Y;
+		if (YawMag > 0)
+		{
+			RolledRotation.Roll = FMath::Min(MaximumRoll, RollMultiplier * YawMag);
+		}
+		else
+		{
+			RolledRotation.Roll = FMath::Max(-MaximumRoll, RollMultiplier * YawMag);
+		}
+
+		float SmoothRoll = FMath::Min(1.0f, RollSmoothingMultiplier * DeltaSeconds);
+		RolledRotation.Roll = RolledRotation.Roll * SmoothRoll + Rotation.Roll * (1.0f - SmoothRoll);
+		SetActorRotation(RolledRotation);
+	}
 }

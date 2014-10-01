@@ -529,6 +529,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	virtual void OnRepDrivenVehicle();
 
 	void StartDriving(APawn* Vehicle);
+	void StopDriving(APawn* Vehicle);
 
 	virtual void BaseChange() override;
 

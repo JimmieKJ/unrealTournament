@@ -30,6 +30,7 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void Destroyed() override;
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
 
 	UPROPERTY(BlueprintReadOnly, Category = Vehicle)
 	APawn* Driver;

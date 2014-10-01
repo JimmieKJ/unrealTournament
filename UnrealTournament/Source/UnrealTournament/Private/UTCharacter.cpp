@@ -2572,6 +2572,14 @@ void AUTCharacter::StartDriving(APawn* Vehicle)
 	StopFiring();
 }
 
+void AUTCharacter::StopDriving(APawn* Vehicle)
+{
+	if (DrivenVehicle == Vehicle)
+	{
+		DrivenVehicle = nullptr;
+	}
+}
+
 void AUTCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
