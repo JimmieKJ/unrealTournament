@@ -9,4 +9,5 @@ AUTDMGameMode::AUTDMGameMode(const class FPostConstructInitializeProperties& PCI
 : Super(PCIP)
 {
 	HUDClass = AUTHUD_DM::StaticClass();
+	FriendlyGameName = TEXT("Deathmatch");
 }
