@@ -368,22 +368,21 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         }
     }
 
-    public class UnrealTournamentChunkNode : GUBP.GUBPNode
+    public class UnrealTournamentChunkNode : GUBP.HostPlatformNode
     {
         BranchInfo.BranchUProject GameProj;
-        UnrealTargetPlatform HostPlatform;
 
         public UnrealTournamentChunkNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+            : base(InHostPlatform)
         {
             GameProj = InGameProj;
-            HostPlatform = InHostPlatform;
 
             AddDependency(UnrealTournamentBuildNode.StaticGetFullName(GameProj));
         }
 
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
         {
-            return InGameProj.GameName + "_ChunkBuild_" + InHostPlatform.ToString();
+            return InGameProj.GameName + "_ChunkBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
         }
         public override string GetFullName()
         {
