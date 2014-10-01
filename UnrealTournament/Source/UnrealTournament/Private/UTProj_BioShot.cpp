@@ -115,13 +115,16 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 
 		//Start the explosion timer
 		RemainingRestTime = RestTime;
-		if (Role == ROLE_Authority)
+		if (!bPendingKillPending)
 		{
-			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, GOO_TIMER_TICK, true);
-		}
-		else
-		{
-			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, RemainingRestTime, false);
+			if (Role == ROLE_Authority)
+			{
+				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, GOO_TIMER_TICK, true);
+			}
+			else
+			{
+				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, RemainingRestTime, false);
+			}
 		}
 
 		//Stop any flight looping sounds
