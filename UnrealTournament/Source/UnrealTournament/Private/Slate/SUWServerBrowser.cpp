@@ -561,9 +561,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				FString BeaconIP;
 				if (OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP))
 				{
-					// @hack
-					//BeaconIP = TEXT("127.0.0.1:15000");
-
+					/*
 					// Start a QoS query to this server
 					AUTServerBeaconClient *BeaconClient = PlayerOwner->GetWorld()->SpawnActor<AUTServerBeaconClient>(AUTServerBeaconClient::StaticClass());
 					if (BeaconClient)
@@ -574,7 +572,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 						FURL BeaconURL(nullptr, *BeaconIP, TRAVEL_Absolute);
 						BeaconClient->InitClient(BeaconURL);
 						QoSQueries.Add(BeaconClient);
-					}
+					}*/
 				}
 
 				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGame, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing, ServerFlags);
