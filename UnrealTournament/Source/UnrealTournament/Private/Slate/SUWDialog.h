@@ -5,9 +5,6 @@
 
 #if !UE_SERVER
 
-// Our Result delegate.  It passes in a reference to the dialog triggering it, as well as the button id 
-DECLARE_DELEGATE_TwoParams(FDialogResultDelegate, TSharedPtr<SCompoundWidget>, uint16);
-
 class SUWDialog : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWDialog)

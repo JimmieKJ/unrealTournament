@@ -1,12 +1,11 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
-#include "SUWDialog.h"
 #include "SUWServerBrowser.h"
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
@@ -16,6 +15,7 @@
 #include "SUWInputBox.h"
 #include "UTGameEngine.h"
 #include "UTServerBeaconClient.h"
+
 
 #if !UE_SERVER
 /** List Sort helpers */

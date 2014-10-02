@@ -7,17 +7,6 @@
 #include "UTLobbyPlayerState.h"
 #include "UTLobbyGameMode.generated.h"
 
-namespace ChatDestinations
-{
-	extern const FName GlobalChat;				// We want to send the chat to everyone
-	extern const FName PrivateLocal;			// We want to send this directly to someone in this lobby
-	extern const FName CurrentMatch;			// This chat is going just to the current match
-	extern const FName Friends;					// We are only sending this to our friends -- NOTE: requires MCP connection
-
-	// TODO: Add instance chat...
-
-}
-
 
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTLobbyGameMode : public AGameMode

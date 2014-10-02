@@ -57,3 +57,21 @@ namespace CarriedObjectState
 	const FName Held = FName(TEXT("Held"));
 	const FName Dropped = FName(TEXT("Dropped"));
 }
+
+namespace ChatDestinations
+{
+	// You can chat with your friends from anywhere
+	const FName Friends = FName(TEXT("CHAT_Friends"));
+
+	// These are lobby chat types
+	const FName Global = FName(TEXT("CHAT_Global"));
+	const FName Match = FName(TEXT("CHAT_Match"));
+
+	// these are general game chating
+	const FName Lobby = FName(TEXT("CHAT_Lobby"));
+	const FName Local = FName(TEXT("CHAT_Local"));
+	const FName Team = FName(TEXT("CHAT_Team"));
+}
+
+// Our Dialog results delegate.  It passes in a reference to the dialog triggering it, as well as the button id 
+DECLARE_DELEGATE_TwoParams(FDialogResultDelegate, TSharedPtr<SCompoundWidget>, uint16);

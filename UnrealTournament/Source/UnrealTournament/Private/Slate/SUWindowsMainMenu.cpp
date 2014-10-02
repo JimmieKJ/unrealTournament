@@ -100,7 +100,7 @@ void SUWindowsMainMenu::CreateDesktop()
 							[
 								SNew(SImage)
 								//.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
-								.Image(SUWindowsStyle::Get().GetBrush("OldSchool.Background"))
+								.Image(SUWindowsStyle::Get().GetBrush("NewSchool.Background"))
 							]
 						]
 					]
@@ -118,10 +118,11 @@ void SUWindowsMainMenu::CreateDesktop()
 						.HAlign(HAlign_Fill)
 						[
 							SNew(SUWScaleBox)
+							.bMaintainAspectRatio(true)
 							[
 								SNew(SImage)
 //								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background.Logo"))
-								.Image(SUWindowsStyle::Get().GetBrush("OldSchool.AnniLogo"))
+								.Image(SUWindowsStyle::Get().GetBrush("NewSchool.AnniLogo"))
 								
 							]
 						]
@@ -651,7 +652,6 @@ FReply SUWindowsMainMenu::OnMenuHTTPButton(FString URL,TSharedPtr<SComboButton> 
 
 FReply SUWindowsMainMenu::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton)
 {
-
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
 	TSharedPtr<class SWidget> Browser = PlayerOwner->GetServerBrowser();

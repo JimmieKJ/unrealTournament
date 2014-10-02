@@ -3,16 +3,45 @@
 
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
-#include "../Private/Slate/SUWDialog.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
 #include "../Private/Slate/SUWToast.h"
+#include "../Private/Slate/SUWDialog.h"
 #include "UTProfileSettings.h"
 #include "UTLocalPlayer.generated.h"
 
+class SUWServerBrowser;
+
 DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
-UCLASS()
+class FStoredChatMessage
+{
+public:
+	// Where did this chat come from
+	UPROPERTY()
+	FName Type;
+
+	// What was the message
+	UPROPERTY()
+	FString Message;
+
+	// What color should we display this chat in
+	UPROPERTY()
+	FLinearColor Color;
+
+	FStoredChatMessage(FName inType, FString inMessage, FLinearColor inColor)
+		: Type(inType), Message(inMessage), Color(inColor)
+	{}
+
+	static TSharedRef<FStoredChatMessage> Make(FName inType, FString inMessage, FLinearColor inColor)
+	{
+		return MakeShareable( new FStoredChatMessage( inType, inMessage, inColor ) );
+	}
+
+};
+
+
+UCLASS(config=Engine)
 class UUTLocalPlayer : public ULocalPlayer
 {
 	GENERATED_UCLASS_BODY()
@@ -37,6 +66,9 @@ public:
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
 #endif
 
+	// Holds all of the chat this client has recieved.
+	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;
+	virtual void SaveChat(FName Type, FString Message, FLinearColor Color);
 
 protected:
 
@@ -59,6 +91,10 @@ public:
 	// Last text entered in Connect To IP
 	UPROPERTY(config)
 	FString LastConnectToIP;
+
+	UPROPERTY(config)
+	uint32 bNoMidGameMenu:1;
+
 // ONLINE ------
 
 	// Called after creation on non-default objects to setup the online Subsystem

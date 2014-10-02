@@ -28,7 +28,7 @@ void AUTLobbyGameState::BroadcastMatchMessage(AUTLobbyPlayerState* SenderPS, con
 		AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[i]);
 		if (PS)	// TODO: Add some way for players to "mute" global chat
 		{
-			PS->ClientRecieveChat(ChatDestinations::GlobalChat, SenderPS, Message);
+			PS->ClientRecieveChat(ChatDestinations::Global, SenderPS, Message);
 		}
 	}
 }

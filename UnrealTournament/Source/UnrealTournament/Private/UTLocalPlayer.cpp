@@ -109,6 +109,8 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 
 bool UUTLocalPlayer::IsMenuGame()
 {
+	if (bNoMidGameMenu) return true;
+
 	if (GetWorld()->GetNetMode() == NM_Standalone)
 	{
 		AUTMenuGameMode* GM = Cast<AUTMenuGameMode>(GetWorld()->GetAuthGameMode());
@@ -125,7 +127,7 @@ void UUTLocalPlayer::ShowMenu()
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
-		if (true) //( IsMenuGame() )
+		if ( IsMenuGame() )
 		{
 			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
 		}
@@ -304,6 +306,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		LoadProfileSettings();
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*OnlineIdentityInterface->GetPlayerNickname(0)));
 		ShowToast(WelcomeToast);
+
 
 	}
 
@@ -573,3 +576,7 @@ void UUTLocalPlayer::SetNickname(FString NewName)
 	}
 }
 
+void UUTLocalPlayer::SaveChat(FName Type, FString Message, FLinearColor Color)
+{
+	ChatArchive.Add( FStoredChatMessage::Make(Type, Message, Color));
+}

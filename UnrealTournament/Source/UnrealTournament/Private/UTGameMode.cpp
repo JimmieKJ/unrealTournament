@@ -1614,3 +1614,9 @@ void AUTGameMode::Destroyed()
 	
 	Super::Destroyed();
 }
+
+FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
+{
+	return FText::Format(NSLOCTEXT("UTGameMode","GameRules","{0} - GoalScore: {1}  Time Limit: {2}"), FText::FromString(FriendlyGameName), FText::AsNumber(GameState->GoalScore), FText::AsNumber(uint32(GameState->TimeLimit * 60)));
+}
+

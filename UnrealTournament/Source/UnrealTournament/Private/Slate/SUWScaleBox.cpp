@@ -30,18 +30,15 @@ void SUWScaleBox::OnArrangeChildren(const FGeometry& AllottedGeometry, FArranged
 			if (AllottedGeometry.Size != DesiredSize)
 			{
 				float Aspect = DesiredSize.X / DesiredSize.Y;
-				FVector2D Delta = AllottedGeometry.Size - DesiredSize;
+				float Scale = AllottedGeometry.Size.Y / 720.0f;
+				DesiredSize.Y *= Scale;
+				DesiredSize.X = DesiredSize.Y * Aspect;
 
-				if (FMath::Abs(Delta.X) < FMath::Abs(Delta.Y))	// X is closer
+				if (DesiredSize.X > AllottedGeometry.Size.X)
 				{
+					Aspect = DesiredSize.Y / DesiredSize.X;
 					DesiredSize.X = AllottedGeometry.Size.X;
-					DesiredSize.Y = DesiredSize.X / Aspect;
-				}
-				else
-				{
-					DesiredSize.Y = AllottedGeometry.Size.Y;
-					DesiredSize.X = DesiredSize.Y * Aspect;
-			
+					DesiredSize.Y = DesiredSize.X * Aspect;
 				}
 
 				FinalOffset.X = AllottedGeometry.Size.X * 0.5 - DesiredSize.X * 0.5;

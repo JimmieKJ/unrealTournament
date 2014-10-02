@@ -62,12 +62,12 @@ bool AUTLobbyPC::CanRestartPlayer()
 
 void AUTLobbyPC::MatchChat(FString Message)
 {
-	Chat(ChatDestinations::CurrentMatch, Message);
+	Chat(ChatDestinations::Match, Message);
 }
 
 void AUTLobbyPC::GlobalChat(FString Message)
 {
-	Chat(ChatDestinations::GlobalChat, Message);
+	Chat(ChatDestinations::Global, Message);
 }
 
 
@@ -81,14 +81,14 @@ void AUTLobbyPC::Chat(FName Destination, FString Message)
 
 void AUTLobbyPC::ServerChat_Implementation(const FName Destination, const FString& Message)
 {
-	if (Destination == ChatDestinations::CurrentMatch)
+	if (Destination == ChatDestinations::Match)
 	{
 		if (UTLobbyPlayerState && UTLobbyPlayerState->CurrentMatch)
 		{
 			UTLobbyPlayerState->CurrentMatch->BroadcastMatchMessage(UTLobbyPlayerState, Message);
 		}
 	}
-	else if (Destination == ChatDestinations::GlobalChat)
+	else if (Destination == ChatDestinations::Global)
 	{
 		AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 		if (LobbyGameState)

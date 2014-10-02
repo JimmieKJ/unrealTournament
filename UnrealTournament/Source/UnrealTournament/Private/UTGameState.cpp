@@ -328,3 +328,13 @@ FName AUTGameState::OverrideCameraStyle(APlayerController* PCOwner, FName Curren
 
 	return CurrentCameraStyle;
 }
+
+FText AUTGameState::ServerRules()
+{
+	AUTGameMode* DefObject = GameModeClass->GetDefaultObject<AUTGameMode>();
+	if (DefObject)
+	{
+		return DefObject->BuildServerRules(this);
+	}
+	return FText::GetEmpty();
+}

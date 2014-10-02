@@ -123,8 +123,8 @@ void UUTProfileSettings::ApplyInputSettings()
 		DefaultInputSettingsObject->bEnableFOVScaling = bEnableFOVScaling;
 		DefaultInputSettingsObject->FOVScale = FOVScale;
 		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
-		DefaultInputSettingsObject->ConsoleKeys.Empty(1);
-		DefaultInputSettingsObject->ConsoleKeys[0] = ConsoleKey;
+		DefaultInputSettingsObject->ConsoleKeys.Empty();
+		DefaultInputSettingsObject->ConsoleKeys.Add(ConsoleKey);
 	}
 
 	UUTPlayerInput* DefaultUTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();

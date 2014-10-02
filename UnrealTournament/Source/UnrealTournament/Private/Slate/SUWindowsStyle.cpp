@@ -45,6 +45,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	FSlateStyleSet& Style = StyleRef.Get();
 
 	Style.Set("UWindows.Standard.Font.Small", TTF_FONT("Exo2-Medium", 10));
+	Style.Set("UWindows.Standard.Font.Medium", TTF_FONT("Exo2-Medium", 14));
+	Style.Set("UWindows.Standard.Font.Large", TTF_FONT("Exo2-Medium", 22));
 
 	// Note, these sizes are in Slate Units.
 	// Slate Units do NOT have to map to pixels.
@@ -79,22 +81,25 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FSlateSound ButtonHoverSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	const FSlateSound ButtonPressSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
 
-
-
+	Style.Set("UWindows.Standard.DarkBackground", new IMAGE_BRUSH( "UWindows.Standard.DarkBackground", FVector2D(32,32), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 	Style.Set("UWindows.Logos.Epic_Logo200", new IMAGE_BRUSH( "UWindows.Logos.Epic_Logo200", FVector2D(132,150), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("OldSchool.AnniLogo", new IMAGE_BRUSH( "OldSchool.AnniLogo", FVector2D(1024,768), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("OldSchool.Background", new IMAGE_BRUSH( "OldSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
+	Style.Set("NewSchool.AnniLogo", new IMAGE_BRUSH( "NewSchool.AnniLogo", FVector2D(1141,431), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("NewSchool.Background", new IMAGE_BRUSH( "NewSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+
 	// Dialogs
 	{
 		Style.Set("UWindows.Standard.Dialog.Background", new BOX_BRUSH("UWindows.Standard.Dialog.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 		Style.Set("UWindows.Standard.Dialog.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Roboto-Medium", 12))
+			.SetFont(TTF_FONT("Roboto-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 		Style.Set("UWindows.Standard.Dialog.ErrorTextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Roboto-Medium", 10))
+			.SetFont(TTF_FONT("Roboto-Regular", 10))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 		Style.Set("UWindows.Standard.Dialog.Title.TextStyle", FTextBlockStyle()
@@ -238,6 +243,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		Style.Set("UWindows.Standard.MidGameMenuButton.TextColor", FLinearColor::White);
 		Style.Set("UWindows.Standard.MidGameMenuBar", new BOX_BRUSH("UWindows.Standard.MidGameMenuBar", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+		Style.Set("UWindows.Standard.MidGameMenuTopBar", new BOX_BRUSH("UWindows.Standard.MidGameMenuTopBar", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+		
 
 		Style.Set("UWindows.Standard.MidGameMenuButton", FButtonStyle()
 			.SetNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
@@ -249,11 +256,93 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 
+		Style.Set("UWindows.MidGame.ChatBarButton.First", FButtonStyle()
+			.SetNormal(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.FirstButton.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.FirstButton.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.FirstButton.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UWindows.MidGame.ChatBarButton", FButtonStyle()
+			.SetNormal(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Button.Normal", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Button.Hovered", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Button.Pressed", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UWindows.MidGame.ChatEditBox", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetForegroundColor(FLinearColor::White)
+			.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageHovered( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageFocused( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			);
+
+
+		Style.Set("UWindows.MidGameMenu.Chatbar.Background", new BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+
 		Style.Set("UWindows.Standard.MidGameMenuButton.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-ExtraBold", 18))
-			//.SetFont(TTF_FONT("Roboto-Regular", 18))
+			.SetFont(TTF_FONT("Exo2-Bold", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
+
+		Style.Set("UWindows.Standard.MidGameMenuButton.SubMenu.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetColorAndOpacity(FLinearColor::Blue)
+			);
+
+		Style.Set( "UWindows.Standard.MidGame.UserList.Row", FTableRowStyle()
+			.SetEvenRowBackgroundBrush( FSlateNoResource(FVector2D(128.0f, 128.0f)) )
+			.SetEvenRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal) )
+			.SetOddRowBackgroundBrush( FSlateNoResource(FVector2D(128.0f, 128.0f)) )
+			.SetOddRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal ) )
+			.SetSelectorFocusedBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetActiveBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetActiveHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetTextColor( FLinearColor::White)
+			.SetSelectedTextColor( FLinearColor::Black)
+			);
+
+		Style.Set("UWindows.MidGameMenu.UserList.Background", new BOX_BRUSH("UWindows.MidGameMenu.UserList.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+		Style.Set("UWindows.MidGameMenu.Status.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+
+	}
+
+
+	{	// MOTD / Server / Chat
+	
+		Style.Set("UWindows.Standard.MOTD.ServerTitle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 22))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+			);
+
+		Style.Set("UWindows.Standard.MOTD.GeneralText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 14))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("UWindows.Standard.MOTD.RulesText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 10))
+			.SetColorAndOpacity(FLinearColor::Gray)
+			);
+
+		Style.Set("UWindows.Standard.Chat", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 10))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+
 	}
 
 	return StyleRef;

@@ -6,6 +6,7 @@
 #include "Engine/Console.h"
 #include "GameFramework/PlayerState.h"
 #include "UTChatMessage.h"
+#include "UTLocalPlayer.h"
 
 UUTChatMessage::UUTChatMessage(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -44,5 +45,18 @@ void UUTChatMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		{
 			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText(LocalMessageText.ToString());
 		}
+
+		AUTPlayerController* PlayerController = Cast<AUTPlayerController>(ClientData.LocalPC);
+		if (PlayerController)
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(ClientData.LocalPC->Player);
+			if (LocalPlayer)
+			{
+				FString StoredMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *ClientData.MessageString);
+				FLinearColor ChatColor = (ClientData.MessageIndex && PlayerController->UTPlayerState && PlayerController->UTPlayerState->Team) ? PlayerController->UTPlayerState->Team->TeamColor : FLinearColor::White;
+				LocalPlayer->SaveChat(ClientData.MessageIndex ? ChatDestinations::Team : ChatDestinations::Local, StoredMessage, ChatColor);
+			}
+		}
 	}
+
 }

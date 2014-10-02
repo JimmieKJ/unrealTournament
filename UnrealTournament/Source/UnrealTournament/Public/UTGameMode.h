@@ -238,6 +238,10 @@ public:
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 	virtual bool PlayerCanRestart( APlayerController* Player );
 
+	// Allows gametypes to build their rules settings for the mid game menu.
+	virtual FText BuildServerRules(AUTGameState* GameState);
+
+
 protected:
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);

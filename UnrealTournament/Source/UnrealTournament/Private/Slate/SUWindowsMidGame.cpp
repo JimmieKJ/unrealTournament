@@ -15,78 +15,134 @@
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
+#include "SUWServerBrowser.h"
+#include "UTLobbyGameState.h"
+#include "Panels/SUMidGameInfoPanel.h"
+
+namespace SettingsDialogs
+{
+	const FName SettingPlayer = FName(TEXT("SettingsPlayern"));
+	const FName SettingsSystem = FName(TEXT("SettingsSystem"));
+	const FName SettingsControls = FName(TEXT("SettingsControls"));
+}
 
 #if !UE_SERVER
 void SUWindowsMidGame::CreateDesktop()
 {
 	MenuBar = NULL;
-
 	ChildSlot
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()		// This is the Buffer at the Top
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
+
+			SNew(SOverlay)
+
+			+SOverlay::Slot()
 			[
-				SNew(SCanvas)
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DarkBackground"))
 			]
 
-			+ SVerticalBox::Slot()		// Server Info, MOTD
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
+			+SOverlay::Slot()
 			[
-				SNew(SCanvas)
-			]
 
-			+ SVerticalBox::Slot()		// Chat
-			.VAlign(VAlign_Fill) 
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SCanvas)
-			]
+				SNew(SVerticalBox)
 
-			+ SVerticalBox::Slot()		// Menu
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SBox)
-				.HeightOverride(58)
+				+ SVerticalBox::Slot()		// This is the Buffer at the Top
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Top)
 				[
 					SNew(SOverlay)
-					+ SOverlay::Slot()
+					+SOverlay::Slot()
 					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MidGameMenuBar"))
+						SNew(SBox)
+						.HeightOverride(32)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MidGameMenuTopBar"))
+						]
 					]
 					+SOverlay::Slot()
 					[
-
 						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()		// This panel is just for alignment :(
-						.AutoHeight()
-						.HAlign(HAlign_Right)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Fill)
+						.Padding(0,3,0,0)
 						[
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot()		// This is the Buffer at the Top
-							.AutoHeight()
-							.HAlign(HAlign_Fill)
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(5,0,0,0)
 							[
 								SNew(SBox)
-								.HeightOverride(7)
+								.WidthOverride(100)
+								.HAlign(HAlign_Left)
 								[
-									SNew(SCanvas)
+									SAssignNew(ClockText, STextBlock)
+									.TextStyle(SUWindowsStyle::Get(), "UWindows.MidGameMenu.Status.TextStyle")
 								]
 							]
-							+ SVerticalBox::Slot()		// This is the Buffer at the Top
-							.AutoHeight()
-							.HAlign(HAlign_Fill)
+
+							+SHorizontalBox::Slot()
+							.Padding(0,0,5,0)
+							.HAlign(HAlign_Right)
 							[
-								SNew(SBox)
-								.HeightOverride(51)
+								SAssignNew(StatusText, STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.MidGameMenu.Status.TextStyle")
+							]
+						]
+					]
+				]
+
+				+ SVerticalBox::Slot()		// This is the Buffer at the Top
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				[
+					SAssignNew(Desktop, SOverlay)
+				]
+
+				+ SVerticalBox::Slot()		// Menu
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
+				[
+					SNew(SBox)
+					.HeightOverride(58)
+					[
+						SNew(SOverlay)
+						+ SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MidGameMenuBar"))
+						]
+						+SOverlay::Slot()
+						[
+
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()		// This panel is just for alignment :(
+							.AutoHeight()
+							.HAlign(HAlign_Right)
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()		// This is the Buffer at the Top
+								.AutoHeight()
+								.HAlign(HAlign_Fill)
 								[
-									BuildMenuBar()
+									SNew(SBox)
+									.HeightOverride(7)
+									[
+										SNew(SCanvas)
+									]
+								]
+								+ SVerticalBox::Slot()		// This is the Buffer at the Top
+								.AutoHeight()
+								.HAlign(HAlign_Fill)
+								[
+									SNew(SBox)
+									.HeightOverride(51)
+									[
+										BuildMenuBar()
+									]
 								]
 							]
 						]
@@ -96,6 +152,104 @@ void SUWindowsMidGame::CreateDesktop()
 		];
 }
 
+FText SUWindowsMidGame::ConvertTime(int Seconds)
+{
+	int Hours = Seconds / 3600;
+	Seconds -= Hours * 3600;
+	int Mins = Seconds / 60;
+	Seconds -= Mins * 60;
+
+	FFormatNamedArguments Args;
+	FNumberFormattingOptions Options;
+
+	Options.MinimumIntegralDigits = 2;
+	Options.MaximumIntegralDigits = 2;
+
+	Args.Add(TEXT("Hours"), FText::AsNumber(Hours, &Options));
+	Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
+	Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
+
+	return FText::Format( NSLOCTEXT("SUWindowsMidGame","ClockFormat", "{Hours}:{Minutes}:{Seconds}"),Args);
+}
+
+
+void SUWindowsMidGame::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	SUWindowsDesktop::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+
+	if (GS != NULL)
+	{
+		FText NewText;
+
+		if (GS->bTeamGame)
+		{
+			int32 Players[2];
+			int32 Specs = 0;
+
+			Players[0] = 0;
+			Players[1] = 0;
+
+			for (int32 i=0;i<GS->PlayerArray.Num();i++)
+			{
+				if (GS->PlayerArray[i] != NULL)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+					if (PS != NULL)
+					{
+						if (PS->bIsSpectator)
+						{
+							Specs++;
+						}
+						else
+						{
+							Players[FMath::Clamp<int32>(PS->GetTeamNum(),0,1)]++;
+						}
+					}
+				}
+			}
+
+			NewText = FText::Format(NSLOCTEXT("SUWindowsMidGame","TeamStatus","Red: {0}  Blue: {1}  Spectators {2}"), FText::AsNumber(Players[0]), FText::AsNumber(Players[1]), FText::AsNumber(Specs));
+		}
+		else
+		{
+			int32 Players = 0;
+			int32 Specs = 0;
+			for (int32 i=0;i<GS->PlayerArray.Num();i++)
+			{
+				if (GS->PlayerArray[i] != NULL)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+					if (PS != NULL)
+					{
+						if (PS->bIsSpectator)
+						{
+							Specs++;
+						}
+						else 
+						{
+							Players++;
+						}
+					}
+				}
+			}
+
+			NewText = FText::Format(NSLOCTEXT("SUWindowsMidGame","Status","Players: {0} Spectators {1}"), FText::AsNumber(Players), FText::AsNumber(Specs));
+		}
+
+		ClockText->SetText(ConvertTime(GS->ElapsedTime));
+		StatusText->SetText(NewText);
+	}
+
+}
+
+
+void SUWindowsMidGame::OnMenuOpened()
+{
+	SUWindowsDesktop::OnMenuOpened();
+	OnInfo();
+}
+
 /****************************** [ Build Sub Menus ] *****************************************/
 
 TSharedRef<SWidget> SUWindowsMidGame::BuildMenuBar()
@@ -103,6 +257,24 @@ TSharedRef<SWidget> SUWindowsMidGame::BuildMenuBar()
 	SAssignNew(MenuBar, SHorizontalBox);
 	if (MenuBar.IsValid())
 	{
+
+		MenuBar->AddSlot()
+			.AutoWidth()
+			.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Fill)
+			[
+				SNew(SButton)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SUWindowsMidGame::OnInfo)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("Generic", "Info", "INFO").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+				]
+			];
+
 		BuildTeamSubMenu();
 		BuildServerBrowserSubMenu();
 		BuildOptionsSubMenu();
@@ -122,15 +294,89 @@ void SUWindowsMidGame::BuildTeamSubMenu()
 	if (bTeamGame)
 	{
 		SAssignNew(DropDownButton, SComboButton)
+		.MenuPlacement(MenuPlacement_AboveAnchor)
 		.Method(SMenuAnchor::UseCurrentWindow)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
+		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
 		.ButtonContent()
 		[
 			SNew(STextBlock)
-			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams", "TEAMS/SPECTATOR").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams", "TEAMS").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")
 		];
+	
+		if ( DropDownButton.IsValid() ) 
+		{
+			TSharedPtr<SVerticalBox> Menu = NULL;
+	
+			SAssignNew(Menu, SVerticalBox);
+			if (Menu.IsValid() && PlayerOwner != NULL && PlayerOwner->PlayerController != NULL)
+			{
+
+				AUTGameState* GS = GWorld->GetWorld()->GetGameState<AUTGameState>();
+				if (GS != NULL && GS->bTeamGame)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+					if (PS != NULL && PS->Team != NULL)
+					{
+
+						if (PS->Team->GetTeamNum() != 0)
+						{
+							(*Menu).AddSlot()
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+								.ContentPadding(FMargin(10.0f, 5.0f))
+								.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_SwitchToRed", "Switch to Red").ToString())
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+								.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 0, DropDownButton)
+							];
+						}
+
+						if (PS->Team->GetTeamNum() != 1)
+						{
+							(*Menu).AddSlot()
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+								.ContentPadding(FMargin(10.0f, 5.0f))
+								.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_SwitchToBlue", "Switch to Blue").ToString())
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+								.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 1, DropDownButton)
+							];
+						}
+
+
+						if (PS->Team->GetTeamNum() != 255)
+						{
+							(*Menu).AddSlot()
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+								.ContentPadding(FMargin(10.0f, 5.0f))
+								.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_SwitchToSpectate", "Switch to Spectator").ToString())
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+								.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 255, DropDownButton)
+							];
+						}
+					}
+				}
+			}
+			DropDownButton->SetMenuContent(Menu.ToSharedRef());
+		}
+
+		MenuBar->AddSlot()
+			.AutoWidth()
+			.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+			.HAlign(HAlign_Right)
+			[
+				DropDownButton.ToSharedRef()
+			];
+
+
 	}
 	else
 	{
@@ -139,62 +385,63 @@ void SUWindowsMidGame::BuildTeamSubMenu()
 
 		if (bSpectator)
 		{
-			SAssignNew(DropDownButton, SComboButton)
-			.Method(SMenuAnchor::UseCurrentWindow)
-			.HasDownArrow(false)
-			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
-			.ButtonContent()
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_PLAY", "PLAY").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
-			];
+			MenuBar->AddSlot()
+				.AutoWidth()
+				.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Fill)
+				[
+					SNew(SButton)
+					.VAlign(VAlign_Center)
+					.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 0, DropDownButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_PLAY", "PLAY").ToString())
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+					]
+				];
 		}
 		else
 		{
-			SAssignNew(DropDownButton, SComboButton)
-			.Method(SMenuAnchor::UseCurrentWindow)
-			.HasDownArrow(false)
-			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
-			.ButtonContent()
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_Spectate", "SPECTATE").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
-			];
+			MenuBar->AddSlot()
+				.AutoWidth()
+				.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Fill)
+				[
+					SNew(SButton)
+					.VAlign(VAlign_Center)
+					.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 0, DropDownButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_Spectate", "SPECTATE").ToString())
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+					]
+				];
 		}
 	}
-
-	MenuBar->AddSlot()
-		.AutoWidth()
-		.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
-		.HAlign(HAlign_Right)
-		[
-			DropDownButton.ToSharedRef()
-		];
 }
 
 void SUWindowsMidGame::BuildServerBrowserSubMenu()
 {
-	TSharedPtr<SComboButton> DropDownButton = NULL;
-
-	SAssignNew(DropDownButton, SComboButton)
-		.Method(SMenuAnchor::UseCurrentWindow)
-		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
-		.ButtonContent()
-		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Browser", "SERVER BROWSER").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
-		];
-
 	MenuBar->AddSlot()
 		.AutoWidth()
 		.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
 		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Fill)
 		[
-			DropDownButton.ToSharedRef()
+			SNew(SButton)
+			.VAlign(VAlign_Center)
+			.OnClicked(this, &SUWindowsMidGame::OnServerBrowser)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_ServerBrowser", "SERVER BROWSER").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+			]
+
 		];
 }
 
@@ -224,7 +471,8 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings").ToString())
-//			.OnClicked(this, &SUWindowsDesktop::OpenPlayerSettings)
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.SubMenu.TextStyle")
+			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingPlayer)
 		]
 	+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -233,7 +481,8 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
-//			.OnClicked(this, &SUWindowsDesktop::OpenSystemSettings)
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.SubMenu.TextStyle")
+			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsSystem)
 		]
 	+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -242,7 +491,8 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
-//			.OnClicked(this, &SUWindowsDesktop::OpenControlSettings)
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.SubMenu.TextStyle")
+			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsControls)
 		]
 	);
 
@@ -258,29 +508,82 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 }
 void SUWindowsMidGame::BuildExitMatchSubMenu()
 {
-	TSharedPtr<SComboButton> DropDownButton = NULL;
-
 	FText MenuText = PlayerOwner->GetWorld()->GetNetMode() == NM_Standalone ?
 		NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ExitMatch", "EXIT MATCH") :
 		NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Disconnect", "DISCONNECT");
-
-	SAssignNew(DropDownButton, SComboButton)
-		.Method(SMenuAnchor::UseCurrentWindow)
-		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
-		.ButtonContent()
-		[
-			SNew(STextBlock)
-			.Text(MenuText.ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
-		];
 
 	MenuBar->AddSlot()
 		.AutoWidth()
 		.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
 		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Fill)
 		[
-			DropDownButton.ToSharedRef()
+			SNew(SButton)
+			.VAlign(VAlign_Center)
+			.OnClicked(this, &SUWindowsMidGame::ExitMatch)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
+			[
+				SNew(STextBlock)
+				.Text(MenuText.ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+			]
+
 		];
 }
+
+FReply SUWindowsMidGame::OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton, FName SettingsToOpen)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	TSharedPtr<SUWDialog> Dialog;
+	if (SettingsToOpen == SettingsDialogs::SettingPlayer) SAssignNew(Dialog, SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","PlayerSettings","Player Settings"));
+	else if (SettingsToOpen == SettingsDialogs::SettingsSystem) SAssignNew(Dialog, SUWSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","System","System Settings"));
+	else if (SettingsToOpen == SettingsDialogs::SettingsControls) SAssignNew(Dialog, SUWControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","Controls","Control Settings"));
+
+	if (Dialog.IsValid())
+	{
+		PlayerOwner->OpenDialog(Dialog.ToSharedRef());
+	}
+	return FReply::Handled();
+}
+
+FReply SUWindowsMidGame::ExitMatch()
+{
+	ConsoleCommand(TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"));
+	CloseMenus();
+	return FReply::Handled();
+}
+
+FReply SUWindowsMidGame::OnChangeTeam(int32 NewTeamIndex,TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	
+	ConsoleCommand(FString::Printf(TEXT("changeteam %i"), NewTeamIndex));
+	CloseMenus();
+	return FReply::Handled();
+
+}
+
+FReply SUWindowsMidGame::OnServerBrowser()
+{
+	TSharedPtr<class SWidget> Browser = PlayerOwner->GetServerBrowser();
+	if (Browser.IsValid())
+	{
+		ActivatePanel(Browser);
+	}
+	return FReply::Handled();
+
+}
+
+FReply SUWindowsMidGame::OnInfo()
+{
+	if (!InfoPanel.IsValid())
+	{
+		SAssignNew(InfoPanel, SUMidGameInfoPanel).PlayerOwner(PlayerOwner);
+	}
+	ActivatePanel(InfoPanel);
+	return FReply::Handled();
+}
+
+
 #endif

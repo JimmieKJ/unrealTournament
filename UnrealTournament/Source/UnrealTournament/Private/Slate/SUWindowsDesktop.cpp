@@ -58,12 +58,8 @@ FReply SUWindowsDesktop::OnKeyUp( const FGeometry& MyGeometry, const FKeyboardEv
 		{
 			CloseMenus();
 		}
-		return FReply::Handled();
 	}
-	else
-	{
-		return FReply::Unhandled();
-	}
+	return FReply::Handled();
 }
 
 void SUWindowsDesktop::CloseMenus()
@@ -88,10 +84,6 @@ FReply SUWindowsDesktop::OnMouseButtonDown( const FGeometry& MyGeometry, const F
 
 FReply SUWindowsDesktop::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if (GWorld->GetWorld()->GetMapName().ToLower() != TEXT("ut-entry"))
-	{
-		CloseMenus();
-	}
 	return FReply::Handled();
 }
 
@@ -129,6 +121,7 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SWidget> PanelToActivate)
 			];
 		
 		DesktopSlotIndex = Slot.ZOrder;
+		ActivePanel = PanelToActivate;
 	}
 }
 

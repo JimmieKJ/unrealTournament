@@ -13,13 +13,6 @@
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
-namespace ChatDestinations
-{
-	const FName GlobalChat = FName(TEXT("CHAT_Global"));
-	const FName PrivateLocal = FName(TEXT("CHAT_LocalPrivate"));
-	const FName CurrentMatch = FName(TEXT("CHAT_CurrentMatch"));
-	const FName Friends = FName(TEXT("CHAT_Friends"));
-}
 
 
 AUTLobbyGameMode::AUTLobbyGameMode(const class FPostConstructInitializeProperties& PCIP)

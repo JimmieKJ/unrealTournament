@@ -2,9 +2,10 @@
 #pragma once
 
 #include "Slate/SlateGameResources.h"
+#include "SUWindowsStyle.h"
+#include "UTLocalPlayer.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
-#include "SUWindowsStyle.h"
 #include "UTServerBeaconClient.h"
 
 #if !UE_SERVER

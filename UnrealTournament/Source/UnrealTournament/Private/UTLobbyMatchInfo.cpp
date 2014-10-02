@@ -53,7 +53,7 @@ void AUTLobbyMatchInfo::BroadcastMatchMessage(AUTLobbyPlayerState* SenderPS, con
 		AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(LobbyGameState->PlayerArray[i]);
 		if (PS && PS->CurrentMatch == this)
 		{
-			PS->ClientRecieveChat(ChatDestinations::CurrentMatch, SenderPS, Message); 
+			PS->ClientRecieveChat(ChatDestinations::Match, SenderPS, Message); 
 		}
 	}
 }

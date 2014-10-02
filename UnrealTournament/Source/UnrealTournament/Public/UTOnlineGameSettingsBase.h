@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTGameMode.h"
+
 #define SETTING_SERVERNAME FName(TEXT("UT_SERVERNAME"))
 #define SETTING_SERVERVERSION FName(TEXT("UT_SERVERVERSION"))
 #define SETTING_SERVERMOTD FName(TEXT("UT_SERVERMOTD"))

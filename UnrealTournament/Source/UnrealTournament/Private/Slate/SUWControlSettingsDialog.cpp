@@ -181,8 +181,8 @@ void FSimpleBind::WriteBind() const
 	//Special Console case
 	if (DisplayName.Compare(TEXT("Console")) == 0)
 	{
-		InputSettings->ConsoleKeys.Empty(1);
-		InputSettings->ConsoleKeys[0] = *Key;
+		InputSettings->ConsoleKeys.Empty();
+		InputSettings->ConsoleKeys.Add(*Key);
 	}
 }
 
