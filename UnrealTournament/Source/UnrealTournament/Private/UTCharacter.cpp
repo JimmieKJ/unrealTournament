@@ -2057,10 +2057,10 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		{
 			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
 		}
-		UTCharacterMovement->OldZ = GetActorLocation().Z;
 
 		TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
 	}
+	UTCharacterMovement->OldZ = GetActorLocation().Z;
 
 	Super::Landed(Hit);
 
@@ -2459,12 +2459,15 @@ void AUTCharacter::Tick(float DeltaTime)
 				FHitResult Hit;
 				if (GetWorld()->SweepSingle(Hit, GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight), GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + CrouchEyeOffset + EyeOffset, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(12.f), Params))
 				{
-					EyeOffset.Z = Hit.Location.Z;
+					EyeOffset.Z = Hit.Location.Z - BaseEyeHeight - GetActorLocation().Z - CrouchEyeOffset.Z;
 				}
 			}
 		}
+		else
+		{
+			EyeOffset.Z = FMath::Max(EyeOffset.Z, 12.f - BaseEyeHeight - CapsuleComponent->GetUnscaledCapsuleHalfHeight() - CrouchEyeOffset.Z);
+		}
 	}
-
 	// decay offset
 	float InterpTime = FMath::Min(1.f, EyeOffsetInterpRate*DeltaTime);
 	EyeOffset = (1.f - InterpTime)*EyeOffset + InterpTime*TargetEyeOffset;
@@ -2475,8 +2478,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		// faster decay if positive
 		EyeOffset.Z = (1.f - InterpTime)*EyeOffset.Z + InterpTime*TargetEyeOffset.Z;
 	}
-	TargetEyeOffset *= FMath::Max(0.f, 1.f - EyeOffsetDecayRate*DeltaTime);
-
+	TargetEyeOffset *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate*DeltaTime));
 	if (IsLocallyControlled() && CharacterMovement) // @TODO FIXME ALSO FOR SPECTATORS
 	{
 		// @TODO FIXMESTEVE this should all be event driven
