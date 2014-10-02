@@ -1869,15 +1869,20 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			// blueprint handled dodge attempt
 			return true;
 		}
-		if (UTCharacterMovement && UTCharacterMovement->WantsSlideRoll() && UTCharacterMovement->IsMovingOnGround())
+		if (UTCharacterMovement->WantsSlideRoll() && UTCharacterMovement->IsMovingOnGround())
 		{
 			UTCharacterMovement->PerformRoll(DodgeDir);
 		}
-		else if (UTCharacterMovement && UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
+		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			bCanPlayWallHitSound = true;
 			OnDodge(DodgeDir);
 			return true;
+		}
+		else
+		{
+			// clear all bPressedDodge, so it doesn't get replicated or saved
+			UTCharacterMovement->ClearDodgeInput();
 		}
 	}
 	return false;
@@ -1920,7 +1925,7 @@ void AUTCharacter::ClearJumpInput()
 	Super::ClearJumpInput();
 	if (UTCharacterMovement)
 	{
-		UTCharacterMovement->ClearJumpInput();
+		UTCharacterMovement->ClearDodgeInput();
 	}
 }
 
@@ -2023,51 +2028,57 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 
 void AUTCharacter::Landed(const FHitResult& Hit)
 {
-	// cause crushing damage if we fell on another character
-	if (Cast<AUTCharacter>(Hit.Actor.Get()) != NULL)
+	if (!bClientUpdating)
 	{
-		float Damage = CrushingDamageFactor * CharacterMovement->Velocity.Z / -100.0f;
-		if (Damage >= 1.0f)
+		// cause crushing damage if we fell on another character
+		if (Cast<AUTCharacter>(Hit.Actor.Get()) != NULL)
 		{
-			FUTPointDamageEvent DamageEvent(Damage, Hit, -CharacterMovement->Velocity.SafeNormal(), UUTDmgType_FallingCrush::StaticClass());
-			Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
+			float Damage = CrushingDamageFactor * CharacterMovement->Velocity.Z / -100.0f;
+			if (Damage >= 1.0f)
+			{
+				FUTPointDamageEvent DamageEvent(Damage, Hit, -CharacterMovement->Velocity.SafeNormal(), UUTDmgType_FallingCrush::StaticClass());
+				Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
+			}
 		}
-	}
 
-	bCanPlayWallHitSound = true;
-	if (Role == ROLE_Authority)
-	{
-		MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
-	}
-	DesiredJumpBob = FVector(0.f);
+		bCanPlayWallHitSound = true;
+		if (Role == ROLE_Authority)
+		{
+			MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
+		}
+		DesiredJumpBob = FVector(0.f);
 
-	// bob weapon and viewpoint on landing
-	if (CharacterMovement->Velocity.Z < WeaponLandBobThreshold)
-	{
-		DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - WeaponLandBobThreshold) / FullWeaponLandBobVelZ);
-	}
-	if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold)
-	{
-		TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
-	}
-	UTCharacterMovement->OldZ = GetActorLocation().Z;
+		// bob weapon and viewpoint on landing
+		if (CharacterMovement->Velocity.Z < WeaponLandBobThreshold)
+		{
+			DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - WeaponLandBobThreshold) / FullWeaponLandBobVelZ);
+		}
+		if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold)
+		{
+			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
+		}
+		UTCharacterMovement->OldZ = GetActorLocation().Z;
 
-	TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
+		TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
+	}
 
 	Super::Landed(Hit);
 
-	static FName NAME_Landed(TEXT("Landed"));
-	InventoryEvent(NAME_Landed);
-
-	LastHitBy = NULL;
-
-	if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
+	if (!bClientUpdating)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
-	}
-	else
-	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+		static FName NAME_Landed(TEXT("Landed"));
+		InventoryEvent(NAME_Landed);
+
+		LastHitBy = NULL;
+
+		if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
+		}
+		else
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+		}
 	}
 }
 

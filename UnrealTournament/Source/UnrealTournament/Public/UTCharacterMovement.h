@@ -283,7 +283,7 @@ public:
 	virtual bool CanJump();
 
 	/** Clear dodging input related flags */
-	void ClearJumpInput();
+	void ClearDodgeInput();
 
 	/** Optionally allow slope dodge */
 	virtual FVector ComputeSlideVectorUT(const float DeltaTime, const FVector& Delta, const float Time, const FVector& Normal, const FHitResult& Hit);

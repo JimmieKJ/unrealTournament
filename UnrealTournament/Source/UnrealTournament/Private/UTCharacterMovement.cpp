@@ -402,7 +402,19 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		return false;
 	}
+/*	FVector Loc = CharacterOwner->GetActorLocation();
 
+	float CurrentMoveTime = GetCurrentMovementTime();
+	if (CharacterOwner->Role < ROLE_Authority)
+	{
+		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+		if (ClientData)
+		{
+			CurrentMoveTime = ClientData->CurrentTimeStamp;
+		}
+	}
+	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z);
+*/
 	float HorizontalImpulse = DodgeImpulseHorizontal;
 	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
 
@@ -630,7 +642,6 @@ const FVector& NewAccel
 {
 	if (HasValidData())
 	{
-		//UE_LOG(UT, Warning, TEXT("Set server move time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
 		if (CurrentServerMoveTime > ClientTimeStamp + 0.5f*MinTimeBetweenTimeStampResets)
 		{
 			// client timestamp rolled over, so roll over our movement timers
@@ -640,6 +651,7 @@ const FVector& NewAccel
 			DodgeRollEndTime -= MinTimeBetweenTimeStampResets;
 		}
 		CurrentServerMoveTime = ClientTimeStamp;
+		//UE_LOG(UT, Warning, TEXT("+++++++Set server move time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
 	}
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
@@ -783,7 +795,7 @@ bool UUTCharacterMovement::CanMultiJump()
 }
 
 
-void UUTCharacterMovement::ClearJumpInput()
+void UUTCharacterMovement::ClearDodgeInput()
 {
 	bPressedDodgeForward = false;
 	bPressedDodgeBack = false;
@@ -944,9 +956,8 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 			}
 		}
 	}
-
 	FVector Result = UMovementComponent::ComputeSlideVector(Delta, Time, Normal, Hit);
-
+	
 	// prevent boosting up slopes
 	if (bFalling && Result.Z > 0.f)
 	{
@@ -963,7 +974,7 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 		{
 			if (Result.Z > Delta.Z*Time)
 			{
-				Result.Z *= SlopeDodgeScaling;
+				Result.Z = FMath::Max(Result.Z * SlopeDodgeScaling, Delta.Z*Time);
 			}
 		}
 		else
@@ -986,7 +997,7 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 			}
 		}
 	}
-
+	
 	return Result;
 }
 
@@ -1078,7 +1089,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	FVector FallAcceleration = Acceleration;
 	FallAcceleration.Z = 0.f;
 
-	if ((CurrentWallDodgeCount > 0) && (Velocity.Z > 0.f) && ((FallAcceleration | LastWallDodgeNormal) < 0.f) && ((FallAcceleration.SafeNormal() | LastWallDodgeNormal) < -1.f*WallDodgeMinNormal) )
+	if ((CurrentWallDodgeCount > 0) && (Velocity.Z > 0.f) && ((FallAcceleration | LastWallDodgeNormal) < 0.f) && ((FallAcceleration.SafeNormal() | LastWallDodgeNormal) < -1.f*WallDodgeMinNormal))
 	{
 		// don't air control back into wall you just dodged from  
 		FallAcceleration = FallAcceleration - (FallAcceleration | LastWallDodgeNormal) * LastWallDodgeNormal;
@@ -1090,7 +1101,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	bIsAgainstWall = false;
 	if (!HasRootMotion())
 	{
-		// test for slope to avoid using air control to climb walls 
+	// test for slope to avoid using air control to climb walls 
 		float TickAirControl = (CurrentMultiJumpCount - CurrentWallDodgeCount  < 2) ? AirControl : MultiJumpAirControl;
 		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
 		{
@@ -1131,7 +1142,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			TickAirControl = FMath::Min(1.f, 2.f*TickAirControl);
 		}
 
-		float MaxAccel = GetMaxAcceleration() * TickAirControl;
+		float MaxAccel = GetMaxAcceleration() * TickAirControl;				
 
 		FallAcceleration = FallAcceleration.ClampMaxSize(MaxAccel);
 	}
@@ -1139,6 +1150,24 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	float remainingTime = deltaTime;
 	float timeTick = 0.1f;
 
+/*
+	FVector Loc = CharacterOwner->GetActorLocation();
+	float CurrentMoveTime = GetCurrentMovementTime();
+	if (CharacterOwner->Role < ROLE_Authority)
+	{
+		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+		if (ClientData && !CharacterOwner->bClientUpdating)
+		{
+			CurrentMoveTime = ClientData->CurrentTimeStamp;
+			UE_LOG(UT, Warning, TEXT("CLIENT Fall at %f from %f %f %f vel %f %f %f delta %f"), ClientData->CurrentTimeStamp, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("SERVER Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentMovementTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
+
+	}
+*/
 	while ((remainingTime > 0.f) && (Iterations < 8))
 	{
 		Iterations++;
