@@ -12,11 +12,9 @@ class AUTLiftExit : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 
-#if WITH_EDITORONLY_DATA
 	/** editor icon */
 	UPROPERTY(VisibleAnywhere, Category = Sprite)
 	TSubobjectPtr<UBillboardComponent> Icon;
-#endif
 
 	/** the lift that will take the bot places */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lift)
