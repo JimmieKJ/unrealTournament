@@ -554,7 +554,12 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				ResultMomentum.Z = 0.0f;
 			}
-			if (UTCharacterMovement)
+			if (IsRagdoll())
+			{
+				// intentionally always apply to root because that replicates better
+				Mesh->AddImpulseAtLocation(ResultMomentum, Mesh->GetComponentLocation());
+			}
+			else if (UTCharacterMovement)
 			{
 				UTCharacterMovement->AddDampedImpulse(ResultMomentum, bIsSelfDamage);
 			}
