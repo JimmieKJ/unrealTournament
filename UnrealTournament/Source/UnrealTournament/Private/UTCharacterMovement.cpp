@@ -287,7 +287,6 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 		if (CharacterOwner)
 		{
 			OldZ = CharacterOwner->GetActorLocation().Z;
-			UE_LOG(UT, Warning, TEXT("Update oldZ to %f"), OldZ);
 			if (!CharacterOwner->bClientUpdating && CharacterOwner->IsLocallyControlled())
 			{
 				bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
