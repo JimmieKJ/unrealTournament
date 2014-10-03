@@ -78,11 +78,27 @@ protected:
 	UPROPERTY()
 	FUTPathLink CurrentPath;
 	/** cache of internal points for current MoveTarget */
-	TArray<FVector> MoveTargetPoints;
+	TArray<FComponentBasedPosition> MoveTargetPoints;
 public:
 	inline const FRouteCacheItem& GetMoveTarget() const
 	{
 		return MoveTarget;
+	}
+	/** get next point bot is moving to in order to reach MoveTarget, or ZeroVector if no MoveTarget */
+	inline FVector GetMovePoint() const
+	{
+		if (!MoveTarget.IsValid())
+		{
+			return FVector::ZeroVector;
+		}
+		else if (MoveTargetPoints.Num() <= 1)
+		{
+			return MoveTarget.GetLocation();
+		}
+		else
+		{
+			return MoveTargetPoints[0].Get();
+		}
 	}
 	inline void SetMoveTarget(const FRouteCacheItem& NewMoveTarget)
 	{
@@ -126,8 +142,10 @@ protected:
 	AUTRecastNavMesh* NavData;
 
 	/** AI actions */
+	UPROPERTY()
 	TSubobjectPtr<UUTAIAction> WaitForMoveAction;
-	TSubobjectPtr<UUTAIAction> RangedAttackAction;
+	//UPROPERTY()
+	//TSubobjectPtr<UUTAIAction> RangedAttackAction;
 
 public:
 	inline AUTCharacter* GetUTChar()

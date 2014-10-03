@@ -2,15 +2,22 @@
 
 #pragma once
 
+#include "UTPathBuilderInterface.h"
+
 #include "UTLift.generated.h"
 
 UCLASS(BlueprintType, Blueprintable)
-class AUTLift : public AActor
+class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	inline class UPrimitiveComponent* GetEncroachComponent() const
+	{
+		return EncroachComponent;
+	}
 
 	/** Event when encroach an actor (Overlap that can't be handled gracefully) */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Lift")
@@ -32,26 +39,46 @@ class AUTLift : public AActor
 	UPROPERTY(BlueprintReadOnly, Category = "Lift")
 	FVector LiftVelocity;
 
+	/** scaling for the navmesh geometry that is exported on the lift's end location
+	 * it is better for AI if the navmesh in the lift's non-resting position does not directly connect to the normal navmesh area
+	 */
+	UPROPERTY(EditAnywhere, Category = "AI")
+	float NavmeshScale;
+
 	virtual FVector GetVelocity() const override;
 
 	/** Event when a player starts standing on me */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = "Lift")
-		virtual void AddBasedCharacter(APawn* NewBasedPawn);
+	virtual void AddBasedCharacter(APawn* NewBasedPawn);
 
 	virtual void Tick(float DeltaTime) override;
 
-private:
+	/** return all the locations the lift stops at */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Lift", meta = (CallInEditor = "true"))
+	TArray<FVector> GetStops() const;
+
+	virtual void GetNavigationData(struct FNavigationRelevantData& Data) const;
+	virtual FBox GetNavigationBounds() const;
+
+	virtual bool IsPOI() const
+	{
+		return false;
+	}
+
+	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
+
+protected:
 	/** Component to test for encroachment */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = "Lift")
 	UPrimitiveComponent* EncroachComponent;
 
 	/** Used during lift move to identify if movement was incomplete */
 	UPROPERTY()
-		bool bMoveWasBlocked;
+	bool bMoveWasBlocked;
 
 	/** Where lift started for current move. */
 	UPROPERTY()
-		FVector LiftStartLocation;
+	FVector LiftStartLocation;
 
 	/** Where lift wants to end for current move. */
 	UPROPERTY()
@@ -59,5 +86,5 @@ private:
 
 	/**  Where lift was at end of last tick */
 	UPROPERTY()
-		FVector TickLocation;
+	FVector TickLocation;
 };

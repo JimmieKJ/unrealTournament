@@ -36,6 +36,96 @@ struct FCapsuleSize
 	}
 };
 
+/** holds a position optionally relative to a component
+* unfortunately FBasedPosition only works with RootComponent so it's not useful
+*/
+USTRUCT(BlueprintType)
+struct FComponentBasedPosition
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = BasedPosition)
+	TWeakObjectPtr<USceneComponent> Base;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = BasedPosition)
+		FVector Position;
+
+	mutable FVector CachedBaseLocation;
+	mutable FRotator CachedBaseRotation;
+	mutable FVector CachedTransPosition;
+
+	FComponentBasedPosition()
+		: Base(NULL), Position(ForceInit), CachedBaseLocation(ForceInit), CachedBaseRotation(ForceInit), CachedTransPosition(ForceInit)
+	{}
+	explicit FComponentBasedPosition(TWeakObjectPtr<USceneComponent> InBase, const FVector& InPosition)
+	{
+		Set(InBase, InPosition);
+	}
+	explicit FComponentBasedPosition(const FVector& InPosition)
+	{
+		Set(NULL, InPosition);
+	}
+
+	// Retrieve world location of this position
+	FVector Get() const
+	{
+		if (Base.IsValid())
+		{
+			const FVector BaseLocation = Base->GetComponentLocation();
+			const FRotator BaseRotation = Base->GetComponentRotation();
+
+			// If base hasn't changed location/rotation use cached transformed position
+			if (CachedBaseLocation != BaseLocation || CachedBaseRotation != BaseRotation)
+			{
+				CachedBaseLocation = BaseLocation;
+				CachedBaseRotation = BaseRotation;
+				CachedTransPosition = BaseLocation + FRotationMatrix(BaseRotation).TransformPosition(Position);
+			}
+
+			return CachedTransPosition;
+		}
+		else if (Base.IsStale())
+		{
+			return CachedTransPosition;
+		}
+		else
+		{
+			return Position;
+		}
+	}
+	void Set(TWeakObjectPtr<USceneComponent> InBase, const FVector& InPosition)
+	{
+		if (InPosition.IsNearlyZero())
+		{
+			Base = NULL;
+			Position = FVector::ZeroVector;
+		}
+		else
+		{
+			Base = (InBase.IsValid() && InBase->Mobility != EComponentMobility::Static) ? InBase : NULL;
+			if (Base != NULL)
+			{
+				const FVector BaseLocation = Base->GetComponentLocation();
+				const FRotator BaseRotation = Base->GetComponentRotation();
+
+				CachedBaseLocation = BaseLocation;
+				CachedBaseRotation = BaseRotation;
+				CachedTransPosition = InPosition;
+				Position = FTransform(BaseRotation).InverseTransformPosition(InPosition - BaseLocation);
+			}
+			else
+			{
+				Position = InPosition;
+			}
+		}
+	}
+	void Clear()
+	{
+		Base = NULL;
+		Position = FVector::ZeroVector;
+	}
+};
+
 static_assert(NavNodeRef(-1) == uint64(-1) && sizeof(NavNodeRef) == sizeof(uint64), "expecting NavNodeRef to be uint64");
 
 class UUTPathNode;
@@ -92,7 +182,7 @@ struct FUTPathLink
 	// NOTE: Asker may be NULL
 	int32 CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const;
 
-	bool GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FVector>& MovePoints) const;
+	bool GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const;
 
 	/** returns color to identify the path type for debug path drawing */
 	FLinearColor GetPathColor() const;

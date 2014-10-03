@@ -34,7 +34,7 @@ int32 FUTPathLink::CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, 
 	return (Spec.IsValid() ? Spec->CostFor(Result, *this, Asker, AgentProps, StartPoly, NavMesh) : Result);
 }
 
-bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const AUTRecastNavMesh* NavMesh, TArray<FVector>& MovePoints) const
+bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
 {
 	if (Spec.IsValid())
 	{
@@ -52,7 +52,7 @@ bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNa
 			{
 				DirectLoc = NavMesh->GetPolyCenter(FullRoute[Index + 1].TargetPoly);
 			}
-			MovePoints.Add(DirectLoc);
+			MovePoints.Add(FComponentBasedPosition(DirectLoc));
 			return true;
 		}
 		else

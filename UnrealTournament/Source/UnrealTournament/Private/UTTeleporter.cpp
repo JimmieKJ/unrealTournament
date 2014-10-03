@@ -158,10 +158,10 @@ void AUTTeleporter::AddSpecialPaths(UUTPathNode* MyNode, AUTRecastNavMesh* NavDa
 		UUTPathNode* End = NavData->GetNodeFromPoly(TargetPoly);
 		if (End != NULL)
 		{
-			// TODO: eventually we will probably need a special UUTReachSpec class to exclude vehicles, etc
 			UUTReachSpec_Teleport* TeleportSpec = NewObject<UUTReachSpec_Teleport>(MyNode);
 			TeleportSpec->Teleporter = this;
-			FUTPathLink* NewLink = new(MyNode->Paths) FUTPathLink(MyNode, MyPoly, End, TargetPoly, TeleportSpec, FMath::TruncToInt(NavData->AgentRadius), FMath::TruncToInt(NavData->AgentHeight), 0);
+			FCapsuleSize PathSize = NavData->GetHumanPathSize();
+			FUTPathLink* NewLink = new(MyNode->Paths) FUTPathLink(MyNode, MyPoly, End, TargetPoly, TeleportSpec, PathSize.Radius, PathSize.Height, 0);
 			for (NavNodeRef StartPoly : MyNode->Polys)
 			{
 				NewLink->Distances.Add(NavData->CalcPolyDistance(StartPoly, MyPoly) + 100);

@@ -3,6 +3,8 @@
 #include "UTLift.h"
 #include "UTCharacterMovement.h"
 #include "UTGib.h"
+#include "NavigationOctree.h"
+#include "UTLiftExit.h"
 
 AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -13,6 +15,7 @@ AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
 	bAlwaysRelevant = true;
 	LiftVelocity = FVector(0.f);
 	TickLocation = EncroachComponent ? EncroachComponent->GetComponentLocation() : GetActorLocation();
+	NavmeshScale = 0.75f;
 }
 
 void AUTLift::SetEncroachComponent(class UPrimitiveComponent* NewEncroachComponent)
@@ -113,4 +116,119 @@ void AUTLift::Tick(float DeltaTime)
 FVector AUTLift::GetVelocity() const
 {
 	return LiftVelocity;
+}
+
+void AUTLift::GetNavigationData(struct FNavigationRelevantData& Data) const
+{
+	UNavigationSystem* NavSys = GetWorld()->GetNavigationSystem();
+	if (NavSys != NULL && NavSys->GetNavOctree() != NULL && NavSys->GetNavOctree()->ComponentExportDelegate.IsBound())
+	{
+		// FIXME: navmesh only supports one set of data per object, so we can only do one stop!
+		//		this is a workaround for navmesh not supporting movers anyway, so hopefully we will be able to eventually just delete this instead of fixing
+		TArray<FVector> Stops = GetStops();
+		if (Stops.Num() == 0)
+		{
+			UE_LOG(UT, Error, TEXT("%s didn't return any stops! Please implement GetStops() in the blueprint"), *GetName());
+		}
+		for (const FVector& NextStop : Stops)
+		{
+			FVector Offset = NextStop - GetActorLocation();
+			if (!Offset.IsNearlyZero())
+			{
+				// temporarily move the component for export
+				FScopedMovementUpdate TempMove(EncroachComponent);
+				// scale down the component for export to try to prevent the exported geometry from connecting to normal areas
+				FVector SavedScale = EncroachComponent->GetComponentScale();
+				EncroachComponent->SetWorldScale3D(SavedScale * FVector(NavmeshScale, NavmeshScale, 0.1f));
+				EncroachComponent->SetWorldLocation(NextStop, false);
+				NavSys->GetNavOctree()->ComponentExportDelegate.Execute(EncroachComponent, Data);
+				EncroachComponent->SetWorldScale3D(SavedScale);
+				TempMove.RevertMove();
+				break; // see above
+			}
+		}
+	}
+}
+FBox AUTLift::GetNavigationBounds() const
+{
+	FBox BaseBounds = GetComponentsBoundingBox();
+	FBox TotalBounds = BaseBounds;
+
+	TArray<FVector> Stops = GetStops();
+	for (const FVector& NextStop : Stops)
+	{
+		FVector Offset = NextStop - GetActorLocation();
+		if (!Offset.IsNearlyZero())
+		{
+			TotalBounds += BaseBounds.TransformBy(FTranslationMatrix(Offset));
+		}
+	}
+	return TotalBounds;
+}
+
+void AUTLift::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData)
+{
+	if (EncroachComponent != NULL)
+	{
+		FVector MyLoc = GetActorLocation();
+		FHitResult TopHit;
+		if (ActorLineTraceSingle(TopHit, MyLoc + FVector(0.0f, 0.0f, 10000.0f), MyLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
+		{
+			float ZOffset = TopHit.Location.Z + NavData->AgentHeight * 0.25f - MyLoc.Z;
+			// figure out some offsets to check for exit locations at each start
+			TArray<FVector> ExitOffsets;
+			FVector RelDirs[] = { FVector(1.0f, 0.0f, 0.0f), FVector(-1.0f, 0.0f, 0.0f), FVector(0.0f, 1.0f, 0.0f), FVector(0.0f, -1.0f, 0.0f) };
+			FRotationMatrix ActorRotMat(GetActorRotation());
+			for (int32 i = 0; i < ARRAY_COUNT(RelDirs); i++)
+			{
+				FVector WorldDir = ActorRotMat.TransformVector(RelDirs[i]);
+				FHitResult Hit;
+				if (ActorLineTraceSingle(Hit, EncroachComponent->Bounds.Origin + WorldDir * 10000.0f, EncroachComponent->Bounds.Origin - WorldDir * 10000.0f, ECC_Pawn, FCollisionQueryParams()))
+				{
+					FVector PotentialOffset = (Hit.Location + WorldDir * NavData->AgentRadius * 3.0f) - MyLoc;
+					PotentialOffset.Z = ZOffset;
+					ExitOffsets.Add(PotentialOffset);
+				}
+			}
+
+			TSubclassOf<ACharacter> ScoutType = NavData->ScoutClass;
+			if (ScoutType == NULL)
+			{
+				ScoutType = AUTCharacter::StaticClass();
+			}
+
+			TArray<FVector> Stops = GetStops();
+			for (const FVector& NextStop : Stops)
+			{
+				for (const FVector& Offset : ExitOffsets)
+				{
+					FVector ExitLoc = NextStop + Offset;
+					FVector AdjustedLoc = ExitLoc;
+					// check that we can place the exit loc there without XY adjustments and trace to there from lift center is clear
+					// TODO: using Scout here only because FindTeleportSpot()/EncroachingWorldGeometry() won't accept standalone collision shapes
+					if ( GetWorld()->FindTeleportSpot(ScoutType.GetDefaultObject(), AdjustedLoc, FRotator::ZeroRotator) && (ExitLoc - AdjustedLoc).Size2D() < 1.0f &&
+						!GetWorld()->SweepTest(NextStop + FVector(0.0f, 0.0f, ZOffset + NavData->AgentHeight * 0.5f), AdjustedLoc + FVector(0.0f, 0.0f, NavData->AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(NavData->AgentRadius, NavData->AgentHeight * 0.25f), FCollisionQueryParams()) )
+					{
+						// make sure to account for differences in Z between test capsule and nav height that it's expecting for poly finding
+						ExitLoc = AdjustedLoc - FVector(0.0f, 0.0f, ScoutType.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight() - NavData->AgentHeight * 0.5f);
+						// if the LD placed an exit nearby then don't place another
+						bool bManualExit = false;
+						for (TActorIterator<AUTLiftExit> It(GetWorld()); It; ++It)
+						{
+							if (It->MyLift == this && FMath::Abs<float>(It->GetActorLocation().Z - ExitLoc.Z) < NavData->AgentHeight * 2.0f && (It->GetActorLocation() - ExitLoc).Size2D() < 1024.0f)
+							{
+								bManualExit = true;
+								break;
+							}
+						}
+
+						if (!bManualExit)
+						{
+							AUTLiftExit::AddLiftPathsShared(ExitLoc, this, NavData);
+						}
+					}
+				}
+			}
+		}
+	}
 }

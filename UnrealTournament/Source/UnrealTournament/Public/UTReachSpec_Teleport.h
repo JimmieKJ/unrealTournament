@@ -33,14 +33,14 @@ class UUTReachSpec_Teleport : public UUTReachSpec
 		return Teleporter.IsValid() ? DefaultCost : BLOCKED_PATH_COST;
 	}
 
-	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FVector>& MovePoints) const
+	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
 	{
 		TArray<NavNodeRef> PolyRoute;
 		NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly), OwnerLink.StartEdgePoly), PolyRoute, false);
 		NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints);
 		if (Teleporter.IsValid())
 		{
-			MovePoints.Add(Teleporter->GetActorLocation());
+			MovePoints.Add(FComponentBasedPosition(Teleporter->GetRootComponent(), Teleporter->GetActorLocation()));
 		}
 		return true;
 	}

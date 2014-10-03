@@ -38,7 +38,8 @@ class UUTReachSpec : public UObject
 		return DefaultCost;
 	}
 
-	virtual bool UseDirectMove(const FUTPathLink& OwnerLink, const struct FRouteCacheItem& MoveTarget, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, FVector& DirectLoc) const
+	/** return whether AI should pause before continuing move along this path (e.g. wait for elevator to reach the right place) */
+	virtual bool WaitForMove(APawn* Asker) const
 	{
 		return false;
 	}
@@ -47,7 +48,7 @@ class UUTReachSpec : public UObject
 	 * can be used to make sure the AI hits a required point, such as a trigger, a specific start spot for a jump or special move, etc
 	 * return false to use the default shortest poly route behavior
 	 */
-	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FVector>& MovePoints) const
+	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
 	{
 		return false;
 	}

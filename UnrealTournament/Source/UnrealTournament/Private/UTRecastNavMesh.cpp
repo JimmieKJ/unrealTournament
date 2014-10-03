@@ -58,9 +58,6 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(const struct dtPoly* PolyData,
 	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
-	const dtMeshTile* DestTile = NULL;
-	const dtPoly* DestPoly = NULL;
-	InternalMesh->getTileAndPolyByRef(Link.ref, &DestTile, &DestPoly);
 	int32 EdgeRadius = 0;
 	float* Vert1 = &TileData->verts[PolyData->verts[Link.edge] * 3];
 	float* Vert2 = &TileData->verts[PolyData->verts[(Link.edge + 1) % PolyData->vertCount] * 3];
@@ -74,8 +71,12 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(const struct dtPoly* PolyData,
 	InternalQuery.getPolyHeight(Link.ref, Vert1, &Height);
 	// TODO: recast is giving us negative poly heights sometimes. Is Abs() the right answer?
 	ActualSize.Height = FMath::Abs<int32>(FMath::TruncToInt(Height * 0.5f));
+
 	InternalQuery.getPolyHeight(Link.ref, Vert2, &Height);
-	ActualSize.Height = FMath::Abs<int32>(FMath::Min<int32>(FMath::TruncToInt(Height * 0.5f), ActualSize.Height));
+	ActualSize.Height = FMath::Min<int32>(FMath::Abs<int32>(FMath::TruncToInt(Height * 0.5f)), ActualSize.Height);
+
+	// we get some really low heights... maybe it doesn't account for AgentHeight?
+	ActualSize.Height += FMath::TruncToInt(AgentHeight);
 
 	FCapsuleSize SteppedSize(0, 0);
 	for (int32 i = 0; i < SizeSteps.Num(); i++)
@@ -348,6 +349,51 @@ int32 AUTRecastNavMesh::CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPol
 	return FMath::TruncToInt(Distance);
 }
 
+FCapsuleSize AUTRecastNavMesh::GetHumanPathSize() const
+{
+	if (ScoutClass != NULL)
+	{
+		FCapsuleSize ActualSize(FMath::TruncToInt(ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleRadius()), FMath::TruncToInt(ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight()));
+
+		FCapsuleSize SteppedSize(0, 0);
+		for (int32 i = 0; i < SizeSteps.Num(); i++)
+		{
+			if (ActualSize.Radius >= SizeSteps[i].Radius)
+			{
+				SteppedSize.Radius = FMath::Max<int32>(SteppedSize.Radius, SizeSteps[i].Radius);
+			}
+			if (ActualSize.Height >= SizeSteps[i].Height)
+			{
+				SteppedSize.Height = FMath::Max<int32>(SteppedSize.Height, SizeSteps[i].Height);
+			}
+		}
+		return SteppedSize;
+	}
+	else
+	{
+		return FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentHeight * 0.5f));
+	}
+}
+
+FVector AUTRecastNavMesh::GetPOIExtent(AActor* POI) const
+{
+	// enforce a minimum extent for checks
+	// this handles cases where the POI doesn't define any colliding primitives (i.e. just a point in space that AI should be aware of)
+	FVector MinPOIExtent(AgentRadius, AgentRadius, AgentHeight * 0.5f);
+	if (POI == NULL)
+	{
+		return MinPOIExtent;
+	}
+	else
+	{
+		FVector POIExtent = POI->GetSimpleCollisionCylinderExtent();
+		POIExtent.X = FMath::Max<float>(POIExtent.X, MinPOIExtent.X);
+		POIExtent.Y = POIExtent.X;
+		POIExtent.Z = FMath::Max<float>(POIExtent.Z, MinPOIExtent.Z);
+		return POIExtent;
+	}
+}
+
 #if WITH_NAVIGATION_GENERATOR
 void AUTRecastNavMesh::BuildNodeNetwork()
 {
@@ -371,25 +417,35 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	// make sure generation params are in the list
 	SizeSteps.AddUnique(FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentMaxHeight)));
 
-	// TODO: ask gametype? make an interface?
+	// list of IUTPathBuilderInterface implementing Actors that don't want to be added as POIs but still want path building callbacks
+	TArray<IUTPathBuilderInterface*> NonPOIBuilders;
+
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
-		if (InterfaceCast<IUTPathBuilderInterface>(*It) != NULL)
+		IUTPathBuilderInterface* Builder = InterfaceCast<IUTPathBuilderInterface>(*It);
+		if (Builder != NULL)
 		{
-			NavNodeRef Poly = FindNearestPoly(It->GetActorLocation(), It->GetSimpleCollisionCylinderExtent());
-			if (Poly != INVALID_NAVNODEREF)
+			if (!Builder->IsPOI())
 			{
-				// find node for this tile or create it
-				UUTPathNode* Node = PolyToNode.FindRef(Poly);
-				if (Node == NULL)
+				NonPOIBuilders.Add(Builder);
+			}
+			else
+			{
+				NavNodeRef Poly = FindNearestPoly(It->GetActorLocation(), GetPOIExtent(*It));
+				if (Poly != INVALID_NAVNODEREF)
 				{
-					Node = NewObject<UUTPathNode>(this);
-					PathNodes.Add(Node);
-					PolyToNode.Add(Poly, Node);
-					Node->Polys.Add(Poly);
-					SetNodeSize(Node);
+					// find node for this tile or create it
+					UUTPathNode* Node = PolyToNode.FindRef(Poly);
+					if (Node == NULL)
+					{
+						Node = NewObject<UUTPathNode>(this);
+						PathNodes.Add(Node);
+						PolyToNode.Add(Poly, Node);
+						Node->Polys.Add(Poly);
+						SetNodeSize(Node);
+					}
+					Node->POIs.Add(*It);
 				}
-				Node->POIs.Add(*It);
 			}
 		}
 	}
@@ -466,7 +522,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 													// move over POIs that are inside the split polygons
 													for (int32 POIIndex = 0; POIIndex < DestNode->POIs.Num(); POIIndex++)
 													{
-														if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), DestNode->POIs[POIIndex]->GetSimpleCollisionCylinderExtent())))
+														if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex].Get()))))
 														{
 															NewNode->POIs.Add(DestNode->POIs[POIIndex]);
 															DestNode->POIs.RemoveAt(POIIndex--);
@@ -590,6 +646,10 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 		{
 			check(Link.End->Polys.Contains(Link.EndPoly));
 		}
+		for (TWeakObjectPtr<AActor> POI : Node->POIs)
+		{
+			check(Node->Polys.Contains(FindNearestPoly(POI->GetActorLocation(), GetPOIExtent(POI.Get()))));
+		}
 	}
 #endif
 
@@ -659,6 +719,10 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 				Builder->AddSpecialPaths(Node, this);
 			}
 		}
+	}
+	for (IUTPathBuilderInterface* Builder : NonPOIBuilders)
+	{
+		Builder->AddSpecialPaths(NULL, this);
 	}
 
 	// start jump path generation (spread over a number of ticks)
@@ -1001,6 +1065,110 @@ UUTPathNode* AUTRecastNavMesh::FindNearestNode(const FVector& TestLoc, const FVe
 	return PolyToNode.FindRef(PolyRef);
 }
 
+bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, float ZExtent, FVector& HitLocation) const
+{
+	struct FRecastZCheckFilter : public FRecastQueryFilter
+	{
+		FRecastZCheckFilter()
+		: ZMin(0.0f), ZMax(0.0f), NavMesh(NULL), FRecastQueryFilter(true)
+		{}
+
+		float ZMin, ZMax;
+		const AUTRecastNavMesh* NavMesh;
+
+		virtual bool passVirtualFilter(const dtPolyRef ref, const dtMeshTile* tile, const dtPoly* poly) const
+		{
+			if (!passInlineFilter(ref, tile, poly))
+			{
+				return false;
+			}
+			else
+			{
+				FVector PolyCenter = NavMesh->GetPolyCenter(ref);
+				return (PolyCenter.Z >= ZMin && PolyCenter.Z <= ZMax);
+			}
+		}
+	};
+	TSharedPtr<FNavigationQueryFilter> FilterContainer = MakeShareable(new FNavigationQueryFilter);
+	FilterContainer->SetFilterType<FRecastZCheckFilter>();
+	((FRecastZCheckFilter*)FilterContainer->GetImplementation())->NavMesh = this;
+	((FRecastZCheckFilter*)FilterContainer->GetImplementation())->ZMin = FMath::Min<float>(RayStart.Z, RayEnd.Z) - ZExtent;
+	((FRecastZCheckFilter*)FilterContainer->GetImplementation())->ZMax = FMath::Max<float>(RayStart.Z, RayEnd.Z) + ZExtent;
+
+	return NavMeshRaycast(this, RayStart, RayEnd, HitLocation, FilterContainer);
+}
+
+NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentProperties& AgentProps) const
+{
+	if (Asker == NULL)
+	{
+		return INVALID_NAVNODEREF;
+	}
+	else
+	{
+		UPrimitiveComponent* MovementBase = Asker->GetMovementBase();
+		if (MovementBase == NULL)
+		{
+			return INVALID_NAVNODEREF;
+		}
+		else
+		{
+			FVector Vel = MovementBase->GetComponentVelocity();
+			if (Vel.IsZero())
+			{
+				return INVALID_NAVNODEREF;
+			}
+			else
+			{
+				// extend the search query by a large amount in the direction of the movement
+				const FVector AgentLoc = Asker->GetNavAgentLocation();
+				const FVector AgentExtent(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f);
+				FBox TestBox(AgentLoc + AgentExtent, AgentLoc - AgentExtent);
+				const FVector TraceEnd = Asker->GetNavAgentLocation() + Vel * 2.0f;
+				TestBox += TraceEnd;
+				
+				TestBox = Unreal2RecastBox(TestBox);
+				float RecastCenter[3] = { TestBox.GetCenter().X, TestBox.GetCenter().Y, TestBox.GetCenter().Z };
+				float RecastExtent[3] = { TestBox.GetExtent().X, TestBox.GetExtent().Y, TestBox.GetExtent().Z };
+				dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
+				FRecastQueryFilter Filter(false);
+				for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
+				{
+					Filter.SetAreaCost(i, 1.0f);
+				}
+				NavNodeRef ResultPolys[10];
+				int32 NumPolys = 0;
+				InternalQuery.queryPolygons(RecastCenter, RecastExtent, &Filter, ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+				float BestDist = FLT_MAX;
+				NavNodeRef BestResult = INVALID_NAVNODEREF;
+				for (int32 i = 0; i < NumPolys; i++)
+				{
+					// do a more precise intersection against the poly bounding box
+					TArray<FVector> PolyVerts;
+					GetPolyVerts(ResultPolys[i], PolyVerts);
+					FBox PolyBox(0);
+					for (const FVector& Vert : PolyVerts)
+					{
+						PolyBox += Vert;
+					}
+					if (FMath::LineBoxIntersection(PolyBox, AgentLoc, AgentLoc + TraceEnd, TraceEnd.SafeNormal()))
+					{
+						float Dist = (PolyBox.GetCenter() - AgentLoc).SizeSquared();
+						if (Dist < BestDist)
+						{
+							UE_LOG(UT, Log, TEXT("Found lift poly"));
+							BestResult = ResultPolys[i];
+							BestDist = Dist;
+						}
+					}
+				}
+
+				return BestResult;
+			}
+		}
+	}
+}
+
 void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags)
 {
 	Radius = FMath::TruncToInt(AgentProps.AgentRadius);
@@ -1032,6 +1200,11 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 	}
 	bool bNeedMoveToStartNode = false;
 	NavNodeRef StartPoly = FindNearestPoly(StartLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+	// HACK: handle lifts (see FindLiftPoly())
+	if (StartPoly == INVALID_NAVNODEREF)
+	{
+		StartPoly = FindLiftPoly(Asker, AgentProps);
+	}
 	if (StartPoly == INVALID_NAVNODEREF)
 	{
 		bNeedMoveToStartNode = true;
@@ -1297,7 +1470,7 @@ bool AUTRecastNavMesh::FindPolyPath(FVector StartLoc, const FNavAgentProperties&
 	}
 }
 
-bool AUTRecastNavMesh::DoStringPulling(const FVector& OrigStartLoc, const TArray<NavNodeRef>& PolyRoute, const FNavAgentProperties& AgentProps, TArray<FVector>& MovePoints) const
+bool AUTRecastNavMesh::DoStringPulling(const FVector& OrigStartLoc, const TArray<NavNodeRef>& PolyRoute, const FNavAgentProperties& AgentProps, TArray<FComponentBasedPosition>& MovePoints) const
 {
 	if (PolyRoute.Num() == 0)
 	{
@@ -1337,14 +1510,14 @@ bool AUTRecastNavMesh::DoStringPulling(const FVector& OrigStartLoc, const TArray
 			FVector HeightAdd(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f); // returned points are on the surface of the mesh, raise to agent center
 			for (int32 i = 0; i < ReturnedPoints; i++)
 			{
-				MovePoints.Add(Recast2UnrealPoint(ResultPoints + i * 3) + HeightAdd);
+				MovePoints.Add(FComponentBasedPosition(Recast2UnrealPoint(ResultPoints + i * 3) + HeightAdd));
 			}
 			return true;
 		}
 	}
 }
 
-bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, TArray<FVector>& MovePoints, FUTPathLink& NodeLink, float* TotalDistance) const
+bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, TArray<FComponentBasedPosition>& MovePoints, FUTPathLink& NodeLink, float* TotalDistance) const
 {
 	bool bResult = false;
 
@@ -1356,6 +1529,11 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 	NodeLink = FUTPathLink();
 
 	NavNodeRef StartPoly = FindNearestPoly(OrigStartLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+	// HACK: handle lifts (see FindLiftPoly())
+	if (StartPoly == INVALID_NAVNODEREF)
+	{
+		StartPoly = FindLiftPoly(Asker, AgentProps);
+	}
 	if (StartPoly == INVALID_NAVNODEREF)
 	{
 		// we're off the navmesh, but FindBestPath() may have suggested a re-entry point to get us in here
@@ -1363,7 +1541,7 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 		FCollisionQueryParams Params(FName(TEXT("GetMovePointsFallback")), false, Asker);
 		if (!GetWorld()->SweepTest(OrigStartLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight), Target.GetLocation() + FVector(0.0f, 0.0f, AgentProps.AgentHeight), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(FVector(10.0f, 10.0f, 5.0f)), Params))
 		{
-			MovePoints.Add(Target.GetLocation());
+			MovePoints.Add(FComponentBasedPosition(Target.GetLocation()));
 			if (TotalDistance != NULL)
 			{
 				*TotalDistance = (Target.GetLocation() - OrigStartLoc).Size();
@@ -1401,7 +1579,7 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 			{
 				for (int32 i = 0; i < MovePoints.Num(); i++)
 				{
-					*TotalDistance += (i == 0) ? (MovePoints[i] - OrigStartLoc).Size() : (MovePoints[i] - MovePoints[i - 1]).Size();
+					*TotalDistance += (i == 0) ? (MovePoints[i].Get() - OrigStartLoc).Size() : (MovePoints[i].Get() - MovePoints[i - 1].Get()).Size();
 				}
 			}
 			return true;

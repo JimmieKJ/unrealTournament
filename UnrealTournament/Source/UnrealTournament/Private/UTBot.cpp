@@ -121,7 +121,7 @@ void AUTBot::Tick(float DeltaTime)
 						FBox TestBox(0);
 						TestBox += MyLoc + Extent;
 						TestBox += MyLoc - Extent;
-						if (TestBox.IsInside(MoveTargetPoints[i]))
+						if (TestBox.IsInside(MoveTargetPoints[i].Get()))
 						{
 							MoveTargetPoints.RemoveAt(0, i + 1);
 							break;
@@ -131,7 +131,7 @@ void AUTBot::Tick(float DeltaTime)
 						if (i < MoveTargetPoints.Num() - 2 || CurrentPath.ReachFlags == 0)
 						{
 							FVector HitLoc;
-							if (DistFromTarget < (MoveTarget.GetLocation() - MoveTargetPoints[i]).Size() && !NavData->Raycast(MyLoc, MoveTargetPoints[i], HitLoc, NULL))
+							if (DistFromTarget < (MoveTarget.GetLocation() - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(MyLoc, MoveTargetPoints[i].Get(), Extent.Z * 1.5f, HitLoc)) // && !NavData->Raycast(MyLoc, MoveTargetPoints[i].Get(), HitLoc, NULL))
 							{
 								MoveTargetPoints.RemoveAt(0, i + 1);
 								break;
@@ -140,20 +140,41 @@ void AUTBot::Tick(float DeltaTime)
 					}
 
 					// failure checks
-					if ((MoveTargetPoints[0] - MyLoc).Size2D() < MyPawn->GetSimpleCollisionRadius() && FMath::Abs<float>(MyLoc.Z - MoveTargetPoints[0].Z) > MyPawn->GetSimpleCollisionHalfHeight())
+					if ((MoveTargetPoints[0].Get() - MyLoc).Size2D() < MyPawn->GetSimpleCollisionRadius())
 					{
-						if (GetCharacter() != NULL)
+						static FName NAME_AIZCheck(TEXT("AIZCheck"));
+
+						float ZDiff = MyLoc.Z - MoveTargetPoints[0].Get().Z;
+						bool bZFail = false;
+						if (!(CurrentPath.ReachFlags & R_JUMP))
 						{
-							if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
+							bZFail = FMath::Abs<float>(ZDiff) < MyPawn->GetSimpleCollisionHalfHeight();
+						}
+						else if (ZDiff < -MyPawn->GetSimpleCollisionHalfHeight())
+						{
+							bZFail = true;
+						}
+						else
+						{
+							// for jump/fall path make sure we don't just need to get closer to the edge
+							FVector TargetPoint = MoveTargetPoints[0].Get();
+							bZFail = GetWorld()->LineTraceTest(FVector(TargetPoint.X, TargetPoint.Y, MyLoc.Z), TargetPoint, ECC_Pawn, FCollisionQueryParams(NAME_AIZCheck, false, MyPawn));
+						}
+						if (bZFail)
+						{
+							if (GetCharacter() != NULL)
+							{
+								if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
+								{
+									// failed - directly above or below target
+									ClearMoveTarget();
+								}
+							}
+							else if (GetWorld()->SweepTest(MyLoc, MoveTargetPoints[0].Get(), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(MyPawn->GetSimpleCollisionCylinderExtent() * FVector(0.9f, 0.9f, 0.1f)), FCollisionQueryParams(NAME_AIZCheck, false, MyPawn)))
 							{
 								// failed - directly above or below target
 								ClearMoveTarget();
 							}
-						}
-						else if (GetWorld()->SweepTest(MyLoc, MoveTargetPoints[0], FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(MyPawn->GetSimpleCollisionCylinderExtent() * FVector(0.9f, 0.9f, 0.1f)), FCollisionQueryParams(FName(TEXT("AIZCheck")), false, MyPawn)))
-						{
-							// failed - directly above or below target
-							ClearMoveTarget();
 						}
 					}
 				}
@@ -227,15 +248,7 @@ void AUTBot::Tick(float DeltaTime)
 			}
 			if (MoveTarget.IsValid())
 			{
-				FVector TargetLoc;
-				if (MoveTargetPoints.Num() == 1)
-				{
-					TargetLoc = MoveTarget.GetLocation();
-				}
-				else
-				{
-					TargetLoc = MoveTargetPoints[0];
-				}
+				FVector TargetLoc = GetMovePoint();
 				if (Enemy != NULL && LineOfSightTo(Enemy)) // TODO: cache this
 				{
 					SetFocus(Enemy);
@@ -257,13 +270,28 @@ void AUTBot::Tick(float DeltaTime)
 				}
 				if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && GetCharacter()->CharacterMovement->AirControl > 0.0f)
 				{
-					// make sure we don't overshoot with air control
-					FVector DesiredDir = TargetLoc - MyPawn->GetActorLocation();
-					DesiredDir.Z = 0.0f;
-					float Pct = FMath::Min<float>(1.0f, DesiredDir.Size() / FMath::Max<float>(1.0f, GetCharacter()->CharacterMovement->MaxWalkSpeed * DeltaTime / GetCharacter()->CharacterMovement->AirControl));
-					MyPawn->GetMovementComponent()->AddInputVector(DesiredDir.SafeNormal2D() * Pct);
+					// figure out desired 2D velocity and set air control to achieve that
+					float GravityZ = GetCharacter()->CharacterMovement->GetGravityZ();
+					float Determinant = FMath::Square(GetCharacter()->CharacterMovement->Velocity.Z) - 2.0 * GravityZ * (MyPawn->GetActorLocation().Z - TargetLoc.Z);
+					if (Determinant >= 0.0f)
+					{
+						Determinant = FMath::Sqrt(Determinant);
+						float Time = (-GetCharacter()->CharacterMovement->Velocity.Z + Determinant) / GravityZ;
+						if (Time <= 0.0f)
+						{
+							Time = (-GetCharacter()->CharacterMovement->Velocity.Z - Determinant) / GravityZ;
+						}
+						if (Time > 0.0f)
+						{
+							FVector DesiredVel2D = (TargetLoc - MyPawn->GetActorLocation()) / Time;
+							FVector NewAccel = (DesiredVel2D - GetCharacter()->CharacterMovement->Velocity) / DeltaTime / GetCharacter()->CharacterMovement->AirControl;
+							NewAccel.Z = 0.0f;
+							MyPawn->GetMovementComponent()->AddInputVector(NewAccel.SafeNormal() * (NewAccel.Size() / GetCharacter()->CharacterMovement->MaxWalkSpeed));
+						}
+					}
 				}
-				else
+				// do nothing if path says we need to wait
+				else if (CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(GetPawn()))
 				{
 					MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).SafeNormal2D());
 				}
@@ -280,10 +308,11 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	{
 		if (MoveTarget.IsValid())
 		{
-			for (int32 i = 0; i < MoveTargetPoints.Num(); i++)
+			for (int32 i = 0; i < MoveTargetPoints.Num() - 1; i++)
 			{
-				DrawDebugLine(GetWorld(), (i == 0) ? GetPawn()->GetActorLocation() : MoveTargetPoints[i - 1], MoveTargetPoints[i], FColor(0, 255, 0));
+				DrawDebugLine(GetWorld(), (i == 0) ? GetPawn()->GetActorLocation() : MoveTargetPoints[i - 1].Get(), MoveTargetPoints[i].Get(), FColor(0, 255, 0));
 			}
+			DrawDebugLine(GetWorld(), (MoveTargetPoints.Num() > 1) ? MoveTargetPoints[MoveTargetPoints.Num() - 2].Get() : GetPawn()->GetActorLocation(), MoveTarget.GetLocation(), FColor(0, 255, 0));
 		}
 		for (const FRouteCacheItem& RoutePoint : RouteCache)
 		{
@@ -327,9 +356,10 @@ void AUTBot::NotifyWalkingOffLedge()
 	// jump if needed by path
 	if (GetCharacter() != NULL && MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?
 	{
-		FVector Diff = MoveTarget.GetLocation() - GetCharacter()->GetActorLocation();
+		FVector Diff = GetMovePoint() - GetCharacter()->GetActorLocation();
 		float XYTime = Diff.Size2D() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
 		float DesiredJumpZ = Diff.Z / XYTime - 0.5f * GetCharacter()->CharacterMovement->GetGravityZ() * XYTime;
+		// TODO: if high skill also check if path is walkable from simple fall location to dest via navmesh raytrace to minimize in air time
 		if (DesiredJumpZ > 0.0f)
 		{
 			// try forward dodge instead if target is a little too far but is below and path is clear
@@ -340,9 +370,12 @@ void AUTBot::NotifyWalkingOffLedge()
 				float DodgeDesiredJumpZ = Diff.Z / DodgeXYTime - 0.5f * GetCharacter()->CharacterMovement->GetGravityZ() * DodgeXYTime;
 				// TODO: need FRouteCacheItem function that conditionally Z adjusts
 				FCollisionQueryParams TraceParams(FName(TEXT("Dodge")), false, GetPawn());
-				if (DodgeDesiredJumpZ <= GetUTChar()->UTCharacterMovement->DodgeImpulseVertical && !GetWorld()->LineTraceTest(GetCharacter()->GetActorLocation(), MoveTarget.GetLocation() + FVector(0.0f, 0.0f, 60.0f), ECC_Pawn, TraceParams))
+				if (DodgeDesiredJumpZ <= GetUTChar()->UTCharacterMovement->DodgeImpulseVertical && !GetWorld()->LineTraceTest(GetCharacter()->GetActorLocation(), GetMovePoint() + FVector(0.0f, 0.0f, 60.0f), ECC_Pawn, TraceParams))
 				{
-					FRotationMatrix YawMat(FRotator(0.f, GetUTChar()->GetActorRotation().Yaw, 0.f));
+					// TODO: very minor cheat here - non-cardinal dodge
+					//		to avoid would need to add the ability for the AI to reject the fall in the first place and delay until it rotates to correct rotation
+					//FRotationMatrix YawMat(FRotator(0.f, GetUTChar()->GetActorRotation().Yaw, 0.f));
+					FRotationMatrix YawMat(FRotator(0.f, Diff.Rotation().Yaw, 0.f));
 					// forward dodge
 					FVector X = YawMat.GetScaledAxis(EAxis::X).SafeNormal();
 					FVector Y = YawMat.GetScaledAxis(EAxis::Y).SafeNormal();
@@ -352,7 +385,7 @@ void AUTBot::NotifyWalkingOffLedge()
 			}
 			if (!bDodged)
 			{
-				GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * FMath::Min<float>(GetCharacter()->CharacterMovement->MaxWalkSpeed, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f));
+				GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * (GetCharacter()->CharacterMovement->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f)));
 				GetCharacter()->CharacterMovement->DoJump(false);
 			}
 		}
@@ -360,7 +393,7 @@ void AUTBot::NotifyWalkingOffLedge()
 		{
 			// clamp initial XY speed if target is directly below
 			float ZTime = FMath::Sqrt(Diff.Z / (0.5f * GetCharacter()->CharacterMovement->GetGravityZ()));
-			GetCharacter()->CharacterMovement->Velocity = GetCharacter()->CharacterMovement->Velocity.SafeNormal() * FMath::Min<float>(GetCharacter()->CharacterMovement->Velocity.Size2D(), Diff.Size2D() / ZTime);
+			GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * FMath::Min<float>(GetCharacter()->CharacterMovement->MaxWalkSpeed, Diff.Size2D() / ZTime);
 		}
 	}
 }
@@ -373,14 +406,18 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 		{
 			if (MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?)
 			{
-				FVector Diff = MoveTarget.GetLocation() - GetCharacter()->GetActorLocation();
-				float XYTime = Diff.Size2D() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
-				float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->CharacterMovement->GetGravityZ() * XYTime;
-				if (DesiredJumpZ > 0.0f)
+				FVector Diff = GetMovePoint() - GetCharacter()->GetActorLocation();
+				// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
+				if (((Impact.Normal * -1.0f) | Diff.SafeNormal()) > 0.0f)
 				{
-					GetCharacter()->CharacterMovement->Velocity = GetCharacter()->CharacterMovement->Velocity.SafeNormal() * FMath::Min<float>(GetCharacter()->CharacterMovement->MaxWalkSpeed, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f));
+					float XYTime = Diff.Size2D() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
+					float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->CharacterMovement->GetGravityZ() * XYTime;
+					if (DesiredJumpZ > 0.0f)
+					{
+						GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * (GetCharacter()->CharacterMovement->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f)));
+					}
+					GetCharacter()->CharacterMovement->DoJump(false);
 				}
-				GetCharacter()->CharacterMovement->DoJump(false);
 			}
 			else if (Impact.Time <= 0.0f)
 			{

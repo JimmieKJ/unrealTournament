@@ -162,6 +162,19 @@ class AUTRecastNavMesh : public ARecastNavMesh
 		return Super::GetPolyCenter(PolyID, OutCenter);
 	}
 
+	/** return size for standard human traversable paths (used by special paths to set the appropriate size) */
+	virtual FCapsuleSize GetHumanPathSize() const;
+	inline FCapsuleSize GetMaxPathSize() const
+	{
+		FCapsuleSize Max(0, 0);
+		for (int32 i = 0; i < SizeSteps.Num(); i++)
+		{
+			Max.Radius = FMath::Max<int32>(Max.Radius, SizeSteps[i].Radius);
+			Max.Height = FMath::Max<int32>(Max.Height, SizeSteps[i].Height);
+		}
+		return Max;
+	}
+
 	virtual void PreInitializeComponents() override;
 
 	// add or remove an Actor from the list of POIs
@@ -177,6 +190,19 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	{
 		return PolyToNode.FindRef(PolyRef);
 	}
+
+	/** extension to the default 2D Raycast() function with a simple Z bounding box check for poly centers
+	 * the default implementation can false negative when there is a walkable polygon directly under the trace even if in 3D the trace would hit a polygon border
+	 * this method gets around this by doing a simple Z check, which in the case of slopes may return false positives (hits)
+	 * but in cases where it is better to be conservative than optimistic this is a preferrable option
+	 */
+	bool RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, float ZExtent, FVector& HitLocation) const;
+
+	/** returns the extent that should be used for the given POI (non-agent path target) when determining what poly and/or PathNode it is on
+	 * this is needed because some POIs don't have collision and therefore don't have reasonable bounds to derive an extent from
+	 * passing NULL is valid (returns minimum extent that any POI should use)
+	 */
+	virtual FVector GetPOIExtent(AActor* POI) const;
 
 	/** calculate reachability parameters and flags for pathfinding */
 	static void CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags);
@@ -205,15 +231,22 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	virtual bool FindPolyPath(FVector StartLoc, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, TArray<NavNodeRef>& PolyRoute, bool bSkipCurrentPoly = true) const;
 
 	/** returns a string-pulled list of move points to go from StartLoc to Target */
-	virtual bool GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, TArray<FVector>& MovePoints, FUTPathLink& NodeLink, float* TotalDistance = NULL) const;
+	virtual bool GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, TArray<FComponentBasedPosition>& MovePoints, FUTPathLink& NodeLink, float* TotalDistance = NULL) const;
 
 	/** takes the passed in node list and string pulls a valid smooth set of points to traverse that path */
-	virtual bool DoStringPulling(const FVector& StartLoc, const TArray<NavNodeRef>& PolyRoute, const FNavAgentProperties& AgentProps, TArray<FVector>& MovePoints) const;
+	virtual bool DoStringPulling(const FVector& StartLoc, const TArray<NavNodeRef>& PolyRoute, const FNavAgentProperties& AgentProps, TArray<FComponentBasedPosition>& MovePoints) const;
 
 	/** returns if the agent has reached the specified goal, taking into account any special reachability concerns (i.e. if touching is required use collision instead of navigation query, etc)
 	 * ASKER is required here!
 	 */
 	virtual bool HasReachedTarget(APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const FUTPathLink& CurrentPath) const;
+
+	/** HACK: workaround for navmesh not supporting moving objects
+	* and thus when on lifts players will be temporarily off the navmesh
+	* look for lift and try to figure out what poly the lift is taking the Pawn to
+	* hopefully will become unnecessary in a future engine version
+	*/
+	NavNodeRef FindLiftPoly(APawn* Asker, const FNavAgentProperties& AgentProps) const;
 protected:
 	/** graph of path nodes overlaying the mesh */
 	UPROPERTY()

@@ -75,10 +75,10 @@ FNavGraphSceneProxy::FNavGraphSceneProxy(UUTNavGraphRenderingComponent* InCompon
 	AUTRecastNavMesh* NavData = Cast<AUTRecastNavMesh>(InComponent->GetOwner());
 	if (NavData != NULL)
 	{
+		bDrawPolyEdges = NavData->bDrawPolyEdges;
 		for (const UUTPathNode* Node : NavData->GetAllNodes())
 		{
 			FUTPathNodeRenderProxy* Proxy = new(PathNodes) FUTPathNodeRenderProxy(Node, NavData);
-			bDrawPolyEdges = NavData->bDrawPolyEdges;
 		}
 	}
 }
