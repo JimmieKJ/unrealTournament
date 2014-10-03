@@ -413,7 +413,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			CurrentMoveTime = ClientData->CurrentTimeStamp;
 		}
 	}
-	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z);
+	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f from yaw %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z, CharacterOwner->GetActorRotation().Yaw);
 */
 	float HorizontalImpulse = DodgeImpulseHorizontal;
 	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
@@ -941,21 +941,6 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 {
 	const bool bFalling = IsFalling();
 	FVector Delta = InDelta;
-
-	// Don't make impacts on the upper hemisphere feel so much like a capsule
-	if (bFalling && Delta.Z > 0.f)
-	{
-		if (Hit.Normal.Z < KINDA_SMALL_NUMBER)
-		{
-			float PawnRadius, PawnHalfHeight;
-			CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
-			const float UpperHemisphereZ = UpdatedComponent->GetComponentLocation().Z + PawnHalfHeight - PawnRadius;
-			if (Hit.ImpactPoint.Z > UpperHemisphereZ + KINDA_SMALL_NUMBER && IsWithinEdgeTolerance(Hit.Location, Hit.ImpactPoint, PawnRadius))
-			{
-				Delta = AdjustUpperHemisphereImpact(Delta, Hit);
-			}
-		}
-	}
 	FVector Result = UMovementComponent::ComputeSlideVector(Delta, Time, Normal, Hit);
 	
 	// prevent boosting up slopes
@@ -1165,7 +1150,6 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	else
 	{
 		UE_LOG(UT, Warning, TEXT("SERVER Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentMovementTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
-
 	}
 */
 	while ((remainingTime > 0.f) && (Iterations < 8))
@@ -1225,6 +1209,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		}
 		else if (Hit.Time < 1.f)
 		{
+			//UE_LOG(UT, Warning, TEXT("HIT WALL %f"), Hit.Time);
 			if (IsValidLandingSpot(UpdatedComponent->GetComponentLocation(), Hit))
 			{
 				remainingTime += timeTick * (1.f - Hit.Time);
@@ -1352,6 +1337,23 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 			Velocity = Velocity.ClampMaxSize(GetPhysicsVolume()->TerminalVelocity);
 		}
+/*
+		FVector Loc = CharacterOwner->GetActorLocation();
+		if (CharacterOwner->Role < ROLE_Authority)
+		{
+			FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+			if (ClientData && !CharacterOwner->bClientUpdating)
+			{
+				CurrentMoveTime = ClientData->CurrentTimeStamp;
+				UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), ClientData->CurrentTimeStamp, Velocity.X, Velocity.Y, Velocity.Z);
+			}
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), GetCurrentMovementTime(), Velocity.X, Velocity.Y, Velocity.Z);
+
+		}
+*/
 	}
 }
 
