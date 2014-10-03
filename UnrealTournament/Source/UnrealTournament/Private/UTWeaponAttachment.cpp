@@ -151,7 +151,7 @@ void AUTWeaponAttachment::StopFiringEffects(bool bIgnoreCurrentMode)
 	// we need to default to stopping all modes' firing effects as we can't rely on the replicated value to be correct at this point
 	for (uint8 i = 0; i < MuzzleFlash.Num(); i++)
 	{
-		if (MuzzleFlash[i] != NULL && (!bIgnoreCurrentMode || i != UTOwner->FireMode))
+		if (MuzzleFlash[i] != NULL && (!bIgnoreCurrentMode || !MuzzleFlash.IsValidIndex(UTOwner->FireMode) || MuzzleFlash[UTOwner->FireMode] != NULL || (i != UTOwner->FireMode && MuzzleFlash[i] != MuzzleFlash[UTOwner->FireMode])))
 		{
 			MuzzleFlash[i]->DeactivateSystem();
 		}

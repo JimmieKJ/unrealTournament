@@ -477,6 +477,20 @@ void AUTWeapon::DetachFromOwner_Implementation()
 	{
 		FiringState[i]->WeaponBecameInactive();
 	}
+	StopFiringEffects();
+	// make sure particle system really stops NOW since we're going to unregister it
+	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
+	{
+		if (MuzzleFlash[i] != NULL)
+		{
+			UParticleSystem* SavedTemplate = MuzzleFlash[i]->Template;
+			MuzzleFlash[i]->DeactivateSystem();
+			MuzzleFlash[i]->KillParticlesForced();
+			// FIXME: KillParticlesForced() doesn't kill particles immediately for GPU particles, but the below does...
+			MuzzleFlash[i]->SetTemplate(NULL);
+			MuzzleFlash[i]->SetTemplate(SavedTemplate);
+		}
+	}
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->DetachFromParent();
