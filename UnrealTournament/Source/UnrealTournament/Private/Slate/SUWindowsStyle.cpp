@@ -122,6 +122,10 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor(0,0.05,0.59))
 			);
 	}
+
+	Style.Set("UWindows.Standard.UpTick", new IMAGE_BRUSH("ServerBrowser/SortUpArrow", Icon8x4));
+	Style.Set("UWindows.Standard.DownTick", new IMAGE_BRUSH("ServerBrowser/SortDownArrow", Icon8x4));
+
 	// Server Browser
 	{
 
@@ -344,6 +348,22 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	}
+
+	{	// Text Chat styles
+	
+		const FTextBlockStyle NormalChatStyle = FTextBlockStyle().SetFont(TTF_FONT("Exo2-Medium", 12)). SetColorAndOpacity(FLinearColor::White);
+
+		Style.Set("UWindows.Chat.Text.Global", FTextBlockStyle(NormalChatStyle));
+		Style.Set("UWindows.Chat.Text.Lobby", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::White));
+		Style.Set("UWindows.Chat.Text.Match", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+		Style.Set("UWindows.Chat.Text.Friends", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Green));
+		Style.Set("UWindows.Chat.Text.Team", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+		Style.Set("UWindows.Chat.Text.Team.Red", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor(1.0f,0.25f,0.25f,1.0f)));
+		Style.Set("UWindows.Chat.Text.Team.Blue", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor(0.25,0.25,1.0,1.0)));
+		Style.Set("UWindows.Chat.Text.Local", FTextBlockStyle(NormalChatStyle));
+		Style.Set("UWindows.Chat.Text.Admin", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+	}
+
 
 	return StyleRef;
 }

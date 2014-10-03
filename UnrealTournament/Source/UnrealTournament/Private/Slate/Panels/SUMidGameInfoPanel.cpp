@@ -1,3 +1,4 @@
+
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "../Public/UnrealTournament.h"
@@ -29,13 +30,20 @@ struct FCompareUsers
 
 void SUMidGameInfoPanel::Construct(const FArguments& InArgs)
 {
+
+
 	PlayerOwner = InArgs._PlayerOwner;
+
+	FVector2D ViewportSize;
+	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	float Perc = 150 / ViewportSize.X;
+
 	LastChatCount=0;
 	AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	bIsTeamGame = (GS != NULL && GS->bTeamGame);
 
 	bIsLobbyGame =  PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL;
-
+	bUserListVisible = true;
 	ChatDestination = bIsLobbyGame ? ChatDestinations::Global : ChatDestinations::Local;
 
 	ChildSlot
@@ -43,21 +51,16 @@ void SUMidGameInfoPanel::Construct(const FArguments& InArgs)
 		.HAlign(HAlign_Fill)
 		[
 			SNew(SVerticalBox)
-
 			+ SVerticalBox::Slot()		// Server Info, MOTD
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
 			[
-				SNew(SHorizontalBox)
-
-				+SHorizontalBox::Slot()			// MOTD and Chat text
-				.Padding(10,10,10,10)
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
+				SAssignNew( Splitter, SSplitter )
+				.Orientation(Orient_Horizontal)
+				+SSplitter::Slot()
+				.Value(1.0f - Perc)
 				[
-
 					SNew(SVerticalBox)
-
 					+SVerticalBox::Slot()		// Server Title
 					.AutoHeight()
 					.VAlign(VAlign_Top)
@@ -88,21 +91,23 @@ void SUMidGameInfoPanel::Construct(const FArguments& InArgs)
 					+SVerticalBox::Slot()		// Chat List
 					.VAlign(VAlign_Fill)
 					.HAlign(HAlign_Fill)
+					.Padding(20,36,8,16)
 					[
-						SAssignNew( ChatList, SListView< TSharedPtr<FStoredChatMessage> > )
-						// Tell the list view where to get its source data
-						.ListItemsSource( &PlayerOwner->ChatArchive)
-						// When the list view needs to generate a widget for some data item, use this method
-						.OnGenerateRow( this, &SUMidGameInfoPanel::OnGenerateWidgetForChat )
-						.SelectionMode(ESelectionMode::None)
+						SAssignNew(ChatScroller, SScrollBox)
+						+ SScrollBox::Slot()
+						[
+							SAssignNew(ChatDisplay, SRichTextBlock)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
+							.Justification(ETextJustify::Left)
+							.DecoratorStyleSet( &SUWindowsStyle::Get() )
+							.AutoWrapText( true )
+						]
 					]
 
 				]
 
-				+SHorizontalBox::Slot()		// Player List
-				.AutoWidth()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Right)
+				+SSplitter::Slot()
+				.Value(Perc)
 				[
 					SNew(SOverlay)
 					+SOverlay::Slot()
@@ -193,16 +198,45 @@ void SUMidGameInfoPanel::Construct(const FArguments& InArgs)
 					.VAlign(VAlign_Fill)
 					.AutoWidth()
 					[
-						SNew(SButton)
+						SAssignNew(UserButton, SButton)
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.MidGame.ChatBarButton")
 						.ContentPadding(FMargin(10.0f, 5.0f))
-						.Text(NSLOCTEXT("Generic", "Game", "Users").ToString())
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
 						.OnClicked(this, &SUMidGameInfoPanel::UserListToggle)
+						[
+							SNew(SHorizontalBox)
+
+							+SHorizontalBox::Slot()
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Fill)
+							.AutoWidth()
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("Generic", "Game", "Users").ToString())
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+							]
+
+							+SHorizontalBox::Slot()
+							.Padding(14,0,14,0)
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Right)
+							.AutoWidth()
+							[
+								SNew(SBox)
+								.WidthOverride(8)
+								.HeightOverride(4)
+								[
+									SAssignNew(UserListTic, SImage)
+									.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DownTick"))
+								]
+							]
+						]
 					]
 				]
 			]
 		];
+
+	PlayerListBox->SetVisibility( EVisibility::Visible );
+
 }
 
 void SUMidGameInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
@@ -247,13 +281,75 @@ void SUMidGameInfoPanel::Tick( const FGeometry& AllottedGeometry, const double I
 	if (PlayerOwner->ChatArchive.Num() != LastChatCount)
 	{
 		LastChatCount = PlayerOwner->ChatArchive.Num();
-		ChatList->RequestListRefresh();
-		if (LastChatCount-1 < PlayerOwner->ChatArchive.Num())
+
+		FString RichText = TEXT("");
+		for (int32 i=0;i<PlayerOwner->ChatArchive.Num(); i++)
 		{
-			ChatList->RequestScrollIntoView(PlayerOwner->ChatArchive[LastChatCount-1]);
+			TSharedPtr<FStoredChatMessage> Msg = PlayerOwner->ChatArchive[i];
+			FString Style;
+
+			if (i>0) RichText += TEXT("\n");
+
+			if (Msg->Type == ChatDestinations::Friends)
+			{
+				Style = TEXT("UWindows.Chat.Text.Friends");
+			}
+			else if (Msg->Type == ChatDestinations::Lobby)
+			{
+				Style = TEXT("UWindows.Chat.Text.Lobby");
+			}
+			else if (Msg->Type == ChatDestinations::Match)
+			{
+				Style = TEXT("UWindows.Chat.Text.Match");
+			}
+			else if (Msg->Type == ChatDestinations::Local)
+			{
+				Style = TEXT("UWindows.Chat.Text.Local");
+			}
+			else if (Msg->Type == ChatDestinations::Team)
+			{
+				if (Msg->Color.R > Msg->Color.B)
+				{
+					Style = TEXT("UWindows.Chat.Text.Team.Red"); ;
+				}
+				else
+				{
+					Style = TEXT("UWindows.Chat.Text.Team.Blue"); ;
+				}
+			}
+			else
+			{
+				Style = TEXT("UWindows.Chat.Text.Global"); 
+			}
+
+			RichText += FString::Printf(TEXT("<%s>[%s]%s</>"), *Style, *GetDestinationTag(Msg->Type).ToString(), *Msg->Message);
 		}
+
+		ChatDisplay->SetText(FText::FromString(RichText));
+		ChatScroller->SetScrollOffset(290999);
 	}
 
+
+	FVector2D ViewportSize;
+	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	float SlotSize;
+	SlotSize = Splitter->SlotAt(1).SizeValue.Get();
+	if (SlotSize < (75 / ViewportSize.X))
+	{
+		if (!bUserListVisible)
+		{
+			UserListTic->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.UpTick"));
+		}
+		bUserListVisible = true;
+	}
+	else
+	{
+		if (bUserListVisible)
+		{
+			UserListTic->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DownTick"));
+		}
+		bUserListVisible = false;
+	}
 }
 
 TSharedRef<ITableRow> SUMidGameInfoPanel::OnGenerateWidgetForList( TSharedPtr<FSimpleListData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
@@ -280,25 +376,8 @@ FText SUMidGameInfoPanel::GetDestinationTag(FName Destination)
 	if (Destination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Lobby");
 	
 	return NSLOCTEXT("Chat", "GlobalTag","Global");
-
 }
 
-TSharedRef<ITableRow> SUMidGameInfoPanel::OnGenerateWidgetForChat( TSharedPtr<FStoredChatMessage> InItem, const TSharedRef<STableViewBase>& OwnerTable )
-{
-	FSlateFontInfo Font = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Font.Medium");
-
-	FString Message = FString::Printf(TEXT("[%s] %s"), *GetDestinationTag(InItem->Type).ToString(), *InItem->Message);
-
-	return SNew(STableRow<TSharedPtr<FStoredChatMessage>>, OwnerTable)
-		//.Style(SUWindowsStyle::Get(),"UWindows.Standard.MidGame.UserList.Row")
-		.Padding(5)
-		[
-			SNew(STextBlock)
-			.ColorAndOpacity(InItem->Color)
-			.Font(Font)
-			.Text(Message)
-		];
-}
 
 
 
@@ -400,7 +479,32 @@ FText SUMidGameInfoPanel::GetChatButtonText()
 
 FReply SUMidGameInfoPanel::UserListToggle()
 {
+/*
 	PlayerListBox->SetVisibility( PlayerListBox->GetVisibility() ==  EVisibility::Visible ? EVisibility::Collapsed :  EVisibility::Visible);
+
+	if (PlayerListBox->GetVisibility() == EVisibility::Visible)
+	{
+		UserListTic->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DownTick"));
+	}
+	else
+	{
+		UserListTic->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.UpTick"));
+	}
+*/
+
+	FVector2D ViewportSize;
+	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	float SlotSize;
+	SlotSize = Splitter->SlotAt(1).SizeValue.Get();
+	if (SlotSize < (75 / ViewportSize.X))
+	{
+		Splitter->SlotAt(1).Value(150 / ViewportSize.X);
+	}
+	else
+	{
+		Splitter->SlotAt(1).Value(20 / ViewportSize.X);
+	}
+
 	return FReply::Handled();
 }
 

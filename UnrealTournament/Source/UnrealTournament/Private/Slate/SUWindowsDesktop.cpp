@@ -76,6 +76,11 @@ FReply SUWindowsDesktop::OnKeyDown( const FGeometry& MyGeometry, const FKeyboard
 	return FReply::Handled();
 }
 
+FReply SUWindowsDesktop::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	return FReply::Handled();
+}
+
 
 FReply SUWindowsDesktop::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {

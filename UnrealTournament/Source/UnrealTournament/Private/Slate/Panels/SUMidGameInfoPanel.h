@@ -42,22 +42,28 @@ protected:
 	
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FSimpleListData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 
-
 	virtual FText GetDestinationTag(FName Destination);
-	TSharedRef<ITableRow> OnGenerateWidgetForChat( TSharedPtr<FStoredChatMessage> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 
 	FName ChatDestination;
 
 	bool bIsLobbyGame;
 	bool bIsTeamGame;
 
+	bool bUserListVisible;
+
 	TSharedPtr<class SButton> ChatDestinationButton;
+	TSharedPtr<class SButton> UserButton;
 	TSharedPtr<class SEditableTextBox> ChatText;
 	TSharedPtr<class SBox> PlayerListBox;
 	TSharedPtr<class STextBlock> ServerName;
 	TSharedPtr<class STextBlock> ServerRules;
 	TSharedPtr<class STextBlock> ServerMOTD;
-	TSharedPtr<class SListView< TSharedPtr<FStoredChatMessage> >> ChatList;
+	TSharedPtr<class SRichTextBlock> ChatDisplay;
+	TSharedPtr<class SScrollBox> ChatScroller;
+	TSharedPtr<class SImage> UserListTic;
+	TSharedPtr<class SSplitter> Splitter;
+
+
 
 	void ConsoleCommand(FString Command);
 
