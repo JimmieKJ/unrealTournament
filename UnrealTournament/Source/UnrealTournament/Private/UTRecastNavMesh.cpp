@@ -1069,12 +1069,12 @@ bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector&
 {
 	struct FRecastZCheckFilter : public FRecastQueryFilter
 	{
-		FRecastZCheckFilter()
-		: ZMin(0.0f), ZMax(0.0f), NavMesh(NULL), FRecastQueryFilter(true)
-		{}
-
 		float ZMin, ZMax;
 		const AUTRecastNavMesh* NavMesh;
+
+		FRecastZCheckFilter()
+		: FRecastQueryFilter(true), ZMin(0.0f), ZMax(0.0f), NavMesh(NULL)
+		{}
 
 		virtual bool passVirtualFilter(const dtPolyRef ref, const dtMeshTile* tile, const dtPoly* poly) const
 		{
