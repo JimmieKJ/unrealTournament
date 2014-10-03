@@ -345,7 +345,7 @@ float AUTWeapon::GetAutoSwitchPriority()
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
-	if (!UTOwner->bDisallowWeaponFiring)
+	if (!UTOwner->IsFiringDisabled())
 	{
 		BeginFiringSequence(FireModeNum);
 		if (Role < ROLE_Authority)
@@ -357,7 +357,7 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 
 void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum)
 {
-	if (!UTOwner->bDisallowWeaponFiring)
+	if (!UTOwner->IsFiringDisabled())
 	{
 		BeginFiringSequence(FireModeNum);
 	}

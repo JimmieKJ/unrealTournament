@@ -1197,6 +1197,15 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	FinalViewTarget = EndGameFocus;
 	BehindView(true);
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
+
+	// free all Pawns locally
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (It->IsValid())
+		{
+			It->Get()->TurnOff();
+		}
+	}
 }
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
@@ -1589,6 +1598,10 @@ void AUTPlayerController::ClientSetViewTarget_Implementation(AActor* A, FViewTar
 			LastSpectatedCharacter = Char;
 			LastSpectatedPlayerState = Char->PlayerState;
 		}
+	}
+	if (PlayerCameraManager != NULL)
+	{
+		PlayerCameraManager->UnlockFOV();
 	}
 
 	Super::ClientSetViewTarget_Implementation(A, TransitionParams);

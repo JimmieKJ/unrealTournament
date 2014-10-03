@@ -506,8 +506,20 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	bool bDeferredReplicatedMovement;
 
 	/** set to prevent firing (does not stop already started firing, call StopFiring() for that) */
-	UPROPERTY(BlueprintReadWrite, Category = Pawn)
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	bool bDisallowWeaponFiring;
+public:
+	/** allows disabling all weapon firing from this Pawn
+	 * NOT replicated, must be called on both sides to work properly
+	 */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual void DisallowWeaponFiring(bool bDisallowed);
+
+	inline bool IsFiringDisabled() const
+	{
+		return bDisallowWeaponFiring;
+	}
 
 	/** Used to replicate bIsDodgeRolling to non owning clients */
 	UPROPERTY(ReplicatedUsing = OnRepDodgeRolling)
@@ -533,6 +545,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	virtual void BaseChange() override;
 
+	virtual void TurnOff() override;
 
 	virtual bool IsFeigningDeath();
 

@@ -33,6 +33,9 @@ protected:
 	UAudioComponent* ZoomLoopComp;
 
 public:
+	/** FOV angle at start of zoom, or zero to start at the camera's default FOV */
+	UPROPERTY(EditDefaultsOnly, Category = Zoom)
+	float ZoomStartFOV;
 	/** minimum FOV angle */
 	UPROPERTY(EditDefaultsOnly, Category = Zoom)
 	float MinFOV;

@@ -22,6 +22,7 @@
 #include "UTGib.h"
 #include "UTRemoteRedeemer.h"
 #include "UTDroppedPickup.h"
+#include "UTWeaponStateFiring.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -887,7 +888,7 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 void AUTCharacter::StartRagdoll()
 {
 	StopFiring();
-	bDisallowWeaponFiring = true;
+	DisallowWeaponFiring(true);
 	bInRagdollRecovery = false;
 	
 	if (!Mesh->ShouldTickPose())
@@ -2423,7 +2424,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			Mesh->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation);
 			Mesh->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeScale3D);
 
-			bDisallowWeaponFiring = GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring;
+			DisallowWeaponFiring(GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring);
 
 			// switch back to first person view
 			// TODO: remember prior setting?
@@ -2919,6 +2920,7 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 
 	if (EmoteAnimations.IsValidIndex(EmoteIndex) && EmoteAnimations[EmoteIndex] != nullptr && !bFeigningDeath)
 	{
+		Mesh->bPauseAnims = false;
 		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
@@ -3197,4 +3199,26 @@ void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 bool AUTCharacter::IsFeigningDeath()
 {
 	return bFeigningDeath;
+}
+
+void AUTCharacter::DisallowWeaponFiring(bool bDisallowed)
+{
+	if (bDisallowed != bDisallowWeaponFiring)
+	{
+		bDisallowWeaponFiring = bDisallowed;
+		if (bDisallowed && Weapon != NULL)
+		{
+			UUTWeaponStateFiring* FiringState = Cast<UUTWeaponStateFiring>(Weapon->GetCurrentState());
+			if (FiringState != NULL)
+			{
+				FiringState->WeaponBecameInactive();
+			}
+		}
+	}
+}
+
+void AUTCharacter::TurnOff()
+{
+	DisallowWeaponFiring(true);
+	Super::TurnOff();
 }

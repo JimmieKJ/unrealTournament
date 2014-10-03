@@ -482,7 +482,7 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 
 void AUTWeap_RocketLauncher::UpdateLock()
 {
-	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->bDisallowWeaponFiring)
+	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled())
 	{
 		SetLockTarget(NULL);
 		return;

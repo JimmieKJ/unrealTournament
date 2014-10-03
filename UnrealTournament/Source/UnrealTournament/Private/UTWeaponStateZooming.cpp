@@ -17,8 +17,9 @@ FString FZoomTickFunction::DiagnosticMessage()
 UUTWeaponStateZooming::UUTWeaponStateZooming(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	ZoomStartFOV = 80.0f;
 	MinFOV = 12.f;
-	ZoomTime = 1.0f;
+	ZoomTime = 0.9f;
 	bDrawHeads = true;
 	bDrawPingAdjustedTargets = true;
 }
@@ -77,6 +78,7 @@ void UUTWeaponStateZooming::WeaponBecameInactive()
 	if (bIsZoomed && GetUTOwner()->IsLocallyControlled())
 	{
 		bIsZoomed = false;
+		ZoomTickHandler.UnRegisterTickFunction();
 		APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
 		if (Camera != NULL)
 		{
@@ -174,7 +176,8 @@ void UUTWeaponStateZooming::TickZoom(float DeltaTime)
 		APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
 		if (Camera != NULL)
 		{
-			Camera->SetFOV(Camera->DefaultFOV - (Camera->DefaultFOV - MinFOV) * FMath::Min<float>((GetWorld()->TimeSeconds - StartZoomTime) / ZoomTime, 1.0f));
+			float StartFOV = (ZoomStartFOV > 0.0f) ? FMath::Min<float>(Camera->DefaultFOV, ZoomStartFOV) : Camera->DefaultFOV;
+			Camera->SetFOV(StartFOV - (StartFOV - MinFOV) * FMath::Min<float>((GetWorld()->TimeSeconds - StartZoomTime) / ZoomTime, 1.0f));
 
 			if (Camera->LockedFOV <= MinFOV)
 			{
