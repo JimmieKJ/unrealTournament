@@ -303,6 +303,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				}
 				else
 				{
+					NetSynchRandomSeed(); 
 					SpreadLoc = SpawnLocation - 2.0f * ((FMath::Sin(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Y) - (FMath::Cos(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Z)) - SpawnRotMat.GetUnitAxis(EAxis::X) * 8.0f * FMath::FRand();
 				}
 				//Adjust from the center of the gun to the barrel

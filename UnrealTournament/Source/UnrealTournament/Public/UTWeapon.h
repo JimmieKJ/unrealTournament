@@ -122,6 +122,9 @@ public:
 		AutoSwitchPriority = SavedSwitchPriority;
 	}
 
+	/** Synchronize random seed on server and firing client so projectiles stay synchronized */
+	virtual void NetSynchRandomSeed();
+
 	/** time between shots, trigger checks, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon", meta = (ClampMin = "0.1"))
 	TArray<float> FireInterval;

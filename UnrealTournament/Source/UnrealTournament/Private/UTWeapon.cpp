@@ -788,6 +788,8 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 		FRotationMatrix Mat(BaseAim);
 		FVector X, Y, Z;
 		Mat.GetScaledAxes(X, Y, Z);
+
+		NetSynchRandomSeed();
 		float RandY = 0.5f * (FMath::FRand() + FMath::FRand() - 1.f);
 		float RandZ = FMath::Sqrt(0.25f - FMath::Square(RandY)) * (FMath::FRand() + FMath::FRand() - 1.f);
 		return (X + RandY * Spread[CurrentFireMode] * Y + RandZ * Spread[CurrentFireMode] * Z).Rotation();
@@ -795,6 +797,15 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 	else
 	{
 		return BaseAim;
+	}
+}
+
+void AUTWeapon::NetSynchRandomSeed()
+{
+	AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
+	if (OwningPlayer && UTOwner && UTOwner->UTCharacterMovement)
+	{
+		FMath::RandInit(10000.f*UTOwner->UTCharacterMovement->GetCurrentSynchTime());
 	}
 }
 
@@ -940,7 +951,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 /*
 	if (OwningPlayer)
 	{
-		float CurrentMoveTime = UTOwner->UTCharacterMovement->GetCurrentSynchTime();
+		float CurrentMoveTime = (UTOwner && UTOwner->UTCharacterMovement) ? UTOwner->UTCharacterMovement->GetCurrentSynchTime() : GetWorld()->GetTimeSeconds();
 		if (UTOwner->Role < ROLE_Authority)
 		{
 			UE_LOG(UT, Warning, TEXT("CLIENT SpawnNetPredictedProjectile at %f yaw %f"), CurrentMoveTime, SpawnRotation.Yaw);
