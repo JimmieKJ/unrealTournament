@@ -64,7 +64,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	bAutoSlide = false;
 	bHoldAccelWithSlideRoll = true;
 
-	ServerPingContribution = 35.f;
+	PredictionFudgeFactor = 30.f;
 	MaxPredictionPing = 0.f; 
 	DesiredPredictionPing = 0.f;
 }
@@ -103,12 +103,12 @@ void AUTPlayerController::Predict(float NewPredictionPing)
 float AUTPlayerController::GetPredictionTime()
 {
 	// exact ping is in msec, divide by 1000 to get time in seconds
-	return (PlayerState && (GetNetMode() != NM_Standalone)) ? (0.0005f*FMath::Clamp(PlayerState->ExactPing - ServerPingContribution, 0.f, MaxPredictionPing)) : 0.f;
+	return (PlayerState && (GetNetMode() != NM_Standalone)) ? (0.0005f*FMath::Clamp(PlayerState->ExactPing - PredictionFudgeFactor, 0.f, MaxPredictionPing)) : 0.f;
 }
 
 float AUTPlayerController::GetProjectileSleepTime()
 {
-	return 0.001f * FMath::Max(0.f, PlayerState->ExactPing - ServerPingContribution - MaxPredictionPing);
+	return 0.001f * FMath::Max(0.f, PlayerState->ExactPing - PredictionFudgeFactor - MaxPredictionPing);
 }
 
 void AUTPlayerController::NP()

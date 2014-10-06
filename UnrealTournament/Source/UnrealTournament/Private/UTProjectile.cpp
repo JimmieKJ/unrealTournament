@@ -149,7 +149,11 @@ void AUTProjectile::BeginPlay()
 				// @TODO FIXMESTEVE - rep to server to reduce error by changing Server ping overhead value
 
 				float Error = (GetActorLocation() - BestMatch->GetActorLocation()).Size();
-				UE_LOG(UT, Warning, TEXT("%s CORRECTION %f in msec %f"), *GetName(), Error, 1000.f * Error/GetVelocity().Size());
+				if (((GetActorLocation() - BestMatch->GetActorLocation()) | BestMatch->GetVelocity()) > 0.f)
+				{
+					Error *= -1.f;
+				}
+				//UE_LOG(UT, Warning, TEXT("%s CORRECTION %f in msec %f"), *GetName(), Error, 1000.f * Error/GetVelocity().Size());
 
 				BestMatch->ReplicatedMovement.Location = GetActorLocation();
 				BestMatch->ReplicatedMovement.Rotation = GetActorRotation();

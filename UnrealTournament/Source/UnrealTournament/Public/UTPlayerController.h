@@ -298,9 +298,9 @@ public:
 	
 	//-----------------------------------------------
 	// Perceived latency reduction
-	/** Estimated value of server contribution to ping, used when calculating how far to simulated ahead */
+	/** Used to correct prediction error. */
 	UPROPERTY(EditAnywhere, Category=Network)
-	float ServerPingContribution;
+	float PredictionFudgeFactor;
 
 	/** Negotiated max amount of ping to predict ahead for. */
 	UPROPERTY(BlueprintReadOnly, Category=Network, Replicated)
