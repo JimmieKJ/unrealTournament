@@ -45,7 +45,7 @@ bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNa
 		TArray<NavNodeRef> PolyRoute;
 		if (NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(NavMesh->GetPolyCenter(StartEdgePoly), StartEdgePoly), PolyRoute, false) && PolyRoute.Num() > 0 && NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints))
 		{
-			FVector DirectLoc = Target.GetLocation();
+			FVector DirectLoc = Target.GetLocation(Asker);
 			// if there's a future point in the route try adjusting move location to one of AdditionalEndPolys
 			int32 Index = FullRoute.Find(Target);
 			if (Index != INDEX_NONE && Index + 1 < FullRoute.Num() && AdditionalEndPolys.Contains(FullRoute[Index + 1].TargetPoly))

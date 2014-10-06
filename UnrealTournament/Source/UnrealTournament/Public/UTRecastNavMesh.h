@@ -44,9 +44,21 @@ public:
 		*this = FRouteCacheItem();
 	}
 
-	inline FVector GetLocation() const
+	FVector GetLocation(APawn* Asker) const
 	{
-		return Actor.IsValid() ? Actor->GetActorLocation() : Location;
+		if (Actor.IsValid())
+		{
+			return Actor->GetActorLocation();
+		}
+		else if (TargetPoly != INVALID_NAVNODEREF && Asker != NULL)
+		{
+			// adjust navmesh surface location for height of target
+			return Location + FVector(0.0f, 0.0f, Asker->GetSimpleCollisionHalfHeight());
+		}
+		else
+		{
+			return Location;
+		}
 	}
 
 	FRouteCacheItem()

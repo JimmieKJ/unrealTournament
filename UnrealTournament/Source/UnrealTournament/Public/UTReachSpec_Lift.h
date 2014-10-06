@@ -97,11 +97,11 @@ class UUTReachSpec_Lift : public UUTReachSpec
 				NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints);
 			}
 			MovePoints.Add(FComponentBasedPosition(Lift->GetEncroachComponent(), LiftCenter));
-			MovePoints.Add(FComponentBasedPosition(Target.GetLocation()));
+			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 		}
 		else
 		{
-			MovePoints.Add(FComponentBasedPosition(Target.GetLocation()));
+			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 		}
 		return true;
 	}

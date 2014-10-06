@@ -79,6 +79,17 @@ protected:
 	FUTPathLink CurrentPath;
 	/** cache of internal points for current MoveTarget */
 	TArray<FComponentBasedPosition> MoveTargetPoints;
+	/** last reached MoveTargetPoint in current move (only valid while MoveTarget.IsValid())
+	 * this is used when adjusting around obstacles
+	 */
+	UPROPERTY()
+	FVector LastReachedMovePoint;
+	/** true when moving to AdjustLoc instead of MoveTarget/MoveTargetPoints */
+	UPROPERTY()
+	bool bAdjusting;
+	/** when bAdjusting is true, temporary intermediate move point that bot uses to get more on path or around minor avoidable obstacles */
+	UPROPERTY()
+	FVector AdjustLoc;
 public:
 	inline const FRouteCacheItem& GetMoveTarget() const
 	{
@@ -91,27 +102,25 @@ public:
 		{
 			return FVector::ZeroVector;
 		}
+		else if (bAdjusting)
+		{
+			return AdjustLoc;
+		}
 		else if (MoveTargetPoints.Num() <= 1)
 		{
-			return MoveTarget.GetLocation();
+			return MoveTarget.GetLocation(GetPawn());
 		}
 		else
 		{
 			return MoveTargetPoints[0].Get();
 		}
 	}
-	inline void SetMoveTarget(const FRouteCacheItem& NewMoveTarget)
-	{
-		MoveTarget = NewMoveTarget;
-		MoveTargetPoints.Empty();
-		CurrentPath = FUTPathLink();
-		// default movement code will generate points and set MoveTimer, this just makes sure we don't abort before even getting there
-		MoveTimer = FMath::Max<float>(MoveTimer, 1.0f);
-	}
+	void SetMoveTarget(const FRouteCacheItem& NewMoveTarget);
 	inline void ClearMoveTarget()
 	{
 		MoveTarget.Clear();
 		MoveTargetPoints.Empty();
+		bAdjusting = false;
 		CurrentPath = FUTPathLink();
 		MoveTimer = -1.0f;
 	}

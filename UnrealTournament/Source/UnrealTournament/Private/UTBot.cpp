@@ -113,38 +113,48 @@ void AUTBot::Tick(float DeltaTime)
 					// TODO: need some sort of failure checks in here
 
 					// clear points that we've reached or passed
-					FVector MyLoc = MyPawn->GetActorLocation();
-					float DistFromTarget = (MoveTarget.GetLocation() - MyLoc).Size();
-					FVector Extent = MyPawn->GetSimpleCollisionCylinderExtent();
-					for (int32 i = MoveTargetPoints.Num() - 2; i >= 0; i--)
+					const FVector MyLoc = MyPawn->GetActorLocation();
+					float DistFromTarget = (MoveTarget.GetLocation(MyPawn) - MyLoc).Size();
+					const FVector Extent = MyPawn->GetSimpleCollisionCylinderExtent();
+					FBox MyBox(0);
+					MyBox += MyLoc + Extent;
+					MyBox += MyLoc - Extent;
+					if (bAdjusting && MyBox.IsInside(AdjustLoc))
 					{
-						FBox TestBox(0);
-						TestBox += MyLoc + Extent;
-						TestBox += MyLoc - Extent;
-						if (TestBox.IsInside(MoveTargetPoints[i].Get()))
+						bAdjusting = false;
+					}
+					if (!bAdjusting)
+					{
+						for (int32 i = MoveTargetPoints.Num() - 2; i >= 0; i--)
 						{
-							MoveTargetPoints.RemoveAt(0, i + 1);
-							break;
-						}
-						// if path requires complex movement (jumps, etc) then require touching second to last point
-						// since the final part of the path may require more precision
-						if (i < MoveTargetPoints.Num() - 2 || CurrentPath.ReachFlags == 0)
-						{
-							FVector HitLoc;
-							if (DistFromTarget < (MoveTarget.GetLocation() - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(MyLoc, MoveTargetPoints[i].Get(), Extent.Z * 1.5f, HitLoc)) // && !NavData->Raycast(MyLoc, MoveTargetPoints[i].Get(), HitLoc, NULL))
+							if (MyBox.IsInside(MoveTargetPoints[i].Get()))
 							{
+								LastReachedMovePoint = MoveTargetPoints[i].Get();
 								MoveTargetPoints.RemoveAt(0, i + 1);
 								break;
+							}
+							// if path requires complex movement (jumps, etc) then require touching second to last point
+							// since the final part of the path may require more precision
+							if (i < MoveTargetPoints.Num() - 2 || CurrentPath.ReachFlags == 0)
+							{
+								FVector HitLoc;
+								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(MyLoc, MoveTargetPoints[i].Get(), Extent.Z * 1.5f, HitLoc))
+								{
+									LastReachedMovePoint = MoveTargetPoints[i].Get();
+									MoveTargetPoints.RemoveAt(0, i + 1);
+									break;
+								}
 							}
 						}
 					}
 
 					// failure checks
-					if ((MoveTargetPoints[0].Get() - MyLoc).Size2D() < MyPawn->GetSimpleCollisionRadius())
+					FVector MovePoint = GetMovePoint();
+					if ((MovePoint - MyLoc).Size2D() < MyPawn->GetSimpleCollisionRadius())
 					{
 						static FName NAME_AIZCheck(TEXT("AIZCheck"));
 
-						float ZDiff = MyLoc.Z - MoveTargetPoints[0].Get().Z;
+						float ZDiff = MyLoc.Z - MovePoint.Z;
 						bool bZFail = false;
 						if (!(CurrentPath.ReachFlags & R_JUMP))
 						{
@@ -157,7 +167,7 @@ void AUTBot::Tick(float DeltaTime)
 						else
 						{
 							// for jump/fall path make sure we don't just need to get closer to the edge
-							FVector TargetPoint = MoveTargetPoints[0].Get();
+							FVector TargetPoint = MovePoint;
 							bZFail = GetWorld()->LineTraceTest(FVector(TargetPoint.X, TargetPoint.Y, MyLoc.Z), TargetPoint, ECC_Pawn, FCollisionQueryParams(NAME_AIZCheck, false, MyPawn));
 						}
 						if (bZFail)
@@ -170,7 +180,7 @@ void AUTBot::Tick(float DeltaTime)
 									ClearMoveTarget();
 								}
 							}
-							else if (GetWorld()->SweepTest(MyLoc, MoveTargetPoints[0].Get(), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(MyPawn->GetSimpleCollisionCylinderExtent() * FVector(0.9f, 0.9f, 0.1f)), FCollisionQueryParams(NAME_AIZCheck, false, MyPawn)))
+							else if (GetWorld()->SweepTest(MyLoc, MovePoint, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(MyPawn->GetSimpleCollisionCylinderExtent() * FVector(0.9f, 0.9f, 0.1f)), FCollisionQueryParams(NAME_AIZCheck, false, MyPawn)))
 							{
 								// failed - directly above or below target
 								ClearMoveTarget();
@@ -261,7 +271,7 @@ void AUTBot::Tick(float DeltaTime)
 					}
 					else
 					{
-						SetFocalPoint(MoveTarget.GetLocation()); // hmm, better in some situations, worse in others. Maybe periodically trace? Or maybe it doesn't matter because we'll have an enemy most of the time
+						SetFocalPoint(MoveTarget.GetLocation(MyPawn)); // hmm, better in some situations, worse in others. Maybe periodically trace? Or maybe it doesn't matter because we'll have an enemy most of the time
 					}
 				}
 				if (GetCharacter() != NULL && GetCharacter()->CharacterMovement != NULL)
@@ -300,6 +310,20 @@ void AUTBot::Tick(float DeltaTime)
 	}
 }
 
+void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget)
+{
+	MoveTarget = NewMoveTarget;
+	MoveTargetPoints.Empty();
+	bAdjusting = false;
+	CurrentPath = FUTPathLink();
+	if (NavData == NULL || !NavData->GetPolyCenter(NavData->FindNearestPoly(GetNavAgentLocation(), GetSimpleCollisionCylinderExtent()), LastReachedMovePoint))
+	{
+		LastReachedMovePoint = GetPawn()->GetActorLocation();
+	}
+	// default movement code will generate points and set MoveTimer, this just makes sure we don't abort before even getting there
+	MoveTimer = FMath::Max<float>(MoveTimer, 1.0f);
+}
+
 void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
 {
 	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
@@ -312,11 +336,15 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 			{
 				DrawDebugLine(GetWorld(), (i == 0) ? GetPawn()->GetActorLocation() : MoveTargetPoints[i - 1].Get(), MoveTargetPoints[i].Get(), FColor(0, 255, 0));
 			}
-			DrawDebugLine(GetWorld(), (MoveTargetPoints.Num() > 1) ? MoveTargetPoints[MoveTargetPoints.Num() - 2].Get() : GetPawn()->GetActorLocation(), MoveTarget.GetLocation(), FColor(0, 255, 0));
+			DrawDebugLine(GetWorld(), (MoveTargetPoints.Num() > 1) ? MoveTargetPoints[MoveTargetPoints.Num() - 2].Get() : GetPawn()->GetActorLocation(), MoveTarget.GetLocation(GetPawn()), FColor(0, 255, 0));
+			if (bAdjusting)
+			{
+				DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation(), AdjustLoc, FColor(255, 0, 0));
+			}
 		}
 		for (const FRouteCacheItem& RoutePoint : RouteCache)
 		{
-			DrawDebugSphere(GetWorld(), RoutePoint.GetLocation(), 16.0f, 8, FColor(0, 255, 0));
+			DrawDebugSphere(GetWorld(), RoutePoint.GetLocation(GetPawn()), 16.0f, 8, FColor(0, 255, 0));
 		}
 	}
 }
@@ -404,24 +432,57 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 	{
 		if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
 		{
-			if (MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?)
+			const FVector MovePoint = GetMovePoint();
+			const FVector MyLoc = GetCharacter()->GetActorLocation();
+			// get as close as possible to path
+			bool bGotAdjustLoc = false;
+			if (!bAdjusting && CurrentPath.EndPoly != INVALID_NAVNODEREF)
 			{
-				FVector Diff = GetMovePoint() - GetCharacter()->GetActorLocation();
-				// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
-				if (((Impact.Normal * -1.0f) | Diff.SafeNormal()) > 0.0f)
+				FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLoc, LastReachedMovePoint, MovePoint);
+				if ((ClosestPoint - MyLoc).SizeSquared() > FMath::Square(GetCharacter()->CapsuleComponent->GetUnscaledCapsuleRadius()))
 				{
-					float XYTime = Diff.Size2D() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
-					float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->CharacterMovement->GetGravityZ() * XYTime;
-					if (DesiredJumpZ > 0.0f)
+					FCollisionQueryParams Params(FName(TEXT("MoveBlocked")), false, GetPawn());
+					// try directly back to path center, then try backing up a bit towards path start
+					FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+					if ((Side | (ClosestPoint - MyLoc).SafeNormal()) < 0.0f)
 					{
-						GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * (GetCharacter()->CharacterMovement->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f)));
+						Side *= -1.0f;
 					}
-					GetCharacter()->CharacterMovement->DoJump(false);
+					FVector TestLocs[] = { ClosestPoint, ClosestPoint + (LastReachedMovePoint - ClosestPoint).SafeNormal() * GetCharacter()->CapsuleComponent->GetUnscaledCapsuleRadius() * 2.0f,
+											MyLoc + Side * (ClosestPoint - MyLoc).Size() };
+					for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
+					{
+						if (!GetWorld()->LineTraceTest(MyLoc, TestLocs[i], ECC_Pawn, Params))
+						{
+							AdjustLoc = TestLocs[i];
+							bAdjusting = true;
+							bGotAdjustLoc = true;
+							break;
+						}
+					}
 				}
 			}
-			else if (Impact.Time <= 0.0f)
+			if (!bGotAdjustLoc)
 			{
-				ClearMoveTarget();
+				if (MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?)
+				{
+					FVector Diff = MovePoint - MyLoc;
+					// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
+					if (((Impact.Normal * -1.0f) | Diff.SafeNormal()) > 0.0f)
+					{
+						float XYTime = Diff.Size2D() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
+						float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->CharacterMovement->GetGravityZ() * XYTime;
+						if (DesiredJumpZ > 0.0f)
+						{
+							GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * (GetCharacter()->CharacterMovement->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f)));
+						}
+						GetCharacter()->CharacterMovement->DoJump(false);
+					}
+				}
+				else if (Impact.Time <= 0.0f)
+				{
+					ClearMoveTarget();
+				}
 			}
 		}
 		else if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling)
