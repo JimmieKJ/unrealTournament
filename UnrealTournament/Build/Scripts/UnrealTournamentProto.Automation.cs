@@ -596,8 +596,10 @@ class UnrealTournament_PromoteBuild : BuildCommand
 
 		// Strings for dev and prod mcp BuildInfo list
 		string GameDevMcpConfigString = "MainGameDevNet";
+		string StagingMcpConfigString = "StageNet";
 		string ProdMcpConfigString = "ProdNet";
-		string ProdAndGameDevMcpConfigString = ProdMcpConfigString + "," + GameDevMcpConfigString;
+		string ProdAndStagingMcpConfigString = StagingMcpConfigString + "," + ProdMcpConfigString;
+		string ProdStagingAndGameDevMcpConfigString = ProdMcpConfigString + "," + GameDevMcpConfigString;
 
 		// Verify build meets prior state criteria for this promotion
 		// If this label will go to Prod, then make sure the build manifests are all staged to the Prod CDN already
@@ -637,8 +639,11 @@ class UnrealTournament_PromoteBuild : BuildCommand
                     BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
 					// Publish staging info up to production BuildInfo service
 					{
-						CommandUtils.Log("Posting portal to MCP.");
-						BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo, ProdMcpConfigString);
+						CommandUtils.Log("Posting {0} to MCP.", FromApp);
+						foreach (var McpConfigString in ProdAndStagingMcpConfigString.Split(','))
+						{
+							BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo, McpConfigString);
+						}
 					}
 					// Copy chunks to production CDN
 					{
@@ -669,7 +674,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 						if (LiveBuildVersionStringWithoutPlatform != BuildVersion)
 						{
 							// Label the old Live build as "Rollback"
-							LabelBuildForBackwardsCompat(LiveBuildVersionStringWithoutPlatform, "Rollback", new List<MCPPlatform>() { Platform }, ProdAndGameDevMcpConfigString, FromApp);
+							LabelBuildForBackwardsCompat(LiveBuildVersionStringWithoutPlatform, "Rollback", new List<MCPPlatform>() { Platform }, ProdStagingAndGameDevMcpConfigString, FromApp);
 						}
 						else
 						{
@@ -698,7 +703,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			if (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel)
 			{
 				// For prod labels, do both BI services and also dual-label with the entitlement prefix
-				LabelInMcpConfigs = ProdAndGameDevMcpConfigString;
+				LabelInMcpConfigs = ProdStagingAndGameDevMcpConfigString;
 			}
 			LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, Platforms, LabelInMcpConfigs, FromApp);
 		}
