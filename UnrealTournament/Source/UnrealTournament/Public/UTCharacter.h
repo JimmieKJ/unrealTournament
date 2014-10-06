@@ -144,19 +144,27 @@ struct FSavedPosition
 {
 	GENERATED_USTRUCT_BODY()
 
-	FSavedPosition() : Position(FVector(0.f)), Velocity(FVector(0.f)), Time(0.f) {};
+	FSavedPosition() : Position(FVector(0.f)), Rotation(FRotator(0.f)),Velocity(FVector(0.f)), Time(0.f), TimeStamp(0.f) {};
 
-	FSavedPosition(FVector InPos, FVector InVel, float InTime) : Position(InPos), Velocity(InVel), Time(InTime) {};
+	FSavedPosition(FVector InPos, FRotator InRot, FVector InVel, float InTime, float InTimeStamp) : Position(InPos), Rotation(InRot), Velocity(InVel), Time(InTime), TimeStamp(InTimeStamp) {};
 
 	/** Position of player at time Time. */
 	UPROPERTY()
 	FVector Position;
 
+	/** Rotation of player at time Time. */
+	UPROPERTY()
+	FRotator Rotation;
+
 	/** Keep velocity also for bots to use in realistic reaction time based aiming error model. */
 	UPROPERTY()
 	FVector Velocity;
 
+	/** Current server world time when this position was updated. */
 	float Time;
+
+	/** Client timestamp associated with this position. */
+	float TimeStamp;
 };
 
 UENUM(BlueprintType)

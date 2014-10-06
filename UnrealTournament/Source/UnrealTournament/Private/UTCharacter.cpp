@@ -176,7 +176,7 @@ void AUTCharacter::PostInitializeComponents()
 
 void AUTCharacter::PositionUpdated()
 {
-	new(SavedPositions) FSavedPosition(GetActorLocation(), CharacterMovement->Velocity, GetWorld()->GetTimeSeconds());
+	new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), CharacterMovement->Velocity, GetWorld()->GetTimeSeconds(), (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 	
 	if (SavedPositions[0].Time < GetWorld()->GetTimeSeconds() - MaxSavedPositionAge)
 	{
