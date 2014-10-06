@@ -32,18 +32,33 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitial
 	ThirdPersonCameraSmoothingSpeed = 2.0f;
 }
 
+FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
+{
+	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+
+	// force third person if target is dead, ragdoll or emoting
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
+	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0))
+	{
+		return NAME_FreeCam;
+	}
+	else
+	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		return (GameState != NULL) ? GameState->OverrideCameraStyle(PCOwner, CameraStyle) : CameraStyle;
+	}
+}
+
 void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 {
-	FName SavedCameraStyle = CameraStyle;
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState != NULL)
-	{
-		CameraStyle = GameState->OverrideCameraStyle(PCOwner, CameraStyle);
-	}
-
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+
+	FName SavedCameraStyle = CameraStyle;
+	CameraStyle = GetCameraStyleWithOverrides();
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
-	if (CameraStyle == NAME_FreeCam && UTCharacter != nullptr && UTCharacter->IsRagdoll())
+
+	// special third person camera for ragdoll
+	if (UTCharacter != nullptr && UTCharacter->IsRagdoll())
 	{
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;

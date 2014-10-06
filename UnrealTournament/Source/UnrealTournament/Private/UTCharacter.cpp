@@ -117,6 +117,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	GoodMoveAckTime = 0.f;
 
 	MaxStackedArmor = 200;
+
+	MaxDeathLifeSpan = 30.0f;
 }
 
 void AUTCharacter::BaseChange()
@@ -979,13 +981,15 @@ void AUTCharacter::StopRagdoll()
 
 void AUTCharacter::PlayDying()
 {
+	TimeOfDeath = GetWorld()->TimeSeconds;
+
 	SetAmbientSound(NULL);
 	SetLocalAmbientSound(NULL);
 
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
-	if (GetNetMode() != NM_DedicatedServer)
+	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
 	{
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
 		if (UTDmg != NULL && UTDmg.GetDefaultObject()->ShouldGib(this))
@@ -999,7 +1003,7 @@ void AUTCharacter::PlayDying()
 			{
 				UTDmg.GetDefaultObject()->PlayDeathEffects(this);
 			}
-			SetLifeSpan(10.0f); // TODO: destroy early if hidden, et al
+			GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 15.0f, false);
 		}
 	}
 	else
@@ -1020,7 +1024,8 @@ void AUTCharacter::GibExplosion_Implementation()
 		SpawnGib(BoneName, *LastTakeHitInfo.DamageType);
 	}
 
-	if (GetNetMode() == NM_Client || GetNetMode() == NM_Standalone)
+	// note: if some local PlayerController is using for a ViewTarget, leave around until they switch off to prevent camera issues
+	if ((GetNetMode() == NM_Client || GetNetMode() == NM_Standalone) && !IsLocallyViewed())
 	{
 		Destroy();
 	}
@@ -1029,7 +1034,26 @@ void AUTCharacter::GibExplosion_Implementation()
 		// need to delay for replication
 		SetActorHiddenInGame(true);
 		SetActorEnableCollision(false);
-		SetLifeSpan(0.25f);
+		if (GetNetMode() == NM_DedicatedServer)
+		{
+			SetLifeSpan(0.25f);
+		}
+		else
+		{
+			GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 1.0f, false);
+		}
+	}
+}
+
+void AUTCharacter::DeathCleanupTimer()
+{
+	if (!IsLocallyViewed() && (bHidden || GetWorld()->TimeSeconds - GetLastRenderTime() > 0.5f || GetWorld()->TimeSeconds - TimeOfDeath > MaxDeathLifeSpan))
+	{
+		Destroy();
+	}
+	else
+	{
+		GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 0.5f, false);
 	}
 }
 
@@ -1102,16 +1126,6 @@ void AUTCharacter::PlayFeignDeath()
 		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr)
 		{
 			TossInventory(Weapon, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
-		}
-
-		// force behind view
-		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-			if (PC != NULL && PC->GetViewTarget() == this)
-			{
-				PC->BehindView(true);
-			}
 		}
 
 		if (WeaponAttachment != nullptr)
@@ -2425,14 +2439,6 @@ void AUTCharacter::Tick(float DeltaTime)
 			Mesh->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeScale3D);
 
 			DisallowWeaponFiring(GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring);
-
-			// switch back to first person view
-			// TODO: remember prior setting?
-			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-			if (PC != NULL)
-			{
-				PC->BehindView(false);
-			}
 		}
 	}
 
@@ -2931,15 +2937,6 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 				CurrentEmote = EmoteAnimations[EmoteIndex];
 				EmoteCount++;
 
-				// force behind view
-				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-					if (PC != NULL && PC->GetViewTarget() == this)
-					{
-						PC->BehindView(true);
-					}
-				}
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &AUTCharacter::OnEmoteEnded);
 				AnimInstance->Montage_SetEndDelegate(EndDelegate);
@@ -2955,16 +2952,6 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 	{
 		CurrentEmote = nullptr;
 		UTCharacterMovement->bIsEmoting = false;
-	}
-
-	// cancel behind view
-	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-		if (PC != NULL && PC->GetViewTarget() == this)
-		{
-			PC->BehindView(false);
-		}
 	}
 }
 

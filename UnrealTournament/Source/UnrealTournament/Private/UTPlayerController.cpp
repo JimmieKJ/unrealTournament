@@ -399,8 +399,32 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
 	}
 
-	BehindViewStacks = 0;
 	SetCameraMode("Default");
+}
+
+void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
+{
+	if (IsInState(NAME_Inactive))
+	{
+		UE_LOG(LogPath, Log, TEXT("PawnPendingDestroy while inactive %s"), *GetName());
+	}
+
+	if (InPawn == GetPawn() && InPawn != NULL)
+	{
+		GetPawn()->UnPossessed();
+		SetPawn(NULL);
+
+		FRotator AdjustedCameraRot = GetControlRotation();
+		AdjustedCameraRot.Pitch = -45.0f;
+		SetControlRotation(AdjustedCameraRot);
+
+		ChangeState(NAME_Inactive);
+
+		if (PlayerState == NULL)
+		{
+			Destroy();
+		}
+	}
 }
 
 void AUTPlayerController::FOV(float NewFOV)
@@ -1166,41 +1190,24 @@ bool AUTPlayerController::CanRestartPlayer()
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
 {
-	if (bWantBehindView)
-	{
-		BehindViewStacks++;
-	}
-	else
-	{
-		BehindViewStacks--;
-	}
-
-	if (BehindViewStacks >= 1)
-	{
-		SetCameraMode("FreeCam");
-	}
-	else
-	{
-		SetCameraMode("Default");
-		// Make sure we don't go negative
-		BehindViewStacks = 0;
-	}
+	SetCameraMode(bWantBehindView ? FName(TEXT("FreeCam")) : FName(TEXT("Default")));
 }
 
 bool AUTPlayerController::IsBehindView()
 {
 	if (PlayerCameraManager != NULL)
 	{
-		FName CameraStyle = PlayerCameraManager->CameraStyle;
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		if (GameState != NULL)
-		{
-			CameraStyle = GameState->OverrideCameraStyle(this, CameraStyle);
-		}
+		static FName NAME_FreeCam(TEXT("FreeCam"));
 
-		return CameraStyle == FName(TEXT("FreeCam"));
+		AUTPlayerCameraManager* UTCam = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+		FName CameraStyle = (UTCam != NULL) ? UTCam->GetCameraStyleWithOverrides() : PlayerCameraManager->CameraStyle;
+
+		return CameraStyle == NAME_FreeCam;
 	}
-	return false;
+	else
+	{
+		return false;
+	}
 }
 
 void AUTPlayerController::ClientSetCameraMode_Implementation( FName NewCamMode )

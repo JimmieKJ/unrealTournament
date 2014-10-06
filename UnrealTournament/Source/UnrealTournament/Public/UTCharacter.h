@@ -1018,6 +1018,13 @@ public:
 	UPROPERTY()
 	float DefaultBaseEyeHeight;
 
+	/** maximum amount of time Pawn stays around when dead even if visible (may be cleaned up earlier if not visible) */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Death)
+	float MaxDeathLifeSpan;
+	/** GetWorld()->TimeSeconds when PlayDying() was called */
+	UPROPERTY(BlueprintReadOnly, Category = Death)
+	float TimeOfDeath;
+
 	/** Broadcast when the pawn has died [Server only] */
 	UPROPERTY(BlueprintAssignable)
 	FCharacterDiedSignature OnDied;
@@ -1058,7 +1065,25 @@ public:
 	virtual AUTCarriedObject* GetCarriedObject();
 
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir);
+
+	/** returns true if any local PlayerController is viewing this Pawn */
+	bool IsLocallyViewed()
+	{
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 protected:
+
+	/** destroys dead character if no longer onscreen */
+	UFUNCTION()
+	void DeathCleanupTimer();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Pawn|Character|InternalEvents", meta = (FriendlyName = "CanDodge"))
 	bool CanDodgeInternal() const;
