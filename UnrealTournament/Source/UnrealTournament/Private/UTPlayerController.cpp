@@ -1594,6 +1594,18 @@ void AUTPlayerController::ApplyDeferredFireInputs()
 	DeferredFireInputs.Empty();
 }
 
+bool AUTPlayerController::HasDeferredFireInputs()
+{
+	for (FDeferredFireInput& Input : DeferredFireInputs)
+	{
+		if (Input.bStartFire)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void AUTPlayerController::SetEmoteSpeed(float NewEmoteSpeed)
 {
 	if (UTCharacter != nullptr)

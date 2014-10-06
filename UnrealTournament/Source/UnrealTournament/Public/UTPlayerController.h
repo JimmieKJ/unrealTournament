@@ -481,6 +481,8 @@ protected:
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
 public:
 	void ApplyDeferredFireInputs();
+
+	bool HasDeferredFireInputs();
 };
 
 

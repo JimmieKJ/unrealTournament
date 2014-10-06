@@ -13,6 +13,7 @@
 #include "EditorSupportDelegates.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTImpactEffect.h"
+#include "UTCharacterMovement.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -936,7 +937,20 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		((GetNetMode() != NM_Standalone) && OwningPlayer)
 		? OwningPlayer->GetPredictionTime()
 		: 0.f;
-
+/*
+	if (OwningPlayer)
+	{
+		float CurrentMoveTime = UTOwner->UTCharacterMovement->GetCurrentSynchTime();
+		if (UTOwner->Role < ROLE_Authority)
+		{
+			UE_LOG(UT, Warning, TEXT("CLIENT SpawnNetPredictedProjectile at %f yaw %f"), CurrentMoveTime, SpawnRotation.Yaw);
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("SERVER SpawnNetPredictedProjectile at %f yaw %f"), CurrentMoveTime, SpawnRotation.Yaw);
+		}
+	}
+*/
 	if ((CatchupTickDelta > 0.f) && (Role != ROLE_Authority))
 	{
 		// lag is so high need to delay spawn

@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
+#include "GameFramework/GameNetworkManager.h"
 #include "UTLift.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
@@ -402,18 +403,9 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		return false;
 	}
-/*	FVector Loc = CharacterOwner->GetActorLocation();
-
-	float CurrentMoveTime = GetCurrentMovementTime();
-	if (CharacterOwner->Role < ROLE_Authority)
-	{
-		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-		if (ClientData)
-		{
-			CurrentMoveTime = ClientData->CurrentTimeStamp;
-		}
-	}
-	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f from yaw %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z, CharacterOwner->GetActorRotation().Yaw);
+/*	
+	FVector Loc = CharacterOwner->GetActorLocation();
+	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f from yaw %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z, CharacterOwner->GetActorRotation().Yaw);
 */
 	float HorizontalImpulse = DodgeImpulseHorizontal;
 	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
@@ -563,7 +555,18 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	bool bSavedWantsToCrouch = bWantsToCrouch;
 	bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
 	bForceMaxAccel = bIsDodgeRolling;
-
+/*
+	FVector Loc = CharacterOwner->GetActorLocation();
+	float CurrentMoveTime = GetCurrentSynchTime();
+	if (CharacterOwner->Role < ROLE_Authority)
+	{
+		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f from %f %f %f vel %f %f %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z);
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("SERVER Move at %f from %f %f %f vel %f %f %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z);
+	}
+*/
 	Super::PerformMovement(DeltaSeconds);
 	bWantsToCrouch = bSavedWantsToCrouch;
 	GroundFriction = RealGroundFriction;
@@ -631,6 +634,20 @@ float UUTCharacterMovement::GetCurrentMovementTime() const
 		? CurrentServerMoveTime
 		: CharacterOwner->GetWorld()->GetTimeSeconds();
 }
+
+float UUTCharacterMovement::GetCurrentSynchTime() const
+{
+	if (CharacterOwner->Role < ROLE_Authority)
+	{
+		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+		if (ClientData)
+		{
+			return ClientData->CurrentTimeStamp;
+		}
+	}
+	return GetCurrentMovementTime();
+}
+
 
 void UUTCharacterMovement::MoveAutonomous
 (
@@ -1137,15 +1154,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 /*
 	FVector Loc = CharacterOwner->GetActorLocation();
-	float CurrentMoveTime = GetCurrentMovementTime();
+	float CurrentMoveTime = GetCurrentSynchTime();
 	if (CharacterOwner->Role < ROLE_Authority)
 	{
-		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-		if (ClientData && !CharacterOwner->bClientUpdating)
-		{
-			CurrentMoveTime = ClientData->CurrentTimeStamp;
-			UE_LOG(UT, Warning, TEXT("CLIENT Fall at %f from %f %f %f vel %f %f %f delta %f"), ClientData->CurrentTimeStamp, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
-		}
+		UE_LOG(UT, Warning, TEXT("CLIENT Fall at %f from %f %f %f vel %f %f %f delta %f"), ClientData->CurrentTimeStamp, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
 	}
 	else
 	{
@@ -1339,18 +1351,14 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		}
 /*
 		FVector Loc = CharacterOwner->GetActorLocation();
+		float CurrentMoveTime = GetCurrentSynchTime();
 		if (CharacterOwner->Role < ROLE_Authority)
 		{
-			FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-			if (ClientData && !CharacterOwner->bClientUpdating)
-			{
-				CurrentMoveTime = ClientData->CurrentTimeStamp;
-				UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), ClientData->CurrentTimeStamp, Velocity.X, Velocity.Y, Velocity.Z);
-			}
+			UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), CurrentMoveTime, Velocity.X, Velocity.Y, Velocity.Z);
 		}
 		else
 		{
-			UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), GetCurrentMovementTime(), Velocity.X, Velocity.Y, Velocity.Z);
+			UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), CurrentMoveTime, Velocity.X, Velocity.Y, Velocity.Z);
 
 		}
 */
@@ -1608,3 +1616,170 @@ void UUTCharacterMovement::SendClientAdjustment()
 		Super::SendClientAdjustment();
 	}
 }
+
+// @TODO FIXMESTEVE - remove this once engine implements CanDelaySendingMove()
+void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration)
+{
+	check(CharacterOwner != NULL);
+
+	// Can only start sending moves if our controllers are synced up over the network, otherwise we flood the reliable buffer.
+	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
+	if (PC && PC->AcknowledgedPawn != CharacterOwner)
+	{
+		return;
+	}
+
+	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+	if (!ClientData)
+	{
+		return;
+	}
+
+	// Update our delta time for physics simulation.
+	DeltaTime = ClientData->UpdateTimeStampAndDeltaTime(DeltaTime, *CharacterOwner, *this);
+
+	// Find the oldest (unacknowledged) important move (OldMove).
+	// Don't include the last move because it may be combined with the next new move.
+	// A saved move is interesting if it differs significantly from the last acknowledged move
+	FSavedMovePtr OldMove = NULL;
+	if (ClientData->LastAckedMove.IsValid())
+	{
+		for (int32 i = 0; i < ClientData->SavedMoves.Num() - 1; i++)
+		{
+			const FSavedMovePtr& CurrentMove = ClientData->SavedMoves[i];
+			if (CurrentMove->IsImportantMove(ClientData->LastAckedMove))
+			{
+				OldMove = CurrentMove;
+				break;
+			}
+		}
+	}
+
+	// Get a SavedMove object to store the movement in.
+	FSavedMovePtr NewMove = ClientData->CreateSavedMove();
+	if (NewMove.IsValid() == false)
+	{
+		return;
+	}
+
+	NewMove->SetMoveFor(CharacterOwner, DeltaTime, NewAcceleration, *ClientData);
+
+	// see if the two moves could be combined
+	// do not combine moves which have different TimeStamps (before and after reset).
+	if (ClientData->PendingMove.IsValid() && !ClientData->PendingMove->bOldTimeStampBeforeReset && ClientData->PendingMove->CanCombineWith(NewMove, CharacterOwner, ClientData->MaxResponseTime * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation()))
+	{
+		// Only combine and move back to the start location if we don't move back in to a spot that would make us collide with something new.
+		const FVector OldStartLocation = ClientData->PendingMove->GetRevertedLocation();
+		if (!OverlapTest(OldStartLocation, ClientData->PendingMove->StartRotation.Quaternion(), UpdatedComponent->GetCollisionObjectType(), GetPawnCapsuleCollisionShape(SHRINK_None), CharacterOwner))
+		{
+			FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, EScopedUpdate::DeferredUpdates);
+			UE_LOG(LogNetPlayerMovement, VeryVerbose, TEXT("CombineMove: add delta %f + %f and revert from %f %f to %f %f"), DeltaTime, ClientData->PendingMove->DeltaTime, CharacterOwner->GetActorLocation().X, CharacterOwner->GetActorLocation().Y, OldStartLocation.X, OldStartLocation.Y);
+
+			// to combine move, first revert pawn position to PendingMove start position, before playing combined move on client
+			const bool bNoCollisionCheck = true;
+			UpdatedComponent->SetWorldLocationAndRotation(OldStartLocation, ClientData->PendingMove->StartRotation, false);
+			Velocity = ClientData->PendingMove->StartVelocity;
+
+			SetBase(ClientData->PendingMove->StartBase.Get(), ClientData->PendingMove->StartBoneName);
+			CurrentFloor = ClientData->PendingMove->StartFloor;
+
+			// Now that we have reverted to the old position, prepare a new move from that position,
+			// using our current velocity, acceleration, and rotation, but applied over the combined time from the old and new move.
+
+			NewMove->DeltaTime += ClientData->PendingMove->DeltaTime;
+
+			if (PC)
+			{
+				// We reverted position to that at the start of the pending move (above), however some code paths expect rotation to be set correctly
+				// before character movement occurs (via FaceRotation), so try that now. The bOrientRotationToMovement path happens later as part of PerformMovement() and PhysicsRotation().
+				CharacterOwner->FaceRotation(PC->GetControlRotation(), NewMove->DeltaTime);
+			}
+
+			SaveBaseLocation();
+			NewMove->SetInitialPosition(CharacterOwner);
+
+			// Remove pending move from move list. It would have to be the last move on the list.
+			if (ClientData->SavedMoves.Num() > 0 && ClientData->SavedMoves.Last() == ClientData->PendingMove)
+			{
+				ClientData->SavedMoves.Pop();
+			}
+			ClientData->FreeMove(ClientData->PendingMove);
+			ClientData->PendingMove = NULL;
+		}
+		else
+		{
+			//UE_LOG(LogNet, Log, TEXT("Not combining move, would collide at start location"));
+		}
+	}
+
+	// Perform the move locally
+	Acceleration = NewMove->Acceleration;
+	CharacterOwner->ClientRootMotionParams.Clear();
+	PerformMovement(NewMove->DeltaTime);
+
+	NewMove->PostUpdate(CharacterOwner, FSavedMove_Character::PostUpdate_Record);
+
+	// Add NewMove to the list
+	ClientData->SavedMoves.Push(NewMove);
+
+	if (CanDelaySendingMove(NewMove) && ClientData->PendingMove.IsValid() == false)
+	{
+		// Decide whether to hold off on move
+		// send moves more frequently in small games where server isn't likely to be saturated
+		float NetMoveDelta;
+		UPlayer* Player = (PC ? PC->Player : NULL);
+
+		if (Player && (Player->CurrentNetSpeed > 10000) && (GetWorld()->GameState != NULL) && (GetWorld()->GameState->PlayerArray.Num() <= 10))
+		{
+			NetMoveDelta = 0.011f;
+		}
+		else if (Player && CharacterOwner->GetWorldSettings()->GameNetworkManagerClass)
+		{
+			NetMoveDelta = FMath::Max(0.0222f, 2 * GetDefault<AGameNetworkManager>(CharacterOwner->GetWorldSettings()->GameNetworkManagerClass)->MoveRepSize / Player->CurrentNetSpeed);
+		}
+		else
+		{
+			NetMoveDelta = 0.011f;
+		}
+
+		if ((GetWorld()->TimeSeconds - ClientData->ClientUpdateTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta)
+		{
+			ClientData->PendingMove = NewMove;
+			return;
+		}
+	}
+
+	ClientData->ClientUpdateTime = GetWorld()->TimeSeconds;
+
+	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s DeltaTime %f"),
+		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString(), DeltaTime);
+
+	// Send to the server
+	CallServerMove(NewMove.Get(), OldMove.Get());
+	ClientData->PendingMove = NULL;
+}
+
+bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
+{
+	if (true) // @TODO FIXMESTEVE CVarNetEnableMoveCombining.GetValueOnGameThread() != 0)
+	{
+		// don't delay if dodge
+		/** @TODO FIXMESTEVE get this working
+		if (((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight)
+		{
+			UE_LOG(UT, Warning, TEXT("NO DELAY DODGE %d %d %d %d"), ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward, ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack, ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft, ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight);
+			return false;
+		}
+		*/
+		// don't delay if just pressed fire
+		AUTPlayerController * PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : NULL;
+		if (PC && (PC->HasDeferredFireInputs()))
+		{
+			return false;
+		}
+		return true;
+	}
+	return false;
+}
+
+

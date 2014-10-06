@@ -11,19 +11,17 @@ class UUTCharacterMovement : public UCharacterMovementComponent
 public:
 
 	virtual void MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult = NULL) override;
-		
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-
 	virtual bool ClientUpdatePositionAfterServerUpdate() override;
+	virtual void ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration) override;
+
+	/** Return true if it is OK to delay sending this player movement to the server to conserve bandwidth. */
+	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove);
 
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
-
 	virtual FVector GetImpartedMovementBaseVelocity() const override;
-
 	virtual bool CanCrouchInCurrentState() const override;
-
 	virtual void PerformMovement(float DeltaSeconds) override;
-
 	virtual FVector ConsumeInputVector() override;
 
 	/** Try to base on lift that just ran into me, return true if success */
@@ -455,6 +453,9 @@ public:
 
 	/** Return world time on client, CurrentClientTimeStamp on server */
 	virtual float GetCurrentMovementTime() const;
+
+	/** Return synchronized time (timestamp currently being used on server, timestamp being sent on client) */
+	virtual float GetCurrentSynchTime() const;
 
 	virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const override;
 
