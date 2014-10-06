@@ -16,6 +16,7 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 	// Running average delta time, initial value at 100 FPS so fast machines don't have to creep up
 	// to a good frame rate due to code limiting upward "mobility".
 	RunningAverageDeltaTime = 1 / 100.f;
+	ServerMaxPredictionPing = 150.f;
 }
 
 

@@ -27,7 +27,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
-
+#include "UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -65,7 +65,39 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	bHoldAccelWithSlideRoll = true;
 
 	ServerPingContribution = 35.f;
-	MaxPredictionPing = 0.f; // 200.f;
+	MaxPredictionPing = 0.f; 
+	DesiredPredictionPing = 0.f;
+}
+
+void AUTPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+	if (Role < ROLE_Authority)
+	{
+		ServerNegotiatePredictionPing(DesiredPredictionPing);
+	}
+}
+
+void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
+}
+
+void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)
+{
+	MaxPredictionPing = FMath::Clamp(NewPredictionPing, 0.f, UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->ServerMaxPredictionPing);
+}
+
+bool AUTPlayerController::ServerNegotiatePredictionPing_Validate(float NewPredictionPing)
+{
+	return true;
+}
+
+void AUTPlayerController::Predict(float NewPredictionPing)
+{
+	ServerNegotiatePredictionPing(NewPredictionPing);
 }
 
 float AUTPlayerController::GetPredictionTime()
@@ -449,7 +481,6 @@ void AUTPlayerController::ToggleTranslocator()
 			SwitchWeapon(0);
 		}
 	}
-
 }
 
 void AUTPlayerController::ThrowWeapon()
@@ -478,7 +509,6 @@ void AUTPlayerController::ServerThrowWeapon_Implementation()
 		}
 	}
 }
-
 
 void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {

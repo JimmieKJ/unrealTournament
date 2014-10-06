@@ -59,7 +59,8 @@ public:
 	/** announcer for status announcements (red flag taken, etc) - only set on client */
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* StatusAnnouncer;
-
+	
+	virtual void BeginPlay() override;
 	virtual void InitInputSystem() override;
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
@@ -296,14 +297,28 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPawn(APawn* PawnToView);
-
+	
+	//-----------------------------------------------
+	// Perceived latency reduction
 	/** Estimated value of server contribution to ping, used when calculating how far to simulated ahead */
-	UPROPERTY(EditAnywhere, Category = Network)
-		float ServerPingContribution;
+	UPROPERTY(EditAnywhere, Category=Network)
+	float ServerPingContribution;
 
-	/** Max amount of ping to predict ahead for */
-	UPROPERTY(EditAnywhere, Category = Network)
-		float MaxPredictionPing;
+	/** Negotiated max amount of ping to predict ahead for. */
+	UPROPERTY(BlueprintReadOnly, Category=Network, Replicated)
+	float MaxPredictionPing;
+
+	/** user configurable desired prediction ping (will be negotiated with server. */
+	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
+	float DesiredPredictionPing;
+
+	/** Propose a desired ping to server */
+	UFUNCTION(reliable, server, WithValidation)
+	virtual void ServerNegotiatePredictionPing(float NewPredictionPing);
+
+	/** Console command to change prediction ping */
+	UFUNCTION(Exec)
+	virtual void Predict(float NewDesiredPredictionPing);
 
 	/** Return amount of time to tick or simulate to make up for network lag */
 	virtual float GetPredictionTime();
@@ -314,6 +329,7 @@ public:
 	/** List of fake projectiles currently out there for this client */
 	UPROPERTY()
 	TArray<class AUTProjectile*> FakeProjectiles;
+	//-----------------------------------------------
 
 protected:
 

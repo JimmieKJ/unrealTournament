@@ -71,6 +71,9 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(config)
 	float FrameRateMinimum;
 
+	/** Max prediction ping (used when negotiating with clients) */
+	float ServerMaxPredictionPing;
+
 	float RunningAverageDeltaTime;
 	float SmoothedFrameRate;
 
