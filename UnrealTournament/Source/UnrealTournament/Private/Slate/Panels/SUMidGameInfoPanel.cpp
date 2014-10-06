@@ -5,6 +5,7 @@
 #include "../Public/UTLocalPlayer.h"
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
+#include "../SUWPanel.h"
 #include "../SUWindowsStyle.h"
 #include "UTGameEngine.h"
 #include "UTLobbyGameState.h"
@@ -28,14 +29,11 @@ struct FCompareUsers
 };
 
 
-void SUMidGameInfoPanel::Construct(const FArguments& InArgs)
+void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 {
 
+	Tag = FName(TEXT("InfoPanel"));
 
-	PlayerOwner = InArgs._PlayerOwner;
-
-	FVector2D ViewportSize;
-	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
 	float Perc = 150 / ViewportSize.X;
 
 	LastChatCount=0;
@@ -507,5 +505,11 @@ FReply SUMidGameInfoPanel::UserListToggle()
 
 	return FReply::Handled();
 }
+
+void SUMidGameInfoPanel::OnShowPanel()
+{
+	FSlateApplication::Get().SetKeyboardFocus(ChatText, EKeyboardFocusCause::Keyboard);
+}
+
 
 #endif

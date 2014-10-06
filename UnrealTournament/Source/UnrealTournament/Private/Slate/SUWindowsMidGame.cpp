@@ -15,7 +15,7 @@
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
-#include "SUWServerBrowser.h"
+#include "Panels/SUWServerBrowser.h"
 #include "UTLobbyGameState.h"
 #include "Panels/SUMidGameInfoPanel.h"
 
@@ -566,7 +566,7 @@ FReply SUWindowsMidGame::OnChangeTeam(int32 NewTeamIndex,TSharedPtr<SComboButton
 
 FReply SUWindowsMidGame::OnServerBrowser()
 {
-	TSharedPtr<class SWidget> Browser = PlayerOwner->GetServerBrowser();
+	TSharedPtr<class SUWServerBrowser> Browser = PlayerOwner->GetServerBrowser();
 	if (Browser.IsValid())
 	{
 		ActivatePanel(Browser);

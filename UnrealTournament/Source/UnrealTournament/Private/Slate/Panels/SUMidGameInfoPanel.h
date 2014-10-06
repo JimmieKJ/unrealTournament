@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Slate/SlateGameResources.h"
+#include "../SUWPanel.h"
 #include "../SUWindowsStyle.h"
 
 #if !UE_SERVER
@@ -24,20 +25,15 @@ public:
 	}
 };
 
-class SUMidGameInfoPanel : public SCompoundWidget
+class SUMidGameInfoPanel : public SUWPanel
 {
-	SLATE_BEGIN_ARGS(SUMidGameInfoPanel)
-	{}
-
-	SLATE_ARGUMENT(TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner)
-	SLATE_END_ARGS()
-
-	/** needed for every widget */
-	void Construct(const FArguments& InArgs);
+	virtual void BuildPage(FVector2D ViewportSize);
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+	virtual void OnShowPanel();
+
+
 protected:
 
-	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TArray< TSharedPtr< FSimpleListData > > UserList;
 	
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FSimpleListData> InItem, const TSharedRef<STableViewBase>& OwnerTable );

@@ -16,7 +16,7 @@
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
-#include "SUWServerBrowser.h"
+#include "Panels/SUWServerBrowser.h"
 
 #if !UE_SERVER
 
@@ -654,7 +654,7 @@ FReply SUWindowsMainMenu::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButto
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
-	TSharedPtr<class SWidget> Browser = PlayerOwner->GetServerBrowser();
+	TSharedPtr<class SUWServerBrowser> Browser = PlayerOwner->GetServerBrowser();
 	if (Browser.IsValid())
 	{
 		ActivatePanel(Browser);

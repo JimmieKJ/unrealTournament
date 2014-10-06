@@ -13,6 +13,7 @@
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
+#include "SUWPanel.h"
 #include "UTGameEngine.h"
 
 #if !UE_SERVER
@@ -109,7 +110,7 @@ FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command, TSharedPtr<SCombo
 	return FReply::Handled();
 }
 
-void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SWidget> PanelToActivate)
+void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 {
 	if ( !Desktop.IsValid() ) return;		// Quick out if no place to put it
 	// Don't reactivate the current panel
@@ -127,13 +128,14 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SWidget> PanelToActivate)
 		
 		DesktopSlotIndex = Slot.ZOrder;
 		ActivePanel = PanelToActivate;
+		ActivePanel->OnShowPanel();
 	}
 }
 
-void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SWidget> PanelToDeactivate)
+void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate)
 {
-	Desktop->RemoveSlot(DesktopSlotIndex);
-	DesktopSlotIndex = -1;
-	ActivePanel.Reset();
+	ActivePanel->OnHidePanel();
+	Desktop->ClearChildren();
+
 }
 #endif

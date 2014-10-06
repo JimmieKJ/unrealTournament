@@ -4,15 +4,16 @@
 #include "UTLocalPlayer.h"
 #include "Slate.h"
 #include "Slate/SlateGameResources.h"
-#include "SUWindowsDesktop.h"
-#include "SUWindowsStyle.h"
+#include "../SUWPanel.h"
+#include "../SUWindowsDesktop.h"
+#include "../SUWindowsStyle.h"
 #include "SUWServerBrowser.h"
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
 #include "OnlineSubsystemTypes.h"
-#include "SUWMessageBox.h"
-#include "SUWInputBox.h"
+#include "../SUWMessageBox.h"
+#include "../SUWInputBox.h"
 #include "UTGameEngine.h"
 #include "UTServerBeaconClient.h"
 
@@ -46,9 +47,10 @@ struct FCompareServerByPingDesc	{FORCEINLINE bool operator()( const TSharedPtr< 
 
 
 
-void SUWServerBrowser::Construct(const FArguments& InArgs)
+void SUWServerBrowser::BuildPage(FVector2D ViewportSize)
 {
-	PlayerOwner = InArgs._PlayerOwner;
+	Tag = FName(TEXT("ServerBrowser"));
+
 	bAutoRefresh = false;
 	TSharedRef<SScrollBar> ExternalScrollbar = SNew(SScrollBar);
 

@@ -9,7 +9,7 @@
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
 #include "Slate/SUWindowsMidGame.h"
-#include "Slate/SUWServerBrowser.h"
+#include "Slate/Panels/SUWServerBrowser.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SUWDialog.h"

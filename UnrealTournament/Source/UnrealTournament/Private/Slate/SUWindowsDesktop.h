@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Slate.h"
+#include "SUWPanel.h"
 #include "Slate/SlateGameResources.h"
 
 #if !UE_SERVER
@@ -27,15 +28,15 @@ class SUWindowsDesktop : public SCompoundWidget
 	virtual FReply OnMenuConsoleCommand(FString Command, TSharedPtr<SComboButton> MenuButton);
 	virtual void ConsoleCommand(FString Command);
 
-	virtual void ActivatePanel(TSharedPtr<class SWidget> PanelToActivate);
-	virtual void DeactivatePanel(TSharedPtr<class SWidget> PanelToDeactivate);
+	virtual void ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate);
+	virtual void DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate);
 
 protected:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 
 	TSharedPtr<class SOverlay> Desktop;
 	int32 DesktopSlotIndex;
-	TSharedPtr<class SWidget> ActivePanel;
+	TSharedPtr<class SUWPanel> ActivePanel;
 	TSharedPtr<class SWidget> GameViewportWidget;
 
 	virtual void CreateDesktop();

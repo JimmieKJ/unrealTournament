@@ -2,7 +2,8 @@
 #pragma once
 
 #include "Slate/SlateGameResources.h"
-#include "SUWindowsStyle.h"
+#include "../SUWindowsStyle.h"
+#include "../SUWPanel.h"
 #include "UTLocalPlayer.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
@@ -167,17 +168,9 @@ namespace BrowserState
 	static FName NAME_RequestInProgress(TEXT("RequrestInProgress"));
 }
 
-class SUWServerBrowser : public SCompoundWidget
+class SUWServerBrowser : public SUWPanel
 {
-	SLATE_BEGIN_ARGS(SUWServerBrowser)
-	{}
-
-	SLATE_ARGUMENT(TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner)
-	SLATE_END_ARGS()
-
-	/** needed for every widget */
-	void Construct(const FArguments& InArgs);
-
+	virtual void BuildPage(FVector2D ViewportSize);	
 
 protected:
 
@@ -187,7 +180,6 @@ protected:
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineSessionPtr OnlineSessionInterface;
 
-	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SButton> RefreshButton;
 	TSharedPtr<class STextBlock> StatusText;
 	TSharedPtr<class SComboButton> GameFilter;
