@@ -299,7 +299,7 @@ public:
 	//-----------------------------------------------
 	// Perceived latency reduction
 	/** Used to correct prediction error. */
-	UPROPERTY(EditAnywhere, Category=Network)
+	UPROPERTY(EditAnywhere, GlobalConfig, Category=Network)
 	float PredictionFudgeFactor;
 
 	/** Negotiated max amount of ping to predict ahead for. */
@@ -307,7 +307,7 @@ public:
 	float MaxPredictionPing;
 
 	/** user configurable desired prediction ping (will be negotiated with server. */
-	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
+	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category=Network)
 	float DesiredPredictionPing;
 
 	/** Propose a desired ping to server */
