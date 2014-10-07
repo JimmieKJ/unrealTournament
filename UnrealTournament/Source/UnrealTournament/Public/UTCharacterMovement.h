@@ -25,7 +25,7 @@ public:
 	virtual void ProcessServerMove(float TimeStamp, FVector Accel, FVector ClientLoc, uint8 CompressedMoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
 
 	/** Process old servermove forwarded by character */
-	virtual void ProcessOldServerMove(float OldTimeStamp, FVector OldAccel, uint8 OldMoveFlags);
+	virtual void ProcessOldServerMove(float OldTimeStamp, FVector OldAccel, float OldYaw, uint8 OldMoveFlags);
 
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual FVector GetImpartedMovementBaseVelocity() const override;

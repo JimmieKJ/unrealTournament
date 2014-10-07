@@ -1820,8 +1820,7 @@ const class FSavedMove_Character* OldMove
 	// send old move if it exists
 	if (OldMove)
 	{
-		// @TODO FIXMESTEVE - need rotation for dodges, which are important - what to do?
-		UTCharacterOwner->UTServerMoveOld(OldMove->TimeStamp, OldMove->Acceleration, OldMove->GetCompressedFlags());
+		UTCharacterOwner->UTServerMoveOld(OldMove->TimeStamp, OldMove->Acceleration, OldMove->SavedControlRotation.Yaw, OldMove->GetCompressedFlags());
 	}
 
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
@@ -1922,7 +1921,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	ServerMoveHandleClientError(TimeStamp, DeltaTime, Accel, ClientLoc, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
 }
 
-void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldAccel, uint8 OldMoveFlags)
+void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldAccel, float OldYaw, uint8 OldMoveFlags)
 {
 	if (!HasValidData() || !IsComponentTickEnabled())
 	{
@@ -1937,7 +1936,17 @@ void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldA
 		return;
 	}
 
-	UE_LOG(LogNetPlayerMovement, Log, TEXT("Recovered move from OldTimeStamp %f, DeltaTime: %f"), OldTimeStamp, OldTimeStamp - ServerData->CurrentClientTimeStamp);
+	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
+	if (PC)
+	{
+		FRotator ViewRot;
+		ViewRot.Pitch = PC->GetControlRotation().Pitch;
+		ViewRot.Yaw = OldYaw;
+		ViewRot.Roll = 0.f;
+		PC->SetControlRotation(ViewRot);
+	}
+
+	UE_LOG(LogNetPlayerMovement, Warning, TEXT("Recovered move from OldTimeStamp %f, DeltaTime: %f"), OldTimeStamp, OldTimeStamp - ServerData->CurrentClientTimeStamp);
 	const float MaxResponseTime = ServerData->MaxResponseTime * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation();
 
 	MoveAutonomous(OldTimeStamp, FMath::Min(OldTimeStamp - ServerData->CurrentClientTimeStamp, MaxResponseTime), OldMoveFlags, OldAccel);

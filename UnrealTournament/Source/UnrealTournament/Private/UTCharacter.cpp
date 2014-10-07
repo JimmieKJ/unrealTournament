@@ -3236,16 +3236,17 @@ void AUTCharacter::UTServerMoveOld_Implementation
 (
 float OldTimeStamp,
 FVector_NetQuantize OldAccel,
+float OldYaw,
 uint8 OldMoveFlags
 )
 {
 	if (UTCharacterMovement)
 	{
-		UTCharacterMovement->ProcessOldServerMove(OldTimeStamp, OldAccel, OldMoveFlags);
+		UTCharacterMovement->ProcessOldServerMove(OldTimeStamp, OldAccel, OldYaw, OldMoveFlags);
 	}
 }
 
-bool AUTCharacter::UTServerMoveOld_Validate(float OldTimeStamp, FVector_NetQuantize OldAccel, uint8 OldMoveFlags)
+bool AUTCharacter::UTServerMoveOld_Validate(float OldTimeStamp, FVector_NetQuantize OldAccel, float OldYaw, uint8 OldMoveFlags)
 {
 	return true;
 }
