@@ -547,17 +547,13 @@ void AUTBot::SwitchToBestWeapon()
 		float BestRating = -100.0f;
 		AUTWeapon* Best = NULL;
 
-		for (AUTInventory* Inv = GetUTChar()->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		for (TInventoryIterator<AUTWeapon> It(GetUTChar()); It; ++It)
 		{
-			AUTWeapon* TestWeap = Cast<AUTWeapon>(Inv);
-			if (TestWeap != NULL)
+			float NewRating = RateWeapon(*It);
+			if (NewRating > BestRating)
 			{
-				float NewRating = RateWeapon(TestWeap);
-				if (NewRating > BestRating)
-				{
-					Best = TestWeap;
-					BestRating = NewRating;
-				}
+				Best = *It;
+				BestRating = NewRating;
 			}
 		}
 

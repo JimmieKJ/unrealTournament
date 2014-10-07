@@ -348,9 +348,9 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 	if (bHeadShot)
 	{
 		// check for inventory items that prevent headshots
-		for (AUTInventory* Inv = GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		for (TInventoryIterator<> It(this); It; ++It)
 		{
-			if (Inv->bCallDamageEvents && Inv->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
+			if (It->bCallDamageEvents && It->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
 			{
 				bHeadShot = false;
 				break;
@@ -627,17 +627,11 @@ void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 		InstigatorChar->ModifyDamageCaused(Damage, Momentum, DamageEvent, this, EventInstigator, DamageCauser);
 	}
 	// check inventory
-	if (InventoryList != NULL)
+	for (TInventoryIterator<> It(this); It; ++It)
 	{
-		AUTInventory* Inv = InventoryList;
-		while (Inv != NULL)
+		if (It->bCallDamageEvents)
 		{
-			AUTInventory* NextInv = Inv->GetNext(); // cache here in case Inv is destroyed by damage absorption (e.g. armor)
-			if (Inv->bCallDamageEvents)
-			{
-				Inv->ModifyDamageTaken(Damage, Momentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
-			}
-			Inv = NextInv;
+			It->ModifyDamageTaken(Damage, Momentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
 		}
 	}
 }
@@ -1484,13 +1478,9 @@ int32 AUTCharacter::GetAmmoAmount(TSubclassOf<AUTWeapon> Type) const
 void AUTCharacter::AllAmmo()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	for (TInventoryIterator<AUTWeapon> It(this); It; ++It)
 	{
-		AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-		if (Weap)
-		{
-			Weap->AddAmmo(Weap->MaxAmmo);
-		}
+		It->AddAmmo(It->MaxAmmo);
 	}
 #endif
 }
@@ -1502,11 +1492,11 @@ void AUTCharacter::UnlimitedAmmo()
 
 AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass) const
 {
-	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	for (TInventoryIterator<> It(this); It; ++It)
 	{
-		if (bExactClass ? (Inv->GetClass() == Type) : Inv->IsA(Type))
+		if (bExactClass ? (It->GetClass() == Type) : It->IsA(Type))
 		{
-			return Inv;
+			return *It;
 		}
 	}
 	return NULL;
@@ -1592,6 +1582,8 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 
 bool AUTCharacter::IsInInventory(const AUTInventory* TestInv) const
 {
+	// we explicitly iterate all inventory items, even those with uninitialized/unreplicated Owner here
+	// to avoid weird inconsistencies where the item is in the list but we think it's free to be reassigned
 	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
 	{
 		if (Inv == TestInv)
@@ -1624,6 +1616,7 @@ void AUTCharacter::DiscardAllInventory()
 	// If we're dumping inventory on the server, make sure pending fire doesn't get stuck
 	ClearPendingFire();
 
+	// manually iterate here so any items in a bad state still get destroyed and aren't left around
 	AUTInventory* Inv = InventoryList;
 	while (Inv != NULL)
 	{
@@ -1635,11 +1628,11 @@ void AUTCharacter::DiscardAllInventory()
 
 void AUTCharacter::InventoryEvent(FName EventName)
 {
-	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	for (TInventoryIterator<> It(this); It; ++It)
 	{
-		if (Inv->bCallOwnerEvent)
+		if (It->bCallOwnerEvent)
 		{
-			Inv->OwnerEvent(EventName);
+			It->OwnerEvent(EventName);
 		}
 	}
 }
@@ -2682,13 +2675,9 @@ AUTCarriedObject* AUTCharacter::GetCarriedObject()
 void AUTCharacter::CheckArmorStacking()
 {
 	int32 TotalArmor = 0;
-	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
 	{
-		AUTArmor* Armor = Cast<AUTArmor>(Inv);
-		if (Armor)
-		{
-			TotalArmor += Armor->ArmorAmount;
-		}
+		TotalArmor += It->ArmorAmount;
 	}
 
 	// find the lowest absorption armors, and reduce them
@@ -2701,19 +2690,24 @@ void AUTCharacter::CheckArmorStacking()
 int32 AUTCharacter::ReduceArmorStack(int32 Amount)
 {
 	AUTArmor* WorstArmor = NULL;
-	for (AUTInventory* Inv = InventoryList; Inv != NULL; Inv = Inv->GetNext())
+	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
 	{
-		AUTArmor* Armor = Cast<AUTArmor>(Inv);
-		if (Armor && (!WorstArmor || (Armor->AbsorptionPct < WorstArmor->AbsorptionPct)))
+		if ((WorstArmor == NULL || (It->AbsorptionPct < WorstArmor->AbsorptionPct)))
 		{
-			WorstArmor = Armor;
+			WorstArmor = *It;
 		}
 	}
-	check(WorstArmor);
-
-	int32 ReducedAmount = FMath::Min(Amount, WorstArmor->ArmorAmount);
-	WorstArmor->ReduceArmor(ReducedAmount);
-	return ReducedAmount;
+	checkSlow(WorstArmor);
+	if (WorstArmor != NULL)
+	{
+		int32 ReducedAmount = FMath::Min(Amount, WorstArmor->ArmorAmount);
+		WorstArmor->ReduceArmor(ReducedAmount);
+		return ReducedAmount;
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 /** This is only here for legacy. */

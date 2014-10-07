@@ -536,15 +536,12 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 			UTC->TossInventory(UTC->GetWeapon());
 		}
 		// toss all powerups
-		AUTInventory* Inv = UTC->GetInventory();
-		while (Inv != NULL)
+		for (TInventoryIterator<> It(UTC); It; ++It)
 		{
-			AUTInventory* NextInv = Inv->GetNext();
-			if (Inv->bAlwaysDropOnDeath)
+			if (It->bAlwaysDropOnDeath)
 			{
-				UTC->TossInventory(Inv, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
+				UTC->TossInventory(*It, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
 			}
-			Inv = NextInv;
 		}
 		// delete the rest
 		UTC->DiscardAllInventory();

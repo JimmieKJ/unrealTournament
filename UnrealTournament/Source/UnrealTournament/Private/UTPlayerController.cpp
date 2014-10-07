@@ -462,20 +462,14 @@ void AUTPlayerController::SwitchToBestWeapon()
 	{
 		AUTWeapon* BestWeapon = NULL;
 		float BestPriority = 0.0f;
-		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 		{
-			if (Inv->GetOwner() == nullptr)
+			if (It->HasAnyAmmo())
 			{
-				break;
-			}
-
-			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-			if (Weap != NULL && Weap->HasAnyAmmo() && Weap->GetOwner() != nullptr)
-			{
-				float TestPriority = Weap->GetAutoSwitchPriority();
+				float TestPriority = It->GetAutoSwitchPriority();
 				if (TestPriority > BestPriority)
 				{
-					BestWeapon = Weap;
+					BestWeapon = *It;
 					BestPriority = TestPriority;
 				}
 			}
@@ -548,15 +542,10 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			AUTWeapon* WraparoundChoice = NULL;
 			int32 CurrentGroup = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon()->Group : UTCharacter->GetWeapon()->Group;
 			int32 CurrentSlot = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon()->GroupSlot : UTCharacter->GetWeapon()->GroupSlot;
-			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+			for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 			{
-				if (Inv->GetOwner() == nullptr)
-				{
-					break;
-				}
-
-				AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-				if (Weap != NULL && Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
+				AUTWeapon* Weap = *It;
+				if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 				{
 					if (bPrev)
 					{
@@ -616,15 +605,10 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 		AUTWeapon* CurrWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
 		AUTWeapon* LowestSlotWeapon = NULL;
 		AUTWeapon* NextSlotWeapon = NULL;
-		for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 		{
-			if (Inv->GetOwner() == nullptr)
-			{
-				break;
-			}
-
-			AUTWeapon* Weap = Cast<AUTWeapon>(Inv);
-			if (Weap != NULL && Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
+			AUTWeapon* Weap = *It;
+			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
 			{
 				if (Weap->Group == Group)
 				{

@@ -13,6 +13,7 @@ class UNREALTOURNAMENT_API AUTInventory : public AActor
 
 	friend void AUTCharacter::AddInventory(AUTInventory*, bool);
 	friend void AUTCharacter::RemoveInventory(AUTInventory*);
+	template<typename> friend class TInventoryIterator;
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Inventory")
@@ -55,6 +56,9 @@ protected:
 	UMeshComponent* PickupMesh;
 
 public:
+	/** returns next inventory item in the chain
+	 * NOTE: usually you should use TInventoryIterator
+	 */
 	AUTInventory* GetNext() const
 	{
 		return NextInventory;
@@ -150,4 +154,75 @@ public:
 	*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
 	float DetourWeight(APawn* Asker, AActor* Pickup, float PathDistance) const;
+};
+
+// template to access a character's inventory
+// this class automatically handles ignoring invalid (not fully replicated or initialized) inventory items
+// it is also resilient against the currently iterated item being destroyed
+template<typename InvType = AUTInventory> class UNREALTOURNAMENT_API TInventoryIterator
+{
+private:
+	const AUTCharacter* Holder;
+	AUTInventory* CurrentInv;
+	AUTInventory* NextInv;
+
+	inline bool IsValidForIteration(AUTInventory* TestInv)
+	{
+		return (TestInv->GetOwner() == Holder && TestInv->GetUTOwner() == Holder && (/*typeid(InvType) == typeid(AUTInventory) || */TestInv->IsA(InvType::StaticClass())));
+	}
+public:
+	TInventoryIterator(const AUTCharacter* InHolder)
+		: Holder(InHolder)
+	{
+		if (Holder != NULL)
+		{
+			CurrentInv = Holder->InventoryList;
+			if (CurrentInv != NULL)
+			{
+				NextInv = CurrentInv->NextInventory;
+				if (!IsValidForIteration(CurrentInv))
+				{
+					++(*this);
+				}
+			}
+			else
+			{
+				NextInv = NULL;
+			}
+		}
+		else
+		{
+			CurrentInv = NULL;
+			NextInv = NULL;
+		}
+	}
+	void operator++()
+	{
+		do
+		{
+			CurrentInv = NextInv;
+			if (CurrentInv != NULL)
+			{
+				NextInv = CurrentInv->NextInventory;
+			}
+		} while (CurrentInv != NULL && !IsValidForIteration(CurrentInv));
+	}
+	FORCEINLINE bool IsValid() const
+	{
+		return CurrentInv != NULL;
+	}
+	FORCEINLINE operator bool() const
+	{
+		return IsValid();
+	}
+	FORCEINLINE InvType* operator*() const
+	{
+		checkSlow(CurrentInv != NULL && CurrentInv->IsA(InvType));
+		return (InvType*)CurrentInv;
+	}
+	FORCEINLINE InvType* operator->() const
+	{
+		checkSlow(CurrentInv != NULL && CurrentInv->IsA(InvType));
+		return (InvType*)CurrentInv;
+	}
 };

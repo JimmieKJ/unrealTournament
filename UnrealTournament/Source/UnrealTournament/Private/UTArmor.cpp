@@ -93,17 +93,13 @@ float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, fl
 		int32 MatchingArmor = 0;
 		int32 TotalArmor = 0;
 		float MaxAbsorbPct = 0.0f;
-		for (AUTInventory* Inv = P->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		for (TInventoryIterator<AUTArmor> It(P); It; ++It)
 		{
-			AUTArmor* Armor = Cast<AUTArmor>(Inv);
-			if (Armor != NULL)
+			TotalArmor += It->ArmorAmount;
+			MaxAbsorbPct = FMath::Max<float>(MaxAbsorbPct, It->AbsorptionPct);
+			if (It->GetClass() == GetClass())
 			{
-				TotalArmor += Armor->ArmorAmount;
-				MaxAbsorbPct = FMath::Max<float>(MaxAbsorbPct, Armor->AbsorptionPct);
-				if (Armor->GetClass() == GetClass())
-				{
-					MatchingArmor += Armor->ArmorAmount;
-				}
+				MatchingArmor += It->ArmorAmount;
 			}
 		}
 		// if this armor will overwrite other armor consider full value regardless of stacking

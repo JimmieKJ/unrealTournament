@@ -51,39 +51,32 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		AUTWeapon* CurrentWeapon = UTC->GetWeapon();
 
 		// Get the weapon list.
-		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)
 		{
-			if (Inv->GetOwner() == nullptr)
+			AUTWeapon* Weapon = *It;
+
+			int32 WeaponGroup = FMath::Max(0, Weapon->Group - 1); // weapon group 0 and 1 share a slot
+
+			// make sure we have enough entries
+			WeaponList.SetNum(FMath::Max<int32>(WeaponList.Num(), WeaponGroup + 1));
+
+			// Count if needed
+			if (WeaponList[WeaponGroup] == NULL)
 			{
-				break;
+				CellCount++;
 			}
 
-			AUTWeapon* Weapon = Cast<AUTWeapon>(Inv);
-			if (Weapon != NULL)
+			// if two weapons share a slot, bias towards the one that is selected
+			if (WeaponList[WeaponGroup] == NULL || WeaponList[WeaponGroup] != CurrentWeapon)
 			{
-				int32 WeaponGroup = FMath::Max(0, Weapon->Group - 1); // weapon group 0 and 1 share a slot
+				// Store off - NOTE: if a weapon already exists in that group.. it will get blown out.  This implementation
+				// doesn't support stacking.
 
-				// make sure we have enough entries
-				WeaponList.SetNum(FMath::Max<int32>(WeaponList.Num(), WeaponGroup + 1));
+				WeaponList[WeaponGroup] = Weapon;
 
-				// Count if needed
-				if (WeaponList[WeaponGroup] == NULL)
-				{
-					CellCount++;
-				}
-
-				// if two weapons share a slot, bias towards the one that is selected
-				if (WeaponList[WeaponGroup] == NULL || WeaponList[WeaponGroup] != CurrentWeapon)
-				{
-					// Store off - NOTE: if a weapon already exists in that group.. it will get blown out.  This implementation
-					// doesn't support stacking.
-
-					WeaponList[WeaponGroup] = Weapon;
-
-					// Move the first and last if needed
-					if (WeaponGroup < FirstWeaponIndex) FirstWeaponIndex = WeaponGroup;
-					if (WeaponGroup > LastWeaponIndex) LastWeaponIndex = WeaponGroup;
-				}
+				// Move the first and last if needed
+				if (WeaponGroup < FirstWeaponIndex) FirstWeaponIndex = WeaponGroup;
+				if (WeaponGroup > LastWeaponIndex) LastWeaponIndex = WeaponGroup;
 			}
 		}
 

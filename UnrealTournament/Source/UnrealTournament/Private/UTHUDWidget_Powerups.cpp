@@ -22,37 +22,19 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 		{
 			int32 Count = 0;
 			FVector2D TotalSize;
-			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+			for (TInventoryIterator<AUTTimedPowerup> It(UTCharacter); It; ++It)
 			{
-				if (Inv->GetOwner() == nullptr)
-				{
-					break;
-				}
-
-				AUTTimedPowerup* PowerUp = Cast<AUTTimedPowerup>(Inv);
-				if (PowerUp != NULL)
-				{
-					TotalSize.Y += PowerUp->HUDIcon.VL;
-					TotalSize.X = FMath::Max<float>(PowerUp->HUDIcon.UL, TotalSize.X);
-					Count++;
-				}
+				TotalSize.Y += It->HUDIcon.VL;
+				TotalSize.X = FMath::Max<float>(It->HUDIcon.UL, TotalSize.X);
+				Count++;
 			}
 
 			FVector2D CurrentPos(0.f, TotalSize.X * -0.5);
-			for (AUTInventory* Inv = UTCharacter->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+			for (TInventoryIterator<AUTTimedPowerup> It(UTCharacter); It; ++It)
 			{
-				if (Inv->GetOwner() == nullptr)
-				{
-					break;
-				}
-
-				AUTTimedPowerup* PowerUp = Cast<AUTTimedPowerup>(Inv);
-				if (PowerUp != NULL)
-				{
-					FVector2D ItemSize = FVector2D(PowerUp->HUDIcon.UL, PowerUp->HUDIcon.VL);
-					Inv->DrawInventoryHUD(this, CurrentPos, ItemSize);
-					CurrentPos.Y += ItemSize.Y;
-				}
+				FVector2D ItemSize = FVector2D(It->HUDIcon.UL, It->HUDIcon.VL);
+				It->DrawInventoryHUD(this, CurrentPos, ItemSize);
+				CurrentPos.Y += ItemSize.Y;
 			}
 		}
 	}

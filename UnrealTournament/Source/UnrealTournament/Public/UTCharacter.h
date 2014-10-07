@@ -345,7 +345,13 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(replicated)
 	bool bUnlimitedAmmo;
 
-	inline class AUTInventory* GetInventory()
+	// use this to iterate inventory
+	template<typename> friend class TInventoryIterator;
+
+	/** returns first inventory item in the chain
+	* NOTE: usually you should use TInventoryIterator
+	*/
+	inline AUTInventory* GetInventory()
 	{
 		return InventoryList;
 	}

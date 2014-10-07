@@ -42,14 +42,9 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		bool bHasChest = false;
 		bool bHasHelmet = false;
 		int JumpBootsCharges = 0;
-		for (AUTInventory* Inv = UTC->GetInventory(); Inv != NULL; Inv = Inv->GetNext())
+		for (TInventoryIterator<> It(UTC); It; ++It)
 		{
-			if (Inv->GetOwner() == nullptr)
-			{
-				break;
-			}
-
-			AUTArmor* Armor = Cast<AUTArmor>(Inv);
+			AUTArmor* Armor = Cast<AUTArmor>(*It);
 			if (Armor != NULL)
 			{
 				ArmorAmt += Armor->ArmorAmount;
@@ -59,9 +54,9 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 				if (Armor->ArmorType == FName(TEXT("FlakVest"))) bHasChest = true;
 				if (Armor->ArmorType == FName(TEXT("Helmet"))) bHasHelmet = true;
 			}
-			else if (Cast<AUTJumpBoots>(Inv) != NULL)
+			else if (Cast<AUTJumpBoots>(*It) != NULL)
 			{
-				JumpBootsCharges = Cast<AUTJumpBoots>(Inv)->NumJumps;
+				JumpBootsCharges = Cast<AUTJumpBoots>(*It)->NumJumps;
 			}
 		}
 
