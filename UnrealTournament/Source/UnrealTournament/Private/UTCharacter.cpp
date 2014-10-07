@@ -1335,6 +1335,7 @@ bool AUTCharacter::IsTriggerDown(uint8 FireMode)
 
 void AUTCharacter::SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode)
 {
+	bLocalFlashLoc = IsLocallyControlled();
 	// make sure two consecutive shots don't set the same FlashLocation as that will prevent replication and thus clients won't see the shot
 	FlashLocation = ((FlashLocation - InFlashLoc).SizeSquared() >= 1.0f) ? InFlashLoc : (InFlashLoc + FVector(0.0f, 0.0f, 1.0f));
 	// we reserve the zero vector to stop firing, so make sure we aren't setting a value that would replicate that way
@@ -1358,9 +1359,18 @@ void AUTCharacter::IncrementFlashCount(uint8 InFireMode)
 }
 void AUTCharacter::ClearFiringInfo()
 {
+	bLocalFlashLoc = false;
 	FlashLocation = FVector::ZeroVector;
 	FlashCount = 0;
 	FiringInfoUpdated();
+}
+void AUTCharacter::FiringInfoReplicated()
+{
+	// if we locally simulated this shot, ignore the replicated value
+	if (!bLocalFlashLoc)
+	{
+		FiringInfoUpdated();
+	}
 }
 void AUTCharacter::FiringInfoUpdated()
 {

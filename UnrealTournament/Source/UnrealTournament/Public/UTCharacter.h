@@ -446,12 +446,14 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	void ClientWeaponLost(AUTWeapon* LostWeapon);
 
 	/** replicated weapon firing info */
-	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoUpdated, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
 	uint8 FlashCount;
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
 	uint8 FireMode;
-	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoUpdated, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
 	FVector_NetQuantize FlashLocation;
+	/** set when client is locally simulating FlashLocation so ignore any replicated value */
+	bool bLocalFlashLoc;
 
 	/** set info for one instance of firing and plays firing effects; assumed to be a valid shot - call ClearFiringInfo() if the weapon has stopped firing
 	 * if a location is not needed (projectile) call IncrementFlashCount() instead
@@ -470,8 +472,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	virtual void ClearFiringInfo();
 
 	/** called when firing variables are updated to trigger/stop effects */
-	UFUNCTION()
 	virtual void FiringInfoUpdated();
+	/** repnotify handler for firing variables, generally just calls FiringInfoUpdated() */
+	UFUNCTION()
+	virtual void FiringInfoReplicated();
 
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
 	int32 Health;
