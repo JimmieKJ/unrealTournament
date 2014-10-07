@@ -1944,6 +1944,27 @@ void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldA
 	ServerData->CurrentClientTimeStamp = OldTimeStamp;
 }
 
+void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
+{
+	if (!HasValidData() || !IsComponentTickEnabled())
+	{
+		return;
+	}
+
+	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+	check(ClientData);
+
+	// Ack move if it has not expired.
+	int32 MoveIndex = ClientData->GetSavedMoveIndex(TimeStamp);
+
+	// @TODO FIXMESTEVE - need this implementation, because it's legit to sometimes have moves be already gone (after client adjustment called)
+	if (MoveIndex == INDEX_NONE)
+	{
+		return;
+	}
+	ClientData->AckMove(MoveIndex);
+}
+
 
 
 

@@ -14,6 +14,7 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual bool ClientUpdatePositionAfterServerUpdate() override;
 	virtual void ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration) override;
+	virtual void ClientAckGoodMove_Implementation(float TimeStamp) override;
 
 	/** Return true if it is OK to delay sending this player movement to the server to conserve bandwidth. */
 	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove);
