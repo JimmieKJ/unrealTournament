@@ -331,10 +331,12 @@ FName AUTGameState::OverrideCameraStyle(APlayerController* PCOwner, FName Curren
 
 FText AUTGameState::ServerRules()
 {
-	AUTGameMode* DefObject = GameModeClass->GetDefaultObject<AUTGameMode>();
-	if (DefObject)
+	if (GameModeClass != NULL && GameModeClass->IsChildOf(AUTGameMode::StaticClass()))
 	{
-		return DefObject->BuildServerRules(this);
+		return GameModeClass->GetDefaultObject<AUTGameMode>()->BuildServerRules(this);
 	}
-	return FText::GetEmpty();
+	else
+	{
+		return FText();
+	}
 }
