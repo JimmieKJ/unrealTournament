@@ -3212,7 +3212,7 @@ void AUTCharacter::TurnOff()
 
 void AUTCharacter::UTServerMove_Implementation(
 	float TimeStamp,
-	FVector_NetQuantize100 InAccel,
+	FVector_NetQuantize InAccel,
 	FVector_NetQuantize100 ClientLoc,
 	uint8 MoveFlags,
 	float ViewYaw,
@@ -3227,7 +3227,7 @@ void AUTCharacter::UTServerMove_Implementation(
 	}
 }
 
-bool AUTCharacter::UTServerMove_Validate(float TimeStamp, FVector_NetQuantize100 InAccel, FVector_NetQuantize100 ClientLoc, uint8 MoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
+bool AUTCharacter::UTServerMove_Validate(float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize100 ClientLoc, uint8 MoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
 {
 	return true;
 }
@@ -3235,7 +3235,7 @@ bool AUTCharacter::UTServerMove_Validate(float TimeStamp, FVector_NetQuantize100
 void AUTCharacter::UTServerMoveOld_Implementation
 (
 float OldTimeStamp,
-FVector_NetQuantize100 OldAccel,
+FVector_NetQuantize OldAccel,
 uint8 OldMoveFlags
 )
 {
@@ -3245,17 +3245,17 @@ uint8 OldMoveFlags
 	}
 }
 
-bool AUTCharacter::UTServerMoveOld_Validate(float OldTimeStamp, FVector_NetQuantize100 OldAccel, uint8 OldMoveFlags)
+bool AUTCharacter::UTServerMoveOld_Validate(float OldTimeStamp, FVector_NetQuantize OldAccel, uint8 OldMoveFlags)
 {
 	return true;
 }
 
 void AUTCharacter::UTServerMoveDual_Implementation(
 	float TimeStamp0,
-	FVector_NetQuantize100 InAccel0,
+	FVector_NetQuantize InAccel0,
 	uint8 PendingFlags,
 	float TimeStamp,
-	FVector_NetQuantize100 InAccel,
+	FVector_NetQuantize InAccel,
 	FVector_NetQuantize100 ClientLoc,
 	uint8 NewFlags,
 	float ViewYaw,
@@ -3274,10 +3274,10 @@ void AUTCharacter::UTServerMoveDual_Implementation(
 
 bool AUTCharacter::UTServerMoveDual_Validate(
 	float TimeStamp0,
-	FVector_NetQuantize100 InAccel0,
+	FVector_NetQuantize InAccel0,
 	uint8 PendingFlags,
 	float TimeStamp,
-	FVector_NetQuantize100 InAccel,
+	FVector_NetQuantize InAccel,
 	FVector_NetQuantize100 ClientLoc,
 	uint8 NewFlags,
 	float ViewYaw,

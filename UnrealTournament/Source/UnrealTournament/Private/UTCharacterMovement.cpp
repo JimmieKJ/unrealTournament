@@ -936,6 +936,11 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bSavedWantsSlide = UTCharMov->WantsSlideRoll(); 
 		bSavedIsEmoting = UTCharMov->bIsEmoting;
 	}
+
+	// Round acceleration, so sent version and locally used version always match
+	Acceleration.X = FMath::RoundToFloat(Acceleration.X);
+	Acceleration.Y = FMath::RoundToFloat(Acceleration.Y);
+	Acceleration.Z = FMath::RoundToFloat(Acceleration.Z);
 }
 
 FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() const
@@ -1002,7 +1007,6 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 			}
 		}
 	}
-	
 	return Result;
 }
 
@@ -1918,7 +1922,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	ServerMoveHandleClientError(TimeStamp, DeltaTime, Accel, ClientLoc, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
 }
 
-void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector_NetQuantize100 OldAccel, uint8 OldMoveFlags)
+void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldAccel, uint8 OldMoveFlags)
 {
 	if (!HasValidData() || !IsComponentTickEnabled())
 	{
