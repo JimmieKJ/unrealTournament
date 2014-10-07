@@ -1385,6 +1385,42 @@ float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, f
 		}
 	}
 }
+float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P == NULL)
+	{
+		return 0.0f;
+	}
+	// detour if currently equipped weapon
+	else if (P->GetWeaponClass() == GetClass())
+	{
+		return BotDesireability(Asker, Pickup, PathDistance);
+	}
+	else
+	{
+		// detour if favorite weapon
+		AUTBot* B = Cast<AUTBot>(P->Controller);
+		if (B != NULL && B->IsFavoriteWeapon(GetClass()))
+		{
+			return BotDesireability(Asker, Pickup, PathDistance);
+		}
+		else
+		{
+			// detour if out of ammo for this weapon
+			AUTWeapon* AlreadyHas = P->FindInventoryType<AUTWeapon>(GetClass());
+			if (AlreadyHas == NULL || AlreadyHas->Ammo == 0)
+			{
+				return BotDesireability(Asker, Pickup, PathDistance);
+			}
+			else
+			{
+				// otherwise not important enough
+				return 0.0f;
+			}
+		}
+	}
+}
 
 float AUTWeapon::GetAISelectRating_Implementation()
 {

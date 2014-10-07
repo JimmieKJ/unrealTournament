@@ -4,6 +4,7 @@
 #include "UTBot.h"
 #include "UTAIAction.h"
 #include "UTAIAction_WaitForMove.h"
+#include "UTDroppedPickup.h"
 
 AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -18,24 +19,48 @@ AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
 
 float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
+	float BestNodeWeight = 0.0f;
 	for (TWeakObjectPtr<AActor> TestActor : Node->POIs)
 	{
 		if (TestActor.IsValid())
 		{
 			AUTPickup* TestPickup = Cast<AUTPickup>(TestActor.Get());
-			if (TestPickup != NULL && TestPickup->State.bActive) // TODO: flag for pickup timing
+			if (TestPickup != NULL)
 			{
-				float NewWeight = TestPickup->BotDesireability(Asker, TotalDistance) / FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
-				if (NewWeight > BestWeight)
+				if (TestPickup->State.bActive) // TODO: flag for pickup timing
 				{
-					BestPickup = TestPickup;
-					BestWeight = NewWeight;
+					float NewWeight = TestPickup->BotDesireability(Asker, TotalDistance) / FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
+					if (NewWeight > BestNodeWeight)
+					{
+						BestNodeWeight = NewWeight;
+						if (NewWeight > BestWeight)
+						{
+							BestPickup = TestPickup;
+							BestWeight = NewWeight;
+						}
+					}
 				}
-				return NewWeight;
+			}
+			else
+			{
+				AUTDroppedPickup* TestDrop = Cast<AUTDroppedPickup>(TestActor.Get());
+				if (TestDrop != NULL)
+				{
+					float NewWeight = TestDrop->BotDesireability(Asker, TotalDistance) / FMath::Max<float>(1.0f, float(TotalDistance) + (TestDrop->GetActorLocation() - EntryLoc).Size());
+					if (NewWeight > BestNodeWeight)
+					{
+						BestNodeWeight = NewWeight;
+						if (NewWeight > BestWeight)
+						{
+							BestPickup = TestDrop;
+							BestWeight = NewWeight;
+						}
+					}
+				}
 			}
 		}
 	}
-	return 0.0f;
+	return BestNodeWeight;
 }
 bool FBestInventoryEval::GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const
 {
@@ -597,7 +622,7 @@ void AUTBot::ExecuteWhatToDoNext()
 		}
 		float Weight = 0.0f;
 		FBestInventoryEval NodeEval;
-		NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
+		NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, false, RouteCache);
 		if (RouteCache.Num() > 0)
 		{
 			SetMoveTarget(RouteCache[0]);
@@ -617,8 +642,15 @@ void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APaw
 
 void AUTBot::SeePawn(APawn* Other)
 {
-	Enemy = Other;
-	WhatToDoNext();
+	if (Enemy == NULL || !LineOfSightTo(Enemy))
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(Other, this))
+		{
+			Enemy = Other;
+			WhatToDoNext();
+		}
+	}
 }
 
 bool AUTBot::CanSee(APawn* Other, bool bMaySkipChecks)

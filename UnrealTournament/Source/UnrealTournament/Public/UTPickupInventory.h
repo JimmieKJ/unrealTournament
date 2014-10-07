@@ -58,13 +58,10 @@ public:
 
 	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
 	{
-		if (InventoryType == NULL)
-		{
-			return 0.0f;
-		}
-		else
-		{
-			return InventoryType.GetDefaultObject()->BotDesireability(Asker, this, TotalDistance);
-		}
+		return (InventoryType == NULL) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, this, TotalDistance);
+	}
+	virtual float DetourWeight_Implementation(APawn* Asker, float TotalDistance) override
+	{
+		return (InventoryType == NULL) ? 0.0f : InventoryType.GetDefaultObject()->DetourWeight(Asker, this, TotalDistance);
 	}
 };

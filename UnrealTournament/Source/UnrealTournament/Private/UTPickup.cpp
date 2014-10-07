@@ -275,6 +275,10 @@ float AUTPickup::BotDesireability_Implementation(APawn* Asker, float PathDistanc
 {
 	return BaseDesireability;
 }
+float AUTPickup::DetourWeight_Implementation(APawn* Asker, float PathDistance)
+{
+	return 0.0f;
+}
 
 static FPickupReplicatedState PreRepState;
 

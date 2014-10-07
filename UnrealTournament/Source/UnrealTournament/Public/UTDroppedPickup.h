@@ -72,4 +72,11 @@ public:
 	*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
 	float BotDesireability(APawn* Asker, float PathDistance);
+	/** similar to BotDesireability but this method is queried for items along the bot's path during most pathing queries, even when it isn't explicitly looking for items
+	* (e.g. checking to pick up health on the way to an enemy or game objective)
+	* in general this method should be more strict and return 0 in cases where the bot's objective should be higher priority than the item
+	* as with BotDesireability(), the PathDistance is weighted internally already and should primarily be used to reject things that are too far out of the bot's way
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
+	float DetourWeight(APawn* Asker, float PathDistance);
 };

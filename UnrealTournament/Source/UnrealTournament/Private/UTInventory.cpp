@@ -268,3 +268,7 @@ float AUTInventory::BotDesireability_Implementation(APawn* Asker, AActor* Pickup
 {
 	return BasePickupDesireability;
 }
+float AUTInventory::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+{
+	return 0.0f;
+}

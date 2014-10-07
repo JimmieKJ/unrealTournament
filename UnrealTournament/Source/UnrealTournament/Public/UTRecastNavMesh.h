@@ -286,6 +286,8 @@ protected:
 	 */
 	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
 
+	const class dtQueryFilter* GetDefaultDetourFilter() const;
+
 	// hide base functionality we don't want being used
 	// if you are UT aware you should use the UT functions that use the node graph with more robust traversal options
 private:

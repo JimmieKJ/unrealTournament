@@ -62,3 +62,38 @@ float AUTPickupAmmo::BotDesireability_Implementation(APawn* Asker, float TotalDi
 		}
 	}
 }
+float AUTPickupAmmo::DetourWeight_Implementation(APawn* Asker, float TotalDistance)
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P == NULL)
+	{
+		return 0.0f;
+	}
+	// if short distance always grab in case we find the weapon
+	else if (TotalDistance < 1200.0f)
+	{
+		return BotDesireability(Asker, TotalDistance);
+	}
+	else
+	{
+		// always want ammo for bot's favorite weapon
+		AUTBot* B = Cast<AUTBot>(P->Controller);
+		if (B != NULL && B->IsFavoriteWeapon(Ammo.Type))
+		{
+			return BotDesireability(Asker, TotalDistance);
+		}
+		else
+		{
+			// if have weapon and need ammo for it, then detour
+			AUTWeapon* W = P->FindInventoryType<AUTWeapon>(Ammo.Type, true);
+			if (W != NULL && W->Ammo <= W->MaxAmmo / 2)
+			{
+				return BotDesireability(Asker, TotalDistance);
+			}
+			else
+			{
+				return 0.0f;
+			}
+		}
+	}
+}

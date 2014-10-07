@@ -161,3 +161,24 @@ float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float Path
 		}
 	}
 }
+float AUTDroppedPickup::DetourWeight_Implementation(APawn* Asker, float PathDistance)
+{
+	if (InventoryType == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		// make sure Asker can actually get here before the pickup times out
+		float LifeSpan = GetLifeSpan();
+		if (LifeSpan > 0.0)
+		{
+			ACharacter* C = Cast<ACharacter>(Asker);
+			return (C == NULL || PathDistance / C->CharacterMovement->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->DetourWeight(Asker, this, PathDistance);
+		}
+		else
+		{
+			return InventoryType.GetDefaultObject()->DetourWeight(Asker, this, PathDistance);
+		}
+	}
+}

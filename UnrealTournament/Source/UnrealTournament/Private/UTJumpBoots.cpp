@@ -144,3 +144,24 @@ float AUTJumpBoots::BotDesireability_Implementation(APawn* Asker, AActor* Pickup
 		return 0.0f;
 	}
 }
+float AUTJumpBoots::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P != NULL)
+	{
+		AUTJumpBoots* AlreadyHas = P->FindInventoryType<AUTJumpBoots>(GetClass());
+		// shorter distance to care about boots if have some already
+		if (AlreadyHas == NULL || PathDistance < 2000.0f)
+		{
+			return BotDesireability(Asker, Pickup, PathDistance);
+		}
+		else
+		{
+			return 0.0f;
+		}
+	}
+	else
+	{
+		return 0.0f;
+	}
+}

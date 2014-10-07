@@ -49,4 +49,9 @@ class AUTTimedPowerup : public AUTInventory
 	virtual void Removed() override;
 
 	virtual void DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size) override;
+
+	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+	{
+		return BotDesireability(Asker, Pickup, PathDistance);
+	}
 };

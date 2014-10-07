@@ -40,5 +40,10 @@ class AUTArmor : public AUTInventory
 
 	virtual void ReduceArmor(int Amount);
 
-	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
+	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override;
+	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override
+	{
+		// don't detour too far out of way for low impact armor
+		return (BasePickupDesireability >= 1.0f || PathDistance < 2000.0f) ? BotDesireability(Asker, Pickup, PathDistance) : 0.0f;
+	}
 };

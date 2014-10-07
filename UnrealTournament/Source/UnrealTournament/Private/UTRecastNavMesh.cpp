@@ -9,6 +9,7 @@
 #include "Runtime/Navmesh/Public/DetourCrowd/DetourPathCorridor.h"
 #include "Runtime/Engine/Private/AI/Navigation/RecastHelpers.h"
 #include "UTPathBuilderInterface.h"
+#include "UTDroppedPickup.h"
 #if WITH_EDITOR
 #include "EditorBuildUtils.h"
 #endif
@@ -52,6 +53,11 @@ AUTRecastNavMesh::~AUTRecastNavMesh()
 	}
 }
 #endif
+
+const dtQueryFilter* AUTRecastNavMesh::GetDefaultDetourFilter() const
+{
+	return ((const FRecastQueryFilter*)GetDefaultQueryFilterImpl())->GetAsDetourQueryFilter();
+}
 
 FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(const struct dtPoly* PolyData, const struct dtMeshTile* TileData, const struct dtLink& Link) const
 {
@@ -309,12 +315,6 @@ static bool IsInPain(UWorld* World, const FVector& TestLoc)
 
 int32 AUTRecastNavMesh::CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPoly)
 {
-	FRecastQueryFilter Filter(false);
-	for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
-	{
-		Filter.SetAreaCost(i, 1.0f);
-	}
-
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
 	float Distance = 0.0f;
@@ -325,7 +325,7 @@ int32 AUTRecastNavMesh::CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPol
 	float RecastEnd[3] = { End.X, End.Y, End.Z };
 	float HitNormal[3];
 	float HitTime = 0.0f;
-	if (dtStatusSucceed(InternalQuery.raycast(StartPoly, RecastStart, RecastEnd, &Filter, &HitTime, HitNormal, NULL, NULL, 0)) && HitTime >= 1.0f)
+	if (dtStatusSucceed(InternalQuery.raycast(StartPoly, RecastStart, RecastEnd, GetDefaultDetourFilter(), &HitTime, HitNormal, NULL, NULL, 0)) && HitTime >= 1.0f)
 	{
 		// raycast succeeded, so use line distance
 		Distance = (End - Start).Size();
@@ -337,7 +337,7 @@ int32 AUTRecastNavMesh::CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPol
 		NavNodeRef* Path = (NavNodeRef*)FMemory_Alloca(MaxNodes * sizeof(NavNodeRef));
 		int32 NodeCount = 0;
 		dtQueryResult PathData;
-		dtStatus PathResult = InternalQuery.findPath(StartPoly, EndPoly, RecastStart, RecastEnd, &Filter, PathData, &Distance);
+		dtStatus PathResult = InternalQuery.findPath(StartPoly, EndPoly, RecastStart, RecastEnd, GetDefaultDetourFilter(), PathData, &Distance);
 		if (!dtStatusSucceed(PathResult) || PathResult & DT_PARTIAL_RESULT)
 		{
 			// should never happen
@@ -452,11 +452,6 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 
 	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
-	FRecastQueryFilter Filter(false);
-	for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
-	{
-		Filter.SetAreaCost(i, 1.0f);
-	}
 
 	// expand the nodes into adjacent tiles
 	// if compatible reachability, merge into the node's tiles list, otherwise generate a new node and path link
@@ -765,11 +760,6 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 		else
 		{
 			dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
-			FRecastQueryFilter Filter(false);
-			for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
-			{
-				Filter.SetAreaCost(i, 1.0f);
-			}
 
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.bNoCollisionFail = true;
@@ -783,6 +773,8 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 			float MoveSpeed = ScoutClass.GetDefaultObject()->CharacterMovement->MaxWalkSpeed;
 			FVector HeightAdjust(0.0f, 0.0f, AgentHeight * 0.5f);
 
+			FCapsuleSize PathSize = GetHumanPathSize();
+
 			for (; SpecialLinkBuildNodeIndex < PathNodes.Num() && NumToProcess > 0; SpecialLinkBuildNodeIndex++, NumToProcess--)
 			{
 				UUTPathNode* Node = PathNodes[SpecialLinkBuildNodeIndex];
@@ -793,7 +785,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 					float SegmentVerts[36];
 					NavNodeRef NeighborPolys[6];
 					int32 NumSegments = 0;
-					InternalQuery.getPolyWallSegments(PolyRef, &Filter, NULL, 0, SegmentVerts, NeighborPolys, &NumSegments, 6);
+					InternalQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), NULL, 0, SegmentVerts, NeighborPolys, &NumSegments, 6);
 					for (int32 i = 0; i < NumSegments; i++)
 					{
 						if (NeighborPolys[i] == INVALID_NAVNODEREF)
@@ -823,7 +815,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 
 											float HitTime = 1.0f;
 											float HitNormal[3];
-											if (dtStatusSucceed(InternalQuery.raycast(PolyRef, RecastStart, RecastEnd, &Filter, &HitTime, HitNormal, NULL, NULL, 0)))
+											if (dtStatusSucceed(InternalQuery.raycast(PolyRef, RecastStart, RecastEnd, GetDefaultDetourFilter(), &HitTime, HitNormal, NULL, NULL, 0)))
 											{
 												bWalkReachable = (HitTime >= 1.0f);
 											}
@@ -848,17 +840,57 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 
 												if (!bFound)
 												{
-													FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), NULL, 46, 92, R_JUMP); // TODO: figure out real width and height
-													for (NavNodeRef SrcPolyRef : Node->Polys)
-													{
-														NewLink->Distances.Add(FMath::TruncToInt((TestLoc - GetPolyCenter(SrcPolyRef)).Size()));
-													}
+													FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), NULL, PathSize.Radius, PathSize.Height, R_JUMP);
 												}
 											}
 										}
 									}
 								}
 							}
+						}
+					}
+				}
+				// calculate distance and core end point of all jump paths
+				// we use the closest poly to the center of the group
+				for (FUTPathLink& Link : Node->Paths)
+				{
+					if (Link.Distances.Num() == 0)
+					{
+						FVector Center = GetPolyCenter(Link.EndPoly);
+						if (Link.AdditionalEndPolys.Num() > 0)
+						{
+							for (NavNodeRef ExtraPoly : Link.AdditionalEndPolys)
+							{
+								Center += GetPolyCenter(ExtraPoly);
+							}
+							Center /= (Link.AdditionalEndPolys.Num() + 1);
+
+							// change core end to the one closest to the center we found
+							TArray<NavNodeRef> AllEndPolys(Link.AdditionalEndPolys);
+							AllEndPolys.Add(Link.EndPoly);
+							
+							int32 Best = INDEX_NONE;
+							float BestDistSq = FLT_MAX;
+							for (int32 i = 0; i < AllEndPolys.Num(); i++)
+							{
+								float DistSq = (GetPolyCenter(AllEndPolys[i]) - Center).SizeSquared();
+								if (DistSq < BestDistSq)
+								{
+									Best = i;
+									BestDistSq = DistSq;
+								}
+							}
+							if (AllEndPolys[Best] != Link.EndPoly)
+							{
+								AllEndPolys.RemoveAt(Best);
+								Link.EndPoly = AllEndPolys[Best];
+								Link.AdditionalEndPolys = AllEndPolys;
+							}
+						}
+						
+						for (NavNodeRef SrcPolyRef : Node->Polys)
+						{
+							Link.Distances.Add(FMath::TruncToInt((Center - GetPolyCenter(SrcPolyRef)).Size()));
 						}
 					}
 				}
@@ -1131,14 +1163,9 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 				float RecastCenter[3] = { TestBox.GetCenter().X, TestBox.GetCenter().Y, TestBox.GetCenter().Z };
 				float RecastExtent[3] = { TestBox.GetExtent().X, TestBox.GetExtent().Y, TestBox.GetExtent().Z };
 				dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
-				FRecastQueryFilter Filter(false);
-				for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
-				{
-					Filter.SetAreaCost(i, 1.0f);
-				}
 				NavNodeRef ResultPolys[10];
 				int32 NumPolys = 0;
-				InternalQuery.queryPolygons(RecastCenter, RecastExtent, &Filter, ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+				InternalQuery.queryPolygons(RecastCenter, RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
 				float BestDist = FLT_MAX;
 				NavNodeRef BestResult = INVALID_NAVNODEREF;
 				for (int32 i = 0; i < NumPolys; i++)
@@ -1395,19 +1422,58 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				new(NodeRoute) FRouteCacheItem(RouteGoal, RouteGoalLoc, FindNearestPoly(RouteGoalLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight)));
 			}
 
-			if (bAllowDetours)
+			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
 			{
-				// TODO implement
+				FVector NextLoc = NodeRoute[1].GetLocation(Asker);
+				FVector NextDir = (NextLoc - StartLoc).SafeNormal();
+				AActor* BestDetour = NULL;
+				float BestDetourWeight = 0.0f;
+				for (TWeakObjectPtr<AActor> POI : NextRouteNode->Node->POIs)
+				{
+					if (POI.IsValid())
+					{
+						AUTPickup* Pickup = Cast<AUTPickup>(POI.Get());
+						AUTDroppedPickup* DroppedPickup = Cast<AUTDroppedPickup>(POI.Get());
+						if ((Pickup != NULL && Pickup->State.bActive) || DroppedPickup != NULL) // TODO: flag for pickup timing
+						{
+							// reject detours too far behind desired path
+							FVector POILoc = POI->GetActorLocation();
+							float Angle = (POILoc - StartLoc).SafeNormal() | NextDir;
+							float MaxDist = (Angle > 0.5f) ? FLT_MAX : (3000.0f / (2.0f - Angle));
+							float Dist = (POILoc - NextLoc).Size();
+							if (Dist < MaxDist)
+							{
+								float NewDetourWeight;
+								if (Pickup != NULL)
+								{
+									NewDetourWeight = Pickup->DetourWeight(Asker, Dist) / FMath::Max<float>(Dist, 1.0f);
+								}
+								else
+								{
+									NewDetourWeight = DroppedPickup->DetourWeight(Asker, Dist) / FMath::Max<float>(Dist, 1.0f);
+								}
+								if (NewDetourWeight > BestDetourWeight)
+								{
+									BestDetour = POI.Get();
+								}
+							}
+						}
+					}
+				}
+				if (BestDetour != NULL)
+				{
+					// intentional double height to be sure we get a poly
+					NavNodeRef DetourPoly = FindNearestPoly(BestDetour->GetActorLocation(), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight));
+					if (DetourPoly != INVALID_NAVNODEREF && NextRouteNode->Node->Polys.Contains(DetourPoly))
+					{
+						NodeRoute.Insert(FRouteCacheItem(BestDetour, BestDetour->GetActorLocation(), DetourPoly), 0);
+					}
+				}
 			}
 
 			if (PolyRoute != NULL)
 			{
 				dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
-				FRecastQueryFilter Filter(false);
-				for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
-				{
-					Filter.SetAreaCost(i, 1.0f);
-				}
 
 				NavNodeRef CurrentPoly = StartPoly;
 				FVector CurrentRecastLoc = Unreal2RecastPoint(StartLoc);
@@ -1418,7 +1484,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					FVector RecastEndVect = Unreal2RecastPoint(GetPolyCenter(NodeRoute[i].TargetPoly));
 					float RecastEnd[3] = { RecastEndVect.X, RecastEndVect.Y, RecastEndVect.Z };
 					dtQueryResult PathData;
-					InternalQuery.findPath(CurrentPoly, NodeRoute[i].TargetPoly, RecastStart, RecastEnd, &Filter, PathData, NULL);
+					InternalQuery.findPath(CurrentPoly, NodeRoute[i].TargetPoly, RecastStart, RecastEnd, GetDefaultDetourFilter(), PathData, NULL);
 					for (int32 j = 0; j < PathData.size(); j++)
 					{
 						PolyRoute->Add(PathData.getRef(j));
@@ -1448,13 +1514,8 @@ bool AUTRecastNavMesh::FindPolyPath(FVector StartLoc, const FNavAgentProperties&
 		float RecastStart[3] = { StartLoc.X, StartLoc.Y, StartLoc.Z };
 		FVector RecastEndVect = Unreal2RecastPoint(GetPolyCenter(Target.TargetPoly));
 		float RecastEnd[3] = { RecastEndVect.X, RecastEndVect.Y, RecastEndVect.Z };
-		FRecastQueryFilter Filter(false);
-		for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
-		{
-			Filter.SetAreaCost(i, 1.0f);
-		}
 		dtQueryResult PathData;
-		dtStatus Result = GetRecastNavMeshImpl()->SharedNavQuery.findPath(StartPoly, Target.TargetPoly, RecastStart, RecastEnd, &Filter, PathData, NULL);
+		dtStatus Result = GetRecastNavMeshImpl()->SharedNavQuery.findPath(StartPoly, Target.TargetPoly, RecastStart, RecastEnd, GetDefaultDetourFilter(), PathData, NULL);
 		if (!dtStatusSucceed(Result) || (Result & DT_PARTIAL_RESULT))
 		{
 			return false;
@@ -1487,19 +1548,13 @@ bool AUTRecastNavMesh::DoStringPulling(const FVector& OrigStartLoc, const TArray
 		unsigned char* ResultFlags = (unsigned char*)FMemory_Alloca(sizeof(unsigned char)* NumResultPoints);
 		NavNodeRef* ResultPolys = (NavNodeRef*)FMemory_Alloca(sizeof(NavNodeRef)* NumResultPoints);
 
-		FRecastQueryFilter Filter(false);
-		for (int32 i = 0; i < RECAST_MAX_AREAS; i++)
-		{
-			Filter.SetAreaCost(i, 1.0f);
-		}
-
 		// TODO: dtPathCorridor does a heap allocation and copy that we can probably find a way to avoid
 		dtPathCorridor Corridor;
 		Corridor.init(PolyRoute.Num());
 		Corridor.reset(PolyRoute[0], RecastStart);
-		Corridor.optimizePathTopology(&GetRecastNavMeshImpl()->SharedNavQuery, &Filter); // could probably skip this if perf is a concern
+		Corridor.optimizePathTopology(&GetRecastNavMeshImpl()->SharedNavQuery, GetDefaultDetourFilter()); // could probably skip this if perf is a concern
 		Corridor.setCorridor(RecastEnd, PolyRoute.GetTypedData(), PolyRoute.Num());
-		int32 ReturnedPoints = Corridor.findCorners(ResultPoints, ResultFlags, ResultPolys, NumResultPoints, &GetRecastNavMeshImpl()->SharedNavQuery, &Filter, AgentProps.AgentRadius);
+		int32 ReturnedPoints = Corridor.findCorners(ResultPoints, ResultFlags, ResultPolys, NumResultPoints, &GetRecastNavMeshImpl()->SharedNavQuery, GetDefaultDetourFilter(), AgentProps.AgentRadius);
 
 		if (ReturnedPoints <= 0)
 		{
@@ -1613,7 +1668,48 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 		else
 		{
 			NavNodeRef MyPoly = FindNearestPoly(Asker->GetNavAgentLocation(), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-			return MyPoly == Target.TargetPoly;
+			if (MyPoly == Target.TargetPoly)
+			{
+				return true;
+			}
+			else if (MyPoly == INVALID_NAVNODEREF)
+			{
+				return false;
+			}
+			else
+			{
+				// in cases of multiple Z axis walkable surfaces adjacent to each other, we might not quite get the polygon we expect
+				// if we think we're in the right place, do a more general intersection test to see if we're touching the right polygon even though the mesh doesn't judge it the "best" one
+				FBox TestBox(0);
+				FVector Extent(AgentProps.AgentRadius * 0.5f, AgentProps.AgentRadius * 0.5f, AgentProps.AgentHeight * 0.5); // intentionally half radius
+				FVector AskerLoc = Asker->GetActorLocation(); // note: using Actor location here, not agent location
+				TestBox += AskerLoc + Extent;
+				TestBox += AskerLoc - Extent;
+				if (!TestBox.IsInside(Target.GetLocation(Asker)))
+				{
+					return false;
+				}
+				else
+				{
+					dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
+
+					FVector RecastAskerLoc = Unreal2RecastPoint(AskerLoc);
+					FVector RecastExtent = Unreal2RecastPoint(FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+					NavNodeRef Polys[16];
+					int32 PolyCount = 0;
+					if (dtStatusSucceed(InternalQuery.queryPolygons((float*)&RecastAskerLoc, (float*)&RecastExtent, GetDefaultDetourFilter(), Polys, &PolyCount, ARRAY_COUNT(Polys))))
+					{
+						for (int32 i = 0; i < PolyCount; i++)
+						{
+							if (Polys[i] == Target.TargetPoly)
+							{
+								return true;
+							}
+						}
+					}
+					return false;
+				}
+			}
 		}
 	}
 }

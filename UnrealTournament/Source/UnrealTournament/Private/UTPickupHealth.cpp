@@ -83,3 +83,25 @@ float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, float PathD
 		}
 	}
 }
+float AUTPickupHealth::DetourWeight_Implementation(APawn* Asker, float PathDistance)
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		// reduce distance for low value health pickups
+		// TODO: maybe increase value if multiple adjacent pickups?
+		int32 ActualHeal = FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)) - P->Health;
+		if (float(ActualHeal * 500) > PathDistance)
+		{
+			return 0.0f;
+		}
+		else
+		{
+			return BotDesireability(Asker, PathDistance);
+		}
+	}
+}

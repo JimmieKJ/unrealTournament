@@ -534,6 +534,7 @@ public:
 	virtual void UnEquip();
 
 	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
+	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 	/** base weapon selection rating for AI
 	 * this is often used to determine if the AI has a good enough weapon to not pursue further pickups,
 	 * since GetAIRating() will fluctuate wildly depending on the combat scenario

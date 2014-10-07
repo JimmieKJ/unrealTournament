@@ -15,4 +15,5 @@ class AUTPickupAmmo : public AUTPickup
 	virtual void GiveTo_Implementation(APawn* Target) override;
 
 	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override;
+	virtual float DetourWeight_Implementation(APawn* Asker, float TotalDistance) override;
 };
