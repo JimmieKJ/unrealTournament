@@ -217,12 +217,12 @@ public:
 	}
 	FORCEINLINE InvType* operator*() const
 	{
-		checkSlow(CurrentInv != NULL && CurrentInv->IsA(InvType));
+		checkSlow(CurrentInv != NULL && CurrentInv->IsA(InvType::StaticClass()));
 		return (InvType*)CurrentInv;
 	}
 	FORCEINLINE InvType* operator->() const
 	{
-		checkSlow(CurrentInv != NULL && CurrentInv->IsA(InvType));
+		checkSlow(CurrentInv != NULL && CurrentInv->IsA(InvType::StaticClass()));
 		return (InvType*)CurrentInv;
 	}
 };
