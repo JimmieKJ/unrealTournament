@@ -3209,3 +3209,83 @@ void AUTCharacter::TurnOff()
 	DisallowWeaponFiring(true);
 	Super::TurnOff();
 }
+
+void AUTCharacter::UTServerMove_Implementation(
+	float TimeStamp,
+	FVector_NetQuantize100 InAccel,
+	FVector_NetQuantize100 ClientLoc,
+	uint8 MoveFlags,
+	float ViewYaw,
+	float ViewPitch,
+	UPrimitiveComponent* ClientMovementBase,
+	FName ClientBaseBoneName,
+	uint8 ClientMovementMode)
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->ProcessServerMove(TimeStamp, InAccel, ClientLoc, MoveFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
+	}
+}
+
+bool AUTCharacter::UTServerMove_Validate(float TimeStamp, FVector_NetQuantize100 InAccel, FVector_NetQuantize100 ClientLoc, uint8 MoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
+{
+	return true;
+}
+
+void AUTCharacter::UTServerMoveOld_Implementation
+(
+float OldTimeStamp,
+FVector_NetQuantize100 OldAccel,
+uint8 OldMoveFlags
+)
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->ProcessOldServerMove(OldTimeStamp, OldAccel, OldMoveFlags);
+	}
+}
+
+bool AUTCharacter::UTServerMoveOld_Validate(float OldTimeStamp, FVector_NetQuantize100 OldAccel, uint8 OldMoveFlags)
+{
+	return true;
+}
+
+void AUTCharacter::UTServerMoveDual_Implementation(
+	float TimeStamp0,
+	FVector_NetQuantize100 InAccel0,
+	uint8 PendingFlags,
+	float TimeStamp,
+	FVector_NetQuantize100 InAccel,
+	FVector_NetQuantize100 ClientLoc,
+	uint8 NewFlags,
+	float ViewYaw,
+	float ViewPitch,
+	UPrimitiveComponent* ClientMovementBase,
+	FName ClientBaseBone,
+	uint8 ClientMovementMode)
+{
+	// @TODO FIXMESTEVE - should always separate any move that depends on view rotation (e.g. dodge)  MUST DO NOW
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->ProcessServerMove(TimeStamp0, InAccel0, FVector(1.f, 2.f, 3.f), PendingFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBone, ClientMovementMode);
+		UTCharacterMovement->ProcessServerMove(TimeStamp, InAccel, ClientLoc, NewFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBone, ClientMovementMode);
+	}
+}
+
+bool AUTCharacter::UTServerMoveDual_Validate(
+	float TimeStamp0,
+	FVector_NetQuantize100 InAccel0,
+	uint8 PendingFlags,
+	float TimeStamp,
+	FVector_NetQuantize100 InAccel,
+	FVector_NetQuantize100 ClientLoc,
+	uint8 NewFlags,
+	float ViewYaw,
+	float ViewPitch,
+	UPrimitiveComponent* ClientMovementBase,
+	FName ClientBaseBone,
+	uint8 ClientMovementMode)
+{
+	return true;
+}
+

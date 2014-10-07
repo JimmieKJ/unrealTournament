@@ -88,6 +88,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	bJumpAssisted = false;
 	DodgeResetTime = 0.f;
 	bIsDodging = false;
+	bJustDodged = false;
 	bIsDodgeRolling = false;
 	DodgeRollTapTime = 0.f;
 	DodgeRollEndTime = 0.f;
@@ -295,6 +296,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			}
 		}
 		Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+		bJustDodged = false;
 		AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 	}
 	if (CharacterOwner != NULL)
@@ -510,6 +512,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 	bIsDodging = true;
 	bNotifyApex = true;
+	bJustDodged = true;
 	SetMovementMode(MOVE_Falling);
 	return true;
 }
@@ -1761,16 +1764,14 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 
 bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
 {
-	if (true) // @TODO FIXMESTEVE CVarNetEnableMoveCombining.GetValueOnGameThread() != 0)
+	if (true) // @TODO FIXMESTEVE CVarNetEnableMoveCombining.GetValueOnGameThread() != 0)  
 	{
-		// don't delay if dodge
-		/** @TODO FIXMESTEVE get this working
-		if (((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight)
+		// don't delay if just dodged - important because combined moves don't send first rotation
+		if (bJustDodged)
 		{
-			UE_LOG(UT, Warning, TEXT("NO DELAY DODGE %d %d %d %d"), ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward, ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack, ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft, ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight);
 			return false;
 		}
-		*/
+
 		// don't delay if just pressed fire
 		AUTPlayerController * PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : NULL;
 		if (PC && (PC->HasDeferredFireInputs()))
@@ -1781,5 +1782,166 @@ bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
 	}
 	return false;
 }
+
+bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& LastAckedMove) const
+{
+	if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight)
+	{
+		return true;
+	}
+	return Super::IsImportantMove(LastAckedMove);
+}
+
+
+void UUTCharacterMovement::CallServerMove
+(
+const class FSavedMove_Character* NewMove,
+const class FSavedMove_Character* OldMove
+)
+{
+	check(NewMove != NULL);
+
+	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (!UTCharacterOwner)
+	{
+		UE_LOG(UT, Warning, TEXT("CallServerMove() with no owner!?!"));
+		return;
+	}
+
+	// Determine if we send absolute or relative location
+	UPrimitiveComponent* ClientMovementBase = NewMove->EndBase.Get();
+	const FName ClientBaseBone = NewMove->EndBoneName;
+	const FVector SendLocation = MovementBaseUtility::UseRelativeLocation(ClientMovementBase) ? NewMove->SavedRelativeLocation : NewMove->SavedLocation;
+
+	// send old move if it exists
+	if (OldMove)
+	{
+		// @TODO FIXMESTEVE - need rotation for dodges, which are important - what to do?
+		UTCharacterOwner->UTServerMoveOld(OldMove->TimeStamp, OldMove->Acceleration, OldMove->GetCompressedFlags());
+	}
+
+	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+	if (ClientData->PendingMove.IsValid())
+	{
+		// send two moves simultaneously
+		UTCharacterOwner->UTServerMoveDual
+			(
+			ClientData->PendingMove->TimeStamp,
+			ClientData->PendingMove->Acceleration,
+			ClientData->PendingMove->GetCompressedFlags(),
+			NewMove->TimeStamp,
+			NewMove->Acceleration,
+			SendLocation,
+			NewMove->GetCompressedFlags(),
+			NewMove->SavedControlRotation.Yaw,
+			NewMove->SavedControlRotation.Pitch,
+			ClientMovementBase,
+			ClientBaseBone,
+			PackNetworkMovementMode()
+			);
+	}
+	else
+	{
+		UTCharacterOwner->UTServerMove
+			(
+			NewMove->TimeStamp,
+			NewMove->Acceleration,
+			SendLocation,
+			NewMove->GetCompressedFlags(),
+			NewMove->SavedControlRotation.Yaw,
+			NewMove->SavedControlRotation.Pitch,
+			ClientMovementBase,
+			ClientBaseBone,
+			PackNetworkMovementMode()
+			);
+	}
+
+	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
+	APlayerCameraManager* PlayerCameraManager = (PC ? PC->PlayerCameraManager : NULL);
+	if (PlayerCameraManager != NULL && PlayerCameraManager->bUseClientSideCameraUpdates)
+	{
+		//UE_LOG(UT, Warning, TEXT("WTF WTF WTF WTF!!!!!!!!!!!!!!!!"));
+		PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;
+	}
+}
+
+void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, FVector ClientLoc, uint8 MoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
+{
+	if (!HasValidData() || !IsComponentTickEnabled())
+	{
+		return;
+	}
+
+	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
+	check(ServerData);
+
+	if (!VerifyClientTimeStamp(TimeStamp, *ServerData))
+	{
+		return;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
+	bool bServerReadyForClient = PC ? PC->NotifyServerReceivedClientData(CharacterOwner, TimeStamp) : true;
+	const FVector Accel = bServerReadyForClient ? InAccel : FVector::ZeroVector;
+
+	// Save move parameters.
+	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
+
+	ServerData->CurrentClientTimeStamp = TimeStamp;
+	ServerData->ServerTimeStamp = GetWorld()->TimeSeconds;
+
+	if (PC)
+	{
+		FRotator ViewRot;
+		ViewRot.Pitch = ViewPitch;
+		ViewRot.Yaw = ViewYaw;
+		ViewRot.Roll = 0.f;
+		PC->SetControlRotation(ViewRot);
+	}
+	if (!bServerReadyForClient)
+	{
+		return;
+	}
+
+	// Perform actual movement
+	if ((CharacterOwner->GetWorldSettings()->Pauser == NULL) && (DeltaTime > 0.f))
+	{
+		if (PC)
+		{
+			PC->UpdateRotation(DeltaTime);
+		}
+		MoveAutonomous(TimeStamp, DeltaTime, MoveFlags, Accel);
+	}
+	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("ServerMove Time %f Acceleration %s Position %s DeltaTime %f"),
+		TimeStamp, *Accel.ToString(), *CharacterOwner->GetActorLocation().ToString(), DeltaTime);
+
+	ServerMoveHandleClientError(TimeStamp, DeltaTime, Accel, ClientLoc, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
+}
+
+void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector_NetQuantize100 OldAccel, uint8 OldMoveFlags)
+{
+	if (!HasValidData() || !IsComponentTickEnabled())
+	{
+		return;
+	}
+
+	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
+	check(ServerData);
+
+	if (!VerifyClientTimeStamp(OldTimeStamp, *ServerData))
+	{
+		return;
+	}
+
+	UE_LOG(LogNetPlayerMovement, Log, TEXT("Recovered move from OldTimeStamp %f, DeltaTime: %f"), OldTimeStamp, OldTimeStamp - ServerData->CurrentClientTimeStamp);
+	const float MaxResponseTime = ServerData->MaxResponseTime * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation();
+
+	MoveAutonomous(OldTimeStamp, FMath::Min(OldTimeStamp - ServerData->CurrentClientTimeStamp, MaxResponseTime), OldMoveFlags, OldAccel);
+	ServerData->CurrentClientTimeStamp = OldTimeStamp;
+}
+
+
+
+
 
 

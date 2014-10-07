@@ -18,6 +18,14 @@ public:
 	/** Return true if it is OK to delay sending this player movement to the server to conserve bandwidth. */
 	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove);
 
+	virtual void CallServerMove(const class FSavedMove_Character* NewMove, const class FSavedMove_Character* OldMove)  override;
+
+	/** Process servermove forwarded by character */
+	virtual void ProcessServerMove(float TimeStamp, FVector Accel, FVector ClientLoc, uint8 CompressedMoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
+
+	/** Process old servermove forwarded by character */
+	virtual void ProcessOldServerMove(float OldTimeStamp, FVector_NetQuantize100 OldAccel, uint8 OldMoveFlags);
+
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual FVector GetImpartedMovementBaseVelocity() const override;
 	virtual bool CanCrouchInCurrentState() const override;
@@ -173,6 +181,10 @@ public:
 	/** True during a dodge. */
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
+
+	/** True the frame a dodge occured. */
+	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
+	bool bJustDodged;
 
 	/** True during a dodge roll. */
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
@@ -491,6 +503,7 @@ public:
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;
 	virtual uint8 GetCompressedFlags() const override;
 	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const override;
+	virtual bool IsImportantMove(const FSavedMovePtr& LastAckedMove) const override;
 };
 
 
