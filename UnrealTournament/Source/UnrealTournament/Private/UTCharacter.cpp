@@ -908,6 +908,8 @@ void AUTCharacter::StartRagdoll()
 	Mesh->SetAllBodiesPhysicsBlendWeight(1.0f);
 	Mesh->DetachFromParent(true);
 	RootComponent = Mesh;
+	Mesh->bGenerateOverlapEvents = true;
+	Mesh->bShouldUpdatePhysicsVolume = true;
 	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CapsuleComponent->DetachFromParent(false);
 	CapsuleComponent->AttachTo(Mesh, NAME_None, EAttachLocation::KeepWorldPosition);
@@ -944,6 +946,8 @@ void AUTCharacter::StopRagdoll()
 
 	Mesh->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->MeshComponentUpdateFlag;
 	Mesh->bBlendPhysics = false; // for some reason bBlendPhysics == false is the value that actually blends instead of using only physics
+	Mesh->bGenerateOverlapEvents = false;
+	Mesh->bShouldUpdatePhysicsVolume = false;
 
 	// TODO: make sure cylinder is in valid position (navmesh?)
 	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight());

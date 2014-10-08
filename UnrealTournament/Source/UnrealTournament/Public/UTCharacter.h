@@ -574,6 +574,18 @@ public:
 	void StopDriving(APawn* Vehicle);
 
 	virtual void BaseChange() override;
+	virtual APhysicsVolume* GetPawnPhysicsVolume() const override
+	{
+		if (IsRagdoll() && RootComponent != NULL)
+		{
+			// prioritize root (ragdoll) volume over MovementComponent
+			return RootComponent->GetPhysicsVolume();
+		}
+		else
+		{
+			return Super::GetPawnPhysicsVolume();
+		}
+	}
 
 	virtual void TurnOff() override;
 
@@ -591,7 +603,7 @@ protected:
 	bool bInRagdollRecovery;
 
 public:
-	inline bool IsRagdoll()
+	inline bool IsRagdoll() const
 	{
 		return bFeigningDeath || bInRagdollRecovery || (RootComponent == Mesh && Mesh->IsSimulatingPhysics());
 	}
