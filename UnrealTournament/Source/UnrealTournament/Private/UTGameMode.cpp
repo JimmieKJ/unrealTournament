@@ -1222,6 +1222,8 @@ void AUTGameMode::HandleEnteringOvertime()
 {
 	if (bOnlyTheStrongSurvive)
 	{
+		UTGameState->bOnlyTheStrongSurvive = true;
+
 		// We are entering overtime, kill off anyone not at the top of the leader board....
 
 		AUTPlayerState* BestPlayer = NULL;

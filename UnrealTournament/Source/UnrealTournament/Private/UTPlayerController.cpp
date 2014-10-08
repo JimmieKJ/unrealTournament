@@ -654,7 +654,15 @@ void AUTPlayerController::OnFire()
 	}
 	else
 	{
-		ServerRestartPlayer();
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == nullptr || !GS->IsMatchInOvertime())
+		{
+			ServerRestartPlayer();
+		}
+		else
+		{
+			ServerViewNextPlayer();
+		}
 	}
 
 }
