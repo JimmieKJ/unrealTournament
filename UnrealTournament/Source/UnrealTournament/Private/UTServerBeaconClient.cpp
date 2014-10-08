@@ -26,14 +26,12 @@ void AUTServerBeaconClient::OnFailure()
 	PingStartTime = -2;
 }
 
-void AUTServerBeaconClient::ClientPing_Implementation()
+void AUTServerBeaconClient::ClientPing_Implementation(const FServerBeaconInfo ServerInfo)
 {
 	Ping = (GetWorld()->RealTimeSeconds - PingStartTime) * 1000.0f;
-
 	UE_LOG(LogBeacon, Log, TEXT("Ping %f"), Ping);
 
-	// We have successfully pinged, destroy the connection
-	DestroyBeacon();
+	OnServerRequestResults.ExecuteIfBound(this, ServerInfo);
 }
 
 bool AUTServerBeaconClient::ServerPong_Validate()
@@ -44,7 +42,32 @@ bool AUTServerBeaconClient::ServerPong_Validate()
 void AUTServerBeaconClient::ServerPong_Implementation()
 {
 	UE_LOG(LogBeacon, Log, TEXT("Pong"));
-	ClientPing();
+
+	FServerBeaconInfo ServerInfo;
+	
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		ServerInfo.ServerPlayers = TEXT("");
+
+		// Add the Players section3
+		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+		{
+			FString PlayerName =  GameState->PlayerArray[i]->PlayerName;
+			FString PlayerScore = FString::Printf(TEXT("%i"), int32(GameState->PlayerArray[i]->Score));
+			FString UniqueID = GameState->PlayerArray[i]->UniqueId.IsValid() ? GameState->PlayerArray[i]->UniqueId->ToString() : TEXT("none");
+			ServerInfo.ServerPlayers += FString::Printf(TEXT("%s\t%s\t%s\t"), *PlayerName, *PlayerScore, *UniqueID);
+		}
+	}
+
+	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode)
+	{
+		ServerInfo.ServerRules = TEXT("");
+		GameMode->BuildServerResponseRules(ServerInfo.ServerRules);	
+	}
+
+	ClientPing(ServerInfo);
 }
 
 void AUTServerBeaconClient::SetBeaconNetDriverName(FString InBeaconName)

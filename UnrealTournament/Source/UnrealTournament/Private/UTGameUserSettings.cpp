@@ -101,3 +101,40 @@ void UUTGameUserSettings::SetServerBrowserColumnWidth(int32 ColumnIndex, float N
 	}
 }
 
+float UUTGameUserSettings::GetServerBrowserRulesColumnWidth(int32 ColumnIndex)
+{
+	return (ColumnIndex >= 0 && ColumnIndex < 2) ? ServerBrowserRulesColumnWidths[ColumnIndex] : 0;
+}
+
+void UUTGameUserSettings::SetServerBrowserRulesColumnWidth(int32 ColumnIndex, float NewWidth)
+{
+	if (ColumnIndex >=0 && ColumnIndex < 2)
+	{
+		ServerBrowserRulesColumnWidths[ColumnIndex] = NewWidth;	
+	}
+}
+
+float UUTGameUserSettings::GetServerBrowserPlayersColumnWidth(int32 ColumnIndex)
+{
+	return (ColumnIndex >= 0 && ColumnIndex < 2) ? ServerBrowserPlayerColumnWidths[ColumnIndex] : 0;
+}
+void UUTGameUserSettings::SetServerBrowserPlayersColumnWidth(int32 ColumnIndex, float NewWidth)
+{
+	if (ColumnIndex >=0 && ColumnIndex < 2)
+	{
+		ServerBrowserPlayerColumnWidths[ColumnIndex] = NewWidth;	
+	}
+}
+
+float UUTGameUserSettings::GetServerBrowserSplitterPositions(int32 SplitterIndex)
+{
+	return (SplitterIndex >= 0 && SplitterIndex < 4) ? ServerBrowserSplitterPositions[SplitterIndex] : 0;
+}
+void UUTGameUserSettings::SetServerBrowserSplitterPositions(int32 SplitterIndex, float NewWidth)
+{
+	if (SplitterIndex >=0 && SplitterIndex < 4)
+	{
+		ServerBrowserSplitterPositions[SplitterIndex] = NewWidth;	
+	}
+}
+

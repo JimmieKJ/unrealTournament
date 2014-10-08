@@ -241,6 +241,10 @@ public:
 	// Allows gametypes to build their rules settings for the mid game menu.
 	virtual FText BuildServerRules(AUTGameState* GameState);
 
+	/**
+	 *	Builds a \t separated list of rules that will be sent out to clients when they request server info via the UTServerBeaconClient.  
+	 **/
+	virtual void BuildServerResponseRules(FString& OutRules);
 
 protected:
 	/** adds a bot to the game */

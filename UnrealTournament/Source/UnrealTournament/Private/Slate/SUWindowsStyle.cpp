@@ -128,6 +128,27 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	// Server Browser
 	{
+		Style.Set("UWindows.Standard.ServerBrowser.LeftArrow", new IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.LeftArrow", FVector2D(12,8), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+		Style.Set("UWindows.Standard.ServerBrowser.Backdrop", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Backdrop", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
+		Style.Set("UWindows.Standard.ServerBrowser.TopSubBar", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.TopSubBar", FMargin(14.0f / 64.0f, 16.0f / 32.0f, 14.0f / 64.0f, 16.0f / 32.0f)));
+		Style.Set("UWindows.Standard.ServerBrowser.BottomSubBar", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.BottomSubBar", FMargin(14.0f / 64.0f, 16.0f / 32.0f, 14.0f / 64.0f, 16.0f / 32.0f)));
+
+		Style.Set("UWindows.Standard.ServerBrowser.NormalText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("UWindows.Standard.ServerBrowser.BoldText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 14))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+			);
+
+		Style.Set("UWindows.Standard.ServerBrowser.HugeText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 48))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+			);
+
 
 		Style.Set("UWindows.Standard.ServerBrowser.Lock", new IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.Lock", Icon17x22, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
@@ -183,6 +204,45 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetFont(TTF_FONT("Exo2-Medium", 10))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
+
+		Style.Set("UWindows.Standard.ServerBrowser.Button", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Button",		   FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetHovered( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Button.Hovered", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Button.Pressed", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Button.Disabled", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UWindows.Standard.ServerBrowser.RightButton", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RightButton",		   FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetHovered( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RightButton.Hovered", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RightButton.Pressed", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RightButton.Disabled", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+
+		Style.Set("UWindows.Standard.ServerBrowser.BlankButton", FButtonStyle()
+			.SetNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHovered( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.BlankButton.Hovered", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.BlankButton.Pressed", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.BlankButton.Disabled", FMargin(7.0f / 64.0f, 4.0f / 32.0f, 7.0f / 64.0f, 4.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+
+		Style.Set("UWindows.Standard.ServerBrowser.EditBox", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetForegroundColor(FLinearColor::White)
+			.SetBackgroundImageNormal( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.DarkBorder", FMargin(22.0f / 64.0f, 8.0f / 32.0f, 6.0f / 64.0f, 8.0f / 32.0f)))
+			.SetBackgroundImageHovered( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.DarkBorder", FMargin(22.0f / 64.0f, 8.0f / 32.0f, 6.0f / 64.0f, 8.0f / 32.0f)))
+			.SetBackgroundImageFocused( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.DarkBorder", FMargin(22.0f / 64.0f, 8.0f / 32.0f, 6.0f / 64.0f, 8.0f / 32.0f)))
+			.SetBackgroundImageReadOnly( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.DarkBorder", FMargin(22.0f / 64.0f, 8.0f / 32.0f, 6.0f / 64.0f, 8.0f / 32.0f)))
+			);
+
 
 
 	}
@@ -287,7 +347,6 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			);
 
-
 		Style.Set("UWindows.MidGameMenu.Chatbar.Background", new BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 
 
@@ -322,6 +381,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	}
+
+
 
 
 	{	// MOTD / Server / Chat

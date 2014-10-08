@@ -1619,3 +1619,19 @@ FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
 	return FText::Format(NSLOCTEXT("UTGameMode","GameRules","{0} - GoalScore: {1}  Time Limit: {2}"), FText::FromString(FriendlyGameName), FText::AsNumber(GameState->GoalScore), FText::AsNumber(uint32(GameState->TimeLimit * 60)));
 }
 
+void AUTGameMode::BuildServerResponseRules(FString& OutRules)
+{
+	OutRules += FString::Printf(TEXT("GoalScore\t%i\t"), GoalScore);
+	OutRules += FString::Printf(TEXT("TimeLimit\t%i\t"), int32(TimeLimit/60.0));
+	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
+	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
+	OutRules += FString::Printf(TEXT("Only The Strong\t%s\t"), bOnlyTheStrongSurvive ? TEXT("True") : TEXT("False"));
+	OutRules += FString::Printf(TEXT("Players Must Be Ready\t%s\t"), bPlayersMustBeReady ?  TEXT("True") : TEXT("False"));
+
+	AUTMutator* Mut = BaseMutator;
+	while (Mut)
+	{
+		OutRules += FString::Printf(TEXT("Mutator\t%s\t"), *Mut->DisplayName.ToString());
+		Mut = Mut->NextMutator;
+	}
+}

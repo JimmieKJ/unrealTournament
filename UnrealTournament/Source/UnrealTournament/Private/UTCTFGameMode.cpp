@@ -6,6 +6,7 @@
 #include "UTFirstBloodMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
+#include "UTMutator.h"
 
 namespace MatchState
 {
@@ -724,4 +725,42 @@ bool AUTCTFGameMode::CheckAdvantage()
 	}
 		
 	return true;
+}
+
+void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
+{
+	OutRules += FString::Printf(TEXT("GoalScore\t%i\t"), GoalScore);
+	OutRules += FString::Printf(TEXT("TimeLimit\t%i\t"), TimeLimit);
+	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
+
+	if (bOldSchool)
+	{
+		OutRules += FString::Printf(TEXT("Old School\tTrue\t"));
+	}
+	else
+	{
+		OutRules += FString::Printf(TEXT("Halftime\tTrue\t"));
+		OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);;
+	}
+
+	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
+	if (bAllowOvertime)
+	{
+		OutRules += FString::Printf(TEXT("Overtime Duration\t%i\t"), OvertimeDuration);;
+	}
+
+	if (bSuddenDeath)
+	{
+		OutRules += FString::Printf(TEXT("Sudden Death\tTrue\t"));
+	}
+
+
+	OutRules += FString::Printf(TEXT("Players Must Be Ready\t%s\t"), bPlayersMustBeReady ?  TEXT("True") : TEXT("False"));
+
+	AUTMutator* Mut = BaseMutator;
+	while (Mut)
+	{
+		OutRules += FString::Printf(TEXT("Mutator\t%s\t"), *Mut->DisplayName.ToString());
+		Mut = Mut->NextMutator;
+	}
 }

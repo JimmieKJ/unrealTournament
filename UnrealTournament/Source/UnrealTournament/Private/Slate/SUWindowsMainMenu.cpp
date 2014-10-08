@@ -175,7 +175,7 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 	.ButtonContent()
 	[
 		SNew(STextBlock)
-		.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_File","File").ToString())
+		.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_File","Game").ToString())
 		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")
 	];
 	

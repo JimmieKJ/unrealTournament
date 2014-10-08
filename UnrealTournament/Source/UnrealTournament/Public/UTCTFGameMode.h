@@ -66,6 +66,8 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void DefaultTimer();
 	virtual bool PlayerCanRestart( APlayerController* Player );
 
+	void BuildServerResponseRules(FString& OutRules);
+
 protected:
 
 	// CTF Scoring.. made config for now so we can easily tweak it all.  Won't be config in the final.
