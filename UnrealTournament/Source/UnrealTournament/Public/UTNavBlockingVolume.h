@@ -16,6 +16,10 @@ class AUTNavBlockingVolume : public AVolume // can't sublcass ABlockingVolume ei
 		BrushComponent->bCanEverAffectNavigation = true;
 		BrushComponent->BodyInstance.bEnableCollision_DEPRECATED = true;
 		BrushComponent->SetCollisionProfileName(FName(TEXT("InvisibleWall")));
+		// NOTE: this relies on no nav building during gameplay
+		BrushComponent->AlwaysLoadOnClient = false;
+		BrushComponent->AlwaysLoadOnServer = false;
+		bNotForClientOrServer = true;
 	}
 
 	// it would've been nice to have a component that just does the right thing but unfortunately UBrushComponent can't be subclassed by modules
