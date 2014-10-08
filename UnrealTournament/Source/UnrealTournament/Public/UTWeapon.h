@@ -320,6 +320,9 @@ public:
 		return FMath::Min3(255, FiringState.Num(), FireInterval.Num());
 	}
 
+	/** returns if the specified fire mode is a charged mode - that is, if the trigger is held firing will be delayed and the effect will improve in some way */
+	virtual bool IsChargedFireMode(uint8 TestMode) const;
+
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual void ClientGivenTo_Internal(bool bAutoActivate) override;
 
@@ -544,6 +547,27 @@ public:
 	/** AI switches to the weapon that returns the highest rating */
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	float GetAISelectRating();
+
+	/** returns whether this weapon has a viable attack against Target
+	 * this function should not consider Owner's view rotation
+	 * @param Target - Target actor
+	 * @param TargetLoc - Target location, not guaranteed to be Target's true location (AI may pass a predicted or guess location)
+	 * @param bDirectOnly - if true, only return success if weapon can directly hit Target from its current location (i.e. no need to wait for owner or target to move)
+	 * @param BestFireMode (out) - the fire mode that would be best to use for the attack
+	 * @param OptimalTargetLoc (out) - best position to shoot at to hit TargetLoc (generally TargetLoc unless weapon has an indirect or special attack that doesn't require pointing at the target)
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category = AI)
+	bool CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, uint8& BestFireMode, FVector& OptimalTargetLoc);
+
+	/** convenience redirect if the out params are not needed (just checking if firing is a good idea)
+	 * would prefer to use pointer params but Blueprints don't support that
+	 */
+	inline bool CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly)
+	{
+		uint8 UnusedFireMode;
+		FVector UnusedOptimalLoc;
+		return CanAttack(Target, TargetLoc, bDirectOnly, UnusedFireMode, UnusedOptimalLoc);
+	}
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")

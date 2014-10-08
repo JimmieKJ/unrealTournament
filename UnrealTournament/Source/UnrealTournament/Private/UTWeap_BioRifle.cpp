@@ -75,6 +75,33 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 		ConsumeAmmo(CurrentFireMode);
 	}
 	GetWorldTimerManager().SetTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
+
+	// AI decision to release fire
+	if (UTOwner != NULL)
+	{
+		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+		if (B != NULL && CanAttack(B->GetTarget(), B->GetFocalPoint(), true))
+		{
+			if (GlobStrength >= MaxGlobStrength)
+			{
+				UTOwner->StopFiring();
+			}
+			// stop if bot thinks its charge amount is enough to kill target
+			// TODO: maybe also if predicting target to go behind wall?
+			else if (B->GetTarget() == B->GetEnemy() && ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
+			{
+				AUTProj_BioGlob* DefaultGlob = Cast<AUTProj_BioGlob>(ProjClass[CurrentFireMode]->GetDefaultObject());
+				if (DefaultGlob != NULL)
+				{
+					AUTCharacter* P = Cast<AUTCharacter>(B->GetEnemy());
+					if (P->Health < DefaultGlob->DamageParams.BaseDamage * GlobStrength) // TODO: bot's guess of total effective enemy health
+					{
+						UTOwner->StopFiring();
+					}
+				}
+			}
+		}
+	}
 }
 
 void AUTWeap_BioRifle::ClearGlobStrength()

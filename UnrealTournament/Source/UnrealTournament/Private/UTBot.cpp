@@ -4,6 +4,7 @@
 #include "UTBot.h"
 #include "UTAIAction.h"
 #include "UTAIAction_WaitForMove.h"
+#include "UTAIAction_WaitForLanding.h"
 #include "UTDroppedPickup.h"
 
 AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
@@ -13,8 +14,10 @@ AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
 	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	SightRadius = 20000.0f;
 	PeripheralVision = 0.7f;
+	TrackingReactionTime = 0.25f;
 
 	WaitForMoveAction = PCIP.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
+	WaitForLandingAction = PCIP.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
 }
 
 float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
@@ -87,9 +90,10 @@ void AUTBot::Possess(APawn* InPawn)
 {
 	Super::Possess(InPawn);
 
-	MoveTarget.Clear();
-	RouteCache.Empty();
-	MoveTargetPoints.Empty();
+	ClearMoveTarget();
+	
+	// set weapon timer, if not already
+	GetWorldTimerManager().SetTimer(this, &AUTBot::CheckWeaponFiringTimed, 1.2f - 0.09f * FMath::Min<float>(10.0f, Skill + Personality.ReactionTime), true);
 }
 
 uint8 AUTBot::GetTeamNum() const
@@ -284,7 +288,11 @@ void AUTBot::Tick(float DeltaTime)
 			if (MoveTarget.IsValid())
 			{
 				FVector TargetLoc = GetMovePoint();
-				if (Enemy != NULL && LineOfSightTo(Enemy)) // TODO: cache this
+				if (Target != NULL && Target != Enemy && LineOfSightTo(Target))
+				{
+					SetFocus(Target);
+				}
+				else  if (Enemy != NULL && LineOfSightTo(Enemy)) // TODO: cache this
 				{
 					SetFocus(Enemy);
 				}
@@ -383,11 +391,55 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 		APawn* P = GetPawn();
 		if (P != NULL)
 		{
+			const float WorldTime = GetWorld()->TimeSeconds;
+
+			const TArray<FSavedPosition>* SavedPosPtr = NULL;
+			AUTCharacter* TargetP = Cast<AUTCharacter>(GetFocusActor());
+			AUTWeapon* MyWeap = NULL;
+			if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
+			{
+				SavedPosPtr = &TargetP->SavedPositions;
+				MyWeap = TargetP->GetWeapon();
+			}
+			if (SavedPosPtr != NULL)
+			{
+				const TArray<FSavedPosition>& SavedPositions = *SavedPosPtr;
+				// determine his position and velocity at the appropriate point in the past
+				for (int32 i = 1; i < SavedPositions.Num(); i++)
+				{
+					if (SavedPositions[i].Time > WorldTime - TrackingReactionTime)
+					{
+						FVector TargetLoc = SavedPositions[i - 1].Position + (SavedPositions[i].Position - SavedPositions[i - 1].Position) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+						const FVector TrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+						
+						TargetLoc = TargetLoc + TrackedVelocity * TrackingReactionTime;
+						if (MyWeap != NULL)
+						{
+							// TODO: the FireMode here needs to be sync'ed with CheckWeaponFiring()
+							uint8 FireMode;
+							if (!MyWeap->CanAttack(TargetP, TargetLoc, false, FireMode, FocalPoint))
+							{
+								FocalPoint = TargetLoc; // LastSeenLoc ???
+							}
+						}
+						else
+						{
+							FocalPoint = TargetLoc;
+						}
+						FocalPoint = TargetLoc;
+
+						// TODO: firemode, etc
+						break;
+					}
+				}
+
+			}
+
 			FVector Direction = FocalPoint - P->GetActorLocation();
 			FRotator DesiredRotation = Direction.Rotation();
 
-			// Don't pitch view of walking pawns unless looking at another pawn
-			if (GetPawn()->GetMovementComponent() && GetPawn()->GetMovementComponent()->IsMovingOnGround() && Cast<APawn>(GetFocusActor()) == NULL)
+			// Don't pitch view of walking pawns when simply traversing path and not looking at a target
+			if (GetPawn()->GetMovementComponent() && GetPawn()->GetMovementComponent()->IsMovingOnGround() && GetFocusActor() == NULL)
 			{
 				DesiredRotation.Pitch = 0.f;
 			}
@@ -571,6 +623,73 @@ bool AUTBot::NeedsWeapon()
 	return (GetUTChar() != NULL && (GetUTChar()->GetWeapon() == NULL || GetUTChar()->GetWeapon()->BaseAISelectRating < 0.5f));
 }
 
+void AUTBot::CheckWeaponFiring(bool bFromWeapon)
+{
+	if (UTChar == NULL)
+	{
+		GetWorldTimerManager().ClearTimer(this, &AUTBot::CheckWeaponFiringTimed); // timer will get restarted in Possess() if we get a new Pawn
+	}
+	else if (UTChar->GetWeapon() != NULL && (bFromWeapon || !UTChar->GetWeapon()->IsFiring())) // if weapon is firing, it should query bot when it's done for better responsiveness than a timer
+	{
+		AActor* TestTarget = Target;
+		if (TestTarget == NULL)
+		{
+			// TODO: check time since last enemy loc update versus reaction time
+			TestTarget = Enemy;
+		}
+		// TODO: if no target, ask weapon if it should fire anyway (mine layers, traps, fortifications, etc)
+		uint8 FireMode = 0;
+		FVector OptimalLoc;
+		// TODO: think about how to prevent Focus/Target/Enemy mismatches
+		if (TestTarget != NULL && GetFocusActor() == TestTarget && UTChar->GetWeapon()->CanAttack(TestTarget, TestTarget->GetTargetLocation(), false, FireMode, OptimalLoc) && (!NeedToTurn(OptimalLoc) || UTChar->GetWeapon()->IsChargedFireMode(FireMode)))
+		{
+			for (uint8 i = 0; i < UTChar->GetWeapon()->GetNumFireModes(); i++)
+			{
+				if (i == FireMode)
+				{
+					if (!UTChar->IsPendingFire(i))
+					{
+						UTChar->StartFire(i);
+					}
+				}
+				else if (UTChar->IsPendingFire(i))
+				{
+					UTChar->StopFire(i);
+				}
+			}
+		}
+		else
+		{
+			UTChar->StopFiring();
+		}
+	}
+}
+void AUTBot::CheckWeaponFiringTimed()
+{
+	CheckWeaponFiring(false);
+}
+
+bool AUTBot::NeedToTurn(const FVector& TargetLoc)
+{
+	if (GetPawn() == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		FVector StartLoc;
+		if (UTChar != NULL && UTChar->GetWeapon() != NULL)
+		{
+			StartLoc = UTChar->GetWeapon()->GetFireStartLoc();
+		}
+		else
+		{
+			StartLoc = GetPawn()->GetPawnViewLocation();
+		}
+		return ((TargetLoc - StartLoc).SafeNormal() | GetControlRotation().Vector()) < 0.93f + 0.0085 * FMath::Clamp<float>(Skill, 0.0, 7.0);
+	}
+}
+
 void AUTBot::StartNewAction(UUTAIAction* NewAction)
 {
 	if (CurrentAction != NULL)
@@ -595,10 +714,13 @@ void AUTBot::ExecuteWhatToDoNext()
 {
 	SwitchToBestWeapon();
 
-	if (Enemy != NULL && GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->BaseAISelectRating >= 0.5f && LineOfSightTo(Enemy))
+	if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling)
 	{
-		GetUTChar()->StartFire(0);
-		if (Enemy != NULL) // shot may kill enemy
+		StartNewAction(WaitForLandingAction);
+	}
+	else
+	{
+		if (Enemy != NULL && GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->BaseAISelectRating >= 0.5f && LineOfSightTo(Enemy))
 		{
 			float Weight = 0.0f;
 			FSingleEndpointEval NodeEval(Enemy);
@@ -609,20 +731,16 @@ void AUTBot::ExecuteWhatToDoNext()
 				StartNewAction(WaitForMoveAction);
 			}
 		}
-	}
-	if (CurrentAction == NULL)
-	{
-		if (GetUTChar() != NULL)
+		if (CurrentAction == NULL)
 		{
-			GetUTChar()->StopFire(0);
-		}
-		float Weight = 0.0f;
-		FBestInventoryEval NodeEval;
-		NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, false, RouteCache);
-		if (RouteCache.Num() > 0)
-		{
-			SetMoveTarget(RouteCache[0]);
-			StartNewAction(WaitForMoveAction);
+			float Weight = 0.0f;
+			FBestInventoryEval NodeEval;
+			NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, false, RouteCache);
+			if (RouteCache.Num() > 0)
+			{
+				SetMoveTarget(RouteCache[0]);
+				StartNewAction(WaitForMoveAction);
+			}
 		}
 	}
 }
@@ -631,9 +749,50 @@ void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APaw
 {
 	if (KilledPawn == Enemy)
 	{
-		Enemy = NULL;
+		SetEnemy(NULL);
 		// TODO: maybe taunt
 	}
+}
+
+void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
+{
+	if (InstigatedBy != NULL && InstigatedBy->GetPawn() != NULL && (Enemy == NULL || !LineOfSightTo(Enemy)))
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(InstigatedBy, this))
+		{
+			SetEnemy(InstigatedBy->GetPawn());
+			WhatToDoNext();
+		}
+	}
+}
+
+void AUTBot::SetEnemy(APawn* NewEnemy)
+{
+	if (Target == Enemy)
+	{
+		Target = NULL;
+	}
+	Enemy = NewEnemy;
+	AUTCharacter* EnemyP = Cast<AUTCharacter>(Enemy);
+	if (EnemyP != NULL)
+	{
+		if (EnemyP->IsDead())
+		{
+			UE_LOG(UT, Warning, TEXT("Bot got dead enemy %s"), *EnemyP->GetName());
+			Enemy = NULL;
+		}
+		else
+		{
+			EnemyP->MaxSavedPositionAge = FMath::Max<float>(EnemyP->MaxSavedPositionAge, TrackingReactionTime);
+		}
+	}
+	LastEnemyChangeTime = GetWorld()->TimeSeconds;
+}
+
+void AUTBot::SetTarget(AActor* NewTarget)
+{
+	Target = NewTarget;
 }
 
 void AUTBot::SeePawn(APawn* Other)
@@ -643,7 +802,7 @@ void AUTBot::SeePawn(APawn* Other)
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(Other, this))
 		{
-			Enemy = Other;
+			SetEnemy(Other);
 			WhatToDoNext();
 		}
 	}

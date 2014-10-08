@@ -7,6 +7,8 @@
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
 #include "UTWeaponStateInactive.h"
+#include "UTWeaponStateFiringCharged.h"
+#include "UTWeaponStateZooming.h"
 #include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
 #include "UTHUDWidget.h"
@@ -489,6 +491,11 @@ void AUTWeapon::DetachFromOwner_Implementation()
 	}
 	// unregister components so they go away
 	UnregisterAllComponents();
+}
+
+bool AUTWeapon::IsChargedFireMode(uint8 TestMode) const
+{
+	return FiringState.IsValidIndex(TestMode) && Cast<UUTWeaponStateFiringCharged>(FiringState[TestMode]) != NULL;
 }
 
 void AUTWeapon::PlayFiringEffects()
@@ -1416,4 +1423,31 @@ float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float
 float AUTWeapon::GetAISelectRating_Implementation()
 {
 	return HasAnyAmmo() ? BaseAISelectRating : 0.0f;
+}
+
+bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, uint8& BestFireMode, FVector& OptimalTargetLoc)
+{
+	OptimalTargetLoc = TargetLoc;
+	// TODO: optimize if owned by bot that already knows visibility of target
+	const FVector StartLoc = GetFireStartLoc();
+	FCollisionQueryParams Params(FName(TEXT("CanAttack")), false, Instigator);
+	Params.AddIgnoredActor(Target);
+	if (!GetWorld()->LineTraceTest(StartLoc, TargetLoc, COLLISION_TRACE_WEAPON, Params))
+	{
+		// skip zoom modes by default
+		TArray< uint8, TInlineAllocator<4> > ValidAIModes;
+		for (uint8 i = 0; i < GetNumFireModes(); i++)
+		{
+			if (Cast<UUTWeaponStateZooming>(FiringState[i]) == NULL)
+			{
+				ValidAIModes.Add(i);
+			}
+		}
+		BestFireMode = ValidAIModes[FMath::RandHelper(ValidAIModes.Num())];
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }

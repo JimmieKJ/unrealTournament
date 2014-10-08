@@ -11,7 +11,9 @@ struct FBotPersonality
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** overall skill modifier, generally [-1, +1] */
+	/** overall skill modifier, generally [-1, +1]
+	 * NOTE: this is applied to the bot's Skill property and shouldn't be queried directly
+	 */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	float SkillModifier;
 	/** aggressiveness (not a modifier) [-1, 1] */
@@ -20,6 +22,11 @@ struct FBotPersonality
 	/** tactical ability (both a modifier for general tactics and a standalone value for advanced or specialized tactics) [-1, 1] */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	float Tactics;
+	/** reaction time (skill modifier) [-1, +1], positive is better (lower reaction time)
+	 * affects enemy acquisition and incoming fire avoidance
+	 */
+	UPROPERTY(EditAnywhere, Category = Personality)
+	float ReactionTime;
 	/** favorite weapon; bot will bias towards acquiring and using this weapon */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	TSubclassOf<class AUTWeapon> FavoriteWeapon;
@@ -48,6 +55,9 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** core skill rating, generally 0 - 7 */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float Skill;
+	/** reaction time (in real seconds) for enemy positional tracking (i.e. use enemy's position this far in the past as basis) */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+	float TrackingReactionTime;
 	/** maximum vision range in UU */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float SightRadius;
@@ -139,8 +149,19 @@ public:
 	UPROPERTY()
 	TArray<FRouteCacheItem> RouteCache;
 
-	UPROPERTY(BlueprintReadWrite, Category = AI)
-	APawn* Enemy;
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void SetEnemy(APawn* NewEnemy);
+	inline APawn* GetEnemy() const
+	{
+		return Enemy;
+	}
+	/** set target that the bot will shoot instead of Enemy (game objectives and the like) */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void SetTarget(AActor* NewTarget);
+	inline AActor* GetTarget() const
+	{
+		return (Target != NULL) ? Target : Enemy;
+	}
 
 private:
 	UPROPERTY()
@@ -149,10 +170,21 @@ protected:
 	/** cached reference to navigation network */
 	UPROPERTY()
 	AUTRecastNavMesh* NavData;
+	/** current enemy, generally also Target unless there's a game objective or other special target */
+	UPROPERTY(BlueprintReadOnly, Category = AI)
+	APawn* Enemy;
+	/** last time Enemy was set, used for acquisition/reaction time calculations */
+	UPROPERTY(BlueprintReadOnly, Category = AI)
+	float LastEnemyChangeTime;
+	/** weapon target, automatically set to Enemy if NULL but can be set to non-Pawn destructible objects (shootable triggers, game objectives, etc) */
+	UPROPERTY(BlueprintReadOnly, Category = AI)
+	AActor* Target;
 
 	/** AI actions */
 	UPROPERTY()
 	TSubobjectPtr<UUTAIAction> WaitForMoveAction;
+	UPROPERTY()
+	TSubobjectPtr<UUTAIAction> WaitForLandingAction;
 	//UPROPERTY()
 	//TSubobjectPtr<UUTAIAction> RangedAttackAction;
 
@@ -181,6 +213,13 @@ public:
 	virtual bool LineOfSightTo(const class AActor* Other, FVector ViewPoint = FVector(ForceInit), bool bAlternateChecks = false) const override;
 	virtual void SeePawn(APawn* Other);
 
+	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
+
+	/** called by timer and also by weapons when ready to fire. Bot sets appropriate fire mode it wants to shoot (if any) */
+	virtual void CheckWeaponFiring(bool bFromWeapon = true);
+	/** return if bot thinks it needs to turn to attack TargetLoc (intentionally inaccurate for low skill bots) */
+	virtual bool NeedToTurn(const FVector& TargetLoc);
+
 	void SwitchToBestWeapon();
 	/** rate the passed in weapon (must be owned by this bot) */
 	virtual float RateWeapon(AUTWeapon* W);
@@ -192,6 +231,10 @@ public:
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
 protected:
+	/** timer to call CheckWeaponFiring() */
+	UFUNCTION()
+	void CheckWeaponFiringTimed();
+
 	virtual void ExecuteWhatToDoNext();
 	bool bPendingWhatToDoNext;
 	/** set during ExecuteWhatToDoNext() to catch decision loops */

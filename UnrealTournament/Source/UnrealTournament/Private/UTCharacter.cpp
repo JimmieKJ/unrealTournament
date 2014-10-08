@@ -112,7 +112,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
 	PlayerIndicatorMaxDistance = 1200.f;
-	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this
+	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 
 	GoodMoveAckTime = 0.f;
 
@@ -180,7 +180,8 @@ void AUTCharacter::PositionUpdated()
 {
 	new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), CharacterMovement->Velocity, GetWorld()->GetTimeSeconds(), (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 	
-	if (SavedPositions[0].Time < GetWorld()->GetTimeSeconds() - MaxSavedPositionAge)
+	// maintain one position beyond MaxSavedPositionAge for interpolation
+	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < GetWorld()->GetTimeSeconds() - MaxSavedPositionAge)
 	{
 		SavedPositions.RemoveAt(0);
 	}
@@ -805,7 +806,11 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		}
 		else
 		{
-			// TODO: bots
+			AUTBot* B = Cast<AUTBot>(Controller);
+			if (B != NULL)
+			{
+				B->NotifyTakeHit(InstigatedBy, Damage, Momentum, DamageEvent);
+			}
 		}
 	}
 }
