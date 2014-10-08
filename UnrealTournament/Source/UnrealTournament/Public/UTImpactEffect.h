@@ -79,9 +79,9 @@ private:
 		{
 			if (GAreScreenMessagesEnabled)
 			{
-				GEngine->AddOnScreenDebugMessage((uint64)-1, 3.0f, FColor(255, 0, 0), TEXT("UTImpactEffects should not be spawned! Use the SpawnEffect function instead."));
+				GEngine->AddOnScreenDebugMessage((uint64)-1, 3.0f, FColor(255, 0, 0), *FString::Printf(TEXT("UTImpactEffects should not be spawned! Use the SpawnEffect function instead. (%s)"), *GetName()));
 			}
-			UE_LOG(UT, Warning, TEXT("UTImpactEffects should not be spawned! Use the SpawnEffect function instead."));
+			UE_LOG(UT, Warning, TEXT("UTImpactEffects should not be spawned! Use the SpawnEffect function instead. (%s)"), *GetName());
 			Destroy();
 		}
 	}
