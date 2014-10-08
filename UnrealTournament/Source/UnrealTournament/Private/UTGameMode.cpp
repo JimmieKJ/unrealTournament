@@ -1125,7 +1125,7 @@ bool AUTGameMode::ReadyToStartMatch()
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
-		if (NumPlayers + NumBots >= MinPlayersToStart)
+		if (NumPlayers + NumBots >= MinPlayersToStart && NumPlayers + NumSpectators > 0)
 		{
 			if (bPlayersMustBeReady)
 			{
