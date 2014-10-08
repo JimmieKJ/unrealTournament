@@ -68,6 +68,8 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	bAlwaysShootable = false;
 	bIsEnergyProjectile = false;
 	bFakeClientProjectile = false;
+	bReplicateUTMovement = false;
+	bReplicateMovement = false;
 }
 
 void AUTProjectile::BeginPlay()
@@ -248,17 +250,106 @@ void AUTProjectile::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVect
 {
 }
 
+static void GetLifetimeBlueprintReplicationList(const AActor * ThisActor, const UBlueprintGeneratedClass * MyClass, TArray< FLifetimeProperty > & OutLifetimeProps)
+{
+	if (MyClass == NULL)
+	{
+		return;
+	}
+
+	uint32 PropertiesLeft = MyClass->NumReplicatedProperties;
+
+	for (TFieldIterator<UProperty> It(MyClass, EFieldIteratorFlags::ExcludeSuper); It && PropertiesLeft > 0; ++It)
+	{
+		UProperty * Prop = *It;
+		if (Prop != NULL && Prop->GetPropertyFlags() & CPF_Net)
+		{
+			PropertiesLeft--;
+			OutLifetimeProps.Add(FLifetimeProperty(Prop->RepIndex));
+		}
+	}
+
+	return GetLifetimeBlueprintReplicationList(ThisActor, Cast< UBlueprintGeneratedClass >(MyClass->GetSuperStruct()), OutLifetimeProps);
+}
+
+void AUTProjectile::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	GetLifetimeBlueprintReplicationList(this, Cast< UBlueprintGeneratedClass >(GetClass()), OutLifetimeProps);
+
+	//DOREPLIFETIME(AActor, Role);
+	//DOREPLIFETIME(AActor, RemoteRole);
+	//DOREPLIFETIME(AActor, Owner);
+	DOREPLIFETIME(AActor, bHidden);
+
+	DOREPLIFETIME(AActor, bTearOff);
+	DOREPLIFETIME(AActor, bCanBeDamaged);
+	DOREPLIFETIME(AActor, AttachmentReplication);
+
+	DOREPLIFETIME(AActor, Instigator);
+
+	//DOREPLIFETIME_CONDITION(AActor, ReplicatedMovement, COND_SimulatedOrPhysics);
+
+	DOREPLIFETIME_CONDITION(AUTProjectile, UTProjReplicatedMovement, COND_SimulatedOrPhysics);
+}
+
 void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
-	if (bForceNextRepMovement)
+	if (bForceNextRepMovement || bReplicateUTMovement)
 	{
 		GatherCurrentMovement();
-		DOREPLIFETIME_ACTIVE_OVERRIDE(AActor, ReplicatedMovement, true);
 		bForceNextRepMovement = false;
 	}
-	else
+}
+
+void AUTProjectile::GatherCurrentMovement()
+{
+	/* @TODO FIXMESTEVE support projectiles uing rigid body physics
+	UPrimitiveComponent* RootPrimComp = Cast<UPrimitiveComponent>(GetRootComponent());
+	if (RootPrimComp && RootPrimComp->IsSimulatingPhysics())
 	{
-		Super::PreReplication(ChangedPropertyTracker);
+		FRigidBodyState RBState;
+		RootPrimComp->GetRigidBodyState(RBState);
+
+		ReplicatedMovement.FillFrom(RBState);
+	}
+	else 
+	*/
+	if (RootComponent != NULL)
+	{
+		// If we are attached, don't replicate absolute position
+		if (RootComponent->AttachParent != NULL)
+		{
+			// Networking for attachments assumes the RootComponent of the AttachParent actor. 
+			// If that's not the case, we can't update this, as the client wouldn't be able to resolve the Component and would detach as a result.
+			if (AttachmentReplication.AttachParent != NULL)
+			{
+				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
+				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
+				AttachmentReplication.RelativeScale3D = RootComponent->RelativeScale3D;
+			}
+		}
+		else
+		{
+			UTProjReplicatedMovement.Location = RootComponent->GetComponentLocation();
+			UTProjReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
+			UTProjReplicatedMovement.LinearVelocity = GetVelocity();
+		}
+	}
+}
+
+void AUTProjectile::OnRep_UTProjReplicatedMovement()
+{
+	if (Role == ROLE_SimulatedProxy)
+	{
+		//ReplicatedAccel = UTReplicatedMovement.Acceleration;
+		ReplicatedMovement.Location = UTProjReplicatedMovement.Location;
+		ReplicatedMovement.Rotation = UTProjReplicatedMovement.Rotation;
+		ReplicatedMovement.LinearVelocity = UTProjReplicatedMovement.LinearVelocity;
+		ReplicatedMovement.AngularVelocity = FVector(0.f);
+		ReplicatedMovement.bSimulatedPhysicSleep = false;
+		ReplicatedMovement.bRepPhysics = false;
+
+		OnRep_ReplicatedMovement();
 	}
 }
 
@@ -489,7 +580,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			if (Role == ROLE_Authority)
 			{
 				bTearOff = true;
-				bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
+				bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
 			}
 			if (ExplosionEffects != NULL)
 			{

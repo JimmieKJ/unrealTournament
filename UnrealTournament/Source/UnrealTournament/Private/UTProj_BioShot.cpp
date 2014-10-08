@@ -98,7 +98,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 	{
 		bLanded = true;
 		bCanHitInstigator = true;
-		bReplicateMovement = true;
+		bReplicateUTMovement = true;
 
 		//Change the collision so that weapons make it explode
 		CollisionComp->SetCollisionProfileName("ProjectileShootable");

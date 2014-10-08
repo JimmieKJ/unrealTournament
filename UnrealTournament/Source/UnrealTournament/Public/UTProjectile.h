@@ -4,10 +4,87 @@
 #include "UTResetInterface.h"
 #include "UTProjectile.generated.h"
 
+/** Replicated movement data of our RootComponent.
+* More efficient than engine's FRepMovement
+*/
+USTRUCT()
+struct FRepUTProjMovement
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FVector_NetQuantize LinearVelocity;
+
+	UPROPERTY()
+	FVector_NetQuantize Location;
+
+	UPROPERTY()
+	FRotator Rotation;
+
+	FRepUTProjMovement()
+		: LinearVelocity(ForceInit)
+		, Location(ForceInit)
+		, Rotation(ForceInit)
+	{}
+
+	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+	{
+		bOutSuccess = true;
+
+		bool bOutSuccessLocal = true;
+
+		// update location, linear velocity
+		Location.NetSerialize(Ar, Map, bOutSuccessLocal);
+		bOutSuccess &= bOutSuccessLocal;
+		Rotation.SerializeCompressed(Ar);
+		LinearVelocity.NetSerialize(Ar, Map, bOutSuccessLocal);
+		bOutSuccess &= bOutSuccessLocal;
+
+		return true;
+	}
+
+	bool operator==(const FRepUTMovement& Other) const
+	{
+		if (LinearVelocity != Other.LinearVelocity)
+		{
+			return false;
+		}
+
+		if (Location != Other.Location)
+		{
+			return false;
+		}
+
+		if (Rotation != Other.Rotation)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	bool operator!=(const FRepUTMovement& Other) const
+	{
+		return !(*this == Other);
+	}
+};
+
 UCLASS(meta = (ChildCanTick))
 class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
+
+	/** Used for replication of our RootComponent's position and velocity */
+	UPROPERTY(ReplicatedUsing = OnRep_UTProjReplicatedMovement)
+	struct FRepUTProjMovement UTProjReplicatedMovement;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+	bool bReplicateUTMovement;
+
+	/** UTProjReplicatedMovement struct replication event */
+	UFUNCTION()
+	virtual void OnRep_UTProjReplicatedMovement();
+
+	virtual void GatherCurrentMovement() override;
 
 	/** Sphere collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)

@@ -60,7 +60,7 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		if (Role == ROLE_Authority)
 		{
 			bTearOff = true;
-			bReplicateMovement = true; // so position of explosion is accurate even if flight path was a little off
+			bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
 		}
 
 		if (ExplosionEffects != NULL)
