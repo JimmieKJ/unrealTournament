@@ -4,6 +4,23 @@
 #include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconClient.h"
 #include "UTServerBeaconClient.generated.h"
 
+USTRUCT()
+struct FServerBeaconInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString ServerRules;
+
+	UPROPERTY()
+	FString ServerPlayers;
+};
+
+class AUTServerBeaconClient;
+DECLARE_DELEGATE_TwoParams(FServerRequestResultsDelegate, AUTServerBeaconClient*, FServerBeaconInfo);
+DECLARE_DELEGATE_OneParam(FServerRequestFailureDelegate, AUTServerBeaconClient*);
+
+
 /**
 * A beacon client used for making reservations with an existing game session
 */
@@ -28,9 +45,12 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	/** Send a ping RPC to the client */
 	UFUNCTION(client, reliable)
-	virtual void ClientPing();
+	virtual void ClientPing(const FServerBeaconInfo ServerInfo);
 
 	/** Send a pong RPC to the host */
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void ServerPong();
+
+	FServerRequestResultsDelegate OnServerRequestResults;
+	FServerRequestFailureDelegate OnServerRequestFailure;
 };
