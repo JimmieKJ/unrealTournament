@@ -330,6 +330,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 void UUTLocalPlayer::GetAuth(bool bLastFailed)
 {
 #if !UE_SERVER
+	if (GetWorld()->IsPlayInEditor())
+	{
+		return;
+	}
 
 		FVector2D Size = bLastFailed ? FVector2D(510,270) : FVector2D(510,250);
 

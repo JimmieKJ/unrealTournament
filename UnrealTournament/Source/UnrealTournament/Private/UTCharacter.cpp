@@ -571,7 +571,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				CharacterMovement->AddImpulse(ResultMomentum, false);
 			}
-			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, DamageEvent);
+			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			SetLastTakeHitInfo(ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			if (Health <= 0)
 			{
@@ -781,7 +781,7 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 #endif
 }
 
-void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
+void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
 {
 	if (Role == ROLE_Authority)
 	{
@@ -795,7 +795,14 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		// (at small bandwidth cost)
 		if (GetWorld()->TimeSeconds - LastPainSoundTime >= MinPainSoundInterval)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC);
+			if (HitArmor != nullptr && HitArmor->PainSound != nullptr)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC);
+			}
+			else
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC);
+			}
 			LastPainSoundTime = GetWorld()->TimeSeconds;
 		}
 

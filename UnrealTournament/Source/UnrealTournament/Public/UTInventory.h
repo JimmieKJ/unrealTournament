@@ -90,6 +90,9 @@ public:
 	/** sound played on pickup */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	USoundBase* PickupSound;
+	/** sound played on damage */
+	UPROPERTY(EditDefaultsOnly, Category = Damage)
+	USoundBase* PainSound;
 	/** class used when this item is dropped by its holder */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	TSubclassOf<class AUTDroppedPickup> DroppedPickupClass;
