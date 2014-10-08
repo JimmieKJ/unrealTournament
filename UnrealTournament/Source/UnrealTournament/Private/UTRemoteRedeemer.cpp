@@ -205,6 +205,22 @@ void AUTRemoteRedeemer::OnRep_PlayExplosionEffects()
 void AUTRemoteRedeemer::PlayExplosionEffects()
 {
 	bPlayExplosionEffects = true;
+	
+	// stop any looping audio
+	TArray<USceneComponent*> Components;
+	GetComponents<USceneComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
+		if (Audio != NULL)
+		{
+			// only stop looping (ambient) sounds - note that the just played explosion sound may be encountered here
+			if (Audio->Sound != NULL && Audio->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
+			{
+				Audio->Stop();
+			}
+		}
+	}
 
 	if (ExplosionEffects != NULL)
 	{
