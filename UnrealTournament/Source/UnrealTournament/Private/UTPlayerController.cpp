@@ -362,10 +362,10 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 
 	UTCharacter = Cast<AUTCharacter>(InPawn);
 
-	if (IsLocalPlayerController())
+	if (Player && IsLocalPlayerController())
 	{
 		// apply FOV angle if dead/spectating
-		if (GetPawn() == NULL && IsLocalPlayerController() && PlayerCameraManager != NULL)
+		if (GetPawn() == NULL && PlayerCameraManager != NULL)
 		{
 			FOV(ConfigDefaultFOV);
 		}
