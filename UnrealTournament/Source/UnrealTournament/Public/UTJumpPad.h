@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "UTPathBuilderInterface.h"
 #include "UTJumpPadRenderingComponent.h"
 #include "UTJumpPad.generated.h"
 
@@ -9,7 +10,7 @@
  * jump pad for launching characters
  */
 UCLASS(Blueprintable)
-class AUTJumpPad : public AActor
+class AUTJumpPad : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -72,4 +73,6 @@ protected:
 
 	/** Event when this actor overlaps another actor. */
 	virtual void ReceiveActorBeginOverlap(class AActor* OtherActor);
+
+	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
 };

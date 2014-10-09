@@ -5,6 +5,7 @@
 #include "UTGib.h"
 #include "NavigationOctree.h"
 #include "UTLiftExit.h"
+#include "UTReachSpec_Lift.h"
 
 AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -104,12 +105,41 @@ void AUTLift::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (EncroachComponent && (DeltaTime > 0.f))
+	if (EncroachComponent != NULL && DeltaTime > 0.f)
 	{
 		FVector NewLoc = EncroachComponent->GetComponentLocation();
 		LiftVelocity = (NewLoc - TickLocation) / DeltaTime;
 		EncroachComponent->ComponentVelocity = LiftVelocity;
 		TickLocation = NewLoc;
+
+		// check for bots on this lift that want to lift jump
+		if (!LiftVelocity.IsZero())
+		{
+			for (USceneComponent* Attachment : EncroachComponent->AttachChildren)
+			{
+				ACharacter* P = Cast<ACharacter>(Attachment->GetOwner());
+				if (P != NULL && P->CharacterMovement != NULL)
+				{
+					AUTBot* B = Cast<AUTBot>(P->Controller);
+					if (B != NULL && (B->GetCurrentPath().ReachFlags & R_JUMP) && P->CanJump() && B->GetCurrentPath().Spec.IsValid())
+					{
+						UUTReachSpec_Lift* LiftPath = Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get());
+						if (LiftPath != NULL)
+						{
+							const FVector PawnLoc = P->GetActorLocation();
+							float XYSize = (LiftPath->LiftExitLoc - PawnLoc).Size2D();
+							float Time = XYSize / P->CharacterMovement->MaxWalkSpeed;
+							if (PawnLoc.Z + LiftVelocity.Z * Time + 0.5f * P->CharacterMovement->GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z)
+							{
+								// jump!
+								P->CharacterMovement->Velocity = (LiftPath->LiftExitLoc - PawnLoc).SafeNormal2D() * P->CharacterMovement->MaxWalkSpeed;
+								P->CharacterMovement->DoJump(false);
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -224,7 +254,7 @@ void AUTLift::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh*
 
 						if (!bManualExit)
 						{
-							AUTLiftExit::AddLiftPathsShared(ExitLoc, this, NavData);
+							AUTLiftExit::AddLiftPathsShared(ExitLoc, this, false, false, NavData);
 						}
 					}
 				}

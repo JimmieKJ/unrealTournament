@@ -16,7 +16,7 @@ AUTLiftExit::AUTLiftExit(const FPostConstructInitializeProperties& PCIP)
 	}
 }
 
-void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, AUTRecastNavMesh* NavData)
+void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, bool bRequireLiftJump, bool bOnlyExitPath, AUTRecastNavMesh* NavData)
 {
 	FVector NavExtent = NavData->GetPOIExtent(NULL);
 	NavNodeRef MyPoly = NavData->FindNearestPoly(ExitLoc, NavExtent);
@@ -50,6 +50,7 @@ void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, A
 				FCapsuleSize PathSize = NavData->GetHumanPathSize();
 				int32 ExtraDist = (BestStop != TheLift->GetActorLocation()) ? FMath::TruncToInt((BestStop - TheLift->GetActorLocation()).Size()) : 0; // TODO: calculate lift travel time?
 				// create specs to lift
+				if (!bOnlyExitPath)
 				{
 					UUTReachSpec_Lift* LiftSpec = NewObject<UUTReachSpec_Lift>(MyNode);
 					LiftSpec->Lift = TheLift;
@@ -75,7 +76,7 @@ void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, A
 						LiftSpec->LiftExitLoc = ExitLoc;
 						LiftSpec->LiftCenter = BestStop + LiftCenterOffset;
 						LiftSpec->bEntryPath = false;
-						FUTPathLink* NewLink = new(StopNode->Paths) FUTPathLink(StopNode, StopPoly, MyNode, MyPoly, LiftSpec, PathSize.Radius, PathSize.Height, 0);
+						FUTPathLink* NewLink = new(StopNode->Paths) FUTPathLink(StopNode, StopPoly, MyNode, MyPoly, LiftSpec, PathSize.Radius, PathSize.Height, bRequireLiftJump ? R_JUMP : 0);
 						for (NavNodeRef StartPoly : StopNode->Polys)
 						{
 							NewLink->Distances.Add(NavData->CalcPolyDistance(StartPoly, StopPoly) + FMath::TruncToInt((LiftSpec->LiftCenter - ExitLoc).Size()) + ExtraDist);
@@ -91,6 +92,6 @@ void AUTLiftExit::AddSpecialPaths(UUTPathNode* MyNode, AUTRecastNavMesh* NavData
 {
 	if (MyLift != NULL)
 	{
-		AddLiftPathsShared(GetActorLocation(), MyLift, NavData);
+		AddLiftPathsShared(GetActorLocation(), MyLift, bLiftJump, bOnlyExit, NavData);
 	}
 }

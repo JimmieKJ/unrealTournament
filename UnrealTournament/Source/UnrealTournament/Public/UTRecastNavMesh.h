@@ -238,6 +238,11 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	 * this function is designed for calculating UTPathLink distances between known accessible nodes during path building and isn't intended for gameplay
 	 */
 	int32 CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPoly);
+	/** returns if the given distance is traversable only by jumping and/or falling
+	* note: returns false if walk reachable; use Raycast() to check that
+	* intended for path building
+	*/
+	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
 
 	/** returns list of polygons from source to target */
 	virtual bool FindPolyPath(FVector StartLoc, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, TArray<NavNodeRef>& PolyRoute, bool bSkipCurrentPoly = true) const;
@@ -280,11 +285,6 @@ protected:
 	virtual void SetNodeSize(UUTPathNode* Node);
 
 	virtual void DeletePaths();
-
-	/** returns if the given distance is traversable only by jumping and/or falling
-	 * note: returns false if walk reachable; use Raycast() to check that
-	 */
-	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
 
 	const class dtQueryFilter* GetDefaultDetourFilter() const;
 

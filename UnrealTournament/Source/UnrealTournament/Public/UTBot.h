@@ -134,6 +134,10 @@ public:
 		CurrentPath = FUTPathLink();
 		MoveTimer = -1.0f;
 	}
+	inline const FUTPathLink& GetCurrentPath() const
+	{
+		return CurrentPath;
+	}
 	inline UUTAIAction* GetCurrentAction() const
 	{
 		return CurrentAction;

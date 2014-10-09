@@ -8,6 +8,7 @@
 #include "AI/Navigation/NavAreas/NavArea_Default.h"
 #include "AI/NavigationSystemHelpers.h"
 #include "AI/NavigationOctree.h"
+#include "UTReachSpec_JumpPad.h"
 
 AUTJumpPad::AUTJumpPad(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -71,6 +72,27 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 
 		// Play Jump sound if we have one
 		UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, Char, SRT_AllButOwner, false);
+
+		// if it's a bot, refocus it to its desired endpoint for any air control adjustments
+		AUTBot* B = Cast<AUTBot>(Char->Controller);
+		if (B != NULL && B->GetMoveTarget().Actor == this)
+		{
+			bool bFoundNextPath = false;
+			for (int32 i = 0; i < B->RouteCache.Num() - 1; i++)
+			{
+				if (B->RouteCache[i].Actor == this)
+				{
+					B->SetMoveTarget(B->RouteCache[i + 1]);
+					bFoundNextPath = true;
+					break;
+				}
+			}
+			if (!bFoundNextPath)
+			{
+				// make sure bot aborts move when it lands
+				B->MoveTimer = FMath::Min<float>(B->MoveTimer, JumpTime - 0.1f);
+			}
+		}
 	}
 }
 
@@ -103,6 +125,79 @@ FVector AUTJumpPad::CalculateJumpVelocity(AActor* JumpActor)
 	return Velocity;
 }
 
+void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData)
+{
+	FVector MyLoc = GetActorLocation();
+	NavNodeRef MyPoly = NavData->FindNearestPoly(MyLoc, GetSimpleCollisionCylinderExtent());
+	if (MyPoly != INVALID_NAVNODEREF)
+	{
+		const FCapsuleSize HumanSize = NavData->GetHumanPathSize();
+		FVector HumanExtent = FVector(HumanSize.Radius, HumanSize.Radius, HumanSize.Height);
+		{
+			NavNodeRef TargetPoly = NavData->FindNearestPoly(ActorToWorld().TransformPosition(JumpTarget), HumanExtent);
+			UUTPathNode* TargetNode = NavData->GetNodeFromPoly(TargetPoly);
+			if (TargetPoly != INVALID_NAVNODEREF && TargetNode != NULL)
+			{
+				UUTReachSpec_JumpPad* JumpSpec = NewObject<UUTReachSpec_JumpPad>(MyNode);
+				JumpSpec->JumpPad = this;
+				FUTPathLink* NewLink = new(MyNode->Paths) FUTPathLink(MyNode, MyPoly, TargetNode, TargetPoly, JumpSpec, HumanSize.Radius, HumanSize.Height, R_JUMP);
+				for (NavNodeRef SrcPoly : MyNode->Polys)
+				{
+					NewLink->Distances.Add(NavData->CalcPolyDistance(SrcPoly, MyPoly) + FMath::TruncToInt(1000.0f * JumpTime));
+				}
+			}
+		}
+
+		// if we support air control, look for additional jump targets that could be reached by air controlling against the jump pad's standard velocity
+		if (NavData->ScoutClass != NULL && NavData->ScoutClass.GetDefaultObject()->CharacterMovement->AirControl > 0.0f)
+		{
+			// intentionally place start loc high up to avoid clipping the edges of any irrelevant geometry
+			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 3.0f;
+
+			const float AirControlPct = NavData->ScoutClass.GetDefaultObject()->CharacterMovement->AirControl;
+			const float JumpZ = CalculateJumpVelocity(this).Z;
+			const float JumpTargetDist = JumpTarget.Size();
+			const FVector HeightAdjust(0.0f, 0.0f, NavData->AgentHeight * 0.5f);
+			const TArray<const UUTPathNode*>& NodeList = NavData->GetAllNodes();
+			for (const UUTPathNode* TargetNode : NodeList)
+			{
+				if (TargetNode != MyNode)
+				{
+					for (NavNodeRef TargetPoly : TargetNode->Polys)
+					{
+						FVector TargetLoc = NavData->GetPolyCenter(TargetPoly) + HeightAdjust;
+						const float Dist = (TargetLoc - MyLoc).Size();
+						if (Dist < JumpTargetDist && Dist > JumpTargetDist * (1.0f - AirControlPct) && NavData->OnlyJumpReachable(NavData->ScoutClass.GetDefaultObject(), MyLoc, TargetLoc, MyPoly, INVALID_NAVNODEREF, JumpZ, NULL, NULL))
+						{
+							// TODO: account for MaxFallSpeed
+							bool bFound = false;
+							for (FUTPathLink& ExistingLink : MyNode->Paths)
+							{
+								if (ExistingLink.End == TargetNode && ExistingLink.StartEdgePoly == TargetPoly)
+								{
+									ExistingLink.AdditionalEndPolys.Add(TargetPoly);
+									bFound = true;
+									break;
+								}
+							}
+
+							if (!bFound)
+							{
+								UUTReachSpec_JumpPad* JumpSpec = NewObject<UUTReachSpec_JumpPad>(MyNode);
+								JumpSpec->JumpPad = this;
+								FUTPathLink* NewLink = new(MyNode->Paths) FUTPathLink(MyNode, MyPoly, TargetNode, TargetPoly, JumpSpec, HumanSize.Radius, HumanSize.Height, R_JUMP);
+								for (NavNodeRef SrcPoly : MyNode->Polys)
+								{
+									NewLink->Distances.Add(NavData->CalcPolyDistance(SrcPoly, MyPoly) + FMath::TruncToInt(1000.0f * JumpTime)); // TODO: maybe Z adjust cost if this target is higher/lower and the jump will end slightly faster/slower?
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 #if WITH_EDITOR
 void AUTJumpPad::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
