@@ -39,7 +39,7 @@ bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
 
 void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (State.bActive && Cast<AUTCharacter>(TouchedBy) != NULL)
+	if (State.bActive && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay || (GS != NULL && !GS->bWeaponStay))

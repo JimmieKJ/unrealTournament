@@ -154,8 +154,12 @@ void AUTCarriedObject::ChangeState(FName NewCarriedObjectState)
 
 bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 {
+	if (Character->IsRagdoll())
+	{
+		return false;
+	}
 	// If this is the NewHolder's objective and bTeamPickupSendsHome is set, then send this home.
-	if (GetTeamNum() == Character->GetTeamNum() && bTeamPickupSendsHome)
+	else if (GetTeamNum() == Character->GetTeamNum() && bTeamPickupSendsHome)
 	{
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
@@ -164,8 +168,10 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		return false;
 	}
-
-	return Team == NULL || bAnyoneCanPickup || Team->GetTeamNum() == GetTeamNum();
+	else
+	{
+		return Team == NULL || bAnyoneCanPickup || Team->GetTeamNum() == GetTeamNum();
+	}
 }
 
 void AUTCarriedObject::PickupDenied(AUTCharacter* Character)

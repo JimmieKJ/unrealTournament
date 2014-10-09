@@ -102,7 +102,7 @@ void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 
 void AUTDroppedPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Role == ROLE_Authority && TouchedBy->Controller != NULL && Cast<AUTCharacter>(TouchedBy) != NULL)
+	if (Role == ROLE_Authority && TouchedBy->Controller != NULL && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
 	{
 		PlayTakenEffects(TouchedBy); // first allows PlayTakenEffects() to work off Inventory instead of InventoryType if it wants
 		GiveTo(TouchedBy);

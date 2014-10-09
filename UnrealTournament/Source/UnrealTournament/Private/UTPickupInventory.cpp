@@ -273,7 +273,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 
 void AUTPickupInventory::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Cast<AUTCharacter>(TouchedBy) != NULL)
+	if (Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
 	{
 		Super::ProcessTouch_Implementation(TouchedBy);
 	}

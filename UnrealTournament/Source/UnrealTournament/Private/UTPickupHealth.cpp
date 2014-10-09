@@ -28,7 +28,7 @@ void AUTPickupHealth::ProcessTouch_Implementation(APawn* TouchedBy)
 	if (Role == ROLE_Authority)
 	{
 		AUTCharacter* P = Cast<AUTCharacter>(TouchedBy);
-		if (P != NULL && (bSuperHeal || P->Health < GetHealMax(P)))
+		if (P != NULL && !P->IsRagdoll() && (bSuperHeal || P->Health < GetHealMax(P)))
 		{
 			Super::ProcessTouch_Implementation(TouchedBy);
 		}

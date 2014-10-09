@@ -14,7 +14,7 @@ AUTPickupAmmo::AUTPickupAmmo(const FPostConstructInitializeProperties& PCIP)
 
 void AUTPickupAmmo::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Role == ROLE_Authority && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->HasMaxAmmo(Ammo.Type))
+	if (Role == ROLE_Authority && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->HasMaxAmmo(Ammo.Type) && !((AUTCharacter*)TouchedBy)->IsRagdoll())
 	{
 		Super::ProcessTouch_Implementation(TouchedBy);
 	}
