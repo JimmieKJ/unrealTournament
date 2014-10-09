@@ -355,6 +355,13 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+
+	const TCHAR* Cmd = *SelectedRes->GetText().ToString();
+	int32 X=FCString::Atoi(Cmd);
+	const TCHAR* CmdTemp = FCString::Strchr(Cmd,'x') ? FCString::Strchr(Cmd,'x')+1 : FCString::Strchr(Cmd,'X') ? FCString::Strchr(Cmd,'X')+1 : TEXT("");
+	int32 Y=FCString::Atoi(CmdTemp);
+	UserSettings->SetScreenResolution(FIntPoint(X, Y));
+	UserSettings->SetFullscreenMode(Fullscreen->IsChecked() ? EWindowMode::Fullscreen : EWindowMode::Windowed);
 	UserSettings->SaveConfig();
 
 	if (FrameRateCap->GetText().ToString().IsNumeric())
