@@ -168,6 +168,7 @@ private:
 	const AUTCharacter* Holder;
 	AUTInventory* CurrentInv;
 	AUTInventory* NextInv;
+	int32 Count;
 
 	inline bool IsValidForIteration(AUTInventory* TestInv)
 	{
@@ -175,7 +176,7 @@ private:
 	}
 public:
 	TInventoryIterator(const AUTCharacter* InHolder)
-		: Holder(InHolder)
+		: Holder(InHolder), Count(0)
 	{
 		if (Holder != NULL)
 		{
@@ -203,10 +204,20 @@ public:
 	{
 		do
 		{
-			CurrentInv = NextInv;
-			if (CurrentInv != NULL)
+			// bound number of items to avoid infinite loops on clients in edge cases with partial replication
+			// we could keep track of all the items we've iterated but that's more expensive and probably not worth it
+			Count++;
+			if (Count > 100)
 			{
-				NextInv = CurrentInv->NextInventory;
+				CurrentInv = NULL;
+			}
+			else
+			{
+				CurrentInv = NextInv;
+				if (CurrentInv != NULL)
+				{
+					NextInv = CurrentInv->NextInventory;
+				}
 			}
 		} while (CurrentInv != NULL && !IsValidForIteration(CurrentInv));
 	}
