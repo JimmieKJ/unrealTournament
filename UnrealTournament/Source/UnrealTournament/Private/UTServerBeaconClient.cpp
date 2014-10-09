@@ -21,7 +21,7 @@ void AUTServerBeaconClient::OnConnected()
 void AUTServerBeaconClient::OnFailure()
 {
 	UE_LOG(LogBeacon, Verbose, TEXT("UTServer beacon connection failure, handling connection timeout."));
-
+	OnServerRequestFailure.ExecuteIfBound(this);
 	Super::OnFailure();
 	PingStartTime = -2;
 }

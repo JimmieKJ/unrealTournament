@@ -191,7 +191,7 @@ public:
 	FString Version;
 
 	// What is the player's current ping to this server
-	uint32 Ping;
+	int32 Ping;
 
 	// Server Flags
 	int32 Flags;
@@ -199,7 +199,7 @@ public:
 	TArray<TSharedPtr<FServerRuleData>> Rules;
 	TArray<TSharedPtr<FServerPlayerData>> Players;
 
-	FServerData( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
+	FServerData( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, int32 inPing, int32 inFlags)
 	: Name( inName )
 	, IP( inIP )
 	, BeaconIP( inBeaconIP )
@@ -216,7 +216,7 @@ public:
 		Players.Empty();
 	}
 
-	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, uint32 inPing, int32 inFlags)
+	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, int32 inPing, int32 inFlags)
 	{
 		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing, inFlags ) );
 	}
@@ -266,7 +266,7 @@ public:
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
 	{
 		FSlateFontInfo ItemEditorFont = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Font.Small"); //::Get().GetFontStyle(TEXT("NormalFont"));
-
+		bool bErrorPing = (ServerData->Ping < 0);
 		FText ColumnText;
 		if (ServerData.IsValid())
 		{
@@ -277,7 +277,10 @@ public:
 			else if (ColumnName == FName(TEXT("ServerVer"))) ColumnText = FText::FromString(ServerData->Version);
 			else if (ColumnName == FName(TEXT("ServerNumPlayers"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumPlayers), FText::AsNumber(ServerData->MaxPlayers));
 			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) ColumnText = FText::AsNumber(ServerData->NumSpectators);
-			else if (ColumnName == FName(TEXT("ServerPing"))) ColumnText = FText::AsNumber(ServerData->Ping);
+			else if (ColumnName == FName(TEXT("ServerPing"))) 
+			{
+				ColumnText = bErrorPing ? NSLOCTEXT("SUWServerBrowser","BadPing", "--") : FText::AsNumber(ServerData->Ping);
+			}
 			else if (ColumnName == FName(TEXT("ServerFlags"))) 
 			{
 				TSharedPtr<SHorizontalBox> IconBox;
@@ -302,6 +305,14 @@ public:
 			ColumnText = NSLOCTEXT("SUWServerBrowser","UnknownColumnText","n/a");
 		}
 
+		if (bErrorPing)
+		{
+			return SNew( STextBlock )
+				.Font( ItemEditorFont )
+				.Text( ColumnText )
+				.ColorAndOpacity(FLinearColor(0.33f,0.0f,0.0f,1.0f));
+
+		}
 
 		return SNew( STextBlock )
 			.Font( ItemEditorFont )

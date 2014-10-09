@@ -948,7 +948,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				Result.Session.SessionSettings.Get(SETTING_SERVERVERSION, ServerVer);
 				int32 ServerFlags = 0x0000;
 				Result.Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
-				uint32 ServerPing = 0;
+				uint32 ServerPing = -1;
 
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
@@ -1017,11 +1017,16 @@ void SUWServerBrowser::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
+			InternetServers.Add(PingTrackers[i].Server);
+			FilterServer(PingTrackers[i].Server);
+
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i,1);
 			return;
 		}
 	}
+
+	InternetServerList->RequestListRefresh();
 }
 
 void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
@@ -1055,10 +1060,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			}
 
 			InternetServers.Add(PingTrackers[i].Server);
-
 			FilterServer(PingTrackers[i].Server);
-
-			//FilteredServers.Add(PingTrackers[i].Server);
 
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i,1);
@@ -1185,9 +1187,10 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 	}
 	else
 	{
-		if (PingList.Num() > 0)
-		{
-			StatusText->SetText( FText::Format( NSLOCTEXT("SUWServerBrowser","PingingMsg","Pinging {0} Servers..."), FText::AsNumber(PingList.Num() + PingTrackers.Num())));
+		int32 PingingServers = PingList.Num() + PingTrackers.Num();
+		if (PingingServers > 0)
+		{1
+			StatusText->SetText( FText::Format( NSLOCTEXT("SUWServerBrowser","PingingMsg","Pinging {0} Servers..."), FText::AsNumber(PingingServers)));
 		}
 		else
 		{
