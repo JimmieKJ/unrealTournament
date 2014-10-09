@@ -87,7 +87,7 @@ class UUTReachSpec_Lift : public UUTReachSpec
 			FHitResult Hit;
 			if (Lift.Get()->ActorLineTraceSingle(Hit, LiftLoc + FVector(0.0f, 0.0f, 10000.0f), LiftLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
 			{
-				LiftLoc = Hit.Location - NavMesh->AgentHeight * 0.5f;
+				LiftLoc = Hit.Location;
 			}
 			NavNodeRef LiftPoly = NavMesh->FindNearestPoly(LiftLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f + Lift->GetComponentsBoundingBox().GetExtent().Z)); // extra height because lift is partially in the way
 			if (LiftPoly != INVALID_NAVNODEREF)
@@ -96,7 +96,7 @@ class UUTReachSpec_Lift : public UUTReachSpec
 				NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(LiftLoc, LiftPoly), PolyRoute, false);
 				NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints);
 			}
-			MovePoints.Add(FComponentBasedPosition(Lift->GetEncroachComponent(), LiftLoc));
+			MovePoints.Add(FComponentBasedPosition(Lift->GetEncroachComponent(), LiftLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f)));
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 		}
 		else
