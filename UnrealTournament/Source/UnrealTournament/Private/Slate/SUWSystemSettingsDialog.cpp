@@ -355,7 +355,15 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+	UserSettings->SaveConfig();
+
+	if (FrameRateCap->GetText().ToString().IsNumeric())
+	{
+		Cast<UUTGameEngine>(GEngine)->FrameRateCap = FCString::Atoi(*FrameRateCap->GetText().ToString());
+	}
 	GEngine->bSmoothFrameRate = SmoothFrameRate->IsChecked();
+	GEngine->SaveConfig();
+
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
@@ -385,11 +393,6 @@ FReply SUWSystemSettingsDialog::OKClick()
 		}
 	}
 	
-	if (FrameRateCap->GetText().ToString().IsNumeric())
-	{
-		Cast<UUTGameEngine>(GEngine)->FrameRateCap = FCString::Atoi(*FrameRateCap->GetText().ToString());
-	}
-
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
 }
