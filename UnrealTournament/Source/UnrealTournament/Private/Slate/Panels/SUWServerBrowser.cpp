@@ -338,12 +338,13 @@ void SUWServerBrowser::BuildPage(FVector2D ViewportSize)
 	if (PlayerOwner->IsLoggedIn())
 	{
 		SetBrowserState(BrowserState::NAME_ServerIdle);
-		RefreshServers();
 	}
 	else
 	{	
 		SetBrowserState(BrowserState::NAME_NotLoggedIn);
 	}
+
+	OnRefreshClick();
 
 	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWServerBrowser::OwnerLoginStatusChanged);
 	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);

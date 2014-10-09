@@ -275,10 +275,30 @@ TSharedRef<SWidget> SUWindowsMidGame::BuildMenuBar()
 				]
 			];
 
+		BuildExitMatchSubMenu();
 		BuildTeamSubMenu();
 		BuildServerBrowserSubMenu();
 		BuildOptionsSubMenu();
-		BuildExitMatchSubMenu();
+
+		MenuBar->AddSlot()
+			.AutoWidth()
+			.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Fill)
+			[
+				SNew(SButton)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SUWindowsMidGame::Play)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton")
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("Gerneric","Play","PLAY"))
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+				]
+
+			];
+
+
 	}
 
 	return MenuBar.ToSharedRef();
@@ -546,6 +566,13 @@ FReply SUWindowsMidGame::OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton,
 	}
 	return FReply::Handled();
 }
+
+FReply SUWindowsMidGame::Play()
+{
+	CloseMenus();
+	return FReply::Handled();
+}
+
 
 FReply SUWindowsMidGame::ExitMatch()
 {

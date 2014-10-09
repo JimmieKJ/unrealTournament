@@ -53,6 +53,9 @@ protected:
 	/** Holds a reference to the SUniformGridPanel that is the button bar */
 	TSharedPtr<SUniformGridPanel> ButtonBar;
 
+	/** Holds left justifed buttons */
+	TSharedPtr<SUniformGridPanel> CustomButtonBar;
+
 	// The actual position of this dialog  
 	FVector2D ActualPosition;
 
@@ -66,6 +69,13 @@ protected:
 	 *	Called when the dialog wants to build the button bar.  It will iterate over the ButtonMask and add any buttons needed.
 	 **/
 	TSharedRef<class SWidget> BuildButtonBar(uint16 ButtonMask);
+
+	/**
+	 *	Allow for children to add custom buttons
+	 **/
+
+	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
+
 
 	/**
 	 *	Adds a button to the button bar

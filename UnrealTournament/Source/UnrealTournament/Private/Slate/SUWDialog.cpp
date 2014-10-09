@@ -94,15 +94,37 @@ void SUWDialog::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot()
 					.AutoHeight()
 					.VAlign(VAlign_Bottom)
-					.HAlign(HAlign_Right)
 					.Padding(5.0f, 5.0f, 5.0f, 5.0f)
 					[
-						BuildButtonBar(InArgs._ButtonMask)
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.HAlign(HAlign_Right)
+							[
+								BuildButtonBar(InArgs._ButtonMask)
+							]
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.HAlign(HAlign_Left)
+							.Padding(10.0f,0.0f,0.0f,0.0f)
+							[
+								BuildCustomButtonBar()
+							]
+						]
+
 					]
 				]
 			]
 		];
 }
+
 
 
 void SUWDialog::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText, uint16 ButtonID, uint32 &ButtonCount)
@@ -153,6 +175,12 @@ TSharedRef<class SWidget> SUWDialog::BuildButtonBar(uint16 ButtonMask)
 	return ButtonBar.ToSharedRef();
 }
 
+TSharedRef<class SWidget> SUWDialog::BuildCustomButtonBar()
+{
+	TSharedPtr<SCanvas> C;
+	SAssignNew(C,SCanvas);
+	return C.ToSharedRef();
+}
 
 FReply SUWDialog::OnButtonClick(uint16 ButtonID)
 {

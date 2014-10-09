@@ -3,6 +3,7 @@
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
 #include "SUWLoginDialog.h"
+#include "SUWMessageBox.h"
 #include "SUWindowsStyle.h"
 
 #if !UE_SERVER
@@ -32,13 +33,28 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew( SImage )		
-				.Image(SUWindowsStyle::Get().GetBrush("UWindows.Logos.Epic_Logo200"))
+				SNew(SBox)
+				.WidthOverride(176)
+				.HeightOverride(200)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					[
+						SNew( SImage )		
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Logos.Epic_Logo200"))
+					]
+				]
 			]
 			+ SHorizontalBox::Slot()
 			.HAlign(HAlign_Fill)
 			[
-				SAssignNew(VBox,SVerticalBox)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(VBox,SVerticalBox)
+				]
 			]
 		];
 
@@ -54,7 +70,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 			];
 
 		VBox->AddSlot()
-			.VAlign(VAlign_Bottom)
+			.AutoHeight()
 			.HAlign(HAlign_Fill)
 			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
 			[
@@ -75,7 +91,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 			];
 
 		VBox->AddSlot()
-			.VAlign(VAlign_Bottom)
+			.AutoHeight()
 			.HAlign(HAlign_Fill)
 			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
 			[
@@ -129,6 +145,38 @@ FString SUWLoginDialog::GetPassword()
 {
 	return PassEditBox->GetText().ToString();
 }
+
+
+TSharedRef<class SWidget> SUWLoginDialog::BuildCustomButtonBar()
+{
+	TSharedPtr<SButton> Button;
+	SAssignNew(Button,SButton)
+		.HAlign(HAlign_Center)
+		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+		.ContentPadding(FMargin(25.0f, 5.0f, 25.0f, 5.0f))
+		.Text(NSLOCTEXT("SUWLoginDialog","NewAccount","Sign Up"))
+		.OnClicked(this, &SUWLoginDialog::NewAccountClick);
+
+	return Button.ToSharedRef();
+}
+
+
+FReply SUWLoginDialog::NewAccountClick()
+{
+	FString Error;
+	FPlatformProcess::LaunchURL(TEXT("https://www.unrealengine.com/register"), NULL, &Error);
+	if (Error.Len() > 0)
+	{
+		GetPlayerOwner()->OpenDialog( SNew(SUWMessageBox)
+								.PlayerOwner(GetPlayerOwner())
+								.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"))
+								.MessageText(FText::FromString(Error))
+								.ButtonMask(UTDIALOG_BUTTON_OK)
+								);
+	}
+	return FReply::Handled();
+}
+
 
 
 #endif

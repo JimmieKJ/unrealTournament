@@ -43,6 +43,7 @@ protected:
 	FReply OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton, FName SettingsToOpen);
 	FReply OnChangeTeam(int32 NewTeamIndex,TSharedPtr<SComboButton> MenuButton);
 	FReply ExitMatch();
+	FReply Play();
 };
 
 #endif

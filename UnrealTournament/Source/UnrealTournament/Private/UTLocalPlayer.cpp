@@ -103,7 +103,10 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 
 
 		// Attempt to Auto-Login to MCP
-		OnlineIdentityInterface->AutoLogin(ControllerId);
+		if ( !OnlineIdentityInterface->AutoLogin(ControllerId) )
+		{
+			bInitialSignInAttempt = false;
+		}
 	}
 }
 
@@ -335,7 +338,7 @@ void UUTLocalPlayer::GetAuth(bool bLastFailed)
 		return;
 	}
 
-		FVector2D Size = bLastFailed ? FVector2D(510,270) : FVector2D(510,250);
+		FVector2D Size = FVector2D(510,300);
 
 		OpenDialog(	SNew(SUWLoginDialog)
 					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))

@@ -10,8 +10,8 @@
 class SUWLoginDialog : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWLoginDialog)
-	: _DialogTitle(NSLOCTEXT("MCPMessages", "LogonDialogTitle", "Log in to Epic"))
-	, _DialogSize(FVector2D(400, 200))
+	: _DialogTitle(NSLOCTEXT("MCPMessages", "LogonDialogTitle", "- Log in to Epic -"))
+	, _DialogSize(FVector2D(400, 500))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -44,8 +44,8 @@ protected:
 	TSharedPtr<class SEditableTextBox> PassEditBox;
 	
 	virtual void OnDialogOpened() override;
-
-
+	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
+	FReply NewAccountClick();
 
 };
 
