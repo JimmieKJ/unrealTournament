@@ -1079,7 +1079,6 @@ void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> Sele
 
 FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 {
-
 	TArray<TSharedPtr<FServerData>> SelectedItems = InternetServerList->GetSelectedItems();
 	if (SelectedItems.Num() > 0)
 	{
@@ -1090,6 +1089,7 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
+	CleanupQoS();
 	PlayerOwner->HideMenu();
 	FString Command = FString::Printf(TEXT("open %s"), *ServerData.IP);
 	if (bSpectate)
