@@ -147,7 +147,7 @@ void AUTBot::Tick(float DeltaTime)
 			else
 			{
 				MoveTimer -= DeltaTime;
-				if (MoveTimer < 0.0f)
+				if (MoveTimer < 0.0f && (GetCharacter() == NULL || GetCharacter()->CharacterMovement == NULL || GetCharacter()->CharacterMovement->MovementMode != MOVE_Falling))
 				{
 					// timed out
 					ClearMoveTarget();
@@ -358,10 +358,10 @@ void AUTBot::Tick(float DeltaTime)
 	}
 }
 
-void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget)
+void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints)
 {
 	MoveTarget = NewMoveTarget;
-	MoveTargetPoints.Empty();
+	MoveTargetPoints = NewMovePoints;
 	bAdjusting = false;
 	CurrentPath = FUTPathLink();
 	if (NavData == NULL || !NavData->GetPolyCenter(NavData->FindNearestPoly(GetPawn()->GetNavAgentLocation(), GetPawn()->GetSimpleCollisionCylinderExtent()), LastReachedMovePoint))
@@ -771,7 +771,7 @@ void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APaw
 
 void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
-	if (InstigatedBy != NULL && InstigatedBy->GetPawn() != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(InstigatedBy) == NULL) && (Enemy == NULL || !LineOfSightTo(Enemy)))
+	if (InstigatedBy != NULL && InstigatedBy != this && InstigatedBy->GetPawn() != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(InstigatedBy) == NULL) && (Enemy == NULL || !LineOfSightTo(Enemy)))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(InstigatedBy, this))

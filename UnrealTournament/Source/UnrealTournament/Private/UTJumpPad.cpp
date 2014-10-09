@@ -82,7 +82,10 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 			{
 				if (B->RouteCache[i].Actor == this)
 				{
-					B->SetMoveTarget(B->RouteCache[i + 1]);
+					TArray<FComponentBasedPosition> MovePoints;
+					new(MovePoints) FComponentBasedPosition(ActorToWorld().TransformPosition(JumpTarget));
+					B->SetMoveTarget(B->RouteCache[i + 1], MovePoints);
+					B->MoveTimer = FMath::Max<float>(B->MoveTimer, JumpTime);
 					bFoundNextPath = true;
 					break;
 				}
@@ -155,8 +158,12 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 3.0f;
 
 			const float AirControlPct = NavData->ScoutClass.GetDefaultObject()->CharacterMovement->AirControl;
-			const float JumpZ = CalculateJumpVelocity(this).Z;
+			const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(NavData->ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleRadius(), NavData->ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+			const FVector JumpVel = CalculateJumpVelocity(this);
+			const float XYSpeed = JumpVel.Size2D();
+			const float JumpZ = JumpVel.Z;
 			const float JumpTargetDist = JumpTarget.Size();
+			const float GravityZ = GetWorld()->GetDefaultGravityZ(); // TODO: gravity at jump pad location
 			const FVector HeightAdjust(0.0f, 0.0f, NavData->AgentHeight * 0.5f);
 			const TArray<const UUTPathNode*>& NodeList = NavData->GetAllNodes();
 			for (const UUTPathNode* TargetNode : NodeList)
@@ -167,7 +174,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 					{
 						FVector TargetLoc = NavData->GetPolyCenter(TargetPoly) + HeightAdjust;
 						const float Dist = (TargetLoc - MyLoc).Size();
-						if (Dist < JumpTargetDist && Dist > JumpTargetDist * (1.0f - AirControlPct) && NavData->OnlyJumpReachable(NavData->ScoutClass.GetDefaultObject(), MyLoc, TargetLoc, MyPoly, INVALID_NAVNODEREF, JumpZ, NULL, NULL))
+						if (Dist < JumpTargetDist && Dist > JumpTargetDist * (1.0f - AirControlPct) && NavData->JumpTraceTest(MyLoc, TargetLoc, MyPoly, TargetPoly, ScoutShape, XYSpeed, GravityZ, JumpZ, JumpZ, NULL, NULL))
 						{
 							// TODO: account for MaxFallSpeed
 							bool bFound = false;

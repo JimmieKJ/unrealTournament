@@ -125,7 +125,7 @@ public:
 			return MoveTargetPoints[0].Get();
 		}
 	}
-	void SetMoveTarget(const FRouteCacheItem& NewMoveTarget);
+	void SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints = TArray<FComponentBasedPosition>());
 	inline void ClearMoveTarget()
 	{
 		MoveTarget.Clear();

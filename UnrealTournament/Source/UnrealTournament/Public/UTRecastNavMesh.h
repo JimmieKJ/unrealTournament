@@ -13,6 +13,27 @@
 #include "UTRecastNavMesh.generated.h"
 
 USTRUCT(BlueprintType)
+struct FLine
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Line)
+	FVector A;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Line)
+	FVector B;
+
+	FLine()
+	{}
+	FLine(const FVector& InA, const FVector& InB)
+		: A(InA), B(InB)
+	{}
+	inline FVector GetCenter() const
+	{
+		return (A + B) * 0.5f;
+	}
+};
+
+USTRUCT(BlueprintType)
 struct FRouteCacheItem
 {
 	GENERATED_USTRUCT_BODY()
@@ -210,6 +231,9 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	 */
 	bool RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, float ZExtent, FVector& HitLocation) const;
 
+	/** returns an array of walls (edges with no connection to a neighbor) for the passed in poly */
+	TArray<FLine> GetPolyWalls(NavNodeRef PolyRef) const;
+
 	/** returns the extent that should be used for the given POI (non-agent path target) when determining what poly and/or PathNode it is on
 	 * this is needed because some POIs don't have collision and therefore don't have reasonable bounds to derive an extent from
 	 * passing NULL is valid (returns minimum extent that any POI should use)
@@ -238,11 +262,9 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	 * this function is designed for calculating UTPathLink distances between known accessible nodes during path building and isn't intended for gameplay
 	 */
 	int32 CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPoly);
-	/** returns if the given distance is traversable only by jumping and/or falling
-	* note: returns false if walk reachable; use Raycast() to check that
-	* intended for path building
-	*/
-	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
+
+	/** trace test potential jump arcs for obstructions (does not walk test, align to edge, etc; see OnlyJumpReachable()) */
+	virtual bool JumpTraceTest(FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, FCollisionShape ScoutShape, float XYSpeed, float GravityZ, float BaseJumpZ, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
 
 	/** returns list of polygons from source to target */
 	virtual bool FindPolyPath(FVector StartLoc, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, TArray<NavNodeRef>& PolyRoute, bool bSkipCurrentPoly = true) const;
@@ -285,6 +307,11 @@ protected:
 	virtual void SetNodeSize(UUTPathNode* Node);
 
 	virtual void DeletePaths();
+
+	/** returns if the given distance is traversable only by jumping and/or falling
+	 * note: returns false if walk reachable; use Raycast() to check that
+	 */
+	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
 
 	const class dtQueryFilter* GetDefaultDetourFilter() const;
 
