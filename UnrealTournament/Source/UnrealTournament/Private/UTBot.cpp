@@ -96,6 +96,21 @@ void AUTBot::Possess(APawn* InPawn)
 	GetWorldTimerManager().SetTimer(this, &AUTBot::CheckWeaponFiringTimed, 1.2f - 0.09f * FMath::Min<float>(10.0f, Skill + Personality.ReactionTime), true);
 }
 
+void AUTBot::Destroyed()
+{
+	if (UTChar != NULL)
+	{
+		UTChar->PlayerSuicide();
+	}
+	// TODO: vehicles
+	else
+	{
+		UnPossess();
+	}
+	
+	Super::Destroyed();
+}
+
 uint8 AUTBot::GetTeamNum() const
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
@@ -167,7 +182,7 @@ void AUTBot::Tick(float DeltaTime)
 							if (i < MoveTargetPoints.Num() - 2 || CurrentPath.ReachFlags == 0)
 							{
 								FVector HitLoc;
-								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(MyLoc, MoveTargetPoints[i].Get(), Extent.Z * 1.5f, HitLoc))
+								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(GetNavAgentLocation(), MoveTargetPoints[i].Get(), Extent.Z * 1.5f, HitLoc))
 								{
 									LastReachedMovePoint = MoveTargetPoints[i].Get();
 									MoveTargetPoints.RemoveAt(0, i + 1);
@@ -349,7 +364,7 @@ void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget)
 	MoveTargetPoints.Empty();
 	bAdjusting = false;
 	CurrentPath = FUTPathLink();
-	if (NavData == NULL || !NavData->GetPolyCenter(NavData->FindNearestPoly(GetNavAgentLocation(), GetSimpleCollisionCylinderExtent()), LastReachedMovePoint))
+	if (NavData == NULL || !NavData->GetPolyCenter(NavData->FindNearestPoly(GetPawn()->GetNavAgentLocation(), GetPawn()->GetSimpleCollisionCylinderExtent()), LastReachedMovePoint))
 	{
 		LastReachedMovePoint = GetPawn()->GetActorLocation();
 	}
@@ -756,7 +771,7 @@ void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APaw
 
 void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
-	if (InstigatedBy != NULL && InstigatedBy->GetPawn() != NULL && (Enemy == NULL || !LineOfSightTo(Enemy)))
+	if (InstigatedBy != NULL && InstigatedBy->GetPawn() != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(InstigatedBy) == NULL) && (Enemy == NULL || !LineOfSightTo(Enemy)))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(InstigatedBy, this))

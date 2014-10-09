@@ -1412,6 +1412,11 @@ void AUTGameMode::Logout(AController* Exiting)
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
 	}
 
+	if (Cast<AUTBot>(Exiting) != NULL)
+	{
+		NumBots--;
+	}
+
 	Super::Logout(Exiting);
 
 	if (GameSession != NULL)
@@ -1422,8 +1427,6 @@ void AUTGameMode::Logout(AController* Exiting)
 			UTGameSession->UpdateGameState();
 		}
 	}
-
-
 }
 
 bool AUTGameMode::PlayerCanRestart( APlayerController* Player )

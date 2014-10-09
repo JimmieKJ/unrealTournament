@@ -200,6 +200,7 @@ public:
 
 	virtual void SetPawn(APawn* InPawn) override;
 	virtual void Possess(APawn* InPawn) override;
+	virtual void Destroyed() override;
 	virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn = true) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void UTNotifyKilled(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType);
