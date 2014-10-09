@@ -1189,7 +1189,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 	{
 		int32 PingingServers = PingList.Num() + PingTrackers.Num();
 		if (PingingServers > 0)
-		{1
+		{
 			StatusText->SetText( FText::Format( NSLOCTEXT("SUWServerBrowser","PingingMsg","Pinging {0} Servers..."), FText::AsNumber(PingingServers)));
 		}
 		else
