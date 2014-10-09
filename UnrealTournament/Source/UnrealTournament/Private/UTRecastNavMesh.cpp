@@ -1143,7 +1143,7 @@ bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector&
 	NavQueryVariable.init(GetRecastNavMeshImpl()->GetRecastMesh(), GetRightFilterRef(FilterContainer).GetMaxSearchNodes(), &LinkFilter);
 	
 	const FCapsuleSize HumanSize = GetHumanPathSize();
-	const float Extent[3] = { HumanSize.Radius, HumanSize.Height, HumanSize.Radius };
+	const float Extent[3] = { float(HumanSize.Radius), float(HumanSize.Height), float(HumanSize.Radius) };
 
 	const FVector RecastStart = Unreal2RecastPoint(RayStart);
 	const FVector RecastEnd = Unreal2RecastPoint(RayEnd);
