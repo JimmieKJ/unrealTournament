@@ -36,6 +36,7 @@ protected:
 	TSharedPtr<STextBlock> SelectedRes;
 	TSharedPtr<SCheckBox> Fullscreen;
 	TSharedPtr<SCheckBox> SmoothFrameRate;
+	TSharedPtr<SEditableTextBox> FrameRateCap;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	/** list of display values for general scalability setting that are all set the same way (e.g. low/medium/high) */
 	TArray< TSharedPtr<FString> > GeneralScalabilityList;

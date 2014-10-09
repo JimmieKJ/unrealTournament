@@ -7,6 +7,7 @@
 #include "UTPlayerInput.h"
 #include "Scalability.h"
 #include "UTWorldSettings.h"
+#include "UTGameEngine.h"
 
 #if !UE_SERVER
 
@@ -220,6 +221,31 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
 				]
 			]
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Center)
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(FLinearColor::Black)
+					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap:", "Frame Rate Cap:").ToString())
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(FrameRateCap, SEditableTextBox)
+					.MinDesiredWidth(100.0f)
+					.Text(FText::AsNumber(Cast<UUTGameEngine>(GEngine)->FrameRateCap))
+				]
+			]
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
@@ -357,6 +383,11 @@ FReply SUWSystemSettingsDialog::OKClick()
 			WS->MaxImpactEffectVisibleLifetime = DefaultWS->MaxImpactEffectVisibleLifetime;
 			WS->MaxImpactEffectInvisibleLifetime = DefaultWS->MaxImpactEffectInvisibleLifetime;
 		}
+	}
+	
+	if (FrameRateCap->GetText().ToString().IsNumeric())
+	{
+		Cast<UUTGameEngine>(GEngine)->FrameRateCap = FCString::Atoi(*FrameRateCap->GetText().ToString());
 	}
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
