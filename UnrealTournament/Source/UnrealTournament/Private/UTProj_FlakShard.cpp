@@ -85,7 +85,7 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 
 	// manually handle bounce velocity to match UT3 for now
-	ProjectileMovement->Velocity = 0.6f * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
+	ProjectileMovement->Velocity = 0.5f * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
 
 	// Set gravity on bounce
 	ProjectileMovement->ProjectileGravityScale = 1.f;
