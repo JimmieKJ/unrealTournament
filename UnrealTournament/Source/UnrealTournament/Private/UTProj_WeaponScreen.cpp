@@ -18,6 +18,7 @@ AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FPostConstructInitializePropert
 		}
 	}
 	Responses.EnumArray[COLLISION_TRACE_WEAPON] = ECollisionResponse::ECR_Block;
+	Responses.EnumArray[COLLISION_TRACE_WEAPONNOCHARACTER] = ECollisionResponse::ECR_Block;
 	Responses.WorldStatic = ECollisionResponse::ECR_Ignore;
 	Responses.WorldDynamic = ECollisionResponse::ECR_Ignore;
 	// note that we leave the default collision sphere around to use as a world blocker (so we're blocked if center hits world)
