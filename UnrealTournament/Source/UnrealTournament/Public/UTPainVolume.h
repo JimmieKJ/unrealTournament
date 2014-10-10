@@ -19,4 +19,12 @@ class AUTPainVolume : public APainCausingVolume
 	/** Sound played when actor exits this volume. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 		USoundBase* ExitSound;
+
+	/** Pawn Velocity reduction on entry (scales velocity Z component)*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
+		float PawnEntryVelZScaling;
+
+	/** Pawn braking ability in this fluid */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
+		float BrakingDecelerationSwimming;
 };

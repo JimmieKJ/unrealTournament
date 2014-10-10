@@ -17,10 +17,18 @@ class AUTWaterVolume : public APhysicsVolume
 	virtual void ActorLeavingVolume(class AActor* Other) override;
 
 	/** Sound played when actor enters this volume. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Sounds)
 		USoundBase* EntrySound;
 
 	/** Sound played when actor exits this volume. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Sounds)
 		USoundBase* ExitSound;
+
+	/** Pawn Velocity reduction on entry (scales velocity Z component)*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CharacterMovement)
+	float PawnEntryVelZScaling;
+
+	/** Pawn braking ability in this fluid */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
+	float BrakingDecelerationSwimming;
 };

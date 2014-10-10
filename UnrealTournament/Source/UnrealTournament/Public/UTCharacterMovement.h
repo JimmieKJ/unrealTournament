@@ -49,6 +49,19 @@ public:
 	UPROPERTY()
 	float AvgSpeed;
 
+	/** Max speed player can travel in water (faster than powered swim speed */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Swimming)
+		float MaxWaterSpeed;
+
+	/** Impulse when pushing off wall underwater */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Swimming)
+	float SwimmingWallPushImpulse;
+
+	virtual void PhysSwimming(float deltaTime, int32 Iterations) override;
+
+	/** Push off bottom while swimming. */
+	virtual void PerformWaterJump();
+
 	/** Last Z position when standing on ground - used for eyeheight smoothing */
 	UPROPERTY()
 	float OldZ;
@@ -294,7 +307,10 @@ public:
 	virtual bool CanJump();
 
 	/** Clear dodging input related flags */
-	void ClearDodgeInput();
+	virtual void ClearDodgeInput();
+
+	/** Handle jump inputs */
+	virtual void CheckJumpInput(float DeltaTime);
 
 	/** Optionally allow slope dodge */
 	virtual FVector ComputeSlideVectorUT(const float DeltaTime, const FVector& Delta, const float Time, const FVector& Normal, const FHitResult& Hit);

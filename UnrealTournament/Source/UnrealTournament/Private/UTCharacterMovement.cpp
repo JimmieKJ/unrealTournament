@@ -48,7 +48,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 4200.f; 
 	BrakingDecelerationWalking = 4800.f;
-	BrakingDecelerationSwimming = 3000.f;
+	BrakingDecelerationSwimming = 300.f;
 	GravityScale = 1.f;
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
@@ -65,8 +65,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	RollEndingSpeedFactor = 0.5f;
 	FallingDamageRollReduction = 6.f;
 
-	MaxSwimSpeed = 450.f;
+	MaxSwimSpeed = 1000.f;
+	MaxWaterSpeed = 450.f; 
 	Buoyancy = 1.f;
+	SwimmingWallPushImpulse = 730.f;
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
@@ -380,6 +382,7 @@ FVector UUTCharacterMovement::GetImpartedMovementBaseVelocity() const
 		{
 			Result = (Velocity + Result).SafeNormal() * FMath::Sqrt(MaxSpeedSq) - Velocity;
 		}
+		Result.Z = FMath::Max(Result.Z, 0.f);
 	}
 
 	return Result;
@@ -391,12 +394,49 @@ bool UUTCharacterMovement::CanDodge()
 	{
 		//UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
-	return (IsMovingOnGround() || IsFalling()) && !bIsDodgeRolling && CanEverJump() && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
+	return !bIsDodgeRolling && CanEverJump() && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
 }
 
 bool UUTCharacterMovement::CanJump()
 {
 	return (IsMovingOnGround() || CanMultiJump()) && CanEverJump() && !bWantsToCrouch && !bIsDodgeRolling;
+}
+
+void UUTCharacterMovement::PerformWaterJump()
+{
+	if (!HasValidData())
+	{
+		return;
+	}
+
+	float PawnCapsuleRadius, PawnCapsuleHalfHeight;
+	CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
+	FVector TraceStart = CharacterOwner->GetActorLocation();
+	TraceStart.Z = TraceStart.Z - PawnCapsuleHalfHeight + PawnCapsuleRadius;
+	FVector TraceEnd = TraceStart - FVector(0.f, 0.f, WallDodgeTraceDist);
+
+	static const FName DodgeTag = FName(TEXT("Dodge"));
+	FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
+	FHitResult Result;
+	const bool bBlockingHit = GetWorld()->SweepSingle(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(PawnCapsuleRadius), QueryParams);
+	if (!bBlockingHit)
+	{
+		return;
+	}
+	if (!CharacterOwner->bClientUpdating)
+	{
+		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
+		//UE_LOG(UT, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+
+		// @TODO FIXMESTEVE - character should be responsible for effects, should have blueprint event too
+		AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+		if (UTCharacterOwner)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharacterOwner->SwimPushSound, UTCharacterOwner, SRT_AllButOwner);
+		}
+	}
+	LastWallDodgeNormal = Result.ImpactNormal;
+	Velocity.Z = FMath::Max(Velocity.Z, SwimmingWallPushImpulse);
 }
 
 bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
@@ -412,13 +452,13 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	float HorizontalImpulse = DodgeImpulseHorizontal;
 	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
 
-	if (IsFalling())
+	if (!IsMovingOnGround())
 	{
-		if (CurrentWallDodgeCount >= MaxWallDodges)
+		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
 		{
 			return false;
 		}
-		// if falling, check if can perform wall dodge
+		// if falling/swimming, check if can perform wall dodge
 		FVector TraceEnd = -1.f*DodgeDir;
 		float PawnCapsuleRadius, PawnCapsuleHalfHeight;
 		CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
@@ -431,7 +471,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
 		FHitResult Result;
 		const bool bBlockingHit = GetWorld()->SweepSingle(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
-		if (!bBlockingHit || ((CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
+		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 		{
 			return false;
 		}
@@ -453,7 +493,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 			//UE_LOG(UT, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 		}
-		HorizontalImpulse = WallDodgeImpulseHorizontal;
+		HorizontalImpulse = IsSwimming() ? SwimmingWallPushImpulse : WallDodgeImpulseHorizontal;
 		CurrentWallDodgeCount++;
 		LastWallDodgeNormal = Result.ImpactNormal;
 	}
@@ -469,12 +509,12 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	Velocity.Z = 0.f;
 	float SpeedXY = FMath::Min(Velocity.Size(), DodgeMaxHorizontalVelocity);
 	Velocity = SpeedXY*Velocity.SafeNormal();
-	if (!IsFalling())
+	if (IsMovingOnGround())
 	{
 		Velocity.Z = DodgeImpulseVertical;
 		CurrentMultiJumpCount++;
 	}
-	else if ((VelocityZ < MaxAdditiveDodgeJumpSpeed) && (VelocityZ > MinAdditiveDodgeFallSpeed))
+	else if (!IsSwimming() && (VelocityZ < MaxAdditiveDodgeJumpSpeed) && (VelocityZ > MinAdditiveDodgeFallSpeed))
 	{
 		float CurrentWallImpulse = (CurrentWallDodgeCount < 2) ? WallDodgeImpulseVertical : WallDodgeSecondImpulseVertical;
 
@@ -513,7 +553,10 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	bIsDodging = true;
 	bNotifyApex = true;
 	bJustDodged = true;
-	SetMovementMode(MOVE_Falling);
+	if (IsMovingOnGround())
+	{
+		SetMovementMode(MOVE_Falling);
+	}
 	return true;
 }
 
@@ -814,13 +857,43 @@ bool UUTCharacterMovement::CanMultiJump()
 	return ((MaxMultiJumpCount > 1) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (bIsDodging || bAllowJumpMultijumps) && (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed));
 }
 
-
 void UUTCharacterMovement::ClearDodgeInput()
 {
 	bPressedDodgeForward = false;
 	bPressedDodgeBack = false;
 	bPressedDodgeLeft = false;
 	bPressedDodgeRight = false;
+}
+
+void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
+{
+	if (CharacterOwner && CharacterOwner->bPressedJump)
+	{
+		if (MovementMode == MOVE_Walking)
+		{
+			DoJump(CharacterOwner->bClientUpdating);
+		}
+		else if ((MovementMode == MOVE_Swimming) && CanDodge())
+		{
+			PerformWaterJump();
+		}
+	}
+	else if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight)
+	{
+		float DodgeDirX = bPressedDodgeForward ? 1.f : (bPressedDodgeBack ? -1.f : 0.f);
+		float DodgeDirY = bPressedDodgeLeft ? -1.f : (bPressedDodgeRight ? 1.f : 0.f);
+		float DodgeCrossX = (bPressedDodgeLeft || bPressedDodgeRight) ? 1.f : 0.f;
+		float DodgeCrossY = (bPressedDodgeForward || bPressedDodgeBack) ? 1.f : 0.f;
+		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
+		FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+		FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
+		FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+		AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+		if (UTCharacterOwner)
+		{
+			UTCharacterOwner->Dodge((DodgeDirX*X + DodgeDirY*Y).SafeNormal(), (DodgeCrossX*X + DodgeCrossY*Y).SafeNormal());
+		}
+	}
 }
 
 //======================================================
@@ -1085,6 +1158,19 @@ bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FV
 float UUTCharacterMovement::GetGravityZ() const
 {
 	return Super::GetGravityZ() * (bApplyWallSlide ? SlideGravityScaling : 1.f);
+}
+
+void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
+{
+	if (Velocity.Size() > MaxWaterSpeed)
+	{
+		FVector VelDir = Velocity.SafeNormal();
+		if ((VelDir | Acceleration) > 0.f)
+		{
+			Acceleration = Acceleration - (VelDir | Acceleration)*VelDir; 
+		}
+	}
+	Super::PhysSwimming(deltaTime, Iterations);
 }
 
 /** @TODO FIXMESTEVE - physfalling copied from base version and edited.  At some point should probably add some hooks to base version and use those instead. */
@@ -1909,10 +1995,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	// Perform actual movement
 	if ((CharacterOwner->GetWorldSettings()->Pauser == NULL) && (DeltaTime > 0.f))
 	{
-		if (PC)
-		{
-			PC->UpdateRotation(DeltaTime);
-		}
+		// Don't call UpdateRotation(), always use what client sent.  We don't constrain character view rotation in UT
 		MoveAutonomous(TimeStamp, DeltaTime, MoveFlags, Accel);
 	}
 	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("ServerMove Time %f Acceleration %s Position %s DeltaTime %f"),

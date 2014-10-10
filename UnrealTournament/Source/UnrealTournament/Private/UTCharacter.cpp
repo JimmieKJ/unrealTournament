@@ -1934,28 +1934,9 @@ bool AUTCharacter::CanJumpInternal_Implementation() const
 
 void AUTCharacter::CheckJumpInput(float DeltaTime)
 {
-	if (CharacterMovement && ((CharacterMovement->MovementMode == MOVE_Flying) || (CharacterMovement->MovementMode == MOVE_Swimming)))
+	if (UTCharacterMovement)
 	{
-		// No jump when swimming or flying
-	}
-	else if (bPressedJump)
-	{
-		UTCharacterMovement->DoJump(bClientUpdating);
-	}
-	else
-	{
-		if (UTCharacterMovement->bPressedDodgeForward || UTCharacterMovement->bPressedDodgeBack || UTCharacterMovement->bPressedDodgeLeft || UTCharacterMovement->bPressedDodgeRight)
-		{
-			float DodgeDirX = UTCharacterMovement->bPressedDodgeForward ? 1.f : (UTCharacterMovement->bPressedDodgeBack ? -1.f : 0.f);
-			float DodgeDirY = UTCharacterMovement->bPressedDodgeLeft ? -1.f : (UTCharacterMovement->bPressedDodgeRight ? 1.f : 0.f);
-			float DodgeCrossX = (UTCharacterMovement->bPressedDodgeLeft || UTCharacterMovement->bPressedDodgeRight) ? 1.f : 0.f;
-			float DodgeCrossY = (UTCharacterMovement->bPressedDodgeForward || UTCharacterMovement->bPressedDodgeBack) ? 1.f : 0.f;
-			FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
-			FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
-			FVector X = TurnRotMatrix.GetScaledAxis(EAxis::X);
-			FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
-			Dodge((DodgeDirX*X + DodgeDirY*Y).SafeNormal(), (DodgeCrossX*X + DodgeCrossY*Y).SafeNormal());
-		}
+		UTCharacterMovement->CheckJumpInput(DeltaTime);
 	}
 }
 
@@ -2062,7 +2043,15 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 	{
 		DesiredJumpBob.Y = 0.f;
 	}
-	UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_AllButOwner);
+	if (CharacterMovement && CharacterMovement->IsSwimming())
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), SwimPushSound, this, SRT_AllButOwner);
+	}
+	else
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_AllButOwner);
+	}
+
 }
 
 void AUTCharacter::Landed(const FHitResult& Hit)

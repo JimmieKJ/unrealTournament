@@ -833,6 +833,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DodgeSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* SwimPushSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PainSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WallHitSound;
