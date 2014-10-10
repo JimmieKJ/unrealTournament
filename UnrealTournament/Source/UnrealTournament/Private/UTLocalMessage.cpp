@@ -99,12 +99,12 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 
 FText UUTLocalMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
-	return FText::GetEmpty();
+	return Blueprint_GetText(Switch, bTargetsPlayerState1, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
 float UUTLocalMessage::GetLifeTime(int32 Switch) const
 {
-    return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
+    return Blueprint_GetLifeTime(Switch);
 }
 
 bool UUTLocalMessage::IsConsoleMessage(int32 Switch) const
@@ -133,4 +133,14 @@ bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const U
 
 void UUTLocalMessage::OnAnnouncementPlayed_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
+}
+
+FText UUTLocalMessage::Blueprint_GetText_Implementation(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
+{
+	return FText::GetEmpty();
+}
+
+float UUTLocalMessage::Blueprint_GetLifeTime_Implementation(int32 Switch) const
+{
+	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
 }
