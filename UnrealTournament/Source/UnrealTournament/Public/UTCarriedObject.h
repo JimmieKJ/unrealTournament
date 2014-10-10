@@ -8,6 +8,10 @@
 
 #include "UTCarriedObject.generated.h"
 
+class AUTCarriedObject;
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCarriedObjectStateChangedDelegate, class AUTCarriedObject*, Sender, FName, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCarriedObjectHolderChangedDelegate, class AUTCarriedObject*, Sender);
+
 USTRUCT()
 struct FAssistTracker
 {
@@ -27,7 +31,6 @@ public:
 	UPROPERTY()
 	float LastHoldStartTime;
 };
-
 
 
 UCLASS()
@@ -92,6 +95,12 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	TSubclassOf<UUTCarriedObjectMessage> MessageClass;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnCarriedObjectStateChangedDelegate OnCarriedObjectStateChangedDelegate;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnCarriedObjectHolderChangedDelegate OnCarriedObjectHolderChangedDelegate;
 
 	// DONT KNOW IF WE NEED THESE YET
 
@@ -187,7 +196,6 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 
 		return -1;
 	}
-
 
 protected:
 

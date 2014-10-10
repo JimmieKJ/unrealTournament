@@ -122,6 +122,9 @@ void AUTCarriedObject::OnObjectStateChanged()
 	{
 		MovementComponent->SetUpdatedComponent(Collision);
 	}
+
+	OnCarriedObjectStateChangedDelegate.Broadcast(this, ObjectState);
+
 }
 
 void AUTCarriedObject::OnHolderChanged()
@@ -135,6 +138,9 @@ void AUTCarriedObject::OnHolderChanged()
 	{
 		Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
+
+	OnCarriedObjectHolderChangedDelegate.Broadcast(this);
+
 }
 
 uint8 AUTCarriedObject::GetTeamNum() const
