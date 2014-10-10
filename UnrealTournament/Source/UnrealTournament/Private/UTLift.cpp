@@ -5,7 +5,6 @@
 #include "UTGib.h"
 #include "NavigationOctree.h"
 #include "UTLiftExit.h"
-#include "UTReachSpec_Lift.h"
 
 AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -111,54 +110,6 @@ void AUTLift::Tick(float DeltaTime)
 		LiftVelocity = (NewLoc - TickLocation) / DeltaTime;
 		EncroachComponent->ComponentVelocity = LiftVelocity;
 		TickLocation = NewLoc;
-
-		// check for bots on this lift that want to lift jump
-		if (!LiftVelocity.IsZero())
-		{
-			for (USceneComponent* Attachment : EncroachComponent->AttachChildren)
-			{
-				ACharacter* P = Cast<ACharacter>(Attachment->GetOwner());
-				if (P != NULL && P->CharacterMovement != NULL)
-				{
-					AUTBot* B = Cast<AUTBot>(P->Controller);
-					if (B != NULL && P->CanJump())
-					{
-						UUTReachSpec_Lift* LiftPath = NULL;
-						if ((B->GetCurrentPath().ReachFlags & R_JUMP) && B->GetCurrentPath().Spec.IsValid())
-						{
-							LiftPath = Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get());
-						}
-						// see if bot's next path is a lift jump (need to check this for fast moving lifts, because CurrentPath won't change until bot reaches lift center which in certain cases might be too late)
-						else if (B->GetMoveTarget().Node != NULL)
-						{
-							for (int32 i = 0; i < B->RouteCache.Num() - 1; i++)
-							{
-								if (B->RouteCache[i] == B->GetMoveTarget())
-								{
-									int32 LinkIndex = B->GetMoveTarget().Node->GetBestLinkTo(B->GetMoveTarget().TargetPoly, B->RouteCache[i + 1], P, *P->GetNavAgentProperties(), GetUTNavData(GetWorld()));
-									if (LinkIndex != INDEX_NONE && (B->GetMoveTarget().Node->Paths[LinkIndex].ReachFlags & R_JUMP) && B->GetMoveTarget().Node->Paths[LinkIndex].Spec.IsValid())
-									{
-										LiftPath = Cast<UUTReachSpec_Lift>(B->GetMoveTarget().Node->Paths[LinkIndex].Spec.Get());
-									}
-								}
-							}
-						}
-						if (LiftPath != NULL)
-						{
-							const FVector PawnLoc = P->GetActorLocation();
-							float XYSize = (LiftPath->LiftExitLoc - PawnLoc).Size2D();
-							float Time = XYSize / P->CharacterMovement->MaxWalkSpeed;
-							if (PawnLoc.Z + LiftVelocity.Z * Time + 0.5f * P->CharacterMovement->GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z)
-							{
-								// jump!
-								P->CharacterMovement->Velocity = (LiftPath->LiftExitLoc - PawnLoc).SafeNormal2D() * P->CharacterMovement->MaxWalkSpeed;
-								P->CharacterMovement->DoJump(false);
-							}
-						}
-					}
-				}
-			}
-		}
 	}
 }
 

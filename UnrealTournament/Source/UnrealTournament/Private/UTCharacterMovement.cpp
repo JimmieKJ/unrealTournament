@@ -4,6 +4,8 @@
 #include "UTCharacterMovement.h"
 #include "GameFramework/GameNetworkManager.h"
 #include "UTLift.h"
+#include "UTReachSpec_Lift.h"
+#include "UTBot.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
@@ -113,117 +115,69 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	JumpOutOfWaterPitch = 0.f;
 }
 
-// @TODO FIXMESTEVE remove once Engine gives me the UnableToFollowBaseMove() event
 // @todo UE4 - handle lift moving up and down through encroachment
 void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 {
-	if (!HasValidData())
+	Super::UpdateBasedMovement(DeltaSeconds);
+
+	if (HasValidData())
 	{
-		return;
-	}
-
-	const UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
-	if (!MovementBaseUtility::UseRelativeLocation(MovementBase))
-	{
-		return;
-	}
-
-	if (!IsValid(MovementBase->GetOwner()))
-	{
-		SetBase(NULL);
-		return;
-	}
-
-	// Ignore collision with bases during these movements.
-	TGuardValue<EMoveComponentFlags> ScopedFlagRestore(MoveComponentFlags, MoveComponentFlags | MOVECOMP_IgnoreBases);
-
-	FQuat DeltaQuat = FQuat::Identity;
-	FVector DeltaPosition = FVector::ZeroVector;
-
-	FQuat NewBaseQuat;
-	FVector NewBaseLocation;
-	if (!MovementBaseUtility::GetMovementBaseTransform(MovementBase, CharacterOwner->GetBasedMovement().BoneName, NewBaseLocation, NewBaseQuat))
-	{
-		return;
-	}
-
-	// Find change in rotation
-	const bool bRotationChanged = !OldBaseQuat.Equals(NewBaseQuat);
-	if (bRotationChanged)
-	{
-		DeltaQuat = NewBaseQuat * OldBaseQuat.Inverse();
-	}
-
-	// only if base moved
-	if (bRotationChanged || (OldBaseLocation != NewBaseLocation))
-	{
-		// Calculate new transform matrix of base actor (ignoring scale).
-		const FQuatRotationTranslationMatrix OldLocalToWorld(OldBaseQuat, OldBaseLocation);
-		const FQuatRotationTranslationMatrix NewLocalToWorld(NewBaseQuat, NewBaseLocation);
-
-		if (CharacterOwner->IsMatineeControlled())
+		// check for bot lift jump
+		AUTBot* B = Cast<AUTBot>(CharacterOwner->Controller);
+		if (B != NULL && CharacterOwner->CanJump())
 		{
-			FRotationTranslationMatrix HardRelMatrix(CharacterOwner->GetBasedMovement().Rotation, CharacterOwner->GetBasedMovement().Location);
-			const FMatrix NewWorldTM = HardRelMatrix * NewLocalToWorld;
-			const FRotator NewWorldRot = bIgnoreBaseRotation ? CharacterOwner->GetActorRotation() : NewWorldTM.Rotator();
-			MoveUpdatedComponent(NewWorldTM.GetOrigin() - CharacterOwner->GetActorLocation(), NewWorldRot, true);
-		}
-		else
-		{
-			FQuat FinalQuat = CharacterOwner->GetActorQuat();
-
-			if (bRotationChanged && !bIgnoreBaseRotation)
+			FVector LiftVelocity = (CharacterOwner->GetMovementBase() != NULL) ? CharacterOwner->GetMovementBase()->GetComponentVelocity() : FVector::ZeroVector;
+			if (!LiftVelocity.IsZero())
 			{
-				// Apply change in rotation and pipe through FaceRotation to maintain axis restrictions
-				const FQuat PawnOldQuat = CharacterOwner->GetActorQuat();
-				FinalQuat = DeltaQuat * FinalQuat;
-				CharacterOwner->FaceRotation(FinalQuat.Rotator(), 0.f);
-				FinalQuat = CharacterOwner->GetActorQuat();
-
-				// Pipe through ControlRotation, to affect camera.
-				if (CharacterOwner->Controller)
+				UUTReachSpec_Lift* LiftPath = NULL;
+				int32 ExitRouteIndex = INDEX_NONE;
+				if ((B->GetCurrentPath().ReachFlags & R_JUMP) && B->GetCurrentPath().Spec.IsValid())
 				{
-					const FQuat PawnDeltaRotation = FinalQuat * PawnOldQuat.Inverse();
-					FRotator FinalRotation = FinalQuat.Rotator();
-					UpdateBasedRotation(FinalRotation, PawnDeltaRotation.Rotator());
-					FinalQuat = FinalRotation.Quaternion();
+					LiftPath = Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get());
+				}
+				// see if bot's next path is a lift jump (need to check this for fast moving lifts, because CurrentPath won't change until bot reaches lift center which in certain cases might be too late)
+				else if (B->GetMoveTarget().Node != NULL)
+				{
+					for (int32 i = 0; i < B->RouteCache.Num() - 1; i++)
+					{
+						if (B->RouteCache[i] == B->GetMoveTarget())
+						{
+							int32 LinkIndex = B->GetMoveTarget().Node->GetBestLinkTo(B->GetMoveTarget().TargetPoly, B->RouteCache[i + 1], CharacterOwner, *CharacterOwner->GetNavAgentProperties(), GetUTNavData(GetWorld()));
+							if (LinkIndex != INDEX_NONE && (B->GetMoveTarget().Node->Paths[LinkIndex].ReachFlags & R_JUMP) && B->GetMoveTarget().Node->Paths[LinkIndex].Spec.IsValid())
+							{
+								LiftPath = Cast<UUTReachSpec_Lift>(B->GetMoveTarget().Node->Paths[LinkIndex].Spec.Get());
+								ExitRouteIndex = i + 1;
+							}
+						}
+					}
+				}
+				if (LiftPath != NULL)
+				{
+					const FVector PawnLoc = CharacterOwner->GetActorLocation();
+					float XYSize = (LiftPath->LiftExitLoc - PawnLoc).Size2D();
+					float Time = XYSize / MaxWalkSpeed;
+					// test with slightly less than actual velocity to provide some room for error and so bots aren't perfect all the time
+					// TODO: maybe also delay more if lift is known to have significant travel time remaining?
+					if (PawnLoc.Z + (LiftVelocity.Z + JumpZVelocity * 0.9f) * Time + 0.5f * GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z)
+					{
+						// jump!
+						Velocity = (LiftPath->LiftExitLoc - PawnLoc).SafeNormal2D() * MaxWalkSpeed;
+						DoJump(false);
+						// redirect bot to next point on route if necessary
+						if (ExitRouteIndex != INDEX_NONE)
+						{
+							TArray<FComponentBasedPosition> MovePoints;
+							new(MovePoints) FComponentBasedPosition(LiftPath->LiftExitLoc);
+							B->SetMoveTarget(B->RouteCache[ExitRouteIndex], MovePoints);
+						}
+					}
 				}
 			}
-
-			// We need to offset the base of the character here, not its origin, so offset by half height
-			float HalfHeight, Radius;
-			CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(Radius, HalfHeight);
-
-			FVector const BaseOffset(0.0f, 0.0f, HalfHeight);
-			FVector const LocalBasePos = OldLocalToWorld.InverseTransformPosition(CharacterOwner->GetActorLocation() - BaseOffset);
-			FVector const NewWorldPos = ConstrainLocationToPlane(NewLocalToWorld.TransformPosition(LocalBasePos) + BaseOffset);
-			DeltaPosition = ConstrainDirectionToPlane(NewWorldPos - CharacterOwner->GetActorLocation());
-
-			// move attached actor
-			if (bFastAttachedMove)
-			{
-				// we're trusting no other obstacle can prevent the move here
-				UpdatedComponent->SetWorldLocationAndRotation(NewWorldPos, FinalQuat.Rotator(), false);
-			}
-			else
-			{
-				FVector OldLocation = UpdatedComponent->GetComponentLocation();
-				MoveUpdatedComponent(DeltaPosition, FinalQuat.Rotator(), true);
-				if ((UpdatedComponent->GetComponentLocation() - (OldLocation + DeltaPosition)).IsNearlyZero() == false)
-				{
-					UnableToFollowBaseMove(DeltaPosition, OldLocation);
-				}
-			}
-		}
-
-		if (MovementBase->IsSimulatingPhysics() && CharacterOwner->Mesh)
-		{
-			CharacterOwner->Mesh->ApplyDeltaToAllPhysicsTransforms(DeltaPosition, DeltaQuat);
 		}
 	}
 }
 
-void UUTCharacterMovement::UnableToFollowBaseMove(FVector DeltaPosition, FVector OldLocation)
+void UUTCharacterMovement::OnUnableToFollowBaseMove(const FVector& DeltaPosition, const FVector& OldLocation, const FHitResult& MoveOnBaseHit)
 {
 	UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
 

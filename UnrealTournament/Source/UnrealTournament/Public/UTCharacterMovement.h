@@ -36,11 +36,10 @@ public:
 	/** Try to base on lift that just ran into me, return true if success */
 	virtual bool CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FVector& LiftMoveDelta);
 
-	/** @TODO FIXMESTEVE remove when we get UnableToFollowBaseMove() notify in base engine */
 	virtual void UpdateBasedMovement(float DeltaSeconds) override;
 
 	/** If I'm on a lift, tell it to return */
-	virtual void UnableToFollowBaseMove(FVector DeltaPosition, FVector OldLocation);
+	virtual void OnUnableToFollowBaseMove(const FVector& DeltaPosition, const FVector& OldLocation, const FHitResult& MoveOnBaseHit) override;
 	
 	/** Reset timers (called on pawn possessed) */
 	virtual void ResetTimers();

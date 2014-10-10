@@ -74,6 +74,13 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 
 	virtual void RefireCheckTimer() override
 	{
+		// query bot to consider whether to still fire, switch modes, etc
+		AUTBot* B = Cast<AUTBot>(GetUTOwner()->Controller);
+		if (B != NULL)
+		{
+			B->CheckWeaponFiring();
+		}
+
 		if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
 		{
 			GetOuterAUTWeapon()->GotoActiveState();

@@ -29,6 +29,13 @@ UUTWeaponStateFiringOnce(const class FPostConstructInitializeProperties& PCIP)
 
 	virtual void RefireCheckTimer()
 	{
+		// tell bot we're done
+		AUTBot* B = Cast<AUTBot>(GetUTOwner()->Controller);
+		if (B != NULL)
+		{
+			GetUTOwner()->StopFiring();
+		}
+
 		if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
 		{
 			GetOuterAUTWeapon()->GotoActiveState();

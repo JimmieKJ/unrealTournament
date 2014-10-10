@@ -174,6 +174,12 @@ struct FUTPathLink
 	UPROPERTY()
 	TArray<int32> Distances;
 
+	/** returns whether this path link is filled in (has actual path data) since e.g. UTBot keeps a copy for what path it is currently traversing that may be zeroed if it's travelling direct to target */
+	inline bool IsSet()
+	{
+		return Start != NULL && End != NULL;
+	}
+
 	inline bool Supports(int32 TestRadius, int32 TestHeight, int32 MoveFlags) const
 	{
 		return (TestRadius <= CollisionRadius && TestHeight <= CollisionHeight && (MoveFlags & ReachFlags) == ReachFlags);

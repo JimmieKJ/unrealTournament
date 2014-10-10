@@ -324,7 +324,7 @@ void AUTBot::Tick(float DeltaTime)
 				}
 				if (GetCharacter() != NULL && GetCharacter()->CharacterMovement != NULL)
 				{
-					GetCharacter()->CharacterMovement->bCanWalkOffLedges = CurrentPath.ReachFlags & R_JUMP;
+					GetCharacter()->CharacterMovement->bCanWalkOffLedges = !CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP);
 				}
 				if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && GetCharacter()->CharacterMovement->AirControl > 0.0f)
 				{

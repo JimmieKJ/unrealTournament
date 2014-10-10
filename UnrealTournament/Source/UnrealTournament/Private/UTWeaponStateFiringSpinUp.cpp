@@ -54,6 +54,13 @@ void UUTWeaponStateFiringSpinUp::UpdateTiming()
 
 void UUTWeaponStateFiringSpinUp::RefireCheckTimer()
 {
+	// query bot to consider whether to still fire, switch modes, etc
+	AUTBot* B = Cast<AUTBot>(GetUTOwner()->Controller);
+	if (B != NULL)
+	{
+		B->CheckWeaponFiring();
+	}
+
 	if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
 	{
 		// spin down instead of going to active immediately
