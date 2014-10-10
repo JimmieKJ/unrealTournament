@@ -15,7 +15,7 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FPostConstructInitializePropert
 
 	CollisionComp->InitSphereRadius(10);
 
-	TossZ = 420.0f;
+	TossZ = 430.0f;
 
 	DamageParams.BaseDamage = 100.0f;
 	DamageParams.OuterRadius = 440.0f;
