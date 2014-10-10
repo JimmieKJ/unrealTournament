@@ -23,7 +23,8 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTGameMode* CurrentGame)
 	// Stub function.  We will need to fill this out later.
 	bIsDedicated = CurrentGame->GetWorld()->GetNetMode() == NM_DedicatedServer;
 
-	Set(SETTING_GAMEMODE, CurrentGame->FriendlyGameName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Set(SETTING_GAMEMODE, CurrentGame->GetClass()->GetPathName(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Set(SETTING_GAMENAME, CurrentGame->DisplayName.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	Set(SETTING_MAPNAME, CurrentGame->GetWorld()->GetMapName(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	if (CurrentGame->UTGameState)
 	{

@@ -41,7 +41,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/UserContent/Translocator/BP_Translocator.BP_Translocator_C'"));
 	DefaultInventory.Add(WeapTranslocator.Object);
 
-	FriendlyGameName = TEXT("CTF");
+	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }
 
 void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

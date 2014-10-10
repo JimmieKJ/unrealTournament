@@ -27,8 +27,8 @@ struct FCompareServerByNameDesc	{FORCEINLINE bool operator()( const TSharedPtr< 
 struct FCompareServerByIP		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->IP < B->IP);}};
 struct FCompareServerByIPDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->IP > B->IP);}};
 
-struct FCompareServerByGameMode		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->GameMode > B->GameMode);}};
-struct FCompareServerByGameModeDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->GameMode > B->GameMode);}};
+struct FCompareServerByGameMode		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->GameModePath > B->GameModePath);}};
+struct FCompareServerByGameModeDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->GameModePath > B->GameModePath);}};
 
 struct FCompareServerByMap		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const	{ return ( A->Map < B->Map); }};
 struct FCompareServerByMapDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const	{ return ( A->Map > B->Map); }};
@@ -713,10 +713,10 @@ void SUWServerBrowser::AddGameFilters()
 	GameTypes.Add(TEXT("All"));
 	for (int i=0;i<PingList.Num();i++)
 	{
-		int32 idx = GameTypes.Find(PingList[i]->GameMode);
+		int32 idx = GameTypes.Find(PingList[i]->GameModePath);
 		if (idx < 0)
 		{
-			GameTypes.Add(PingList[i]->GameMode);
+			GameTypes.Add(PingList[i]->GameModePath);
 		}
 	}
 
@@ -935,8 +935,27 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				Result.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
 				FString ServerIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("GamePort")), ServerIP);
-				FString ServerGame;
-				Result.Session.SessionSettings.Get(SETTING_GAMEMODE,ServerGame);
+				// game class path
+				FString ServerGamePath;
+				Result.Session.SessionSettings.Get(SETTING_GAMEMODE,ServerGamePath);
+				// game name
+				FString ServerGameName;
+				// prefer using the name in the client's language, if available
+				// TODO: would be nice to not have to load the class, but the localization system doesn't guarantee any particular lookup location for the data,
+				//		so we have no way to know where it is
+				UClass* GameClass = LoadClass<AUTGameMode>(NULL, *ServerGamePath, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+				if (GameClass != NULL)
+				{
+					ServerGameName = GameClass->GetDefaultObject<AUTGameMode>()->DisplayName.ToString();
+				}
+				else
+				{
+					// FIXME: legacy compatibility, remove later
+					if (!Result.Session.SessionSettings.Get(SETTING_GAMENAME, ServerGameName))
+					{
+						ServerGameName = ServerGamePath;
+					}
+				}
 				FString ServerMap;
 				Result.Session.SessionSettings.Get(SETTING_MAPNAME,ServerMap);
 				int32 ServerNoPlayers = 0;
@@ -952,7 +971,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGame, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing, ServerFlags);
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing, ServerFlags);
 				PingList.Add( NewServer );
 			}
 		}
@@ -1114,7 +1133,7 @@ void SUWServerBrowser::FilterAllServers()
 void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate)
 {
 	FString GameFilter = GameFilterText->GetText().ToString();
-	if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameMode == GameFilter)
+	if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameModePath == GameFilter)
 	{
 		if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 		{

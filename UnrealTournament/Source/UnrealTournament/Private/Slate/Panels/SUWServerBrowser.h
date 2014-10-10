@@ -20,12 +20,12 @@ public:
 	FString Rule;
 	FString Value;
 
-	FServerRuleData(FString inRule, FString inValue)
+	FServerRuleData(const FString& inRule, const FString& inValue)
 		: Rule(inRule)
 		, Value(inValue)
 	{};
 
-	static TSharedRef<FServerRuleData> Make( FString inRule, FString inValue)
+	static TSharedRef<FServerRuleData> Make(const FString& inRule, const FString& inValue)
 	{
 		return MakeShareable( new FServerRuleData( inRule, inValue ) );
 	}
@@ -93,13 +93,13 @@ public:
 	FString Score;
 	FString Id;
 
-	FServerPlayerData(FString inPlayer, FString inScore, FString inId)
+	FServerPlayerData(const FString& inPlayer, const FString& inScore, const FString& inId)
 		: PlayerName(inPlayer)
 		, Score(inScore)
 		, Id(inId)
 	{};
 
-	static TSharedRef<FServerPlayerData> Make( FString inPlayerName, FString inScore, FString inId)
+	static TSharedRef<FServerPlayerData> Make(const FString& inPlayerName, const FString& inScore, const FString& inId)
 	{
 		return MakeShareable( new FServerPlayerData( inPlayerName, inScore, inId ) );
 	}
@@ -172,8 +172,10 @@ public:
 	// The Server Beacon IP Address
 	FString BeaconIP;
 
-	// The Game mode running on the server
-	FString GameMode;
+	// The Game mode running on the server (class path)
+	FString GameModePath;
+	// The game mode running on the server (localized name)
+	FString GameModeName;
 
 	// The Map
 	FString Map;
@@ -199,11 +201,12 @@ public:
 	TArray<TSharedPtr<FServerRuleData>> Rules;
 	TArray<TSharedPtr<FServerPlayerData>> Players;
 
-	FServerData( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, int32 inPing, int32 inFlags)
+	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, const FString& inVersion, int32 inPing, int32 inFlags)
 	: Name( inName )
 	, IP( inIP )
 	, BeaconIP( inBeaconIP )
-	, GameMode( inGameMode )
+	, GameModePath( inGameModePath )
+	, GameModeName( inGameModeName )
 	, Map ( inMap )
 	, NumPlayers( inNumPlayers )
 	, NumSpectators( inNumSpecators )
@@ -216,17 +219,17 @@ public:
 		Players.Empty();
 	}
 
-	static TSharedRef<FServerData> Make( FString inName, FString inIP, FString inBeaconIP, FString inGameMode, FString inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, FString inVersion, int32 inPing, int32 inFlags)
+	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, const FString& inVersion, int32 inPing, int32 inFlags)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameMode, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing, inFlags ) );
+		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing, inFlags ) );
 	}
 
-	void AddPlayer(FString PlayerName, FString Score, FString PlayerId)
+	void AddPlayer(const FString& PlayerName, const FString& Score, const FString& PlayerId)
 	{
 		Players.Add(FServerPlayerData::Make(PlayerName, Score, PlayerId));
 	}
 
-	void AddRule(FString Rule, FString Value)
+	void AddRule(const FString& Rule, const FString& Value)
 	{
 		Rules.Add( FServerRuleData::Make(Rule, Value));
 	}
@@ -272,7 +275,7 @@ public:
 		{
 			if (ColumnName == FName(TEXT("ServerName"))) ColumnText = FText::FromString(ServerData->Name);
 			else if (ColumnName == FName(TEXT("ServerIP"))) ColumnText = FText::FromString(ServerData->IP);
-			else if (ColumnName == FName(TEXT("ServerGame"))) ColumnText = FText::FromString(ServerData->GameMode);
+			else if (ColumnName == FName(TEXT("ServerGame"))) ColumnText = FText::FromString(ServerData->GameModeName);
 			else if (ColumnName == FName(TEXT("ServerMap"))) ColumnText = FText::FromString(ServerData->Map);
 			else if (ColumnName == FName(TEXT("ServerVer"))) ColumnText = FText::FromString(ServerData->Version);
 			else if (ColumnName == FName(TEXT("ServerNumPlayers"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumPlayers), FText::AsNumber(ServerData->MaxPlayers));

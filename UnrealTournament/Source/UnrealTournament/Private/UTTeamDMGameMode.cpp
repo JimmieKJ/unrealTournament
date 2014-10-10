@@ -11,7 +11,7 @@ AUTTeamDMGameMode::AUTTeamDMGameMode(const FPostConstructInitializeProperties& P
 	bScoreTeamKills = true;
 	GoalScore = 50;
 	HUDClass = AUTHUD_TeamDM::StaticClass();
-	FriendlyGameName = TEXT("TDM");
+	DisplayName = NSLOCTEXT("UTGameMode", "TDM", "Team Deathmatch");
 }
 
 void AUTTeamDMGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )

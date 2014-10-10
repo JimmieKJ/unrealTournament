@@ -56,6 +56,7 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
 	GameDifficulty = 3.0f;
+	BotFillCount = 1;
 	VictoryMessageClass=UUTVictoryMessage::StaticClass();
 	DeathMessageClass=UUTDeathMessage::StaticClass();
 	GameMessageClass=UUTGameMessage::StaticClass();
@@ -1512,7 +1513,37 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	ConfigProps.Add(GoalScoreAttr);
 	TSharedPtr< TAttributePropertyBool > ForceRespawnAttr = MakeShareable(new TAttributePropertyBool(this, &bForceRespawn));
 	ConfigProps.Add(ForceRespawnAttr);
+	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount));
+	ConfigProps.Add(CombatantsAttr);
 
+	MenuSpace->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	.VAlign(VAlign_Top)
+	.HAlign(HAlign_Center)
+	[
+		SNew(SBox)
+		.WidthOverride(200.0f)
+		.Content()
+		[
+			SNew(SNumericEntryBox<int32>)
+			.LabelPadding(FMargin(10.0f, 0.0f))
+			.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+			.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+			.AllowSpin(true)
+			.Delta(1)
+			.MinValue(1)
+			.MaxValue(32)
+			.MinSliderValue(1)
+			.MaxSliderValue(32)
+			.Label()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+			]
+		]
+	];
 	MenuSpace->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
@@ -1619,7 +1650,8 @@ void AUTGameMode::Destroyed()
 
 FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
 {
-	return FText::Format(NSLOCTEXT("UTGameMode","GameRules","{0} - GoalScore: {1}  Time Limit: {2}"), FText::FromString(FriendlyGameName), FText::AsNumber(GameState->GoalScore), FText::AsNumber(uint32(GameState->TimeLimit * 60)));
+	// TODO: should return game class path in addition to game name so client can display in local language if available
+	return FText::Format(NSLOCTEXT("UTGameMode","GameRules","{0} - GoalScore: {1}  Time Limit: {2}"), DisplayName, FText::AsNumber(GameState->GoalScore), FText::AsNumber(uint32(GameState->TimeLimit * 60)));
 }
 
 void AUTGameMode::BuildServerResponseRules(FString& OutRules)

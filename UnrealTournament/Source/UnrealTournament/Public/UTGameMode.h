@@ -87,7 +87,7 @@ public:
 	int32 MinPlayersToStart;
 
 	/** add bots until NumPlayers + NumBots is this number */
-	UPROPERTY()
+	UPROPERTY(GlobalConfig)
 	int32 BotFillCount;
 
 	// How long a player must wait before respawning.  Set to 0 for no delay.
@@ -138,6 +138,10 @@ public:
 	UPROPERTY(Config)
 	TArray<FString> ConfigMutators;
 
+	/** last starting map selected in the UI */
+	UPROPERTY(Config)
+	FString UILastStartingMap;
+
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
 
@@ -155,17 +159,16 @@ public:
 	virtual void PostInitProperties()
 	{
 		Super::PostInitProperties();
-		DisplayName = FText::FromName(GetClass()->GetFName());
+		if (DisplayName.IsEmpty() || (GetClass() != AUTGameMode::StaticClass() && DisplayName.EqualTo(GetClass()->GetSuperClass()->GetDefaultObject<AUTGameMode>()->DisplayName)))
+		{
+			DisplayName = FText::FromName(GetClass()->GetFName());
+		}
 	}
 	UPROPERTY(GlobalConfig)
 	FString ServerPassword;
 
 	UPROPERTY(GlobalConfig)
 	uint32 bRequirePassword:1;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Game)
-	FString FriendlyGameName;
-
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	UFUNCTION(BlueprintImplementableEvent)

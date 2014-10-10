@@ -40,7 +40,20 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
-	TSubclassOf<AUTGameMode> InitialSelectedGameClass = AUTDMGameMode::StaticClass(); // FIXME remember prev selection
+	TSubclassOf<AUTGameMode> InitialSelectedGameClass = AUTDMGameMode::StaticClass();
+	// restore previous selection if possible
+	FString LastGametypePath;
+	if (GConfig->GetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), LastGametypePath, GGameIni) && LastGametypePath.Len() > 0)
+	{
+		for (UClass* GameType : AllGametypes)
+		{
+			if (GameType->GetPathName() == LastGametypePath)
+			{
+				InitialSelectedGameClass = GameType;
+				break;
+			}
+		}
+	}
 
 	TSharedPtr<SVerticalBox> MainBox;
 	TSharedPtr<SUniformGridPanel> ButtonRow;
@@ -305,8 +318,16 @@ void SUWCreateGameDialog::OnGameSelected(UClass* NewSelection, ESelectInfo::Type
 		MapList->RefreshOptions();
 		if (AllMaps.Num() > 0)
 		{
-			// TODO: remember last selection
 			MapList->SetSelectedItem(AllMaps[0]);
+			// remember last selection
+			for (TSharedPtr<FString> TestMap : AllMaps)
+			{
+				if (*TestMap.Get() == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
+				{
+					MapList->SetSelectedItem(TestMap);
+					break;
+				}
+			}
 		}
 		else
 		{
@@ -318,6 +339,8 @@ void SUWCreateGameDialog::OnGameSelected(UClass* NewSelection, ESelectInfo::Type
 FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 {
 	// save changes
+	GConfig->SetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), *SelectedGameClass->GetPathName(), GGameIni);
+	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMap->GetText().ToString();
 	SelectedGameClass.GetDefaultObject()->SaveConfig();
 	AUTGameState::StaticClass()->GetDefaultObject()->SaveConfig();
 

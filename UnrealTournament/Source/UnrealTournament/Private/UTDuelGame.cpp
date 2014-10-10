@@ -14,7 +14,7 @@ AUTDuelGame::AUTDuelGame(const class FPostConstructInitializeProperties& PCIP)
 	HUDClass = AUTHUD_DM::StaticClass();
 
 	HUDClass = AUTHUD_TeamDM::StaticClass();
-	FriendlyGameName = TEXT("DUEL");
+	DisplayName = NSLOCTEXT("UTGameMode", "Duel", "Duel");
 	PowerupDuration = 10.f;
 	GoalScore = 15;
 	TimeLimit = 0.f;
