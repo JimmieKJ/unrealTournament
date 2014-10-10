@@ -1,5 +1,3 @@
-
-
 #pragma once
 
 #include "UTProjectile.h"
@@ -14,11 +12,8 @@ enum ETLState
 	TLS_Disrupted
 };
 
-
 class AUTWeap_Translocator;
-/**
- * 
- */
+
 UCLASS()
 class AUTProj_TransDisk : public AUTProjectile
 {
@@ -29,32 +24,36 @@ class AUTProj_TransDisk : public AUTProjectile
 	virtual void OnStop(const FHitResult& Hit);
 
 	/** hook to spawn effects when the glob lands*/
-	UFUNCTION(BlueprintNativeEvent, Category = TransDisk)
+	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)
 	void OnLanded();
+
 	/** hook to spawn effects when the glob lands*/
-	UFUNCTION(BlueprintNativeEvent, Category = TransDisk)
+	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)
 	void OnDisrupted();
 	
 	virtual void ShutDown();
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = Translocator)
+	UPROPERTY(BlueprintReadOnly, Replicated, Category=TransDisk)
 	AUTWeap_Translocator* MyTranslocator;
+
 	/** controller who disrupted the disk (and thus should gain kill credit) */
 	UPROPERTY(BlueprintReadOnly, Category = Translocator)
 	AController* DisruptedController;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_TransState, Category = TransDisk)
 	TEnumAsByte<ETLState> TransState;
+
 	UFUNCTION()
 	virtual void OnRep_TransState();
 
 	/**The effect played when the Disk lands*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
 	UParticleSystem* LandedEffect;
 
-	/**Coppied from UProjectileMovementComponent*/
 	FVector ComputeBounceResult(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
+	UStaticMeshComponent* DiskMesh;
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser);
 };

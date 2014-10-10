@@ -19,8 +19,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 	}
 	TelefragDamage = 1337.0f;
 
-	BringUpTime = 0.35f;
-	PutDownTime = 0.22f;
+	BringUpTime = 0.32f;
+	PutDownTime = 0.2f;
 
 	AmmoCost.Add(0);
 	AmmoCost.Add(1);

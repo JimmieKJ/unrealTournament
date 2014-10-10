@@ -5,6 +5,7 @@
 #include "UTWeap_Translocator.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealNetwork.h"
+#include "UTDamageType.h"
 
 AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -27,6 +28,13 @@ float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent cons
 			//Play and deactivate effects
 			OnDisrupted();
 		}
+	}
+	FVector DamageImpulse = 0.01f * UTGetDamageMomentum(DamageEvent, this, EventInstigator);
+	if (DamageImpulse.SizeSquared() > 2.f)
+	{
+		DamageImpulse.Z = FMath::Abs(DamageImpulse.Z);
+		ProjectileMovement->Velocity += DamageImpulse;
+		ProjectileMovement->SetUpdatedComponent(CollisionComp);
 	}
 
 	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
@@ -101,8 +109,6 @@ void AUTProj_TransDisk::OnDisrupted_Implementation()
 	}
 }
 
-
-
 void AUTProj_TransDisk::ShutDown()
 {
 	if (MyTranslocator != NULL)
@@ -135,10 +141,8 @@ FVector AUTProj_TransDisk::ComputeBounceResult(const FHitResult& Hit, float Time
 		TempVelocity = TempVelocity.ClampMaxSize(ProjectileMovement->GetMaxSpeed());
 	}
 
-
 	return TempVelocity;
 }
-
 
 void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
@@ -162,8 +166,6 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 	}
 }
 
-
-
 void AUTProj_TransDisk::OnStop(const FHitResult& Hit)
 {
 	if (TransState != TLS_Disrupted)
@@ -178,6 +180,13 @@ void AUTProj_TransDisk::OnStop(const FHitResult& Hit)
 	NewRot.Pitch = 0.0f;
 	NewRot.Roll = 0.0f;
 	SetActorRotation(NewRot);
+
+	if (DiskMesh)
+	{
+		FRotator DiskRot = (Hit.Normal).Rotation();
+		DiskRot.Pitch += 90.f;
+		DiskMesh->SetRelativeRotation(DiskRot - NewRot);
+	}
 }
 
 void AUTProj_TransDisk::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
