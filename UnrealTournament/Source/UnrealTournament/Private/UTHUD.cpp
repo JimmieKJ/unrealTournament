@@ -302,12 +302,6 @@ void AUTHUD::DrawHUD()
 	// find center of the Canvas
 	const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
-	AUTCharacter* UTCharacterOwner = NULL;
-	if (UTPlayerOwner != NULL)
-	{
-		UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
-	}
-
 	for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 	{
 		// If we aren't hidden then set the canvas and render..

@@ -115,3 +115,11 @@ void AUTTimedPowerup::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVec
 
 	}
 }
+
+void AUTTimedPowerup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// this is for spectators, owner gets this via RPC for better accuracy
+	DOREPLIFETIME_CONDITION(AUTTimedPowerup, TimeRemaining, COND_SkipOwner);
+}

@@ -11,7 +11,7 @@ class AUTTimedPowerup : public AUTInventory
 	/** time remaining (in defaults, initial lifetime on pickup)
 	 * note: only ticks while held (not dropped on the ground)
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
+	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite, Category = Powerup)
 	float TimeRemaining;
 
 	/** sound played on an interval for the last few seconds to indicate time is running out */

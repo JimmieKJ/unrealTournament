@@ -34,10 +34,9 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FPostConstructInitial
 
 void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 {
-	AUTCharacter* UTC = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
-	if (UTC)
+	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+	if (UTC != NULL)
 	{
-
 		FLinearColor HudColor = ApplyHUDColor(FLinearColor::White);
 
 		TArray< AUTWeapon*, TInlineAllocator<10> > WeaponList;

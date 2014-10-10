@@ -17,7 +17,7 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 	Super::Draw_Implementation(DeltaTime);
 	if (UTHUDOwner != NULL && UTHUDOwner->UTPlayerOwner != NULL)
 	{
-		AUTCharacter* UTCharacter = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 		if (UTCharacter != NULL)
 		{
 			int32 Count = 0;

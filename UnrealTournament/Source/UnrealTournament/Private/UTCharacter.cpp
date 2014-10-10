@@ -1851,8 +1851,13 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, UTReplicatedMovement, COND_SimulatedOrPhysics);
 	DOREPLIFETIME_CONDITION(AUTCharacter, GoodMoveAckTime, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_None); // would be nice to bind to teammates and spectators, but that's not an option :(
+
+	//DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
+	// replicate for cases where non-owned inventory is replicated (e.g. spectators)
+	// UE4 networking doesn't cause endless replication sending unserializable values like UE3 did so this shouldn't be a big deal
+	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_None); 
+
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);

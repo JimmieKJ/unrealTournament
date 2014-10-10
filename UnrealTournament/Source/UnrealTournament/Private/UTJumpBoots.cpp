@@ -128,7 +128,7 @@ void AUTJumpBoots::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AUTJumpBoots, NumJumps, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTJumpBoots, NumJumps, COND_None);
 }
 
 float AUTJumpBoots::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const

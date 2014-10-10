@@ -94,15 +94,15 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 
 		float XL, YL;
 		Canvas->StrLen(UTHUDOwner->MediumFont, SpectatorMessage.ToString(), XL, YL);
-		DrawTexture(Canvas->DefaultTexture, 0,0,Canvas->ClipX, YL * RenderScale,0,0,1,1,1.0, FLinearColor(0.08,0.28,0.60,1.0));
+		DrawTexture(Canvas->DefaultTexture, Canvas->ClipX * 0.1f / RenderScale, 0, Canvas->ClipX * 0.8f / RenderScale, YL * RenderScale,0,0,1,1,1.0, FLinearColor(0.08,0.28,0.60,1.0));
 
 		// Draw the Unreal Symbol
 
 		float H = 69.0 * RenderScale;
 		float W = H * (82.0/69.0);
 
-		DrawTexture(UTHUDOwner->OldHudTexture, Canvas->ClipX * 0.05, YL * 0.5f, W, H, 734,190, 82,70, 1.0f, FLinearColor::White, FVector2D(0.0f,0.5f));
-		DrawText(SpectatorMessage, Canvas->ClipX * 0.05 + W*1.1, 0 , UTHUDOwner->MediumFont, false, FVector2D(0,0), FLinearColor::Black, false, FLinearColor::Black, RenderScale);
+		DrawTexture(UTHUDOwner->OldHudTexture, Canvas->ClipX * 0.15 / RenderScale, YL * 0.5f, W, H, 734,190, 82,70, 1.0f, FLinearColor::White, FVector2D(0.0f,0.5f));
+		DrawText(SpectatorMessage, Canvas->ClipX * 0.15 / RenderScale + W * 1.1, 0, UTHUDOwner->MediumFont, false, FVector2D(0,0), FLinearColor::Black, false, FLinearColor::Black, RenderScale);
 	}
 }
 

@@ -101,6 +101,7 @@ public:
 	TSubclassOf<UUTHUDWidget> ResolveHudWidgetByName(const TCHAR* ResourceName);
 
 	// Creates and adds a hud widget
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Hud)
 	virtual UUTHUDWidget* AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
 	UUTHUDWidget* FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass);

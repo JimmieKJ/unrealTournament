@@ -133,6 +133,11 @@ void AUTInventory::CheckPendingClientGivenTo()
 void AUTInventory::OnRep_Instigator()
 {
 	Super::OnRep_Instigator();
+	// this is for inventory replicated to non-owner
+	if (!bPendingClientGivenTo && GetUTOwner() == NULL)
+	{
+		UTOwner = Cast<AUTCharacter>(Instigator);
+	}
 	CheckPendingClientGivenTo();
 }
 
@@ -188,7 +193,7 @@ void AUTInventory::ClientRemoved_Implementation()
 void AUTInventory::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION(AUTInventory, NextInventory, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTInventory, NextInventory, COND_None);
 }
 
 void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)

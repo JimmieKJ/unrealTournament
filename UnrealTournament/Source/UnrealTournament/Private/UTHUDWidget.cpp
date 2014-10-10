@@ -321,7 +321,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 		UTPlayerOwner = UTHUDOwner->UTPlayerOwner;
 		if (UTPlayerOwner != NULL)
 		{
-			UTCharacterOwner = UTPlayerOwner->GetUTCharacter();
+			UTCharacterOwner = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 		}
 	}
 

@@ -393,7 +393,7 @@ void AUTGameMode::DefaultTimer()
 	}
 
 	// Look to see if we should restart the game due to server inactivity
-	if (GetNumPlayers() <= 0 && HasMatchStarted())
+	if (GetNumPlayers() <= 0 && NumSpectators <= 0 && HasMatchStarted())
 	{
 		EmptyServerTime++;
 		if (EmptyServerTime >= AutoRestartTime)

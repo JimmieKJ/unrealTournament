@@ -1159,7 +1159,7 @@ void AUTWeapon::OnMultiPress_Implementation(uint8 OtherFireMode)
 void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION(AUTWeapon, Ammo, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTWeapon, Ammo, COND_None);
 	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
 }
 
