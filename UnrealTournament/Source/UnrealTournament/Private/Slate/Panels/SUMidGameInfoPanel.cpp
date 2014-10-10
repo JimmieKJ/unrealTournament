@@ -111,7 +111,7 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 					+SOverlay::Slot()
 					[
 						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.MidGameMenu.UserList.Background"))
+						.Image(SUWindowsStyle::Get().GetBrush(PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.UserList.Background")))
 					]
 					+SOverlay::Slot()
 					.Padding(10.0f)
@@ -152,7 +152,7 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 							.HeightOverride(31)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.MidGameMenu.Chatbar.Background"))
+								.Image(SUWindowsStyle::Get().GetBrush(PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Chatbar.Background")))
 							]
 						]
 						+SOverlay::Slot()
@@ -163,14 +163,14 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 							.AutoWidth()
 							[
 								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
 								.Text(FText::FromString(TEXT(" >")))
 							]
 							+SHorizontalBox::Slot()
 							.HAlign(HAlign_Fill)
 							[
 								SAssignNew(ChatText, SEditableTextBox)
-								.Style(SUWindowsStyle::Get(), "UWindows.MidGame.ChatEditBox")
+								.Style(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.ChatEditBox"))
 								.OnTextChanged(this, &SUMidGameInfoPanel::ChatTextChanged)
 								.OnTextCommitted(this, &SUMidGameInfoPanel::ChatTextCommited)
 								.ClearKeyboardFocusOnCommit(false)
@@ -185,10 +185,10 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 					.AutoWidth()
 					[
 						SAssignNew(ChatDestinationButton, SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.MidGame.ChatBarButton.First")
+						.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.ChatBarButton.First"))
 						.ContentPadding(FMargin(20.0f, 5.0f, 20.0f, 5.0))
 						.Text(GetChatButtonText())
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+						.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
 						.OnClicked(this, &SUMidGameInfoPanel::ChatDestinationChanged)
 					]
 
@@ -197,7 +197,7 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 					.AutoWidth()
 					[
 						SAssignNew(UserButton, SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.MidGame.ChatBarButton")
+						.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.ChatBarButton"))
 						.ContentPadding(FMargin(10.0f, 5.0f))
 						.OnClicked(this, &SUMidGameInfoPanel::UserListToggle)
 						[
@@ -210,7 +210,7 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 							[
 								SNew(STextBlock)
 								.Text(NSLOCTEXT("Generic", "Game", "Users").ToString())
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle")
+								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
 							]
 
 							+SHorizontalBox::Slot()
@@ -354,7 +354,7 @@ TSharedRef<ITableRow> SUMidGameInfoPanel::OnGenerateWidgetForList( TSharedPtr<FS
 {
 	FSlateFontInfo Font = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Chat");
 	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
-		.Style(SUWindowsStyle::Get(),"UWindows.Standard.MidGame.UserList.Row")
+		.Style(SUWindowsStyle::Get(),PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.UserList.Row"))
 		.Padding(5)
 		[
 			SNew(STextBlock)
@@ -436,7 +436,7 @@ FReply SUMidGameInfoPanel::ChatDestinationChanged()
 */		
 	}
 
-	ChatDestinationButton->SetContent( SNew(STextBlock).Text(GetChatButtonText()).TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MidGameMenuButton.TextStyle"));
+	ChatDestinationButton->SetContent( SNew(STextBlock).Text(GetChatButtonText()).TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle")));
 
 	return FReply::Handled();
 }	
@@ -477,19 +477,6 @@ FText SUMidGameInfoPanel::GetChatButtonText()
 
 FReply SUMidGameInfoPanel::UserListToggle()
 {
-/*
-	PlayerListBox->SetVisibility( PlayerListBox->GetVisibility() ==  EVisibility::Visible ? EVisibility::Collapsed :  EVisibility::Visible);
-
-	if (PlayerListBox->GetVisibility() == EVisibility::Visible)
-	{
-		UserListTic->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DownTick"));
-	}
-	else
-	{
-		UserListTic->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.UpTick"));
-	}
-*/
-
 	FVector2D ViewportSize;
 	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
 	float SlotSize;

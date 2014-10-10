@@ -12,6 +12,8 @@
 #include "Slate/Panels/SUWServerBrowser.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
+#include "Slate/SUWindowsStyle_Red.h"
+#include "Slate/SUWindowsStyle_Blue.h"
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWToast.h"
 #include "Slate/SUWInputBox.h"
@@ -75,7 +77,10 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 {
 #if !UE_SERVER
 	SUWindowsStyle::Initialize();
+	SUWindowsStyle_Red::Initialize();
+	SUWindowsStyle_Blue::Initialize();
 #endif
+
 	Super::PlayerAdded(InViewportClient, InControllerID);
 
 	if (FUTAnalytics::IsAvailable())
@@ -587,3 +592,18 @@ void UUTLocalPlayer::SaveChat(FName Type, FString Message, FLinearColor Color)
 {
 	ChatArchive.Add( FStoredChatMessage::Make(Type, Message, Color));
 }
+
+FName UUTLocalPlayer::TeamStyleRef(FName InName)
+{
+	if (PlayerController)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+		if (PC && PC->GetTeamNum() == 0)
+		{
+			return FName( *(TEXT("Red.") + InName.ToString()));
+		}
+	}
+
+	return FName( *(TEXT("Blue.") + InName.ToString()));
+}
+

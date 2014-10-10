@@ -303,42 +303,41 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	}
 
 
-	{ // MidGame Menu Bar Background
+	{ // MidGame Menu Bar Background - RED
 
-		Style.Set("UWindows.Standard.MidGameMenuButton.TextColor", FLinearColor::White);
-		Style.Set("UWindows.Standard.MidGameMenuBar", new BOX_BRUSH("UWindows.Standard.MidGameMenuBar", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
-		Style.Set("UWindows.Standard.MidGameMenuTopBar", new BOX_BRUSH("UWindows.Standard.MidGameMenuTopBar", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
-		
+		Style.Set("Red.UWindows.MidGameMenu.Button.TextColor", FLinearColor::White);
+		Style.Set("Red.UWindows.MidGameMenu.Bar", new BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Bar", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+		Style.Set("Red.UWindows.MidGameMenu.Bar.Top", new BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Bar.Top", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 
-		Style.Set("UWindows.Standard.MidGameMenuButton", FButtonStyle()
+		Style.Set("Red.UWindows.MidGameMenu.Button", FButtonStyle()
 			.SetNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
-			.SetHovered(BOX_BRUSH("UWindows.Standard.MidGameMenuButton.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
-			.SetPressed(BOX_BRUSH("UWindows.Standard.MidGameMenuButton.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Button.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Button.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			.SetHoveredSound(ButtonHoverSound)
 			.SetPressedSound(ButtonPressSound)
 			);
 
 
-		Style.Set("UWindows.MidGame.ChatBarButton.First", FButtonStyle()
-			.SetNormal(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.FirstButton.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
-			.SetHovered(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.FirstButton.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
-			.SetPressed(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.FirstButton.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		Style.Set("Red.UWindows.MidGameMenu.ChatBarButton.First", FButtonStyle()
+			.SetNormal(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Chatbar.FirstButton.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Chatbar.FirstButton.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Chatbar.FirstButton.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			.SetHoveredSound(ButtonHoverSound)
 			.SetPressedSound(ButtonPressSound)
 			);
 
-		Style.Set("UWindows.MidGame.ChatBarButton", FButtonStyle()
-			.SetNormal(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Button.Normal", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
-			.SetHovered(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Button.Hovered", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
-			.SetPressed(BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Button.Pressed", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		Style.Set("Red.UWindows.MidGameMenu.ChatBarButton", FButtonStyle()
+			.SetNormal(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Chatbar.Button.Normal", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Chatbar.Button.Hovered", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Chatbar.Button.Pressed", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
 			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			.SetHoveredSound(ButtonHoverSound)
 			.SetPressedSound(ButtonPressSound)
 			);
 
-		Style.Set("UWindows.MidGame.ChatEditBox", FEditableTextBoxStyle()
+		Style.Set("Red.UWindows.MidGameMenu.ChatEditBox", FEditableTextBoxStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 14))
 			.SetForegroundColor(FLinearColor::White)
 			.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
@@ -347,23 +346,39 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			);
 
-		Style.Set("UWindows.MidGameMenu.Chatbar.Background", new BOX_BRUSH("UWindows.MidGameMenu.Chatbar.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+		Style.Set("Red.UWindows.MidGameMenu.Chatbar.Background", new BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.Chatbar.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 
 
-		Style.Set("UWindows.Standard.MidGameMenuButton.TextStyle", FTextBlockStyle()
+		Style.Set("Red.UWindows.MidGameMenu.Button.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
-		Style.Set("UWindows.Standard.MidGameMenuButton.SubMenu.TextStyle", FTextBlockStyle()
+		Style.Set("Red.UWindows.MidGameMenu.Button.SubMenu.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Medium", 12))
-			.SetColorAndOpacity(FLinearColor::Blue)
+			.SetColorAndOpacity(FLinearColor::White)
 			);
 
-		Style.Set( "UWindows.Standard.MidGame.UserList.Row", FTableRowStyle()
-			.SetEvenRowBackgroundBrush( FSlateNoResource(FVector2D(128.0f, 128.0f)) )
+		Style.Set("Red.UWindows.MidGameMenu.Button.SubMenu.TextStyle.AltTeam", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetColorAndOpacity(FLinearColor(0.38,0.38,1.0,1.0))
+			);
+
+		Style.Set("Red.UWindows.MidGameMenu.MenuList", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("Team0/Red.UWindows.MidGameMenu.MenuList.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered( BOX_BRUSH("Team0/Red.UWindows.MidGameMenu.MenuList.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("Team0/Red.UWindows.MidGameMenu.MenuList.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(BOX_BRUSH("Team0/Red.UWindows.MidGameMenu.MenuList.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("Red.UWindows.MidGameMenu.UserList.Background", new BOX_BRUSH("/Team0/Red.UWindows.MidGameMenu.UserList.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+		Style.Set( "Red.UWindows.MidGameMenu.UserList.Row", FTableRowStyle()
+			.SetEvenRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
 			.SetEvenRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal) )
-			.SetOddRowBackgroundBrush( FSlateNoResource(FVector2D(128.0f, 128.0f)) )
+			.SetOddRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
 			.SetOddRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal ) )
 			.SetSelectorFocusedBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
 			.SetActiveBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
@@ -372,14 +387,104 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetSelectedTextColor( FLinearColor::Black)
 			);
 
-		Style.Set("UWindows.MidGameMenu.UserList.Background", new BOX_BRUSH("UWindows.MidGameMenu.UserList.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
-
-		Style.Set("UWindows.MidGameMenu.Status.TextStyle", FTextBlockStyle()
+		Style.Set("Red.UWindows.MidGameMenu.Status.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
+	}
 
 
+	{ // MidGame Menu Bar Background - BLUE
+
+		Style.Set("Blue.UWindows.MidGameMenu.Button.TextColor", FLinearColor::White);
+		Style.Set("Blue.UWindows.MidGameMenu.Bar", new BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Bar", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+		Style.Set("Blue.UWindows.MidGameMenu.Bar.Top", new BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Bar.Top", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+		Style.Set("Blue.UWindows.MidGameMenu.Button", FButtonStyle()
+			.SetNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHovered(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Button.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Button.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+
+		Style.Set("Blue.UWindows.MidGameMenu.ChatBarButton.First", FButtonStyle()
+			.SetNormal(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Chatbar.FirstButton.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Chatbar.FirstButton.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Chatbar.FirstButton.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("Blue.UWindows.MidGameMenu.ChatBarButton", FButtonStyle()
+			.SetNormal(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Chatbar.Button.Normal", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Chatbar.Button.Hovered", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Chatbar.Button.Pressed", FMargin(6.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("Blue.UWindows.MidGameMenu.ChatEditBox", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetForegroundColor(FLinearColor::White)
+			.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageHovered( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageFocused( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			);
+
+		Style.Set("Blue.UWindows.MidGameMenu.Chatbar.Background", new BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.Chatbar.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+
+		Style.Set("Blue.UWindows.MidGameMenu.Button.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("Blue.UWindows.MidGameMenu.Button.SubMenu.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("Blue.UWindows.MidGameMenu.Button.SubMenu.TextStyle.AltTeam", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetColorAndOpacity(FLinearColor(1.0,0.38,0.38,1.0))
+			);
+
+
+		Style.Set("Blue.UWindows.MidGameMenu.MenuList", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("Team1/Blue.UWindows.MidGameMenu.MenuList.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered( BOX_BRUSH("Team1/Blue.UWindows.MidGameMenu.MenuList.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("Team1/Blue.UWindows.MidGameMenu.MenuList.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(BOX_BRUSH("Team1/Blue.UWindows.MidGameMenu.MenuList.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+
+		Style.Set("Blue.UWindows.MidGameMenu.UserList.Background", new BOX_BRUSH("/Team1/Blue.UWindows.MidGameMenu.UserList.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+		Style.Set( "Blue.UWindows.MidGameMenu.UserList.Row", FTableRowStyle()
+			.SetEvenRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetEvenRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal) )
+			.SetOddRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetOddRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal ) )
+			.SetSelectorFocusedBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetActiveBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetActiveHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetTextColor( FLinearColor::White)
+			.SetSelectedTextColor( FLinearColor::Black)
+			);
+
+
+		Style.Set("Blue.UWindows.MidGameMenu.Status.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
 	}
 
 

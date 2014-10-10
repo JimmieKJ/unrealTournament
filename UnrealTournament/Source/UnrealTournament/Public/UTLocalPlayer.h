@@ -184,6 +184,7 @@ public:
 
 	virtual void SetNickname(FString NewName);
 
+	FName TeamStyleRef(FName InName);
 
 protected:
 
