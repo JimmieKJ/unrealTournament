@@ -1995,7 +1995,10 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	// Perform actual movement
 	if ((CharacterOwner->GetWorldSettings()->Pauser == NULL) && (DeltaTime > 0.f))
 	{
-		// Don't call UpdateRotation(), always use what client sent.  We don't constrain character view rotation in UT
+		if (PC)
+		{
+			PC->UpdateRotation(DeltaTime);
+		}
 		MoveAutonomous(TimeStamp, DeltaTime, MoveFlags, Accel);
 	}
 	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("ServerMove Time %f Acceleration %s Position %s DeltaTime %f"),
