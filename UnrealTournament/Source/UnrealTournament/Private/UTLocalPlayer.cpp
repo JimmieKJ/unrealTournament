@@ -12,8 +12,6 @@
 #include "Slate/Panels/SUWServerBrowser.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
-#include "Slate/SUWindowsStyle_Red.h"
-#include "Slate/SUWindowsStyle_Blue.h"
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWToast.h"
 #include "Slate/SUWInputBox.h"
@@ -77,8 +75,6 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 {
 #if !UE_SERVER
 	SUWindowsStyle::Initialize();
-	SUWindowsStyle_Red::Initialize();
-	SUWindowsStyle_Blue::Initialize();
 #endif
 
 	Super::PlayerAdded(InViewportClient, InControllerID);
