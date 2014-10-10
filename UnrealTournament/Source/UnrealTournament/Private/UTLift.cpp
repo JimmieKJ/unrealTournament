@@ -37,6 +37,10 @@ void AUTLift::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	if (OtherActor)
 	{
 		//UE_LOG(UT, Warning, TEXT("Overlapping %s relative position %f"), *OtherActor->GetName(), GetActorLocation().Z - OtherActor->GetActorLocation().Z);
+		if (Cast<AUTProjectile>(OtherActor))
+		{
+			return;
+		}
 		OnEncroachActor(OtherActor);
 	}
 }
@@ -47,6 +51,7 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 	{
 		//if (GetWorld()->GetTimeSeconds() - LastEncroachNotifyTime > 0.2f)
 		{
+			//if (Other) { UE_LOG(UT, Warning, TEXT("RECEIVE HIT %s"), *Other->GetName()); }
 			if (Cast<AUTProjectile>(Other))
 			{
 				if (bMoveWasBlocked)
@@ -57,7 +62,6 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				bMoveWasBlocked = true;
 				return;
 			}
-			//if (Other) { UE_LOG(UT, Warning, TEXT("RECEIVE HIT %s"), *Other->GetName()); }
 			AUTCharacter* UTChar = Cast<AUTCharacter>(Other);
 			if (UTChar && UTChar->IsDead())
 			{
