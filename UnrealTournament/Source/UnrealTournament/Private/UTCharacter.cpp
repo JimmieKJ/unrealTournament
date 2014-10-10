@@ -2836,7 +2836,7 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 			if (TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this))
 			{
 				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
-				OtherC->Died(Controller, DamageEvent);
+				OtherC->TakeDamage(100000.0f, DamageEvent, Controller, this);
 			}
 		}
 		// TODO: if OtherActor is a vehicle, then we should be killed instead

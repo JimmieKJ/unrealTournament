@@ -16,6 +16,6 @@ class UUTDmgType_Telefragged : public UUTDamageType
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_Telefragged", "{Player2Name}'s atoms were scattered by {Player1Name}.");
 		MaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "MaleSuicideMessage_Telefragged", "{Player2Name} telefragged himself.");
 		FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "FemaleSuicideMessage_Telefragged", "{Player2Name} telefragged herself.");
-		GibHealthThreshold = -10000000;
+		GibHealthThreshold = 10000000;
 	}
 };
