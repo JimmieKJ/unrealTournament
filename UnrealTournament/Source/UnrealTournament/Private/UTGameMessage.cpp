@@ -18,6 +18,7 @@ UUTGameMessage::UUTGameMessage(const class FPostConstructInitializeProperties& P
 	SwitchLevelMessage = NSLOCTEXT("UTGameMessage","SwitchLevelMessage","Loading....");
 	NoNameChange = NSLOCTEXT("UTGameMessage","NoNameChange","You can not change your name.");
 	BecameSpectator = NSLOCTEXT("UTGameMessage","BecameSpectator","You are now a spectator.");
+	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","!! You didn't make the cut !!");
 
 }
 
@@ -48,6 +49,9 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			break;
 		case 7:
 			return GetDefault<UUTGameMessage>(GetClass())->SuddenDeathMessage;
+			break;
+		case 8:
+			return GetDefault<UUTGameMessage>(GetClass())->DidntMakeTheCut;
 			break;
 		default:
 			return FText::GetEmpty();

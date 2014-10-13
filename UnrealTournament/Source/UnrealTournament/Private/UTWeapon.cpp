@@ -82,7 +82,10 @@ void AUTWeapon::PostInitProperties()
 {
 	Super::PostInitProperties();
 
-	DisplayName = FText::FromName(GetClass()->GetFName());
+	if (DisplayName.IsEmpty() || (GetClass() != AUTGameMode::StaticClass() && DisplayName.EqualTo(GetClass()->GetSuperClass()->GetDefaultObject<AUTWeapon>()->DisplayName)))
+	{
+		DisplayName = FText::FromName(GetClass()->GetFName());
+	}
 }
 
 UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const

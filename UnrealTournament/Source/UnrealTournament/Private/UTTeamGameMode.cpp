@@ -209,6 +209,10 @@ float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 {
 	AUTTeamInfo* WinningTeam = NULL;
+
+	// Unlimited play
+	if (GoalScore <= 0) return false;
+
 	for (int32 i = 0; i < Teams.Num(); i++)
 	{
 		if (Teams[i]->Score >= GoalScore)

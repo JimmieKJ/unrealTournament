@@ -30,6 +30,8 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FPostConstructInitial
 
 	MaxIconSize = FVector2D(80, 56);
 
+	SelectedWeaponDisplayTime = 1.5;
+	CurrentSelectedWeaponDisplayTime = 0.0;
 }
 
 void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
@@ -48,6 +50,20 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 		AUTWeapon* PendingWeapon = UTC->GetPendingWeapon();
 		AUTWeapon* CurrentWeapon = UTC->GetWeapon();
+
+		if (PendingWeapon != NULL && PendingWeapon != CurrentWeapon)
+		{
+			SelectedWeaponDisplayName = PendingWeapon->DisplayName;
+			CurrentSelectedWeaponDisplayTime = SelectedWeaponDisplayTime;
+		}
+
+
+		if (SelectedWeaponDisplayTime > 0.0)
+		{
+			float Alpha = CurrentSelectedWeaponDisplayTime > (SelectedWeaponDisplayTime * 0.5) ? 1.0 : CurrentSelectedWeaponDisplayTime / (SelectedWeaponDisplayTime * 0.5);
+			DrawText(SelectedWeaponDisplayName, 0, -150, UTHUDOwner->MediumFont, true, FVector2D(0,-1), FLinearColor::Black, false, FLinearColor::Black, 1.0, Alpha, FLinearColor::Yellow, ETextHorzPos::Center);
+			CurrentSelectedWeaponDisplayTime-=DeltaTime;
+		}
 
 		// Get the weapon list.
 		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)

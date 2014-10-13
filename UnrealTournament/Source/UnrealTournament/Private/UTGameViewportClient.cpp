@@ -18,7 +18,7 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 #if !UE_SERVER
 
 	// Don't care about net drivers that aren't the game net driver, they are probably just beacon net drivers
-	if (NetDriver->NetDriverName != NAME_GameNetDriver)
+	if (NetDriver->NetDriverName != FName(TEXT("PendingNetDriver")) && NetDriver->NetDriverName != NAME_GameNetDriver)
 	{
 		return;
 	}

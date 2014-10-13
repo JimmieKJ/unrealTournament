@@ -33,6 +33,9 @@ class UUTGameMessage : public UUTLocalMessage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText BecameSpectator;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
+	FText DidntMakeTheCut;
+
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const override;
 };
 

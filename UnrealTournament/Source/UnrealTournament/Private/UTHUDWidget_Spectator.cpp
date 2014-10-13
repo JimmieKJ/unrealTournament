@@ -73,7 +73,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			{
 				if (UTGameState->bOnlyTheStrongSurvive)
 				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","Overtime","You didn't make the Cut!");
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [FIRE] to change viewpoint...");
 				}
 				else if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
 				{

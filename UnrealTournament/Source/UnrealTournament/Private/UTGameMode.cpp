@@ -129,8 +129,8 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	}
 
 	ServerPassword = TEXT("");
-	InOpt = ParseOption(Options, TEXT("ServerPassword"));
-	bRequirePassword = !InOpt.IsEmpty();
+	ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
+	bRequirePassword = !ServerPassword.IsEmpty();
 
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
 
@@ -471,6 +471,12 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 		DiscardInventory(KilledPawn, Killer);
 		NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
+
+		if (UTGameState->IsMatchInOvertime() && UTGameState->bOnlyTheStrongSurvive)
+		{
+			KilledPlayer->ChangeState(NAME_Spectating);
+		}
+
 	}
 }
 
@@ -1254,17 +1260,29 @@ void AUTGameMode::HandleEnteringOvertime()
 			{
 				// No longer the best.. kill him.. KILL HIM NOW!!!!!
 				AController* COwner = Cast<AController>(KillPlayer->GetOwner());
-				if (COwner != NULL && COwner->GetPawn() != NULL)
+				if (COwner != NULL )
 				{
-					AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
-					if (UTChar != NULL)
+					if (COwner->GetPawn() != NULL)
 					{
-						UE_LOG(UT, Log, TEXT("    -- Calling Died"));
-						// Kill off the pawn...
-						UTChar->Died(NULL, FDamageEvent(UUTDamageType::StaticClass()));
-						// Send this character a message/taunt about not making the cut....
+						AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
+						if (UTChar != NULL)
+						{
+							UE_LOG(UT, Log, TEXT("    -- Calling Died"));
+							// Kill off the pawn...
+							UTChar->Died(NULL, FDamageEvent(UUTDamageType::StaticClass()));
+							// Send this character a message/taunt about not making the cut....
+						}
+					}
+
+					// Tell the player they didn't make the cut
+					AUTPlayerController* PC = Cast<AUTPlayerController>(COwner);
+					if (PC)
+					{
+						PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 8);					
+						PC->ChangeState(NAME_Spectating);
 					}
 				}
+
 
 				KillPlayer = NULL;
 			}

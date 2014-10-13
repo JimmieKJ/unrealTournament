@@ -91,6 +91,7 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 
 	Canvas->Reset();
 
+	float Y = 0;
 	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		// When we hit the empty section of the array, exit out
@@ -105,7 +106,8 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 			continue;
 		}
 
-		DrawMessage(QueueIndex, 0.0f, 0.0f);
+		DrawMessage(QueueIndex, 0.0f, Y);
+		Y += MessageFont->GetMaxCharHeight() * GetTextScale(QueueIndex);
 	}
 }
 
