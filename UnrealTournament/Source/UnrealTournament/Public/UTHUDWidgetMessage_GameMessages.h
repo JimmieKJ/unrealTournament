@@ -9,7 +9,7 @@ class UUTHUDWidgetMessage_GameMessages : public UUTHUDWidgetMessage
 
 public:
 protected:
-	float UUTHUDWidgetMessage_GameMessages::GetTextScale(int32 QueueIndex);
+	float GetTextScale(int32 QueueIndex);
 private:
 
 };
