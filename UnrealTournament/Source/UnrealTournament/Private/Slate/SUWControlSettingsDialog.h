@@ -102,6 +102,7 @@ protected:
 	TSharedPtr<SSlider> MouseSensitivity;
 	TSharedPtr<SCheckBox> MouseSmoothing;
 	TSharedPtr<SCheckBox> MouseInvert;
+	TSharedPtr<STextBlock> MouseSensitivityText;
 	/** range of values passed to PlayerInput->SetMouseSensitivity() which will be normalized to 0.0 - 1.0 for the slider widget */
 	FVector2D MouseSensitivityRange;
 
@@ -130,6 +131,7 @@ protected:
 		return TOptional<float>(MaxDodgeTapTimeValue);
 	}
 
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 };
 
 #endif

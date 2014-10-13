@@ -499,6 +499,13 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 								+ SHorizontalBox::Slot()
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 								[
+									SAssignNew(MouseSensitivityText, STextBlock)
+									.ColorAndOpacity(FLinearColor::Black)
+									.Text(FString::Printf(TEXT("%f"), UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity()))
+								]
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								[
 									SNew(SBox)
 									.Content()
 									[
@@ -809,4 +816,13 @@ FReply SUWControlSettingsDialog::OnButtonClick(uint16 ButtonID)
 
 }
 
+void SUWControlSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	if (MouseSensitivityText.IsValid())
+	{
+		MouseSensitivityText->SetText(FString::Printf(TEXT("%f"), MouseSensitivity->GetValue() * (MouseSensitivityRange.Y - MouseSensitivityRange.X) + MouseSensitivityRange.X));
+	}
+}
 #endif
