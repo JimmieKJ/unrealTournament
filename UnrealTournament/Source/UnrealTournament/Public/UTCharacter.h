@@ -833,15 +833,30 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DodgeSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* SwimPushSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PainSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WallHitSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DodgeRollSound;
 
-	/** Ambient sound played while sprinting */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* SwimPushSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* WaterEntrySound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* WaterExitSound;
+
+	/** Minimum time between playing water entry/exit sounds */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		float MinWaterSoundInterval;
+
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+		float LastWaterSoundTime;
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual void PlayWaterSound(USoundBase* WaterSound);
+
+		/** Ambient sound played while sprinting */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* SprintAmbientSound;
 

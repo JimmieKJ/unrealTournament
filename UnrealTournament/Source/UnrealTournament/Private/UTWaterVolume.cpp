@@ -28,25 +28,38 @@ void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
 {
 	if (Other)
 	{
-		if (EntrySound)
+		AUTCharacter* P = Cast<AUTCharacter>(Other);
+		if (P)
+		{
+			P->PlayWaterSound(EntrySound ? EntrySound : P->WaterEntrySound);
+			if (P->CharacterMovement)
+			{
+				P->CharacterMovement->Velocity.Z *= PawnEntryVelZScaling;
+				P->CharacterMovement->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
+			}
+		}
+		else if (EntrySound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
-		}
-		ACharacter* P = Cast<ACharacter>(Other);
-		if (P && P->CharacterMovement)
-		{
-			P->CharacterMovement->Velocity.Z *= PawnEntryVelZScaling;
-			P->CharacterMovement->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
 		}
 		Super::ActorEnteredVolume(Other);
 	}
 }
+float MinWaterSoundInterval;
+
+UPROPERTY(BlueprintReadWrite, Category = Sounds)
+float LastWaterSoundTime;
 
 void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 {
 	if (Other)
 	{
-		if (ExitSound)
+		AUTCharacter* P = Cast<AUTCharacter>(Other);
+		if (P)
+		{
+			P->PlayWaterSound(ExitSound ? ExitSound : P->WaterExitSound);
+		}
+		else if (ExitSound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
 		}
@@ -58,15 +71,19 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 {
 	if (Other)
 	{
-		if (EntrySound)
+		AUTCharacter* P = Cast<AUTCharacter>(Other);
+		if (P)
+		{
+			P->PlayWaterSound(EntrySound ? EntrySound : P->WaterEntrySound);
+			if (P->CharacterMovement)
+			{
+				P->CharacterMovement->Velocity.Z *= PawnEntryVelZScaling;
+				P->CharacterMovement->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
+			}
+		}
+		else if (EntrySound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
-		}
-		ACharacter* P = Cast<ACharacter>(Other);
-		if (P && P->CharacterMovement)
-		{
-			P->CharacterMovement->Velocity.Z *= PawnEntryVelZScaling;
-			P->CharacterMovement->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
 		}
 		Super::ActorEnteredVolume(Other);
 	}
@@ -76,7 +93,12 @@ void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
 {
 	if (Other)
 	{
-		if (ExitSound)
+		AUTCharacter* P = Cast<AUTCharacter>(Other);
+		if (P)
+		{
+			P->PlayWaterSound(ExitSound ? ExitSound : P->WaterExitSound);
+		}
+		else if (ExitSound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
 		}

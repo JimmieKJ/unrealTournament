@@ -115,10 +115,10 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 
 	GoodMoveAckTime = 0.f;
-
 	MaxStackedArmor = 200;
-
 	MaxDeathLifeSpan = 30.0f;
+	MinWaterSoundInterval = 0.8f;
+	LastWaterSoundTime = 0.f;
 }
 
 void AUTCharacter::BaseChange()
@@ -133,6 +133,16 @@ void AUTCharacter::BaseChange()
 		}
 	}
 }
+
+void AUTCharacter::PlayWaterSound(USoundBase* WaterSound)
+{
+	if (WaterSound && (GetWorld()->GetTimeSeconds() - LastWaterSoundTime > MinWaterSoundInterval))
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterSound, this, SRT_None);
+		LastWaterSoundTime = GetWorld()->GetTimeSeconds();
+	}
+}
+
 
 void AUTCharacter::OnWalkingOffLedge_Implementation()
 {
