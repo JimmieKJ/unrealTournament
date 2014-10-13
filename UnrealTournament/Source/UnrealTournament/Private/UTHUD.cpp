@@ -196,6 +196,14 @@ void AUTHUD::BuildHudWidget(FString NewWidgetString)
 					{
 						NewWidget->ScreenPosition = JSon2FVector2D( (*ScreenPositionVal)->AsObject(), NewWidget->ScreenPosition);
 					}
+
+					const TSharedPtr<FJsonValue>* SizeVal = JSONObject->Values.Find(TEXT("Size"));
+					if (ScreenPositionVal != NULL && (*SizeVal)->Type == EJson::Object) 
+					{
+						NewWidget->Size = JSon2FVector2D( (*SizeVal)->AsObject(), NewWidget->Size);
+					}
+
+
 				}
 			}
 		}
