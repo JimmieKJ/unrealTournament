@@ -42,8 +42,21 @@ struct FCompareServerByNumSpectatorsDesc	{FORCEINLINE bool operator()( const TSh
 struct FCompareServerByVersion		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->Version < B->Version);}};
 struct FCompareServerByVersionDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->Version > B->Version);}};
 
-struct FCompareServerByPing		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->Ping < B->Ping);	}};
-struct FCompareServerByPingDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->Ping > B->Ping);	}};
+struct FCompareServerByPing		
+{
+	FORCEINLINE bool operator()	( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const 
+	{
+		return (B->Ping < 0 || (A->Ping >= 0 && A->Ping < B->Ping));	
+	}
+};
+
+struct FCompareServerByPingDesc	
+{
+	FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const 
+	{
+		return ( A->Ping < 0 || (B->Ping >= 0 && A->Ping > B->Ping));	
+	}
+};
 
 struct FCompareRulesByRule		{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule > B->Rule);	}};
 struct FCompareRulesByRuleDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule < B->Rule);	}};
@@ -399,7 +412,7 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 				.OnSplitterFinishedResizing(this, &SUWServerBrowser::VertSplitterResized)
 
 				+ SSplitter::Slot()
-				.Value(0.99)
+				.Value(0.85)
 				[
 					SNew(SBorder)
 					[
@@ -544,7 +557,7 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 					]
 				]
 				+ SSplitter::Slot()
-				. Value(0.019)
+				. Value(0.15)
 				[
 
 					SAssignNew( HorzSplitter,SSplitter )
