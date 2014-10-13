@@ -38,11 +38,6 @@ void SUWindowsDesktop::OnMenuOpened()
 void SUWindowsDesktop::OnMenuClosed()
 {
 	TSharedPtr<SViewport> VP = StaticCastSharedPtr<SViewport>(GameViewportWidget);
-	if (VP.IsValid())
-	{
-		VP->ClearWidgetToFocusOnActivate();
-	}
-
 	FSlateApplication::Get().SetKeyboardFocus(GameViewportWidget);
 }
 
