@@ -23,59 +23,52 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY()
 	int32 GameNetworkVersion;
 
+	//==================================
+	// Frame Rate Smoothing
+
+	/** Used to prevent smoothing more than once per frame. */
+	UPROPERTY()
+	float LastSmoothTime;
+
+	/** Current smoothed delta time. */
+	UPROPERTY()
+	float SmoothedDeltaTime;
+
+	/** Frame time (in seconds) longer than this is considered a hitch. */
+	UPROPERTY(config)
+	float HitchTimeThreshold;
+
+	/** Frame time longer than SmoothedDeltaTime*HitchScaleThreshold is considered a hitch. */
+	UPROPERTY(config)
+	float HitchScaleThreshold;
+
+	/** How fast to smooth up from a hitch frame. */
+	UPROPERTY(config)
+	float HitchSmoothingRate;
+
+	/** How fast to smooth between normal frames. */
+	UPROPERTY(config)
+	float NormalSmoothingRate;
+
+	/** Never return a smoothed time larger than this. */
+	UPROPERTY(config)
+	float MaximumSmoothedTime;
+
+	/** Return desired MaxTickRate for smoothing. */
+	float SmoothFrameRate(float DeltaTime);
+
+	//==================================
+
 	/* Set true to allow clients to toggle netprofiling using the NP console command. @TODO FIXMESTEVE temp until we have adminlogin/admin server console command executing */
 	UPROPERTY(config)
 	bool bAllowClientNetProfile;
-
-	// Maximum tick rate for a client
-	UPROPERTY()
-	float CurrentMaxTickRate;
-
-	// How many frames in a row we've surpassed maximum tick rate
-	UPROPERTY()
-	int32 MadeFrames;
-
-	// How many times we've raised maximum tick rate in a row
-	UPROPERTY()
-	int32 MadeFramesStreak;
-
-	// How many times we've been slower than maximum tick rate since the last time it was raised
-	UPROPERTY()
-	int32 MissedFrames;
-
-	/* How much to reduce maximum frame rate for missing frame rate too often */
-	UPROPERTY(config)
-	float MissedFramePenalty;
-	
-	/* How much to raise frame rate by when surpassing maximum frame rate */
-	UPROPERTY(config)
-	float MadeFrameBonus;
-
-	/* How many frames must be missed before considering applying a penalty */
-	UPROPERTY(config)
-	int32 MissedFrameThreshold;
-
-	/* Starting point for a sliding scale of how many seconds of frames must be consistently good before raising the cap */
-	UPROPERTY(config)
-	float MadeFrameStartingThreshold;
-
-	/* Ending point for a sliding scale of how many seconds of frames must be consistently good before raising the cap */
-	UPROPERTY(config)
-	float MadeFrameMinimumThreshold;
 
 	/* Frame rate cap */
 	UPROPERTY(config)
 	float FrameRateCap;
 
-	/* Frame rate minimum for smoothing to kick in */
-	UPROPERTY(config)
-	float FrameRateMinimum;
-
 	/** Max prediction ping (used when negotiating with clients) */
 	float ServerMaxPredictionPing;
-
-	float RunningAverageDeltaTime;
-	float SmoothedFrameRate;
 
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
@@ -83,8 +76,6 @@ class UUTGameEngine : public UGameEngine
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) override;
-
-	void SmoothFrameRate(float DeltaTime);
 
 	UT_LOADMAP_DEFINITION()
 };

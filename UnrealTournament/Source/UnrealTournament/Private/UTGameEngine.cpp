@@ -12,10 +12,15 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
 	GameNetworkVersion = 3008010;
 
-	CurrentMaxTickRate = 100.f;
-	// Running average delta time, initial value at 100 FPS so fast machines don't have to creep up
-	// to a good frame rate due to code limiting upward "mobility".
-	RunningAverageDeltaTime = 1 / 100.f;
+	LastSmoothTime = 0.f;
+	SmoothedDeltaTime = 0.01f;
+
+	HitchTimeThreshold = 0.05f;
+	HitchScaleThreshold = 2.f;
+	HitchSmoothingRate = 0.5f;
+	NormalSmoothingRate = 0.1f;
+	MaximumSmoothedTime = 0.04f;
+
 	ServerMaxPredictionPing = 150.f;
 }
 
@@ -123,15 +128,7 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 		}
 	}
 
-	SmoothFrameRate(DeltaSeconds);
-
 	Super::Tick(DeltaSeconds, bIdleMode);
-
-	if(GIsRequestingExit )
-	{
-		SmoothFrameRate(DeltaSeconds);
-	}
-
 }
 
 #if PLATFORM_LINUX
@@ -301,23 +298,52 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	// Don't smooth here if we're a dedicated server
 	if (IsRunningDedicatedServer())
 	{
-		return Super::GetMaxTickRate(DeltaTime, bAllowFrameRateSmoothing);
-	}
-		
-	if (bSmoothFrameRate && bAllowFrameRateSmoothing && CVarSmoothFrameRate.GetValueOnGameThread())
-	{
-		MaxTickRate = CurrentMaxTickRate;
-		
-		// Make sure that we don't try to smooth below a certain minimum
-		MaxTickRate = FMath::Max(FrameRateMinimum, MaxTickRate);
+		UWorld* World = NULL;
+
+		for (int32 WorldIndex = 0; WorldIndex < WorldList.Num(); ++WorldIndex)
+		{
+			if (WorldList[WorldIndex].WorldType == EWorldType::Game)
+			{
+				World = WorldList[WorldIndex].World();
+				break;
+			}
+		}
+
+		if (World)
+		{
+			UNetDriver* NetDriver = World->GetNetDriver();
+			// In network games, limit framerate to not saturate bandwidth.
+			if (NetDriver && (NetDriver->GetNetMode() == NM_DedicatedServer || (NetDriver->GetNetMode() == NM_ListenServer && NetDriver->bClampListenServerTickRate)))
+			{
+				// We're a dedicated server, use the LAN or Net tick rate.
+				MaxTickRate = FMath::Clamp(NetDriver->NetServerMaxTickRate, 10, 120);
+			}
+		}
+		return MaxTickRate;
 	}
 
 	if (CVarUnsteadyFPS.GetValueOnGameThread())
 	{
-		static float LastMaxTickRate = 85.f;
-		float RandDelta = FMath::FRandRange(-5.f, 5.f);
-		MaxTickRate = FMath::Clamp(LastMaxTickRate + RandDelta, 85.f, 120.f);
-		LastMaxTickRate = MaxTickRate;
+		float RandDelta = 0.f;
+		// random variation in frame time because of effects, etc.
+		if (FMath::FRand() < 0.5f)
+		{
+			RandDelta = (1.f+FMath::FRand()) * DeltaTime;
+		}
+		// occasional large hitches
+		if (FMath::FRand() < 0.002f)
+		{
+			RandDelta += 0.1f;
+		}
+
+		DeltaTime += RandDelta;
+		MaxTickRate = 1.f / DeltaTime;
+		//UE_LOG(UT, Warning, TEXT("FORCING UNSTEADY FRAME RATE desired delta %f adding %f maxtickrate %f"),  DeltaTime, RandDelta, MaxTickRate);
+	}
+
+	if (bSmoothFrameRate && bAllowFrameRateSmoothing && CVarSmoothFrameRate.GetValueOnGameThread())
+	{
+		MaxTickRate = SmoothFrameRate(DeltaTime);
 	}
 
 	// Hard cap at frame rate cap
@@ -336,41 +362,37 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	return MaxTickRate;
 }
 
-void UUTGameEngine::SmoothFrameRate(float DeltaTime)
+float UUTGameEngine::SmoothFrameRate(float DeltaTime)
 {
-	// Adjust the maximum tick rate dynamically
-	// As maximum tick rate is met consistently, shorten the time period to try to reach equilibrium faster
-	if (1.f / DeltaTime < CurrentMaxTickRate * 0.9f)
+	// make sure to only smooth once per frame
+	if (FApp::GetCurrentTime() != LastSmoothTime)
 	{
-		MissedFrames++;
-		MadeFrames = 0;
-		MadeFramesStreak = 0;
-		// Miss enough frames during this sample period, apply MissedFramePenalty
-		if (MissedFrames > MissedFrameThreshold)
-		{
-			CurrentMaxTickRate -= MissedFramePenalty;
-			MissedFrames = 0;
-			MadeFrames = 0;
-			//UE_LOG(UT, Log, TEXT("Missed framerate %f %f"), CurrentMaxTickRate, 1.f / DeltaTime);
-		}
-	}
-	else
-	{
-		MadeFrames++;
-		if (MadeFrames >= CurrentMaxTickRate * FMath::Max(MadeFrameMinimumThreshold, MadeFrameStartingThreshold - MadeFramesStreak))
-		{
-			// We made framerate enough times in a row, creep max back up
-			MadeFramesStreak++;
-			CurrentMaxTickRate += MadeFrameBonus;
+		LastSmoothTime = FApp::GetCurrentTime();
 
-			if (FrameRateCap > 0)
-			{
-				CurrentMaxTickRate = FMath::Min(CurrentMaxTickRate, FrameRateCap);
-			}
-
-			MadeFrames = 0;
-			MissedFrames = 0;
-			//UE_LOG(UT, Log, TEXT("Made framerate %f %f"), CurrentMaxTickRate, 1.f / DeltaTime);
+		if (DeltaTime > SmoothedDeltaTime)
+		{
+			// can't slow down drop
+			SmoothedDeltaTime = DeltaTime;
+			// return 0.f; // @TODO FIXMESTEVE - not doing this so unsteady FPS is valid
 		}
+		else if (SmoothedDeltaTime > FMath::Max(HitchTimeThreshold, HitchScaleThreshold * DeltaTime))
+		{
+			// fast return from hitch - smoothing them makes game crappy a long time
+			HitchSmoothingRate = FMath::Clamp(HitchSmoothingRate, 0.f, 1.f);
+			SmoothedDeltaTime = (1.f - HitchSmoothingRate)*SmoothedDeltaTime + HitchSmoothingRate*DeltaTime;
+		}
+		else
+		{
+			// simply smooth the trajectory back up to limit mouse input variations because of difference in sampling frame time and this frame time
+			NormalSmoothingRate = FMath::Clamp(NormalSmoothingRate, 0.f, 1.f);
+			SmoothedDeltaTime = (1.f - NormalSmoothingRate)*SmoothedDeltaTime + NormalSmoothingRate*DeltaTime;
+		}
+
+		// Make sure that we don't try to smooth below a certain minimum
+		SmoothedDeltaTime = FMath::Clamp(SmoothedDeltaTime, 0.001f, MaximumSmoothedTime);
 	}
+	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
+	// invert to get desired tick rate
+	return 1.f / SmoothedDeltaTime;
 }
+
