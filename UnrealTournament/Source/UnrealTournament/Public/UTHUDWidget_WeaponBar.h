@@ -40,6 +40,12 @@ public:
 	UPROPERTY()
 	FVector2D MaxIconSize;
 
+	UPROPERTY()
+	FText SelectedWeaponDisplayName;
+
+	UPROPERTY()
+	float SelectedWeaponDisplayTime;
+
 	virtual void Draw_Implementation(float DeltaTime);
 
 protected:
@@ -53,6 +59,6 @@ private:
 	float SelectedWeaponScale;		// How big should the selected weapon be
 	float BounceWeaponScale;		// How big should it grow too before bouncing back
 
-	
+	float CurrentSelectedWeaponDisplayTime;
 
 };
