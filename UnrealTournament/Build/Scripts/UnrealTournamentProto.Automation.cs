@@ -706,6 +706,14 @@ class UnrealTournament_PromoteBuild : BuildCommand
 				LabelInMcpConfigs = ProdStagingAndGameDevMcpConfigString;
 			}
 			LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, Platforms, LabelInMcpConfigs, FromApp);
+			// If labeling as the Live build, also create a new archive label based on the date
+			if (DestinationLabel == "Live")
+			{
+				string DateFormatString = "yyyy.MM.dd.HH.mm";
+				string ArchiveDateString = DateTime.Now.ToString(DateFormatString);
+				string ArchiveLabel = "Archived" + ArchiveDateString;
+				LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, Platforms, LabelInMcpConfigs, FromApp);
+			}
 		}
 
         Log("************************* UnrealTournament_PromoteBuild completed");
