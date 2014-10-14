@@ -22,7 +22,7 @@ UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FPostConstructInitial
 void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (UTC)
+	if (UTC != NULL && !UTC->IsDead())
 	{
 		int32 Health = UTC->Health;
 		if (Health != LastHealth)
