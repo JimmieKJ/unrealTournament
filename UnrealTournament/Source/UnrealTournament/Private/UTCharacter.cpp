@@ -427,7 +427,8 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		}
 
 		// play footstep sounds when weapon changes bob direction if walking
-		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI)))
+		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
+			&& (Mesh->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !Mesh->bRecentlyRendered)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}
@@ -2015,6 +2016,10 @@ APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 
 void AUTCharacter::PlayFootstep(uint8 FootNum)
 {
+	if (GetWorld()->TimeSeconds - LastFootstepTime < 0.1f)
+	{
+		return;
+	}
 	if (FeetAreInWater())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
