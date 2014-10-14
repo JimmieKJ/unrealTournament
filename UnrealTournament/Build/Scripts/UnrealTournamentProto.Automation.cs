@@ -760,3 +760,112 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		}
 	}
 }
+
+public class PackageCookedDir : BuildCommand
+{
+    public string DLCName;
+
+    static List<UnrealTargetPlatform> GetClientTargetPlatforms(BuildCommand Cmd)
+    {
+        List<UnrealTargetPlatform> ClientPlatforms = new List<UnrealTargetPlatform>();
+
+        ClientPlatforms.Add(UnrealTargetPlatform.Win64);
+        /*
+        ClientPlatforms.Add(UnrealTargetPlatform.Win32);
+        ClientPlatforms.Add(UnrealTargetPlatform.Mac);
+        if (!Cmd.ParseParam("nolinux"))
+        {
+            ClientPlatforms.Add(UnrealTargetPlatform.Linux);
+        }
+        */
+
+        return ClientPlatforms;
+    }
+
+    static List<UnrealTargetPlatform> GetServerTargetPlatforms(BuildCommand Cmd)
+    {
+        List<UnrealTargetPlatform> ServerPlatforms = new List<UnrealTargetPlatform>();
+        /*
+        if (!Cmd.ParseParam("mac"))
+        {
+            ServerPlatforms.Add(UnrealTargetPlatform.Win64);
+            if (!Cmd.ParseParam("nolinux"))
+            {
+                ServerPlatforms.Add(UnrealTargetPlatform.Linux);
+            }
+        }
+        */
+        return ServerPlatforms;
+    }
+
+    static public ProjectParams GetParams(BuildCommand Cmd, string DLCName)
+    {
+        string P4Change = "Unknown";
+        string P4Branch = "Unknown";
+        if (P4Enabled)
+        {
+            P4Change = P4Env.ChangelistString;
+            P4Branch = P4Env.BuildRootEscaped;
+        }
+        
+        var Params = new ProjectParams
+        (
+            // Shared
+            RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
+
+            // Build
+            EditorTargets: new ParamList<string>("UnrealTournamentEditor", "BuildPatchTool"),
+            ClientCookedTargets: new ParamList<string>("UnrealTournament"),
+            ServerCookedTargets: new ParamList<string>("UnrealTournamentServer"),
+
+            ClientConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development },
+            ServerConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development },
+            ClientTargetPlatforms: GetClientTargetPlatforms(Cmd),
+            ServerTargetPlatforms: GetServerTargetPlatforms(Cmd),
+            Build: !Cmd.ParseParam("skipbuild"),
+            Cook: true,
+            CulturesToCook: new ParamList<string>("en"),
+            SkipCook: Cmd.ParseParam("skipcook"),
+            Clean: !Cmd.ParseParam("NoClean") && !Cmd.ParseParam("skipcook") && !Cmd.ParseParam("skippak") && !Cmd.ParseParam("skipstage") && !Cmd.ParseParam("skipbuild"),
+            DedicatedServer: true,
+            Pak: true,
+            SkipPak: Cmd.ParseParam("skippak"),
+            NoXGE: Cmd.ParseParam("NoXGE"),
+            Stage: true,
+            SkipStage: Cmd.ParseParam("skipstage"),
+            NoDebugInfo: Cmd.ParseParam("NoDebugInfo"),
+            CrashReporter: !Cmd.ParseParam("mac"), // @todo Mac: change to true when Mac implementation is ready
+            StageNonMonolithic: true,
+            // if we are running, we assume this is a local test and don't chunk
+            Run: Cmd.ParseParam("Run"),
+            StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", DLCName)
+        );
+        Params.ValidateAndLog();
+        return Params;
+    }
+
+    public override void ExecuteBuild()
+    {
+        DLCName = ParseParamValue("DLCName", "DM-NickTest2");
+
+        var Params = GetParams(this, DLCName);
+
+        var DeployContextList = Project.CreateDeploymentContext(Params, false, true);
+        foreach (var SC in DeployContextList)
+        {
+            // Cook with -newcook
+            CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, null, "WindowsNoEditor", "-newcook -SHIPPEDASSETREGISTRY=WindowsNoEditorAssetRegistry.bin ");
+            
+            // Put all of the cooked dir into the staged dir
+            SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin", CommandUtils.CombinePaths("Engine", "*") }, "", true, !Params.UsePak(SC.StageTargetPlatform));
+
+            // Stage and pak it all
+            Project.ApplyStagingManifest(Params, SC);
+
+            // Move the buried pak file to a better place
+            CommandUtils.DeleteFile(true, CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
+            CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
+            CommandUtils.DeleteDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform) });
+        }
+    }
+}
