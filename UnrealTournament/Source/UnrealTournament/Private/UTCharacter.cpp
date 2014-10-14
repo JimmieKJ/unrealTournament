@@ -2432,6 +2432,18 @@ void AUTCharacter::Tick(float DeltaTime)
 					// clamp remaining time so that the final portion of the effect snaps instead of fading
 					// this makes sure it's always clear that spawn protection is still active
 					ShaderValue = FMath::Max(Pct, 0.25f);
+					// skip spawn protection visual if local player is on same team
+					for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+					{
+						if (It->PlayerController)
+						{
+							if (GS->OnSameTeam(this, It->PlayerController))
+							{
+								ShaderValue = 0.f;
+							}
+							break;
+						}
+					}
 				}
 			}
 			BodyMI->SetScalarParameterValue(NAME_SpawnProtectionPct, ShaderValue);
