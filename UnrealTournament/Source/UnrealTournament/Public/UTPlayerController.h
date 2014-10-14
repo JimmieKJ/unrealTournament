@@ -285,6 +285,9 @@ public:
 	UFUNCTION(Exec)
 	virtual void SetEmoteSpeed(float NewEmoteSpeed);
 
+	UFUNCTION(Exec)
+	virtual void SetMouseSensitivityUT(float NewSensitivity);
+
 	virtual void ClientSetViewTarget_Implementation(AActor* A, FViewTargetTransitionParams TransitionParams) override;
 
 	UPROPERTY()

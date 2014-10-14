@@ -1661,3 +1661,19 @@ void AUTPlayerController::ServerViewPawn_Implementation(APawn* PawnToView)
 {
 	SetViewTarget(PawnToView->PlayerState);
 }
+
+void AUTPlayerController::SetMouseSensitivityUT(float NewSensitivity)
+{
+	PlayerInput->SetMouseSensitivity(NewSensitivity);
+
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
+	{
+		if (Entry.AxisKeyName == EKeys::MouseX || Entry.AxisKeyName == EKeys::MouseY)
+		{
+			Entry.AxisProperties.Sensitivity = NewSensitivity;
+		}
+	}
+
+	InputSettings->SaveConfig();
+}
