@@ -8,6 +8,7 @@
 #include "UnrealNetwork.h"
 #include "UTDmgType_Suicide.h"
 #include "UTDmgType_Fell.h"
+#include "UTDmgType_Drown.h"
 #include "UTDmgType_FallingCrush.h"
 #include "UTJumpBoots.h"
 #include "UTCTFFlag.h"
@@ -119,6 +120,11 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	MaxDeathLifeSpan = 30.0f;
 	MinWaterSoundInterval = 0.8f;
 	LastWaterSoundTime = 0.f;
+	DrowningDamagePerSecond = 2.f;
+	MaxUnderWaterTime = 30.f;
+	bHeadIsUnderwater = false;
+	LastBreathTime = 0.f;
+	LastDrownTime = 0.f;
 }
 
 void AUTCharacter::BaseChange()
@@ -2542,11 +2548,67 @@ void AUTCharacter::Tick(float DeltaTime)
 			}
 		}
 	}
+
+	if ((Role == ROLE_Authority) && CharacterMovement && CharacterMovement->IsInWater())
+	{
+		bool bHeadWasUnderwater = bHeadIsUnderwater;
+		bHeadIsUnderwater = HeadIsUnderWater();
+
+		// handle being in or out of water
+		if (bHeadIsUnderwater)
+		{
+			if (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime)
+			{
+				if (GetWorld()->GetTimeSeconds() - LastDrownTime > 1.f)
+				{
+					TakeDrowningDamage();  
+					LastDrownTime = GetWorld()->GetTimeSeconds();
+				}
+			}
+		}
+		else
+		{
+			if (bHeadWasUnderwater && (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime - 5.f))
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), GaspSound, this, SRT_None);
+			}
+			LastBreathTime = GetWorld()->GetTimeSeconds();
+		}
+	}
 	/*
 	if (CharacterMovement && ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f))
 	{
 		UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
+}
+
+bool AUTCharacter::HeadIsUnderWater()
+{
+	// check for all volumes that overlap head position
+	APhysicsVolume* NewVolume = NULL;
+	TArray<FOverlapResult> Hits;
+	static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
+	FComponentQueryParams Params(NAME_PhysicsVolumeTrace, GetOwner());
+	FVector HeadLocation = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
+	GetWorld()->OverlapMulti(Hits, HeadLocation, FQuat::Identity, CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
+
+	for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
+	{
+		const FOverlapResult& Link = Hits[HitIdx];
+		APhysicsVolume* const V = Cast<APhysicsVolume>(Link.GetActor());
+		if (V && (!NewVolume || (V->Priority > NewVolume->Priority)))
+		{
+			NewVolume = V;
+		}
+	}
+	return (NewVolume && NewVolume->bWaterVolume);
+}
+
+void AUTCharacter::TakeDrowningDamage()
+{
+	FUTPointDamageEvent DamageEvent(DrowningDamagePerSecond, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Drown::StaticClass());
+	TakeDamage(DrowningDamagePerSecond, DamageEvent, Controller, this);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), DrowningSound, this, SRT_None);
 }
 
 uint8 AUTCharacter::GetTeamNum() const

@@ -843,24 +843,58 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DodgeRollSound;
 
+	//================================
+	// Swimming
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 		USoundBase* SwimPushSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 		USoundBase* WaterEntrySound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 		USoundBase* WaterExitSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* DrowningSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* GaspSound;
 
 	/** Minimum time between playing water entry/exit sounds */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
 		float MinWaterSoundInterval;
 
+	/** Last time a water sound was played (for limiting frequency). */
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 		float LastWaterSoundTime;
+
+	/** Maximum time underwater without breathing before taking damage */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
+		float MaxUnderWaterTime;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
+		float DrowningDamagePerSecond;
+
+	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
+		bool bHeadIsUnderwater;
+
+	/** Compare to MaxUnderWaterTime to see if drowning */
+	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
+		float LastBreathTime;
+
+	/** Take drowning damage once per seconds */
+	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
+		float LastDrownTime;
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 		virtual void PlayWaterSound(USoundBase* WaterSound);
 
-		/** Ambient sound played while sprinting */
+	/** Returns true if BaseEyeHeight position is underwater */
+	virtual bool AUTCharacter::HeadIsUnderWater();
+
+	/** Take drowning damage, play drowning sound */
+	virtual void AUTCharacter::TakeDrowningDamage();
+
+	//===============================
+
+	/** Ambient sound played while sprinting */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* SprintAmbientSound;
 

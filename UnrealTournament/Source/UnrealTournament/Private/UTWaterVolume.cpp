@@ -45,10 +45,6 @@ void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
 		Super::ActorEnteredVolume(Other);
 	}
 }
-float MinWaterSoundInterval;
-
-UPROPERTY(BlueprintReadWrite, Category = Sounds)
-float LastWaterSoundTime;
 
 void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 {
