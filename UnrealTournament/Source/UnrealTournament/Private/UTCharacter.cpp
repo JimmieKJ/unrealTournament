@@ -2024,6 +2024,10 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
 	}
+	else if (IsLocallyControlled() && Cast<APlayerController>(GetController()) )
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), OwnFootstepSound, this, SRT_IfSourceNotReplicated);
+	}
 	else
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSound, this, SRT_IfSourceNotReplicated);

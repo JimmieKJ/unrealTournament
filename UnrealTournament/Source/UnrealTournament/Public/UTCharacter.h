@@ -828,8 +828,14 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
+	/** Footstep sound played for characters you don't control. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* FootstepSound;
+
+	/** Footstep sound played for the character you control. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* OwnFootstepSound;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
