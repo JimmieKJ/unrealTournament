@@ -2015,7 +2015,14 @@ APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 
 void AUTCharacter::PlayFootstep(uint8 FootNum)
 {
-	UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSound, this, SRT_IfSourceNotReplicated);
+	if (FeetAreInWater())
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
+	}
+	else
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSound, this, SRT_IfSourceNotReplicated);
+	}
 	LastFoot = FootNum;
 	LastFootstepTime = GetWorld()->TimeSeconds;
 }
@@ -2125,6 +2132,10 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
 		}
+		else if (FeetAreInWater())
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), WaterEntrySound, this, SRT_None);
+		}
 		else
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
@@ -2155,11 +2166,10 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 	{
 		if (FallingSpeed < -1.f * MaxSafeFallSpeed && !HandleFallingDamage(FallingSpeed, Hit))
 		{
-			/* TODO: water
-			if (IsTouchingWaterVolume())
+			if (FeetAreInWater())
 			{
 				FallingSpeed += 100.f;
-			}*/
+			}
 			if (FallingSpeed < -1.f * MaxSafeFallSpeed)
 			{
 				float FallingDamage = -100.f * (FallingSpeed + MaxSafeFallSpeed) / MaxSafeFallSpeed;
@@ -2594,15 +2604,26 @@ void AUTCharacter::Tick(float DeltaTime)
 	}*/
 }
 
-bool AUTCharacter::HeadIsUnderWater()
+bool AUTCharacter::HeadIsUnderWater() const
 {
-	// check for all volumes that overlap head position
+	FVector HeadLocation = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
+	return PositionIsInWater(HeadLocation);
+}
+
+bool AUTCharacter::FeetAreInWater() const
+{
+	FVector FootLocation = GetActorLocation() - FVector(0.f, 0.f, CapsuleComponent->GetScaledCapsuleHalfHeight());
+	return PositionIsInWater(FootLocation);
+}
+
+bool AUTCharacter::PositionIsInWater(const FVector& Position) const
+{
+	// check for all volumes that overlapposition
 	APhysicsVolume* NewVolume = NULL;
 	TArray<FOverlapResult> Hits;
 	static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
 	FComponentQueryParams Params(NAME_PhysicsVolumeTrace, GetOwner());
-	FVector HeadLocation = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
-	GetWorld()->OverlapMulti(Hits, HeadLocation, FQuat::Identity, CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
+	GetWorld()->OverlapMulti(Hits, Position, FQuat::Identity, CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
 
 	for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
 	{

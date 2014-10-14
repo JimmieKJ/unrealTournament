@@ -831,6 +831,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* FootstepSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* WaterFootstepSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* LandingSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* JumpSound;
@@ -887,10 +889,15 @@ public:
 		virtual void PlayWaterSound(USoundBase* WaterSound);
 
 	/** Returns true if BaseEyeHeight position is underwater */
-	virtual bool AUTCharacter::HeadIsUnderWater();
+	virtual bool HeadIsUnderWater() const;
+
+	/** Returns true if bottom of capsule is in water */
+	virtual bool FeetAreInWater() const;
+
+	virtual bool PositionIsInWater(const FVector& Position) const;
 
 	/** Take drowning damage, play drowning sound */
-	virtual void AUTCharacter::TakeDrowningDamage();
+	virtual void TakeDrowningDamage();
 
 	//===============================
 
