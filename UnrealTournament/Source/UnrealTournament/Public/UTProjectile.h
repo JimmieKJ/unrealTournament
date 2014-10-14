@@ -112,6 +112,12 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	bool bCanHitInstigator;
 
+	/** whether this projectile should notify our best guess of its target that it is coming (for bots' evasion reaction check, etc)
+	 * generally should be true unless projectile has complex logic that prevents its target from being known initially (e.g. planted mine)
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = AI)
+	bool bInitiallyWarnTarget;
+
 	UPROPERTY(BlueprintReadWrite, Category = Projectile)
 	AController* InstigatorController;
 	/** if not NULL, Controller that gets credit for damage to enemies on the same team as InstigatorController (including damaging itself)
@@ -268,11 +274,21 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	/** Projectile size for hitting pawns */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Projectile)
-		float OverlapRadius;
+	float OverlapRadius;
 
 	/** Overlap sphere for hitting pawns */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Projectile)
 	TSubobjectPtr<USphereComponent> PawnOverlapSphere;
+
+	/** get time to target from current location */
+	virtual float GetTimeToLocation(const FVector& TargetLoc) const;
+
+	/** get maximum damage radius this projectile can cause with any explosion type
+	 * i.e. if the projectile can explode in multiple ways (normal + combo, for instance), return the greater value
+	 * this is used by AI as part of determining projectile threat and dodge distance
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	float GetMaxDamageRadius() const;
 
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level

@@ -48,4 +48,9 @@ class AUTProj_ShockBall : public AUTProjectile
 	virtual void PerformCombo(class AController* InstigatedBy, class AActor* DamageCauser);
 
 	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL);
+
+	virtual float GetMaxDamageRadius_Implementation() const override
+	{
+		return FMath::Max<float>(DamageParams.OuterRadius, ComboDamageParams.OuterRadius);
+	}
 };

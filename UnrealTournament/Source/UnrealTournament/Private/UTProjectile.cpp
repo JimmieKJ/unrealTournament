@@ -70,6 +70,8 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	bFakeClientProjectile = false;
 	bReplicateUTMovement = false;
 	bReplicateMovement = false;
+
+	bInitiallyWarnTarget = true;
 }
 
 void AUTProjectile::BeginPlay()
@@ -100,6 +102,32 @@ void AUTProjectile::BeginPlay()
 		{
 			InitialReplicationTick.Target = this;
 			InitialReplicationTick.RegisterTickFunction(GetLevel());
+		}
+
+		if (bInitiallyWarnTarget && InstigatorController != NULL)
+		{
+			AUTBot* TargetBot = NULL;
+
+			AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
+			if (PC != NULL)
+			{
+				if (PC->LastShotTargetGuess != NULL)
+				{
+					TargetBot = Cast<AUTBot>(PC->LastShotTargetGuess->Controller);
+				}
+			}
+			else
+			{
+				AUTBot* MyBot = Cast<AUTBot>(InstigatorController);
+				if (MyBot != NULL && Cast<APawn>(MyBot->GetTarget()) != NULL)
+				{
+					TargetBot = Cast<AUTBot>(((APawn*)MyBot->GetTarget())->Controller);
+				}
+			}
+			if (TargetBot != NULL)
+			{
+				TargetBot->ReceiveProjWarning(this);
+			}
 		}
 	}
 	else
@@ -677,4 +705,43 @@ FRadialDamageParams AUTProjectile::GetDamageParams_Implementation(AActor* OtherA
 {
 	OutMomentum = Momentum;
 	return DamageParams;
+}
+
+float AUTProjectile::GetTimeToLocation(const FVector& TargetLoc) const
+{
+	const float Dist = (TargetLoc - GetActorLocation()).Size();
+	if (ProjectileMovement == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Unable to calculate time to location for %s; please implement GetTimeToLocation()"), *GetName());
+		return 0.0f;
+	}
+	else
+	{
+		UUTProjectileMovementComponent* UTMovement = Cast<UUTProjectileMovementComponent>(ProjectileMovement);
+		if (UTMovement == NULL || UTMovement->AccelRate == 0.0f)
+		{
+			return (Dist / ProjectileMovement->InitialSpeed);
+		}
+		else
+		{
+
+			// figure out how long it would take if we accelerated the whole way
+			float ProjTime = (-UTMovement->InitialSpeed + FMath::Sqrt(FMath::Square<float>(UTMovement->InitialSpeed) - (2.0 * UTMovement->AccelRate * -Dist))) / UTMovement->AccelRate;
+			// figure out how long it will actually take to accelerate to max speed
+			float AccelTime = (UTMovement->MaxSpeed - UTMovement->InitialSpeed) / UTMovement->AccelRate;
+			if (ProjTime > AccelTime)
+			{
+				// figure out distance traveled while accelerating to max speed
+				const float AccelDist = (UTMovement->MaxSpeed * AccelTime) + (0.5 * UTMovement->AccelRate * FMath::Square<float>(AccelTime));
+				// add time to accelerate to max speed plus time to travel remaining dist at max speed
+				ProjTime = AccelTime + ((Dist - AccelDist) / UTMovement->MaxSpeed);
+			}
+			return ProjTime;
+		}
+	}
+}
+
+float AUTProjectile::GetMaxDamageRadius_Implementation() const
+{
+	return DamageParams.OuterRadius;
 }

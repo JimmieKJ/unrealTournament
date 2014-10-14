@@ -22,6 +22,9 @@ struct FBotPersonality
 	/** tactical ability (both a modifier for general tactics and a standalone value for advanced or specialized tactics) [-1, 1] */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	float Tactics;
+	/** likelihood of jumping/dodging, particularly in combat */
+	UPROPERTY(EditAnywhere, Category = Personality)
+	float Jumpiness;
 	/** reaction time (skill modifier) [-1, +1], positive is better (lower reaction time)
 	 * affects enemy acquisition and incoming fire avoidance
 	 */
@@ -43,6 +46,13 @@ struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 	FBestInventoryEval()
 		: BestWeight(0.0f), BestPickup(NULL)
 	{}
+};
+struct UNREALTOURNAMENT_API FRandomDestEval : public FUTNodeEvaluator
+{
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
+	{
+		return FMath::FRand() * 1.5f;
+	}
 };
 
 UCLASS()
@@ -126,6 +136,13 @@ public:
 		}
 	}
 	void SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints = TArray<FComponentBasedPosition>());
+	/** set move target and force direct move to that point (don't query the navmesh) */
+	inline void SetMoveTargetDirect(const FRouteCacheItem& NewMoveTarget)
+	{
+		TArray<FComponentBasedPosition> NewMovePoints;
+		NewMovePoints.Add(FComponentBasedPosition(NewMoveTarget.GetLocation(GetPawn())));
+		SetMoveTarget(NewMoveTarget, NewMovePoints);
+	}
 	inline void ClearMoveTarget()
 	{
 		MoveTarget.Clear();
@@ -167,6 +184,36 @@ public:
 		return (Target != NULL) ? Target : Enemy;
 	}
 
+	/** fire mode bot wants to use for next shot; this is determined early so bot can decide whether to lead, etc */
+	UPROPERTY()
+	uint8 NextFireMode;
+
+	/** notification of incoming projectile that is reasonably likely to be targeted at this bot
+	 * used to prepare evasive actions, if bot sees it coming and its reaction time is good enough
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void ReceiveProjWarning(AUTProjectile* Incoming);
+	/** notification of incoming instant hit shot that is reasonably likely to have targeted this bot
+	 * used to prepare evasive actions for NEXT shot (kind of late for current shot) if bot is aware enough
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir);
+	/** sets timer for ProcessIncomingWarning() as appropriate for the bot's skill, etc
+	 * pass a shooter with NULL for projectile for instant hit warnings
+	 */
+	virtual void SetWarningTimer(AUTProjectile* Incoming, AUTCharacter* Shooter, float TimeToImpact);
+protected:
+	/** projectile for ProcessIncomingWarning() call on a pending timer */
+	UPROPERTY()
+	AUTProjectile* WarningProj;
+	/** shooter for ProcessIncomingWarning() call on a pending timer */
+	UPROPERTY()
+	AUTCharacter* WarningShooter;
+
+	/** called on a timer to react to expected incoming weapons fire, either projectile in flight or about to shoot instant hit */
+	UFUNCTION()
+	virtual void ProcessIncomingWarning();
+
 private:
 	UPROPERTY()
 	AUTCharacter* UTChar;
@@ -183,6 +230,8 @@ protected:
 	/** weapon target, automatically set to Enemy if NULL but can be set to non-Pawn destructible objects (shootable triggers, game objectives, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = AI)
 	AActor* Target;
+	/** set to force selection of new fire mode next frame for weapon targeting */
+	bool bPickNewFireMode;
 
 	/** AI actions */
 	UPROPERTY()
@@ -198,6 +247,9 @@ public:
 		return UTChar;
 	}
 
+	/** set when planning on wall dodging next time we hit a wall during current fall */
+	bool bPlannedWallDodge;
+
 	virtual void SetPawn(APawn* InPawn) override;
 	virtual void Possess(APawn* InPawn) override;
 	virtual void Destroyed() override;
@@ -210,6 +262,7 @@ public:
 	// UTCharacter notifies
 	virtual void NotifyWalkingOffLedge();
 	virtual void NotifyMoveBlocked(const FHitResult& Impact);
+	virtual void NotifyLanded(const FHitResult& Hit);
 
 	// causes the bot decision logic to be run within one frame
 	virtual void WhatToDoNext();
@@ -224,6 +277,16 @@ public:
 	virtual void CheckWeaponFiring(bool bFromWeapon = true);
 	/** return if bot thinks it needs to turn to attack TargetLoc (intentionally inaccurate for low skill bots) */
 	virtual bool NeedToTurn(const FVector& TargetLoc);
+
+	/** find pickup with distance modified rating greater than value passed in
+	 * handles avoiding redundant searches in the same frame so it isn't necessary to manually throttle
+	 */
+	virtual bool FindInventoryGoal(float MinWeight);
+
+	/** tries to perform an evasive action in the indicated direction, most commonly a dodge but if dodge is not available or low skill, possibly strafe that way instead
+	 * this function may interrupt the bot's current action
+	 */
+	virtual bool TryEvasiveAction(FVector DuckDir);
 
 	void SwitchToBestWeapon();
 	/** rate the passed in weapon (must be owned by this bot) */
@@ -247,4 +310,8 @@ protected:
 
 	/** used to interleave sight checks so not all bots are checking at once */
 	float SightCounter;
+
+	/** FindInventoryGoal() transients */
+	float LastFindInventoryTime;
+	float LastFindInventoryWeight;
 };

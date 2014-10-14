@@ -410,11 +410,10 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 
 			const TArray<FSavedPosition>* SavedPosPtr = NULL;
 			AUTCharacter* TargetP = Cast<AUTCharacter>(GetFocusActor());
-			AUTWeapon* MyWeap = NULL;
+			AUTWeapon* MyWeap = (UTChar != NULL) ? UTChar->GetWeapon() : NULL;
 			if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
 			{
 				SavedPosPtr = &TargetP->SavedPositions;
-				MyWeap = TargetP->GetWeapon();
 			}
 			if (SavedPosPtr != NULL)
 			{
@@ -430,9 +429,11 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 						TargetLoc = TargetLoc + TrackedVelocity * TrackingReactionTime;
 						if (MyWeap != NULL)
 						{
-							// TODO: the FireMode here needs to be sync'ed with CheckWeaponFiring()
-							uint8 FireMode;
-							if (!MyWeap->CanAttack(TargetP, TargetLoc, false, FireMode, FocalPoint))
+							if (MyWeap->CanAttack(TargetP, TargetLoc, false, !bPickNewFireMode, NextFireMode, FocalPoint))
+							{
+								bPickNewFireMode = false;
+							}
+							else
 							{
 								FocalPoint = TargetLoc; // LastSeenLoc ???
 							}
@@ -441,13 +442,19 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 						{
 							FocalPoint = TargetLoc;
 						}
-						FocalPoint = TargetLoc;
 
-						// TODO: firemode, etc
+						// TODO: leading for projectiles, etc
 						break;
 					}
 				}
-
+			}
+			else if (MyWeap != NULL && Target != NULL && GetFocusActor() == Target)
+			{
+				FVector TargetLoc = GetFocusActor()->GetTargetLocation();
+				if (MyWeap->CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, NextFireMode, FocalPoint))
+				{
+					bPickNewFireMode = false;
+				}
 			}
 
 			FVector Direction = FocalPoint - P->GetActorLocation();
@@ -499,7 +506,7 @@ void AUTBot::NotifyWalkingOffLedge()
 					// forward dodge
 					FVector X = YawMat.GetScaledAxis(EAxis::X).SafeNormal();
 					FVector Y = YawMat.GetScaledAxis(EAxis::Y).SafeNormal();
-					GetUTChar()->UTCharacterMovement->PerformDodge(X, Y);
+					GetUTChar()->Dodge(X, Y);
 					bDodged = true;
 				}
 			}
@@ -579,9 +586,27 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 		}
 		else if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling)
 		{
-			// TODO: maybe wall dodge
+			if (UTChar != NULL && UTChar->CanDodge())
+			{
+				if (bPlannedWallDodge)
+				{
+					// dodge already checked, just do it
+					UTChar->Dodge(Impact.Normal, (Impact.Normal ^ FVector(0.0f, 0.0f, 1.0f)).SafeNormal());
+					// possibly maintain readiness for a second wall dodge if we hit another wall
+					bPlannedWallDodge = FMath::FRand() < Personality.Jumpiness || (Personality.Jumpiness >= 0.0 && FMath::FRand() < (Skill + Personality.Tactics) * 0.1f);
+				}
+				else
+				{
+					// TODO: maybe wall dodge
+				}
+			}
 		}
 	}
+}
+
+void AUTBot::NotifyLanded(const FHitResult& Hit)
+{
+	bPlannedWallDodge = false;
 }
 
 float AUTBot::RateWeapon(AUTWeapon* W)
@@ -653,14 +678,13 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 			TestTarget = Enemy;
 		}
 		// TODO: if no target, ask weapon if it should fire anyway (mine layers, traps, fortifications, etc)
-		uint8 FireMode = 0;
 		FVector OptimalLoc;
 		// TODO: think about how to prevent Focus/Target/Enemy mismatches
-		if (TestTarget != NULL && GetFocusActor() == TestTarget && UTChar->GetWeapon()->CanAttack(TestTarget, TestTarget->GetTargetLocation(), false, FireMode, OptimalLoc) && (!NeedToTurn(OptimalLoc) || UTChar->GetWeapon()->IsChargedFireMode(FireMode)))
+		if (TestTarget != NULL && GetFocusActor() == TestTarget && UTChar->GetWeapon()->CanAttack(TestTarget, TestTarget->GetTargetLocation(), false, true, NextFireMode, OptimalLoc) && (!NeedToTurn(OptimalLoc) || UTChar->GetWeapon()->IsChargedFireMode(NextFireMode)))
 		{
 			for (uint8 i = 0; i < UTChar->GetWeapon()->GetNumFireModes(); i++)
 			{
-				if (i == FireMode)
+				if (i == NextFireMode)
 				{
 					if (!UTChar->IsPendingFire(i))
 					{
@@ -677,6 +701,7 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 		{
 			UTChar->StopFiring();
 		}
+		bPickNewFireMode = true;
 	}
 }
 void AUTBot::CheckWeaponFiringTimed()
@@ -692,15 +717,9 @@ bool AUTBot::NeedToTurn(const FVector& TargetLoc)
 	}
 	else
 	{
-		FVector StartLoc;
-		if (UTChar != NULL && UTChar->GetWeapon() != NULL)
-		{
-			StartLoc = UTChar->GetWeapon()->GetFireStartLoc();
-		}
-		else
-		{
-			StartLoc = GetPawn()->GetPawnViewLocation();
-		}
+		// we're intentionally disregarding the weapon's start position here, since it may change based on its firing offset, nearby geometry if that offset is outside the cylinder, etc
+		// we'll correct for the discrepancy in GetAdjustedAim() while firing
+		const FVector StartLoc = GetPawn()->GetActorLocation();
 		return ((TargetLoc - StartLoc).SafeNormal() | GetControlRotation().Vector()) < 0.93f + 0.0085 * FMath::Clamp<float>(Skill, 0.0, 7.0);
 	}
 }
@@ -715,6 +734,27 @@ void AUTBot::StartNewAction(UUTAIAction* NewAction)
 	if (CurrentAction != NULL)
 	{
 		CurrentAction->Started();
+	}
+}
+
+bool AUTBot::FindInventoryGoal(float MinWeight)
+{
+	if (LastFindInventoryTime == GetWorld()->TimeSeconds && LastFindInventoryWeight >= MinWeight)
+	{
+		return false;
+	}
+	/*else if (GameHasNoInventory() || PawnCantPickUpInventory())
+	{
+		return false;
+	}
+	*/
+	else
+	{
+		LastFindInventoryTime = GetWorld()->TimeSeconds;
+		LastFindInventoryWeight = MinWeight;
+
+		FBestInventoryEval NodeEval;
+		return NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
 	}
 }
 
@@ -748,12 +788,26 @@ void AUTBot::ExecuteWhatToDoNext()
 		}
 		if (CurrentAction == NULL)
 		{
-			float Weight = 0.0f;
-			FBestInventoryEval NodeEval;
-			NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, false, RouteCache);
-			if (RouteCache.Num() > 0)
+			if (FindInventoryGoal(0.0f))
 			{
 				SetMoveTarget(RouteCache[0]);
+				StartNewAction(WaitForMoveAction);
+			}
+		}
+		
+		// FALLBACK: just wander randomly
+		if (CurrentAction == NULL)
+		{
+			FRandomDestEval NodeEval;
+			float Weight = 0.0f;
+			if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+			{
+				SetMoveTarget(RouteCache[0]);
+				StartNewAction(WaitForMoveAction);
+			}
+			else
+			{
+				SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + FMath::VRand() * FVector(500.0f, 500.0f, 0.0f), INVALID_NAVNODEREF));
 				StartNewAction(WaitForMoveAction);
 			}
 		}
@@ -782,27 +836,318 @@ void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Mome
 	}
 }
 
-void AUTBot::SetEnemy(APawn* NewEnemy)
+void AUTBot::ReceiveProjWarning(AUTProjectile* Incoming)
 {
-	if (Target == Enemy)
+	if (Incoming != NULL && !Incoming->GetVelocity().IsZero() && GetPawn() != NULL)
 	{
-		Target = NULL;
-	}
-	Enemy = NewEnemy;
-	AUTCharacter* EnemyP = Cast<AUTCharacter>(Enemy);
-	if (EnemyP != NULL)
-	{
-		if (EnemyP->IsDead())
+		// bots may duck if not falling or swimming
+		if (Skill >= 2.0f && Enemy != NULL) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
 		{
-			UE_LOG(UT, Warning, TEXT("Bot got dead enemy %s"), *EnemyP->GetName());
-			Enemy = NULL;
+			//LastUnderFire = WorldInfo.TimeSeconds;
+			//if (WorldInfo.TimeSeconds - LastWarningTime < 0.5)
+			//	return;
+			//LastWarningTime = WorldInfo.TimeSeconds;
+
+			// TODO: should adjust target location if projectile can explode in air like shock combo (i.e. account for damage radius and dodge earlier)
+			float ProjTime = Incoming->GetTimeToLocation(GetPawn()->GetActorLocation());
+			// check if tight FOV
+			bool bShouldDodge = true;
+			if (ProjTime < 1.2 || WarningProj != NULL)
+			{
+				FVector EnemyDir = Incoming->GetActorLocation() - GetPawn()->GetActorLocation();
+				EnemyDir.Z = 0;
+				FRotationMatrix R(GetControlRotation());
+				FVector X = R.GetScaledAxis(EAxis::X);
+				X.Z = 0;
+				if ((EnemyDir.SafeNormal() | X.SafeNormal()) < PeripheralVision)
+				{
+					bShouldDodge = false;
+				}
+			}
+			if (bShouldDodge)
+			{
+				SetWarningTimer(Incoming, NULL, ProjTime);
+			}
+		}
+		else if (Enemy == NULL)
+		{
+			SetEnemy(Incoming->Instigator);
+		}
+	}
+}
+void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir)
+{
+	if (Shooter != NULL && Shooter->GetWeapon() != NULL && GetPawn() != NULL)
+	{
+		if (Skill >= 4.0f && Enemy != NULL && FMath::FRand() < 0.2f * (Skill + Personality.Tactics) - 0.33f) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
+		{
+			FVector EnemyDir = Shooter->GetActorLocation() - GetPawn()->GetActorLocation();
+			EnemyDir.Z = 0;
+			FRotationMatrix R(GetControlRotation());
+			FVector X = R.GetScaledAxis(EAxis::X);
+			X.Z = 0;
+			if ((EnemyDir.SafeNormal() | X.SafeNormal()) >= PeripheralVision)
+			{
+				//LastUnderFire = WorldInfo.TimeSeconds;
+				//if (WorldInfo.TimeSeconds - LastWarningTime < 0.5)
+				//	return;
+				//LastWarningTime = WorldInfo.TimeSeconds;
+
+				const float DodgeTime = Shooter->GetWeapon()->GetRefireTime(Shooter->GetWeapon()->GetCurrentFireMode()) - 0.15 - 0.1 * FMath::FRand(); // TODO: based on collision size 
+				if (DodgeTime > 0.0)
+				{
+					SetWarningTimer(NULL, Shooter, DodgeTime);
+				}
+			}
+		}
+		else if (Enemy == NULL)
+		{
+			SetEnemy(Shooter);
+		}
+	}
+}
+void AUTBot::SetWarningTimer(AUTProjectile* Incoming, AUTCharacter* Shooter, float TimeToImpact)
+{
+	// check that optimal dodge time is far enough in the future for our skills
+	if (TimeToImpact >= 0.35f - 0.03f * (Skill + Personality.ReactionTime) && TimeToImpact >= 2.0f - (0.265f + FMath::FRand() * 0.2f) * (Skill + Personality.ReactionTime))
+	{
+		float WarningDelay;
+		if (Skill + Personality.ReactionTime >= 7.0f)
+		{
+			WarningDelay = FMath::Max<float>(0.08f, FMath::Max<float>(0.35f - 0.025f * (Skill + Personality.ReactionTime) * (1.0f + FMath::FRand()), TimeToImpact - 0.65f));
 		}
 		else
 		{
-			EnemyP->MaxSavedPositionAge = FMath::Max<float>(EnemyP->MaxSavedPositionAge, TrackingReactionTime);
+			WarningDelay = FMath::Max<float>(0.08f, FMath::Max<float>(0.35f - 0.02f * (Skill + Personality.ReactionTime) * (1.0f + FMath::FRand()), TimeToImpact - 0.65f));
+		}
+		if (!GetWorldTimerManager().IsTimerActive(this, &AUTBot::ProcessIncomingWarning) || WarningDelay < GetWorldTimerManager().GetTimerRate(this, &AUTBot::ProcessIncomingWarning))
+		{
+			WarningProj = Incoming;
+			WarningShooter = (WarningProj != NULL) ? NULL : Shooter;
+			// TODO: if in air, consider air control towards wall for wall dodge
+			GetWorldTimerManager().SetTimer(this, &AUTBot::ProcessIncomingWarning, WarningDelay, false);
 		}
 	}
-	LastEnemyChangeTime = GetWorld()->TimeSeconds;
+}
+void AUTBot::ProcessIncomingWarning()
+{
+	if (GetUTChar() != NULL && GetUTChar()->UTCharacterMovement != NULL && GetUTChar()->UTCharacterMovement->CanDodge())
+	{
+		if (WarningProj != NULL)
+		{
+			if (!WarningProj->bPendingKillPending && !WarningProj->bExploded)
+			{
+				FVector ProjVel = WarningProj->GetVelocity();
+				if (!ProjVel.IsZero())
+				{
+					FVector Dir = ProjVel.SafeNormal();
+					const float TimeToTarget = WarningProj->GetTimeToLocation(GetPawn()->GetActorLocation());
+					FVector FuturePos = GetPawn()->GetActorLocation() + GetPawn()->GetVelocity() * TimeToTarget;
+					FVector LineDist = FuturePos - (WarningProj->GetActorLocation() + (Dir | (FuturePos - WarningProj->GetActorLocation())) * Dir);
+					float Dist = LineDist.Size();
+					if (Dist <= 500.0f + GetPawn()->GetSimpleCollisionRadius())
+					{
+						bool bShouldDodge = true;
+						if (Dist > 1.2f * GetPawn()->GetSimpleCollisionHalfHeight())
+						{
+							if (WarningProj->DamageParams.BaseDamage <= 40 && GetUTChar()->Health > WarningProj->DamageParams.BaseDamage)
+							{
+								// probably will miss and even if not we can take the hit
+								bShouldDodge = false;
+							}
+							else if (Dist > GetPawn()->GetSimpleCollisionHalfHeight() + 100.0f + WarningProj->GetMaxDamageRadius())
+							{
+								// projectile's natural flight will miss by more than its best explosive range
+								// check that it won't hit a wall on the way that could make it still dangerous (enemy shooting at floor, etc)
+								FCollisionQueryParams Params(FName(TEXT("ProjWarning")), false, GetPawn());
+								Params.AddIgnoredActor(WarningProj);
+								bShouldDodge = GetWorld()->LineTraceTest(WarningProj->GetActorLocation(), WarningProj->GetActorLocation() + ProjVel, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
+							}
+						}
+
+						if (bShouldDodge)
+						{
+							// dodge away from projectile
+							FRotationMatrix R(GetControlRotation());
+							FVector X = R.GetScaledAxis(EAxis::X);
+							X.Z = 0;
+
+							//if (!TryDuckTowardsMoveTarget(Dir, Y))
+							{
+								FVector Y = R.GetScaledAxis(EAxis::Y);
+								if ((ProjVel | Y) > 0.0f)
+								{
+									TryEvasiveAction(Y * -1.0f);
+								}
+								else
+								{
+									TryEvasiveAction(Y);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		// skip if shooter is no longer focus and bot isn't skilled enough to keep track of prior threat
+		else if (WarningShooter != NULL && !WarningShooter->bPendingKillPending && !WarningShooter->IsDead() && (WarningShooter == Enemy || Personality.Tactics >= 0.5f || Skill + Personality.Tactics >= 5.0f) && LineOfSightTo(WarningShooter))
+		{
+			// dodge perpendicular to shooter
+			FVector Dir = (WarningShooter->GetActorLocation() - GetPawn()->GetActorLocation()).SafeNormal();
+
+			FRotationMatrix R(GetControlRotation());
+			FVector X = R.GetScaledAxis(EAxis::X);
+			X.Z = 0;
+
+			//if (!TryDuckTowardsMoveTarget(Dir, Y))
+			{
+				FVector Y = R.GetScaledAxis(EAxis::Y);
+				if ((Dir | Y) > 0.0f)
+				{
+					TryEvasiveAction(Y * -1.0f);
+				}
+				else
+				{
+					TryEvasiveAction(Y);
+				}
+			}
+		}
+	}
+	WarningProj = NULL;
+	WarningShooter = NULL;
+}
+
+bool AUTBot::TryEvasiveAction(FVector DuckDir)
+{
+	//if (UTVehicle(Pawn) != None)
+//		return UTVehicle(Pawn).Dodge(DCLICK_None);
+	//if (Pawn.bStationary)
+//		return false;
+//	if (Stopped())
+//		GotoState('TacticalMove');
+//	else if (FRand() < 0.6)
+//		bChangeStrafe = IsStrafing();
+
+
+	if (Skill < 3.0f || GetUTChar() == NULL) // TODO: maybe strafe if not UTCharacter?
+	{
+		return false;
+	}
+	else  if (GetCharacter()->bIsCrouched || GetCharacter()->CharacterMovement->bWantsToCrouch)
+	{
+		return false;
+	}
+	else
+	{
+		DuckDir.Z = 0;
+		DuckDir *= 700.0f;
+		FCollisionShape PawnShape = GetCharacter()->CapsuleComponent->GetCollisionShape();
+		FVector Start = GetPawn()->GetActorLocation();
+		Start.Z += 50.0f;
+		FCollisionQueryParams Params(FName(TEXT("TryEvasiveAction")), false, GetPawn());
+
+		FHitResult Hit;
+		bool bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+
+		float MinDist = 350.0f;
+		float Dist = (Hit.Location - GetPawn()->GetActorLocation()).Size();
+		bool bWallHit = false;
+		bool bSuccess = false;
+		FVector WallHitLoc;
+		if (!bHit || Dist > MinDist)
+		{
+			if (!bHit)
+			{
+				Hit.Location = Start + DuckDir;
+			}
+			bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->CharacterMovement->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
+			bSuccess = (bHit && Hit.Normal.Z >= 0.7);
+		}
+		else
+		{
+			bWallHit = (Skill + 2.0f * Personality.Jumpiness) > 5;
+			WallHitLoc = Hit.Location + (-Hit.Normal) * 5.0f; // slightly into wall for air controlling into wall dodge
+			MinDist = 70.0f + MinDist - Dist;
+		}
+
+		if (!bSuccess)
+		{
+			DuckDir *= -1.0f;
+			bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+			bSuccess = (!bHit || (Hit.Location - GetPawn()->GetActorLocation()).Size() > MinDist);
+			if (bSuccess)
+			{
+				if (!bHit)
+				{
+					Hit.Location = Start + DuckDir;
+				}
+
+				bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->CharacterMovement->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
+				bSuccess = (bHit && Hit.Normal.Z >= 0.7);
+			}
+		}
+		if (!bSuccess)
+		{
+			//if (bChangeStrafe)
+			//	ChangeStrafe();
+			return false;
+		}
+
+		if (bWallHit && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && Skill + 2.0f * Personality.Jumpiness > 3.0f + 3.0f * FMath::FRand())
+		{
+			bPlannedWallDodge = true;
+			return true;
+		}
+		else if ( bWallHit && Personality.Jumpiness > 0.0f && GetCharacter()->CanJump() && GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking &&
+				(GetCharacter()->CharacterMovement->Velocity.Size() < 0.1f * GetCharacter()->CharacterMovement->MaxWalkSpeed || (GetCharacter()->CharacterMovement->Velocity.SafeNormal2D() | (WallHitLoc - Start).SafeNormal2D()) >= 0.0f) &&
+				FMath::FRand() < Personality.Jumpiness * 0.5f )
+		{
+			// jump towards wall for wall dodge
+			GetCharacter()->CharacterMovement->Velocity = (GetCharacter()->CharacterMovement->Velocity + (WallHitLoc - Start)).ClampMaxSize(GetCharacter()->CharacterMovement->MaxWalkSpeed);
+			GetCharacter()->CharacterMovement->DoJump(false);
+			MoveTargetPoints.Insert(FComponentBasedPosition(WallHitLoc), 0);
+			bPlannedWallDodge = true;
+			return true;
+		}
+		else
+		{
+			//bInDodgeMove = true;
+			//DodgeLandZ = GetPawn()->GetActorLocation().Z;
+			DuckDir.Normalize();
+			GetUTChar()->Dodge(DuckDir, (DuckDir ^ FVector(0.0f, 0.0f, 1.0f)).SafeNormal());
+			return true;
+		}
+	}
+}
+
+void AUTBot::SetEnemy(APawn* NewEnemy)
+{
+	if (NewEnemy != Enemy)
+	{
+		if (Target == Enemy)
+		{
+			Target = NULL;
+		}
+		Enemy = NewEnemy;
+		AUTCharacter* EnemyP = Cast<AUTCharacter>(Enemy);
+		if (EnemyP != NULL)
+		{
+			if (EnemyP->IsDead())
+			{
+				UE_LOG(UT, Warning, TEXT("Bot got dead enemy %s"), *EnemyP->GetName());
+				Enemy = NULL;
+			}
+			else
+			{
+				EnemyP->MaxSavedPositionAge = FMath::Max<float>(EnemyP->MaxSavedPositionAge, TrackingReactionTime);
+			}
+		}
+		LastEnemyChangeTime = GetWorld()->TimeSeconds;
+		if (!bExecutingWhatToDoNext)
+		{
+			WhatToDoNext();
+		}
+	}
 }
 
 void AUTBot::SetTarget(AActor* NewTarget)

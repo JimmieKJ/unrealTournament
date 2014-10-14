@@ -2140,6 +2140,12 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
 		}
+
+		AUTBot* B = Cast<AUTBot>(Controller);
+		if (B != NULL)
+		{
+			B->NotifyLanded(Hit);
+		}
 	}
 }
 

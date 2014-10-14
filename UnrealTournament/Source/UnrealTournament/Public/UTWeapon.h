@@ -363,6 +363,10 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = "Weapon")
 	FRotator GetAdjustedAim(FVector StartFireLoc);
 
+	/** if owned by a human, set AUTPlayerController::LastShotTargetGuess to closest target to player's aim */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	void GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir);
+
 	/** add (or remove via negative number) the ammo held by the weapon */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Weapon")
 	virtual void AddAmmo(int32 Amount);
@@ -552,12 +556,13 @@ public:
 	 * this function should not consider Owner's view rotation
 	 * @param Target - Target actor
 	 * @param TargetLoc - Target location, not guaranteed to be Target's true location (AI may pass a predicted or guess location)
-	 * @param bDirectOnly - if true, only return success if weapon can directly hit Target from its current location (i.e. no need to wait for owner or target to move)
-	 * @param BestFireMode (out) - the fire mode that would be best to use for the attack
+	 * @param bDirectOnly - if true, only return success if weapon can directly hit Target from its current location (i.e. no need to wait for owner or target to move, no bounce shots, etc)
+	 * @param bPreferCurrentMode - if true, only change BestFireMode if current value can't attack target but another mode can
+	 * @param BestFireMode (in/out) - (in) current fire mode bot is set to use; (out) the fire mode that would be best to use for the attack
 	 * @param OptimalTargetLoc (out) - best position to shoot at to hit TargetLoc (generally TargetLoc unless weapon has an indirect or special attack that doesn't require pointing at the target)
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
-	bool CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, uint8& BestFireMode, FVector& OptimalTargetLoc);
+	bool CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, UPARAM(ref) uint8& BestFireMode, UPARAM(ref) FVector& OptimalTargetLoc);
 
 	/** convenience redirect if the out params are not needed (just checking if firing is a good idea)
 	 * would prefer to use pointer params but Blueprints don't support that
@@ -566,7 +571,7 @@ public:
 	{
 		uint8 UnusedFireMode;
 		FVector UnusedOptimalLoc;
-		return CanAttack(Target, TargetLoc, bDirectOnly, UnusedFireMode, UnusedOptimalLoc);
+		return CanAttack(Target, TargetLoc, bDirectOnly, false, UnusedFireMode, UnusedOptimalLoc);
 	}
 
 protected:

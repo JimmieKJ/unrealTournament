@@ -332,6 +332,9 @@ public:
 	TArray<class AUTProjectile*> FakeProjectiles;
 	//-----------------------------------------------
 
+	/** guess of this player's target on last shot, used by AI */
+	UPROPERTY(BlueprintReadWrite, Category = AI)
+	APawn* LastShotTargetGuess;
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

@@ -77,6 +77,44 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+		// warn bot target, if any
+		if (UTPC != NULL)
+		{
+			APawn* PawnTarget = Cast<APawn>(Hit.Actor.Get());
+			if (PawnTarget != NULL)
+			{
+				UTPC->LastShotTargetGuess = PawnTarget;
+			}
+			// if not dealing damage, it's the caller's responsibility to send warnings if desired
+			if (bDealDamage && UTPC->LastShotTargetGuess != NULL)
+			{
+				AUTBot* EnemyBot = Cast<AUTBot>(UTPC->LastShotTargetGuess->Controller);
+				if (EnemyBot != NULL)
+				{
+					EnemyBot->ReceiveInstantWarning(UTOwner, FireDir);
+				}
+			}
+		}
+		else if (bDealDamage)
+		{
+			AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+			if (B != NULL)
+			{
+				APawn* PawnTarget = Cast<APawn>(Hit.Actor.Get());
+				if (PawnTarget == NULL)
+				{
+					PawnTarget = Cast<APawn>(B->GetTarget());
+				}
+				if (PawnTarget != NULL)
+				{
+					AUTBot* EnemyBot = Cast<AUTBot>(PawnTarget->Controller);
+					if (EnemyBot != NULL)
+					{
+						EnemyBot->ReceiveInstantWarning(UTOwner, FireDir);
+					}
+				}
+			}
+		}
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{

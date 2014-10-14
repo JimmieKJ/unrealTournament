@@ -783,6 +783,7 @@ FRotator AUTWeapon::GetBaseFireRotation()
 FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 {
 	FRotator BaseAim = GetBaseFireRotation();
+	GuessPlayerTarget(StartFireLoc, BaseAim.Vector());
 	if (Spread.IsValidIndex(CurrentFireMode) && Spread[CurrentFireMode] > 0.0f)
 	{
 		// add in any spread
@@ -798,6 +799,23 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 	else
 	{
 		return BaseAim;
+	}
+}
+
+void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir)
+{
+	if (Role == ROLE_Authority && UTOwner != NULL)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
+		if (PC != NULL)
+		{
+			float MaxRange = 100000.0f; // TODO: calc projectile mode range?
+			if (InstantHitInfo.IsValidIndex(CurrentFireMode) && InstantHitInfo[CurrentFireMode].DamageType != NULL)
+			{
+				MaxRange = InstantHitInfo[CurrentFireMode].TraceRange * 1.2f; // extra since player may miss intended target due to being out of range
+			}
+			PC->LastShotTargetGuess = UUTGameplayStatics::PickBestAimTarget(PC, StartFireLoc, FireDir, 0.9f, MaxRange);
+		}
 	}
 }
 
@@ -877,12 +895,50 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
 
 	FHitResult Hit;
-	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
+		// warn bot target, if any
+		if (UTPC != NULL)
+		{
+			APawn* PawnTarget = Cast<APawn>(Hit.Actor.Get());
+			if (PawnTarget != NULL)
+			{
+				UTPC->LastShotTargetGuess = PawnTarget;
+			}
+			// if not dealing damage, it's the caller's responsibility to send warnings if desired
+			if (bDealDamage && UTPC->LastShotTargetGuess != NULL)
+			{
+				AUTBot* EnemyBot = Cast<AUTBot>(UTPC->LastShotTargetGuess->Controller);
+				if (EnemyBot != NULL)
+				{
+					EnemyBot->ReceiveInstantWarning(UTOwner, FireDir);
+				}
+			}
+		}
+		else if (bDealDamage)
+		{
+			AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+			if (B != NULL)
+			{
+				APawn* PawnTarget = Cast<APawn>(Hit.Actor.Get());
+				if (PawnTarget == NULL)
+				{
+					PawnTarget = Cast<APawn>(B->GetTarget());
+				}
+				if (PawnTarget != NULL)
+				{
+					AUTBot* EnemyBot = Cast<AUTBot>(PawnTarget->Controller);
+					if (EnemyBot != NULL)
+					{
+						EnemyBot->ReceiveInstantWarning(UTOwner, FireDir);
+					}
+				}
+			}
+		}
 	}
 	else if (PredictionTime > 0.f)
 	{
@@ -1428,7 +1484,7 @@ float AUTWeapon::GetAISelectRating_Implementation()
 	return HasAnyAmmo() ? BaseAISelectRating : 0.0f;
 }
 
-bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, uint8& BestFireMode, FVector& OptimalTargetLoc)
+bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
 {
 	OptimalTargetLoc = TargetLoc;
 	// TODO: optimize if owned by bot that already knows visibility of target
@@ -1446,7 +1502,10 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 				ValidAIModes.Add(i);
 			}
 		}
-		BestFireMode = ValidAIModes[FMath::RandHelper(ValidAIModes.Num())];
+		if (!bPreferCurrentMode)
+		{
+			BestFireMode = ValidAIModes[FMath::RandHelper(ValidAIModes.Num())];
+		}
 		return true;
 	}
 	else
