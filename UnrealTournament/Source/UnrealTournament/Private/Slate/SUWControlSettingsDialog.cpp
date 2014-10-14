@@ -242,6 +242,9 @@ void SUWControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Previous Weapon", "Previous Weapon")))
 		->AddMapping("PrevWeapon")
 		->AddDefaults(EKeys::MouseScrollDown)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "BestWeapon", "Best Weapon")))
+		->AddMapping("SwitchToBestWeapon")
+		->AddDefaults(EKeys::E)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Toggle Translocator", "Toggle Translocator")))
 		->AddMapping("ToggleTranslocator")
 		->AddDefaults(EKeys::Q)));

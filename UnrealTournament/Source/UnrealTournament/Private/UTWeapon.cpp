@@ -282,6 +282,21 @@ void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 {
+
+	// Grab our swich priority
+
+	APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	AUTPlayerController* UTPC = NULL;
+	if (PC)
+	{
+		UTPC = Cast<AUTPlayerController>(PC);
+		if (UTPC != NULL)
+		{
+			AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(GetNameSafe(this), AutoSwitchPriority);
+		}
+	}
+	
+
 	// make sure we initialized our state; this can be triggered if the weapon is spawned at game startup, since BeginPlay() will be deferred
 	if (CurrentState == NULL)
 	{
@@ -299,13 +314,9 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 		}
 	}
 
-	if (bAutoActivate)
+	if (bAutoActivate && UTPC != NULL)
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
-		if (PC != NULL)
-		{
-			PC->CheckAutoWeaponSwitch(this);
-		}
+		UTPC->CheckAutoWeaponSwitch(this);
 	}
 }
 

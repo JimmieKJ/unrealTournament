@@ -181,6 +181,7 @@ public:
 	virtual void LoadProfileSettings();
 	virtual void SaveProfileSettings();
 	virtual void ApplyProfileSettings();
+	virtual UUTProfileSettings* GetProfileSettings() { return CurrentProfileSettings; };
 
 	virtual void SetNickname(FString NewName);
 

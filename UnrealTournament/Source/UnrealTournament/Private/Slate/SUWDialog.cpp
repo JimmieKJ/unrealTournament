@@ -226,6 +226,11 @@ FReply SUWDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyboardEvent& InK
 	return FReply::Unhandled();
 }
 
+FReply SUWDialog::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	return FReply::Handled();
+}
+
 
 FReply SUWDialog::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {

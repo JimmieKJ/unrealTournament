@@ -28,6 +28,7 @@
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
+#include "UTProfileSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -1120,7 +1121,6 @@ void AUTPlayerController::SetName(const FString& S)
 		if (LP != NULL)
 		{
 			LP->SetNickname(S);
-			LP->SaveProfileSettings();
 		}
 	}
 }
@@ -1676,4 +1676,17 @@ void AUTPlayerController::SetMouseSensitivityUT(float NewSensitivity)
 	}
 
 	InputSettings->SaveConfig();
+}
+
+float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority)
+{
+	if (Cast<UUTLocalPlayer>(Player))
+	{
+		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+		if (ProfileSettings)
+		{
+			return ProfileSettings->GetWeaponPriority(WeaponClassname, DefaultPriority);
+		}
+	}
+	return DefaultPriority;
 }

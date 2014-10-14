@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
+#include "UTCharacter.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
 #include "UTMenuGameMode.h"
@@ -522,10 +523,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 void UUTLocalPlayer::SaveProfileSettings()
 {
-	if ( CurrentProfileSettings != NULL )
+	if ( CurrentProfileSettings != NULL && CurrentProfileSettings->IsDirty() )
 	{
 		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
 		CurrentProfileSettings->GatherInputSettings();
+		CurrentProfileSettings->Clean();
 
 		// Build a blob of the profile contents
 		TArray<uint8> FileContents;
@@ -557,18 +559,33 @@ void UUTLocalPlayer::ApplyProfileSettings()
 {
 	if (CurrentProfileSettings)
 	{
-
 		FString CmdLineSwitch = TEXT("");
 		bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
-
 
 		if (CurrentProfileSettings->SettingsRevisionNum < VALID_PROFILESETTINGS_VERSION || bClearProfile )
 		{
 			// These settings are no longer valid period.  Kill them and start over.
 
 			CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(),GetTransientPackage());				
+			CurrentProfileSettings->Dirty();
 			SaveProfileSettings();
 			return;
+		}
+
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+		if (PC)
+		{
+			PC->SetName(CurrentProfileSettings->GetPlayerName());
+			PC->SetWeaponBobScaling(CurrentProfileSettings->GetWeaponBob());
+			PC->SetEyeOffsetScaling(CurrentProfileSettings->GetViewBob());
+			PC->bAutoWeaponSwitch = CurrentProfileSettings->GetAutoWeaponSwitch();
+			PC->FFAPlayerColor = CurrentProfileSettings->GetFFAPlayerColor();
+
+			AUTCharacter* C = Cast<AUTCharacter>(PC->GetPawn());
+			if (C != NULL)
+			{
+				C->NotifyTeamChanged();
+			}
 		}
 
 		CurrentProfileSettings->ApplyInputSettings();

@@ -335,6 +335,9 @@ public:
 	/** guess of this player's target on last shot, used by AI */
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	APawn* LastShotTargetGuess;
+
+	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

@@ -10,16 +10,39 @@ UUTProfileSettings::UUTProfileSettings(const FPostConstructInitializeProperties&
 	PlayerName = TEXT("Malcolm");
 }
 
-
-void UUTProfileSettings::SetPlayerName(FString NewName)
+void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
 {
-	PlayerName = NewName;
+	for (int32 i=0;i<WeaponPriorities.Num(); i++)
+	{
+		if (WeaponPriorities[i].WeaponClassName == WeaponClassName)
+		{
+			if (WeaponPriorities[i].WeaponPriority != NewPriority)
+			{
+				WeaponPriorities[i].WeaponPriority = NewPriority;
+				bDirty = true;
+			}
+			break;
+		}
+	}
+
+	WeaponPriorities.Add(FStoredWeaponPriority(WeaponClassName, NewPriority));
+	bDirty = true;
 }
 
-FString UUTProfileSettings::GetPlayerName()
+float UUTProfileSettings::GetWeaponPriority(FString WeaponClassName, float DefaultPriority)
 {
-	return PlayerName;
+	for (int32 i=0;i<WeaponPriorities.Num(); i++)
+	{
+		if (WeaponPriorities[i].WeaponClassName == WeaponClassName)
+		{
+			return WeaponPriorities[i].WeaponPriority;
+		}
+	}
+
+	return DefaultPriority;
 }
+
+
 
 void UUTProfileSettings::GatherInputSettings()
 {

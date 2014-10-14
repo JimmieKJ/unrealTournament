@@ -55,6 +55,16 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	if (ProfileSettings)
+	{
+		for (int32 i=0;i<WeaponList.Num();i++)
+		{
+			float Pri = ProfileSettings->GetWeaponPriority(GetNameSafe(WeaponList[i]), WeaponList[i]->GetDefaultObject<AUTWeapon>()->GetAutoSwitchPriority());
+			WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = Pri;
+		}
+	}
+
 	struct FWeaponListSort
 	{
 		bool operator()(UClass& A, UClass& B) const
@@ -378,9 +388,19 @@ void SUWPlayerSettingsDialog::PlayerColorChanged(FLinearColor NewValue)
 FReply SUWPlayerSettingsDialog::OKClick()
 {
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	// name
-	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setname %s%s"), *PlayerName->GetText().ToString()));
-	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+
+	// If we have a valid PC then tell the PC to set it's name
+	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+	if (UTPlayerController != NULL)
+	{
+		UTPlayerController->SetName(PlayerName->GetText().ToString());
+	}
+	else
+	{
+		GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
+	}
+
 	// auto weapon switch, weapon/view bob
 	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
 	{
@@ -408,6 +428,11 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	{
 		WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = float(WeaponList.Num() - i); // top of list is highest priority
 		WeaponList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
+
+		if (ProfileSettings)
+		{
+			ProfileSettings->SetWeaponPriority(GetNameSafe(WeaponList[i]), WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
+		}
 	}
 
 	Settings->SaveSettings();
