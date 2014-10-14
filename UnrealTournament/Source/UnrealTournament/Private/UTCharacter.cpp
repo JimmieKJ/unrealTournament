@@ -188,7 +188,7 @@ void AUTCharacter::PostInitializeComponents()
 
 void AUTCharacter::PositionUpdated()
 {
-	new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), CharacterMovement->Velocity, GetWorld()->GetTimeSeconds(), (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), CharacterMovement->Velocity, CharacterMovement->bJustTeleported, GetWorld()->GetTimeSeconds(), (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 	
 	// maintain one position beyond MaxSavedPositionAge for interpolation
 	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < GetWorld()->GetTimeSeconds() - MaxSavedPositionAge)
@@ -200,19 +200,20 @@ void AUTCharacter::PositionUpdated()
 FVector AUTCharacter::GetRewindLocation(float PredictionTime)
 {
 	FVector TargetLocation = GetActorLocation();
+	float TargetTime = GetWorld()->GetTimeSeconds() - PredictionTime;
 	if (PredictionTime > 0.f)
 	{
-		// @TODO FIXMESTEVE:  currently just using fixed position - should interpolate based on velocity!
-		for (int32 i = SavedPositions.Num() - 1; i >= 0; i--)
+		for (int32 i=SavedPositions.Num()-1; i >= 0; i--)
 		{
-			if (SavedPositions[i].Time > GetWorld()->GetTimeSeconds() - PredictionTime)
+			TargetLocation = SavedPositions[i].Position;
+			if (SavedPositions[i].Time < TargetTime)
 			{
-				// we've passed how far we need to rewind
+				if (!SavedPositions[i].bTeleported && (i<SavedPositions.Num()-1))
+				{
+					float Percent = (TargetTime - SavedPositions[i].Time) / (SavedPositions[i + 1].Time - SavedPositions[i].Time);
+					TargetLocation = SavedPositions[i].Position + Percent * (SavedPositions[i + 1].Position - SavedPositions[i].Position);
+				}
 				break;
-			}
-			else
-			{
-				TargetLocation = SavedPositions[i].Position;
 			}
 		}
 	}

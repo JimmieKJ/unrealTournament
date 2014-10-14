@@ -144,9 +144,9 @@ struct FSavedPosition
 {
 	GENERATED_USTRUCT_BODY()
 
-	FSavedPosition() : Position(FVector(0.f)), Rotation(FRotator(0.f)),Velocity(FVector(0.f)), Time(0.f), TimeStamp(0.f) {};
+	FSavedPosition() : Position(FVector(0.f)), Rotation(FRotator(0.f)), Velocity(FVector(0.f)), bTeleported(false), Time(0.f), TimeStamp(0.f) {};
 
-	FSavedPosition(FVector InPos, FRotator InRot, FVector InVel, float InTime, float InTimeStamp) : Position(InPos), Rotation(InRot), Velocity(InVel), Time(InTime), TimeStamp(InTimeStamp) {};
+	FSavedPosition(FVector InPos, FRotator InRot, FVector InVel, bool bTeleported, float InTime, float InTimeStamp) : Position(InPos), Rotation(InRot), Velocity(InVel), bTeleported(false), Time(InTime), TimeStamp(InTimeStamp) {};
 
 	/** Position of player at time Time. */
 	UPROPERTY()
@@ -159,6 +159,10 @@ struct FSavedPosition
 	/** Keep velocity also for bots to use in realistic reaction time based aiming error model. */
 	UPROPERTY()
 	FVector Velocity;
+
+	/** true if teleport occurred getting to current position (so don't interpolate) */
+	UPROPERTY()
+	bool bTeleported;
 
 	/** Current server world time when this position was updated. */
 	float Time;
