@@ -3123,15 +3123,18 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 			// Don't use TeleportTo(), that clears our base.
 			SetActorLocationAndRotation(FinalLocation, NewRotation, false);
 			//DrawDebugSphere(GetWorld(), FinalLocation, 30.f, 8, FColor::Red);
-			CharacterMovement->bJustTeleported = true;
-			check(CharacterMovement->Velocity == NewVelocity);
-
-			// forward simulate this character to match estimated current position on server, based on my ping
-			AUTPlayerController* PC = Cast<AUTPlayerController>(GEngine->GetFirstLocalPlayerController(GetWorld()));
-			float PredictionTime = PC ? PC->GetPredictionTime() : 0.f;
-			if (PredictionTime > 0.f)
+			if (CharacterMovement)
 			{
-				CharacterMovement->SimulateMovement(PredictionTime);
+				CharacterMovement->bJustTeleported = true;
+				//check(CharacterMovement->Velocity == NewVelocity);
+
+				// forward simulate this character to match estimated current position on server, based on my ping
+				AUTPlayerController* PC = Cast<AUTPlayerController>(GEngine->GetFirstLocalPlayerController(GetWorld()));
+				float PredictionTime = PC ? PC->GetPredictionTime() : 0.f;
+				if (PredictionTime > 0.f)
+				{
+					CharacterMovement->SimulateMovement(PredictionTime);
+				}
 			}
 		}
 		else if (NewRotation != GetActorRotation())
