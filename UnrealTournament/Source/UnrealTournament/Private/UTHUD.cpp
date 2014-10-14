@@ -198,7 +198,7 @@ void AUTHUD::BuildHudWidget(FString NewWidgetString)
 					}
 
 					const TSharedPtr<FJsonValue>* SizeVal = JSONObject->Values.Find(TEXT("Size"));
-					if (ScreenPositionVal != NULL && (*SizeVal)->Type == EJson::Object) 
+					if (SizeVal != NULL && (*SizeVal)->Type == EJson::Object)
 					{
 						NewWidget->Size = JSon2FVector2D( (*SizeVal)->AsObject(), NewWidget->Size);
 					}
