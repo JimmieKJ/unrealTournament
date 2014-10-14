@@ -823,7 +823,7 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 {
 	if (CharacterOwner && CharacterOwner->bPressedJump)
 	{
-		if (MovementMode == MOVE_Walking)
+		if ((MovementMode == MOVE_Walking) || (MovementMode == MOVE_Falling))
 		{
 			DoJump(CharacterOwner->bClientUpdating);
 		}
