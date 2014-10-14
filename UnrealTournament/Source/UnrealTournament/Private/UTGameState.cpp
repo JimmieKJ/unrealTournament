@@ -13,7 +13,7 @@ AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
 	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();
 	MultiKillDelay = 4.0f;
-	SpawnProtectionTime = 3.0f;
+	SpawnProtectionTime = 2.5f;
 	bWeaponStay = true;
 
 	ServerName = TEXT("My First Server");
