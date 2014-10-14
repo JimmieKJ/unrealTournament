@@ -21,7 +21,7 @@ UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
 	NormalSmoothingRate = 0.1f;
 	MaximumSmoothedTime = 0.04f;
 
-	ServerMaxPredictionPing = 150.f;
+	ServerMaxPredictionPing = 160.f;
 }
 
 

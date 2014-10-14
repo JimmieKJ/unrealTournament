@@ -131,7 +131,9 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 						static FName NAME_SniperZoom(TEXT("SniperZoom"));
 						if (!GetWorld()->LineTraceTest(FireStart, HeadLoc, ECC_Visibility, FCollisionQueryParams(NAME_SniperZoom, true, GetUTOwner())))
 						{
-							bool bDrawPingAdjust = bDrawPingAdjustedTargets && OwnerState != NULL && OwnerState->Ping > 0 && !EnemyChar->GetVelocity().IsZero();
+							AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetUTOwner()->GetController());
+							float NetPing = 0.001f*(OwnerState->ExactPing - (UTPC ? UTPC->MaxPredictionPing : 0.f));
+							bool bDrawPingAdjust = bDrawPingAdjustedTargets && OwnerState != NULL && NetPing > 0.f && !EnemyChar->GetVelocity().IsZero();
 							for (int32 i = 0; i < (bDrawPingAdjust ? 2 : 1); i++)
 							{
 								FVector Perpendicular = (HeadLoc - FireStart).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
@@ -150,7 +152,7 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 
 								if (OwnerState != NULL)
 								{
-									HeadLoc += EnemyChar->GetVelocity() * (float(OwnerState->Ping * 4) / 1000.0f);
+									HeadLoc += EnemyChar->GetVelocity() * NetPing;
 								}
 							}
 						}

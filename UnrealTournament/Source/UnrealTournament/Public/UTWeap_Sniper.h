@@ -12,12 +12,19 @@ class AUTWeap_Sniper : public AUTWeapon
 	/** target head area size bonus when moving slowly (crouch speed or less) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float SlowHeadshotScale;
+
+	/** target head area size bonus when have just stopped accelerating */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+	float AimedHeadshotScale;
+
 	/** target head area size bonus when moving quickly */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float RunningHeadshotScale;
+
 	/** damage multiplier for headshot (instant hit only) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
 	float HeadshotDamageMult;
+
 	/** damage type for headshot (instant hit only, if NULL use standard damage type) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
 	TSubclassOf<UDamageType> HeadshotDamageType;
