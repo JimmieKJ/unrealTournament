@@ -148,6 +148,11 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 	QualitySettings.ShadowQuality = FMath::Clamp<int32>(QualitySettings.ShadowQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.PostProcessQuality = FMath::Clamp<int32>(QualitySettings.PostProcessQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.EffectsQuality = FMath::Clamp<int32>(QualitySettings.EffectsQuality, 0, GeneralScalabilityList.Num() - 1);
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine == NULL) // PIE
+	{
+		UTEngine = UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>();
+	}
 
 	if (DialogContent.IsValid())
 	{
@@ -243,7 +248,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				[
 					SAssignNew(FrameRateCap, SEditableTextBox)
 					.MinDesiredWidth(100.0f)
-					.Text(FText::AsNumber(Cast<UUTGameEngine>(GEngine)->FrameRateCap))
+					.Text(FText::AsNumber(UTEngine->FrameRateCap))
 				]
 			]
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
@@ -364,12 +369,18 @@ FReply SUWSystemSettingsDialog::OKClick()
 	UserSettings->SetFullscreenMode(Fullscreen->IsChecked() ? EWindowMode::Fullscreen : EWindowMode::Windowed);
 	UserSettings->SaveConfig();
 
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine == NULL) // PIE
+	{
+		UTEngine = UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>();
+	}
 	if (FrameRateCap->GetText().ToString().IsNumeric())
 	{
-		Cast<UUTGameEngine>(GEngine)->FrameRateCap = FCString::Atoi(*FrameRateCap->GetText().ToString());
+		UTEngine->FrameRateCap = FCString::Atoi(*FrameRateCap->GetText().ToString());
 	}
 	GEngine->bSmoothFrameRate = SmoothFrameRate->IsChecked();
 	GEngine->SaveConfig();
+	UTEngine->SaveConfig();
 
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
