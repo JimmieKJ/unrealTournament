@@ -485,7 +485,10 @@ bool AUTProjectile::InteractsWithProj(AUTProjectile* OtherProj)
 void AUTProjectile::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 {
 	bFakeClientProjectile = true;
-	OwningPlayer->FakeProjectiles.Add(this);
+	if (OwningPlayer)
+	{
+		OwningPlayer->FakeProjectiles.Add(this);
+	}
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)

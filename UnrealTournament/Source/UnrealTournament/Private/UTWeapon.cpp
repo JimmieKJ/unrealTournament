@@ -1073,14 +1073,17 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 
 void AUTWeapon::SpawnDelayedFakeProjectile()
 {
-	FActorSpawnParameters Params;
-	Params.Instigator = UTOwner;
-	Params.Owner = UTOwner;
-	AUTProjectile* NewProjectile = GetWorld()->SpawnActor<AUTProjectile>(DelayedProjectile.ProjectileClass, DelayedProjectile.SpawnLocation, DelayedProjectile.SpawnRotation, Params);
-	if (NewProjectile)
+	AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
+	if (OwningPlayer)
 	{
-		AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
-		NewProjectile->InitFakeProjectile(OwningPlayer);
+		FActorSpawnParameters Params;
+		Params.Instigator = UTOwner;
+		Params.Owner = UTOwner;
+		AUTProjectile* NewProjectile = GetWorld()->SpawnActor<AUTProjectile>(DelayedProjectile.ProjectileClass, DelayedProjectile.SpawnLocation, DelayedProjectile.SpawnRotation, Params);
+		if (NewProjectile)
+		{
+			NewProjectile->InitFakeProjectile(OwningPlayer);
+		}
 	}
 }
 
