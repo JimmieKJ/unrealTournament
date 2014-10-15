@@ -103,11 +103,13 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 		// Initialize the Online Subsystem for this player
 		InitializeOnlineSubsystem();
 
-
-		// Attempt to Auto-Login to MCP
-		if ( !OnlineIdentityInterface->AutoLogin(ControllerId) )
+		if (OnlineIdentityInterface.IsValid())
 		{
-			bInitialSignInAttempt = false;
+			// Attempt to Auto-Login to MCP
+			if ( !OnlineIdentityInterface->AutoLogin(ControllerId) )
+			{
+				bInitialSignInAttempt = false;
+			}
 		}
 	}
 }
