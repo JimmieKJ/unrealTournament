@@ -1978,8 +1978,7 @@ void AUTCharacter::MoveForward(float Value)
 	{
 		// find out which way is forward
 		const FRotator Rotation = GetControlRotation();
-		// @TODO FIXMESTEVE need CharacterMovement method that retursns if forward is full freedom or horizontal only
-		FRotator YawRotation = (CharacterMovement && ((CharacterMovement->MovementMode == MOVE_Flying) || (CharacterMovement->MovementMode == MOVE_Swimming))) ? Rotation : FRotator(0, Rotation.Yaw, 0);
+		FRotator YawRotation = (UTCharacterMovement && UTCharacterMovement->Is3DMovementMode()) ? Rotation : FRotator(0, Rotation.Yaw, 0);
 
 		// add movement in forward direction
 		AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X), Value);
@@ -3403,7 +3402,6 @@ void AUTCharacter::UTServerMoveDual_Implementation(
 	FName ClientBaseBone,
 	uint8 ClientMovementMode)
 {
-	// @TODO FIXMESTEVE - should always separate any move that depends on view rotation (e.g. dodge)  MUST DO NOW
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->ProcessServerMove(TimeStamp0, InAccel0, FVector(1.f, 2.f, 3.f), PendingFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBone, ClientMovementMode);

@@ -988,6 +988,11 @@ FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() 
 	return ClientPredictionData;
 }
 
+bool UUTCharacterMovement::Is3DMovementMode() const
+{
+	return (MovementMode == MOVE_Flying) || (MovementMode == MOVE_Swimming);
+}
+
 /** @TODO FIXMESTEVE - update super class with this? */
 FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const FVector& InDelta, const float Time, const FVector& Normal, const FHitResult& Hit)
 {
@@ -1638,7 +1643,6 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 
 void UUTCharacterMovement::SendClientAdjustment()
 {
-	// @TODO FIXMESTEVE component RPC replication too inefficient to use, so UT uses UTCharacter replicated property instead.  Remove when engine fixes.
 	if (!HasValidData())
 	{
 		return;

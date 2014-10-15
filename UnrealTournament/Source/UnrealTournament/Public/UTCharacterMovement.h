@@ -44,6 +44,9 @@ public:
 	/** Reset timers (called on pawn possessed) */
 	virtual void ResetTimers();
 
+	/** Return true if movement input should not be constrained to horizontal plane */
+	virtual bool Is3DMovementMode() const;
+
 	/** Smoothed speed */
 	UPROPERTY()
 	float AvgSpeed;
