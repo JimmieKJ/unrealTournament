@@ -11,41 +11,59 @@
 
 #if !UE_SERVER
 
-SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue)
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddSectionHeader(const FText& SectionDesc)
 {
 	return SVerticalBox::Slot()
 		.HAlign(HAlign_Center)
+		.Padding(FMargin(0.0f, 15.0f, 0.0f, 15.0f))
+		[
+			SNew(STextBlock)
+			.Text(SectionDesc)
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Title.TextStyle")
+		];
+
+}
+
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue)
+{
+	return SVerticalBox::Slot()
+		.HAlign(HAlign_Fill)
 		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
 			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			.AutoWidth()
 			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
+			.HAlign(HAlign_Fill)
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 				.Text(Desc)
 			]
 			+ SHorizontalBox::Slot()
 			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 			.AutoWidth()
-			.HAlign(HAlign_Center)
+			.HAlign(HAlign_Right)
 			.VAlign(VAlign_Center)
 			[
 				SAssignNew(ComboBox, SComboBox< TSharedPtr<FString> >)
 				.Method(SMenuAnchor::UseCurrentWindow)
 				.InitiallySelectedItem(GeneralScalabilityList[SettingValue])
-				.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+				.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
 				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 				.OptionsSource(&GeneralScalabilityList)
 				.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 				.OnSelectionChanged(this, SelectionFunc)
 				.Content()
 				[
-					SAssignNew(SelectedItemWidget, STextBlock)
-					.Text(*GeneralScalabilityList[SettingValue].Get())
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					[
+						SAssignNew(SelectedItemWidget, STextBlock)
+						.Text(*GeneralScalabilityList[SettingValue].Get())
+						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+					]
 				]
 			]
 		];
@@ -68,7 +86,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FStri
 			.HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 				.Text(Desc)
 			]
 			+ SHorizontalBox::Slot()
@@ -77,10 +95,11 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FStri
 			.HAlign(HAlign_Right)
 			[
 				SNew(SBox)
-				.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
+				.WidthOverride(300.0f)
 				.Content()
 				[
 					SAssignNew(SliderWidget, SSlider)
+
 					.Orientation(Orient_Horizontal)
 					.Value(SettingValue)
 				]
@@ -174,7 +193,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution:").ToString())
 				]
 				+ SHorizontalBox::Slot()
@@ -186,7 +205,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					SNew(SComboBox< TSharedPtr<FString> >)
 					.Method(SMenuAnchor::UseCurrentWindow)
 					.InitiallySelectedItem(ResList[CurrentResIndex])
-					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
 					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 					.OptionsSource(&ResList)
 					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
@@ -195,6 +214,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SAssignNew(SelectedRes, STextBlock)
 						.Text(*ResList[CurrentResIndex].Get())
+						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
 					]
 				]
 			]
@@ -208,7 +228,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				.Content()
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
 				]
 			]
@@ -222,7 +242,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				.Content()
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
 				]
 			]
@@ -238,7 +258,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap:", "Frame Rate Cap:").ToString())
 				]
 				+ SHorizontalBox::Slot()
@@ -251,89 +271,52 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					.Text(FText::AsNumber(UTEngine->FrameRateCap))
 				]
 			]
+			+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "DetailSettings", "- Detail Settings -"))
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
+			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetimeVis", "Decal Lifetime").ToString(), DecalLifetime, (GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X)))
+			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), SoundVolumes[EUTSoundClass::Master], UserSettings->GetSoundClassVolume(EUTSoundClass::Master))
+
+
 			+ SVerticalBox::Slot()
-			.Padding(0.0f, 10.0f, 0.0f, 10.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
+				.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
 				[
-					SNew(SBox)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					.AutoWidth()
+					.VAlign(VAlign_Center)
 					.HAlign(HAlign_Center)
-					.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
-					.Content()
 					[
 						SAssignNew(FOVLabel, STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
+						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 						.Text(GetFOVLabelText(int(GetDefault<AUTPlayerController>()->ConfigDefaultFOV)))
 					]
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SBox)
-					.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
-					.Content()
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Right)
 					[
-						SAssignNew(FOV, SSlider)
-						.OnValueChanged(this, &SUWSystemSettingsDialog::OnFOVChange)
-						.Orientation(Orient_Horizontal)
-						.Value((GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN))
+						SNew(SBox)
+						.WidthOverride(300.0f)
+						.Content()
+						[
+							SAssignNew(FOV, SSlider)
+							.OnValueChanged(this, &SUWSystemSettingsDialog::OnFOVChange)
+							.Orientation(Orient_Horizontal)
+							.Value((GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN))
+						]
 					]
 				]
-			]
+
+			+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "SoundSettings", "- Sound/Voice Settings -"))
 			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), SoundVolumes[EUTSoundClass::Master], UserSettings->GetSoundClassVolume(EUTSoundClass::Master))
 			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), SoundVolumes[EUTSoundClass::Music], UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
 			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), SoundVolumes[EUTSoundClass::SFX], UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
 			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), SoundVolumes[EUTSoundClass::Voice], UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 10.0f, 0.0f, 10.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SBox)
-					.HAlign(HAlign_Center)
-					.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
-					.Content()
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
-						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetimeVis", "Decal Lifetime").ToString())
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SBox)
-					.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
-					.Content()
-					[
-						SAssignNew(DecalLifetime, SSlider)
-						.Orientation(Orient_Horizontal)
-						.Value((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X)))
-					]
-				]
-			]
+
 		];
 	}
 }

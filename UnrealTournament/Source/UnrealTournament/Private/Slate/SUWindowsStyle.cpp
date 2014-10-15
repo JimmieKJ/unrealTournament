@@ -91,19 +91,47 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("NewSchool.Background", new IMAGE_BRUSH( "NewSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 
+	FButtonStyle StandardButton;
+	{  // Standard Button
+
+		Style.Set("UWindows.Standard.Button", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("UWindows.Standard.Button.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered( BOX_BRUSH("UWindows.Standard.Button.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("UWindows.Standard.Button.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(BOX_BRUSH("UWindows.Standard.Button.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UWindows.Standard.MainMenuButton.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("UWindows.Standard.MainMenuButton.SubMenu.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetColorAndOpacity(FLinearColor::Blue)
+			);
+
+	}
+
+
 	// Dialogs
 	{
 		Style.Set("UWindows.Standard.Dialog.Background", new BOX_BRUSH("UWindows.Standard.Dialog.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
 		Style.Set("UWindows.Standard.Dialog.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Roboto-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
+
 		Style.Set("UWindows.Standard.Dialog.ErrorTextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Roboto-Regular", 10))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
+
 		Style.Set("UWindows.Standard.Dialog.Title.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetFont(TTF_FONT("Exo2-Bold", 10))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
@@ -112,6 +140,25 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
+		Style.Set("UWindows.Standard.Dialog.Options.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Roboto-Regular", 12))
+			.SetColorAndOpacity(FLinearColor::Black)
+			);
+
+
+		// Legacy style; still being used by some editor widgets
+		Style.Set( "UWindows.ComboBox.TickMark", new IMAGE_BRUSH("UWindows.ComboBox.TickMark", Icon8x4 ) );
+
+		FComboButtonStyle ComboButton = FComboButtonStyle()
+			.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UWindows.Standard.Button"))
+			.SetDownArrowImage(IMAGE_BRUSH("UWindows.ComboBox.TickMark", Icon8x4))
+			.SetMenuBorderBrush(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f/64.0f)))
+			.SetMenuBorderPadding(FMargin(5.0f,0.05,5.0f,0.0f));
+		Style.Set( "UWindows.Standard.ComboButton", ComboButton );
+
+		Style.Set( "UWindows.Standard.ComboBox", FComboBoxStyle()
+			.SetComboButtonStyle(ComboButton)
+			);
 	}
 
 	// Toasts
@@ -273,28 +320,6 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 	}
 
-	{  // Standard Button
-
-		Style.Set("UWindows.Standard.Button", FButtonStyle()
-			.SetNormal ( BOX_BRUSH("UWindows.Standard.Button.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
-			.SetHovered( BOX_BRUSH("UWindows.Standard.Button.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
-			.SetPressed( BOX_BRUSH("UWindows.Standard.Button.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
-			.SetDisabled(BOX_BRUSH("UWindows.Standard.Button.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
-			.SetHoveredSound(ButtonHoverSound)
-			.SetPressedSound(ButtonPressSound)
-			);
-
-		Style.Set("UWindows.Standard.MainMenuButton.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 14))
-			.SetColorAndOpacity(FLinearColor::White)
-			);
-
-		Style.Set("UWindows.Standard.MainMenuButton.SubMenu.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
-			.SetColorAndOpacity(FLinearColor::Blue)
-			);
-
-	}
 
 	{ // Background Image
 	
