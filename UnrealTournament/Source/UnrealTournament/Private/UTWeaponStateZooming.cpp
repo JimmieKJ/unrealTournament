@@ -31,6 +31,7 @@ void UUTWeaponStateZooming::PendingFireStarted()
 		bIsZoomed = false;
 		if (GetUTOwner()->IsLocallyControlled())
 		{
+			GetOuterAUTWeapon()->SetActorHiddenInGame(false);
 			APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
 			if (Camera != NULL)
 			{
@@ -49,6 +50,7 @@ void UUTWeaponStateZooming::PendingFireStarted()
 
 		if (GetUTOwner()->IsLocallyControlled())
 		{
+			GetOuterAUTWeapon()->SetActorHiddenInGame(true);
 			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomInSound, GetUTOwner(), SRT_None);
 			ToggleZoomInSound(true);
 		}
