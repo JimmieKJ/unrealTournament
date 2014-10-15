@@ -37,11 +37,10 @@ void AUTLift::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	if (OtherActor)
 	{
 		//UE_LOG(UT, Warning, TEXT("Overlapping %s relative position %f"), *OtherActor->GetName(), GetActorLocation().Z - OtherActor->GetActorLocation().Z);
-		if (Cast<AUTProjectile>(OtherActor))
+		if (Cast<APawn>(OtherActor))
 		{
-			return;
+			OnEncroachActor(OtherActor);
 		}
-		OnEncroachActor(OtherActor);
 	}
 }
 
