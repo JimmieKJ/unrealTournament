@@ -404,7 +404,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f from yaw %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z, CharacterOwner->GetActorRotation().Yaw);
 */
 	float HorizontalImpulse = DodgeImpulseHorizontal;
-	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
+	bool bIsLowGrav = !bApplyWallSlide && (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
 
 	if (!IsMovingOnGround())
 	{
@@ -429,7 +429,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		{
 			return false;
 		}
-		if ( (Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal )
+		if ((Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal)
 		{
 			// clamp dodge direction based on wall normal
 			FVector ForwardDir = (Result.ImpactNormal ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
@@ -448,7 +448,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			//UE_LOG(UT, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 		}
 		HorizontalImpulse = IsSwimming() ? SwimmingWallPushImpulse : WallDodgeImpulseHorizontal;
-		CurrentWallDodgeCount++;
+			CurrentWallDodgeCount++;
 		LastWallDodgeNormal = Result.ImpactNormal;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
