@@ -43,7 +43,7 @@ public class UnrealTournamentTarget : TargetRules
 
     public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
     {
-        if (InPlatform == UnrealTargetPlatform.Mac)
+        if (UnrealBuildTool.UnrealBuildTool.RunningRocket() || InPlatform == UnrealTargetPlatform.Mac)
         {
             return base.ShouldCompileMonolithic(InPlatform, InConfiguration);
         }
