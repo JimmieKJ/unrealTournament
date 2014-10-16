@@ -854,7 +854,7 @@ public class PackageCookedDir : BuildCommand
         foreach (var SC in DeployContextList)
         {
             // Cook with -newcook
-            CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, null, "WindowsNoEditor", "-newcook -SHIPPEDASSETREGISTRY=WindowsNoEditorAssetRegistry.bin ");
+            CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, null, "WindowsNoEditor", "-newcook -SHIPPEDASSETREGISTRY=WindowsNoEditorAssetRegistry.bin -Compressed");
             
             // Put all of the cooked dir into the staged dir
             SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin", CommandUtils.CombinePaths("Engine", "*") }, "", true, !Params.UsePak(SC.StageTargetPlatform));
