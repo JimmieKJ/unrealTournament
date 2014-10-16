@@ -975,7 +975,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				Result.Session.SessionSettings.Get(SETTING_PLAYERSONLINE, ServerNoPlayers);
 				int32 ServerNoSpecs = 0;
 				Result.Session.SessionSettings.Get(SETTING_SPECTATORSONLINE, ServerNoSpecs);
-				int32 ServerMaxPlayers = Result.Session.NumOpenPublicConnections;
+				int32 ServerMaxPlayers = Result.Session.SessionSettings.NumPublicConnections;
 				FString ServerVer; 
 				Result.Session.SessionSettings.Get(SETTING_SERVERVERSION, ServerVer);
 				int32 ServerFlags = 0x0000;
