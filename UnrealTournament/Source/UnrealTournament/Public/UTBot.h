@@ -30,9 +30,31 @@ struct FBotPersonality
 	 */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	float ReactionTime;
+	/** modifier to aim accuracy (skill modifier) [-1, +1] */
+	UPROPERTY(EditAnywhere, Category = Personality)
+	float Accuracy;
+	/** modifies likelihood of bot detecting stimulus, particularly at long ranges and/or edges of vision (skill modifier) [-1, +1] */
+	UPROPERTY(EditAnywhere, Category = Personality)
+	float Alertness;
 	/** favorite weapon; bot will bias towards acquiring and using this weapon */
 	UPROPERTY(EditAnywhere, Category = Personality)
-	TSubclassOf<class AUTWeapon> FavoriteWeapon;
+	FName FavoriteWeapon;
+};
+
+USTRUCT(BlueprintType)
+struct FBotCharacter : public FBotPersonality
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** bot's name */
+	UPROPERTY(EditAnywhere, Category = Display)
+	FString PlayerName;
+	
+	// TODO: audio/visual details (mesh, voice pack, etc)
+
+	/** transient runtime tracking of how many times this entry has been used to avoid unnecessary duplicates */
+	UPROPERTY(Transient, BlueprintReadWrite, Category = Game)
+	uint8 SelectCount;
 };
 
 struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
@@ -325,7 +347,7 @@ public:
 	 * used to prepare evasive actions, if bot sees it coming and its reaction time is good enough
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
-	virtual void ReceiveProjWarning(AUTProjectile* Incoming);
+	virtual void ReceiveProjWarning(class AUTProjectile* Incoming);
 	/** notification of incoming instant hit shot that is reasonably likely to have targeted this bot
 	 * used to prepare evasive actions for NEXT shot (kind of late for current shot) if bot is aware enough
 	 */
@@ -400,6 +422,11 @@ public:
 
 	/** set when planning on wall dodging next time we hit a wall during current fall */
 	bool bPlannedWallDodge;
+
+	/** sets base bot skill and all parameters derived from skill */
+	virtual void InitializeSkill(float NewBaseSkill);
+	/** set PeripheralVision based on skill and controlled Pawn */
+	virtual void SetPeripheralVision();
 
 	virtual void SetPawn(APawn* InPawn) override;
 	virtual void Possess(APawn* InPawn) override;

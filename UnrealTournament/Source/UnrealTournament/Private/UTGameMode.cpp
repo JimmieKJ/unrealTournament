@@ -333,12 +333,42 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
 	if (NewBot != NULL)
 	{
-		// TODO: real name
-		static int32 NameCount = 0;
-		NewBot->PlayerState->SetPlayerName(FString(TEXT("TestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
-		NameCount++;
+		// pick bot character
+		if (BotCharacters.Num() == 0)
+		{
+			UE_LOG(UT, Warning, TEXT("AddBot(): No BotCharacters defined"));
+			static int32 NameCount = 0;
+			NewBot->PlayerState->SetPlayerName(FString(TEXT("TestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
+			NameCount++;
+		}
+		else
+		{
+			int32 NumEligible = 0;
+			FBotCharacter* BestChar = NULL;
+			uint8 BestSelectCount = MAX_uint8;
+			for (FBotCharacter& Character : BotCharacters)
+			{
+				if (Character.SelectCount < BestSelectCount)
+				{
+					NumEligible = 1;
+					BestChar = &Character;
+					BestSelectCount = Character.SelectCount;
+				}
+				else if (Character.SelectCount == BestSelectCount)
+				{
+					NumEligible++;
+					if (FMath::FRand() < 1.0f / float(NumEligible))
+					{
+						BestChar = &Character;
+					}
+				}
+			}
+			BestChar->SelectCount++;
+			NewBot->Personality = *BestChar;
+			NewBot->PlayerState->SetPlayerName(BestChar->PlayerName);
+		}
 
-		NewBot->Skill = GameDifficulty;
+		NewBot->InitializeSkill(GameDifficulty);
 		NumBots++;
 		ChangeTeam(NewBot, TeamNum);
 		GenericPlayerInitialization(NewBot);

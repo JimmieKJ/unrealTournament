@@ -24,12 +24,13 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTBaseGameMode.h"
 #include "UTLocalMessage.h"
 #include "UTPlayerState.h"
+#include "UTCharacter.h"
+#include "UTBot.h"
 #include "UTTeamInfo.h"
 #include "UTGameState.h"
 #include "UTHUD.h"
 #include "UTHUDWidget.h"
 #include "UTDamageType.h"
-#include "UTCharacter.h"
 #include "UTBasePlayerController.h"
 #include "UTPlayerController.h"
 #include "UTProjectile.h"
@@ -42,7 +43,6 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTCarriedObject.h"
 #include "UTGameMode.h"
 #include "UTTeamGameMode.h"
-#include "UTBot.h"
 
 /** utility to find out if a particle system loops */
 extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);

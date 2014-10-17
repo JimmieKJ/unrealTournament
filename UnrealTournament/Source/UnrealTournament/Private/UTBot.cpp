@@ -83,8 +83,8 @@ AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
 	TacticalHeightAdvantage = 650.0f;
 
 	bWantsPlayerState = true;
-	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	SightRadius = 20000.0f;
+	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	PeripheralVision = 0.7f;
 	TrackingReactionTime = 0.25f;
 
@@ -153,11 +153,81 @@ bool FBestInventoryEval::GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) con
 	}
 }
 
+void AUTBot::InitializeSkill(float NewBaseSkill)
+{
+	Skill = NewBaseSkill + Personality.SkillModifier;
+
+	if (Skill >= 0)
+	{
+		TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (Skill + 2.0f);
+	}
+
+	/*if (Skill < 3)
+		DodgeToGoalPct = 0;
+	else
+		DodgeToGoalPct = (Jumpiness * 0.5) + Skill / 6;*/
+
+	//bLeadTarget = (Skill >= 4);
+	SetPeripheralVision();
+	//HearingThreshold = default.HearingThreshold * FClamp(Skill / 6.0, 0.0, 1.0);
+
+	if (Skill + Personality.ReactionTime >= 7.0f)
+	{
+		RotationRate.Yaw = 604.0f;
+	}
+	else if (Skill + Personality.ReactionTime >= 4.0f)
+	{
+		RotationRate.Yaw = 38.5f + 55.0f * (Skill + Personality.ReactionTime);
+	}
+	else
+	{
+		RotationRate.Yaw = 164.0f + 22.0f * (Skill + Personality.ReactionTime);
+	}
+	RotationRate.Pitch = RotationRate.Yaw;
+	//AdjustedYaw = (0.75 + 0.05 * ReactionTime) * RotationRate.Yaw;
+	//AcquisitionYawRate = AdjustedYaw;
+	//SetMaxDesiredSpeed();
+}
+
+void AUTBot::SetPeripheralVision()
+{
+	if (GetPawn() != NULL)
+	{
+		/*if (Pawn.bStationary || (Pawn.Physics == PHYS_Flying))
+		{
+			bSlowerZAcquire = false;
+			Pawn.PeripheralVision = -0.7;
+		}
+		else
+		*/
+		{
+			if (Skill < 2.0f)
+			{
+				PeripheralVision = 0.7f;
+				bSlowerZAcquire = true;
+			}
+			else if (Skill > 6.0f)
+			{
+				bSlowerZAcquire = false;
+				PeripheralVision = 0.0f;
+			}
+			else
+			{
+				PeripheralVision = 1.0f - 0.2f * Skill;
+			}
+
+			PeripheralVision = FMath::Min<float>(PeripheralVision - Personality.Alertness * 0.5f, 0.8f);
+		}
+	}
+}
+
 void AUTBot::SetPawn(APawn* InPawn)
 {
 	Super::SetPawn(InPawn);
 
 	UTChar = Cast<AUTCharacter>(GetPawn());
+
+	SetPeripheralVision();
 }
 
 void AUTBot::Possess(APawn* InPawn)
@@ -485,7 +555,7 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	YPos += YL;
 	YPos += YL;
 	Canvas->SetDrawColor(255, 0, 0);
-	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy)), 4.0f, YPos);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s, last rated at %f)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy), GetWorld()->TimeSeconds), 4.0f, YPos);
 	YPos += YL;
 	for (const FBotEnemyRating& RatingInfo : LastPickEnemyRatings)
 	{
@@ -765,7 +835,21 @@ void AUTBot::SwitchToBestWeapon()
 
 bool AUTBot::IsFavoriteWeapon(TSubclassOf<AUTWeapon> TestClass)
 {
-	return (TestClass != NULL && TestClass->IsChildOf(Personality.FavoriteWeapon));
+	if (TestClass == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		for (UClass* CurrentClass = *TestClass; CurrentClass != NULL; CurrentClass = CurrentClass->GetSuperClass())
+		{
+			if (CurrentClass->GetFName() == Personality.FavoriteWeapon)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 }
 
 bool AUTBot::NeedsWeapon()

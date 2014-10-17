@@ -165,6 +165,10 @@ public:
 	UPROPERTY(GlobalConfig)
 	uint32 bRequirePassword:1;
 
+	/** list of bot characters that may be added */
+	UPROPERTY(GlobalConfig)
+	TArray<struct FBotCharacter> BotCharacters;
+
 	/** type of SquadAI that contains game specific AI logic for this gametype */
 	UPROPERTY(EditDefaultsOnly, Category = AI)
 	TSubclassOf<class AUTSquadAI> SquadType;
