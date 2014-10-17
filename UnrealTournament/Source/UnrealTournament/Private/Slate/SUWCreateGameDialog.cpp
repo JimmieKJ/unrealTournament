@@ -217,21 +217,9 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWCreateGameDialog", "StartListenButton", "Start Listen").ToString())
-			.OnClicked(this, &SUWCreateGameDialog::StartClick, SERVER_Listen)
+			.Text(NSLOCTEXT("SUWCreateGameDialog", "StartDedicatedButton", "Start Dedicated").ToString())
+			.OnClicked(this, &SUWCreateGameDialog::StartClick, SERVER_Dedicated)
 		];
-		if (!FPlatformProperties::IsGameOnly())
-		{
-			ButtonRow->AddSlot(ButtonID++, 0)
-			[
-				SNew(SButton)
-				.HAlign(HAlign_Center)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-				.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWCreateGameDialog", "StartDedicatedButton", "Start Dedicated").ToString())
-				.OnClicked(this, &SUWCreateGameDialog::StartClick, SERVER_Dedicated)
-			];
-		}
 	}
 	else
 	{
@@ -338,6 +326,15 @@ void SUWCreateGameDialog::OnGameSelected(UClass* NewSelection, ESelectInfo::Type
 
 FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 {
+	if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
+	{
+		if (FPlatformProcess::IsProcRunning(GetPlayerOwner()->DedicatedServerProcessHandle))
+		{
+			FPlatformProcess::TerminateProc(GetPlayerOwner()->DedicatedServerProcessHandle);
+		}
+		GetPlayerOwner()->DedicatedServerProcessHandle.Reset();
+	}
+
 	// save changes
 	GConfig->SetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), *SelectedGameClass->GetPathName(), GGameIni);
 	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMap->GetText().ToString();
@@ -349,24 +346,20 @@ FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 	if (Mode == SERVER_Dedicated)
 	{
 		GConfig->Flush(false);
-		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FPlatformProcess::ExecutableName(true), FApp::GetBuildConfiguration());
-		FString Options = FString::Printf(TEXT("unrealtournament %s -log -game -server"), *NewURL);
+		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
+		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server"), *NewURL);
 		UE_LOG(UT, Log, TEXT("Run dedicated server with command line: %s %s"), *ExecPath, *Options);
-		if (FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL).IsValid())
+		GetPlayerOwner()->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
+
+		if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
 		{
-			FPlatformMisc::RequestExit(false);
+			GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), TEXT("127.0.0.1"), TRAVEL_Absolute);
+
+			GetPlayerOwner()->CloseDialog(SharedThis(this));
+			GetPlayerOwner()->HideMenu();
 		}
 	}
-	else if (GetPlayerOwner()->PlayerController != NULL)
-	{
-		if (Mode == SERVER_Listen)
-		{
-			NewURL += TEXT("?listen");
-		}
-		GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), *NewURL, TRAVEL_Absolute);
-	}
-	GetPlayerOwner()->CloseDialog(SharedThis(this));
-	GetPlayerOwner()->HideMenu();
+
 	return FReply::Handled();
 }
 FReply SUWCreateGameDialog::CancelClick()

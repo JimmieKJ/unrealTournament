@@ -88,6 +88,9 @@ protected:
 
 
 public:
+
+	FProcHandle DedicatedServerProcessHandle;
+
 	// Last text entered in Connect To IP
 	UPROPERTY(config)
 	FString LastConnectToIP;
@@ -176,7 +179,7 @@ private:
 
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
 	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
-
+	
 public:
 	virtual void LoadProfileSettings();
 	virtual void SaveProfileSettings();
