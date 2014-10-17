@@ -695,6 +695,12 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 				{
 					UTChar->StopFire(i);
 				}
+
+				// Start fire can cause us to lose our character
+				if (UTChar == nullptr)
+				{
+					break;
+				}
 			}
 		}
 		else
