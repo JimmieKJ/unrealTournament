@@ -2,6 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTTeamInfo.h"
 #include "UnrealNetwork.h"
+#include "UTBot.h"
+#include "UTSquadAI.h"
 
 AUTTeamInfo::AUTTeamInfo(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -11,6 +13,8 @@ AUTTeamInfo::AUTTeamInfo(const FPostConstructInitializeProperties& PCIP)
 	NetUpdateFrequency = 1.0f;
 	TeamIndex = 255; // invalid so we will always get ReceivedTeamIndex() on clients
 	TeamColor = FLinearColor::White;
+	DefaultOrders.Add(FName(TEXT("Attack")));
+	DefaultOrders.Add(FName(TEXT("Defend")));
 }
 
 void AUTTeamInfo::AddToTeam(AController* C)
@@ -70,4 +74,96 @@ void AUTTeamInfo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLife
 	DOREPLIFETIME_CONDITION(AUTTeamInfo, TeamColor, COND_InitialOnly);
 	DOREPLIFETIME(AUTTeamInfo, bFromPreviousLevel);
 	DOREPLIFETIME(AUTTeamInfo, Score);
+}
+
+void AUTTeamInfo::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
+{
+	if (NewEnemy != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(NewEnemy, this))
+		{
+			bool bFound = false;
+			for (int32 i = 0; i < EnemyList.Num(); i++)
+			{
+				if (!EnemyList[i].IsValid(this))
+				{
+					EnemyList.RemoveAt(i--, 1);
+				}
+				else if (EnemyList[i].GetPawn() == NewEnemy)
+				{
+					EnemyList[i].Update(UpdateType);
+					bFound = true;
+					break;
+				}
+			}
+			if (!bFound)
+			{
+				new(EnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
+				// tell bots on team to consider new enemy
+				/* TODO: notify squads, let it decide if this enemy is worth disrupting bots for
+				for (AController* Member : TeamMembers)
+				{
+					AUTBot* B = Cast<AUTBot>(Member);
+					if (B != NULL)
+					{
+						B->PickNewEnemy();
+					}
+				}*/
+			}
+		}
+	}
+}
+
+bool AUTTeamInfo::AssignToSquad(AController* C, FName Orders, AController* Leader)
+{
+	AUTSquadAI* NewSquad = NULL;
+	for (int32 i = 0; i < Squads.Num(); i++)
+	{
+		if (Squads[i] == NULL || Squads[i]->bPendingKillPending)
+		{
+			Squads.RemoveAt(i--);
+		}
+		else if (Squads[i]->Orders == Orders && (Leader == NULL || Squads[i]->GetLeader() == Leader) && (Leader != NULL || Squads[i]->GetSize() < GetWorld()->GetAuthGameMode<AUTGameMode>()->MaxSquadSize))
+		{
+			NewSquad = Squads[i];
+			break;
+		}
+	}
+	if (NewSquad == NULL && Leader == NULL)
+	{
+		NewSquad = GetWorld()->SpawnActor<AUTSquadAI>(GetWorld()->GetAuthGameMode<AUTGameMode>()->SquadType);
+		NewSquad->Team = this;
+		NewSquad->Orders = Orders;
+	}
+	if (NewSquad == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		// assign squad
+		AUTBot* B = Cast<AUTBot>(C);
+		if (B != NULL)
+		{
+			B->SetSquad(NewSquad);
+		}
+		else
+		{
+			// TODO: playercontroller
+		}
+		return true;
+	}
+}
+
+void AUTTeamInfo::AssignDefaultSquadFor(AController* C)
+{
+	if (Cast<AUTBot>(C) != NULL)
+	{
+		AssignToSquad(C, (DefaultOrders.Num() > 0) ? DefaultOrders[DefaultOrderIndex++] : NAME_None);
+	}
+	else
+	{
+		// TODO: playercontroller
+	}
 }

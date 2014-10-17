@@ -207,4 +207,6 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = Lock)
 	float LastTargetLockCheckTime;
 
+
+	virtual bool IsPreparingAttack_Implementation() override;
 };

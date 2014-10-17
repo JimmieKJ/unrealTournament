@@ -1498,14 +1498,44 @@ float AUTWeapon::GetAISelectRating_Implementation()
 	return HasAnyAmmo() ? BaseAISelectRating : 0.0f;
 }
 
+float AUTWeapon::SuggestAttackStyle_Implementation()
+{
+	return 0.0f;
+}
+float AUTWeapon::SuggestDefenseStyle_Implementation()
+{
+	return 0.0f;
+}
+
+bool AUTWeapon::IsPreparingAttack_Implementation()
+{
+	return false;
+}
+
 bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
 {
 	OptimalTargetLoc = TargetLoc;
-	// TODO: optimize if owned by bot that already knows visibility of target
-	const FVector StartLoc = GetFireStartLoc();
-	FCollisionQueryParams Params(FName(TEXT("CanAttack")), false, Instigator);
-	Params.AddIgnoredActor(Target);
-	if (!GetWorld()->LineTraceTest(StartLoc, TargetLoc, COLLISION_TRACE_WEAPON, Params))
+	bool bVisible = false;
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B != NULL)
+	{
+		if (Cast<APawn>(Target) != NULL && TargetLoc == Target->GetActorLocation() && B->IsEnemyVisible((APawn*)Target))
+		{
+			bVisible = true;
+		}
+		else
+		{
+			bVisible = B->UTLineOfSightTo(Target, FVector::ZeroVector, false, TargetLoc);
+		}
+	}
+	else
+	{
+		const FVector StartLoc = GetFireStartLoc();
+		FCollisionQueryParams Params(FName(TEXT("CanAttack")), false, Instigator);
+		Params.AddIgnoredActor(Target);
+		bVisible = !GetWorld()->LineTraceTest(StartLoc, TargetLoc, COLLISION_TRACE_WEAPON, Params);
+	}
+	if (bVisible)
 	{
 		// skip zoom modes by default
 		TArray< uint8, TInlineAllocator<4> > ValidAIModes;

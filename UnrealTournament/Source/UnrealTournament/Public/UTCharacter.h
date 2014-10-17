@@ -326,6 +326,12 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Remove excess armor from the lowest absorption armor type.  Returns amount of armor removed. */
 	virtual int32 ReduceArmorStack(int32 Amount);
 
+	/** return total effective health of this Pawn as a percentage/multiplier of its starting value
+	 * this is used by AI as part of evaluating enemy strength
+	 * if bOnlyVisible, only return results of values that can be obviously detected by seeing this Pawn (e.g. shield belt)
+	 */
+	virtual float GetEffectiveHealthPct(bool bOnlyVisible) const;
+
 	/** counters of ammo for which the pawn doesn't yet have the corresponding weapon in its inventory */
 	UPROPERTY()
 	TArray<FStoredAmmo> SavedAmmo;

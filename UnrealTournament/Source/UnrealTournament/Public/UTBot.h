@@ -51,14 +51,120 @@ struct UNREALTOURNAMENT_API FRandomDestEval : public FUTNodeEvaluator
 {
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
 	{
-		return FMath::FRand() * 1.5f;
+		return (TotalDistance > 0) ? FMath::FRand() * 1.5f : 0.1f;
 	}
+};
+
+UENUM()
+enum EAIEnemyUpdateType
+{
+	EUT_Seen, // bot saw enemy
+	EUT_HeardExact, // bot heard enemy close enough/distinct enough to know exact location
+	EUT_HeardApprox, // bot heard enemy but isn't sure exactly where that is
+	EUT_TookDamage, // bot got hit by enemy
+	EUT_DealtDamage, // bot hit enemy
+};
+
+USTRUCT()
+struct FBotEnemyInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+protected:
+	/** enemy Pawn */
+	UPROPERTY()
+	APawn* Pawn;
+	/** cached cast */
+	UPROPERTY()
+	AUTCharacter* UTChar;
+public:
+	/** the AI's view of the enemy's effective health (multiplier of default health, includes armor if AI has seen an armor indicator) */
+	UPROPERTY()
+	float EffectiveHealthPct;
+	/** if true EffectiveHealthPct is exact value as of LastFullUpdateTime */
+	UPROPERTY()
+	bool bHasExactHealth;
+	/** last location we know the enemy was at */
+	UPROPERTY()
+	FVector LastKnownLoc;
+	/** last location we saw the enemy at */
+	UPROPERTY()
+	FVector LastSeenLoc;
+	/** location of player that last saw this enemy */
+	UPROPERTY()
+	FVector LastSeeingLoc;
+	/** last time the enemy was seen */
+	UPROPERTY()
+	float LastSeenTime;
+	/** last time we were aware of something about the enemy in a way that tells us their exact location (seen, short range audio, etc) */
+	UPROPERTY()
+	float LastFullUpdateTime;
+	/** last time we were hit by this enemy (or last time this enemy hit anyone on the team, for team lists) */
+	UPROPERTY()
+	float LastHitByTime;
+	/** last time we got any update about this enemy, including those that don't give us their location */
+	UPROPERTY()
+	float LastUpdateTime;
+	/** only set for bot enemy list (not team list) - indicates bot has discarded this enemy, don't pick it again without an update */
+	UPROPERTY()
+	bool bLostEnemy;
+
+	void Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc = FVector::ZeroVector);
+
+	inline APawn* GetPawn() const
+	{
+		return Pawn;
+	}
+	inline AUTCharacter* GetUTChar() const
+	{
+		return UTChar;
+	}
+	/** returns if this entry still points to a valid Enemy
+	 * if TeamHolder is passed, returns false if Enemy is on same team as TeamHolder, otherwise no team check
+	 */
+	bool IsValid(AActor* TeamHolder = NULL) const;
+
+	/** returns if this enemy was seen recently enough that we can assume they're still visible */
+	bool IsCurrentlyVisible(float WorldTime) const
+	{
+		return (WorldTime - LastSeenTime) < 0.25f; // max sight interval in UTBot
+	}
+
+	FBotEnemyInfo()
+		: Pawn(NULL), UTChar(NULL), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
+	{}
+	FBotEnemyInfo(APawn* InPawn, EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc = FVector::ZeroVector)
+		: Pawn(InPawn), UTChar(Cast<AUTCharacter>(InPawn)), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
+	{
+		Update(UpdateType, ViewerLoc);
+	}
+};
+
+USTRUCT()
+struct FBotEnemyRating
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PlayerName;
+	UPROPERTY()
+	float Rating;
+
+	FBotEnemyRating()
+	{}
+	FBotEnemyRating(APawn* InEnemy, float InRating)
+		: PlayerName((InEnemy != NULL && InEnemy->PlayerState != NULL) ? InEnemy->PlayerState->PlayerName : GetNameSafe(InEnemy)), Rating(InRating)
+	{}
 };
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
+
+	/** bot considers a height difference of greater than this to be a relevant combat advantage to the higher player */
+	UPROPERTY(EditDefaultsOnly, Category = Environment)
+	float TacticalHeightAdvantage;
 
 	UPROPERTY(BlueprintReadWrite, Category = Personality)
 	FBotPersonality Personality;
@@ -86,6 +192,19 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	bool bSeeFriendly;
 
+	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
+	UPROPERTY()
+	float CurrentAggression;
+
+	/** debugging string set during decision logic */
+	UPROPERTY()
+	FString GoalString;
+
+	/** debugging for last enemy selection */
+	UPROPERTY()
+	float LastPickEnemyTime;
+	UPROPERTY()
+	TArray<FBotEnemyRating> LastPickEnemyRatings;
 private:
 	/** current action, if any */
 	UPROPERTY()
@@ -142,6 +261,10 @@ public:
 		TArray<FComponentBasedPosition> NewMovePoints;
 		NewMovePoints.Add(FComponentBasedPosition(NewMoveTarget.GetLocation(GetPawn())));
 		SetMoveTarget(NewMoveTarget, NewMovePoints);
+		if (GetCharacter() != NULL)
+		{
+			MoveTimer = 1.0f + (NewMoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
+		}
 	}
 	inline void ClearMoveTarget()
 	{
@@ -170,6 +293,12 @@ public:
 	UPROPERTY()
 	TArray<FRouteCacheItem> RouteCache;
 
+	/** evaluate enemy list (on Team if available, otherwise bot's personal list) and pick best enemy to focus on */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void PickNewEnemy();
+	/** sets current enemy
+	 * NOTE: this ignores enemy ratings and forces the enemy, call PickNewEnemy() to go through the normal process
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
 	virtual void SetEnemy(APawn* NewEnemy);
 	inline APawn* GetEnemy() const
@@ -183,6 +312,10 @@ public:
 	{
 		return (Target != NULL) ? Target : Enemy;
 	}
+
+	/** updates some or all of bot's information on the passed in enemy based on the update type */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType);
 
 	/** fire mode bot wants to use for next shot; this is determined early so bot can decide whether to lead, etc */
 	UPROPERTY()
@@ -214,9 +347,18 @@ protected:
 	UFUNCTION()
 	virtual void ProcessIncomingWarning();
 
+	/** enemies bot has personally received updates on
+	 * team list is authoritative on known info but this is used to differentiate between "my team has told me this" and "I have personally seen this"
+	 * which can be relevant in enemy ratings depending on the game and bot personality
+	 */
+	UPROPERTY()
+	TArray<FBotEnemyInfo> LocalEnemyList;
 private:
 	UPROPERTY()
 	AUTCharacter* UTChar;
+	/** squad for game and objective specific logic */
+	UPROPERTY()
+	class AUTSquadAI* Squad;
 protected:
 	/** cached reference to navigation network */
 	UPROPERTY()
@@ -238,20 +380,30 @@ protected:
 	TSubobjectPtr<UUTAIAction> WaitForMoveAction;
 	UPROPERTY()
 	TSubobjectPtr<UUTAIAction> WaitForLandingAction;
+	UPROPERTY()
+	TSubobjectPtr<UUTAIAction> RangedAttackAction;
+	UPROPERTY()
+	TSubobjectPtr<UUTAIAction> TacticalMoveAction;
 	//UPROPERTY()
-	//TSubobjectPtr<UUTAIAction> RangedAttackAction;
+	//TSubobjectPtr<UUTAIAction> ChargeAction;
 
 public:
-	inline AUTCharacter* GetUTChar()
+	inline AUTCharacter* GetUTChar() const
 	{
 		return UTChar;
 	}
+	inline AUTSquadAI* GetSquad() const
+	{
+		return Squad;
+	}
+	virtual void SetSquad(AUTSquadAI* NewSquad);
 
 	/** set when planning on wall dodging next time we hit a wall during current fall */
 	bool bPlannedWallDodge;
 
 	virtual void SetPawn(APawn* InPawn) override;
 	virtual void Possess(APawn* InPawn) override;
+	virtual void PawnPendingDestroy(APawn* InPawn) override;
 	virtual void Destroyed() override;
 	virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn = true) override;
 	virtual void Tick(float DeltaTime) override;
@@ -269,6 +421,8 @@ public:
 
 	virtual bool CanSee(APawn* Other, bool bMaySkipChecks);
 	virtual bool LineOfSightTo(const class AActor* Other, FVector ViewPoint = FVector(ForceInit), bool bAlternateChecks = false) const override;
+	// UT version allows specifying an alternate root loc for Other while still supporting checking head, sides, etc - used often when AI is guessing where a target is
+	virtual bool UTLineOfSightTo(const AActor* Other, FVector ViewPoint = FVector(ForceInit), bool bAlternateChecks = false, FVector TargetLocation = FVector::ZeroVector) const;
 	virtual void SeePawn(APawn* Other);
 
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
@@ -288,6 +442,11 @@ public:
 	 */
 	virtual bool TryEvasiveAction(FVector DuckDir);
 
+	/** if bot should defend a specific point, set the appropriate move or camp action
+	 * @return whether an action was set
+	 */
+	virtual bool ShouldDefendPosition();
+
 	void SwitchToBestWeapon();
 	/** rate the passed in weapon (must be owned by this bot) */
 	virtual float RateWeapon(AUTWeapon* W);
@@ -297,6 +456,64 @@ public:
 	virtual bool NeedsWeapon();
 
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
+
+	/** rating for enemy to focus on
+	 * bot targets enemy with highest rating
+	 */
+	virtual float RateEnemy(const FBotEnemyInfo& EnemyInfo);
+	/** returns a value indicating the relative strength of other
+	 * > 0 means other is stronger than controlled pawn
+	 */
+	virtual float RelativeStrength(APawn* Other);
+
+	/** decide best approach to attack current Enemy */
+	virtual void ChooseAttackMode();
+	/** pick a retreat tactic/destination */
+	virtual void DoRetreat();
+	/** core enemy attack logic */
+	virtual void FightEnemy(bool bCanCharge, float EnemyStrength);
+	/** set action to charge current enemy */
+	virtual void DoCharge();
+	/** start an appropriate action to perform in-combat maneuvers (strafe, get in better shooting position, dodge, etc) */
+	virtual void DoTacticalMove();
+	/** do a stationary (or minor strafing, if skilled enough) attack on the given target. Priority is accuracy, not evasion */
+	virtual void DoRangedAttackOn(AActor* NewTarget);
+
+	// action accessors
+	inline void StartWaitForMove()
+	{
+		StartNewAction(WaitForMoveAction);
+	}
+
+	/** convenience redirect to AUTWeapon::CanAttack(), see that for details */
+	virtual bool CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode = false, uint8* BestFireMode = NULL, FVector* OptimalTargetLoc = NULL);
+
+	/** get info on enemy, from team if available or local list if not
+	 * returned pointer is from an array so it is only guaranteed valid until next enemy update
+	 */
+	const FBotEnemyInfo* GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam);
+	/** returns where bot thinks enemy is
+	 * if bAllowPrediction, allow AI to guess at enemy's current position if it doesn't have line of sight (if false, return last known location)
+	 * if the bot nor its teammates have ever contacted this enemy, then it returns FVector(WORLD_MAX)
+	 */
+	virtual FVector GetEnemyLocation(APawn* TestEnemy, bool bAllowPrediction);
+	/** return if the passed in Enemy is visible to this bot
+	 * NOTE: this is a cached value, taken from enemy list; it does not trace
+	 */
+	virtual bool IsEnemyVisible(APawn* TestEnemy);
+	/** return if the bot has other visible enemies than Enemy */
+	virtual bool HasOtherVisibleEnemy();
+
+	/** returns true if we haven't noted any update from Enemy in the specified amount of time
+	 * NOTE: SetEnemy() counts as an update for purposes of this function
+	 */
+	virtual bool LostContact(float MaxTime);
+
+	/** return if bot is stopped and isn't planning on moving, used for some decisions and for certain skill/accuracy checks */
+	bool IsStopped()
+	{
+		return !MoveTarget.IsValid() && GetPawn() != NULL && GetPawn()->GetVelocity().IsZero() && (GetCharacter() == NULL || GetCharacter()->CharacterMovement->GetCurrentAcceleration().IsZero());
+	}
 
 protected:
 	/** timer to call CheckWeaponFiring() */

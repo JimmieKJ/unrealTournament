@@ -8,4 +8,7 @@ UCLASS(Abstract)
 class AUTWeap_Minigun : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
+
+	virtual float GetAISelectRating_Implementation() override;
+	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
 };

@@ -277,3 +277,7 @@ float AUTInventory::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, fl
 {
 	return 0.0f;
 }
+int32 AUTInventory::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const
+{
+	return 0;
+}

@@ -125,6 +125,13 @@ public:
 	*/
 	UFUNCTION(BlueprintNativeEvent)
 	bool PreventHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor);
+	/** return effective change in owner's health due to carrying this item
+	 * for example, armor would return the amount of damage it could be expected to block
+	 * this is used by AI as part of enemy evaluation
+	 * if bOnlyVisible is true, return 0 if the item cannot be detected by only a visible inspection (i.e. would need to hit Owner to know it's there)
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	int32 GetEffectiveHealthModifier(bool bOnlyVisible) const;
 
 	UFUNCTION(BlueprintNativeEvent)
 	void OwnerEvent(FName EventName);

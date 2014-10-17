@@ -25,6 +25,10 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 	}
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 726, 532, 165, 51);
+
+	bPrioritizeAccuracy = true;
+	BaseAISelectRating = 0.7f;
+	BasePickupDesireability = 0.63f;
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const
@@ -140,5 +144,51 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	if (OutHit != NULL)
 	{
 		*OutHit = Hit;
+	}
+}
+
+float AUTWeap_Sniper::GetAISelectRating_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL)
+	{
+		return BaseAISelectRating;
+	}
+	else if (Cast<APawn>(B->GetTarget()) == NULL)
+	{
+		return BaseAISelectRating - 0.15f;
+	}
+	else if (B->GetEnemy() == NULL)
+	{
+		return BaseAISelectRating;
+	}
+	else
+	{
+		float Result = B->IsStopped() ? (BaseAISelectRating + 0.1f) : (BaseAISelectRating - 0.1f);
+		/*if (Vehicle(B.Enemy) != None)
+			result -= 0.2;*/
+		const FVector EnemyLoc = B->GetEnemyLocation(B->GetEnemy(), false);
+		float ZDiff = UTOwner->GetActorLocation().Z - EnemyLoc.Z;
+		if (ZDiff < -B->TacticalHeightAdvantage)
+		{
+			Result += 0.1;
+		}
+		float Dist = (EnemyLoc - UTOwner->GetActorLocation()).Size();
+		if (Dist > 4500.0f)
+		{
+			if (!CanAttack(B->GetEnemy(), EnemyLoc, false))
+			{
+				Result -= 0.15f;
+			}
+			return FMath::Min<float>(2.0f, Result + (Dist - 4500.0f) * 0.0001);
+		}
+		else if (!CanAttack(B->GetEnemy(), EnemyLoc, false))
+		{
+			return BaseAISelectRating - 0.1f;
+		}
+		else
+		{
+			return Result;
+		}
 	}
 }

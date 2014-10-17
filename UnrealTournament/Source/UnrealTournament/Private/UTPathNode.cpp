@@ -79,7 +79,7 @@ bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNa
 				float HitTime;
 				if (!FMath::LineExtentBoxIntersection(TestBox, DirectLoc, PolyCenter, FVector::ZeroVector, HitLoc, HitNormal, HitTime))
 				{
-					MovePoints.Add(FComponentBasedPosition((Walls[BestIndex].A + Walls[BestIndex].B) * 0.5f));
+					MovePoints.Add(FComponentBasedPosition((Walls[BestIndex].A + Walls[BestIndex].B) * 0.5f + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f)));
 				}
 			}
 			MovePoints.Add(FComponentBasedPosition(DirectLoc));

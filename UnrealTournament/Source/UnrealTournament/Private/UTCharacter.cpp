@@ -2850,6 +2850,20 @@ int32 AUTCharacter::ReduceArmorStack(int32 Amount)
 	}
 }
 
+float AUTCharacter::GetEffectiveHealthPct(bool bOnlyVisible) const
+{
+	int32 TotalHealth = bOnlyVisible ? HealthMax : Health;
+	for (TInventoryIterator<> It(this); It; ++It)
+	{
+		if (It->bCallDamageEvents)
+		{
+			TotalHealth += It->GetEffectiveHealthModifier(bOnlyVisible);
+		}
+	}
+
+	return float(TotalHealth) / float(HealthMax);
+}
+
 /** This is only here for legacy. */
 void AUTCharacter::DropFlag()
 {

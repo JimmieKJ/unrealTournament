@@ -30,4 +30,29 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FPostConstructInitializeProperties& PCIP)
 	MaxAmmo = 300;
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 509.0f, 148.0f, 53.0f);
+
+	BaseAISelectRating = 0.71f;
+	BasePickupDesireability = 0.73f;
+}
+
+float AUTWeap_Minigun::GetAISelectRating_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL || B->GetEnemy() == NULL)
+	{
+		return BaseAISelectRating;
+	}
+	else if (!CanAttack(B->GetEnemy(), B->GetEnemyLocation(B->GetEnemy(), false), false))
+	{
+		return BaseAISelectRating - 0.15f;
+	}
+	else
+	{
+		return BaseAISelectRating * FMath::Min<float>(UTOwner->DamageScaling * UTOwner->GetFireRateMultiplier(), 1.5f);
+	}
+}
+bool AUTWeap_Minigun::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
+{
+	// prefer to keep current fire mode as there is a spindown cost associated with switching
+	return Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode || (IsFiring() && FMath::FRand() < 0.9f), BestFireMode, OptimalTargetLoc);
 }

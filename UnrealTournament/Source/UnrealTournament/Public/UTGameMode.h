@@ -114,14 +114,14 @@ public:
 	UPROPERTY()
 	class AActor* EndGameFocus;
 
-	UPROPERTY()
-	TSubclassOf<class UUTLocalMessage>  DeathMessageClass;
+	UPROPERTY(EditDefaultsOnly, Category = Game)
+	TSubclassOf<class UUTLocalMessage> DeathMessageClass;
 
-	UPROPERTY()
-	TSubclassOf<class UUTLocalMessage>  GameMessageClass;
+	UPROPERTY(EditDefaultsOnly, Category = Game)
+	TSubclassOf<class UUTLocalMessage> GameMessageClass;
 
-	UPROPERTY()
-	TSubclassOf<class UUTLocalMessage>  VictoryMessageClass;
+	UPROPERTY(EditDefaultsOnly, Category = Game)
+	TSubclassOf<class UUTLocalMessage> VictoryMessageClass;
 
 	/** Name of the Scoreboard */
 	UPROPERTY(Config)
@@ -169,6 +169,18 @@ public:
 
 	UPROPERTY(GlobalConfig)
 	uint32 bRequirePassword:1;
+
+	/** type of SquadAI that contains game specific AI logic for this gametype */
+	UPROPERTY(EditDefaultsOnly, Category = AI)
+	TSubclassOf<class AUTSquadAI> SquadType;
+	/** maximum number of players per squad (except human-led squad if human forces bots to follow) */
+	UPROPERTY(EditDefaultsOnly, Category = AI)
+	int32 MaxSquadSize;
+
+	/** assign squad to player - note that humans can have a squad for bots to follow their lead
+	 * this method should always result in a valid squad being assigned
+	 */
+	virtual void AssignDefaultSquadFor(AController* C);
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	UFUNCTION(BlueprintImplementableEvent)
@@ -351,8 +363,6 @@ protected:
 	}
 
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
-
-	virtual void Destroyed();
 
 	// Updates the MCP with the current game state.  Happens once per minute.
 	virtual void UpdateOnlineServer();

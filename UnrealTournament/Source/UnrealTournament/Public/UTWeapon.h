@@ -177,6 +177,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	FVector FireOffset;
 
+	/** indicates this weapon is most useful in melee range (used by AI) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	bool bMeleeWeapon;
+	/** indicates AI should prioritize accuracy over evasion (low skill bots will stop moving, higher skill bots prioritize strafing and avoid actions that move enemy across view */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	bool bPrioritizeAccuracy;
+	/** indicates AI should target for splash damage (e.g. shoot at feet or nearby walls) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	bool bRecommendSplashDamage;
+
 	/** Delayed projectile information */
 	UPROPERTY()
 	FDelayedProjectileInfo DelayedProjectile;
@@ -551,6 +561,19 @@ public:
 	/** AI switches to the weapon that returns the highest rating */
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	float GetAISelectRating();
+
+	/** return a value from -1 to 1 for suggested method of attack for AI when holding this weapon, where < 0 indicates back off and fire from afar while > 0 indicates AI should advance/charge */
+	UFUNCTION(BlueprintNativeEvent, Category = AI)
+	float SuggestAttackStyle();
+	/** return a value from -1 to 1 for suggested method of defense for AI when fighting a player with this weapon, where < 0 indicates back off and fire from afar while > 0 indicates AI should advance/charge */
+	UFUNCTION(BlueprintNativeEvent, Category = AI)
+	float SuggestDefenseStyle();
+
+	/** called by the AI to ask if a weapon attack is being prepared; for example loading rockets or waiting for a shock ball to combo
+	 * the AI uses this to know it shouldn't move around too much and should focus on its current target to avoid messing up the shot
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category = AI)
+	bool IsPreparingAttack();
 
 	/** returns whether this weapon has a viable attack against Target
 	 * this function should not consider Owner's view rotation

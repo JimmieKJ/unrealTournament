@@ -35,6 +35,7 @@ class AUTArmor : public AUTInventory
 	virtual void Removed() override;
 
 	virtual void ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser) override;
+	virtual int32 GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const;
 
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 

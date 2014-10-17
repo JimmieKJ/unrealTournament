@@ -5,11 +5,83 @@
 #include "UTAIAction.h"
 #include "UTAIAction_WaitForMove.h"
 #include "UTAIAction_WaitForLanding.h"
+#include "UTAIAction_TacticalMove.h"
+#include "UTAIAction_RangedAttack.h"
 #include "UTDroppedPickup.h"
+#include "UTSquadAI.h"
+
+void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
+{
+	if (Pawn != NULL)
+	{
+		// if we haven't received full info on this enemy in a while, assume our health estimate is off
+		if (Pawn->GetWorld()->TimeSeconds - LastFullUpdateTime > 10.0f)
+		{
+			bHasExactHealth = false;
+		}
+
+		LastUpdateTime = Pawn->GetWorld()->TimeSeconds;
+		switch (UpdateType)
+		{
+		case EUT_Seen:
+			LastSeenLoc = Pawn->GetActorLocation();
+			LastSeeingLoc = ViewerLoc;
+			LastKnownLoc = LastSeenLoc;
+			LastSeenTime = Pawn->GetWorld()->TimeSeconds;
+			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			if (!bHasExactHealth && UTChar != NULL)
+			{
+				EffectiveHealthPct = UTChar->GetEffectiveHealthPct(true);
+			}
+			break;
+		case EUT_HeardExact:
+			LastKnownLoc = Pawn->GetActorLocation();
+			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			break;
+		case EUT_HeardApprox:
+			// TODO: set a "general area" sphere?
+			break;
+		case EUT_TookDamage:
+			LastHitByTime = Pawn->GetWorld()->TimeSeconds;
+			// TODO: only update LastKnownLoc/LastFullUpdateTime if recently fired the projectile?
+			LastKnownLoc = Pawn->GetActorLocation();
+			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			break;
+		case EUT_DealtDamage:
+			// TODO: only update LastKnownLoc if recently fired the projectile?
+			LastKnownLoc = Pawn->GetActorLocation();
+			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			if (UTChar != NULL)
+			{
+				EffectiveHealthPct = UTChar->GetEffectiveHealthPct(false);
+				bHasExactHealth = true;
+			}
+			break;
+		}
+	}
+}
+bool FBotEnemyInfo::IsValid(AActor* TeamHolder) const
+{
+	if (Pawn == NULL || Pawn->bPendingKillPending || (UTChar != NULL && UTChar->IsDead()))
+	{
+		return false;
+	}
+	else if (TeamHolder == NULL)
+	{
+		return true;
+	}
+	else
+	{
+		AUTGameState* GS = TeamHolder->GetWorld()->GetGameState<AUTGameState>();
+		return (GS == NULL || !GS->OnSameTeam(TeamHolder, Pawn));
+	}
+}
 
 AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	TacticalHeightAdvantage = 650.0f;
+
 	bWantsPlayerState = true;
 	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	SightRadius = 20000.0f;
@@ -18,6 +90,8 @@ AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
 
 	WaitForMoveAction = PCIP.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
 	WaitForLandingAction = PCIP.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
+	TacticalMoveAction = PCIP.CreateDefaultSubobject<UUTAIAction_TacticalMove>(this, FName(TEXT("TacticalMove")));
+	RangedAttackAction = PCIP.CreateDefaultSubobject<UUTAIAction_RangedAttack>(this, FName(TEXT("RangedAttack")));
 }
 
 float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
@@ -91,9 +165,18 @@ void AUTBot::Possess(APawn* InPawn)
 	Super::Possess(InPawn);
 
 	ClearMoveTarget();
+	bPickNewFireMode = true;
 	
 	// set weapon timer, if not already
 	GetWorldTimerManager().SetTimer(this, &AUTBot::CheckWeaponFiringTimed, 1.2f - 0.09f * FMath::Min<float>(10.0f, Skill + Personality.ReactionTime), true);
+}
+
+void AUTBot::PawnPendingDestroy(APawn* InPawn)
+{
+	Enemy = NULL;
+	StartNewAction(NULL);
+
+	Super::PawnPendingDestroy(InPawn);
 }
 
 void AUTBot::Destroyed()
@@ -108,6 +191,8 @@ void AUTBot::Destroyed()
 		UnPossess();
 	}
 	
+	SetSquad(NULL);
+
 	Super::Destroyed();
 }
 
@@ -236,6 +321,18 @@ void AUTBot::Tick(float DeltaTime)
 		}
 
 		// check for enemy visibility
+		// check current enemy every frame, others on a slightly random timer to avoid hitches
+		if (Enemy != NULL)
+		{
+			if (CanSee(Enemy, false))
+			{
+				SeePawn(Enemy);
+			}
+			else if (CurrentAction != NULL)
+			{
+				CurrentAction->EnemyNotVisible();
+			}
+		}
 		SightCounter -= DeltaTime;
 		if (SightCounter < 0.0f)
 		{
@@ -245,7 +342,7 @@ void AUTBot::Tick(float DeltaTime)
 				if (It->IsValid())
 				{
 					AController* C = It->Get();
-					if (C->GetPawn() != NULL && (bSeeFriendly || GS == NULL || !GS->OnSameTeam(C, this)) && CanSee(C->GetPawn(), true) && (!AreAIIgnoringPlayers() || !C->IsA(APlayerController::StaticClass())))
+					if (C != this && C->GetPawn() != NULL && C->GetPawn() != Enemy && (bSeeFriendly || GS == NULL || !GS->OnSameTeam(C, this)) && CanSee(C->GetPawn(), true) && (!AreAIIgnoringPlayers() || !C->IsA(APlayerController::StaticClass())))
 					{
 						SeePawn(C->GetPawn());
 					}
@@ -255,18 +352,25 @@ void AUTBot::Tick(float DeltaTime)
 		}
 
 		// process current action
-		if (CurrentAction == NULL)
 		{
-			WhatToDoNext();
-		}
-		else if (CurrentAction->Update(DeltaTime))
-		{
-			if (CurrentAction != NULL) // could have ended itself...
+			UUTAIAction* SavedAction = CurrentAction;
+			if (SavedAction == NULL)
 			{
-				CurrentAction->Ended(false);
-				CurrentAction = NULL;
+				WhatToDoNext();
 			}
-			WhatToDoNext();
+			else if (SavedAction->Update(DeltaTime))
+			{
+				if (SavedAction == CurrentAction) // could have ended itself...
+				{
+					CurrentAction->Ended(false);
+					CurrentAction = NULL;
+					WhatToDoNext();
+				}
+				else if (SavedAction == NULL) // could also interrupt directly to another action
+				{
+					WhatToDoNext();
+				}
+			}
 		}
 		// start new action, if requested
 		if (bPendingWhatToDoNext)
@@ -324,7 +428,7 @@ void AUTBot::Tick(float DeltaTime)
 				}
 				if (GetCharacter() != NULL && GetCharacter()->CharacterMovement != NULL)
 				{
-					GetCharacter()->CharacterMovement->bCanWalkOffLedges = !CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP);
+					GetCharacter()->CharacterMovement->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP)) && (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
 				}
 				if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && GetCharacter()->CharacterMovement->AirControl > 0.0f)
 				{
@@ -376,6 +480,20 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 {
 	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 
+	Canvas->SetDrawColor(0, 255, 0);
+	Canvas->DrawText(GEngine->GetSmallFont(), GoalString, 4.0f, YPos);
+	YPos += YL;
+	YPos += YL;
+	Canvas->SetDrawColor(255, 0, 0);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy)), 4.0f, YPos);
+	YPos += YL;
+	for (const FBotEnemyRating& RatingInfo : LastPickEnemyRatings)
+	{
+		Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("%s rated %4.2f"), *RatingInfo.PlayerName, RatingInfo.Rating), 4.0f, YPos);
+		YPos += YL;
+	}
+	YPos += YL;
+
 	if (GetPawn() != NULL)
 	{
 		if (MoveTarget.IsValid())
@@ -410,7 +528,6 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 
 			const TArray<FSavedPosition>* SavedPosPtr = NULL;
 			AUTCharacter* TargetP = Cast<AUTCharacter>(GetFocusActor());
-			AUTWeapon* MyWeap = (UTChar != NULL) ? UTChar->GetWeapon() : NULL;
 			if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
 			{
 				SavedPosPtr = &TargetP->SavedPositions;
@@ -427,20 +544,13 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 						const FVector TrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
 						
 						TargetLoc = TargetLoc + TrackedVelocity * TrackingReactionTime;
-						if (MyWeap != NULL)
+						if (CanAttack(TargetP, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 						{
-							if (MyWeap->CanAttack(TargetP, TargetLoc, false, !bPickNewFireMode, NextFireMode, FocalPoint))
-							{
-								bPickNewFireMode = false;
-							}
-							else
-							{
-								FocalPoint = TargetLoc; // LastSeenLoc ???
-							}
+							bPickNewFireMode = false;
 						}
 						else
 						{
-							FocalPoint = TargetLoc;
+							FocalPoint = TargetLoc; // LastSeenLoc ???
 						}
 
 						// TODO: leading for projectiles, etc
@@ -448,10 +558,10 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 					}
 				}
 			}
-			else if (MyWeap != NULL && Target != NULL && GetFocusActor() == Target)
+			else if (Target != NULL && GetFocusActor() == Target)
 			{
 				FVector TargetLoc = GetFocusActor()->GetTargetLocation();
-				if (MyWeap->CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, NextFireMode, FocalPoint))
+				if (CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 				{
 					bPickNewFireMode = false;
 				}
@@ -527,7 +637,7 @@ void AUTBot::NotifyWalkingOffLedge()
 
 void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 {
-	if (GetCharacter() != NULL)
+	if ((CurrentAction == NULL || !CurrentAction->NotifyMoveBlocked(Impact)) && GetCharacter() != NULL)
 	{
 		if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
 		{
@@ -696,8 +806,8 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 					UTChar->StopFire(i);
 				}
 
-				// Start fire can cause us to lose our character
-				if (UTChar == nullptr)
+				// if blew self up, abort
+				if (UTChar == NULL)
 				{
 					break;
 				}
@@ -743,6 +853,28 @@ void AUTBot::StartNewAction(UUTAIAction* NewAction)
 	}
 }
 
+bool AUTBot::CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8* BestFireMode, FVector* OptimalTargetLoc)
+{
+	if (GetUTChar() == NULL || GetUTChar()->GetWeapon() == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		uint8 TempFireMode = 0;
+		FVector TempTargetLoc = FVector::ZeroVector;
+		if (BestFireMode == NULL)
+		{
+			BestFireMode = &TempFireMode;
+		}
+		if (OptimalTargetLoc == NULL)
+		{
+			OptimalTargetLoc = &TempTargetLoc;
+		}
+		return GetUTChar()->GetWeapon()->CanAttack(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, *BestFireMode, *OptimalTargetLoc);
+	}
+}
+
 bool AUTBot::FindInventoryGoal(float MinWeight)
 {
 	if (LastFindInventoryTime == GetWorld()->TimeSeconds && LastFindInventoryWeight >= MinWeight)
@@ -764,6 +896,124 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 	}
 }
 
+const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
+{
+	AUTPlayerState* PS = bCheckTeam ? Cast<AUTPlayerState>(PlayerState) : NULL;
+	const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
+	for (int32 i = 0; i < EnemyList.Num(); i++)
+	{
+		if (EnemyList[i].GetPawn() == TestEnemy)
+		{
+			return &EnemyList[i];
+		}
+	}
+	return NULL;
+}
+
+FVector AUTBot::GetEnemyLocation(APawn* TestEnemy, bool bAllowPrediction)
+{
+	const FBotEnemyInfo* Info = GetEnemyInfo(TestEnemy, true);
+	if (Info == NULL)
+	{
+		return FVector(WORLD_MAX);
+	}
+	// return exact loc if seen
+	else if (Info->IsCurrentlyVisible(GetWorld()->TimeSeconds))
+	{
+		return TestEnemy->GetActorLocation();
+	}
+	else if (!bAllowPrediction || GetWorld()->TimeSeconds - Info->LastFullUpdateTime <= GetWorld()->GetDeltaSeconds())
+	{
+		return Info->LastKnownLoc;
+	}
+	else
+	{
+		// TODO:
+		return Info->LastKnownLoc;
+	}
+}
+
+bool AUTBot::IsEnemyVisible(APawn* TestEnemy)
+{
+	// only use local enemies for personal visibility
+	for (const FBotEnemyInfo& Info : LocalEnemyList)
+	{
+		if (Info.GetPawn() == TestEnemy)
+		{
+			return Info.IsCurrentlyVisible(GetWorld()->TimeSeconds);
+		}
+	}
+	return false;
+}
+
+bool AUTBot::HasOtherVisibleEnemy()
+{
+	// only use local enemies for personal visibility
+	for (const FBotEnemyInfo& Info : LocalEnemyList)
+	{
+		if (Info.GetPawn() != Enemy && Info.IsCurrentlyVisible(GetWorld()->TimeSeconds))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AUTBot::LostContact(float MaxTime)
+{
+	if (Enemy == NULL)
+	{
+		return true;
+	}
+	else
+	{
+		// lose invisible enemies faster
+		AUTCharacter* EnemyUTChar = Cast<AUTCharacter>(Enemy);
+		if (EnemyUTChar != NULL && /*EnemyUTChar->IsInvisible()*/ false)
+		{
+			MaxTime = FMath::Max<float>(2.0f, MaxTime - 2.0f);
+		}
+
+		if (GetWorld()->TimeSeconds - LastEnemyChangeTime <= MaxTime)
+		{
+			return false;
+		}
+		else
+		{
+			// TODO: maybe use team list if enemy is high priority?
+			for (const FBotEnemyInfo& Info : LocalEnemyList)
+			{
+				if (Info.GetPawn() == Enemy)
+				{
+					return GetWorld()->TimeSeconds - Info.LastFullUpdateTime > MaxTime;
+				}
+			}
+
+			return true;
+		}
+	}
+}
+
+void AUTBot::SetSquad(AUTSquadAI* NewSquad)
+{
+	if (NewSquad != NULL && NewSquad->GetTeamNum() != GetTeamNum())
+	{
+		UE_LOG(UT, Warning, TEXT("AUTBot::SetSquad(): NewSquad is on the wrong team!"));
+	}
+	else
+	{
+		if (Squad != NULL)
+		{
+			Squad->RemoveMember(this);
+		}
+		Squad = NewSquad;
+		if (Squad != NULL)
+		{
+			Squad->AddMember(this);
+		}
+	}
+}
+
 void AUTBot::WhatToDoNext()
 {
 	ensure(!bExecutingWhatToDoNext);
@@ -773,6 +1023,8 @@ void AUTBot::WhatToDoNext()
 
 void AUTBot::ExecuteWhatToDoNext()
 {
+	Target = NULL;
+
 	SwitchToBestWeapon();
 
 	if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling)
@@ -781,51 +1033,493 @@ void AUTBot::ExecuteWhatToDoNext()
 	}
 	else
 	{
-		if (Enemy != NULL && GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->BaseAISelectRating >= 0.5f && LineOfSightTo(Enemy))
+		if (Squad == NULL)
 		{
-			float Weight = 0.0f;
-			FSingleEndpointEval NodeEval(Enemy);
-			NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
-			if (RouteCache.Num() > 0)
+			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (Game != NULL)
 			{
-				SetMoveTarget(RouteCache[0]);
-				StartNewAction(WaitForMoveAction);
+				Game->AssignDefaultSquadFor(this);
+			}
+			if (Squad == NULL)
+			{
+				UE_LOG(UT, Warning, TEXT("Bot %s failed to get Squad from game mode!"), (PlayerState != NULL) ? *PlayerState->PlayerName : *GetName());
+				// force default so we always have one
+				SetSquad(GetWorld()->SpawnActor<AUTSquadAI>());
 			}
 		}
-		if (CurrentAction == NULL)
+
+		/* TODO: investigate value
+		if ((StartleActor != None) && !StartleActor.bDeleteMe)
 		{
-			if (FindInventoryGoal(0.0f))
+			StartleActor.GetBoundingCylinder(StartleRadius, StartleHeight);
+			if (VSize(StartleActor.Location - Pawn.Location) < StartleRadius)
 			{
-				SetMoveTarget(RouteCache[0]);
-				StartNewAction(WaitForMoveAction);
+				Startle(StartleActor);
+				return;
+			}
+		}*/
+
+		// make sure enemy is valid
+		if (Enemy != NULL)
+		{
+			if (Enemy->bPendingKillPending)
+			{
+				Enemy = NULL;
+			}
+			AUTCharacter* EnemyUTChar = Cast<AUTCharacter>(Enemy);
+			if (EnemyUTChar != NULL && EnemyUTChar->IsDead())
+			{
+				Enemy = NULL;
 			}
 		}
-		
-		// FALLBACK: just wander randomly
-		if (CurrentAction == NULL)
+		if (Enemy == NULL)
 		{
-			FRandomDestEval NodeEval;
-			float Weight = 0.0f;
-			if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+			PickNewEnemy(); // note: not guaranteed to give one
+		}
+		else
+		{
+			// maybe lose enemy if haven't had any contact and isn't a high priority
+			if (!Squad->MustKeepEnemy(Enemy) && !IsEnemyVisible(Enemy))
 			{
-				SetMoveTarget(RouteCache[0]);
-				StartNewAction(WaitForMoveAction);
+				// decide if should lose enemy
+				if (/*Squad.IsDefending(self)*/ false)
+				{
+					if (LostContact(4.0f))
+					{
+						//LoseEnemy();
+					}
+				}
+				else if (LostContact(7.0f))
+				{
+					//LoseEnemy();
+				}
 			}
-			else
+		}
+
+		if ((Squad == NULL || !Squad->CheckSquadObjectives(this)) && !ShouldDefendPosition())
+		{
+			if (Enemy != NULL && !NeedsWeapon())
 			{
-				SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + FMath::VRand() * FVector(500.0f, 500.0f, 0.0f), INVALID_NAVNODEREF));
-				StartNewAction(WaitForMoveAction);
+				ChooseAttackMode();
+			}
+			// if no other action, look for items
+			if (CurrentAction == NULL)
+			{
+				if (FindInventoryGoal(0.0f))
+				{
+					GoalString = FString::Printf(TEXT("Wander to inventory %s"), *GetNameSafe(RouteCache.Last().Actor.Get()));
+					SetMoveTarget(RouteCache[0]);
+					StartNewAction(WaitForMoveAction);
+				}
+			}
+
+			// FALLBACK: just wander randomly
+			if (CurrentAction == NULL)
+			{
+				FRandomDestEval NodeEval;
+				float Weight = 0.0f;
+				if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+				{
+					SetMoveTarget(RouteCache[0]);
+					StartNewAction(WaitForMoveAction);
+				}
+				else
+				{
+					SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + FMath::VRand() * FVector(500.0f, 500.0f, 0.0f), INVALID_NAVNODEREF));
+					StartNewAction(WaitForMoveAction);
+				}
 			}
 		}
 	}
+}
+
+void AUTBot::ChooseAttackMode()
+{
+	float EnemyStrength = RelativeStrength(Enemy);
+	AUTWeapon* MyWeap = (GetUTChar() != NULL) ? GetUTChar()->GetWeapon() : NULL;
+
+	/* send under attack voice message if under duress
+	if ( EnemyStrength > 0.0f && (PlayerReplicationInfo.Team != None) && (FRand() < 0.25) &&
+	(WorldInfo.TimeSeconds - LastInjuredVoiceMessageTime > 45.0) )
+	{
+		LastInjuredVoiceMessageTime = WorldInfo.TimeSeconds;
+		SendMessage(None, 'INJURED', 25);
+	}*/
+	/*if (Vehicle(Pawn) != None)
+	{
+		VehicleFightEnemy(true, EnemyStrength);
+	}
+	else
+	*/
+	{
+		if (/*!bFrustrated && */!Squad->MustKeepEnemy(Enemy))
+		{
+			float RetreatThreshold = Personality.Aggressiveness;
+			if (!NeedsWeapon())
+			{
+				// low skill bots default to not retreating
+				RetreatThreshold += 0.35 - Skill * 0.05f;
+			}
+			if (EnemyStrength > RetreatThreshold)
+			{
+				GoalString = "Retreat";
+				/* send retreating voice message
+				if ((PlayerReplicationInfo.Team != None) && (FRand() < 0.05)
+				&& (WorldInfo.TimeSeconds - LastInjuredVoiceMessageTime > 45.0))
+				{
+				LastInjuredVoiceMessageTime = WorldInfo.TimeSeconds;
+				SendMessage(None, 'INJURED', 25);
+				}*/
+				DoRetreat();
+				return;
+			}
+		}
+
+		if (/*(Squad.PriorityObjective(self) == 0) && */Skill + Personality.Tactics > 2.0f && (EnemyStrength > -0.3f || NeedsWeapon()))
+		{
+			float WeaponRating;
+			if (MyWeap == NULL)
+			{
+				WeaponRating = 0.0f;
+			}
+			else if (NeedsWeapon())
+			{
+				WeaponRating = (EnemyStrength > 0.3f) ? 0.0f : (MyWeap->GetAISelectRating() / 2000.0f);
+			}
+			else
+			{
+				WeaponRating = MyWeap->GetAISelectRating() / ((EnemyStrength > 0.3f) ? 2000.0f : 1000.0f);
+			}
+
+			// fallback to better pickup?
+			if (FindInventoryGoal(WeaponRating))
+			{
+				GoalString = FString::Printf(TEXT("Fallback to better pickup %s"), *GetNameSafe(RouteCache.Last().Actor.Get()));
+				//GotoState('FallBack');
+				SetMoveTarget(RouteCache[0]);
+				StartNewAction(WaitForMoveAction); // TODO: FallbackAction?
+				return;
+			}
+		}
+
+		GoalString = "ChooseAttackMode FightEnemy";
+		FightEnemy(true, EnemyStrength);
+	}
+}
+
+void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
+{
+	/*if (Vehicle(Pawn) != None)
+	{
+		VehicleFightEnemy(bCanCharge, EnemyStrength);
+		return;
+	}*/
+	/*if (Pawn.IsInPain() && FindInventoryGoal(0.0))
+	{
+		GoalString = "Fallback out of pain volume " $ RouteGoal $ " hidden " $ RouteGoal.bHidden;
+		GotoState('FallBack');
+		return;
+	}*/
+	AUTWeapon* MyWeap = (GetUTChar() != NULL) ? GetUTChar()->GetWeapon() : NULL;
+	if (MyWeap == NULL)
+	{
+		if (FindInventoryGoal(0.0f))
+		{
+			SetMoveTarget(RouteCache[0]);
+			//GotoState('FallBack');
+			StartNewAction(WaitForMoveAction);
+		}
+	}
+	/*else if ( (Enemy == FailedHuntEnemy) && (WorldInfo.TimeSeconds == FailedHuntTime) )
+	{
+		GoalString = "FAILED HUNT - HANG OUT";
+		if ( LineOfSightTo(Enemy) )
+			bCanCharge = false;
+		else if ( FindInventoryGoal(0) )
+		{
+			SetAttractionState();
+			return;
+		}
+		else
+		{
+			WanderOrCamp();
+			return;
+		}
+	}*/
+	else
+	{
+		bool bOldForcedCharge = false;// bMustCharge;
+		//bMustCharge = false;
+		const FVector EnemyLoc = GetEnemyLocation(Enemy, true);
+		float EnemyDist = (GetPawn()->GetActorLocation() - EnemyLoc).Size();
+		bool bFarAway = false;
+		// TODO: used to use CombatStyle here... seems almost the same as Aggressiveness, maybe don't need both
+		float AdjustedCombatStyle = Personality.Aggressiveness + MyWeap->SuggestAttackStyle();
+		CurrentAggression = 1.5f * FMath::FRand() - 0.8f + 2.0f * AdjustedCombatStyle - 0.5 * EnemyStrength
+								+ FMath::FRand() * ((Enemy->GetVelocity() - GetPawn()->GetVelocity()).SafeNormal() | (EnemyLoc - GetPawn()->GetActorLocation()).SafeNormal());
+		AUTWeapon* EnemyWeap = (Cast<AUTCharacter>(Enemy) != NULL) ? ((AUTCharacter*)Enemy)->GetWeapon() : NULL;
+		if (EnemyWeap != NULL)
+		{
+			CurrentAggression += 2.0f * EnemyWeap->SuggestDefenseStyle();
+		}
+		//if (enemyDist > MAXSTAKEOUTDIST)
+		//	Aggression += 0.5;
+		Squad->ModifyAggression(this, CurrentAggression);
+		if (GetCharacter() != NULL && GetCharacter()->CharacterMovement != NULL && (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking || GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling))
+		{
+			float ZDiff = GetPawn()->GetActorLocation().Z - EnemyLoc.Z;
+			if (ZDiff > TacticalHeightAdvantage)
+			{
+				CurrentAggression = FMath::Max<float>(0.0f, CurrentAggression - 1.0f + AdjustedCombatStyle);
+			}
+			else if ((Skill < 4.0f || Personality.Aggressiveness >= 0.5f) && EnemyDist > 3000.0f)
+			{
+				bFarAway = true;
+				CurrentAggression += 0.5;
+			}
+			else if (ZDiff < -GetPawn()->GetSimpleCollisionHalfHeight())  // below enemy
+			{
+				// unless really aggressive, don't try to charge enemy with substantial height advantage
+				if (ZDiff < -TacticalHeightAdvantage && Personality.Aggressiveness < 0.7f)
+				{
+					CurrentAggression += Personality.Aggressiveness * 0.5f;
+				}
+				else
+				{
+					CurrentAggression += Personality.Aggressiveness;
+				}
+			}
+		}
+
+		if (!CanAttack(Enemy, EnemyLoc, true)) // TODO: maybe not bDirectOnly = true? Unsure if best to check for indirect attacks from here
+		{
+			if (Squad->MustKeepEnemy(Enemy))
+			{
+				GoalString = "Hunt priority enemy";
+				//GotoState('Hunting');
+			}
+			else if (!bCanCharge)
+			{
+				GoalString = "Stake Out - no charge";
+				//DoStakeOut();
+			}
+			/*else if (Squad.IsDefending(self) && LostContact(4) && ClearShot(LastSeenPos, false))
+			{
+				GoalString = "Stake Out "$LastSeenPos;
+				DoStakeOut();
+			}*/
+			else if (((CurrentAggression < 1.0f && !LostContact(3.0f + 2.0f * FMath::FRand()))/* || IsSniping()*/)/* && CanStakeOut()*/)
+			{
+				GoalString = "Stake Out2";
+				//DoStakeOut();
+			}
+			else if ( Skill + Personality.Tactics >= 3.5f + FMath::FRand() && !LostContact(1.0f) /*&& VSize(EnemyLoc - GetPawn()->GetActorLocation()) < MAXSTAKEOUTDIST*/ &&
+				!NeedsWeapon() && !MyWeap->bMeleeWeapon &&
+				FMath::FRand() < 0.75f && !IsEnemyVisible(Enemy) && (Enemy->Controller == NULL || !Enemy->Controller->LineOfSightTo(GetPawn())) &&
+				!HasOtherVisibleEnemy() )
+			{
+				GoalString = "Stake Out 3";
+				//DoStakeOut();
+			}
+			else
+			{
+				GoalString = "Hunt";
+				//GotoState('Hunting');
+			}
+			return;
+		}
+
+		// see enemy - decide whether to charge it or strafe around/stand and fire
+		SetFocus(Enemy);
+
+		if (MyWeap->bMeleeWeapon || (bCanCharge && bOldForcedCharge))
+		{
+			GoalString = "Charge";
+			DoCharge();
+		}
+		/*else if (MyWeap->RecommendLongRangedAttack())
+		{
+			GoalString = "Long Ranged Attack";
+			DoRangedAttackOn(Enemy);
+		}*/
+		else if (bCanCharge && (Skill < 5.0f || Personality.Aggressiveness >= 0.5f) && bFarAway && CurrentAggression > 1.0f && FMath::FRand() < 0.5)
+		{
+			GoalString = "Charge closer";
+			DoCharge();
+		}
+		else if (MyWeap->bPrioritizeAccuracy /*|| IsSniping()*/ || (FMath::FRand() > 0.17f * (Skill + Personality.Tactics - 1.0f)/* && !DefendMelee(EnemyDist)*/))
+		{
+			GoalString = "Ranged Attack";
+			DoRangedAttackOn(Enemy);
+		}
+		else if (bCanCharge && CurrentAggression > 1.0f)
+		{
+			GoalString = "Charge 2";
+			DoCharge();
+		}
+		else
+		{
+			GoalString = "Do tactical move";
+			if (!MyWeap->bRecommendSplashDamage && FMath::FRand() < 0.7f && 3.0f * Personality.Jumpiness + FMath::FRand() * Skill > 3.0f)
+			{
+				GoalString = "Try to Duck";
+				FVector Y = FRotationMatrix(GetControlRotation()).GetScaledAxis(EAxis::Y);
+				if (FMath::FRand() < 0.5f)
+				{
+					TryEvasiveAction(Y * -1.0f);
+				}
+				else
+				{
+					TryEvasiveAction(Y);
+				}
+			}
+			DoTacticalMove();
+		}
+	}
+}
+
+void AUTBot::DoRetreat()
+{
+	if (Squad->PickRetreatDestination(this))
+	{
+		//GotoState('Retreating');
+		//StartNewAction(RetreatAction);
+		StartNewAction(WaitForMoveAction);
+	}
+	// if nothing, then tactical move
+	else if (LineOfSightTo(Enemy))
+	{
+		//GoalString = "No retreat because frustrated";
+		//bFrustrated = true;
+		if (GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->bMeleeWeapon)
+		{
+			//GotoState('Charging');
+			// StartNewAction(ChargingAction);
+		}
+		/*else if (Vehicle(Pawn) != None)
+		{
+			GotoState('VehicleCharging');
+		}*/
+		else
+		{
+			DoTacticalMove();
+		}
+	}
+	else
+	{
+		//GoalString = "Stakeout because no retreat dest";
+		//DoStakeOut();
+	}
+}
+
+void AUTBot::DoCharge()
+{
+	// TODO: full action state
+
+	float Weight = 0.0f;
+	FSingleEndpointEval NodeEval(Enemy);
+	NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
+	if (RouteCache.Num() > 0)
+	{
+		SetMoveTarget(RouteCache[0]);
+		StartNewAction(WaitForMoveAction);
+	}
+}
+
+void AUTBot::DoTacticalMove()
+{
+	/*if (!Pawn.bCanStrafe)
+	{
+		if (Pawn.HasRangedAttack())
+			DoRangedAttackOn(Enemy);
+		else
+			WanderOrCamp();
+	}
+	else
+	*/
+	{
+		StartNewAction(TacticalMoveAction);
+	}
+}
+
+void AUTBot::DoRangedAttackOn(AActor* NewTarget)
+{
+	Target = NewTarget;
+
+	// leave vehicle if it's not useful for shooting things
+	/*V = UTVehicle(Pawn);
+	if (V != None && V.bShouldLeaveForCombat)
+	{
+		LeaveVehicle(false);
+	}*/
+
+	SetFocus(Target);
+	StartNewAction(RangedAttackAction);
+}
+
+float AUTBot::RelativeStrength(APawn* Other)
+{
+	const FBotEnemyInfo* Info = GetEnemyInfo(Other, true);
+	if (Info == NULL)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		// TODO: account for implict strength of pawn class (relevant for vehicles - 100% tank health isn't the same as 100% human health)
+		float Relation = Info->EffectiveHealthPct - ((UTChar != NULL) ? UTChar->GetEffectiveHealthPct(false) : 1.0f);
+
+		if (UTChar != NULL && UTChar->GetWeapon() != NULL)
+		{
+			Relation -= 0.5f * UTChar->DamageScaling * UTChar->GetFireRateMultiplier() * UTChar->GetWeapon()->GetAISelectRating();
+			if (UTChar->GetWeapon()->BaseAISelectRating < 0.5f)
+			{
+				Relation += 0.3f;
+				if (Info->GetUTChar() != NULL && Info->GetUTChar()->GetWeapon() != NULL && Info->GetUTChar()->GetWeapon()->BaseAISelectRating > 0.5f)
+				{
+					Relation += 0.3f;
+				}
+			}
+		}
+		if (Info->GetUTChar() != NULL && Info->GetUTChar()->GetWeapon() != NULL)
+		{
+			Relation += 0.5f * Info->GetUTChar()->DamageScaling * Info->GetUTChar()->GetFireRateMultiplier() * Info->GetUTChar()->GetWeapon()->BaseAISelectRating;
+		}
+
+		if (GetWorld()->TimeSeconds - Info->LastFullUpdateTime < 10.0f)
+		{
+			if (Info->LastKnownLoc.Z > GetPawn()->GetActorLocation().Z + TacticalHeightAdvantage)
+			{
+				Relation += 0.2f;
+			}
+			else if (GetPawn()->GetActorLocation().Z > Info->LastKnownLoc.Z + TacticalHeightAdvantage)
+			{
+				Relation -= 0.15;
+			}
+		}
+
+		return Relation;
+	}
+}
+
+bool AUTBot::ShouldDefendPosition()
+{
+	return false; // TODO
 }
 
 void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType)
 {
 	if (KilledPawn == Enemy)
 	{
-		SetEnemy(NULL);
-		// TODO: maybe taunt
+		Enemy = NULL;
+		if (GetPawn() != NULL)
+		{
+			PickNewEnemy();
+			if (Killer == this)
+			{
+				// TODO: maybe taunt
+			}
+		}
 	}
 }
 
@@ -836,8 +1530,7 @@ void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Mome
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(InstigatedBy, this))
 		{
-			SetEnemy(InstigatedBy->GetPawn());
-			WhatToDoNext();
+			UpdateEnemyInfo(InstigatedBy->GetPawn(), EUT_TookDamage);
 		}
 	}
 }
@@ -877,7 +1570,7 @@ void AUTBot::ReceiveProjWarning(AUTProjectile* Incoming)
 		}
 		else if (Enemy == NULL)
 		{
-			SetEnemy(Incoming->Instigator);
+			UpdateEnemyInfo(Incoming->Instigator, EUT_TookDamage);
 		}
 	}
 }
@@ -908,7 +1601,7 @@ void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir
 		}
 		else if (Enemy == NULL)
 		{
-			SetEnemy(Shooter);
+			UpdateEnemyInfo(Shooter, EUT_TookDamage);
 		}
 	}
 }
@@ -1029,8 +1722,10 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 //		return UTVehicle(Pawn).Dodge(DCLICK_None);
 	//if (Pawn.bStationary)
 //		return false;
-//	if (Stopped())
-//		GotoState('TacticalMove');
+	if (IsStopped())
+	{
+		StartNewAction(TacticalMoveAction);
+	}
 //	else if (FRand() < 0.6)
 //		bChangeStrafe = IsStrafing();
 
@@ -1126,6 +1821,155 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 	}
 }
 
+void AUTBot::PickNewEnemy()
+{
+	if (Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false))
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
+
+		LastPickEnemyRatings.Empty();
+		APawn* BestEnemy = NULL;
+		float BestRating = -1.0f;
+		for (const FBotEnemyInfo& EnemyInfo : EnemyList)
+		{
+			if (EnemyInfo.IsValid())
+			{
+				bool bLostEnemy = EnemyInfo.bLostEnemy;
+				if (&EnemyList != (const TArray<const FBotEnemyInfo>*)&LocalEnemyList)
+				{
+					for (const FBotEnemyInfo& LocalEnemyInfo : LocalEnemyList)
+					{
+						if (LocalEnemyInfo.GetPawn() == EnemyInfo.GetPawn())
+						{
+							bLostEnemy = LocalEnemyInfo.bLostEnemy;
+							break;
+						}
+					}
+				}
+				if (!bLostEnemy)
+				{
+					float Rating = RateEnemy(EnemyInfo);
+					new(LastPickEnemyRatings) FBotEnemyRating(EnemyInfo.GetPawn(), Rating);
+					if (Rating > BestRating)
+					{
+						BestEnemy = EnemyInfo.GetPawn();
+					}
+				}
+			}
+		}
+		SetEnemy(BestEnemy);
+	}
+}
+
+float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
+{
+	float NewStrength = RelativeStrength(EnemyInfo.GetPawn());
+	// more likely to pursue strong enemies if aggressive
+	float ThreatValue = FMath::Clamp<float>(NewStrength, 0.0f, 1.0f) * Personality.Aggressiveness;
+	// more likely to pursue weak enemies if tactical (TODO: some other personality attribute? We check Tactics a lot...)
+	if (NewStrength < 0.0f && Personality.Tactics > 0.0f)
+	{
+		ThreatValue += NewStrength * -0.5f * Personality.Tactics;
+	}
+	float Dist = (EnemyInfo.LastKnownLoc - GetPawn()->GetActorLocation()).Size();
+	if (Dist < 4500.0f)
+	{
+		ThreatValue += 0.2;
+		if (Dist < 3300.0f)
+		{
+			ThreatValue += 0.2;
+			if (Dist < 2200.0f)
+			{
+				ThreatValue += 0.2;
+				if (Dist < 1100.0f)
+				{
+					ThreatValue += 0.2;
+				}
+			}
+		}
+	}
+
+	bool bThreatVisible = IsEnemyVisible(EnemyInfo.GetPawn()); // intentional that we use bot's personal visibility here instead of team
+	bool bThreatAttackable = CanAttack(EnemyInfo.GetPawn(), EnemyInfo.LastKnownLoc, false);
+	if (bThreatVisible)
+	{
+		ThreatValue += 1.0f;
+		ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f));
+	}
+	else if (bThreatAttackable)
+	{
+		ThreatValue += 0.5f;
+		ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f)) * 0.5f;
+	}
+	if (Enemy != NULL && EnemyInfo.GetPawn() != Enemy)
+	{
+		if (!bThreatVisible)
+		{
+			if (!bThreatAttackable)
+			{
+				ThreatValue -= 5.0f;
+			}
+			else
+			{
+				ThreatValue -= 2.0f;
+			}
+		}
+		else if (GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime > 2.0f)
+		{
+			ThreatValue += 1;
+		}
+		if (Dist > 0.7f * (GetEnemyInfo(Enemy, true)->LastKnownLoc - GetPawn()->GetActorLocation()).Size())
+		{
+			ThreatValue -= 0.25;
+		}
+		ThreatValue -= 0.2;
+
+		/*if (B.IsHunting() && (NewStrength < 0.2)
+			&& (WorldInfo.TimeSeconds - FMax(B.LastSeenTime, B.AcquireTime) < 2.5))
+			ThreatValue -= 0.3;*/
+	}
+
+	// TODO: further personality adjust (hate for enemy that kills me, enemy that took powerup I was going for, etc)
+
+	return Squad->ModifyEnemyRating(ThreatValue, EnemyInfo, this);
+}
+
+void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
+{
+	if (NewEnemy != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(NewEnemy, this))
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS != NULL && PS->Team != NULL)
+			{
+				PS->Team->UpdateEnemyInfo(NewEnemy, UpdateType);
+			}
+			bool bFound = false;
+			for (int32 i = 0; i < LocalEnemyList.Num(); i++)
+			{
+				if (!LocalEnemyList[i].IsValid(this))
+				{
+					LocalEnemyList.RemoveAt(i--, 1);
+				}
+				else if (LocalEnemyList[i].GetPawn() == NewEnemy)
+				{
+					LocalEnemyList[i].Update(UpdateType);
+					bFound = true;
+					break;
+				}
+			}
+			if (!bFound)
+			{
+				new(LocalEnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
+				PickNewEnemy();
+			}
+		}
+	}
+}
+
 void AUTBot::SetEnemy(APawn* NewEnemy)
 {
 	if (NewEnemy != Enemy)
@@ -1149,7 +1993,15 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 			}
 		}
 		LastEnemyChangeTime = GetWorld()->TimeSeconds;
-		if (!bExecutingWhatToDoNext)
+		if (bExecutingWhatToDoNext)
+		{
+			// force update of visibility info if this is during decision logic
+			if (Enemy != NULL && CanSee(Enemy, false))
+			{
+				SeePawn(Enemy);
+			}
+		}
+		else
 		{
 			WhatToDoNext();
 		}
@@ -1163,14 +2015,10 @@ void AUTBot::SetTarget(AActor* NewTarget)
 
 void AUTBot::SeePawn(APawn* Other)
 {
-	if (Enemy == NULL || !LineOfSightTo(Enemy))
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL || !GS->OnSameTeam(Other, this))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == NULL || !GS->OnSameTeam(Other, this))
-		{
-			SetEnemy(Other);
-			WhatToDoNext();
-		}
+		UpdateEnemyInfo(Other, EUT_Seen);
 	}
 }
 
@@ -1249,6 +2097,10 @@ bool AUTBot::CanSee(APawn* Other, bool bMaySkipChecks)
 }
 bool AUTBot::LineOfSightTo(const class AActor* Other, FVector ViewPoint, bool bAlternateChecks) const
 {
+	return (Other == NULL) ? false : UTLineOfSightTo(Other, ViewPoint, bAlternateChecks, Other->GetTargetLocation(GetPawn()));
+}
+bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlternateChecks, FVector TargetLocation) const
+{
 	if (Other == NULL)
 	{
 		return false;
@@ -1266,7 +2118,10 @@ bool AUTBot::LineOfSightTo(const class AActor* Other, FVector ViewPoint, bool bA
 		}
 
 		static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
-		FVector TargetLocation = Other->GetTargetLocation(GetPawn());
+		if (TargetLocation.IsZero())
+		{
+			TargetLocation = Other->GetTargetLocation(GetPawn());
+		}
 
 		FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, GetPawn());
 		CollisionParams.AddIgnoredActor(Other);
@@ -1280,7 +2135,6 @@ bool AUTBot::LineOfSightTo(const class AActor* Other, FVector ViewPoint, bool bA
 			}
 			if (!bHit)
 			{
-				//UpdateEnemyInfo(Enemy);
 				return true;
 			}
 			// only check sides if width of other is significant compared to distance

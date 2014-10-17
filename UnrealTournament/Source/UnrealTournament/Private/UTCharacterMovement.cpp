@@ -55,6 +55,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
+	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
 	CrouchedHalfHeight = 64.0f;
 	RollHalfHeight = 46.f;
 	SlopeDodgeScaling = 0.93f;

@@ -8,7 +8,7 @@
 
 #include "UTAIAction.generated.h"
 
-UCLASS(NotPlaceable, CustomConstructor, Within = UTBot)
+UCLASS(NotPlaceable, Abstract, CustomConstructor, Within = UTBot)
 class UNREALTOURNAMENT_API UUTAIAction : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -20,6 +20,32 @@ class UNREALTOURNAMENT_API UUTAIAction : public UObject
 	virtual UWorld* GetWorld() const override
 	{
 		return GetOuterAUTBot()->GetWorld();
+	}
+	
+	// convenience accessors
+	inline APawn* GetPawn() const
+	{
+		return GetOuterAUTBot()->GetPawn();
+	}
+	inline ACharacter* GetCharacter() const
+	{
+		return GetOuterAUTBot()->GetCharacter();
+	}
+	inline AUTCharacter* GetUTChar() const
+	{
+		return GetOuterAUTBot()->GetUTChar();
+	}
+	inline AUTSquadAI* GetSquad() const
+	{
+		return GetOuterAUTBot()->GetSquad();
+	}
+	inline APawn* GetEnemy() const
+	{
+		return GetOuterAUTBot()->GetEnemy();
+	}
+	inline AActor* GetTarget() const
+	{
+		return GetOuterAUTBot()->GetTarget();
 	}
 
 	/** ticks the action; returns true on completion */
@@ -33,4 +59,20 @@ class UNREALTOURNAMENT_API UUTAIAction : public UObject
 	{
 		GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
 	}
+
+	/** return whether or not the bot can fall (or jump) off ledges during this action */
+	virtual bool AllowWalkOffLedges()
+	{
+		return true;
+	}
+
+	/** notification of Pawn's move being blocked by a wall - return true to override default handling */
+	virtual bool NotifyMoveBlocked(const FHitResult& Impact)
+	{
+		return false;
+	}
+
+	/** called repeatedly while enemy is valid but not visible; combat actions often react to this by changing position, aborting, etc */
+	virtual void EnemyNotVisible()
+	{}
 };

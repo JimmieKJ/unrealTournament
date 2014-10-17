@@ -49,6 +49,9 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FPostConstructInitial
 	BarrelRadius = 9.0f;
 
 	GracePeriod = 0.5f;
+
+	BasePickupDesireability = 0.78f;
+	BaseAISelectRating = 0.78f;
 }
 
 void AUTWeap_RocketLauncher::BeginLoadRocket()
@@ -596,4 +599,18 @@ void AUTWeap_RocketLauncher::GetLifetimeReplicatedProps(TArray<class FLifetimePr
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTWeap_RocketLauncher, LockedTarget, COND_None);
+}
+
+bool AUTWeap_RocketLauncher::IsPreparingAttack_Implementation()
+{
+	if (GracePeriod <= 0.0f)
+	{
+		return false;
+	}
+	else
+	{
+		// rocket launcher charge doesn't hold forever, so AI should make sure to fire before doing something else
+		UUTWeaponStateFiringCharged* ChargeState = Cast<UUTWeaponStateFiringCharged>(CurrentState);
+		return (ChargeState != NULL && ChargeState->bCharging);
+	}
 }

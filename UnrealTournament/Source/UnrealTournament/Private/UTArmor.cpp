@@ -52,6 +52,18 @@ void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum
 	}
 }
 
+int32 AUTArmor::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const
+{
+	if (!bOnlyVisible || OverlayMaterial != NULL)
+	{
+		return FMath::Min<int32>(UTOwner->Health * AbsorptionPct, ArmorAmount);
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 void AUTArmor::ReduceArmor(int Amount)
 {
 	ArmorAmount -= Amount;

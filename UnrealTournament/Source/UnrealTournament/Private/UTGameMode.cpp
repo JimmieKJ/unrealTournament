@@ -15,6 +15,7 @@
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTBot.h"
+#include "UTSquadAI.h"
 
 UUTResetInterface::UUTResetInterface(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -56,10 +57,12 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
 	GameDifficulty = 3.0f;
-	BotFillCount = 1;
-	VictoryMessageClass=UUTVictoryMessage::StaticClass();
-	DeathMessageClass=UUTDeathMessage::StaticClass();
-	GameMessageClass=UUTGameMessage::StaticClass();
+	BotFillCount = 0;
+	VictoryMessageClass = UUTVictoryMessage::StaticClass();
+	DeathMessageClass = UUTDeathMessage::StaticClass();
+	GameMessageClass = UUTGameMessage::StaticClass();
+	SquadType = AUTSquadAI::StaticClass();
+	MaxSquadSize = 3;
 
 	DefaultPlayerName = FString("Malcolm");
 	MapPrefix = TEXT("DM");
@@ -1652,20 +1655,6 @@ void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 	Super::ProcessServerTravel(URL, bAbsolute);
 }
 
-void AUTGameMode::Destroyed()
-{
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	
-	Super::Destroyed();
-}
-
 FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
 {
 	// TODO: should return game class path in addition to game name so client can display in local language if available
@@ -1697,4 +1686,30 @@ void AUTGameMode::BlueprintBroadcastLocalized( AActor* Sender, TSubclassOf<ULoca
 void AUTGameMode::BlueprintSendLocalized( AActor* Sender, AUTPlayerController* Receiver, TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
 	Receiver->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
+
+void AUTGameMode::AssignDefaultSquadFor(AController* C)
+{
+	if (C != NULL)
+	{
+		if (SquadType == NULL)
+		{
+			UE_LOG(UT, Warning, TEXT("Game mode %s missing SquadType"), *GetName());
+			SquadType = AUTSquadAI::StaticClass();
+		}
+		AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			PS->Team->AssignDefaultSquadFor(C);
+		}
+		else
+		{
+			// default is to just spawn a squad for each individual
+			AUTBot* B = Cast<AUTBot>(C);
+			if (B != NULL)
+			{
+				B->SetSquad(GetWorld()->SpawnActor<AUTSquadAI>(SquadType));
+			}
+		}
+	}
 }
