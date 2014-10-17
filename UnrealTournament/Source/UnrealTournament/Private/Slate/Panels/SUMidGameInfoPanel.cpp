@@ -1,4 +1,5 @@
 
+
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "../Public/UnrealTournament.h"
@@ -52,6 +53,7 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 			+ SVerticalBox::Slot()		// Server Info, MOTD
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
+			.Padding(10.0f,0.0f,0.0f,0.0f)
 			[
 				SAssignNew( Splitter, SSplitter )
 				.Orientation(Orient_Horizontal)
@@ -59,31 +61,9 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 				.Value(1.0f - Perc)
 				[
 					SNew(SVerticalBox)
-					+SVerticalBox::Slot()		// Server Title
-					.AutoHeight()
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Fill)
+					+SVerticalBox::Slot()
 					[
-						SAssignNew(ServerName,STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MOTD.ServerTitle")
-					]
-
-					+SVerticalBox::Slot()		// Server Rules
-					.AutoHeight()
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Fill)
-					[
-						SAssignNew(ServerRules,STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MOTD.RulesText")
-					]
-
-					+SVerticalBox::Slot()		// Server MOTD
-					.AutoHeight()
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Fill)
-					[
-						SAssignNew(ServerMOTD,STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MOTD.GeneralText")
+						SAssignNew(InfoPanelOverlay, SOverlay)
 					]
 
 					+SVerticalBox::Slot()		// Chat List
@@ -160,6 +140,7 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 							SNew(SHorizontalBox)
 							+SHorizontalBox::Slot()
 							.VAlign(VAlign_Center)
+							.Padding(115.0,0.0,0.0,0.0)
 							.AutoWidth()
 							[
 								SNew(STextBlock)
@@ -233,9 +214,65 @@ void SUMidGameInfoPanel::BuildPage(FVector2D ViewportSize)
 			]
 		];
 
+
+	AddInfoPanel();
+
 	PlayerListBox->SetVisibility( EVisibility::Visible );
 
 }
+
+void SUMidGameInfoPanel::AddInfoPanel()
+{
+
+	if (InfoPanelOverlay.IsValid())
+	{
+		InfoPanelOverlay->AddSlot()
+			[
+				SAssignNew(InfoPanel, SVerticalBox)
+				+SVerticalBox::Slot()		
+					.AutoHeight()
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DarkBackground"))
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()		// Server Title
+							[
+								SAssignNew(ServerName,STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MOTD.ServerTitle")
+							]
+
+							+SVerticalBox::Slot()		// Server Rules
+							.AutoHeight()
+							.VAlign(VAlign_Top)
+							.HAlign(HAlign_Fill)
+							[
+								SAssignNew(ServerRules,STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MOTD.RulesText")
+							]
+
+							+SVerticalBox::Slot()		// Server MOTD
+							.AutoHeight()
+							.VAlign(VAlign_Top)
+							.HAlign(HAlign_Fill)
+							[
+								SAssignNew(ServerMOTD,STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MOTD.GeneralText")
+							]
+						]
+					]			
+			];
+	}
+
+}
+
 
 void SUMidGameInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {

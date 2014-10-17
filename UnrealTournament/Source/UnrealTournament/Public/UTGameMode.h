@@ -1,14 +1,9 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "UTPickup.h"
-#include "UTCharacter.h"
-#include "UTGameObjective.h"
-#include "UTPlayerController.h"
-#include "UTGameState.h"
 #include "TAttributeProperty.h"
-
 #include "UTGameMode.generated.h"
+
 
 /** Defines the current state of the game. */
 
@@ -20,7 +15,7 @@ namespace MatchState
 }
 
 UCLASS(Config = Game, Abstract)
-class UNREALTOURNAMENT_API AUTGameMode : public AGameMode
+class UNREALTOURNAMENT_API AUTGameMode : public AUTBaseGameMode
 {
 	GENERATED_UCLASS_BODY()
 
@@ -319,7 +314,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Messaging)
 	virtual void BlueprintSendLocalized( AActor* Sender, AUTPlayerController* Receiver, TSubclassOf<ULocalMessage> Message, int32 Switch = 0, APlayerState* RelatedPlayerState_1 = NULL, APlayerState* RelatedPlayerState_2 = NULL, UObject* OptionalObject = NULL );
-
 
 protected:
 

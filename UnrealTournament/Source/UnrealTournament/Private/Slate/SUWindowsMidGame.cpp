@@ -115,6 +115,40 @@ void SUWindowsMidGame::CreateDesktop()
 							SNew(SImage)
 							.Image(SUWindowsStyle::Get().GetBrush(PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Bar")))
 						]
+
+						+SOverlay::Slot()
+						[
+
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()		// This panel is just for alignment :(
+							.AutoHeight()
+							.HAlign(HAlign_Left)
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()		// This is the Buffer at the Top
+								.AutoHeight()
+								.HAlign(HAlign_Fill)
+								[
+									SNew(SBox)
+									.HeightOverride(7)
+									[
+										SNew(SCanvas)
+									]
+								]
+								+ SVerticalBox::Slot()		// This is the Buffer at the Top
+								.AutoHeight()
+								.HAlign(HAlign_Fill)
+								[
+									SNew(SBox)
+									.HeightOverride(51)
+									[
+										SAssignNew(OnlineOverlay, SOverlay)
+									]
+								]
+							]
+						]
+
+
 						+SOverlay::Slot()
 						[
 
@@ -149,7 +183,117 @@ void SUWindowsMidGame::CreateDesktop()
 					]
 				]
 			]
+			+SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.VAlign(VAlign_Bottom)
+				.Padding(5.0f,0.0f,0.0f,5.0f)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.HeightOverride(128)
+						.WidthOverride(102)
+						[
+							SAssignNew(PortraitImage, SImage)
+							.Visibility(EVisibility::Hidden)
+						]
+					]
+				]
+			]
 		];
+
+	UpdateOnlineState();
+
+}
+
+void SUWindowsMidGame::UpdateOnlineState()
+{
+	// Remove any existing online status information
+	OnlineOverlay->ClearChildren();
+
+	if (PlayerOwner->IsLoggedIn())
+	{
+		PortraitImage->SetVisibility(EVisibility::Visible);
+		PortraitImage->SetImage(SUWindowsStyle::Get().GetBrush("Testing.TestPortrait"));
+
+		OnlineOverlay->AddSlot()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()		// This panel is just for alignment :(
+			.AutoHeight()
+			.HAlign(HAlign_Right)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()		// This is the Buffer at the Top
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
+				[
+					SNew(SBox)
+					.HeightOverride(7)
+					[
+						SNew(SCanvas)
+					]
+				]
+				+ SVerticalBox::Slot()		// This is the Buffer at the Top
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
+				.Padding(115.0f,0.0f,0.0f,0.0f)
+				[
+					SNew(SBox)
+					.HeightOverride(51)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString(PlayerOwner->GetNickname()))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")
+						]
+						+SVerticalBox::Slot()
+						[
+
+							SNew(STextBlock)
+							.Text(PlayerOwner->GetAccountSummary())
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MOTD.RulesText")
+
+						]
+
+					]
+				]
+			]
+		];
+	}
+	else
+	{
+		PortraitImage->SetVisibility(EVisibility::Hidden);
+		OnlineOverlay->AddSlot()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Fill)
+				[
+					SNew(SButton)
+					.VAlign(VAlign_Center)
+					.OnClicked(this, &SUWindowsMidGame::OnLogin)
+					.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("Login", "NeedToLogin", "Click to Login").ToString())
+						.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
+					]
+				]
+		];
+
+	}
+
 }
 
 FText SUWindowsMidGame::ConvertTime(int Seconds)
@@ -243,11 +387,26 @@ void SUWindowsMidGame::Tick( const FGeometry& AllottedGeometry, const double InC
 
 }
 
+void SUWindowsMidGame::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
+{
+	UpdateOnlineState();
+}
+
 
 void SUWindowsMidGame::OnMenuOpened()
 {
+	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWindowsMidGame::OwnerLoginStatusChanged);
+	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+
 	SUWindowsDesktop::OnMenuOpened();
 	OnInfo();
+}
+
+void SUWindowsMidGame::OnMenuClosed()
+{
+	PlayerOwner->ClearPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	SUWindowsDesktop::OnMenuClosed();
+
 }
 
 /****************************** [ Build Sub Menus ] *****************************************/
@@ -612,5 +771,10 @@ FReply SUWindowsMidGame::OnInfo()
 	return FReply::Handled();
 }
 
+FReply SUWindowsMidGame::OnLogin()
+{
+	PlayerOwner->LoginOnline(TEXT(""),TEXT(""));
+	return FReply::Handled();
+}
 
 #endif

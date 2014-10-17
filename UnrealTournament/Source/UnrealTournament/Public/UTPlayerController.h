@@ -1,7 +1,6 @@
 	// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "UTATypes.h"
 #include "UTPlayerController.generated.h"
 
 // range user is allowed to configure FOV angle
@@ -23,7 +22,7 @@ struct FDeferredFireInput
 };
 
 UCLASS(config=Game)
-class UNREALTOURNAMENT_API AUTPlayerController : public APlayerController, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTPlayerController : public AUTBasePlayerController, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -166,16 +165,6 @@ public:
 	UFUNCTION(Client, Unreliable)
 	void ClientNotifyCausedHit(APawn* HitPawn, int32 Damage);
 
-	/**	Will popup the in-game menu	 **/
-	UFUNCTION(exec)
-	virtual void ShowMenu();
-
-	UFUNCTION(exec)
-	virtual void HideMenu();
-
-#if !UE_SERVER
-	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
-#endif
 
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)

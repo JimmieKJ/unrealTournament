@@ -1,14 +1,9 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UTHUD.h"
-#include "UTLocalPlayer.h"
-#include "UTPlayerState.h"
-#include "UTPlayerController.h"
 #include "UTCharacterMovement.h"
 #include "ActiveSound.h"
 #include "AudioDevice.h"
-#include "UTPickup.h"
 #include "UTPickupInventory.h"
 #include "UTPickupWeapon.h"
 #include "UTAnnouncer.h"
@@ -259,8 +254,6 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("ShowScores", IE_Pressed, this, &AUTPlayerController::OnShowScores);
 	InputComponent->BindAction("ShowScores", IE_Released, this, &AUTPlayerController::OnHideScores);
-
-	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTPlayerController::ShowMenu);
 
 	InputComponent->BindAction("Talk", IE_Pressed, this, &AUTPlayerController::Talk);
 	InputComponent->BindAction("TeamTalk", IE_Pressed, this, &AUTPlayerController::TeamTalk);
@@ -1405,35 +1398,6 @@ void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, i
 	}
 }
 
-void AUTPlayerController::ShowMenu()
-{
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL)
-	{
-		LP->ShowMenu();
-	}
-
-}
-
-void AUTPlayerController::HideMenu()
-{
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL)
-	{
-		LP->HideMenu();
-	}
-}
-
-#if !UE_SERVER
-void AUTPlayerController::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
-{
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL)
-	{
-		LP->ShowMessage(MessageTitle, MessageText, Buttons, Callback);
-	}	
-}
-#endif
 
 void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {

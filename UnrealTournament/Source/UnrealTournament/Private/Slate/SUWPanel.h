@@ -15,6 +15,7 @@ class SUWPanel : public SCompoundWidget
 
 	SLATE_END_ARGS()
 
+public:
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 

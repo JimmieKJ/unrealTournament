@@ -72,6 +72,27 @@ FString UUTLocalPlayer::GetNickname() const
 	return TEXT("Malcolm");
 }
 
+FText UUTLocalPlayer::GetAccountSummary() const
+{
+	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
+	{
+
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		if (UserId.IsValid())
+		{
+			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
+			if (UserAccount.IsValid())
+			{
+				return FText::Format(NSLOCTEXT("UTLocalPlayer","AccountSummaryFormat","{0} # of Friends: {1}  # Online: {2}"), FText::FromString(UserAccount->GetDisplayName()), FText::AsNumber(0),FText::AsNumber(0));
+			}
+		}
+	}
+
+	return FText::GetEmpty();
+}
+
+
+
 void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID)
 {
 #if !UE_SERVER
@@ -134,13 +155,22 @@ void UUTLocalPlayer::ShowMenu()
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
+	
 		if ( IsMenuGame() )
 		{
 			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
 		}
 		else
 		{
-			SAssignNew(DesktopSlateWidget, SUWindowsMidGame).PlayerOwner(this);
+
+			AGameState* GameState = GetWorld()->GetGameState<AGameState>();
+			AUTBaseGameMode* UTGameMode = GameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+
+			if (UTGameMode)
+			{
+				DesktopSlateWidget = UTGameMode->GetGameMenu(this);
+			}
+
 		}
 		if (DesktopSlateWidget.IsValid())
 		{
@@ -155,7 +185,14 @@ void UUTLocalPlayer::ShowMenu()
 		DesktopSlateWidget->SetVisibility(EVisibility::Visible);
 		DesktopSlateWidget->OnMenuOpened();
 
-		PlayerController->bShowMouseCursor = true;
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = true;
+			if (PlayerController->MyHUD)
+			{
+				PlayerController->MyHUD->bShowHUD = false;
+			}
+		}
 	}
 #endif
 }
@@ -167,7 +204,15 @@ void UUTLocalPlayer::HideMenu()
 		GEngine->GameViewport->RemoveViewportWidgetContent(DesktopSlateWidget.ToSharedRef());
 		DesktopSlateWidget->OnMenuClosed();
 		DesktopSlateWidget.Reset();
-		PlayerController->bShowMouseCursor = false;
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = false;
+			if (PlayerController->MyHUD)
+			{
+				PlayerController->MyHUD->bShowHUD = true;
+			}
+		}
+
 	}
 #endif
 }
@@ -410,6 +455,11 @@ void UUTLocalPlayer::AddPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChan
 	{
 		PlayerLoginStatusChangedListeners.Add(NewDelegate);
 	}
+}
+
+void UUTLocalPlayer::ClearPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate Delegate)
+{
+	PlayerLoginStatusChangedListeners.Remove(Delegate);
 }
 
 

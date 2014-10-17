@@ -70,6 +70,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FVector2D Icon17x22(17.0f, 22.0f);
 	const FVector2D Icon128x128(128.0f, 128.0f);
 
+
 	// These are the Slate colors which reference the dynamic colors in FSlateCoreStyle; these are the colors to put into the style
 	const FSlateColor DefaultForeground( MakeShareable( new FLinearColor( 0.72f, 0.72f, 0.72f, 1.f ) ) );
 	const FSlateColor InvertedForeground( MakeShareable( new FLinearColor( 0, 0, 0 ) ) );
@@ -89,6 +90,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	Style.Set("NewSchool.AnniLogo", new IMAGE_BRUSH( "NewSchool.AnniLogo", FVector2D(1141,431), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("NewSchool.Background", new IMAGE_BRUSH( "NewSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+	Style.Set("Testing.TestPortrait", new IMAGE_BRUSH( "Testing/Testing.TestPortrait", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 
 	FButtonStyle StandardButton;

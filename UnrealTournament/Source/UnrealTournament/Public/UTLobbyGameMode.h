@@ -5,11 +5,14 @@
 #include "UTGameState.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyPlayerState.h"
+#include "../Private/Slate/SUWindowsLobby.h"
+#include "UTBaseGameMode.h"
 #include "UTLobbyGameMode.generated.h"
 
 
+
 UCLASS(Config = Game)
-class UNREALTOURNAMENT_API AUTLobbyGameMode : public AGameMode
+class UNREALTOURNAMENT_API AUTLobbyGameMode : public AUTBaseGameMode
 {
 	GENERATED_UCLASS_BODY()
 
@@ -36,6 +39,20 @@ public:
 	virtual bool PlayerCanRestart(APlayerController* Player);
 	virtual TSubclassOf<AGameSession> GetGameSessionClass() const;
 	virtual void OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState);
+
+#if !UE_SERVER
+
+	/**
+	 *	Returns the Menu to popup when the user requests a menu
+	 **/
+	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+	{
+		return SNew(SUWindowsLobby).PlayerOwner(PlayerOwner);
+	}
+
+#endif
+
+
 protected:
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.

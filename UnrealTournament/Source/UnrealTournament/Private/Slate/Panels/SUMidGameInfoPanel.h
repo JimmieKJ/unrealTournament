@@ -27,6 +27,7 @@ public:
 
 class SUMidGameInfoPanel : public SUWPanel
 {
+public:
 	virtual void BuildPage(FVector2D ViewportSize);
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	virtual void OnShowPanel();
@@ -59,7 +60,10 @@ protected:
 	TSharedPtr<class SImage> UserListTic;
 	TSharedPtr<class SSplitter> Splitter;
 
+	TSharedPtr<class SOverlay> InfoPanelOverlay;
+	TSharedPtr<class SVerticalBox> InfoPanel;
 
+	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
 
 	void ConsoleCommand(FString Command);
 
@@ -71,6 +75,7 @@ protected:
 
 	int32 LastChatCount;
 
+	virtual void AddInfoPanel();
 };
 
 #endif

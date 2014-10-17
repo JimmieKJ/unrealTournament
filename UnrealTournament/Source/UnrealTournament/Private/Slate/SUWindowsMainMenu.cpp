@@ -84,6 +84,7 @@ void SUWindowsMainMenu::CreateDesktop()
 
 		if (PlayerOwner->IsMenuGame())
 		{
+
 			Desktop->AddSlot()
 				[
 					SNew(SVerticalBox)

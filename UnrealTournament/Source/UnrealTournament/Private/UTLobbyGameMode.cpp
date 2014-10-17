@@ -76,6 +76,8 @@ void AUTLobbyGameMode::StartMatch()
 			UTGameSession->StartMatch();
 		}
 	}
+
+	SetMatchState(MatchState::InProgress);
 }
 
 void AUTLobbyGameMode::RestartPlayer(AController* aPlayer)

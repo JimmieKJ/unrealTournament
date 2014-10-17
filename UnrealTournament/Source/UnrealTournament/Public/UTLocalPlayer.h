@@ -51,6 +51,7 @@ public:
 	virtual bool IsMenuGame();
 
 	virtual FString GetNickname() const;
+	virtual FText GetAccountSummary() const;
 	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
 
 	virtual void ShowMenu();
@@ -124,6 +125,12 @@ public:
 	 *	Gives a call back to an object looking to know when a player's status changed.
 	 **/
 	virtual void AddPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate NewDelegate);
+
+	/**
+	 *	Removes the  call back to an object looking to know when a player's status changed.
+	 **/
+	virtual void ClearPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate Delegate);
+
 
 #if !UE_SERVER
 	virtual void ToastCompleted();

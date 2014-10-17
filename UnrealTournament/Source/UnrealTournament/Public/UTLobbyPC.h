@@ -3,10 +3,11 @@
 
 #include "UTATypes.h"
 #include "UTLobbyPlayerState.h"
+#include "UTBasePlayerController.h"
 #include "UTLobbyPC.generated.h"
 
 UCLASS(config=Game)
-class UNREALTOURNAMENT_API AUTLobbyPC : public APlayerController
+class UNREALTOURNAMENT_API AUTLobbyPC : public AUTBasePlayerController
 {
 	GENERATED_UCLASS_BODY()
 

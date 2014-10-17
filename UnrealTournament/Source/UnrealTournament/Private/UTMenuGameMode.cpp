@@ -27,7 +27,7 @@ void AUTMenuGameMode::BeginGame()
 void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 {
 	Super::GenericPlayerInitialization(C);
-	AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
 	if (PC != NULL)
 	{
 		PC->ShowMenu();
@@ -50,7 +50,7 @@ void AUTMenuGameMode::Logout( AController* Exiting )
 {
 	Super::Logout(Exiting);
 
-	AUTPlayerController* PC = Cast<AUTPlayerController>(Exiting);
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(Exiting);
 	if (PC != NULL)
 	{
 		PC->HideMenu();
