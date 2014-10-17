@@ -15,6 +15,7 @@ UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
 	bForceZMomentum = true;
 	GibHealthThreshold = -50;
 	GibDamageThreshold = 99;
+	bCausesBlood = true;
 
 	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> DefaultFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/RedHitFlash.RedHitFlash'"));
 	BodyDamageColor = DefaultFlash.Object;

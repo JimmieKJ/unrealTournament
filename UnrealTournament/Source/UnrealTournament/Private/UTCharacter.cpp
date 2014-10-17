@@ -707,7 +707,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 			UTDmg.GetDefaultObject()->PlayHitEffects(this, bPlayedArmorEffect);
 		}
 		// check blood effects
-		if (LastTakeHitInfo.Damage > 0) // TODO: maybe not if hit armor?
+		if (LastTakeHitInfo.Damage > 0 && (UTDmg == NULL || UTDmg.GetDefaultObject()->bCausesBlood)) // TODO: maybe not if hit armor?
 		{
 			bool bRecentlyRendered = GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f;
 			// TODO: gore setting check

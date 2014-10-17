@@ -75,6 +75,24 @@ void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect)
 void AUTWorldSettings::ExpireImpactEffects()
 {
 	float WorldTime = GetWorld()->TimeSeconds;
+	// clamp to a maximum total in addition to a time limit so a burst of visible effects doesn't kill framerate until lifetime expires
+	// note that we're doing this here so we don't have detach times stacking on top of spawn times
+	if (MaxImpactEffectInvisibleLifetime > 0.0f)
+	{
+		int32 NumToKill = TimedEffects.Num() - FMath::TruncToInt(MaxImpactEffectInvisibleLifetime * 3.0f);
+		if (NumToKill > 0)
+		{
+			for (int32 i = NumToKill - 1; i >= 0; i--)
+			{
+				if (TimedEffects[i].EffectComp != NULL && TimedEffects[i].EffectComp->IsRegistered())
+				{
+					TimedEffects[i].EffectComp->DetachFromParent();
+					TimedEffects[i].EffectComp->DestroyComponent();
+				}
+			}
+			TimedEffects.RemoveAt(0, NumToKill);
+		}
+	}
 	for (int32 i = 0; i < TimedEffects.Num(); i++)
 	{
 		if (TimedEffects[i].EffectComp == NULL || !TimedEffects[i].EffectComp->IsRegistered())

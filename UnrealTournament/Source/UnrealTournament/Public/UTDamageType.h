@@ -68,6 +68,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	uint32 bForceZMomentum : 1;
 
+	/** whether this damagetype causes blood effects (generally should be set unless damagetype implements some other feedback) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+	uint32 bCausesBlood : 1;
+
 	/** optional body color to flash in victim's material when hit with this damage type */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	const UCurveLinearColor* BodyDamageColor;
