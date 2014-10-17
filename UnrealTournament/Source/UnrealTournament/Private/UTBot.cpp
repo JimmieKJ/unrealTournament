@@ -555,7 +555,7 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	YPos += YL;
 	YPos += YL;
 	Canvas->SetDrawColor(255, 0, 0);
-	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s, last rated at %f)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy), GetWorld()->TimeSeconds), 4.0f, YPos);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s, last rated %f ago)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy), GetWorld()->TimeSeconds - LastPickEnemyTime), 4.0f, YPos);
 	YPos += YL;
 	for (const FBotEnemyRating& RatingInfo : LastPickEnemyRatings)
 	{
@@ -596,36 +596,51 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 		{
 			const float WorldTime = GetWorld()->TimeSeconds;
 
-			const TArray<FSavedPosition>* SavedPosPtr = NULL;
-			AUTCharacter* TargetP = Cast<AUTCharacter>(GetFocusActor());
-			if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
+			// warning: assumption that if bot wants to shoot an enemy Pawn it always sets it as Enemy
+			if (GetFocusActor() == Enemy)
 			{
-				SavedPosPtr = &TargetP->SavedPositions;
-			}
-			if (SavedPosPtr != NULL)
-			{
-				const TArray<FSavedPosition>& SavedPositions = *SavedPosPtr;
-				// determine his position and velocity at the appropriate point in the past
-				for (int32 i = 1; i < SavedPositions.Num(); i++)
+				const TArray<FSavedPosition>* SavedPosPtr = NULL;
+				if (IsEnemyVisible(Enemy))
 				{
-					if (SavedPositions[i].Time > WorldTime - TrackingReactionTime)
+					AUTCharacter* TargetP = Cast<AUTCharacter>(GetFocusActor());
+					if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
 					{
-						FVector TargetLoc = SavedPositions[i - 1].Position + (SavedPositions[i].Position - SavedPositions[i - 1].Position) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
-						const FVector TrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
-						
-						TargetLoc = TargetLoc + TrackedVelocity * TrackingReactionTime;
-						if (CanAttack(TargetP, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
-						{
-							bPickNewFireMode = false;
-						}
-						else
-						{
-							FocalPoint = TargetLoc; // LastSeenLoc ???
-						}
-
-						// TODO: leading for projectiles, etc
-						break;
+						SavedPosPtr = &TargetP->SavedPositions;
 					}
+				}
+				if (SavedPosPtr != NULL)
+				{
+					const TArray<FSavedPosition>& SavedPositions = *SavedPosPtr;
+					// determine his position and velocity at the appropriate point in the past
+					for (int32 i = 1; i < SavedPositions.Num(); i++)
+					{
+						if (SavedPositions[i].Time > WorldTime - TrackingReactionTime)
+						{
+							FVector TargetLoc = SavedPositions[i - 1].Position + (SavedPositions[i].Position - SavedPositions[i - 1].Position) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+							const FVector TrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
+
+							TargetLoc = TargetLoc + TrackedVelocity * TrackingReactionTime;
+							if (CanAttack(Enemy, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+							{
+								bPickNewFireMode = false;
+							}
+							else
+							{
+								FocalPoint = TargetLoc; // LastSeenLoc ???
+							}
+
+							// TODO: leading for projectiles, etc
+							break;
+						}
+					}
+				}
+				else if (CanAttack(Enemy, GetEnemyLocation(Enemy, true), false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+				{
+					bPickNewFireMode = false;
+				}
+				else
+				{
+					FocalPoint = GetEnemyLocation(Enemy, false);
 				}
 			}
 			else if (Target != NULL && GetFocusActor() == Target)
@@ -1909,6 +1924,8 @@ void AUTBot::PickNewEnemy()
 {
 	if (Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false))
 	{
+		LastPickEnemyTime = GetWorld()->TimeSeconds;
+
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
 
@@ -2062,6 +2079,10 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 		{
 			Target = NULL;
 		}
+		if (GetFocusActor() == Enemy)
+		{
+			SetFocus(NewEnemy);
+		}
 		Enemy = NewEnemy;
 		AUTCharacter* EnemyP = Cast<AUTCharacter>(Enemy);
 		if (EnemyP != NULL)
@@ -2074,6 +2095,22 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 			else
 			{
 				EnemyP->MaxSavedPositionAge = FMath::Max<float>(EnemyP->MaxSavedPositionAge, TrackingReactionTime);
+			}
+		}
+		// make sure we always have local info for enemies we focus on (simplifies decision code)
+		if (Enemy != NULL && !GetEnemyInfo(Enemy, false))
+		{
+			const FBotEnemyInfo* TeamEnemyInfo = GetEnemyInfo(Enemy, true);
+			if (TeamEnemyInfo == NULL)
+			{
+				UpdateEnemyInfo(Enemy, EUT_HeardApprox);
+			}
+			else
+			{
+				// copy some details from team
+				FBotEnemyInfo* NewEnemyInfo = new(LocalEnemyList) FBotEnemyInfo(*TeamEnemyInfo);
+				NewEnemyInfo->LastSeenTime = -100000.0f;
+				NewEnemyInfo->LastHitByTime = -100000.0f;
 			}
 		}
 		LastEnemyChangeTime = GetWorld()->TimeSeconds;

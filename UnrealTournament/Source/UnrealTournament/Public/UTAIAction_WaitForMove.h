@@ -15,8 +15,19 @@ class UUTAIAction_WaitForMove : public UUTAIAction
 	: Super(PCIP)
 	{}
 
+	float LastReevalEnemyTime;
+
 	virtual bool Update(float DeltaTime) override
 	{
 		return !GetOuterAUTBot()->GetMoveTarget().IsValid();
+	}
+
+	virtual void EnemyNotVisible() override
+	{
+		if (GetWorld()->TimeSeconds - LastReevalEnemyTime > 1.0f)
+		{
+			GetOuterAUTBot()->PickNewEnemy();
+			LastReevalEnemyTime = GetWorld()->TimeSeconds;
+		}
 	}
 };
