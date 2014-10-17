@@ -55,4 +55,9 @@ void SULobbyInfoPanel::AddInfoPanel()
 
 }
 
+void SULobbyInfoPanel::OnShowPanel()
+{
+
+}
+
 #endif
