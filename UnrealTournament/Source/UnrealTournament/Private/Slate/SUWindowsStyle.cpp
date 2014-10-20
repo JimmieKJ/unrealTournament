@@ -34,6 +34,7 @@ FName SUWindowsStyle::GetStyleSetName()
 #define TTF_FONT( RelativePath, ... ) FSlateFontInfo( FPaths::GameContentDir() / "RestrictedAssets/Slate"/ RelativePath + TEXT(".ttf"), __VA_ARGS__ )
 #define OTF_FONT( RelativePath, ... ) FSlateFontInfo( FPaths::GameContentDir() / "RestrictedAssets/Slate"/ RelativePath + TEXT(".otf"), __VA_ARGS__ )
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 {
@@ -561,6 +562,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	return StyleRef;
 }
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #undef IMAGE_BRUSH
 #undef BOX_BRUSH
