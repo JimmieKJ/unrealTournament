@@ -61,6 +61,9 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
 
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	bool bIsRconAdmin;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/

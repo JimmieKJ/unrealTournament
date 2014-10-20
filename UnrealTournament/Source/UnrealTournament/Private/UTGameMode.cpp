@@ -756,6 +756,12 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
  **/
 void AUTGameMode::TravelToNextMap()
 {
+	if (!RconNextMapName.IsEmpty())
+	{
+		GetWorld()->ServerTravel(RconNextMapName, false);
+		return;
+	}
+
 	FString CurrentMapName = GetWorld()->GetMapName();
 
 	int32 MapIndex = -1;

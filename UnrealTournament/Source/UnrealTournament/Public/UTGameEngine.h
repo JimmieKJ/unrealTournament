@@ -67,6 +67,9 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(config)
 	float FrameRateCap;
 
+	UPROPERTY(config)
+	FString RconPassword;
+
 	/** Max prediction ping (used when negotiating with clients) */
 	float ServerMaxPredictionPing;
 

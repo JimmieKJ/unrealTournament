@@ -140,6 +140,9 @@ public:
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
 
+	UPROPERTY()
+	FString RconNextMapName;
+
 	/** How long should the server wait when there is no one on it before auto-restarting */
 	UPROPERTY(Config)
 	int32 AutoRestartTime;

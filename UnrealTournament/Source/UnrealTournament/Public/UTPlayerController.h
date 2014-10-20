@@ -327,6 +327,24 @@ public:
 
 	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
 
+	UFUNCTION(Exec)
+	virtual void RconAuth(FString Password);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconAuth(const FString& Password);
+	
+	UFUNCTION(Exec)
+	virtual void RconMap(FString NewMap);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconMap(const FString& NewMap);
+
+	UFUNCTION(Exec)
+	virtual void RconNextMap(FString NextMap);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconNextMap(const FString& NextMap);
+
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

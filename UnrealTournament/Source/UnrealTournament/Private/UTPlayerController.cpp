@@ -1654,3 +1654,98 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, 
 	}
 	return DefaultPriority;
 }
+
+void AUTPlayerController::RconAuth(FString Password)
+{
+	ServerRconAuth(Password);
+}
+
+bool AUTPlayerController::ServerRconAuth_Validate(const FString& Password)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerRconAuth_Implementation(const FString& Password)
+{
+	if (UTPlayerState != nullptr && !UTPlayerState->bIsRconAdmin && !GetDefault<UUTGameEngine>()->RconPassword.IsEmpty())
+	{
+		if (GetDefault<UUTGameEngine>()->RconPassword == Password)
+		{
+			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), false);
+			UTPlayerState->bIsRconAdmin = true;
+		}
+		else
+		{
+			ClientSay(UTPlayerState, TEXT("Rcon password incorrect"), false);
+		}
+	}
+	else
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon password unset"), false);
+	}
+}
+
+void AUTPlayerController::RconMap(FString NewMap)
+{
+	ServerRconMap(NewMap);
+}
+
+bool AUTPlayerController::ServerRconMap_Validate(const FString& NewMap)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerRconMap_Implementation(const FString& NewMap)
+{
+	if (UTPlayerState != nullptr && UTPlayerState->bIsRconAdmin)
+	{
+		FString MapFullName;
+		if (FPackageName::SearchForPackageOnDisk(NewMap + FPackageName::GetMapPackageExtension(), &MapFullName))
+		{
+			GetWorld()->ServerTravel(MapFullName, false);
+		}
+		else
+		{
+			ClientSay(UTPlayerState, FString::Printf(TEXT("Rcon %s doesn't exist"), *NewMap), false);
+		}
+	}
+	else
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), false);
+	}
+}
+
+void AUTPlayerController::RconNextMap(FString NextMap)
+{
+	ServerRconNextMap(NextMap);
+}
+
+bool AUTPlayerController::ServerRconNextMap_Validate(const FString& NextMap)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerRconNextMap_Implementation(const FString& NextMap)
+{
+	if (UTPlayerState != nullptr && UTPlayerState->bIsRconAdmin)
+	{
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != nullptr)
+		{
+			FString MapFullName;
+			if (FPackageName::SearchForPackageOnDisk(NextMap + FPackageName::GetMapPackageExtension(), &MapFullName))
+			{
+				Game->RconNextMapName = MapFullName;
+				ClientSay(UTPlayerState, FString::Printf(TEXT("Next map set to %s"), *NextMap), false);
+			}
+			else
+			{
+				ClientSay(UTPlayerState, FString::Printf(TEXT("Rcon %s doesn't exist"), *NextMap), false);
+			}
+		}
+	}
+	else
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), false);
+	}
+}
