@@ -34,7 +34,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()))
 				{
-					AllGametypes.Add(TestClass);
+					AllGametypes.AddUnique(TestClass);
 				}
 			}
 		}
