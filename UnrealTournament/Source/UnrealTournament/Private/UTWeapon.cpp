@@ -82,7 +82,7 @@ void AUTWeapon::PostInitProperties()
 {
 	Super::PostInitProperties();
 
-	if (DisplayName.IsEmpty() || (GetClass() != AUTGameMode::StaticClass() && DisplayName.EqualTo(GetClass()->GetSuperClass()->GetDefaultObject<AUTWeapon>()->DisplayName)))
+	if (DisplayName.IsEmpty() || (GetClass() != AUTWeapon::StaticClass() && DisplayName.EqualTo(GetClass()->GetSuperClass()->GetDefaultObject<AUTWeapon>()->DisplayName)))
 	{
 		DisplayName = FText::FromName(GetClass()->GetFName());
 	}
