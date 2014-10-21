@@ -90,19 +90,19 @@ public:
 	}
 
 	FRouteCacheItem()
-		: Node(NULL), Actor(NULL), Location(FVector::ZeroVector), TargetPoly(INVALID_NAVNODEREF), bDirectTarget(false)
+		: Node(NULL), Actor(NULL), Location(FVector::ZeroVector), bDirectTarget(false), TargetPoly(INVALID_NAVNODEREF)
 	{}
 	FRouteCacheItem(TWeakObjectPtr<UUTPathNode> InNode, const FVector& InLoc, NavNodeRef InTargetPoly)
-		: Node(InNode), Actor(NULL), Location(InLoc), TargetPoly(InTargetPoly), bDirectTarget(false)
+		: Node(InNode), Actor(NULL), Location(InLoc), bDirectTarget(false), TargetPoly(InTargetPoly)
 	{}
 	FRouteCacheItem(TWeakObjectPtr<AActor> InActor, const FVector& InLoc, NavNodeRef InTargetPoly)
-		: Node(NULL), Actor(InActor), Location(InLoc), TargetPoly(InTargetPoly), bDirectTarget(false)
+		: Node(NULL), Actor(InActor), Location(InLoc), bDirectTarget(false), TargetPoly(InTargetPoly)
 	{}
 	explicit FRouteCacheItem(const FVector& InLoc, NavNodeRef InTargetPoly = INVALID_NAVNODEREF)
-		: Node(NULL), Actor(NULL), Location(InLoc), TargetPoly(InTargetPoly), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF)
+		: Node(NULL), Actor(NULL), Location(InLoc), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF), TargetPoly(InTargetPoly)
 	{}
 	explicit FRouteCacheItem(TWeakObjectPtr<AActor> InActor)
-		: Node(NULL), Actor(InActor), Location(InActor.IsValid() ? InActor->GetActorLocation() : FVector::ZeroVector), TargetPoly(INVALID_NAVNODEREF), bDirectTarget(InActor.IsValid())
+		: Node(NULL), Actor(InActor), Location(InActor.IsValid() ? InActor->GetActorLocation() : FVector::ZeroVector), bDirectTarget(InActor.IsValid()), TargetPoly(INVALID_NAVNODEREF)
 	{}
 
 
