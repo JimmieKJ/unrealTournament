@@ -93,6 +93,8 @@ bool AUTPlayerController::ServerNegotiatePredictionPing_Validate(float NewPredic
 
 void AUTPlayerController::Predict(float NewPredictionPing)
 {
+	DesiredPredictionPing = NewPredictionPing;
+	SaveConfig();
 	ServerNegotiatePredictionPing(NewPredictionPing);
 }
 
