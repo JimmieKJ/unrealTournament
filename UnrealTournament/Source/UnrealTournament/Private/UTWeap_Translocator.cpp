@@ -144,28 +144,19 @@ void AUTWeap_Translocator::FireShot()
 			{
 				UTOwner->IncrementFlashCount(CurrentFireMode);
 
-				if (Role == ROLE_Authority)
+				if ((Role == ROLE_Authority) || (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()) && (Cast<AUTPlayerController>(UTOwner->GetController())->GetPredictionTime() > 0.f)))
 				{
 					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
 					FVector WarpLocation = TransDisk->GetActorLocation();
-					{
-						FHitResult Hit;
-						FVector EndTrace = WarpLocation + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
-						if (GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeCapsule(PlayerCapsule.GetCapsuleRadius(), 1.0f), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->CapsuleComponent->GetCollisionResponseToChannels()))
-						{
-							WarpLocation = Hit.Location;
-							// note that offsetting downward here is not guaranteed to be any better; let FindTeleportSpot() deal with it
-						}
-						else
-						{
-							WarpLocation = EndTrace;
-						}
-					}
+					FHitResult Hit;
+					FVector EndTrace = WarpLocation + FVector(0.0f, 0.0f, 2.f* PlayerCapsule.GetCapsuleHalfHeight());
+					bool bHitGeometry = GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius()), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->CapsuleComponent->GetCollisionResponseToChannels());
+					WarpLocation = 0.5f * (WarpLocation + (bHitGeometry ? Hit.Location : EndTrace));
 					FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
 
 					ECollisionChannel SavedObjectType = UTOwner->CapsuleComponent->GetCollisionObjectType();
 					UTOwner->CapsuleComponent->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
-	
+					//UE_LOG(UT, Warning, TEXT("Translocate to %f %f %f"), WarpLocation.X, WarpLocation.Y, WarpLocation.Z);
 					// test first so we don't drop the flag on an unsuccessful teleport
 					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation))
 					{

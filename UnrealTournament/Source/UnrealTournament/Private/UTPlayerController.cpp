@@ -101,6 +101,7 @@ void AUTPlayerController::Predict(float NewPredictionPing)
 float AUTPlayerController::GetPredictionTime()
 {
 	// exact ping is in msec, divide by 1000 to get time in seconds
+	//if (Role == ROLE_Authority) { UE_LOG(UT, Warning, TEXT("Server ExactPing %f"), PlayerState->ExactPing); }
 	return (PlayerState && (GetNetMode() != NM_Standalone)) ? (0.0005f*FMath::Clamp(PlayerState->ExactPing - PredictionFudgeFactor, 0.f, MaxPredictionPing)) : 0.f;
 }
 

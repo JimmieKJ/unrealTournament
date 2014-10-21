@@ -2193,6 +2193,7 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 	check(ClientData);
 
+	//UE_LOG(UT, Warning, TEXT("Ack ping is %f vs ExactPing %f"), GetCurrentMovementTime() - TimeStamp, CharacterOwner->PlayerState->ExactPing); // @TODO FIXMESTEVE note that this needs to be RPC to be accurate enough
 	// Ack move if it has not expired.
 	int32 MoveIndex = ClientData->GetSavedMoveIndex(TimeStamp);
 
