@@ -326,15 +326,6 @@ void SUWCreateGameDialog::OnGameSelected(UClass* NewSelection, ESelectInfo::Type
 
 FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 {
-	if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
-	{
-		if (FPlatformProcess::IsProcRunning(GetPlayerOwner()->DedicatedServerProcessHandle))
-		{
-			FPlatformProcess::TerminateProc(GetPlayerOwner()->DedicatedServerProcessHandle);
-		}
-		GetPlayerOwner()->DedicatedServerProcessHandle.Reset();
-	}
-
 	// save changes
 	GConfig->SetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), *SelectedGameClass->GetPathName(), GGameIni);
 	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMap->GetText().ToString();
@@ -345,6 +336,15 @@ FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 
 	if (Mode == SERVER_Dedicated)
 	{
+		if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
+		{
+			if (FPlatformProcess::IsProcRunning(GetPlayerOwner()->DedicatedServerProcessHandle))
+			{
+				FPlatformProcess::TerminateProc(GetPlayerOwner()->DedicatedServerProcessHandle);
+			}
+			GetPlayerOwner()->DedicatedServerProcessHandle.Reset();
+		}
+
 		GConfig->Flush(false);
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
 		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server"), *NewURL);
@@ -358,6 +358,12 @@ FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 			GetPlayerOwner()->CloseDialog(SharedThis(this));
 			GetPlayerOwner()->HideMenu();
 		}
+	}
+	else if (GetPlayerOwner()->PlayerController != NULL)
+	{
+		GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), *NewURL, TRAVEL_Absolute);
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
+		GetPlayerOwner()->HideMenu();
 	}
 
 	return FReply::Handled();
