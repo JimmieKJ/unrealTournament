@@ -908,7 +908,7 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 {
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
-	if (UTCharacter != NULL && UTCharacter->GetInventory() == NULL)
+	if (UTCharacter != NULL)
 	{
 		UTCharacter->AddDefaultInventory(DefaultInventory);
 	}
