@@ -21,7 +21,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -5000.f;  
 	MaxAdditiveDodgeJumpSpeed = 700.f;  
-	CurrentMultiJumpCount = 0;
 	MaxMultiJumpCount = 1;
 	bAllowDodgeMultijumps = false;
 	bAllowJumpMultijumps = true;
@@ -88,21 +87,23 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	NavAgentProps.bCanCrouch = true;
 
 	// initialization of transient properties
-	bIsSprinting = false;
-	SprintStartTime = 0.f;
-	bJumpAssisted = false;
-	DodgeResetTime = 0.f;
-	bIsDodging = false;
-	bJustDodged = false;
-	bIsDodgeRolling = false;
-	DodgeRollTapTime = 0.f;
-	DodgeRollEndTime = 0.f;
-	CurrentWallDodgeCount = 0;
-	bWantsSlideRoll = false;
-	bApplyWallSlide = false;
-	SavedAcceleration = FVector(0.f);
-	bMaintainSlideRollAccel = true;
-	bHasCheckedAgainstWall = false;
+	bIsSprinting = false;						
+	SprintStartTime = 0.f;						
+	bJumpAssisted = false;					
+	DodgeResetTime = 0.f;					
+	bIsDodging = false;					
+	bJustDodged = false;					
+	bIsDodgeRolling = false;				
+	DodgeRollTapTime = 0.f;					
+	DodgeRollEndTime = 0.f;					
+	CurrentMultiJumpCount = 0;				
+	CurrentWallDodgeCount = 0;				
+	bWantsSlideRoll = false;				
+	bApplyWallSlide = false;			
+	SavedAcceleration = FVector(0.f);		
+	bMaintainSlideRollAccel = true;			
+	bHasCheckedAgainstWall = false;			
+	bIsSettingUpFirstReplayMove = false;
 
 	EasyImpactImpulse = 1050.f;
 	EasyImpactDamage = 25;
@@ -243,19 +244,98 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
 	if (UTOwner == NULL || !UTOwner->IsRagdoll())
 	{
-		if (CharacterOwner)
+		UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+		const FVector InputVector = ConsumeInputVector();
+		if (!HasValidData() || ShouldSkipUpdate(DeltaTime) || UpdatedComponent->IsSimulatingPhysics())
 		{
-			OldZ = CharacterOwner->GetActorLocation().Z;
-			if (!CharacterOwner->bClientUpdating && CharacterOwner->IsLocallyControlled())
+			return;
+		}
+
+		if (CharacterOwner->Role > ROLE_SimulatedProxy)
+		{
+			if (CharacterOwner->Role == ROLE_Authority)
 			{
-				bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
-				bIsSprinting = CanSprint();
+				// Check we are still in the world, and stop simulating if not.
+				const bool bStillInWorld = (bCheatFlying || CharacterOwner->CheckStillInWorld());
+				if (!bStillInWorld || !HasValidData())
+				{
+					return;
+				}
+			}
+
+			// If we are a client we might have received an update from the server.
+			const bool bIsClient = (GetNetMode() == NM_Client && CharacterOwner->Role == ROLE_AutonomousProxy);
+			if (bIsClient)
+			{
+				ClientUpdatePositionAfterServerUpdate();
+			}
+
+			// Allow root motion to move characters that have no controller.
+			if (CharacterOwner->IsLocallyControlled() || bRunPhysicsWithNoController || (!CharacterOwner->Controller && CharacterOwner->IsPlayingRootMotion()))
+			{
+				FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+				if (ClientData)
+				{
+					// Update our delta time for physics simulation.
+					DeltaTime = ClientData->UpdateTimeStampAndDeltaTime(DeltaTime, *CharacterOwner, *this);
+					CurrentServerMoveTime = ClientData->CurrentTimeStamp;
+				}
+				else
+				{
+					CurrentServerMoveTime = GetWorld()->GetTimeSeconds();
+				}
+				//UE_LOG(UT, Warning, TEXT("Correction COMPLETE"));
+				// We need to check the jump state before adjusting input acceleration, to minimize latency
+				// and to make sure acceleration respects our potentially new falling state.
+				CharacterOwner->CheckJumpInput(DeltaTime);
+
+				// apply input to acceleration
+				Acceleration = ScaleInputAcceleration(ConstrainInputAcceleration(InputVector));
+				AnalogInputModifier = ComputeAnalogInputModifier();
+
+				if (CharacterOwner->Role == ROLE_Authority)
+				{
+					PerformMovement(DeltaTime);
+				}
+				else if (bIsClient)
+				{
+					ReplicateMoveToServer(DeltaTime, Acceleration);
+				}
+			}
+			else if (CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy)
+			{
+				// Server ticking for remote client.
+				// Between net updates from the client we need to update position if based on another object,
+				// otherwise the object will move on intermediate frames and we won't follow it.
+				MaybeUpdateBasedMovement(DeltaTime);
+				SaveBaseLocation();
 			}
 		}
-		Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-		bJustDodged = false;
-		AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
+		else if (CharacterOwner->Role == ROLE_SimulatedProxy)
+		{
+			AdjustProxyCapsuleSize();
+			SimulatedTick(DeltaTime);
+		}
+
+		if (bEnablePhysicsInteraction)
+		{
+			if (CurrentFloor.HitResult.IsValidBlockingHit())
+			{
+				// Apply downwards force when walking on top of physics objects
+				if (UPrimitiveComponent* BaseComp = CurrentFloor.HitResult.GetComponent())
+				{
+					if (StandingDownwardForceScale != 0.f && BaseComp->IsAnySimulatingPhysics())
+					{
+						const float GravZ = GetGravityZ();
+						const FVector ForceLocation = CurrentFloor.HitResult.ImpactPoint;
+						BaseComp->AddForceAtLocation(FVector(0.f, 0.f, GravZ * Mass * StandingDownwardForceScale), ForceLocation, CurrentFloor.HitResult.BoneName);
+					}
+				}
+			}
+		}
 	}
+	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 	if (CharacterOwner != NULL)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(CharacterOwner->Controller);
@@ -318,9 +398,29 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 		return false;
 	}
 
-	bool bRealSprinting = bIsSprinting;
+	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+
+	if (!ClientData->bUpdatePosition)
+	{
+		return false;
+	}
+
+	// Save important values that might get affected by the replay.
+	const bool bRealWantsSlideRoll = bWantsSlideRoll;
+
+	// revert to old values and let replays update them
+	if (ClientData->SavedMoves.Num() > 0)
+	{
+		bIsSettingUpFirstReplayMove = true;
+		const FSavedMovePtr& FirstMove = ClientData->SavedMoves[0];
+		FirstMove->PrepMoveFor(CharacterOwner);
+		bIsSettingUpFirstReplayMove = false;
+	}
 	bool bResult = Super::ClientUpdatePositionAfterServerUpdate();
-	bIsSprinting = bRealSprinting;
+
+	// Restore saved values.
+	bWantsSlideRoll = bRealWantsSlideRoll;
+
 	return bResult;
 }
 
@@ -349,7 +449,7 @@ bool UUTCharacterMovement::CanDodge()
 	{
 		//UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
-	return !bIsDodgeRolling && CanEverJump() && ((CharacterOwner != NULL && CharacterOwner->bClientUpdating) || GetCurrentMovementTime() > DodgeResetTime);
+	return !bIsDodgeRolling && CanEverJump() && (GetCurrentMovementTime() > DodgeResetTime);
 }
 
 bool UUTCharacterMovement::CanJump()
@@ -378,9 +478,9 @@ void UUTCharacterMovement::PerformWaterJump()
 	{
 		return;
 	}
+	DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 	if (!CharacterOwner->bClientUpdating)
 	{
-		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 		//UE_LOG(UT, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 
 		// @TODO FIXMESTEVE - character should be responsible for effects, should have blueprint event too
@@ -443,13 +543,9 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			FVector NewDodgeCross = (DodgeDir ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
 			DodgeCross = ((NewDodgeCross | DodgeCross) < 0.f) ? -1.f*NewDodgeCross : NewDodgeCross;
 		}
-		if (!CharacterOwner->bClientUpdating)
-		{
-			DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
-			//UE_LOG(UT, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
-		}
+		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 		HorizontalImpulse = IsSwimming() ? SwimmingWallPushImpulse : WallDodgeImpulseHorizontal;
-			CurrentWallDodgeCount++;
+		CurrentWallDodgeCount++;
 		LastWallDodgeNormal = Result.ImpactNormal;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
@@ -538,6 +634,12 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 
 void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 {
+	if (!CharacterOwner)
+	{
+		return;
+	}
+	OldZ = CharacterOwner->GetActorLocation().Z;
+
 	float RealGroundFriction = GroundFriction;
 	if (bIsDodgeRolling)
 	{
@@ -546,10 +648,6 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	else if (bWasDodgeRolling)
 	{
 		Velocity *= RollEndingSpeedFactor;
-		if (!CharacterOwner->bClientUpdating)
-		{
-			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
-		}
 	}
 	bWasDodgeRolling = bIsDodgeRolling;
 
@@ -568,6 +666,8 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		UE_LOG(UT, Warning, TEXT("SERVER Move at %f from %f %f %f vel %f %f %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z);
 	}
 */
+	//UE_LOG(UT, Warning, TEXT("PerformMovement %f saved sprint start %f bIsSprinting %d"), GetCurrentMovementTime(), SprintStartTime, bIsSprinting);
+
 	Super::PerformMovement(DeltaSeconds);
 	bWantsToCrouch = bSavedWantsToCrouch;
 	GroundFriction = RealGroundFriction;
@@ -589,7 +689,7 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 
 bool UUTCharacterMovement::CanSprint() const
 {
-	if (CharacterOwner && IsMovingOnGround() && !IsCrouching() && (CharacterOwner->bClientUpdating || (GetCurrentMovementTime() > SprintStartTime)))
+	if (CharacterOwner && IsMovingOnGround() && !IsCrouching() && (GetCurrentMovementTime() > SprintStartTime)) 
 	{
 		// must be movin mostly forward
 		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
@@ -622,7 +722,7 @@ float UUTCharacterMovement::GetMaxSpeed() const
 
 void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration)
 {
-	if (CharacterOwner && !CharacterOwner->bClientUpdating)
+	if (Acceleration.IsZero())
 	{
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	}
@@ -631,7 +731,8 @@ void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction,
 
 float UUTCharacterMovement::GetCurrentMovementTime() const
 {
-	return (CharacterOwner && (CharacterOwner->bClientUpdating || ((CharacterOwner->Role == ROLE_Authority) && !CharacterOwner->IsLocallyControlled())))
+	// @TODO FIXMESTEVE remove listen server support here
+	return ((CharacterOwner->Role == ROLE_AutonomousProxy) || (GetNetMode() == NM_DedicatedServer) || ((GetNetMode() == NM_ListenServer) && !CharacterOwner->IsLocallyControlled()))
 		? CurrentServerMoveTime
 		: CharacterOwner->GetWorld()->GetTimeSeconds();
 }
@@ -663,6 +764,7 @@ const FVector& NewAccel
 		if (CurrentServerMoveTime > ClientTimeStamp + 0.5f*MinTimeBetweenTimeStampResets)
 		{
 			// client timestamp rolled over, so roll over our movement timers
+			//UE_LOG(UT, Warning, TEXT("+++++++ROLLOVER time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
 			DodgeResetTime -= MinTimeBetweenTimeStampResets;
 			SprintStartTime -= MinTimeBetweenTimeStampResets;
 			DodgeRollTapTime -= MinTimeBetweenTimeStampResets;
@@ -671,7 +773,34 @@ const FVector& NewAccel
 		CurrentServerMoveTime = ClientTimeStamp;
 		//UE_LOG(UT, Warning, TEXT("+++++++Set server move time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
 	}
-	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
+	if (!HasValidData())
+	{
+		return;
+	}
+
+	UpdateFromCompressedFlags(CompressedFlags);
+	//UE_LOG(UT, Warning, TEXT("sprinting %d acceleration %f %f"), bIsSprinting, Acceleration.X, Acceleration.Y);
+	bool bOldSprinting = bIsSprinting;
+	FVector OldAccel = NewAccel;
+	CharacterOwner->CheckJumpInput(DeltaTime);
+	Acceleration = ConstrainInputAcceleration(NewAccel);
+	Acceleration = ScaleInputAcceleration(Acceleration);
+
+	AnalogInputModifier = ComputeAnalogInputModifier();
+/*
+	if (bOldSprinting != bIsSprinting)
+	{
+		UE_LOG(UT, Warning, TEXT("%f SPRINTING changed from %d to %d"), ClientTimeStamp, bOldSprinting, bIsSprinting);
+
+	}*/
+	PerformMovement(DeltaTime);
+
+	// If not playing root motion, tick animations after physics. We do this here to keep events, notifies, states and transitions in sync with client updates.
+	if (!CharacterOwner->bClientUpdating && !CharacterOwner->IsPlayingRootMotion() && CharacterOwner->Mesh)
+	{
+		TickCharacterPose(DeltaTime);
+		// TODO: SaveBaseLocation() in case tick moves us?
+	}
 }
 
 void UUTCharacterMovement::ResetTimers()
@@ -709,7 +838,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 			Acceleration = DodgeRollAcceleration * Velocity.SafeNormal2D();
 			//UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
 			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
-			if (bIsDodging && !CharacterOwner->bClientUpdating)
+			if (bIsDodging)
 			{
 				DodgeResetTime = DodgeRollEndTime + ((CurrentMultiJumpCount > 1) ? DodgeJumpResetInterval : DodgeResetInterval);
 				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
@@ -718,17 +847,10 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		else if (bIsDodging)
 		{
 			Velocity *= ((CurrentMultiJumpCount > 1) ? DodgeJumpLandingSpeedFactor : DodgeLandingSpeedFactor);
-			if (!CharacterOwner->bClientUpdating)
-			{
-				DodgeResetTime = GetCurrentMovementTime() + ((CurrentMultiJumpCount > 1) ? DodgeJumpResetInterval : DodgeResetInterval);
-				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
-			}
+			DodgeResetTime = GetCurrentMovementTime() + ((CurrentMultiJumpCount > 1) ? DodgeJumpResetInterval : DodgeResetInterval);
 		}
 		bIsDodging = false;
-		if (!CharacterOwner->bClientUpdating)
-		{
-			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
-		}
+		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	}
 	bJumpAssisted = false;
 	bApplyWallSlide = false;
@@ -765,11 +887,7 @@ void UUTCharacterMovement::PerformRoll(const FVector& DodgeDir)
 		bIsDodgeRolling = true;
 		DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
 		Acceleration = DodgeRollAcceleration * DodgeDir;
-		if (!CharacterOwner->bClientUpdating)
-		{
-			DodgeResetTime = DodgeRollEndTime + DodgeResetInterval;
-			//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
-		}
+		DodgeResetTime = DodgeRollEndTime + DodgeResetInterval;
 		Velocity = MaxDodgeRollSpeed*DodgeDir;
 		UUTGameplayStatics::UTPlaySound(GetWorld(), Cast<AUTCharacter>(CharacterOwner)->DodgeRollSound, CharacterOwner, SRT_None);
 	}
@@ -849,6 +967,23 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 			UTCharacterOwner->Dodge((DodgeDirX*X + DodgeDirY*Y).SafeNormal(), (DodgeCrossX*X + DodgeCrossY*Y).SafeNormal());
 		}
 	}
+
+	if (CharacterOwner)
+	{
+		// If server, we already got these flags from the saved move
+		if (CharacterOwner->IsLocallyControlled())
+		{
+			bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
+			bIsSprinting = CanSprint();
+		}
+		bJustDodged = false;
+
+		if (!bIsDodgeRolling && bWasDodgeRolling)
+		{
+			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+		}
+	}
+
 }
 
 //======================================================
@@ -947,6 +1082,13 @@ void FSavedMove_UTCharacter::Clear()
 	bSavedIsRolling = false;
 	bSavedWantsSlide = false;
 	bSavedIsEmoting = false;
+	SavedMultiJumpCount = 0;
+	SavedWallDodgeCount = 0;
+	SavedSprintStartTime = 0.f;
+	SavedDodgeResetTime = 0.f;
+	SavedDodgeRollEndTime = 0.f;
+	bSavedJumpAssisted = false;
+	bSavedIsDodging = false;
 }
 
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
@@ -963,12 +1105,94 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
 		bSavedWantsSlide = UTCharMov->WantsSlideRoll(); 
 		bSavedIsEmoting = UTCharMov->bIsEmoting;
+		SavedMultiJumpCount = UTCharMov->CurrentMultiJumpCount;
+		SavedWallDodgeCount = UTCharMov->CurrentWallDodgeCount;
+		SavedSprintStartTime = UTCharMov->SprintStartTime;
+		SavedDodgeResetTime = UTCharMov->DodgeResetTime;
+		SavedDodgeRollEndTime = UTCharMov->DodgeRollEndTime;
+		bSavedJumpAssisted = UTCharMov->bJumpAssisted;
+		bSavedIsDodging = UTCharMov->bIsDodging;
+		//UE_LOG(UT, Warning, TEXT("set move %f saved sprint start %f"), TimeStamp, SavedSprintStartTime);
 	}
 
 	// Round acceleration, so sent version and locally used version always match
 	Acceleration.X = FMath::RoundToFloat(Acceleration.X);
 	Acceleration.Y = FMath::RoundToFloat(Acceleration.Y);
 	Acceleration.Z = FMath::RoundToFloat(Acceleration.Z);
+}
+
+void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
+{
+	Super::PrepMoveFor(Character);
+
+	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(Character->CharacterMovement);
+	if (UTCharMov)
+	{
+		if (UTCharMov->bIsSettingUpFirstReplayMove)
+		{
+			UTCharMov->CurrentMultiJumpCount = SavedMultiJumpCount;
+			UTCharMov->CurrentWallDodgeCount = SavedWallDodgeCount;
+			UTCharMov->SprintStartTime = SavedSprintStartTime;
+			UTCharMov->DodgeResetTime = SavedDodgeResetTime;
+			UTCharMov->DodgeRollEndTime = SavedDodgeRollEndTime;
+			UTCharMov->bJumpAssisted = bSavedJumpAssisted;
+			UTCharMov->bIsDodging = bSavedIsDodging;
+			//UE_LOG(UT, Warning, TEXT("First move %f saved sprint start %f"), TimeStamp, UTCharMov->SprintStartTime);
+		}
+		else
+		{
+/*
+			// warn if any of these changed (can be legit)
+			if (SavedMultiJumpCount != UTCharMov->CurrentMultiJumpCount)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f SavedMultiJumpCount from %d to %d"), TimeStamp, SavedMultiJumpCount, UTCharMov->CurrentMultiJumpCount);
+			}
+			if (SavedWallDodgeCount != UTCharMov->CurrentWallDodgeCount)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f SavedWallDodgeCount from %d to %d"), TimeStamp, SavedWallDodgeCount, UTCharMov->CurrentWallDodgeCount);
+			}
+			if (SavedSprintStartTime != UTCharMov->SprintStartTime)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f SavedSprintStartTime from %f to %f"), TimeStamp, SavedSprintStartTime, UTCharMov->SprintStartTime);
+			}
+			if (SavedDodgeResetTime != UTCharMov->DodgeResetTime)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeResetTime, UTCharMov->DodgeResetTime);
+			}
+			if (SavedDodgeRollEndTime != UTCharMov->DodgeRollEndTime)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeRollEndTime, UTCharMov->DodgeRollEndTime);
+			}
+			if (SavedWallDodgeCount != UTCharMov->CurrentWallDodgeCount)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f SavedWallDodgeCount from %d to %d"), TimeStamp, SavedWallDodgeCount, UTCharMov->CurrentWallDodgeCount);
+			}
+			if (bSavedJumpAssisted != UTCharMov->bJumpAssisted)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f bSavedJumpAssisted from %d to %d"), TimeStamp, bSavedJumpAssisted, UTCharMov->bJumpAssisted);
+			}
+			if (bSavedIsDodging != UTCharMov->bIsDodging)
+			{
+				UE_LOG(UT, Warning, TEXT("prep move %f bSavedIsDodging from %d to %d"), TimeStamp, bSavedIsDodging, UTCharMov->bIsDodging);
+			}
+*/
+			// these may have changed in the course of replaying saved moves.  Save new value, since we reset to this before the first one is played
+			// @TODO FIXMESTEVE should I update all properties (non input)?
+			SavedMultiJumpCount = UTCharMov->CurrentMultiJumpCount;
+			SavedWallDodgeCount = UTCharMov->CurrentWallDodgeCount;
+			SavedSprintStartTime = UTCharMov->SprintStartTime;
+			SavedDodgeResetTime = UTCharMov->DodgeResetTime;
+			SavedDodgeRollEndTime = UTCharMov->DodgeRollEndTime;
+			bSavedJumpAssisted = UTCharMov->bJumpAssisted;
+			bSavedIsDodging = UTCharMov->bIsDodging;
+		}
+	}
+}
+
+void FSavedMove_UTCharacter::PostUpdate(ACharacter* Character, FSavedMove_Character::EPostUpdateMode PostUpdateMode)
+{
+	Super::PostUpdate(Character, PostUpdateMode);
+
 }
 
 FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() const
@@ -1133,6 +1357,11 @@ void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 	Super::PhysSwimming(deltaTime, Iterations);
 }
 
+float UUTCharacterMovement::ComputeAnalogInputModifier() const
+{
+	return 1.f;
+}
+
 /** @TODO FIXMESTEVE - physfalling copied from base version and edited.  At some point should probably add some hooks to base version and use those instead. */
 void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 {
@@ -1269,6 +1498,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		if (IsSwimming()) //just entered water
 		{
 			remainingTime = remainingTime + timeTick * (1.f - Hit.Time);
+			bApplyWallSlide = false;
 			StartSwimming(OldLocation, OldVelocity, timeTick, remainingTime, Iterations);
 			return;
 		}
@@ -1305,6 +1535,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 				// If we've changed physics mode, abort.
 				if (!HasValidData() || !IsFalling())
 				{
+					bApplyWallSlide = false;
 					return;
 				}
 
@@ -1330,6 +1561,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						// If we've changed physics mode, abort.
 						if (!HasValidData() || !IsFalling())
 						{
+							bApplyWallSlide = false;
 							return;
 						}
 
@@ -1383,6 +1615,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 				}
 			}
 		}
+		bApplyWallSlide = false;
 
 		if (!HasRootMotion() && !bJustTeleported && MovementMode != MOVE_None)
 		{
@@ -1687,9 +1920,6 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 		return;
 	}
 
-	// Update our delta time for physics simulation.
-	DeltaTime = ClientData->UpdateTimeStampAndDeltaTime(DeltaTime, *CharacterOwner, *this);
-
 	// Find the oldest (unacknowledged) important move (OldMove).
 	// Don't include the last move because it may be combined with the next new move.
 	// A saved move is interesting if it differs significantly from the last acknowledged move
@@ -1715,57 +1945,12 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	}
 
 	NewMove->SetMoveFor(CharacterOwner, DeltaTime, NewAcceleration, *ClientData);
+	NewMove->SetInitialPosition(CharacterOwner);
 
-	// see if the two moves could be combined
-	// do not combine moves which have different TimeStamps (before and after reset).
-	if (ClientData->PendingMove.IsValid() && !ClientData->PendingMove->bOldTimeStampBeforeReset && ClientData->PendingMove->CanCombineWith(NewMove, CharacterOwner, ClientData->MaxResponseTime * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation()))
-	{
-		// Only combine and move back to the start location if we don't move back in to a spot that would make us collide with something new.
-		const FVector OldStartLocation = ClientData->PendingMove->GetRevertedLocation();
-		if (!OverlapTest(OldStartLocation, ClientData->PendingMove->StartRotation.Quaternion(), UpdatedComponent->GetCollisionObjectType(), GetPawnCapsuleCollisionShape(SHRINK_None), CharacterOwner))
-		{
-			FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, EScopedUpdate::DeferredUpdates);
-			UE_LOG(LogNetPlayerMovement, VeryVerbose, TEXT("CombineMove: add delta %f + %f and revert from %f %f to %f %f"), DeltaTime, ClientData->PendingMove->DeltaTime, CharacterOwner->GetActorLocation().X, CharacterOwner->GetActorLocation().Y, OldStartLocation.X, OldStartLocation.Y);
-
-			// to combine move, first revert pawn position to PendingMove start position, before playing combined move on client
-			const bool bNoCollisionCheck = true;
-			UpdatedComponent->SetWorldLocationAndRotation(OldStartLocation, ClientData->PendingMove->StartRotation, false);
-			Velocity = ClientData->PendingMove->StartVelocity;
-
-			SetBase(ClientData->PendingMove->StartBase.Get(), ClientData->PendingMove->StartBoneName);
-			CurrentFloor = ClientData->PendingMove->StartFloor;
-
-			// Now that we have reverted to the old position, prepare a new move from that position,
-			// using our current velocity, acceleration, and rotation, but applied over the combined time from the old and new move.
-
-			NewMove->DeltaTime += ClientData->PendingMove->DeltaTime;
-
-			if (PC)
-			{
-				// We reverted position to that at the start of the pending move (above), however some code paths expect rotation to be set correctly
-				// before character movement occurs (via FaceRotation), so try that now. The bOrientRotationToMovement path happens later as part of PerformMovement() and PhysicsRotation().
-				CharacterOwner->FaceRotation(PC->GetControlRotation(), NewMove->DeltaTime);
-			}
-
-			SaveBaseLocation();
-			NewMove->SetInitialPosition(CharacterOwner);
-
-			// Remove pending move from move list. It would have to be the last move on the list.
-			if (ClientData->SavedMoves.Num() > 0 && ClientData->SavedMoves.Last() == ClientData->PendingMove)
-			{
-				ClientData->SavedMoves.Pop();
-			}
-			ClientData->FreeMove(ClientData->PendingMove);
-			ClientData->PendingMove = NULL;
-		}
-		else
-		{
-			//UE_LOG(LogNet, Log, TEXT("Not combining move, would collide at start location"));
-		}
-	}
+	// @TODO FIXMESTEVE re-introduce limited move combining
 
 	// Perform the move locally
-	Acceleration = NewMove->Acceleration;
+	Acceleration = ScaleInputAcceleration(NewMove->Acceleration);
 	CharacterOwner->ClientRootMotionParams.Clear();
 	PerformMovement(NewMove->DeltaTime);
 

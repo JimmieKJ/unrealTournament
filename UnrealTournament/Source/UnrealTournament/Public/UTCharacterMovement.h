@@ -32,6 +32,7 @@ public:
 	virtual bool CanCrouchInCurrentState() const override;
 	virtual void PerformMovement(float DeltaSeconds) override;
 	virtual FVector ConsumeInputVector() override;
+	virtual float ComputeAnalogInputModifier() const override;
 
 	/** Try to base on lift that just ran into me, return true if success */
 	virtual bool CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FVector& LiftMoveDelta);
@@ -46,6 +47,9 @@ public:
 
 	/** Return true if movement input should not be constrained to horizontal plane */
 	virtual bool Is3DMovementMode() const;
+
+	/** for replaying moves set up */
+	bool bIsSettingUpFirstReplayMove;
 
 	/** Smoothed speed */
 	UPROPERTY()
@@ -518,11 +522,22 @@ public:
 	// Flag to plant character during emoting
 	bool bSavedIsEmoting;
 
+	// local only properties (not replicated) used when replaying moves
+	int32 SavedMultiJumpCount;
+	int32 SavedWallDodgeCount;
+	float SavedSprintStartTime;
+	float SavedDodgeResetTime;
+	float SavedDodgeRollEndTime;
+	bool bSavedJumpAssisted;
+	bool bSavedIsDodging;
+
 	virtual void Clear() override;
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;
 	virtual uint8 GetCompressedFlags() const override;
 	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const override;
 	virtual bool IsImportantMove(const FSavedMovePtr& LastAckedMove) const override;
+	virtual void PostUpdate(class ACharacter* C, EPostUpdateMode PostUpdateMode) override;
+	virtual void PrepMoveFor(class ACharacter* C) override;
 };
 
 
