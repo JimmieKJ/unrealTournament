@@ -15,6 +15,8 @@ class UUTAIAction_TacticalMove : public UUTAIAction
 	UPROPERTY()
 	float MinStrafeDist;
 
+	/** set in Started() to whether enemy is currently visible, so we can return to our current position if our move causes us to lose sight of the enemy */
+	bool bEnemyWasVisible;
 	/** toggle for strafe direction */
 	bool bStrafeDir;
 	/** toggle for blocked moves to switch directions */

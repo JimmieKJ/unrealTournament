@@ -1413,6 +1413,18 @@ void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
 	}
 }
 
+float AUTWeapon::GetDamageRadius_Implementation(uint8 TestMode) const
+{
+	if (ProjClass.IsValidIndex(TestMode) && ProjClass[TestMode] != NULL)
+	{
+		return ProjClass[TestMode].GetDefaultObject()->DamageParams.OuterRadius;
+	}
+	else
+	{
+		return 0.0f;
+	}
+}
+
 float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);

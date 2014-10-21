@@ -48,6 +48,9 @@ protected:
 	/** location for this point on the route (at the time the route was generated; if the item is a moving Actor this is not updated) */
 	UPROPERTY()
 	FVector Location;
+	/** set if this is a direct target with no navmesh bindings (AI moving to this will go in a straight line from its current location) */
+	UPROPERTY()
+	bool bDirectTarget;
 public:
 	/** polygon to target to reach this route point
 	 * for nodes, this is the first poly on the node that connects to the previous node
@@ -57,7 +60,11 @@ public:
 
 	inline bool IsValid() const
 	{
-		return TargetPoly != INVALID_NAVNODEREF && !Node.IsStale() && !Actor.IsStale();
+		return (bDirectTarget || TargetPoly != INVALID_NAVNODEREF) && !Node.IsStale() && !Actor.IsStale();
+	}
+	inline bool IsDirectTarget() const
+	{
+		return bDirectTarget && IsValid();
 	}
 
 	inline void Clear()
@@ -83,17 +90,21 @@ public:
 	}
 
 	FRouteCacheItem()
-		: Node(NULL), Actor(NULL), Location(FVector::ZeroVector), TargetPoly(INVALID_NAVNODEREF)
+		: Node(NULL), Actor(NULL), Location(FVector::ZeroVector), TargetPoly(INVALID_NAVNODEREF), bDirectTarget(false)
 	{}
 	FRouteCacheItem(TWeakObjectPtr<UUTPathNode> InNode, const FVector& InLoc, NavNodeRef InTargetPoly)
-		: Node(InNode), Actor(NULL), Location(InLoc), TargetPoly(InTargetPoly)
+		: Node(InNode), Actor(NULL), Location(InLoc), TargetPoly(InTargetPoly), bDirectTarget(false)
 	{}
 	FRouteCacheItem(TWeakObjectPtr<AActor> InActor, const FVector& InLoc, NavNodeRef InTargetPoly)
-		: Node(NULL), Actor(InActor), Location(InLoc), TargetPoly(InTargetPoly)
+		: Node(NULL), Actor(InActor), Location(InLoc), TargetPoly(InTargetPoly), bDirectTarget(false)
 	{}
-	FRouteCacheItem(const FVector& InLoc, NavNodeRef InTargetPoly)
-		: Node(NULL), Actor(NULL), Location(InLoc), TargetPoly(InTargetPoly)
+	explicit FRouteCacheItem(const FVector& InLoc, NavNodeRef InTargetPoly = INVALID_NAVNODEREF)
+		: Node(NULL), Actor(NULL), Location(InLoc), TargetPoly(InTargetPoly), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF)
 	{}
+	explicit FRouteCacheItem(TWeakObjectPtr<AActor> InActor)
+		: Node(NULL), Actor(InActor), Location(InActor.IsValid() ? InActor->GetActorLocation() : FVector::ZeroVector), TargetPoly(INVALID_NAVNODEREF), bDirectTarget(InActor.IsValid())
+	{}
+
 
 	bool operator== (const FRouteCacheItem& Other) const
 	{

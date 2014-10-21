@@ -82,6 +82,39 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 	LastLoadTime = GetWorld()->TimeSeconds;
 
 	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner);
+
+	// bot maybe shoots rockets from here
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B != NULL && B->GetTarget() != NULL && B->LineOfSightTo(B->GetTarget()) && !B->NeedToTurn(B->GetFocalPoint()))
+	{
+		if (NumLoadedRockets == MaxLoadedRockets)
+		{
+			UTOwner->StopFiring();
+		}
+		else if (NumLoadedRockets > 1)
+		{
+			if (B->GetTarget() != B->GetEnemy())
+			{
+				if (FMath::FRand() < 0.5f)
+				{
+					UTOwner->StopFiring();
+				}
+			}
+			else if (FMath::FRand() < 0.3f)
+			{
+				UTOwner->StopFiring();
+			}
+			else if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
+			{
+				// if rockets would do more than 2x target's health, worth trying for the kill now
+				AUTCharacter* P = Cast<AUTCharacter>(B->GetEnemy());
+				if (P != NULL && P->HealthMax * B->GetEnemyInfo(B->GetEnemy(), true)->EffectiveHealthPct * 2.0f < ProjClass[CurrentFireMode].GetDefaultObject()->DamageParams.BaseDamage * NumLoadedRockets)
+				{
+					UTOwner->StopFiring();
+				}
+			}
+		}
+	}
 }
 
 void AUTWeap_RocketLauncher::ClearLoadedRockets()
@@ -171,6 +204,34 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 	//For the alternate fire, the number of flashes are replicated by the FireMode. 
 	if (CurrentFireMode == 1)
 	{
+		// Bots choose mode now
+		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+		if (B != NULL)
+		{
+			if (B->GetTarget() == B->GetEnemy())
+			{
+				// when retreating, we want grenades
+				// otherwise, if close, spiral; if not, spread
+				if (B->GetEnemy() == NULL || B->LostContact(1.0f) /*|| B.IsRetreating() || B.IsInState('StakeOut')*/)
+				{
+					CurrentRocketFireMode = 2;
+				}
+				else if ((UTOwner->GetActorLocation() - B->GetEnemyLocation(B->GetEnemy(), false)).Size() < 2200.0f)
+				{
+					CurrentRocketFireMode = 1;
+				}
+				else
+				{
+					CurrentRocketFireMode = 0;
+				}
+			}
+			else
+			{
+				// spiral to non-pawn targets for maximum direct damage
+				CurrentRocketFireMode = 1;
+			}
+		}
+
 		//Only play Muzzle flashes if the Rocket mode permits ie: Grenades no flash
 		if ((Role == ROLE_Authority) && RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash)
 		{
@@ -599,6 +660,131 @@ void AUTWeap_RocketLauncher::GetLifetimeReplicatedProps(TArray<class FLifetimePr
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTWeap_RocketLauncher, LockedTarget, COND_None);
+}
+
+float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL || B->GetEnemy() == NULL)
+	{
+		return BaseAISelectRating;
+	}
+	// if standing on a lift, make sure not about to go around a corner and lose sight of target
+	// (don't want to blow up a rocket in bot's face)
+	else if (UTOwner->GetMovementBase() != NULL && !UTOwner->GetMovementBase()->GetComponentVelocity().IsZero() && !B->CheckFutureSight(0.1f))
+	{
+		return 0.1f;
+	}
+	else
+	{
+		const FVector EnemyDir = B->GetEnemyLocation(B->GetEnemy(), false) - UTOwner->GetActorLocation();
+		float EnemyDist = EnemyDir.Size();
+		float Rating = BaseAISelectRating;
+
+		// don't pick rocket launcher if enemy is too close
+		if (EnemyDist < 800.0f)
+		{
+			// don't switch away from rocket launcher unless really bad tactical situation
+			// TODO: also don't if OK with mutual death (high aggressiveness, high target priority, or grudge against target?)
+			if (UTOwner->GetWeapon() == this && (EnemyDist > 550.0f || (UTOwner->Health < 50 && UTOwner->GetEffectiveHealthPct(false) < B->GetEnemyInfo(B->GetEnemy(), true)->EffectiveHealthPct)))
+			{
+				return Rating;
+			}
+			else
+			{
+				return 0.05f + EnemyDist * 0.0005;
+			}
+		}
+
+		// rockets are good if higher than target, bad if lower than target
+		float ZDiff = EnemyDir.Z;
+		if (ZDiff < -250.0f)
+		{
+			Rating += 0.25;
+		}
+		else if (ZDiff > 350.0f)
+		{
+			Rating -= 0.35;
+		}
+		else if (ZDiff > 175.0f)
+		{
+			Rating -= 0.05;
+		}
+
+		// slightly higher chance to use against melee because high rocket momentum will keep enemy away
+		AUTCharacter* EnemyChar = Cast<AUTCharacter>(B->GetEnemy());
+		if (EnemyChar != NULL && EnemyChar->GetWeapon() != NULL && EnemyChar->GetWeapon()->bMeleeWeapon && EnemyDist < 5500.0f)
+		{
+			Rating += 0.1f;
+		}
+
+		return Rating;
+	}
+}
+
+float AUTWeap_RocketLauncher::SuggestAttackStyle_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B != NULL && B->GetEnemy() != NULL)
+	{
+		// recommend backing off if target is too close
+		float EnemyDist = (B->GetEnemyLocation(B->GetEnemy(), false) - UTOwner->GetActorLocation()).Size();
+		if (EnemyDist < 1600.0f)
+		{
+			return (EnemyDist < 1100.0f) ? -1.5f : -0.7f;
+		}
+		else if (EnemyDist > 3500.0f)
+		{
+			return 0.5f;
+		}
+		else
+		{
+			return -0.1f;
+		}
+	}
+	else
+	{
+		return -0.1f;
+	}
+}
+
+bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc))
+	{
+		if (!bPreferCurrentMode && B != NULL)
+		{
+			// prefer single rocket for visible enemy unless enemy is much stronger and want to try bursting
+			BestFireMode = (FMath::FRand() < 0.3f || B->GetTarget() != B->GetEnemy() || (!B->IsStopped() && B->RelativeStrength(B->GetEnemy()) <= 0.5f)) ? 0 : 1;
+		}
+		return true;
+	}
+	else if (B == NULL /*|| !B->WeaponProficiencyCheck()*/ || B->GetTarget() != B->GetEnemy() || B->LostContact(2.0f) || (!B->IsStopped()/* && !B->IsHunting()*/ && !B->IsCharging()) || (!bPreferCurrentMode && FMath::FRand() > 0.5f))
+	{
+		if (IsPreparingAttack())
+		{
+			// TODO: if high skill, look around for someplace to shoot rockets that won't blow self up
+			UTOwner->StopFiring();
+		}
+		return false;
+	}
+	else
+	{
+		// TODO: use navigation to get more ideal intersection point (will allow targeting incoming heard enemies, etc)
+		FVector PredictedLoc = B->GetEnemyInfo(B->GetEnemy(), false)->LastSeenLoc;
+		if (GetWorld()->LineTraceTest(UTOwner->GetActorLocation(), PredictedLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CanAttack")), false, UTOwner)))
+		{
+			// can't shoot at LastSeenLoc from here
+			return false;
+		}
+		else
+		{
+			OptimalTargetLoc = PredictedLoc;
+			BestFireMode = 1;
+			return true;
+		}
+	}
 }
 
 bool AUTWeap_RocketLauncher::IsPreparingAttack_Implementation()

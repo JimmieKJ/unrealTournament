@@ -205,6 +205,9 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** if set bot will have a harder time noticing and targeting enemies that are significantly above or below */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	bool bSlowerZAcquire;
+	/** if set bot will lead targets with projectile weapons */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+	bool bLeadTarget;
 
 	/** rotation rate towards focal point */
 	UPROPERTY(BlueprintReadOnly, Category = Skill)
@@ -222,11 +225,6 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	FString GoalString;
 
-	/** debugging for last enemy selection */
-	UPROPERTY()
-	float LastPickEnemyTime;
-	UPROPERTY()
-	TArray<FBotEnemyRating> LastPickEnemyRatings;
 private:
 	/** current action, if any */
 	UPROPERTY()
@@ -375,6 +373,12 @@ protected:
 	 */
 	UPROPERTY()
 	TArray<FBotEnemyInfo> LocalEnemyList;
+
+	/** debugging for last enemy selection */
+	UPROPERTY()
+	float LastPickEnemyTime;
+	UPROPERTY()
+	TArray<FBotEnemyRating> LastPickEnemyRatings;
 private:
 	UPROPERTY()
 	AUTCharacter* UTChar;
@@ -396,6 +400,21 @@ protected:
 	AActor* Target;
 	/** set to force selection of new fire mode next frame for weapon targeting */
 	bool bPickNewFireMode;
+	/** valid only when target is set to a class that supports position history; set in UpdateControlRotation() to target velocity being used by aiming logic (generally, its velocity from a short time in the past) */
+	FVector TrackedVelocity;
+	/** when leading with projectiles and predicted shot is blocked we iteratively refine over several frames */
+	float LastIterativeLeadCheck;
+	/** aim target where projectile leading was blocked, so continue tracing each frame looking for best target location */
+	UPROPERTY()
+	AActor* BlockedAimTarget;
+	/** applying checks for splash damage, headshots, toss adjust, etc are done at a reduced rate for performance */
+	float TacticalAimUpdateInterval;
+	float LastTacticalAimUpdateTime;
+	/** last result of tactical aim update applied to predicted target loc in subsequent frames until next update */
+	FVector TacticalAimOffset;
+	/** focal point after aim tracking and weapon targeting */
+	UPROPERTY()
+	FVector FinalFocalPoint;
 
 	/** AI actions */
 	UPROPERTY()
@@ -406,8 +425,8 @@ protected:
 	TSubobjectPtr<UUTAIAction> RangedAttackAction;
 	UPROPERTY()
 	TSubobjectPtr<UUTAIAction> TacticalMoveAction;
-	//UPROPERTY()
-	//TSubobjectPtr<UUTAIAction> ChargeAction;
+	UPROPERTY()
+	TSubobjectPtr<UUTAIAction> ChargeAction;
 
 public:
 	inline AUTCharacter* GetUTChar() const
@@ -433,8 +452,18 @@ public:
 	virtual void PawnPendingDestroy(APawn* InPawn) override;
 	virtual void Destroyed() override;
 	virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn = true) override;
+	/** apply any adjustments to our aim based on the weapon we're using (projectile leading, toss, splash damage, headshots, etc)
+	 * TrackedVelocity has already been set to the velocity of the target the bot should use for prediction (not necessarily its current velocity due to the history-based aiming model)
+	 * @param TargetLoc - predicted target location
+	 * @param FocalPoint (in/out) - the point the bot should look at to fire the weapon in the desired direction (initial value is from weapon's CanAttack(), generally TargetLoc unless weapon applied special indirect aiming like bouncing around a corner)
+	 */
+	virtual void ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint);
 	virtual void Tick(float DeltaTime) override;
 	virtual void UTNotifyKilled(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType);
+	virtual FVector GetFocalPoint() const
+	{
+		return FinalFocalPoint;
+	}
 
 	virtual uint8 GetTeamNum() const;
 
@@ -515,13 +544,16 @@ public:
 	/** convenience redirect to AUTWeapon::CanAttack(), see that for details */
 	virtual bool CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode = false, uint8* BestFireMode = NULL, FVector* OptimalTargetLoc = NULL);
 
+	/** check for line of sight to target DeltaTime from now */
+	virtual bool CheckFutureSight(float DeltaTime);
+
 	/** get info on enemy, from team if available or local list if not
 	 * returned pointer is from an array so it is only guaranteed valid until next enemy update
 	 */
 	const FBotEnemyInfo* GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam);
 	/** returns where bot thinks enemy is
 	 * if bAllowPrediction, allow AI to guess at enemy's current position if it doesn't have line of sight (if false, return last known location)
-	 * if the bot nor its teammates have ever contacted this enemy, then it returns FVector(WORLD_MAX)
+	 * if the bot nor its teammates have ever contacted this enemy, then it returns ZeroVector
 	 */
 	virtual FVector GetEnemyLocation(APawn* TestEnemy, bool bAllowPrediction);
 	/** return if the passed in Enemy is visible to this bot
@@ -537,9 +569,15 @@ public:
 	virtual bool LostContact(float MaxTime);
 
 	/** return if bot is stopped and isn't planning on moving, used for some decisions and for certain skill/accuracy checks */
-	bool IsStopped()
+	bool IsStopped() const
 	{
 		return !MoveTarget.IsValid() && GetPawn() != NULL && GetPawn()->GetVelocity().IsZero() && (GetCharacter() == NULL || GetCharacter()->CharacterMovement->GetCurrentAcceleration().IsZero());
+	}
+
+	/** return if bot is currently charging (moving towards in an attack pose) its current target */
+	virtual bool IsCharging() const
+	{
+		return ((GetTarget() != NULL && MoveTarget.Actor == GetTarget()) || CurrentAction == ChargeAction);
 	}
 
 protected:

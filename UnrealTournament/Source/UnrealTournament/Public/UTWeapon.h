@@ -186,6 +186,9 @@ public:
 	/** indicates AI should target for splash damage (e.g. shoot at feet or nearby walls) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	bool bRecommendSplashDamage;
+	/** indicates this is a sniping weapon (for AI, will prioritize headshots and long range targeting) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	bool bSniping;
 
 	/** Delayed projectile information */
 	UPROPERTY()
@@ -549,6 +552,10 @@ public:
 
 	/** Begin unequipping this weapon */
 	virtual void UnEquip();
+
+	/** informational function that returns the damage radius that a given fire mode has (used by e.g. bots) */
+	UFUNCTION(BlueprintNativeEvent, Category = AI)
+	float GetDamageRadius(uint8 TestMode) const;
 
 	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;

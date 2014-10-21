@@ -94,7 +94,7 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 				if (DefaultGlob != NULL)
 				{
 					AUTCharacter* P = Cast<AUTCharacter>(B->GetEnemy());
-					if (P != nullptr && P->Health < DefaultGlob->DamageParams.BaseDamage * GlobStrength) // TODO: bot's guess of total effective enemy health
+					if (P != NULL && P->HealthMax * B->GetEnemyInfo(B->GetEnemy(), true)->EffectiveHealthPct < DefaultGlob->DamageParams.BaseDamage * GlobStrength)
 					{
 						UTOwner->StopFiring();
 					}

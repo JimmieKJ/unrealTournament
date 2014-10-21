@@ -11,6 +11,7 @@ UUTAIAction_TacticalMove::UUTAIAction_TacticalMove(const FPostConstructInitializ
 
 void UUTAIAction_TacticalMove::Started()
 {
+	bEnemyWasVisible = GetOuterAUTBot()->IsEnemyVisible(GetEnemy());
 	bChangeDir = false;
 	bFinalMove = false;
 	// TODO: originally this implemented a speed clamp for low skill bots... investigate
@@ -25,7 +26,7 @@ void UUTAIAction_TacticalMove::PickDestination()
 	if ( GetCharacter() != NULL && GetCharacter()->CharacterMovement->GetPhysicsVolume() != NULL && GetCharacter()->CharacterMovement->GetPhysicsVolume()->bWaterVolume &&
 		/*!Pawn.bCanSwim && */ GetPawn()->GetNavAgentProperties()->bCanFly )
 	{
-		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + 75.0f * (FMath::VRand() + FVector(0.0f, 0.0f, 1.0f)) + FVector(0.0f, 0.0f, 100.0f), INVALID_NAVNODEREF));
+		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + 75.0f * (FMath::VRand() + FVector(0.0f, 0.0f, 1.0f)) + FVector(0.0f, 0.0f, 100.0f)));
 	}
 	else
 	{
@@ -139,13 +140,13 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 				{
 					GetOuterAUTBot()->bPlannedWallDodge = true;
 				}
-				GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(MinDest, INVALID_NAVNODEREF));
+				GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(MinDest));
 				return true;
 			}
 		}
 	}
 	FVector Dest = MinDest + StrafeDir * (0.5 * MinStrafeDist + FMath::Min<float>((GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true) - GetPawn()->GetActorLocation()).Size(), MinStrafeDist * (FMath::FRand() + FMath::FRand())));
-	GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(Dest, INVALID_NAVNODEREF));
+	GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(Dest));
 	return true;
 }
 
@@ -153,7 +154,7 @@ void UUTAIAction_TacticalMove::FinalWaitFinished()
 {
 	if (FMath::FRand() + 0.3f > GetOuterAUTBot()->CurrentAggression)
 	{
-		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(HidingSpot + 4.0 * GetPawn()->GetSimpleCollisionRadius() * (HidingSpot - GetPawn()->GetActorLocation()).SafeNormal(), INVALID_NAVNODEREF));
+		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(HidingSpot + 4.0 * GetPawn()->GetSimpleCollisionRadius() * (HidingSpot - GetPawn()->GetActorLocation()).SafeNormal()));
 		bFinalMove = false;
 	}
 	else
@@ -175,7 +176,7 @@ void UUTAIAction_TacticalMove::StartFinalMove()
 		// try to get back to a shooting position
 		bFinalMove = true;
 
-		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(EnemyInfo->LastSeeingLoc + 4.0f * GetPawn()->GetSimpleCollisionRadius() * (EnemyInfo->LastSeeingLoc - GetPawn()->GetActorLocation()).SafeNormal(), INVALID_NAVNODEREF));
+		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(EnemyInfo->LastSeeingLoc + 4.0f * GetPawn()->GetSimpleCollisionRadius() * (EnemyInfo->LastSeeingLoc - GetPawn()->GetActorLocation()).SafeNormal()));
 	}
 }
 
@@ -227,7 +228,7 @@ bool UUTAIAction_TacticalMove::Update(float DeltaTime)
 			return true;
 		}
 	}
-	else if ( GetOuterAUTBot()->CurrentAggression < GetOuterAUTBot()->RelativeStrength(GetEnemy()) || GetOuterAUTBot()->CanAttack(GetEnemy(), GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true), false) ||
+	else if ( !bEnemyWasVisible || GetOuterAUTBot()->CurrentAggression < GetOuterAUTBot()->RelativeStrength(GetEnemy()) || GetOuterAUTBot()->CanAttack(GetEnemy(), GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true), false) ||
 				(GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->bMeleeWeapon) )
 	{
 		return true;
@@ -277,7 +278,7 @@ bool UUTAIAction_TacticalMove::NotifyMoveBlocked(const FHitResult& Impact)
 	else
 	{
 		bChangeDir = true;
-		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() - Impact.Normal * FMath::FRand() * 500.0f, INVALID_NAVNODEREF));
+		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() - Impact.Normal * FMath::FRand() * 500.0f));
 		return true;
 	}
 }
