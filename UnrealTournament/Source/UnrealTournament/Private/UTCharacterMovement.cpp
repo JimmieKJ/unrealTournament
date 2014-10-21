@@ -274,7 +274,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			// Allow root motion to move characters that have no controller.
 			if (CharacterOwner->IsLocallyControlled() || bRunPhysicsWithNoController || (!CharacterOwner->Controller && CharacterOwner->IsPlayingRootMotion()))
 			{
-				FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+				FNetworkPredictionData_Client_Character* ClientData = ((CharacterOwner->Role < ROLE_Authority) && (GetNetMode() == NM_Client)) ? GetPredictionData_Client_Character() : NULL;
 				if (ClientData)
 				{
 					// Update our delta time for physics simulation.
