@@ -175,36 +175,41 @@ void AUTProjectile::BeginPlay()
 			}
 			if (BestMatch)
 			{
-				// @TODO FIXMESTEVE - teleport to bestmatch location and interpolate?
-				// @TODO FIXMESTEVE - rep to server to reduce error by changing Server ping overhead value
-
-				float Error = (GetActorLocation() - BestMatch->GetActorLocation()).Size();
-				if (((GetActorLocation() - BestMatch->GetActorLocation()) | BestMatch->GetVelocity()) > 0.f)
-				{
-					Error *= -1.f;
-				}
-				//UE_LOG(UT, Warning, TEXT("%s CORRECTION %f in msec %f"), *GetName(), Error, 1000.f * Error/GetVelocity().Size());
-
-				BestMatch->ReplicatedMovement.Location = GetActorLocation();
-				BestMatch->ReplicatedMovement.Rotation = GetActorRotation();
-				BestMatch->PostNetReceiveLocationAndRotation();
-				MyFakeProjectile = BestMatch;
-
-				// @TODO FIXMESTEVE Can I move components instead of having two actors?
-				// @TODO FIXMESTEVE if not, should interp fake projectile to my location instead of teleporting?
-				TArray<USceneComponent*> Components;
-				GetComponents<USceneComponent>(Components);
-				for (int32 i = 0; i < Components.Num(); i++)
-				{
-					Components[i]->SetHiddenInGame(true);
-					Components[i]->SetVisibility(false);
-				}
-
-				//BestMatch->Destroy();
-				// @TODO FIXMESTEVE If bNetTemporary, destroy me right away (after fully replicated - need to copy over those properties), let fake become real
+				BeginFakeProjectileSynch(BestMatch);
 			}
 		}
 	}
+}
+
+void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
+{
+	// @TODO FIXMESTEVE - teleport to bestmatch location and interpolate?
+	// @TODO FIXMESTEVE - rep to server to reduce error by changing Server ping overhead value
+	MyFakeProjectile = InFakeProjectile;
+
+	float Error = (GetActorLocation() - MyFakeProjectile->GetActorLocation()).Size();
+	if (((GetActorLocation() - MyFakeProjectile->GetActorLocation()) | MyFakeProjectile->GetVelocity()) > 0.f)
+	{
+		Error *= -1.f;
+	}
+	//UE_LOG(UT, Warning, TEXT("%s CORRECTION %f in msec %f"), *GetName(), Error, 1000.f * Error/GetVelocity().Size());
+
+	MyFakeProjectile->ReplicatedMovement.Location = GetActorLocation();
+	MyFakeProjectile->ReplicatedMovement.Rotation = GetActorRotation();
+	MyFakeProjectile->PostNetReceiveLocationAndRotation();
+
+	// @TODO FIXMESTEVE Can I move components instead of having two actors?
+	// @TODO FIXMESTEVE if not, should interp fake projectile to my location instead of teleporting?
+	TArray<USceneComponent*> Components;
+	GetComponents<USceneComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		Components[i]->SetHiddenInGame(true);
+		Components[i]->SetVisibility(false);
+	}
+
+	//MyFakeProjectile->Destroy();
+	// @TODO FIXMESTEVE If bNetTemporary, destroy me right away (after fully replicated - need to copy over those properties), let fake become real
 }
 
 void AUTProjectile::SendInitialReplication()
@@ -383,12 +388,7 @@ void AUTProjectile::OnRep_UTProjReplicatedMovement()
 
 void AUTProjectile::PostNetReceiveLocationAndRotation()
 {
-	// FIXME: overwrote super because 4.4 version is busted and fails - check if this is fixed in 4.5...
-	//Super::PostNetReceiveLocationAndRotation();
-	if (RootComponent != NULL && RootComponent->IsRegistered() && (ReplicatedMovement.Location != GetActorLocation() || ReplicatedMovement.Rotation != GetActorRotation()))
-	{
-		TeleportTo(ReplicatedMovement.Location, ReplicatedMovement.Rotation, false, true); // note the 'true' for bNoCheck
-	}
+	Super::PostNetReceiveLocationAndRotation();
 
 	// forward predict to get to position on server now
 	if (!bFakeClientProjectile)
@@ -465,21 +465,24 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 {
 	bCanHitInstigator = true;
 
-	// Spawn bounce effect
-	if (GetNetMode() != NM_DedicatedServer)
+	if (Cast<AUTProjectile>(ImpactResult.Actor.Get()) == NULL || InteractsWithProj(Cast<AUTProjectile>(ImpactResult.Actor.Get())))
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BounceEffect, ImpactResult.Location, ImpactResult.ImpactNormal.Rotation(), true);
-	}
-	// Play bounce sound
-	if (BounceSound != NULL)
-	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false);
+		// Spawn bounce effect
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BounceEffect, ImpactResult.Location, ImpactResult.ImpactNormal.Rotation(), true);
+		}
+		// Play bounce sound
+		if (BounceSound != NULL)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false);
+		}
 	}
 }
 
 bool AUTProjectile::InteractsWithProj(AUTProjectile* OtherProj)
 {
-	return (bAlwaysShootable || OtherProj->bAlwaysShootable || (bIsEnergyProjectile && OtherProj->bIsEnergyProjectile)) && (!bFakeClientProjectile && !OtherProj->bFakeClientProjectile);
+	return (bAlwaysShootable || OtherProj->bAlwaysShootable || (bIsEnergyProjectile && OtherProj->bIsEnergyProjectile)) && !bFakeClientProjectile && !OtherProj->bFakeClientProjectile;
 }
 
 void AUTProjectile::InitFakeProjectile(AUTPlayerController* OwningPlayer)

@@ -16,6 +16,25 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializePropert
 	bAlwaysShootable = true;
 }
 
+void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
+{
+	InFakeProjectile->Destroy();
+}
+
+void AUTProj_TransDisk::InitFakeProjectile(AUTPlayerController* OwningPlayer)
+{
+	Super::InitFakeProjectile(OwningPlayer);
+	TArray<UPrimitiveComponent*> Components;
+	GetComponents<UPrimitiveComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		if (Components[i] != CollisionComp)
+		{
+			Components[i]->SetCollisionResponseToAllChannels(ECR_Ignore);
+		}
+	}
+}
+
 float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
 	if (Role == ROLE_Authority && EventInstigator != NULL && TransState != TLS_Disrupted)

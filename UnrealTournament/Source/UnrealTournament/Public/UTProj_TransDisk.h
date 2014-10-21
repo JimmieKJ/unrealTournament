@@ -23,6 +23,11 @@ class AUTProj_TransDisk : public AUTProjectile
 
 	virtual void OnStop(const FHitResult& Hit);
 
+	/** Transdisk replaces fake projectile instead of using it */
+	virtual void BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile) override;
+
+	virtual void InitFakeProjectile(AUTPlayerController* OwningPlayer) override;
+
 	/** hook to spawn effects when the glob lands*/
 	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)
 	void OnLanded();

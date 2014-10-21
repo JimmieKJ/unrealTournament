@@ -181,6 +181,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** Perform any custom initialization for this projectile as fake client side projectile */
 	virtual void InitFakeProjectile(class AUTPlayerController* OwningPlayer);
 
+	/** Synchronize replicated projectile with the associated client-side fake projectile */
+	virtual void BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile);
+
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
 
