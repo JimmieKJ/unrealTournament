@@ -5,6 +5,7 @@
 #include "UTGib.h"
 #include "NavigationOctree.h"
 #include "UTLiftExit.h"
+#include "UTDmgType_FallingCrush.h"
 
 AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -39,7 +40,16 @@ void AUTLift::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp,
 		//UE_LOG(UT, Warning, TEXT("Overlapping %s relative position %f"), *OtherActor->GetName(), GetActorLocation().Z - OtherActor->GetActorLocation().Z);
 		if (Cast<APawn>(OtherActor))
 		{
-			OnEncroachActor(OtherActor);
+			AUTCharacter* UTChar = Cast<AUTCharacter>(OtherActor);
+			if (UTChar && UTChar->IsRagdoll())
+			{
+				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->CapsuleComponent, UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
+				UTChar->TakeDamage(100000.0f, DamageEvent, UTChar->GetController(), UTChar);
+			}
+			else
+			{
+				OnEncroachActor(OtherActor);
+			}
 		}
 	}
 }
