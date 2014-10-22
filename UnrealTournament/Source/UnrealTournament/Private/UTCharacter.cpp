@@ -1068,6 +1068,13 @@ void AUTCharacter::GibExplosion_Implementation()
 	else
 	{
 		// need to delay for replication
+		if (IsRagdoll())
+		{
+			StopRagdoll();
+			bInRagdollRecovery = false;
+			Mesh->SetSimulatePhysics(false);
+			Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
 		SetActorHiddenInGame(true);
 		SetActorEnableCollision(false);
 		if (GetNetMode() == NM_DedicatedServer)
@@ -1713,44 +1720,47 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 
 void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 {
-	// make sure clients don't try to switch to weapons that haven't been fully replicated/initialized or that have been removed and the client doesn't know yet
-	if (NewWeapon != NULL && (NewWeapon->GetUTOwner() == NULL || (Role == ROLE_Authority && !IsInInventory(NewWeapon))))
+	if (!IsDead())
 	{
-		ClientSwitchWeapon(Weapon);
-	}
-	else
-	{
-		if (Weapon == NULL)
+		// make sure clients don't try to switch to weapons that haven't been fully replicated/initialized or that have been removed and the client doesn't know yet
+		if (NewWeapon != NULL && (NewWeapon->GetUTOwner() == NULL || (Role == ROLE_Authority && !IsInInventory(NewWeapon))))
 		{
-			if (NewWeapon != NULL)
-			{
-				// initial equip
-				PendingWeapon = NewWeapon;
-				WeaponChanged();
-			}
+			ClientSwitchWeapon(Weapon);
 		}
-		else if (NewWeapon != NULL)
+		else
 		{
-			if (NewWeapon != Weapon)
+			if (Weapon == NULL)
 			{
-				if (Weapon->PutDown())
+				if (NewWeapon != NULL)
 				{
-					// standard weapon switch to some other weapon
+					// initial equip
 					PendingWeapon = NewWeapon;
+					WeaponChanged();
 				}
 			}
-			else if (PendingWeapon != NULL)
+			else if (NewWeapon != NULL)
 			{
-				// switching back to weapon that was on its way down
+				if (NewWeapon != Weapon)
+				{
+					if (Weapon->PutDown())
+					{
+						// standard weapon switch to some other weapon
+						PendingWeapon = NewWeapon;
+					}
+				}
+				else if (PendingWeapon != NULL)
+				{
+					// switching back to weapon that was on its way down
+					PendingWeapon = NULL;
+					Weapon->BringUp();
+				}
+			}
+			else if (Weapon != NULL && PendingWeapon != NULL && PendingWeapon->PutDown())
+			{
+				// stopping weapon switch in progress by passing NULL
 				PendingWeapon = NULL;
 				Weapon->BringUp();
 			}
-		}
-		else if (Weapon != NULL && PendingWeapon != NULL && PendingWeapon->PutDown())
-		{
-			// stopping weapon switch in progress by passing NULL
-			PendingWeapon = NULL;
-			Weapon->BringUp();
 		}
 	}
 }
@@ -1792,6 +1802,11 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		// restore current weapon since pending became invalid
 		Weapon->BringUp(OverflowTime);
 	}
+	else
+	{
+		WeaponClass = NULL;
+		UpdateWeaponAttachment();
+	}
 }
 
 void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
@@ -1810,6 +1825,11 @@ void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
 				if (PendingWeapon != NULL)
 				{
 					WeaponChanged();
+				}
+				else
+				{
+					WeaponClass = NULL;
+					UpdateWeaponAttachment();
 				}
 			}
 		}
