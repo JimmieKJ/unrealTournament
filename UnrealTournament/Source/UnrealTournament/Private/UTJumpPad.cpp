@@ -15,8 +15,8 @@ AUTJumpPad::AUTJumpPad(const FPostConstructInitializeProperties& PCIP)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	TSubobjectPtr<USceneComponent> SceneComponent = PCIP.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComponent"));
-	RootComponent = SceneComponent;
+	SceneRoot = PCIP.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComponent"));
+	RootComponent = SceneRoot;
 	RootComponent->bShouldUpdatePhysicsVolume = true;
 
 	// Setup the mesh

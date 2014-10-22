@@ -14,6 +14,9 @@ class AUTJumpPad : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpPad)
+	TSubobjectPtr<USceneComponent> SceneRoot;
+
 	/** Static mesh for the Jump Pad */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpPad)
 	TSubobjectPtr<class UStaticMeshComponent> Mesh;
