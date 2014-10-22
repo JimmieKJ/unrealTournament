@@ -22,6 +22,7 @@ AUTPainVolume::AUTPainVolume(const FPostConstructInitializeProperties& PCIP)
 	PawnEntryVelZScaling = 0.4f;
 	BrakingDecelerationSwimming = 2000.f;
 	TerminalVelocity = 3000.f;
+	bEntryPain = false;
 }
 
 void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
