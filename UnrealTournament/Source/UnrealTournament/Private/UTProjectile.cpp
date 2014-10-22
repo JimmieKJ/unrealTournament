@@ -151,6 +151,7 @@ void AUTProjectile::BeginPlay()
 			// look for associated fake client projectile
 			AUTProjectile* BestMatch = NULL;
 			FVector VelDir = GetVelocity().SafeNormal();
+			int32 BestMatchIndex = 0;
 			for (int32 i = 0; i < MyPlayer->FakeProjectiles.Num(); i++)
 			{
 				AUTProjectile* Fake = MyPlayer->FakeProjectiles[i];
@@ -170,17 +171,20 @@ void AUTProjectile::BeginPlay()
 							if ((BestMatch->GetActorLocation() - GetActorLocation()).Size() > (Fake->GetActorLocation() - GetActorLocation()).Size())
 							{
 								BestMatch = Fake;
+								BestMatchIndex = i;
 							}
 						}
 					}
 					else
 					{
 						BestMatch = Fake;
+						BestMatchIndex = i;
 					}
 				}
 			}
 			if (BestMatch)
 			{
+				MyPlayer->FakeProjectiles.RemoveAt(BestMatchIndex, 1);
 				BeginFakeProjectileSynch(BestMatch);
 			}
 		}
