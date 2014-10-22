@@ -133,6 +133,31 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 			AUTPlayerState* PickedUpBy = Cast<AUTPlayerState>(TouchedBy->PlayerState);
 			UTGameMode->ScorePickup(this, PickedUpBy, LastPickedUpBy);
 			LastPickedUpBy = PickedUpBy;
+
+			if (UTGameMode->NumBots > 0)
+			{
+				float Radius = 0.0f;
+				if (TakenSound != NULL)
+				{
+					Radius = TakenSound->GetMaxAudibleDistance();
+					const FAttenuationSettings* Settings = TakenSound->GetAttenuationSettingsToApply();
+					if (Settings != NULL)
+					{
+						Radius = FMath::Max<float>(Radius, Settings->GetMaxDimension());
+					}
+				}
+				for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+				{
+					if (It->IsValid())
+					{
+						AUTBot* B = Cast<AUTBot>(It->Get());
+						if (B != NULL && B->GetPawn() != TouchedBy)
+						{
+							B->NotifyPickup(TouchedBy, this, Radius);
+						}
+					}
+				}
+			}
 		}
 
 		PlayTakenEffects(true);
@@ -205,7 +230,7 @@ void AUTPickup::PlayTakenEffects(bool bReplicate)
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent);
-		UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 	}
 }
 void AUTPickup::WakeUp_Implementation()

@@ -106,6 +106,31 @@ void AUTDroppedPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 	{
 		PlayTakenEffects(TouchedBy); // first allows PlayTakenEffects() to work off Inventory instead of InventoryType if it wants
 		GiveTo(TouchedBy);
+		AUTGameMode* UTGame = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (UTGame != NULL && UTGame->NumBots > 0)
+		{
+			float Radius = 0.0f;
+			if (InventoryType != NULL && InventoryType.GetDefaultObject()->PickupSound != NULL)
+			{
+				Radius = InventoryType.GetDefaultObject()->PickupSound->GetMaxAudibleDistance();
+				const FAttenuationSettings* Settings = InventoryType.GetDefaultObject()->PickupSound->GetAttenuationSettingsToApply();
+				if (Settings != NULL)
+				{
+					Radius = FMath::Max<float>(Radius, Settings->GetMaxDimension());
+				}
+			}
+			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+			{
+				if (It->IsValid())
+				{
+					AUTBot* B = Cast<AUTBot>(It->Get());
+					if (B != NULL && B->GetPawn() != TouchedBy)
+					{
+						B->NotifyPickup(TouchedBy, this, Radius);
+					}
+				}
+			}
+		}
 		Destroy();
 	}
 }
@@ -130,7 +155,7 @@ void AUTDroppedPickup::PlayTakenEffects_Implementation(APawn* TakenBy)
 {
 	if (Inventory != NULL)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), Inventory->PickupSound, TakenBy, SRT_All, false, GetActorLocation());
+		UUTGameplayStatics::UTPlaySound(GetWorld(), Inventory->PickupSound, TakenBy, SRT_All, false, GetActorLocation(), NULL, NULL, false);
 	}
 }
 

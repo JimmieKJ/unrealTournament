@@ -24,9 +24,13 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
 	UMeshComponent* Mesh;
 public:
-	inline const UMeshComponent* GetMesh()
+	inline const UMeshComponent* GetMesh() const
 	{
 		return Mesh;
+	}
+	inline TSubclassOf<AUTInventory> GetInventoryType() const
+	{
+		return InventoryType;
 	}
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	TSubobjectPtr<UCapsuleComponent> Collision;

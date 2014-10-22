@@ -85,6 +85,7 @@ enum EAIEnemyUpdateType
 	EUT_HeardApprox, // bot heard enemy but isn't sure exactly where that is
 	EUT_TookDamage, // bot got hit by enemy
 	EUT_DealtDamage, // bot hit enemy
+	EUT_HealthUpdate, // bot detected something that affects the enemy's health; updates location and view of health if exact was previously known, e.g. enemy got a health pickup
 };
 
 USTRUCT()
@@ -202,6 +203,9 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** vision angle (cosine, compared against dot product of target dir to view dir) */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float PeripheralVision;
+	/** multiplier of a sound's base radius at which a bot can hear it (i.e. [0-1], > 1.0 is cheated superhuman hearing) */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+	float HearingRadiusMult;
 	/** if set bot will have a harder time noticing and targeting enemies that are significantly above or below */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	bool bSlowerZAcquire;
@@ -480,8 +484,14 @@ public:
 	// UT version allows specifying an alternate root loc for Other while still supporting checking head, sides, etc - used often when AI is guessing where a target is
 	virtual bool UTLineOfSightTo(const AActor* Other, FVector ViewPoint = FVector(ForceInit), bool bAlternateChecks = false, FVector TargetLocation = FVector::ZeroVector) const;
 	virtual void SeePawn(APawn* Other);
+	virtual void HearSound(APawn* Other, const FVector& SoundLoc, float SoundRadius);
 
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
+	virtual void NotifyCausedHit(APawn* HitPawn, int32 Damage);
+	/** notification about a pickup event by another player
+	 * if close enough, bot updates some enemy info based on the pickup (e.g. if it's a health/armor pickup, update view of enemy effective health)
+	 */
+	virtual void NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius);
 
 	/** called by timer and also by weapons when ready to fire. Bot sets appropriate fire mode it wants to shoot (if any) */
 	virtual void CheckWeaponFiring(bool bFromWeapon = true);

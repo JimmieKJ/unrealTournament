@@ -27,7 +27,7 @@ class UUTAIAction_RangedAttack : public UUTAIAction
 		AUTWeapon* MyWeap = (GetUTChar() != NULL) ? GetUTChar()->GetWeapon() : NULL;
 		bool bCanTryIndirect = (MyWeap != NULL && (GetOuterAUTBot()->Skill >= 2.0f || !GetOuterAUTBot()->IsFavoriteWeapon(MyWeap->GetClass())));
 		// abort if can't attack predicted enemy loc or enemy info is too outdated to trust its accuracy
-		if (GetTarget() == GetEnemy() && /*!Pawn.RecommendLongRangedAttack() &&*/ (GetOuterAUTBot()->GetEnemyInfo(GetEnemy(), true)->LastFullUpdateTime > 1.0f || MyWeap == NULL || !MyWeap->CanAttack(GetEnemy(), GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true), bCanTryIndirect)))
+		if (GetTarget() == GetEnemy() && /*!Pawn.RecommendLongRangedAttack() &&*/ (GetWorld()->TimeSeconds - GetOuterAUTBot()->GetEnemyInfo(GetEnemy(), true)->LastFullUpdateTime > 1.0f || MyWeap == NULL || !MyWeap->CanAttack(GetEnemy(), GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true), bCanTryIndirect)))
 		{
 			GetOuterAUTBot()->WhatToDoNext();
 		}

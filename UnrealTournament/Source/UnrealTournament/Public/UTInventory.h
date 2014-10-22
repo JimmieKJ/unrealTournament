@@ -15,15 +15,15 @@ class UNREALTOURNAMENT_API AUTInventory : public AActor
 	friend void AUTCharacter::RemoveInventory(AUTInventory*);
 	template<typename> friend class TInventoryIterator;
 
+	virtual void PostInitProperties() override;
+	virtual void PreInitializeComponents() override;
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Inventory")
 	AUTInventory* NextInventory;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
 	AUTCharacter* UTOwner;
-
-	virtual void PostInitProperties() override;
-	virtual void PreInitializeComponents() override;
 
 	/** called when this inventory item has been given to the specified character */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)

@@ -94,6 +94,15 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	Func->FunctionFlags |= FUNC_Native;
 	Func->SetNativeFunc((Native)&AUTGameMode::BeginPlayMutatorHack);
 
+	// HACK: workaround for cached inventory flags getting blown away by blueprint recompile cycle
+	for (TObjectIterator<AUTInventory> It(RF_NoFlags); It; ++It)
+	{
+		if (It->IsTemplate(RF_ClassDefaultObject))
+		{
+			It->PostInitProperties();
+		}
+	}
+
 	UE_LOG(UT,Log,TEXT("==============="));
 	UE_LOG(UT,Log,TEXT("  Init Game"));
 	UE_LOG(UT,Log,TEXT("==============="));

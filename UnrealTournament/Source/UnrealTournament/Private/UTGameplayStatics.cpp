@@ -2,7 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTGameplayStatics.h"
 
-void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener)
+void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI)
 {
 	if (TheSound != NULL && !GExitPurge)
 	{
@@ -81,6 +81,35 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				if (PC != NULL && PC->IsLocalPlayerController())
 				{
 					PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
+				}
+			}
+
+			if (bNotifyAI)
+			{
+				if (Instigator == NULL)
+				{
+					Instigator = Cast<APawn>(SourceActor);
+				}
+				if (Instigator != NULL)
+				{
+					// note: all sound attenuation treated as a sphere
+					float Radius = TheSound->GetMaxAudibleDistance();
+					const FAttenuationSettings* Settings = TheSound->GetAttenuationSettingsToApply();
+					if (Settings != NULL)
+					{
+						Radius = FMath::Max<float>(Radius, Settings->GetMaxDimension());
+					}
+					for (FConstControllerIterator It = TheWorld->GetControllerIterator(); It; ++It)
+					{
+						if (It->IsValid())
+						{
+							AUTBot* B = Cast<AUTBot>(It->Get());
+							if (B != NULL && B->GetPawn() != NULL && B->GetPawn() != Instigator && (Radius <= 0.0f || Radius > (SourceLoc - B->GetPawn()->GetActorLocation()).Size() * B->HearingRadiusMult))
+							{
+								B->HearSound(Instigator, SourceLoc, Radius);
+							}
+						}
+					}
 				}
 			}
 		}

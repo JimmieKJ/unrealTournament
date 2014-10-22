@@ -9,6 +9,8 @@
 #include "UTAIAction_RangedAttack.h"
 #include "UTAIAction_Charge.h"
 #include "UTDroppedPickup.h"
+#include "UTPickupInventory.h"
+#include "UTPickupHealth.h"
 #include "UTSquadAI.h"
 
 void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
@@ -56,6 +58,14 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 			{
 				EffectiveHealthPct = UTChar->GetEffectiveHealthPct(false);
 				bHasExactHealth = true;
+			}
+			break;
+		case EUT_HealthUpdate:
+			LastKnownLoc = Pawn->GetActorLocation();
+			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			if (UTChar != NULL && bHasExactHealth)
+			{
+				EffectiveHealthPct = UTChar->GetEffectiveHealthPct(false);
 			}
 			break;
 		}
@@ -173,7 +183,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 
 	bLeadTarget = Skill >= 4.0f;
 	SetPeripheralVision();
-	//HearingThreshold = default.HearingThreshold * FClamp(Skill / 6.0, 0.0, 1.0);
+	HearingRadiusMult = FMath::Clamp<float>(Skill / 6.5f, 0.0f, 0.9f);
 
 	if (Skill + Personality.ReactionTime >= 7.0f)
 	{
@@ -1878,12 +1888,60 @@ void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APaw
 
 void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
-	if (InstigatedBy != NULL && InstigatedBy != this && InstigatedBy->GetPawn() != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(InstigatedBy) == NULL) && (Enemy == NULL || !LineOfSightTo(Enemy)))
+	if (InstigatedBy != NULL && InstigatedBy != this && InstigatedBy->GetPawn() != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(InstigatedBy) == NULL) && (Enemy == NULL || !LineOfSightTo(Enemy)) && Squad != NULL)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(InstigatedBy, this))
 		{
 			UpdateEnemyInfo(InstigatedBy->GetPawn(), EUT_TookDamage);
+		}
+	}
+}
+
+void AUTBot::NotifyCausedHit(APawn* HitPawn, int32 Damage)
+{
+	if (HitPawn->Controller != NULL && !HitPawn->bTearOff)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(HitPawn, this))
+		{
+			UpdateEnemyInfo(HitPawn, EUT_DealtDamage);
+		}
+	}
+}
+
+void AUTBot::NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL || !GS->OnSameTeam(PickedUpBy, this))
+	{
+		bool bCanUpdateEnemyInfo = Pickup->IsA(AUTPickupHealth::StaticClass());
+		if (!bCanUpdateEnemyInfo)
+		{
+			TSubclassOf<AUTInventory> InventoryType = NULL;
+
+			AUTDroppedPickup* DP = Cast<AUTDroppedPickup>(Pickup);
+			if (DP != NULL)
+			{
+				InventoryType = DP->GetInventoryType();
+			}
+			else
+			{
+				AUTPickupInventory* InvPickup = Cast<AUTPickupInventory>(Pickup);
+				if (InvPickup != NULL)
+				{
+					InventoryType = InvPickup->GetInventoryType();
+				}
+			}
+			// assume inventory items that manipulate damage change effective health
+			if (InventoryType != NULL)
+			{
+				bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
+			}
+		}
+		if (bCanUpdateEnemyInfo && (Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
+		{
+			UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
 		}
 	}
 }
@@ -2380,6 +2438,15 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 		{
 			WhatToDoNext();
 		}
+	}
+}
+
+void AUTBot::HearSound(APawn* Other, const FVector& SoundLoc, float SoundRadius)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL || !GS->OnSameTeam(Other, this))
+	{
+		UpdateEnemyInfo(Other, ((SoundLoc - GetPawn()->GetActorLocation()).Size() < SoundRadius * HearingRadiusMult * 0.5f) ? EUT_HeardExact : EUT_HeardApprox);
 	}
 }
 

@@ -808,6 +808,14 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		{
 			InstigatedByPC->ClientNotifyCausedHit(this, Damage);
 		}
+		else
+		{
+			AUTBot* InstigatedByBot = Cast<AUTBot>(InstigatedBy);
+			if (InstigatedByBot != NULL)
+			{
+				InstigatedByBot->NotifyCausedHit(this, Damage);
+			}
+		}
 
 		// we do the sound here instead of via PlayTakeHitEffects() so it uses RPCs instead of variable replication which is higher priority
 		// (at small bandwidth cost)
@@ -815,11 +823,11 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		{
 			if (HitArmor != nullptr && HitArmor->PainSound != nullptr)
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC);
+				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
 			else
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC);
+				UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
 			LastPainSoundTime = GetWorld()->TimeSeconds;
 		}
