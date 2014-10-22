@@ -50,6 +50,9 @@ protected:
 
 	FReply OnLogin();
 
+	FReply Disconnect(TSharedPtr<SComboButton> MenuButton);
+	FReply Reconnect(TSharedPtr<SComboButton> MenuButton);
+
 	FReply OnInfo();
 	FReply OnServerBrowser();
 	FReply OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton, FName SettingsToOpen);

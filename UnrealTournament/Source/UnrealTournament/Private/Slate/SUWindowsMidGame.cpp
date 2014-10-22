@@ -86,6 +86,21 @@ void SUWindowsMidGame::CreateDesktop()
 								SAssignNew(RightStatusText, STextBlock)
 								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Status.TextStyle"))
 							]
+
+							+SHorizontalBox::Slot()
+							.Padding(0,0,5,10)
+							.HAlign(HAlign_Right)
+							[
+								SNew(SButton)
+								.OnClicked(this, &SUWindowsMidGame::Play)
+								.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("Gerneric","Play","ESC to Close"))
+									.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Status.TextStyle"))
+								]
+							]
+
 						]
 					]
 				]
@@ -412,12 +427,11 @@ TSharedRef<SWidget> SUWindowsMidGame::BuildMenuBar()
 	if (MenuBar.IsValid())
 	{
 
-		BuildInfoSubMenu();
 		BuildExitMatchSubMenu();
 		BuildTeamSubMenu();
 		BuildServerBrowserSubMenu();
 		BuildOptionsSubMenu();
-		BuildPlaySubMenu();
+		BuildInfoSubMenu();
 
 	}
 
@@ -690,28 +704,96 @@ void SUWindowsMidGame::BuildOptionsSubMenu()
 }
 void SUWindowsMidGame::BuildExitMatchSubMenu()
 {
-	FText MenuText = PlayerOwner->GetWorld()->GetNetMode() == NM_Standalone ?
-		NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ExitMatch", "EXIT MATCH") :
-		NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Disconnect", "DISCONNECT");
+	if (GWorld->GetNetMode() == NM_Standalone)
+	{
+		MenuBar->AddSlot()
+			.AutoWidth()
+			.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Fill)
+			[
+				SNew(SButton)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SUWindowsMidGame::ExitMatch)
+				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ExitMatch", "EXIT MATCH"))
+					.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
+				]
 
-	MenuBar->AddSlot()
-		.AutoWidth()
-		.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
-		.HAlign(HAlign_Right)
-		.VAlign(VAlign_Fill)
-		[
-			SNew(SButton)
-			.VAlign(VAlign_Center)
-			.OnClicked(this, &SUWindowsMidGame::ExitMatch)
+			];
+
+	
+	}
+	else
+	{
+		TSharedPtr<SComboButton> DropDownButton = NULL;
+
+		SAssignNew(DropDownButton, SComboButton)
+			.HasDownArrow(false)
+			.MenuPlacement(MenuPlacement_AboveAnchor)
+			.Method(SMenuAnchor::UseCurrentWindow)
 			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
+			.ButtonContent()
 			[
 				SNew(STextBlock)
-				.Text(MenuText.ToString())
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ExitMatch", "EXIT MATCH"))
 				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
-			]
+			];
 
-		];
+		DropDownButton->SetMenuContent
+			(
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Disconnect", "Exit to Main Menu"))
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
+				.OnClicked(this, &SUWindowsMidGame::Disconnect, DropDownButton)
+			]
+		+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Reconnect", "Reconnect to last Server"))
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
+				.OnClicked(this, &SUWindowsMidGame::Reconnect, DropDownButton)
+			] 
+		);
+
+		MenuBar->AddSlot()
+			.AutoWidth()
+			.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+			.HAlign(HAlign_Right)
+			[
+				DropDownButton.ToSharedRef()
+			];
+	}
+
+
 }
+
+FReply SUWindowsMidGame::Disconnect(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	ExitMatch();
+	return FReply::Handled();
+}
+
+FReply SUWindowsMidGame::Reconnect(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	ConsoleCommand("reconnect");
+	CloseMenus();
+	return FReply::Handled();
+}
+
 
 FReply SUWindowsMidGame::OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton, FName SettingsToOpen)
 {

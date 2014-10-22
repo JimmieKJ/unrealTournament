@@ -118,6 +118,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	}
 
 
+	Style.Set("UWindows.Standard.SmallButton.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Bold", 10))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+
 	// Matches
 	{
 

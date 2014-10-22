@@ -211,7 +211,10 @@ void UUTLocalPlayer::HideMenu()
 			{
 				PlayerController->MyHUD->bShowHUD = true;
 			}
+			PlayerController->SetInputMode(FInputModeGameOnly());
 		}
+
+		FSlateApplication::Get().SetFocusToGameViewport();
 
 	}
 #endif

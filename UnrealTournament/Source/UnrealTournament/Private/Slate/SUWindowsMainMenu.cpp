@@ -599,6 +599,7 @@ void SUWindowsMainMenu::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget
 				PlayerOwner->LastConnectToIP = AdjustedText;
 				PlayerOwner->SaveConfig();
 				PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
+				CloseMenus();
 			}
 		}
 	}
