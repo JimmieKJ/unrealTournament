@@ -94,8 +94,6 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	Style.Set("Testing.TestPortrait", new IMAGE_BRUSH( "Testing/Testing.TestPortrait", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
-
-	FButtonStyle StandardButton;
 	{  // Standard Button
 
 		Style.Set("UWindows.Standard.Button", FButtonStyle()
@@ -119,6 +117,30 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	}
 
+
+	// Matches
+	{
+
+		Style.Set("UWindows.Lobby.MatchButton", FButtonStyle()
+			.SetNormal ( IMAGE_BRUSH( "UWindows.Lobby.MatchButton.Normal", FVector2D(256,256)))
+			.SetHovered( IMAGE_BRUSH( "UWindows.Lobby.MatchButton.Focused", FVector2D(256,256)))
+			.SetPressed( IMAGE_BRUSH( "UWindows.Lobby.MatchButton.Pressed", FVector2D(256,256)))
+			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UWindows.Lobby.MatchButton.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+			);
+
+		Style.Set("UWindows.Lobby.MatchButton.Action.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+			);
+
+	}
 
 	// Dialogs
 	{

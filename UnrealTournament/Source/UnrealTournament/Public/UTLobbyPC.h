@@ -40,6 +40,9 @@ public:
 	virtual void ServerChat(const FName Destination, const FString& Message);
 
 	virtual void ReceivedPlayer();
+
+	virtual void ServerDebugTest_Implementation(const FString& TestCommand);
+
 };
 
 

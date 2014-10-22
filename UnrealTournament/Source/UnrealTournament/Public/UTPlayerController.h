@@ -142,13 +142,6 @@ public:
 
 	virtual FVector GetFocalLocation() const override;
 
-	// A quick function so I don't have to keep adding one when I want to test something.  @REMOVEME: Before the final version
-	UFUNCTION(exec)
-	virtual void DebugTest(FString TestCommand);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerDebugTest();
-
 	virtual void PawnLeavingGame() override;
 
 	/**	We override player tick to keep updating the player's rotation when the game is over. */

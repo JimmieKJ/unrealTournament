@@ -44,3 +44,16 @@ void AUTBasePlayerController::ShowMessage(FText MessageTitle, FText MessageText,
 }
 #endif
 
+// LEAVE ME for quick debug commands when we need them.
+void AUTBasePlayerController::DebugTest(FString TestCommand)
+{
+	ServerDebugTest(TestCommand);
+}
+
+void AUTBasePlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
+{
+
+}
+
+bool AUTBasePlayerController::ServerDebugTest_Validate(const FString& TestCommand) {return true;}
+

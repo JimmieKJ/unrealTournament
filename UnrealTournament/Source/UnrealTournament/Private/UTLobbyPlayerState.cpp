@@ -25,3 +25,13 @@ void AUTLobbyPlayerState::ClientRecieveChat_Implementation(FName Destination, AU
 		UE_LOG(UT, Log, TEXT("Chat: [%s] from %s: %s"), *Destination.ToString(), *Sender->PlayerName, *ChatText);
 	}
 }
+
+void AUTLobbyPlayerState::AddedToMatch(AUTLobbyMatchInfo* Match)
+{
+	CurrentMatch = Match;
+}
+
+void AUTLobbyPlayerState::RemovedFromMatch(AUTLobbyMatchInfo* Match)
+{
+	CurrentMatch = NULL;
+}

@@ -72,23 +72,18 @@ void SUWindowsMidGame::CreateDesktop()
 						[
 							SNew(SHorizontalBox)
 							+SHorizontalBox::Slot()
-							.AutoWidth()
-							.Padding(5,0,0,0)
+							.HAlign(HAlign_Left)
+							.Padding(5,0,25,0)
 							[
-								SNew(SBox)
-								.WidthOverride(100)
-								.HAlign(HAlign_Left)
-								[
-									SAssignNew(ClockText, STextBlock)
-									.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Status.TextStyle"))
-								]
+								SAssignNew(LeftStatusText, STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Status.TextStyle"))
 							]
 
 							+SHorizontalBox::Slot()
-							.Padding(0,0,5,0)
+							.Padding(25,0,5,0)
 							.HAlign(HAlign_Right)
 							[
-								SAssignNew(StatusText, STextBlock)
+								SAssignNew(RightStatusText, STextBlock)
 								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Status.TextStyle"))
 							]
 						]
@@ -381,8 +376,8 @@ void SUWindowsMidGame::Tick( const FGeometry& AllottedGeometry, const double InC
 			NewText = FText::Format(NSLOCTEXT("SUWindowsMidGame","Status","Players: {0} Spectators {1}"), FText::AsNumber(Players), FText::AsNumber(Specs));
 		}
 
-		ClockText->SetText(ConvertTime(GS->ElapsedTime));
-		StatusText->SetText(NewText);
+		LeftStatusText->SetText(ConvertTime(GS->ElapsedTime));
+		RightStatusText->SetText(NewText);
 	}
 
 }
@@ -417,51 +412,59 @@ TSharedRef<SWidget> SUWindowsMidGame::BuildMenuBar()
 	if (MenuBar.IsValid())
 	{
 
-		MenuBar->AddSlot()
-			.AutoWidth()
-			.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
-			.HAlign(HAlign_Right)
-			.VAlign(VAlign_Fill)
-			[
-				SNew(SButton)
-				.VAlign(VAlign_Center)
-				.OnClicked(this, &SUWindowsMidGame::OnInfo)
-				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("Generic", "Info", "INFO").ToString())
-					.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
-				]
-			];
-
+		BuildInfoSubMenu();
 		BuildExitMatchSubMenu();
 		BuildTeamSubMenu();
 		BuildServerBrowserSubMenu();
 		BuildOptionsSubMenu();
-
-		MenuBar->AddSlot()
-			.AutoWidth()
-			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-			.HAlign(HAlign_Right)
-			.VAlign(VAlign_Fill)
-			[
-				SNew(SButton)
-				.VAlign(VAlign_Center)
-				.OnClicked(this, &SUWindowsMidGame::Play)
-				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("Gerneric","Play","PLAY"))
-					.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
-				]
-
-			];
-
+		BuildPlaySubMenu();
 
 	}
 
 	return MenuBar.ToSharedRef();
 }
+
+void SUWindowsMidGame::BuildInfoSubMenu()
+{
+	MenuBar->AddSlot()
+		.AutoWidth()
+		.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Fill)
+		[
+			SNew(SButton)
+			.VAlign(VAlign_Center)
+			.OnClicked(this, &SUWindowsMidGame::OnInfo)
+			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "Info", "INFO").ToString())
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
+			]
+		];
+}
+
+void SUWindowsMidGame::BuildPlaySubMenu()
+{
+	MenuBar->AddSlot()
+		.AutoWidth()
+		.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Fill)
+		[
+			SNew(SButton)
+			.VAlign(VAlign_Center)
+			.OnClicked(this, &SUWindowsMidGame::Play)
+			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Gerneric","Play","PLAY"))
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
+			]
+
+		];
+}
+
 
 void SUWindowsMidGame::BuildTeamSubMenu()
 {
@@ -761,12 +764,17 @@ FReply SUWindowsMidGame::OnServerBrowser()
 
 }
 
-FReply SUWindowsMidGame::OnInfo()
+void SUWindowsMidGame::BuildInfoPanel()
 {
 	if (!InfoPanel.IsValid())
 	{
 		SAssignNew(InfoPanel, SUMidGameInfoPanel).PlayerOwner(PlayerOwner);
 	}
+}
+
+FReply SUWindowsMidGame::OnInfo()
+{
+	BuildInfoPanel();
 	ActivatePanel(InfoPanel);
 	return FReply::Handled();
 }

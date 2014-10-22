@@ -11,6 +11,16 @@
 #if !UE_SERVER
 class SUWindowsLobby : public SUWindowsMidGame
 {
+
+protected:
+	
+	TSharedPtr<SButton> MatchButton;
+
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+	virtual TSharedRef<SWidget> BuildMenuBar();
+	virtual void BuildInfoPanel();
+	
+	FReply MatchButtonClicked();
 };
 
 #endif

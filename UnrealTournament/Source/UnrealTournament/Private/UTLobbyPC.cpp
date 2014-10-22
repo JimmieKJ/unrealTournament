@@ -109,3 +109,16 @@ bool AUTLobbyPC::ServerChat_Validate(const FName Destination, const FString& Mes
 void AUTLobbyPC::ReceivedPlayer()
 {
 }
+
+
+void AUTLobbyPC::ServerDebugTest_Implementation(const FString& TestCommand)
+{
+
+	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GS)
+	{
+		AUTLobbyMatchInfo* Match = GS->AddMatch(UTLobbyPlayerState);	
+		Match->MatchDescription = FString(TEXT("The Big one"));
+	
+	}
+}

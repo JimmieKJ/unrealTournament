@@ -16,7 +16,13 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AGameState
 	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString LobbyMOTD;
 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
+	TArray<AUTLobbyMatchInfo*> AvailableMatches;
+
 	virtual void BroadcastMatchMessage(AUTLobbyPlayerState* SenderPS, const FString& Message);
+
+	virtual AUTLobbyMatchInfo* AddMatch(AUTLobbyPlayerState* PlayerOwner);
+	virtual void RemoveMatch(AUTLobbyPlayerState* PlayerOwner);
 
 };
 

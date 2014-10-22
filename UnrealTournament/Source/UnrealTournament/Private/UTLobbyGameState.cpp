@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "GameFramework/GameState.h"
+#include "UTLobbyMatchInfo.h"
 #include "UTLobbyGameMode.h"
 #include "Net/UnrealNetwork.h"
 
@@ -30,5 +31,45 @@ void AUTLobbyGameState::BroadcastMatchMessage(AUTLobbyPlayerState* SenderPS, con
 		{
 			PS->ClientRecieveChat(ChatDestinations::Global, SenderPS, Message);
 		}
+	}
+}
+
+AUTLobbyMatchInfo* AUTLobbyGameState::AddMatch(AUTLobbyPlayerState* PlayerOwner)
+{
+	if (PlayerOwner->CurrentMatch != NULL)
+	{
+		// This player is already in a match.  Look to see if he is the host and if he is, don't allow.
+		if (PlayerOwner->CurrentMatch->OwnersPlayerState == PlayerOwner)
+		{
+			return false;
+		}
+	
+		if (PlayerOwner->CurrentMatch->CurrentState == ELobbyMatchState::WaitingForPlayers)
+		{
+			// Remove me from this before adding.
+			PlayerOwner->CurrentMatch->RemovePlayer(PlayerOwner);
+		}
+	}
+
+	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
+	if (NewMatchInfo)
+	{
+		NewMatchInfo->AddPlayer(PlayerOwner,true);
+		AvailableMatches.Add(NewMatchInfo);
+		return NewMatchInfo;
+	}
+		
+	return NULL;
+}
+
+void AUTLobbyGameState::RemoveMatch(AUTLobbyPlayerState* PlayerOwner)
+{
+	AUTLobbyMatchInfo* Match;
+	Match = PlayerOwner->CurrentMatch;
+	if (Match)
+	{
+		// Trigger all players being removed
+		Match->RemovePlayer(PlayerOwner);	
+		AvailableMatches.Remove(Match);
 	}
 }

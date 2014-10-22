@@ -18,6 +18,9 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public APlayerState
 	UFUNCTION(client, reliable)
 	virtual void ClientRecieveChat(FName Destination, AUTLobbyPlayerState* Sender, const FString& ChatText);
 
+	virtual void AddedToMatch(AUTLobbyMatchInfo* Match);
+	virtual void RemovedFromMatch(AUTLobbyMatchInfo* Match);
+
 };
 
 

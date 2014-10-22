@@ -8,6 +8,7 @@
 #if !UE_SERVER
 class SUWindowsDesktop : public SCompoundWidget
 {
+public:
 	SLATE_BEGIN_ARGS(SUWindowsDesktop)
 	{}
 

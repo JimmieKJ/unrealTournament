@@ -6,6 +6,18 @@
 #include "UTLobbyMatchInfo.h"
 #include "Net/UnrealNetwork.h"
 
+namespace ELobbyMatchState
+{
+	const FName Dead = TEXT("Dead");
+	const FName Setup = TEXT("Setup");
+	const FName WaitingForPlayers = TEXT("WaitingForPlayers");
+	const FName CountdownToGo = TEXT("CountdownToGo");
+	const FName Launching = TEXT("Launching");
+	const FName InProgress = TEXT("InProgress");
+	const FName Returning = TEXT("Returning");
+}
+
+
 AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP
 	.DoNotCreateDefaultSubobject(TEXT("Sprite")))
@@ -31,7 +43,8 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, bPrivateMatch);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchDescription);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchOptions);
-	DOREPLIFETIME(AUTLobbyMatchInfo, NumPlayers);
+	DOREPLIFETIME(AUTLobbyMatchInfo, MaxPlayers);
+	DOREPLIFETIME(AUTLobbyMatchInfo, Players);
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -56,4 +69,39 @@ void AUTLobbyMatchInfo::BroadcastMatchMessage(AUTLobbyPlayerState* SenderPS, con
 			PS->ClientRecieveChat(ChatDestinations::Match, SenderPS, Message); 
 		}
 	}
+}
+
+void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
+{
+	CurrentState = NewMatchState;
+}
+
+
+void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner)
+{
+	if (bIsOwner)
+	{
+		OwnersPlayerState = PlayerToAdd;
+		OwnerID = PlayerToAdd->UniqueId;
+		SetLobbyMatchState(ELobbyMatchState::Setup);
+	}
+	
+	Players.Add(PlayerToAdd);
+
+
+}
+void AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
+{
+	Players.Remove(PlayerToRemove);
+	if (OwnersPlayerState == PlayerToRemove)
+	{
+		// The host is removing this match, notify everyone.
+		for (int32 i=0;i<Players.Num();i++)
+		{
+			Players[i]->RemovedFromMatch(this);
+		}
+	}
+
+	OwnersPlayerState = NULL;
+	SetLobbyMatchState(ELobbyMatchState::Dead);
 }

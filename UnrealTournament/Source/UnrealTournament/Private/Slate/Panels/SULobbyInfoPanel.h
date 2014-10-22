@@ -12,9 +12,11 @@ class SULobbyInfoPanel : public SUMidGameInfoPanel
 {
 	virtual void BuildPage(FVector2D ViewportSize);
 	virtual void OnShowPanel();
-
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
 protected:
+
+	TSharedPtr<SHorizontalBox> MatchPanels;
 	virtual void AddInfoPanel();
 };
 

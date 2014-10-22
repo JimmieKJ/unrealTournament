@@ -16,7 +16,7 @@ namespace SettingsDialogs
 #if !UE_SERVER
 class SUWindowsMidGame : public SUWindowsDesktop
 {
-
+public:
 	virtual void OnMenuOpened();
 	virtual void OnMenuClosed();
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
@@ -25,8 +25,8 @@ protected:
 
 	TSharedPtr<class SHorizontalBox> MenuBar;
 	TSharedPtr<class SUMidGameInfoPanel> InfoPanel;
-	TSharedPtr<class STextBlock> StatusText;
-	TSharedPtr<class STextBlock> ClockText;
+	TSharedPtr<class STextBlock> LeftStatusText;
+	TSharedPtr<class STextBlock> RightStatusText;
 
 	TSharedPtr<class SOverlay> OnlineOverlay;
 	virtual void CreateDesktop();
@@ -39,10 +39,14 @@ protected:
 
 	virtual void UpdateOnlineState();
 
+	virtual void BuildInfoSubMenu();
+	virtual void BuildPlaySubMenu();
 	virtual void BuildTeamSubMenu();
 	virtual void BuildServerBrowserSubMenu();
 	virtual void BuildOptionsSubMenu();
 	virtual void BuildExitMatchSubMenu();
+
+	virtual void BuildInfoPanel();
 
 	FReply OnLogin();
 
