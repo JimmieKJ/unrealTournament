@@ -13,6 +13,11 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 #if WITH_EDITORONLY_DATA
 		FiringStateType[0] = UUTWeaponStateFiringCharged::StaticClass();
 #endif
+		UUTWeaponStateFiringCharged* ChargedState = Cast<UUTWeaponStateFiringCharged>(FiringState[0]);
+		if (ChargedState != NULL)
+		{
+			ChargedState->bChargeFlashCount = true;
+		}
 	}
 	WeaponBobScaling = 0.7f;
 	FullChargeTime = 2.5f;
@@ -79,8 +84,9 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				bDealDamage = false;
 			}
 		}
-		if (Role == ROLE_Authority)
+		if (Role == ROLE_Authority && bDealDamage)
 		{
+			UTOwner->FlashCount = 0; // used by weapon attachment
 			UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 		}
 		if (bDealDamage)

@@ -457,7 +457,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 		if (MuzzleFlash[i] != NULL)
 		{
 			MuzzleFlash[i]->bAutoActivate = false;
-			MuzzleFlash[i]->SetOnlyOwnerSee(true);
+			MuzzleFlash[i]->SetOnlyOwnerSee(false); // we handle this in AUTPlayerController::UpdateHiddenComponents() instead
 		}
 	}
 	// attach

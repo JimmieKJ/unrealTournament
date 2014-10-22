@@ -19,6 +19,10 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UAnimMontage* ChargingLoopAnim;
 
+	/** if set, increment flash count when charging starts (causes third person effects to be played) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	bool bChargeFlashCount;
+
 	bool bCharging;
 	float ChargeTime;
 
@@ -28,6 +32,10 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 		GetOuterAUTWeapon()->OnStartedFiring();
 		GetOuterAUTWeapon()->DeactivateSpawnProtection();
 		bCharging = true;
+		if (bChargeFlashCount)
+		{
+			GetUTOwner()->IncrementFlashCount(GetOuterAUTWeapon()->GetCurrentFireMode());
+		}
 	}
 	virtual void EndState() override
 	{
@@ -74,6 +82,10 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 			ToggleLoopingEffects(true);
 			GetOuterAUTWeapon()->OnContinuedFiring();
 			bCharging = true;
+			if (bChargeFlashCount)
+			{
+				GetUTOwner()->IncrementFlashCount(GetOuterAUTWeapon()->GetCurrentFireMode());
+			}
 		}
 	}
 	virtual void EndFiringSequence(uint8 FireModeNum)

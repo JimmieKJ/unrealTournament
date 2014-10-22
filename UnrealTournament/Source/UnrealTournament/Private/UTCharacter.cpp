@@ -1431,14 +1431,14 @@ void AUTCharacter::FiringInfoUpdated()
 	}
 
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
-	if (Weapon != NULL && IsLocallyControlled() && UTPC && (UTPC->GetPredictionTime() == 0.f) )  // and in first person?
+	if (Weapon != NULL && IsLocallyControlled() && UTPC != NULL && UTPC->GetPredictionTime() == 0.f && !UTPC->IsBehindView())
 	{
 		if (!FlashLocation.IsZero())
 		{
 			Weapon->PlayImpactEffects(FlashLocation);
 		}
 	}
-	else if (WeaponAttachment && (!IsLocallyControlled() || !UTPC) )
+	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
 	{
 		if (FlashCount != 0 || !FlashLocation.IsZero())
 		{

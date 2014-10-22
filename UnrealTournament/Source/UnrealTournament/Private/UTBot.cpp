@@ -2350,7 +2350,7 @@ float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
 
 void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 {
-	if (NewEnemy != NULL)
+	if (NewEnemy != NULL && Squad != NULL)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(NewEnemy, this))

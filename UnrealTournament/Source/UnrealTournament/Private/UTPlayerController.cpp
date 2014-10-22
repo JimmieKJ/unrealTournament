@@ -1105,6 +1105,19 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			HiddenComponents.Add(RootPrim->ComponentId);
 		}
 	}
+
+	// hide other local players' first person weapons
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		if (It->PlayerController != this && It->PlayerController != NULL)
+		{
+			AUTCharacter* OtherP = Cast<AUTCharacter>(It->PlayerController->GetViewTarget());
+			if (OtherP != NULL && OtherP->GetWeapon() != NULL)
+			{
+				HideComponentTree(OtherP->GetWeapon()->Mesh, HiddenComponents);
+			}
+		}
+	}
 }
 
 void AUTPlayerController::SetName(const FString& S)
