@@ -178,6 +178,14 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY()
 	AUTProjectile* MyFakeProjectile;
 
+	/** Real projectile for which this projectile is providing visuals */
+	UPROPERTY()
+		AUTProjectile* MasterProjectile;
+
+	/** True once fully spawned, to avoid destroying replicated projectiles during spawn on client */
+	UPROPERTY()
+		bool bHasSpawnedFully;
+
 	/** Perform any custom initialization for this projectile as fake client side projectile */
 	virtual void InitFakeProjectile(class AUTPlayerController* OwningPlayer);
 

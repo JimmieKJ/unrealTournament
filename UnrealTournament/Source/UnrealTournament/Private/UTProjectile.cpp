@@ -73,6 +73,10 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	bReplicateMovement = false;
 
 	bInitiallyWarnTarget = true;
+
+	MyFakeProjectile = NULL;
+	MasterProjectile = NULL;
+	bHasSpawnedFully = false;
 }
 
 void AUTProjectile::BeginPlay()
@@ -94,6 +98,7 @@ void AUTProjectile::BeginPlay()
 		InstigatorController = Instigator->Controller;
 	}
 
+	bHasSpawnedFully = true;
 	if (Role == ROLE_Authority)
 	{
 		ProjectileMovement->Velocity.Z += TossZ;
@@ -184,9 +189,16 @@ void AUTProjectile::BeginPlay()
 
 void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 {
+	if (InFakeProjectile->IsPendingKillPending() || InFakeProjectile->bExploded)
+	{
+		// Fake projectile is no longer valid to sync to
+		return;
+	}
+
 	// @TODO FIXMESTEVE - teleport to bestmatch location and interpolate?
 	// @TODO FIXMESTEVE - rep to server to reduce error by changing Server ping overhead value
 	MyFakeProjectile = InFakeProjectile;
+	MyFakeProjectile->MasterProjectile = this;
 
 	float Error = (GetActorLocation() - MyFakeProjectile->GetActorLocation()).Size();
 	if (((GetActorLocation() - MyFakeProjectile->GetActorLocation()) | MyFakeProjectile->GetVelocity()) > 0.f)
@@ -497,18 +509,19 @@ void AUTProjectile::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
-	UE_LOG(LogUTProjectile, Verbose, TEXT("%s::ProcessHit OtherActor:%s"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
+	UE_LOG(UT, Verbose, TEXT("%s::ProcessHit fake %d has master %d has fake %d OtherActor:%s"), *GetName(), bFakeClientProjectile, (MasterProjectile != NULL), (MyFakeProjectile != NULL), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
 
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
-	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || CreationTime != GetWorld()->TimeSeconds)
+	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || bHasSpawnedFully)
 		// don't blow up on non-blocking volumes
 		// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
 		&& ((Cast<AUTTeleporter>(OtherActor) == NULL && Cast<AVolume>(OtherActor) == NULL) || GetVelocity().IsZero())
 		&& (Cast<AUTProjectile>(OtherActor) == NULL || InteractsWithProj(Cast<AUTProjectile>(OtherActor))) )
 	{
-		if (bFakeClientProjectile)
+		if (MyFakeProjectile && !MyFakeProjectile->IsPendingKillPending())
 		{
-			ShutDown();
+			MyFakeProjectile->ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+			Destroy();
 			return;
 		}
 		if (OtherActor != NULL)
@@ -617,6 +630,11 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 				bTearOff = true;
 				bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
 			}
+		}
+
+		// explosion effect unless I have a fake projectile doing it for me
+		if (!MyFakeProjectile)
+		{
 			if (ExplosionEffects != NULL)
 			{
 				ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
