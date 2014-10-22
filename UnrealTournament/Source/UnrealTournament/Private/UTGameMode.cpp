@@ -725,7 +725,7 @@ void AUTGameMode::EndMatch()
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 {
 	// Dont ever end the game in PIE
-	if (GetWorld()->WorldType != EWorldType::PIE) return;
+	if (GetWorld()->WorldType == EWorldType::PIE) return;
 
 	// If we don't have a winner, then go and find one
 	if (Winner == NULL)
