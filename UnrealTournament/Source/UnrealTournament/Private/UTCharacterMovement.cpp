@@ -1947,7 +1947,7 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	NewMove->SetMoveFor(CharacterOwner, DeltaTime, NewAcceleration, *ClientData);
 	NewMove->SetInitialPosition(CharacterOwner);
 
-	// @TODO FIXMESTEVE re-introduce limited move combining
+	// @TODO FIXMESTEVE re-introduce limited move combining maybe - note that teleport can have side effects
 
 	// Perform the move locally
 	Acceleration = ScaleInputAcceleration(NewMove->Acceleration);

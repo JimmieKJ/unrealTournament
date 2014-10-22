@@ -2948,7 +2948,7 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 	CapsuleComponent->SetCollisionObjectType(SavedObjectType);
 	CapsuleComponent->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
 	CharacterMovement->bJustTeleported = bResult && !bIsATest;
-	if (bResult && !bIsATest && (TeleportEffect.Num() > 0) && TeleportEffect[0])
+	if (bResult && !bIsATest && !bClientUpdating && (TeleportEffect.Num() > 0) && TeleportEffect[0])
 	{
 		TSubclassOf<AUTReplicatedEmitter> PickedEffect = TeleportEffect[0];
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);

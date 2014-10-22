@@ -41,7 +41,7 @@ AUTTeleporter::AUTTeleporter(const FPostConstructInitializeProperties& PCIP)
 bool AUTTeleporter::CanTeleport_Implementation(AActor* OtherActor)
 {
 	AUTCharacter* C = Cast<AUTCharacter>(OtherActor);
-	return (C != NULL && C->Role == ROLE_Authority && !C->IsDead() && C->Controller != NULL);
+	return (C != NULL && !C->IsDead() && C->Controller != NULL);
 }
 
 // prevents re-entrancy between teleporters
@@ -68,10 +68,7 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		}
 		if (OtherActor->TeleportTo(AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
 		{
-			if (P != NULL && P->Controller != NULL)
-			{
-				P->Controller->ClientSetLocation(P->GetActorLocation(), P->GetActorRotation());
-			}
+			//UE_LOG(UT, Warning, TEXT("%s TELEPORTED %s"), *GetName(), *OtherActor->GetName());
 		}
 		else
 		{
