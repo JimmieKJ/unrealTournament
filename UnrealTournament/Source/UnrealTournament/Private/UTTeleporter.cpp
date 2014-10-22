@@ -57,18 +57,28 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		FTransform TargetTransform = TeleportTarget * ActorToWorld();
 		FVector AdjustedTeleportLoc = TargetTransform.GetLocation();
 		FRotator TargetRot = TargetTransform.Rotator();
+		FRotator TargetViewRot = TargetRot;
 		// don't pitch or roll Pawns
 		ACharacter* P = Cast<ACharacter>(OtherActor);
 		if (P != NULL)
 		{
+			TargetRot.Yaw = TargetRot.Yaw + FMath::UnwindDegrees(P->GetActorRotation().Yaw) - FMath::UnwindDegrees(GetActorRotation().Yaw);
+			if (P->GetController())
+			{
+				TargetViewRot = P->GetControlRotation();
+				TargetViewRot.Yaw = TargetRot.Yaw;
+			}
 			TargetRot.Pitch = 0.0f;
 			TargetRot.Roll = 0.0f;
-			TargetRot.Yaw = TargetRot.Yaw + FMath::UnwindDegrees(P->GetActorRotation().Yaw) - FMath::UnwindDegrees(GetActorRotation().Yaw);
 			P->CharacterMovement->Velocity = TargetTransform.TransformVector(MyTransform.TransformVector(P->CharacterMovement->Velocity));
 		}
 		if (OtherActor->TeleportTo(AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
 		{
 			//UE_LOG(UT, Warning, TEXT("%s TELEPORTED %s"), *GetName(), *OtherActor->GetName());
+			if (P != NULL && P->Controller != NULL)
+			{
+				P->Controller->SetControlRotation(TargetViewRot);
+			}
 		}
 		else
 		{
