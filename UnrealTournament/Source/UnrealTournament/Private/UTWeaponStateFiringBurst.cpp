@@ -18,7 +18,6 @@ void UUTWeaponStateFiringBurst::BeginState(const UUTWeaponState* PrevState)
 	GetOuterAUTWeapon()->Spread[GetOuterAUTWeapon()->GetCurrentFireMode()] = 0.f;
 	ShotTimeRemaining = -0.001f;
 	RefireCheckTimer();
-	IncrementShotTimer();
 	GetOuterAUTWeapon()->OnStartedFiring();
 }
 
