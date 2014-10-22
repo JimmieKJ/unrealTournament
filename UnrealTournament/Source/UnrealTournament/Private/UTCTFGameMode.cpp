@@ -344,6 +344,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 	}
 
 	CTFGameState->bHalftime = true;
+	CTFGameState->bPlayingAdvantage = false;
 	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
 
 	SetMatchState(MatchState::MatchIsAtHalftime);
@@ -587,7 +588,7 @@ void AUTCTFGameMode::SetMatchState(FName NewState)
 
 	// Look to see if one team has an advantage.  If they do set for advantage instead of half-time..
 
-	if (NewState == MatchState::MatchEnteringHalftime && !CTFGameState->bPlayingAdvantage)		// Only check if we aren't already playing advantage
+	if ((NewState == MatchState::MatchEnteringHalftime || FMath::Abs<int32>(Teams[0]->Score - Teams[1]->Score) <= 1) && !CTFGameState->bPlayingAdvantage)		// Only check if we aren't already playing advantage
 	{
 		int32 AdvantageTeam = TeamWithAdvantage();
 		if (AdvantageTeam >= 0 && AdvantageTeam <= 1)
@@ -740,7 +741,7 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 	else
 	{
 		OutRules += FString::Printf(TEXT("Halftime\tTrue\t"));
-		OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);;
+		OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);
 	}
 
 	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
