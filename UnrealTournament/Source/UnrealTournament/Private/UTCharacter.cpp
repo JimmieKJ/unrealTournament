@@ -1947,7 +1947,7 @@ bool AUTCharacter::CanDodge() const
 
 bool AUTCharacter::CanDodgeInternal_Implementation() const
 {
-	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed);
+	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed) && EmoteCount == 0;
 }
 
 bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
