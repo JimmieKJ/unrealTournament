@@ -1760,3 +1760,8 @@ void AUTGameMode::AssignDefaultSquadFor(AController* C)
 		}
 	}
 }
+
+bool AUTGameMode::RestrictPlayerSpawns()
+{
+	return (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime());
+}

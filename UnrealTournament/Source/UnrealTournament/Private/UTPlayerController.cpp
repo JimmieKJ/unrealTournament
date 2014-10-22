@@ -651,15 +651,7 @@ void AUTPlayerController::OnFire()
 	}
 	else
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == nullptr || !GS->IsMatchInOvertime())
-		{
-			ServerRestartPlayer();
-		}
-		else
-		{
-			ServerViewNextPlayer();
-		}
+		ServerRestartPlayer();
 	}
 
 }
@@ -1183,12 +1175,22 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		UTPlayerState ->bReadyToPlay = true;
 	}
 
+	// If we can't restart this player, try to view a new player
+	if (!CanRestartPlayer())
+	{
+		ServerViewNextPlayer();
+		return;
+	}
+
 	Super::ServerRestartPlayer_Implementation();
 
 }
 
 bool AUTPlayerController::CanRestartPlayer()
 {
+	AUTGameMode* GM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	if (GM && GM->RestrictPlayerSpawns()) return false;
+
 	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
 }
 

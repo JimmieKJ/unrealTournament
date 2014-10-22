@@ -322,6 +322,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Messaging)
 	virtual void BlueprintSendLocalized( AActor* Sender, AUTPlayerController* Receiver, TSubclassOf<ULocalMessage> Message, int32 Switch = 0, APlayerState* RelatedPlayerState_1 = NULL, APlayerState* RelatedPlayerState_2 = NULL, UObject* OptionalObject = NULL );
 
+	// Returns true if the game wants to restrict all player spawns
+	virtual bool RestrictPlayerSpawns();
+
 protected:
 
 
