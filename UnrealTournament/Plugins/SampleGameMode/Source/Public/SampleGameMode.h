@@ -25,7 +25,7 @@ struct FDamageTypeToProgess
 	TArray<TSubclassOf<UDamageType>> DamageType;
 };
 
-UCLASS(Blueprintable, Meta = (ChildCanTick))
+UCLASS(Blueprintable, Meta = (ChildCanTick), Config=SampleGameMode)
 class ASampleGameMode : public AUTGameMode
 {
 	GENERATED_UCLASS_BODY()
@@ -35,6 +35,9 @@ class ASampleGameMode : public AUTGameMode
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameMode")
 	TArray<FDamageTypeToProgess> ScoringDamageTypes;
+
+	UPROPERTY(config)
+	int32 MagicNumber;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType) override;
