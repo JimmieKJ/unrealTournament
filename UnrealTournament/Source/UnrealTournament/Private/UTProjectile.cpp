@@ -34,7 +34,8 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 		//PawnOverlapSphere->bVisible = true;
 		PawnOverlapSphere->InitSphereRadius(OverlapRadius);
 		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileOverlap");
-		PawnOverlapSphere->bTraceComplexOnMove = true; // @TODO FIXMESTEVE should be false?
+		PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
+		PawnOverlapSphere->bTraceComplexOnMove = false; 
 		PawnOverlapSphere->AttachParent = RootComponent;
 	}
 
