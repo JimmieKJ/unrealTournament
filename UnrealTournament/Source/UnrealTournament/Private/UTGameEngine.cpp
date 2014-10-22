@@ -58,7 +58,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	Super::Init(InEngineLoop);
 
 	// HACK: UGameUserSettings::ApplyNonResolutionSettings() isn't virtual so we need to force our settings to be applied...
-	GetGameUserSettings()->ApplySettings();
+	GetGameUserSettings()->ApplySettings(true);
 }
 
 void UUTGameEngine::PreExit()
