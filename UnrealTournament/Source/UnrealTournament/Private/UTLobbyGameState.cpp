@@ -41,7 +41,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::AddMatch(AUTLobbyPlayerState* PlayerOwner)
 		// This player is already in a match.  Look to see if he is the host and if he is, don't allow.
 		if (PlayerOwner->CurrentMatch->OwnersPlayerState == PlayerOwner)
 		{
-			return false;
+			return NULL;
 		}
 	
 		if (PlayerOwner->CurrentMatch->CurrentState == ELobbyMatchState::WaitingForPlayers)
