@@ -355,7 +355,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.HAlign(HAlign_Left)
+			.HAlign(HAlign_Center)
 			.Padding(0.0f, 0.0f, 0.0f, 0.0f)
 			[
 				SNew(SUniformGridPanel)
@@ -422,7 +422,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.HAlign(HAlign_Center)
 							[
 								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 								.Text(NSLOCTEXT("SUWControlSettingsDialog", "Action", "Action").ToString())
 							]
 							+ SHorizontalBox::Slot()
@@ -432,7 +432,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.FillWidth(1.2f)
 							[
 								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 								.Text(NSLOCTEXT("SUWControlSettingsDialog", "KeyBinds", "Key").ToString())
 							]
 							+ SHorizontalBox::Slot()
@@ -442,7 +442,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.FillWidth(1.2f)
 							[
 								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 								.Text(NSLOCTEXT("SUWControlSettingsDialog", "KeyBinds", "Alternate Key").ToString())
 							]
 						]
@@ -462,10 +462,10 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 						.AutoHeight()
 						.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
 							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-							.AutoWidth()
+							.AutoHeight()
 							.VAlign(VAlign_Center)
 							.HAlign(HAlign_Center)
 							[
@@ -488,6 +488,34 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							.HAlign(HAlign_Center)
+							[
+								SAssignNew(MouseSmoothing, SCheckBox)
+								.ForegroundColor(FLinearColor::Black)
+								.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+								.Content()
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSmoothing", "Mouse Smoothing").ToString())
+								]
+							]
+							+ SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SAssignNew(MouseInvert, SCheckBox)
+								.ForegroundColor(FLinearColor::Black)
+								.IsChecked(bMouseInverted ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+								.Content()
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseInvert", "Invert Mouse").ToString())
+								]
+							]
 							+SVerticalBox::Slot()
 							.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 							[
@@ -495,16 +523,17 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 								+ SHorizontalBox::Slot()
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 								[
-									SNew(STextBlock)
-									.ColorAndOpacity(FLinearColor::Black)
-									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSensitivity", "Mouse Sensitivity").ToString())
+									SNew(STextBlock)					
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSensitivity", "Mouse Sensitivity (0-20)").ToString())
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 								]
 								+ SHorizontalBox::Slot()
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								.AutoWidth()
 								[
-									SAssignNew(MouseSensitivityText, STextBlock)
-									.ColorAndOpacity(FLinearColor::Black)
-									.Text(FString::Printf(TEXT("%f"), UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity()))
+									SAssignNew(MouseSensitivityEdit, SEditableTextBox)
+									.Text(FText::AsNumber(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity()))
+									.OnTextCommitted(this, &SUWControlSettingsDialog::EditSensitivity)
 								]
 								+ SHorizontalBox::Slot()
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -516,32 +545,6 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 										.Orientation(Orient_Horizontal)
 										.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity() - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
 									]
-								]
-							]
-							+ SVerticalBox::Slot()
-							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-							[
-								SAssignNew(MouseSmoothing, SCheckBox)
-								.ForegroundColor(FLinearColor::Black)
-								.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-								.Content()
-								[
-									SNew(STextBlock)
-									.ColorAndOpacity(FLinearColor::Black)
-									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseSmoothing", "Mouse Smoothing").ToString())
-								]
-							]
-							+ SVerticalBox::Slot()
-							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-							[
-								SAssignNew(MouseInvert, SCheckBox)
-								.ForegroundColor(FLinearColor::Black)
-								.IsChecked(bMouseInverted ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-								.Content()
-								[
-									SNew(STextBlock)
-									.ColorAndOpacity(FLinearColor::Black)
-									.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseInvert", "Invert Mouse").ToString())
 								]
 							]
 						]
@@ -560,7 +563,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 								.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapWallDodge", "Single Tap Wall Dodge").ToString())
 							]
 						]
@@ -576,7 +579,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.HAlign(HAlign_Center)
 							[
 								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 								.Text(NSLOCTEXT("SUWControlSettingsDialog", "MaxDodgeTapTime", "Single Tap Wall Dodge Hold Time").ToString())
 							]
 							+ SHorizontalBox::Slot()
@@ -600,7 +603,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.HAlign(HAlign_Center)
 							[
 								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::Black)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 								.Text(NSLOCTEXT("SUWControlSettingsDialog", "MaxDodgeClickTime", "Dodge Double-Click Time").ToString())
 							]
 							+ SHorizontalBox::Slot()
@@ -632,7 +635,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Title.TextStyle")
 					.Text(Bind->DisplayName)
 				]
 			];
@@ -649,7 +652,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Left)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
 					.Text(Bind->DisplayName)
 				]
 				+ SHorizontalBox::Slot()
@@ -819,13 +822,24 @@ FReply SUWControlSettingsDialog::OnButtonClick(uint16 ButtonID)
 
 }
 
+void SUWControlSettingsDialog::EditSensitivity(const FText& Input, ETextCommit::Type)
+{
+	float ChangedSensitivity = FCString::Atof(*Input.ToString());
+
+	if (ChangedSensitivity >= 0.0f && ChangedSensitivity <= 20.0f)
+	{
+		ChangedSensitivity /= 20.0f;
+		MouseSensitivity->SetValue(ChangedSensitivity);
+	}
+}
+
 void SUWControlSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
-	if (MouseSensitivityText.IsValid())
-	{
-		MouseSensitivityText->SetText(FString::Printf(TEXT("%f"), MouseSensitivity->GetValue() * (MouseSensitivityRange.Y - MouseSensitivityRange.X) + MouseSensitivityRange.X));
+	if (MouseSensitivityEdit.IsValid() && !MouseSensitivityEdit->HasKeyboardFocus())
+	{		
+		MouseSensitivityEdit->SetText(FText::FromString(FString::Printf(TEXT("%f"), MouseSensitivity->GetValue() * 20.0f)));
 	}
 }
 #endif
