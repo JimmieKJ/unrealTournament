@@ -486,7 +486,7 @@ void AUTPlayerController::NextWeapon()
 }
 void AUTPlayerController::ToggleTranslocator()
 {
-	if (UTCharacter != NULL && IsLocalPlayerController())
+	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
 		if (UTCharacter->GetWeapon()->Group == 0)
 		{
