@@ -46,6 +46,7 @@ protected:
 	virtual void OnDialogOpened() override;
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 	FReply NewAccountClick();
+	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
 };
 

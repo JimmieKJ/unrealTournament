@@ -97,6 +97,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 			[
 				SAssignNew(PassEditBox, SEditableTextBox)
 				.IsPassword(true)
+				.OnTextCommitted(this, &SUWLoginDialog::OnTextCommited)
 				.MinDesiredWidth(300.0f)
 			];
 
@@ -177,6 +178,13 @@ FReply SUWLoginDialog::NewAccountClick()
 	return FReply::Handled();
 }
 
+void SUWLoginDialog::OnTextCommited(const FText& NewText, ETextCommit::Type CommitType)
+{
+	if (CommitType == ETextCommit::OnEnter)
+	{
+		OnButtonClick(UTDIALOG_BUTTON_OK);
+	}
+}
 
 
 #endif
