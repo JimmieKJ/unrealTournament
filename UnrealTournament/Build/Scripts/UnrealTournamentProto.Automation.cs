@@ -868,6 +868,11 @@ public class MakeUTDLC : BuildCommand
 
         var Params = GetParams(this, DLCName);
 
+        if (ParseParam("build"))
+        {
+            Project.Build(this, Params);
+        }
+
         // Cook dedicated server configs
         if (Params.DedicatedServer)
         {
