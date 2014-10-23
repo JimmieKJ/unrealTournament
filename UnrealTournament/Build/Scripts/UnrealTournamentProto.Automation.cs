@@ -761,11 +761,12 @@ class UnrealTournament_PromoteBuild : BuildCommand
 	}
 }
 
-public class PackageCookedDir : BuildCommand
+public class MakeUTDLC : BuildCommand
 {
+    public bool bSingleMap;
     public string DLCName;
     public string AssetRegistry;
-    
+
     static public ProjectParams GetParams(BuildCommand Cmd, string DLCName)
     {
         string P4Change = "Unknown";
@@ -792,10 +793,32 @@ public class PackageCookedDir : BuildCommand
         return Params;
     }
 
-    public void CookAndStage(DeploymentContext SC, ProjectParams Params)
+    public void Cook(DeploymentContext SC, ProjectParams Params)
     {
-        // Cook with -newcook
-        CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, null, SC.CookPlatform, "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed");
+        if (bSingleMap)
+        {
+            // Cook with -newcook
+            CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, null, SC.CookPlatform, "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed");
+        }
+        else
+        {
+            string Parameters = "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed";
+            string CookDir = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Plugins", DLCName, "Content");
+            RunCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2}", CookDir, SC.CookPlatform, Parameters));
+        }
+    }
+
+    public void Stage(DeploymentContext SC, ProjectParams Params)
+    {
+        if (!bSingleMap)
+        {
+            // Making a plugin, grab the binaries too
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName), "*.uplugin", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4-*.so", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4-*.dll", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4Server-*.so", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4Server-*.dll", true, null, null, true);
+        }
 
         // Put all of the cooked dir into the staged dir
         if (SC.DedicatedServer)
@@ -811,15 +834,36 @@ public class PackageCookedDir : BuildCommand
         // Stage and pak it all
         Project.ApplyStagingManifest(Params, SC);
 
-        // Move the buried pak file to a better place
-        CommandUtils.DeleteFile(true, CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
-        CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
-        CommandUtils.DeleteDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform) });
+        if (bSingleMap)
+        {
+            // Move the buried pak file to a better place, probably a nicer way to do this
+            CommandUtils.DeleteFile(true, CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
+            CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
+            CommandUtils.DeleteDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform) });
+        }
+        else
+        {
+            // Move the buried pak file to a better place, probably a nicer way to do this
+            CommandUtils.CreateDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content") });
+            CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content", DLCName + "-" + SC.CookPlatform + ".pak"));
+            CommandUtils.DeleteDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content") });
+        }
     }
 
     public override void ExecuteBuild()
     {
-        DLCName = ParseParamValue("DLCName", "DM-NickTest2");
+        DLCName = ParseParamValue("MapName", "");
+        if (DLCName.Length > 0)
+        {
+            bSingleMap = true;
+        }        
+        else
+        {
+            DLCName = ParseParamValue("PluginName", "PeteGameMode");
+            bSingleMap = false;
+        }
+
+        // Right now all platform asset registries seem to be the exact same, this may change in the future
         AssetRegistry = ParseParamValue("AssetRegistry", "WindowsNoEditor-AssetRegistry.bin");
 
         var Params = GetParams(this, DLCName);
@@ -830,7 +874,8 @@ public class PackageCookedDir : BuildCommand
             var DeployContextServerList = Project.CreateDeploymentContext(Params, true, true);
             foreach (var SC in DeployContextServerList)
             {
-                CookAndStage(SC, Params);
+                Cook(SC, Params);
+                Stage(SC, Params);
             }
         }
 
@@ -838,7 +883,8 @@ public class PackageCookedDir : BuildCommand
         var DeployClientContextList = Project.CreateDeploymentContext(Params, false, true);
         foreach (var SC in DeployClientContextList)
         {
-            CookAndStage(SC, Params);
+            Cook(SC, Params);
+            Stage(SC, Params);
         }
     }
 }
