@@ -517,6 +517,7 @@ public:
 	FLinearColor GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const;
 
 	/** The player state of the player currently under the crosshair */
+	UPROPERTY()
 	AUTPlayerState* TargetPlayerState;
 
 	/** The time this player was last seen under the crosshaiar */
