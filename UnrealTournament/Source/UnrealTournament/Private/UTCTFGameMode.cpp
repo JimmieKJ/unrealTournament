@@ -3,6 +3,7 @@
 #include "UTTeamGameMode.h"
 #include "UTHUD_CTF.h"
 #include "UTCTFGameMode.h"
+#include "UTCTFGameMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
@@ -83,8 +84,8 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 		float DistanceFromHome = (GameObject->GetActorLocation() - CTFGameState->FlagBases[GameObject->GetTeamNum()]->GetActorLocation()).SizeSquared();
 		float DistanceFromScore = (GameObject->GetActorLocation() - CTFGameState->FlagBases[1 - GameObject->GetTeamNum()]->GetActorLocation()).SizeSquared();
 
-		UE_LOG(UT,Log,TEXT("========================================="));
-		UE_LOG(UT,Log,TEXT("Flag Score by %s - Reason: %s"), *Holder->PlayerName, *Reason.ToString());
+		UE_LOG(UT,Verbose,TEXT("========================================="));
+		UE_LOG(UT,Verbose,TEXT("Flag Score by %s - Reason: %s"), *Holder->PlayerName, *Reason.ToString());
 
 		if ( Reason == FName("SentHome") )
 		{
@@ -108,13 +109,13 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 							{
 								Points += FlagReturnDenialBonus;
 							}
-							UE_LOG(UT,Log,TEXT("    Player %s received %i"), *PS->PlayerName, Points);
+							UE_LOG(UT,Verbose,TEXT("    Player %s received %i"), *PS->PlayerName, Points);
 							PS->FlagReturns++;
 							PS->AdjustScore(Points);
 						}
 						else
 						{
-							UE_LOG(UT,Log,TEXT("    Player %s received %i"), *PS->PlayerName, ProximityReturnBonus);
+							UE_LOG(UT,Verbose,TEXT("    Player %s received %i"), *PS->PlayerName, ProximityReturnBonus);
 							PS->AdjustScore(ProximityReturnBonus);
 							PS->Assists++;
 						}
@@ -151,7 +152,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 						float Perc = HeldTime / GameObject->TotalHeldTime;
 						Points = Points + int(float(FlagTotalScorePool * Perc));
 					}
-					UE_LOG(UT,Log,TEXT("    Assist Points for %s = %i"), *Who->PlayerName, Points)				
+					UE_LOG(UT,Verbose,TEXT("    Assist Points for %s = %i"), *Who->PlayerName, Points)				
 					Who->AdjustScore(Points);
 					if (Who != Holder)
 					{
@@ -169,7 +170,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 				{
 					if (C->GetPawn()!= NULL && PS != Holder && (GameObject->GetActorLocation() - C->GetPawn()->GetActorLocation()).SizeSquared() <= FlagCombatBonusDistance) 
 					{
-						UE_LOG(UT,Log, TEXT("    Prox Bonus for %s = %i"), *PS->PlayerName, ProximityCapBonus);
+						UE_LOG(UT,Verbose, TEXT("    Prox Bonus for %s = %i"), *PS->PlayerName, ProximityCapBonus);
 						PS->AdjustScore(ProximityCapBonus);
 					}
 				}
@@ -181,7 +182,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			}
 		}
 
-		UE_LOG(UT,Log,TEXT("========================================="));
+		UE_LOG(UT,Verbose,TEXT("========================================="));
 	}
 }
 
@@ -281,38 +282,11 @@ void AUTCTFGameMode::HandleHalftime()
 
 void AUTCTFGameMode::HandleEnteringHalftime()
 {
-	// Figure out who we should look at
 
-	// Init targets
-	TArray<AUTCharacter*> BestPlayers;
-	for (int i=0;i<Teams.Num();i++)
-	{
-		BestPlayers.Add(NULL);
-	}
+	// Set the flags home if they are out
 
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-
-		AController* Controller = *Iterator;
-		if (Controller->GetPawn() != NULL && Controller->PlayerState != NULL)
-		{
-			AUTCharacter* Char = Cast<AUTCharacter>(Controller->GetPawn());
-			if (Char != NULL)
-			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
-				uint8 TeamNum = PS->GetTeamNum();
-				if (TeamNum < BestPlayers.Num())
-				{
-					if (BestPlayers[TeamNum] == NULL || PS->Score > BestPlayers[TeamNum]->PlayerState->Score || Cast<AUTCTFFlag>(PS->CarriedObject) != NULL)
-					{
-						BestPlayers[TeamNum] = Char;
-					}
-				}
-			}
-		}
-	}	
-
-
+	CTFGameState->ResetFlags();
+	
 	// Freeze all of the pawns and detach their controllers
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
@@ -324,22 +298,15 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		}
 	}
 
-	// Tell the controllers to look at cool people
+	// Tell the controllers to look at their flags
 
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		UE_LOG(UT,Log,TEXT("Setting Viewtarget for %s"), *GetNameSafe(PC));
 		if (PC != NULL)
 		{
-			uint8 TeamNum = PC->GetTeamNum();
-			AActor* BestTarget = NULL;
-			if (TeamNum < BestPlayers.Num() && BestPlayers[TeamNum] != NULL)
-			{
-				BestTarget = BestPlayers[TeamNum];
-			}
 			PC->ClientHalftime();
-			PC->SetViewTarget(BestTarget);
+			PC->SetViewTarget(CTFGameState->FlagBases[PC->GetTeamNum()]);
 		}
 	}
 
@@ -402,7 +369,7 @@ void AUTCTFGameMode::HandleExitingHalftime()
 	CTFGameState->ResetFlags();
 	CTFGameState->bHalftime = false;
 	CTFGameState->bPlayingAdvantage = false;
-	CTFGameState->AdvantageTeamIndex = -1;
+	CTFGameState->AdvantageTeamIndex = 255;
 	
 	if (CTFGameState->bSecondHalf)
 	{
@@ -476,9 +443,9 @@ void AUTCTFGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, 
 
 		PickedUpBy->AdjustScore(Points);
 
-		UE_LOG(UT,Log,TEXT("========================================="));
-		UE_LOG(UT,Log,TEXT("ScorePickup: %s %s %i"), *PickedUpBy->PlayerName, *GetNameSafe(Pickup), Points);
-		UE_LOG(UT,Log,TEXT("========================================="));
+		UE_LOG(UT,Verbose,TEXT("========================================="));
+		UE_LOG(UT,Verbose,TEXT("ScorePickup: %s %s %i"), *PickedUpBy->PlayerName, *GetNameSafe(Pickup), Points);
+		UE_LOG(UT,Verbose,TEXT("========================================="));
 	}
 }
 
@@ -502,9 +469,9 @@ void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AControl
 				AdjustedDamageAmount = uint32( float(AdjustedDamageAmount) * FlagCarrierCombatMultiplier);
 			}
 			AttackerPS->AdjustScore(AdjustedDamageAmount);
-			UE_LOG(UT,Log,TEXT("========================================="));
-			UE_LOG(UT,Log,TEXT("DamageScore: %s %i"), *AttackerPS->PlayerName, AdjustedDamageAmount);
-			UE_LOG(UT,Log,TEXT("========================================="));
+			UE_LOG(UT,Verbose,TEXT("========================================="));
+			UE_LOG(UT,Verbose,TEXT("DamageScore: %s %i"), *AttackerPS->PlayerName, AdjustedDamageAmount);
+			UE_LOG(UT,Verbose,TEXT("========================================="));
 		}
 	}
 }
@@ -525,9 +492,9 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclas
 			AttackerPS->AdjustScore(Points);
 			AttackerPS->IncrementKills(true);
 
-			UE_LOG(UT,Log,TEXT("========================================="));
-			UE_LOG(UT,Log,TEXT("Kill Score: %s %i"), *AttackerPS->PlayerName, Points);
-			UE_LOG(UT,Log,TEXT("========================================="));
+			UE_LOG(UT,Verbose,TEXT("========================================="));
+			UE_LOG(UT,Verbose,TEXT("Kill Score: %s %i"), *AttackerPS->PlayerName, Points);
+			UE_LOG(UT,Verbose,TEXT("========================================="));
 
 			if (!bFirstBloodOccurred)
 			{
@@ -597,6 +564,7 @@ void AUTCTFGameMode::SetMatchState(FName NewState)
 			CTFGameState->bPlayingAdvantage = true;
 			CTFGameState->AdvantageTeamIndex = AdvantageTeam;
 			CTFGameState->SetTimeLimit(60);
+			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 6, NULL, NULL, CTFGameState->Teams[AdvantageTeam]);
 			return;
 		}
 	}
@@ -690,7 +658,7 @@ uint8 AUTCTFGameMode::TeamWithAdvantage()
 		return 255;
 	}
 
-	int8 AdvantageNum = Flags[0]->ObjectState == CarriedObjectState::Held ? 0 : 1;
+	int8 AdvantageNum = Flags[0]->ObjectState == CarriedObjectState::Held ? 1 : 0;
 	if (AdvantageNum < 0 || AdvantageNum > 1 || Flags[AdvantageNum] == NULL || Flags[AdvantageNum]->ObjectState == CarriedObjectState::Dropped) return 255;
 
 	return AdvantageNum;
@@ -705,19 +673,21 @@ bool AUTCTFGameMode::CheckAdvantage()
 	uint8 OtherTeam = 1 - CTFGameState->AdvantageTeamIndex;
 
 	// The Flag was returned so advantage lost
-	if (Flags[CTFGameState->AdvantageTeamIndex]->ObjectState == CarriedObjectState::Home) 
+	if (Flags[OtherTeam]->ObjectState == CarriedObjectState::Home) 
 	{
-		UE_LOG(UT,Log,TEXT("Advantage Flag Home"));
 		return false;	
 	}
 
-	if (Flags[OtherTeam]->ObjectState == CarriedObjectState::Held)
+	if (Flags[CTFGameState->AdvantageTeamIndex]->ObjectState == CarriedObjectState::Held)
 	{
 		AdvantageGraceTime++;
 		if (AdvantageGraceTime >= 5)		// 5 second grace period.. make this config :)
 		{
-			UE_LOG(UT,Log,TEXT("Timer"));
 			return false;
+		}
+		else
+		{
+			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 7, NULL, NULL, CTFGameState->Teams[CTFGameState->AdvantageTeamIndex]);
 		}
 	}
 	else
@@ -763,5 +733,48 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 	{
 		OutRules += FString::Printf(TEXT("Mutator\t%s\t"), *Mut->DisplayName.ToString());
 		Mut = Mut->NextMutator;
+	}
+}
+
+void AUTCTFGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
+{
+	// Dont ever end the game in PIE
+	if (GetWorld()->WorldType == EWorldType::PIE) return;
+
+	// Send all of the flags home...
+	CTFGameState->ResetFlags();
+	Super::EndGame(Winner, Reason);
+}
+
+
+void AUTCTFGameMode::SetEndGameFocus(AUTPlayerState* Winner)
+{
+	AUTCTFFlagBase* WinningBase = NULL;
+	if (Winner != NULL)
+	{
+		WinningBase = CTFGameState->FlagBases[Winner->GetTeamNum()];
+	}
+
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
+		if (Controller && Controller->UTPlayerState)
+		{
+			AUTCTFFlagBase* BaseToView = WinningBase;
+			// If we don't have a winner, view my base
+			if (BaseToView == NULL)
+			{
+				AUTTeamInfo* MyTeam = Controller->UTPlayerState->Team;
+				if (MyTeam)
+				{
+					BaseToView = CTFGameState->FlagBases[MyTeam->GetTeamNum()];
+				}
+			}
+		
+			if (BaseToView)
+			{
+				Controller->GameHasEnded(BaseToView , Controller->UTPlayerState->Team == Winner->Team );
+			}
+		}
 	}
 }

@@ -66,6 +66,8 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void DefaultTimer();
 	virtual bool PlayerCanRestart( APlayerController* Player );
 
+	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
+	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 	void BuildServerResponseRules(FString& OutRules);
 
 protected:

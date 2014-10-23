@@ -13,9 +13,11 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FPostConstructInitializeProperties& P
 	DroppedMessage = NSLOCTEXT("CTFGameMessage","DroppedMessage","{Player1Name} dropped the {OptionalTeam} Flag!");
 	HasMessage = NSLOCTEXT("CTFGameMessage","HasMessage","{Player1Name} took the {OptionalTeam} Flag!");
 	KilledMessage = NSLOCTEXT("CTFGameMessage","KilledMessage","{Player1Name} killed the {OptionalTeam} flag carrier!");
+	HasAdvantageMessage = NSLOCTEXT("CTFGameMessage", "HasAdvantage", "{OptionalTeam} Team has Advantage");
+	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
 
 	bIsStatusAnnouncement = true;
-
+	bIsPartiallyUnique = true;
 
 }
 
@@ -29,6 +31,8 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 3 : return DroppedMessage; break;
 		case 4 : return HasMessage; break;
 		case 5 : return KilledMessage; break;
+		case 6 : return HasAdvantageMessage; break;
+		case 7 : return LosingAdvantageMessage; break;
 	}
 
 	return FText::GetEmpty();
