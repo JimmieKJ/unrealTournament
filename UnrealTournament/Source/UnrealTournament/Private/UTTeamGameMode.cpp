@@ -15,7 +15,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
 {
 	NumTeams = 2;
 	bBalanceTeams = true;
-	new(TeamColors) FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
+	new(TeamColors) FLinearColor(1.0f, 0.05f, 0.0f, 1.0f);
 	new(TeamColors) FLinearColor(0.1f, 0.1f, 1.0f, 1.0f);
 	new(TeamColors) FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
 	new(TeamColors) FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
