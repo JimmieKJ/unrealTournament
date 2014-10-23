@@ -1435,7 +1435,10 @@ void AUTCharacter::FiringInfoUpdated()
 	{
 		if (!FlashLocation.IsZero())
 		{
-			Weapon->PlayImpactEffects(FlashLocation);
+			FVector SpawnLocation;
+			FRotator SpawnRotation;
+			Weapon->GetImpactSpawnPosition(FlashLocation, SpawnLocation, SpawnRotation);
+			Weapon->PlayImpactEffects(FlashLocation, Weapon->GetCurrentFireMode(), SpawnLocation, SpawnRotation);
 		}
 	}
 	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))

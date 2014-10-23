@@ -127,8 +127,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	else if (PredictionTime > 0.f)
 	{
-		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
-		PlayImpactEffects(Hit.Location);
+		PlayPredictedImpactEffects(Hit.Location);
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{

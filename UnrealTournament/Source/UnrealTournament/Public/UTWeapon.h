@@ -46,6 +46,28 @@ struct FDelayedProjectileInfo
 	{}
 };
 
+USTRUCT()
+struct FDelayedHitScanInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+		FVector ImpactLocation;
+
+	UPROPERTY()
+		uint8 FireMode;
+
+	UPROPERTY()
+		FVector SpawnLocation;
+
+	UPROPERTY()
+		FRotator SpawnRotation;
+
+	FDelayedHitScanInfo()
+		: ImpactLocation(ForceInit), FireMode(0), SpawnLocation(ForceInit), SpawnRotation(ForceInit)
+	{}
+};
+
 UCLASS(Blueprintable, Abstract, NotPlaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 {
@@ -193,6 +215,16 @@ public:
 	/** Delayed projectile information */
 	UPROPERTY()
 	FDelayedProjectileInfo DelayedProjectile;
+
+	/** Delayed hitscan information */
+	UPROPERTY()
+	FDelayedHitScanInfo DelayedHitScan;
+
+	/** Play impact effects client-side for predicted hitscan shot - decides whether to delay because of high client ping. */
+	virtual void PlayPredictedImpactEffects(FVector ImpactLoc);
+
+	/** Trigger delayed hitscan effects, delayed because client ping above max forward prediction limit. */
+	virtual void PlayDelayedImpactEffects();
 
 	/** Spawn a delayed projectile, delayed because client ping above max forward prediction limit. */
 	virtual void SpawnDelayedFakeProjectile();
@@ -357,11 +389,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StopFiringEffects();
 
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+		virtual void GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation);
+
 	/** play effects associated with the shot's impact given the impact point
 	 * called only if FlashLocation has been set (instant hit weapon)
+	 * Call GetImpactSpawnPosition() to set SpawnLocation and SpawnRotation
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void PlayImpactEffects(const FVector& TargetLoc);
+		virtual void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation);
 
 	/** shared code between UTWeapon and UTWeaponAttachment to refine replicated FlashLocation into impact effect transform via trace */
 	static FHitResult GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc, const FVector& TargetLoc);

@@ -569,33 +569,38 @@ FHitResult AUTWeapon::GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc
 	}
 }
 
-void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc)
+void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation)
+{
+	SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
+	SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
+}
+
+void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		// fire effects
 		static FName NAME_HitLocation(TEXT("HitLocation"));
 		static FName NAME_LocalHitLocation(TEXT("LocalHitLocation"));
-		const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
-		if (FireEffect.IsValidIndex(CurrentFireMode) && FireEffect[CurrentFireMode] != NULL)
+		if (FireEffect.IsValidIndex(FireMode) && FireEffect[FireMode] != NULL)
 		{
-			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation(), true);
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], SpawnLocation, SpawnRotation, true);
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
 			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));
 		}
 		// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
-		else if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
+		else if (MuzzleFlash.IsValidIndex(FireMode) && MuzzleFlash[FireMode] != NULL)
 		{
-			MuzzleFlash[CurrentFireMode]->SetVectorParameter(NAME_HitLocation, TargetLoc);
-			MuzzleFlash[CurrentFireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[CurrentFireMode]->ComponentToWorld.InverseTransformPositionNoScale(TargetLoc));
+			MuzzleFlash[FireMode]->SetVectorParameter(NAME_HitLocation, TargetLoc);
+			MuzzleFlash[FireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[FireMode]->ComponentToWorld.InverseTransformPositionNoScale(TargetLoc));
 		}
 
 		if ((TargetLoc - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
 		{
-			if (ImpactEffect.IsValidIndex(CurrentFireMode) && ImpactEffect[CurrentFireMode] != NULL)
+			if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
 			{
 				FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
-				ImpactEffect[CurrentFireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+				ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
 			}
 			LastImpactEffectLocation = TargetLoc;
 			LastImpactEffectTime = GetWorld()->TimeSeconds;
@@ -953,8 +958,7 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	else if (PredictionTime > 0.f)
 	{
-		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
-		PlayImpactEffects(Hit.Location);
+		PlayPredictedImpactEffects(Hit.Location);
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
@@ -964,6 +968,46 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		*OutHit = Hit;
 	}
+}
+
+void AUTWeapon::PlayPredictedImpactEffects(FVector ImpactLoc)
+{
+	if (!UTOwner)
+	{
+		return;
+	}
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
+	float SleepTime = UTPC ? UTPC->GetProjectileSleepTime() : 0.f;
+	if (SleepTime > 0.f)
+	{
+		if (GetWorldTimerManager().IsTimerActive(this, &AUTWeapon::PlayDelayedImpactEffects))
+		{
+			// play the delayed effect now, since we are about to replace it
+			PlayDelayedImpactEffects();
+		}
+		FVector SpawnLocation;
+		FRotator SpawnRotation;
+		GetImpactSpawnPosition(ImpactLoc, SpawnLocation, SpawnRotation);
+		DelayedHitScan.ImpactLocation = ImpactLoc;
+		DelayedHitScan.FireMode = CurrentFireMode;
+		DelayedHitScan.SpawnLocation = SpawnLocation;
+		DelayedHitScan.SpawnRotation = SpawnRotation;
+		GetWorldTimerManager().SetTimer(this, &AUTWeapon::PlayDelayedImpactEffects, SleepTime, false);
+	}
+	else
+	{
+		UTOwner->SetFlashLocation(ImpactLoc, CurrentFireMode);
+		FVector SpawnLocation;
+		FRotator SpawnRotation;
+		GetImpactSpawnPosition(ImpactLoc, SpawnLocation, SpawnRotation);
+		PlayImpactEffects(ImpactLoc, CurrentFireMode, SpawnLocation, SpawnRotation);
+	}
+}
+
+void AUTWeapon::PlayDelayedImpactEffects()
+{
+	UTOwner->SetFlashLocation(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode);
+	PlayImpactEffects(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode, DelayedHitScan.SpawnLocation, DelayedHitScan.SpawnRotation);
 }
 
 float AUTWeapon::GetImpartedMomentumMag(AActor* HitActor)
