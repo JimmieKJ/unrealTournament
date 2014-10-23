@@ -162,7 +162,7 @@ struct UNREALTOURNAMENT_API FSingleEndpointEval : public FUTNodeEvaluator
 	explicit FSingleEndpointEval(AActor* InGoalActor)
 		: GoalActor(InGoalActor), GoalLoc(InGoalActor->GetActorLocation())
 	{}
-	explicit FSingleEndpointEval(FVector InGoalLoc)
+	explicit FSingleEndpointEval(const FVector& InGoalLoc)
 		: GoalActor(NULL), GoalLoc(InGoalLoc)
 	{}
 };

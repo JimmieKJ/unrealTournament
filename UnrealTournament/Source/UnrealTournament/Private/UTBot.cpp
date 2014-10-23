@@ -32,6 +32,7 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 			LastKnownLoc = LastSeenLoc;
 			LastSeenTime = Pawn->GetWorld()->TimeSeconds;
 			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			bLostEnemy = false;
 			if (!bHasExactHealth && UTChar != NULL)
 			{
 				EffectiveHealthPct = UTChar->GetEffectiveHealthPct(true);
@@ -40,6 +41,7 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 		case EUT_HeardExact:
 			LastKnownLoc = Pawn->GetActorLocation();
 			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			bLostEnemy = false;
 			break;
 		case EUT_HeardApprox:
 			// TODO: set a "general area" sphere?
@@ -49,11 +51,13 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 			// TODO: only update LastKnownLoc/LastFullUpdateTime if recently fired the projectile?
 			LastKnownLoc = Pawn->GetActorLocation();
 			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			bLostEnemy = false;
 			break;
 		case EUT_DealtDamage:
 			// TODO: only update LastKnownLoc if recently fired the projectile?
 			LastKnownLoc = Pawn->GetActorLocation();
 			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			bLostEnemy = false;
 			if (UTChar != NULL)
 			{
 				EffectiveHealthPct = UTChar->GetEffectiveHealthPct(false);
@@ -63,6 +67,7 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 		case EUT_HealthUpdate:
 			LastKnownLoc = Pawn->GetActorLocation();
 			LastFullUpdateTime = Pawn->GetWorld()->TimeSeconds;
+			bLostEnemy = false;
 			if (UTChar != NULL && bHasExactHealth)
 			{
 				EffectiveHealthPct = UTChar->GetEffectiveHealthPct(false);
@@ -1430,12 +1435,12 @@ void AUTBot::ExecuteWhatToDoNext()
 				{
 					if (LostContact(4.0f))
 					{
-						//LoseEnemy();
+						Squad->LostEnemy(this);
 					}
 				}
 				else if (LostContact(7.0f))
 				{
-					//LoseEnemy();
+					Squad->LostEnemy(this);
 				}
 			}
 		}
@@ -1640,7 +1645,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 			if (Squad->MustKeepEnemy(Enemy))
 			{
 				GoalString = "Hunt priority enemy";
-				//GotoState('Hunting');
+				DoHunt();
 			}
 			else if (!bCanCharge)
 			{
@@ -1668,7 +1673,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 			else
 			{
 				GoalString = "Hunt";
-				//GotoState('Hunting');
+				DoHunt();
 			}
 		}
 		else
@@ -1820,6 +1825,26 @@ void AUTBot::DoRangedAttackOn(AActor* NewTarget)
 	StartNewAction(RangedAttackAction);
 }
 
+void AUTBot::DoHunt()
+{
+	if (Enemy == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no enemy"), *PlayerState->PlayerName);
+		DoTacticalMove();
+	}
+	else
+	{
+		// TODO: guess future destination, intercept path, try to find high ground, etc
+		FSingleEndpointEval NodeEval(GetEnemyLocation(Enemy, true));
+		float Weight = 0.0f;
+		if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+		{
+			SetMoveTarget(RouteCache[0]);
+			StartNewAction(ChargeAction); // TODO: hunting action
+		}
+	}
+}
+
 float AUTBot::RelativeStrength(APawn* Other)
 {
 	const FBotEnemyInfo* Info = GetEnemyInfo(Other, true);
@@ -1829,7 +1854,7 @@ float AUTBot::RelativeStrength(APawn* Other)
 	}
 	else
 	{
-		// TODO: account for implict strength of pawn class (relevant for vehicles - 100% tank health isn't the same as 100% human health)
+		// TODO: account for implicit strength of pawn class (relevant for vehicles - 100% tank health isn't the same as 100% human health)
 		float Relation = Info->EffectiveHealthPct - ((UTChar != NULL) ? UTChar->GetEffectiveHealthPct(false) : 1.0f);
 
 		if (UTChar != NULL && UTChar->GetWeapon() != NULL)
@@ -1900,7 +1925,7 @@ void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Mome
 
 void AUTBot::NotifyCausedHit(APawn* HitPawn, int32 Damage)
 {
-	if (HitPawn->Controller != NULL && !HitPawn->bTearOff)
+	if (HitPawn != GetPawn() && HitPawn->Controller != NULL && !HitPawn->bTearOff)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(HitPawn, this))
@@ -1912,36 +1937,39 @@ void AUTBot::NotifyCausedHit(APawn* HitPawn, int32 Damage)
 
 void AUTBot::NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius)
 {
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS == NULL || !GS->OnSameTeam(PickedUpBy, this))
+	if (GetPawn() != NULL && GetPawn() != PickedUpBy)
 	{
-		bool bCanUpdateEnemyInfo = Pickup->IsA(AUTPickupHealth::StaticClass());
-		if (!bCanUpdateEnemyInfo)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(PickedUpBy, this))
 		{
-			TSubclassOf<AUTInventory> InventoryType = NULL;
+			bool bCanUpdateEnemyInfo = Pickup->IsA(AUTPickupHealth::StaticClass());
+			if (!bCanUpdateEnemyInfo)
+			{
+				TSubclassOf<AUTInventory> InventoryType = NULL;
 
-			AUTDroppedPickup* DP = Cast<AUTDroppedPickup>(Pickup);
-			if (DP != NULL)
-			{
-				InventoryType = DP->GetInventoryType();
-			}
-			else
-			{
-				AUTPickupInventory* InvPickup = Cast<AUTPickupInventory>(Pickup);
-				if (InvPickup != NULL)
+				AUTDroppedPickup* DP = Cast<AUTDroppedPickup>(Pickup);
+				if (DP != NULL)
 				{
-					InventoryType = InvPickup->GetInventoryType();
+					InventoryType = DP->GetInventoryType();
+				}
+				else
+				{
+					AUTPickupInventory* InvPickup = Cast<AUTPickupInventory>(Pickup);
+					if (InvPickup != NULL)
+					{
+						InventoryType = InvPickup->GetInventoryType();
+					}
+				}
+				// assume inventory items that manipulate damage change effective health
+				if (InventoryType != NULL)
+				{
+					bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
 				}
 			}
-			// assume inventory items that manipulate damage change effective health
-			if (InventoryType != NULL)
+			if (bCanUpdateEnemyInfo && (Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
 			{
-				bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
+				UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
 			}
-		}
-		if (bCanUpdateEnemyInfo && (Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
-		{
-			UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
 		}
 	}
 }
@@ -2267,6 +2295,7 @@ void AUTBot::PickNewEnemy()
 					if (Rating > BestRating)
 					{
 						BestEnemy = EnemyInfo.GetPawn();
+						BestRating = Rating;
 					}
 				}
 			}
@@ -2383,6 +2412,22 @@ void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 	}
 }
 
+void AUTBot::RemoveEnemy(APawn* OldEnemy)
+{
+	for (TArray<FBotEnemyInfo>::TIterator It(LocalEnemyList); It; ++It)
+	{
+		if (It->GetPawn() == OldEnemy)
+		{
+			It->bLostEnemy = true;
+			if (OldEnemy == Enemy)
+			{
+				SetEnemy(NULL);
+			}
+			break;
+		}
+	}
+}
+
 void AUTBot::SetEnemy(APawn* NewEnemy)
 {
 	if (NewEnemy != Enemy)
@@ -2443,10 +2488,13 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 
 void AUTBot::HearSound(APawn* Other, const FVector& SoundLoc, float SoundRadius)
 {
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS == NULL || !GS->OnSameTeam(Other, this))
+	if (Other != GetPawn())
 	{
-		UpdateEnemyInfo(Other, ((SoundLoc - GetPawn()->GetActorLocation()).Size() < SoundRadius * HearingRadiusMult * 0.5f) ? EUT_HeardExact : EUT_HeardApprox);
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(Other, this))
+		{
+			UpdateEnemyInfo(Other, ((SoundLoc - GetPawn()->GetActorLocation()).Size() < SoundRadius * HearingRadiusMult * 0.5f) ? EUT_HeardExact : EUT_HeardApprox);
+		}
 	}
 }
 

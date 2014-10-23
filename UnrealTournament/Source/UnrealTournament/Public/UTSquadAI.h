@@ -67,6 +67,11 @@ public:
 		return false;
 	}
 
+	/** called when bot lost track of enemy and wants a new one. Assigning one is optional.
+	 * @return whether a new enemy was assigned
+	 */
+	virtual bool LostEnemy(AUTBot* B);
+
 	/** @return modified rating for enemy, taking into account objectives */
 	virtual float ModifyEnemyRating(float CurrentRating, const FBotEnemyInfo& EnemyInfo, AUTBot* B)
 	{

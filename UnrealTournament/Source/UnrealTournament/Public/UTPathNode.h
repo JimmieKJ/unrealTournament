@@ -34,6 +34,11 @@ struct FCapsuleSize
 	{
 		return Radius == Other.Radius && Height == Other.Height;
 	}
+
+	FVector GetExtent() const
+	{
+		return FVector(Radius, Radius, Height);
+	}
 };
 
 /** holds a position optionally relative to a component

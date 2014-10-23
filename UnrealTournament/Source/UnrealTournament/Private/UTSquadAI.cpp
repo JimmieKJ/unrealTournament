@@ -36,6 +36,41 @@ void AUTSquadAI::SetLeader(AController* NewLeader)
 	}
 }
 
+bool AUTSquadAI::LostEnemy(AUTBot* B)
+{
+	if (B->GetEnemy() == NULL || B->GetEnemy()->Controller == NULL)
+	{
+		B->SetEnemy(NULL);
+		B->PickNewEnemy();
+		return true;
+	}
+	else if (MustKeepEnemy(B->GetEnemy()))
+	{
+		return false;
+	}
+	else if (Team == NULL)
+	{
+		B->RemoveEnemy(B->GetEnemy());
+		B->PickNewEnemy();
+		return true;
+	}
+	else
+	{
+		// if teammates have detected enemy recently then don't let bot fully lose it, but still let it check for other higher priority enemies
+		APawn* PrevEnemy = B->GetEnemy();
+		if (Team != NULL)
+		{
+			const FBotEnemyInfo* TeamEnemyInfo = B->GetEnemyInfo(B->GetEnemy(), true);
+			if (TeamEnemyInfo != NULL && GetWorld()->TimeSeconds - TeamEnemyInfo->LastFullUpdateTime > 5.0f)
+			{
+				B->RemoveEnemy(B->GetEnemy());
+			}
+		}
+		B->PickNewEnemy();
+		return PrevEnemy != B->GetEnemy();
+	}
+}
+
 bool AUTSquadAI::CheckSquadObjectives(AUTBot* B)
 {
 	return false;

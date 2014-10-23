@@ -1079,11 +1079,11 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 
 bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData)
 {
-	GoalNode = NavData->FindNearestNode(GoalLoc, (GoalActor != NULL) ? GoalActor->GetSimpleCollisionCylinderExtent() : FVector::ZeroVector);
+	GoalNode = NavData->FindNearestNode(GoalLoc, (GoalActor != NULL) ? NavData->GetPOIExtent(GoalActor) : NavData->GetHumanPathSize().GetExtent());
 	if (GoalNode == NULL && GoalActor != NULL)
 	{
 		// try bottom of collision, since Recast doesn't seem to care about extent
-		GoalNode = NavData->FindNearestNode(GoalLoc - FVector(0.0f, 0.0f, GoalActor->GetSimpleCollisionHalfHeight()), GoalActor->GetSimpleCollisionCylinderExtent());
+		GoalNode = NavData->FindNearestNode(GoalLoc - FVector(0.0f, 0.0f, GoalActor->GetSimpleCollisionHalfHeight()), NavData->GetPOIExtent(GoalActor));
 	}
 	return GoalNode != NULL;
 }

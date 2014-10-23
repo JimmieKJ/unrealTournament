@@ -341,6 +341,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
 	virtual void UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType);
 
+	/** removes enemy from bot's consideration
+	 * this doesn't necessarily actually remove the enemy data (in case it has some future value for guessing enemy actions, depending on how old it is)
+	 * but rather flags it to be ignored for PickNewEnemy()
+	 */
+	virtual void RemoveEnemy(APawn* OldEnemy);
+
 	/** fire mode bot wants to use for next shot; this is determined early so bot can decide whether to lead, etc */
 	UPROPERTY()
 	uint8 NextFireMode;
@@ -544,6 +550,8 @@ public:
 	virtual void DoTacticalMove();
 	/** do a stationary (or minor strafing, if skilled enough) attack on the given target. Priority is accuracy, not evasion */
 	virtual void DoRangedAttackOn(AActor* NewTarget);
+	/** hunt current enemy (assumed not currently attackable), attempting to predict its path and intercept it at an advantageous position */
+	virtual void DoHunt();
 
 	// action accessors
 	inline void StartWaitForMove()
