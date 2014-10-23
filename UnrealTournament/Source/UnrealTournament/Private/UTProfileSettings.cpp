@@ -102,6 +102,9 @@ void UUTProfileSettings::GatherInputSettings()
 		MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
 		MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
 		bSingleTapWallDodge = PC->bSingleTapWallDodge;
+		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
+		WeaponBob = PC->WeaponBobGlobalScaling;
+		FFAPlayerColor = PC->FFAPlayerColor;
 	}
 
 }

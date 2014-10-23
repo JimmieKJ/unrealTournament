@@ -410,6 +410,12 @@ FReply SUWPlayerSettingsDialog::OKClick()
 		It->FFAPlayerColor = SelectedPlayerColor;
 	}
 	AUTPlayerController::StaticClass()->GetDefaultObject()->SaveConfig();
+	if (ProfileSettings != NULL)
+	{
+		ProfileSettings->SetAutoWeaponSwitch(AutoWeaponSwitch->IsChecked());
+		ProfileSettings->SetWeaponBob(WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR);
+		ProfileSettings->SetFFAPlayerColor(SelectedPlayerColor);
+	}
 	// call to characters to apply FFA color change
 	if (GetPlayerOwner()->PlayerController != NULL)
 	{
@@ -429,7 +435,7 @@ FReply SUWPlayerSettingsDialog::OKClick()
 		WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = float(WeaponList.Num() - i); // top of list is highest priority
 		WeaponList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
 
-		if (ProfileSettings)
+		if (ProfileSettings != NULL)
 		{
 			ProfileSettings->SetWeaponPriority(GetNameSafe(WeaponList[i]), WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
 		}
