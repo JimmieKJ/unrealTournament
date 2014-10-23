@@ -825,15 +825,18 @@ public class PackageCookedDir : BuildCommand
         var Params = GetParams(this, DLCName);
 
         // Cook dedicated server configs
-        var DeployContextList = Project.CreateDeploymentContext(Params, true, true);
-        foreach (var SC in DeployContextList)
+        if (Params.DedicatedServer)
         {
-            CookAndStage(SC, Params);
+            var DeployContextServerList = Project.CreateDeploymentContext(Params, true, true);
+            foreach (var SC in DeployContextServerList)
+            {
+                CookAndStage(SC, Params);
+            }
         }
 
         // Cook client configs
-        DeployContextList = Project.CreateDeploymentContext(Params, false, true);
-        foreach (var SC in DeployContextList)
+        var DeployClientContextList = Project.CreateDeploymentContext(Params, false, true);
+        foreach (var SC in DeployClientContextList)
         {
             CookAndStage(SC, Params);
         }
