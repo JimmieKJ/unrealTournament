@@ -15,6 +15,8 @@ void SUWToast::Construct(const FArguments& InArgs)
 	Lifetime = InArgs._Lifetime;
 	InitialLifetime = Lifetime;
 
+	SetVisibility(EVisibility::HitTestInvisible);
+
 	ChildSlot
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
