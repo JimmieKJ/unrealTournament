@@ -192,6 +192,7 @@ void UUTLocalPlayer::ShowMenu()
 			{
 				PlayerController->MyHUD->bShowHUD = false;
 			}
+			PlayerController->SetPause(true);
 		}
 	}
 #endif
@@ -212,6 +213,7 @@ void UUTLocalPlayer::HideMenu()
 				PlayerController->MyHUD->bShowHUD = true;
 			}
 			PlayerController->SetInputMode(FInputModeGameOnly());
+			PlayerController->SetPause(true);
 		}
 
 		FSlateApplication::Get().SetFocusToGameViewport();
@@ -238,7 +240,7 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 
 void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog)
 {
-	GEngine->GameViewport->AddViewportWidgetContent(Dialog);
+	GEngine->GameViewport->AddViewportWidgetContent(Dialog,255);
 	Dialog->OnDialogOpened();
 }
 
