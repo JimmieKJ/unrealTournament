@@ -304,7 +304,12 @@ void SUWControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Console", "Console")))
 		->AddMapping("Console")
 		->AddDefaults(EKeys::Tilde)));
-
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Talk", "Talk")))
+		->AddMapping("Talk")
+		->AddDefaults(EKeys::T)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Team Talk", "Team Talk")))
+		->AddMapping("TeamTalk")
+		->AddDefaults(EKeys::Y)));
 
 	// TODO: mod binding registration
 }

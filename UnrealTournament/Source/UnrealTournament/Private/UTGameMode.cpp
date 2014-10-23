@@ -1003,8 +1003,12 @@ AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& Incomin
 	return Best;
 }
 
-AActor* AUTGameMode::ChoosePlayerStart( AController* Player )
+AActor* AUTGameMode::ChoosePlayerStart(AController* Player)
 {
+	if (PlayerStarts.Num() == 0)
+	{
+		return Super::ChoosePlayerStart(Player);
+	}
 	if (GetWorld()->WorldType == EWorldType::PIE)
 	{
 		for (int32 i = 0; i < PlayerStarts.Num(); i++)
