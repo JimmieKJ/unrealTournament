@@ -60,6 +60,8 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	bAutoSlide = false;
 	bHoldAccelWithSlideRoll = true;
 
+	bSpectateBehindView = true;
+
 	PredictionFudgeFactor = 30.f;
 	MaxPredictionPing = 0.f; 
 	DesiredPredictionPing = 0.f;
@@ -1197,6 +1199,10 @@ bool AUTPlayerController::CanRestartPlayer()
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
 {
+	if (IsInState(NAME_Spectating))
+	{
+		bSpectateBehindView = bWantBehindView;
+	}
 	SetCameraMode(bWantBehindView ? FName(TEXT("FreeCam")) : FName(TEXT("Default")));
 }
 

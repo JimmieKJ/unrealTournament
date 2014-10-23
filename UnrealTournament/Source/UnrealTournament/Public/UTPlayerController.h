@@ -217,6 +217,17 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetAutoSlide(bool bNewAutoSlide);
 
+	/** whether player wants behindview when spectating */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Camera)
+	bool bSpectateBehindView;
+
+	virtual void ViewAPlayer(int32 dir)
+	{
+		BehindView(bSpectateBehindView);
+
+		Super::ViewAPlayer(dir);
+	}
+
 	/** user configurable FOV setting */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
 	float ConfigDefaultFOV;
