@@ -29,6 +29,14 @@ void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 
 void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
 {
+	if (bFakeClientProjectile)
+	{
+		if (MasterProjectile && !MasterProjectile->IsPendingKillPending())
+		{
+			MasterProjectile->ReceiveAnyDamage(Damage, DamageType, InstigatedBy, DamageCauser);
+		}
+		return;
+	}
 	if (ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
@@ -47,6 +55,15 @@ void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* 
 void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
 {
 	// @TODO FIXMESTEVE - do I limit how far I move combo, so fair to all?
+	TArray<USphereComponent*> Components;
+	GetComponents<USphereComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		if (Components[i] != CollisionComp)
+		{
+			Components[i]->SetCollisionResponseToAllChannels(ECR_Ignore);
+		}
+	}
 	SetActorLocation(HitLocation);
 	PerformCombo(InstigatedBy, DamageCauser);
 }
@@ -66,7 +83,6 @@ void AUTProj_ShockBall::PerformCombo(class AController* InstigatedBy, class AAct
 	// Replicate combo and execute locally
 	bComboExplosion = true;
 	OnRep_ComboExplosion();
-
 	Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 }
 
@@ -85,6 +101,15 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 {
 	if (!bExploded)
 	{
+		if (MyDamageType == ComboDamageType)
+		{
+			// special case for combo - get rid of fake projectile
+			if (MyFakeProjectile)
+			{
+				MyFakeProjectile->Destroy();
+				MyFakeProjectile = NULL;
+			}
+		}
 		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
 		if (bComboExplosion)
 		{
