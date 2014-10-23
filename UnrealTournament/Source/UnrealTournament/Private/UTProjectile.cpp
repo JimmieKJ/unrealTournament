@@ -457,20 +457,25 @@ void AUTProjectile::PostNetReceiveVelocity(const FVector& NewVelocity)
 
 void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogUTProjectile, Verbose, TEXT("%s::OnOverlapBegin OtherActor:%s bFromSweep:%d"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"), int32(bFromSweep));
-
-	FHitResult Hit;
-
-	if (bFromSweep)
+	if (!bInOverlap)
 	{
-		Hit = SweepResult;
-	}
-	else
-	{
-		OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
-	}
+		TGuardValue<bool> OverlapGuard(bInOverlap, true);
 
-	ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
+		UE_LOG(LogUTProjectile, Verbose, TEXT("%s::OnOverlapBegin OtherActor:%s bFromSweep:%d"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"), int32(bFromSweep));
+
+		FHitResult Hit;
+
+		if (bFromSweep)
+		{
+			Hit = SweepResult;
+		}
+		else
+		{
+			OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
+		}
+
+		ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
+	}
 }
 
 void AUTProjectile::OnStop(const FHitResult& Hit)

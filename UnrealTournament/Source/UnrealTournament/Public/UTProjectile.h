@@ -170,6 +170,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	 */
 	bool bForceNextRepMovement;
 
+	/** re-entrancy guard */
+	bool bInOverlap;
+
 	/** Fake client side projectile (spawned on owning client). */
 	UPROPERTY()
 	bool bFakeClientProjectile;
