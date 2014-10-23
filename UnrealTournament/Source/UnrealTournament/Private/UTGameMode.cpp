@@ -1587,6 +1587,8 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	ConfigProps.Add(ForceRespawnAttr);
 	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount));
 	ConfigProps.Add(CombatantsAttr);
+	TSharedPtr< TAttributeProperty<float> > BotSkillAttr = MakeShareable(new TAttributeProperty<float>(this, &GameDifficulty));
+	ConfigProps.Add(BotSkillAttr);
 
 	MenuSpace->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
@@ -1613,6 +1615,35 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 				SNew(STextBlock)
 				.ColorAndOpacity(FLinearColor::Black)
 				.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+			]
+		]
+	];
+	// TODO: BotSkill should be a list box with the usual items; this is a simple placeholder
+	MenuSpace->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	.VAlign(VAlign_Top)
+	.HAlign(HAlign_Center)
+	[
+		SNew(SBox)
+		.WidthOverride(200.0f)
+		.Content()
+		[
+			SNew(SNumericEntryBox<float>)
+			.LabelPadding(FMargin(10.0f, 0.0f))
+			.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
+			.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
+			.AllowSpin(true)
+			.Delta(1)
+			.MinValue(0)
+			.MaxValue(7)
+			.MinSliderValue(0)
+			.MaxSliderValue(7)
+			.Label()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(NSLOCTEXT("UTGameMode", "BotSkill", "Bot Skill"))
 			]
 		]
 	];
