@@ -6,6 +6,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealNetwork.h"
 #include "UTDamageType.h"
+#include "UTLift.h"
 
 AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -182,6 +183,7 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 		FHitResult Hit(OtherActor, OtherComp, HitLocation, HitNormal);
 		ProjectileMovement->Velocity = ComputeBounceResult(Hit, 0.0f, FVector::ZeroVector);
 		OnBounce(Hit, ProjectileMovement->Velocity);
+		DetachRootComponentFromParent(true);
 	}
 }
 
@@ -205,6 +207,11 @@ void AUTProj_TransDisk::OnStop(const FHitResult& Hit)
 		FRotator DiskRot = (Hit.Normal).Rotation();
 		DiskRot.Pitch += 90.f;
 		DiskMesh->SetRelativeRotation(DiskRot - NewRot);
+	}
+	AUTLift* Lift = Cast<AUTLift>(Hit.Actor.Get());
+	if (Lift && Lift->GetEncroachComponent())
+	{
+		AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
 	}
 }
 
