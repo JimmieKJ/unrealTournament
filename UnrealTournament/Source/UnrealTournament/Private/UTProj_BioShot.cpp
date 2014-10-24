@@ -5,6 +5,7 @@
 #include "UTProj_BioGlob.h"
 #include "UnrealNetwork.h"
 #include "UTImpactEffect.h"
+#include "UTLift.h"
 
 static const float GOO_TIMER_TICK = 0.5f;
 
@@ -91,7 +92,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 {
 	if (bFakeClientProjectile)
 	{
-		ShutDown();
+		ShutDown(); // @TODO FIXMESTEVE
 		return;
 	}
 	if (!bLanded)
@@ -160,7 +161,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 {
 	if (bFakeClientProjectile)
 	{
-		ShutDown();
+		ShutDown(); // @TODO FIXMESTEVE
 		return;
 	}
 	if (Cast<AUTProj_BioGlob>(OtherActor) == NULL) // bio glob's ProcessHit() will absorb us
@@ -185,6 +186,12 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 			SetActorLocation(HitLocation);
 
 			Landed(OtherComp);
+
+			AUTLift* Lift = Cast<AUTLift>(OtherActor);
+			if (Lift && Lift->GetEncroachComponent())
+			{
+				AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
+			}
 		}
 	}
 }
