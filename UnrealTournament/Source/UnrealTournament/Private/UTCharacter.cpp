@@ -442,6 +442,12 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 void AUTCharacter::NotifyJumpApex()
 {
 	DesiredJumpBob = FVector(0.f);
+
+	AUTBot* B = Cast<AUTBot>(Controller);
+	if (B != NULL)
+	{
+		//B->NotifyJumpApex();
+	}
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -1039,13 +1045,21 @@ void AUTCharacter::PlayDying()
 			{
 				UTDmg.GetDefaultObject()->PlayDeathEffects(this);
 			}
-			GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 15.0f, false);
+			// StartRagdoll() changes collision properties, which can potentially result in a new overlap -> more damage -> gib explosion -> Destroy()
+			// SetTimer() has a dumb assert if the target of the function is already destroyed, so we need to check it ourselves
+			if (!bPendingKillPending)
+			{
+				GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 15.0f, false);
+			}
 		}
 	}
 	else
 	{
 		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		SetLifeSpan(0.25f);
+		if (!bPendingKillPending) // FIXME temp hack
+		{
+			SetLifeSpan(0.25f);
+		}
 	}
 }
 
