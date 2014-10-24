@@ -3115,7 +3115,11 @@ void AUTCharacter::OnRepEmote()
 void AUTCharacter::PlayEmote(int32 EmoteIndex)
 {
 	EmoteReplicationInfo.EmoteIndex = EmoteIndex;
-	EmoteReplicationInfo.bNewData = !EmoteReplicationInfo.bNewData;
+
+	if (Role == ROLE_Authority)
+	{
+		EmoteReplicationInfo.EmoteCount++;
+	}
 
 	if (EmoteAnimations.IsValidIndex(EmoteIndex) && EmoteAnimations[EmoteIndex] != nullptr && !bFeigningDeath)
 	{

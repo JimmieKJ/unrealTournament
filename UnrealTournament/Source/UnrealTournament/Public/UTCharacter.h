@@ -133,7 +133,7 @@ struct FEmoteRepInfo
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	bool bNewData;
+	uint8 EmoteCount;
 
 	UPROPERTY()
 	int32 EmoteIndex;
@@ -298,6 +298,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UAnimMontage* CurrentEmote;
 
 	// Keep track of emote count so we can clear CurrentEmote
+	UPROPERTY()
 	int32 EmoteCount;
 
 	/** Stored past positions of this player.  Used for bot aim error model, and for server side hit resolution. */
