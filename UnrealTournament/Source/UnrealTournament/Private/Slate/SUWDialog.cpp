@@ -257,9 +257,15 @@ FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyboardEvent& I
 {
 	if (InKeyboardEvent.GetKey() == EKeys::Tab)
 	{
-
 		int32 NewStop = (InKeyboardEvent.IsLeftShiftDown() || InKeyboardEvent.IsRightShiftDown()) ? -1 : 1;
-		TabStop = (TabStop + NewStop) % TabTable.Num();
+		if (TabStop + NewStop < 0)
+		{
+			TabStop = TabTable.Num() - 1;
+		}
+		else
+		{
+			TabStop = (TabStop + NewStop) % TabTable.Num();
+		}
 
 		FSlateApplication::Get().SetKeyboardFocus(TabTable[TabStop], EKeyboardFocusCause::Keyboard);	
 	}
