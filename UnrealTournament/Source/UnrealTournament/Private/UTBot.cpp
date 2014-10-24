@@ -2262,7 +2262,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 
 void AUTBot::PickNewEnemy()
 {
-	if (Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false))
+	if (GetPawn() != NULL && (Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)))
 	{
 		LastPickEnemyTime = GetWorld()->TimeSeconds;
 
