@@ -88,6 +88,14 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				Other->Destroy();
 				return;
 			}
+			if (Cast<AUTCarriedObject>(Other))
+			{
+				AUTCarriedObject* DroppedFlag = Cast<AUTCarriedObject>(Other);
+				DroppedFlag->MovementComponent->StopSimulating(Hit);
+				DroppedFlag->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+				bMoveWasBlocked = true;
+			}
+
 			OnEncroachActor(Other);
 			LastEncroachNotifyTime = GetWorld()->GetTimeSeconds();
 		}

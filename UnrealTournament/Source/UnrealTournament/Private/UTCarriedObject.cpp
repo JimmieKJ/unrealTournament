@@ -322,6 +322,7 @@ void AUTCarriedObject::Use()
 
 void AUTCarriedObject::SendHome()
 {
+	DetachRootComponentFromParent(true);
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
 
 	NoLongerHeld();
