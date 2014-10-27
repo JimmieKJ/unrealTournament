@@ -72,6 +72,10 @@ void AUTGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// HACK: temporary hack around config property replication bug; force to be different from defaults
+	ServerName += TEXT(" ");
+	ServerMOTD += TEXT(" ");
+
 	// HACK: temporary workaround for replicated world gravity getting clobbered on client
 	if (GetNetMode() == NM_Client)
 	{
