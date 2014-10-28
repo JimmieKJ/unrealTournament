@@ -47,8 +47,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeP
 	MultiJumpAirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 4200.f; 
-	BrakingDecelerationWalking = 4800.f;
+	MaxAcceleration = 6000.f; 
+	MaxFallingAcceleration = 4200.f;
+	BrakingDecelerationWalking = 6600.f;
+	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	GravityScale = 1.f;
 	DodgeImpulseHorizontal = 1350.f;
@@ -683,6 +685,10 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 	if (bIsDodgeRolling)
 	{
 		return DodgeRollAcceleration;
+	}
+	if (MovementMode == MOVE_Falling)
+	{
+		return MaxFallingAcceleration;
 	}
 	return (bIsSprinting && (Velocity.SizeSquared() > MaxWalkSpeed*MaxWalkSpeed)) ? SprintAccel : Super::GetMaxAcceleration();
 }

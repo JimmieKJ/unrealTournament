@@ -55,6 +55,10 @@ public:
 	UPROPERTY()
 	float AvgSpeed;
 
+	/** Max Acceleration when falling (will be scaled by AirControl property). */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+	float MaxFallingAcceleration;
+
 	/** Max speed player can travel in water (faster than powered swim speed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Swimming)
 		float MaxWaterSpeed;
