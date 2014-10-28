@@ -29,6 +29,15 @@ UUTLocalPlayer::UUTLocalPlayer(const class FPostConstructInitializeProperties& P
 	bInitialSignInAttempt = true;
 }
 
+UUTLocalPlayer::~UUTLocalPlayer()
+{
+	// Terminate the dedicated server if we started one
+	if (DedicatedServerProcessHandle.IsValid() && FPlatformProcess::IsProcRunning(DedicatedServerProcessHandle))
+	{
+		FPlatformProcess::TerminateProc(DedicatedServerProcessHandle);
+	}
+}
+
 void UUTLocalPlayer::InitializeOnlineSubsystem()
 {
 	OnlineSubsystem = IOnlineSubsystem::Get();

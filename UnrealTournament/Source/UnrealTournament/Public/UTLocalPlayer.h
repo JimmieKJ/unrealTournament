@@ -47,6 +47,7 @@ class UUTLocalPlayer : public ULocalPlayer
 	GENERATED_UCLASS_BODY()
 
 public:
+	virtual ~UUTLocalPlayer();
 
 	virtual bool IsMenuGame();
 
