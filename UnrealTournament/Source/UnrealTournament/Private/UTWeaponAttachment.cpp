@@ -3,6 +3,7 @@
 #include "UTWeaponAttachment.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTImpactEffect.h"
+#include "UTWorldSettings.h"
 
 AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -17,6 +18,9 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializePropertie
 	WeaponStance = 0;
 
 	bCopyWeaponImpactEffect = true;
+
+	ImpactEffectAlwaysSpawnDist = 200.f;
+	ImpactEffectCullDistance = 4000.f;
 }
 
 void AUTWeaponAttachment::BeginPlay()
@@ -34,6 +38,8 @@ void AUTWeaponAttachment::BeginPlay()
 			ImpactEffect = WeaponType.GetDefaultObject()->ImpactEffect;
 			ImpactEffectSkipDistance = WeaponType.GetDefaultObject()->ImpactEffectSkipDistance;
 			MaxImpactEffectSkipTime = WeaponType.GetDefaultObject()->MaxImpactEffectSkipTime;
+			ImpactEffectAlwaysSpawnDist = WeaponType.GetDefaultObject()->ImpactEffectAlwaysSpawnDist;
+			ImpactEffectCullDistance = WeaponType.GetDefaultObject()->ImpactEffectCullDistance;
 		}
 		AttachToOwner();
 	}
@@ -135,15 +141,20 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		MuzzleFlash[UTOwner->FireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[UTOwner->FireMode]->ComponentToWorld.InverseTransformPosition(UTOwner->FlashLocation));
 	}
 
-	if ((UTOwner->FlashLocation - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
+	bool bIsLocallyOwnedEffect = (UTOwner && UTOwner->GetController() && UTOwner->GetController()->IsLocalPlayerController());
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (WS && WS->EffectIsRelevant(UTOwner, UTOwner->FlashLocation, false, bIsLocallyOwnedEffect, ImpactEffectCullDistance, ImpactEffectAlwaysSpawnDist, false))
 	{
-		if (ImpactEffect.IsValidIndex(UTOwner->FireMode) && ImpactEffect[UTOwner->FireMode] != NULL)
+		if ((UTOwner->FlashLocation - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
 		{
-			FHitResult ImpactHit = AUTWeapon::GetImpactEffectHit(UTOwner, SpawnLocation, UTOwner->FlashLocation);
-			ImpactEffect[UTOwner->FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+			if (ImpactEffect.IsValidIndex(UTOwner->FireMode) && ImpactEffect[UTOwner->FireMode] != NULL)
+			{
+				FHitResult ImpactHit = AUTWeapon::GetImpactEffectHit(UTOwner, SpawnLocation, UTOwner->FlashLocation);
+				ImpactEffect[UTOwner->FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+			}
+			LastImpactEffectLocation = UTOwner->FlashLocation;
+			LastImpactEffectTime = GetWorld()->TimeSeconds;
 		}
-		LastImpactEffectLocation = UTOwner->FlashLocation;
-		LastImpactEffectTime = GetWorld()->TimeSeconds;
 	}
 }
 
