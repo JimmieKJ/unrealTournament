@@ -8,6 +8,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UTImpactEffect.h"
 #include "UTTeleporter.h"
+#include "UTWorldSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
@@ -77,6 +78,10 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	MyFakeProjectile = NULL;
 	MasterProjectile = NULL;
 	bHasSpawnedFully = false;
+
+	ExplosionAlwaysSpawnDist = 500.f;
+	ExplosionCullDistance = 5000.f;
+	bExplosionAlwaysRelevant = false;
 }
 
 void AUTProjectile::BeginPlay()
@@ -644,7 +649,10 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 		// explosion effect unless I have a fake projectile doing it for me
 		if (!MyFakeProjectile)
 		{
-			if (ExplosionEffects != NULL)
+			bool bIsLocallyOwnedEffect = (InstigatorController && InstigatorController->IsLocalPlayerController());
+			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+			bool bExplosionRelevant = (bExplosionAlwaysRelevant || (WS && WS->EffectIsRelevant(this, GetActorLocation(), true, bIsLocallyOwnedEffect, ExplosionCullDistance, ExplosionAlwaysSpawnDist, false)));
+			if (bExplosionRelevant && (ExplosionEffects != NULL))
 			{
 				ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
 			}
@@ -652,7 +660,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			else
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-				if (GetNetMode() != NM_DedicatedServer)
+				if (bExplosionRelevant)
 				{
 					UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
 				}
@@ -779,3 +787,5 @@ float AUTProjectile::GetMaxDamageRadius_Implementation() const
 {
 	return DamageParams.OuterRadius;
 }
+
+

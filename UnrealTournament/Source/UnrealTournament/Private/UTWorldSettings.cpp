@@ -193,3 +193,58 @@ void AUTWorldSettings::Tick(float DeltaTime)
 		}
 	}
 }
+
+bool AUTWorldSettings::EffectIsRelevant(AActor* RelevantActor, const FVector& SpawnLocation, bool bSpawnNearSelf, bool bIsLocallyOwnedEffect, float CullDistance, float AlwaysSpawnDist, bool bForceDedicated)
+{
+	// dedicated server entirely controlled by bForceDedicated flag, as most effects shouldn't be spawned on server
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return bForceDedicated;
+	}
+
+	// Check if beyond cull distance for all local viewers
+	// @TODO FIXMESTEVE take zoom into account
+	bool bWithinCullDistance = false;
+	bool bBehindAllPlayers = true;
+	// @TODO FIXMESTEVE - add setting for effect cull distance scaling, and a bNeverCull option
+	float CullDistSq = bIsLocallyOwnedEffect ? 2.f*FMath::Square(CullDistance) : FMath::Square(CullDistance);
+	for (ULocalPlayer* LocalPlayer : GEngine->GetGamePlayers(GetWorld()))
+	{
+		if (LocalPlayer->PlayerController)
+		{
+			FVector ViewLoc = LocalPlayer->PlayerController->GetFocalLocation();
+			float DistSq = (ViewLoc - SpawnLocation).SizeSquared();
+			//UE_LOG(UT, Warning, TEXT("Effect dist %f"), (ViewLoc - SpawnLocation).Size());
+			if (DistSq < CullDistSq)
+			{
+				bWithinCullDistance = true;
+				if (DistSq < FMath::Square(AlwaysSpawnDist))
+				{
+					// Always spawn effect when this close
+					// @TODO FIXMESTEVE - do we want to differentiate between dist when in front of viewer versus behind?
+					return true;
+				}
+				if ((LocalPlayer->PlayerController->GetControlRotation().Vector() | (SpawnLocation - ViewLoc).SafeNormal()) > 0.5f)
+				{
+					bBehindAllPlayers = false;
+				}
+			}
+		}
+	}
+	if (bIsLocallyOwnedEffect && bWithinCullDistance)
+	{
+		return true;
+	}
+	if (!bWithinCullDistance || bBehindAllPlayers)
+	{
+		return false;
+	}
+
+	// if effect is spawning near me, always spawn if being rendered
+	if (bSpawnNearSelf)
+	{
+		return (GetWorld()->GetTimeSeconds() - RelevantActor->GetLastRenderTime() < 0.3f);
+	}
+
+	return true;
+}

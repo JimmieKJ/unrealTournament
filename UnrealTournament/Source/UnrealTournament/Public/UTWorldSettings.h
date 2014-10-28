@@ -93,4 +93,14 @@ class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 	virtual void AddTimedMaterialParameter(UMaterialInstanceDynamic* InMI, FName InParamName, UCurveBase* InCurve, bool bInClearOnComplete = true);
 
 	virtual void Tick(float DeltaTime) override;
+
+	/** Return true if effect is relevant and should be spawned on this machine.
+	@PARAM RelevantActor - actor associated with effect being tested
+	@PARAM SpawnLocation - the location at which the effect will be spawned.
+	@PARAM bSpawnNearSelf - if true, the visibility of RelevantActor is relevant to the relevancy decision.
+	@PARAM bIsLocallyOwnedEffect - if true, effect is instigated by player local to this client
+	@PARAM CullDistance - maximum distance from nearest local viewer to spawn this effect.
+	@PARAM AlwaysSpawnDistance - if closer than this to nearest local viewer, always spawn.
+	@PARAM bForceDedicated - Controls whether this effect is relevant on dedicated servers. */
+	virtual bool EffectIsRelevant(AActor* RelevantActor, const FVector& SpawnLocation, bool bSpawnNearSelf, bool bIsLocallyOwnedEffect, float CullDistance, float AlwaysSpawnDist, bool bForceDedicated = false);
 };

@@ -237,14 +237,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float ImpactEffectCullDistance;
 
-	/** Return true if effect is relevant and should be spawned on this machine.
-		@PARAM SpawnLocation - the location at which the effect will be spawned.
-		@PARAM bSpawnNearSelf - if true, the visibility of this actor is relevant to the relevancy decision.
-		@PARAM CullDistance - maximum distance from nearest local viewer to spawn this effect.
-		@PARAM AlwaysSpawnDistance - if closer than this to nearest local viewer, always spawn.
-		@PARAM bForceDedicated - Controls whether this effect is relevant on dedicated servers. */
-	virtual bool EffectIsRelevant(const FVector& SpawnLocation, bool bSpawnNearSelf, float CullDistance, float AlwaysSpawnDist, bool bForceDedicated = false);
-
 	/** time to bring up the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float BringUpTime;
