@@ -213,7 +213,11 @@ void UUTLocalPlayer::ShowMenu()
 			{
 				PlayerController->MyHUD->bShowHUD = false;
 			}
-			PlayerController->SetPause(true);
+
+			if (!IsMenuGame())
+			{
+				PlayerController->SetPause(true);
+			}
 		}
 	}
 #endif
