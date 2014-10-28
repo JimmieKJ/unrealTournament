@@ -274,7 +274,7 @@ void AUTCharacter::Restart()
 		{
 			SwitchWeapon(PendingWeapon);
 		}
-		else if (Weapon != NULL)
+		else if (Weapon != NULL && Weapon->HasAnyAmmo())
 		{
 			SwitchWeapon(Weapon);
 		}
@@ -1714,15 +1714,15 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 {
 	if (NewWeapon != NULL && !IsDead())
 	{
-		if (Role <= ROLE_SimulatedProxy)
-		{
-			UE_LOG(UT, Warning, TEXT("Illegal SwitchWeapon() call on remote client"));
-		}
-		else if (Role == ROLE_Authority)
+		if (Role == ROLE_Authority)
 		{
 			ClientSwitchWeapon(NewWeapon);
 			// NOTE: we don't call LocalSwitchWeapon() here; we ping back from the client so all weapon switches are lead by the client
 			//		otherwise, we get inconsistencies if both sides trigger weapon changes
+		}
+		else if (!IsLocallyControlled())
+		{
+			UE_LOG(UT, Warning, TEXT("Illegal SwitchWeapon() call on remote client"));
 		}
 		else
 		{
