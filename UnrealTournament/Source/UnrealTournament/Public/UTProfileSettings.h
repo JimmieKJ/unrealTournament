@@ -9,8 +9,10 @@
 #include "UTPlayerInput.h"
 #include "UTProfileSettings.generated.h"
 
-static const uint32 VALID_PROFILESETTINGS_VERSION = 4;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 4;
+static const uint32 VALID_PROFILESETTINGS_VERSION = 6;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 6;
+
+class UUTLocalPlayer;
 
 USTRUCT()
 struct FStoredWeaponPriority
@@ -39,89 +41,23 @@ class UUTProfileSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	// Accessor for the simple data types.
-	
-	void SetPlayerName(FString NewName) 
-	{ 
-		if (NewName != PlayerName) 
-		{
-			PlayerName = NewName; 
-			bDirty = true;
-		}
-	};
-
-	FString GetPlayerName() { return PlayerName; };
-
-	void SetAutoWeaponSwitch(bool bNewAutoWeaponSwitch) 
-	{ 
-		if (bAutoWeaponSwitch != bNewAutoWeaponSwitch) 
-		{
-			bAutoWeaponSwitch = bNewAutoWeaponSwitch; 
-			bDirty = true; 
-		}
-	};
-
-	bool GetAutoWeaponSwitch() { return bAutoWeaponSwitch; };
-
-	void SetWeaponBob(float NewWeaponBob) 
-	{ 
-		if (WeaponBob != NewWeaponBob) 
-		{
-			WeaponBob = NewWeaponBob; 
-			bDirty = true; 
-		}
-	};
-
-	float GetWeaponBob() { return WeaponBob; };
-
-	void SetViewBob(float NewViewBob) 
-	{ 
-		if (ViewBob != NewViewBob) 
-		{
-			ViewBob = NewViewBob; 
-			bDirty = true; 
-		}
-	};
-
-	float GetViewBob() { return ViewBob; };
-
-	void SetFFAPlayerColor(FLinearColor NewColor)
-	{
-		if (FFAPlayerColor != NewColor)
-		{
-			FFAPlayerColor = NewColor;
-			bDirty = true;
-		}
-	}
-
-	FLinearColor GetFFAPlayerColor() { return FFAPlayerColor; };
-
-
+	void ClearWeaponPriorities();
 	void SetWeaponPriority(FString WeaponClassName, float NewPriority);
 	float GetWeaponPriority(FString WeaponClassName, float DefaultPriority);
+	/**
+	 *	Gather all of the settings so that this profile object can be saved.
+	 **/
+	void GatherAllSettings(UUTLocalPlayer* ProfilePlayer);
 
 	/**
-	 *	Look at the current player and gather up the input settings for storage.
+	 *	return the current player name.
 	 **/
-	void GatherInputSettings();
+	FString GetPlayerName() { return PlayerName; };
 
 	/**
-	 *	Apply the stored input settings for the current player
+	 *	Apply any settings stored in this profile object
 	 **/
-	void ApplyInputSettings();
-
-
-	/**
-	 *	Will return true if this profile is dirty and needs to be saved
-	 **/
-	bool IsDirty() { return bDirty; };
-
-	void Dirty() { bDirty = true; };
-
-	/**
-	 *	Marks this profile as clean.
-	 **/
-	void Clean() { bDirty = false; };
+	void ApplyAllSettings(UUTLocalPlayer* ProfilePlayer);
 
 	/**
 	 *	Versioning
@@ -130,13 +66,6 @@ class UUTProfileSettings : public UObject
 	uint32 SettingsRevisionNum;
 
 protected:
-
-	/**
-	 * Will be true if the settings are dirty and the profile needs to be saved.  NOTE: We do not make it a UPROPERTY because
-	 * we do not want it to be stored in the payload going up to the MCP.
-	 **/
-
-	uint32 bDirty:1;
 
 	/**
 	 *	Profiles settings go here.  Any standard UPROPERY is supported.
@@ -207,5 +136,8 @@ protected:
 	/** Holds a list of weapon class names (as string) and weapon switch priorities. - NOTE: this will only show priorities of those weapon the player has "seen" and are stored as "WeaponName:####" */
 	UPROPERTY()
 	TArray<FStoredWeaponPriority> WeaponPriorities;
+
+	UPROPERTY()
+	float PlayerFOV;
 
 };

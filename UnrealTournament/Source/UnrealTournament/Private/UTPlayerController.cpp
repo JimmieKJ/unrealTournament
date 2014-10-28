@@ -216,6 +216,8 @@ void AUTPlayerController::SetupInputComponent()
 	Super::SetupInputComponent();
 
 	InputComponent->BindAxis("MoveForward", this, &AUTPlayerController::MoveForward);
+	InputComponent->BindAxis("MoveBackward", this, &AUTPlayerController::MoveBackward);
+	InputComponent->BindAxis("MoveLeft", this, &AUTPlayerController::MoveLeft);
 	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight);
 	InputComponent->BindAxis("MoveUp", this, &AUTPlayerController::MoveUp);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
@@ -692,6 +694,17 @@ void AUTPlayerController::MoveForward(float Value)
 	}
 }
 
+void AUTPlayerController::MoveBackward(float Value)
+{
+	MoveForward(Value * -1);
+}
+
+void AUTPlayerController::MoveLeft(float Value)
+{
+	MoveRight(Value * -1);
+}
+
+
 void AUTPlayerController::MoveRight(float Value)
 {
 	if (Value != 0.0f && UTCharacter != NULL)
@@ -1124,6 +1137,7 @@ void AUTPlayerController::SetName(const FString& S)
 		if (LP != NULL)
 		{
 			LP->SetNickname(S);
+			LP->SaveProfileSettings();
 		}
 	}
 }

@@ -60,7 +60,7 @@ void SUWToast::Construct(const FArguments& InArgs)
 								SNew(STextBlock)
 								.Text(InArgs._ToastText)
 								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Toast.TextStyle")
-								.AutoWrapText(true)
+								//.AutoWrapText(true)
 							]
 						]
 					]

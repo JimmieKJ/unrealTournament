@@ -17,6 +17,7 @@
 #include "Slate/SUWToast.h"
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWLoginDialog.h"
+#include "Slate/SUWPlayerSettingsDialog.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -64,12 +65,26 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 
 FString UUTLocalPlayer::GetNickname() const
 {
-	if (CurrentProfileSettings)
+	return PlayerNickname;
+}
+
+FText UUTLocalPlayer::GetAccountDisplayName() const
+{
+	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
 	{
-		return CurrentProfileSettings->GetPlayerName();
+
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		if (UserId.IsValid())
+		{
+			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
+			if (UserAccount.IsValid())
+			{
+				return FText::FromString(UserAccount->GetDisplayName());
+			}
+		}
 	}
 
-	return TEXT("Malcolm");
+	return FText::GetEmpty();
 }
 
 FText UUTLocalPlayer::GetAccountSummary() const
@@ -118,9 +133,6 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		// Force the loading of the local profile settings before the player has a chance to sign in.
-		LoadProfileSettings();
-
 		// Initialize the Online Subsystem for this player
 		InitializeOnlineSubsystem();
 
@@ -223,15 +235,29 @@ void UUTLocalPlayer::HideMenu()
 }
 
 #if !UE_SERVER
-TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback)
+TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback, FVector2D DialogSize)
 {
 	TSharedPtr<class SUWDialog> NewDialog;
-	SAssignNew(NewDialog, SUWMessageBox)
-		.PlayerOwner(this)
-		.DialogTitle(MessageTitle)
-		.MessageText(MessageText)
-		.ButtonMask(Buttons)
-		.OnDialogResult(Callback);
+	if (DialogSize.IsNearlyZero())
+	{
+		SAssignNew(NewDialog, SUWMessageBox)
+			.PlayerOwner(this)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(Buttons)
+			.OnDialogResult(Callback);
+	}
+	else
+	{
+		SAssignNew(NewDialog, SUWMessageBox)
+			.PlayerOwner(this)
+			.bDialogSizeIsRelative(true)
+			.DialogSize(DialogSize)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(Buttons)
+			.OnDialogResult(Callback);
+	}
 
 
 	OpenDialog( NewDialog.ToSharedRef() );
@@ -405,7 +431,13 @@ void UUTLocalPlayer::GetAuth(bool bLastFailed)
 
 void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
 {
-	UE_LOG(UT,Log,TEXT("***[LoginStatusChanged]*** - User %i - %i"), LocalUserNum, int32(LoginStatus));
+	UE_LOG(UT,Verbose,TEXT("***[LoginStatusChanged]*** - User %i - %i"), LocalUserNum, int32(LoginStatus));
+
+	// If we have logged out, or started using the local profile, then clear the online profile.
+	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
+	{
+		CurrentProfileSettings = NULL;
+	}
 
 	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)
 	{
@@ -523,31 +555,15 @@ FString UUTLocalPlayer::GetProfileFilename()
 	return TEXT("local.user.profile");
 }
 
-
+/*
+ *	If the player is currently logged in, trigger a load of their profile settings from the MCP.  
+ */
 void UUTLocalPlayer::LoadProfileSettings()
 {
-	if (CurrentProfileSettings == NULL)
-	{
-		CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(),GetTransientPackage());
-	}
-
 	if (IsLoggedIn())
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
 		OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename() );
-	}
-	else
-	{
-		FString LocalFilename =  FPaths::GameSavedDir() / "Profiles" / *GetProfileFilename();
-		if (FPaths::FileExists(*LocalFilename))
-		{
-			TArray<uint8> FileContents;
-			FFileHelper::LoadFileToArray(FileContents, *LocalFilename);
-
-			FMemoryReader MemoryReader(FileContents, true);
-			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, false);
-			CurrentProfileSettings->Serialize(Ar);
-		}
 	}
 }
 
@@ -559,6 +575,12 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 		if (bWasSuccessful)	
 		{
+			// Create the current profile.
+			if (CurrentProfileSettings == NULL)
+			{
+				CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(), GetTransientPackage());
+			}
+
 			TArray<uint8> FileContents;
 			OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents);
 			
@@ -567,24 +589,51 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, false);
 			CurrentProfileSettings->Serialize(Ar);
 
-			ApplyProfileSettings();
+			FString CmdLineSwitch = TEXT("");
+			bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
 
+			// Check to make sure the profile settings are valid and that we aren't forcing them
+			// to be cleared.  If all is OK, then apply these settings.
+			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
+			{
+				CurrentProfileSettings->ApplyAllSettings(this);
+				return;
+			}
+			else
+			{
+				CurrentProfileSettings->ClearWeaponPriorities();
+			}
 		}
-		else
-		{
-			// We couldn't load our profile, so save it out for the first time.
-			SaveProfileSettings();
-		}
+
+		PlayerNickname = GetAccountDisplayName().ToString();
+		SaveConfig();
+		SaveProfileSettings();
+
+#if !UE_SERVER
+		FText WelcomeMessage = FText::Format(NSLOCTEXT("UTLocalPlayer","Welcome","This is your first time logging in so we have set your player name to '{0}'.  Would you like to change it now?"), GetAccountDisplayName());
+		ShowMessage(NSLOCTEXT("UTLocalPlayer", "WelcomeTitle", "Welcome to Unreal Tournament"), WelcomeMessage, UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::WelcomeDialogResult),FVector2D(0.25,0.25));
+		// We couldn't load our profile or it was invalid or we choose to clear it so save it out.
+#endif
+
 	}
 }
 
+#if !UE_SERVER
+void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(this).DialogTitle(NSLOCTEXT("SUWindowsDesktop","PlayerSettings","Player Settings")));			
+	}
+}
+#endif
+
 void UUTLocalPlayer::SaveProfileSettings()
 {
-	if ( CurrentProfileSettings != NULL && CurrentProfileSettings->IsDirty() )
+	if ( CurrentProfileSettings != NULL && IsLoggedIn() )
 	{
+		CurrentProfileSettings->GatherAllSettings(this);
 		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
-		CurrentProfileSettings->GatherInputSettings();
-		CurrentProfileSettings->Clean();
 
 		// Build a blob of the profile contents
 		TArray<uint8> FileContents;
@@ -592,70 +641,30 @@ void UUTLocalPlayer::SaveProfileSettings()
 		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
 		CurrentProfileSettings->Serialize(Ar);
 
-		if (IsLoggedIn())
-		{
-			// Save the blob to the cloud
-			TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
-			OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
-		}
-		else
-		{
-			FString LocalFilename =  FPaths::GameSavedDir() / "Profiles" / *GetProfileFilename();
-			FFileHelper::SaveArrayToFile(FileContents,*LocalFilename);
-		}
+		// Save the blob to the cloud
+		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
 	}
 }
 
 void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
-	// Should give a warning here if it fails.
-}
-
-
-void UUTLocalPlayer::ApplyProfileSettings()
-{
-	if (CurrentProfileSettings)
+	if (bWasSuccessful)
 	{
-		FString CmdLineSwitch = TEXT("");
-		bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
-
-		if (CurrentProfileSettings->SettingsRevisionNum < VALID_PROFILESETTINGS_VERSION || bClearProfile )
-		{
-			// These settings are no longer valid period.  Kill them and start over.
-
-			CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(),GetTransientPackage());				
-			CurrentProfileSettings->Dirty();
-			SaveProfileSettings();
-			return;
-		}
-
-		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
-		if (PC)
-		{
-			PC->SetName(CurrentProfileSettings->GetPlayerName());
-			PC->SetWeaponBobScaling(CurrentProfileSettings->GetWeaponBob());
-			PC->SetEyeOffsetScaling(CurrentProfileSettings->GetViewBob());
-			PC->bAutoWeaponSwitch = CurrentProfileSettings->GetAutoWeaponSwitch();
-			PC->FFAPlayerColor = CurrentProfileSettings->GetFFAPlayerColor();
-
-			AUTCharacter* C = Cast<AUTCharacter>(PC->GetPawn());
-			if (C != NULL)
-			{
-				C->NotifyTeamChanged();
-			}
-		}
-
-		CurrentProfileSettings->ApplyInputSettings();
+		FText Saved = NSLOCTEXT("MCP", "ProfileSaved", "Profile Saved");
+		ShowToast(Saved);
+	}
+	else
+	{
+		// Should give a warning here if it fails.
+		ShowMessage(NSLOCTEXT("MCPMessages", "ProfileSaveErrorTitle", "An Error has occured"), NSLOCTEXT("MCPMessages", "ProfileSaveErrorText", "UT could not save your profile with the MCP.  Your settings may be lost."), UTDIALOG_BUTTON_OK, NULL);
 	}
 }
 
 void UUTLocalPlayer::SetNickname(FString NewName)
 {
-	if (CurrentProfileSettings)
-	{
-		CurrentProfileSettings->SetPlayerName(NewName);
-		SaveProfileSettings();
-	}
+	PlayerNickname = NewName;
+	SaveConfig();
 }
 
 void UUTLocalPlayer::SaveChat(FName Type, FString Message, FLinearColor Color)

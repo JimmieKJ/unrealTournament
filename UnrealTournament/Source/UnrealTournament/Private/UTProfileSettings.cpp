@@ -10,6 +10,12 @@ UUTProfileSettings::UUTProfileSettings(const FPostConstructInitializeProperties&
 	PlayerName = TEXT("Malcolm");
 }
 
+void UUTProfileSettings::ClearWeaponPriorities()
+{
+	WeaponPriorities.Empty();
+}
+
+
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
 {
 	for (int32 i=0;i<WeaponPriorities.Num(); i++)
@@ -19,14 +25,12 @@ void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPri
 			if (WeaponPriorities[i].WeaponPriority != NewPriority)
 			{
 				WeaponPriorities[i].WeaponPriority = NewPriority;
-				bDirty = true;
 			}
 			break;
 		}
 	}
 
 	WeaponPriorities.Add(FStoredWeaponPriority(WeaponClassName, NewPriority));
-	bDirty = true;
 }
 
 float UUTProfileSettings::GetWeaponPriority(FString WeaponClassName, float DefaultPriority)
@@ -43,27 +47,60 @@ float UUTProfileSettings::GetWeaponPriority(FString WeaponClassName, float Defau
 }
 
 
-
-void UUTProfileSettings::GatherInputSettings()
+void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
-	UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+	PlayerName = ProfilePlayer->GetNickname();
 
+	// Get all settings from the Player Controller
+	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
+	if (PC != NULL)
+	{
+		PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
+	}
+
+	if (PC != NULL)
+	{
+		MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
+		MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
+		bSingleTapWallDodge = PC->bSingleTapWallDodge;
+		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
+		WeaponBob = PC->WeaponBobGlobalScaling;
+		FFAPlayerColor = PC->FFAPlayerColor;
+
+		PlayerFOV = PC->ConfigDefaultFOV;
+
+		// Get any settings from UTPlayerInput
+		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PC->PlayerInput);
+		if (UTPlayerInput)
+		{
+			CustomBinds.Empty();
+			for (int i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
+			{
+				CustomBinds.Add(UTPlayerInput->CustomBinds[i]);
+			}
+			MouseSensitivity = UTPlayerInput->GetMouseSensitivity();
+		}
+	}
+
+	// Grab the various settigns from the InputSettings objec.
+
+	UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 	if (DefaultInputSettingsObject)
 	{
 		ActionMappings.Empty();
-		for (int i=0;i<DefaultInputSettingsObject->ActionMappings.Num();i++)
+		for (int i = 0; i < DefaultInputSettingsObject->ActionMappings.Num(); i++)
 		{
 			ActionMappings.Add(DefaultInputSettingsObject->ActionMappings[i]);
 		}
 
 		AxisMappings.Empty();
-		for (int i=0;i<DefaultInputSettingsObject->AxisMappings.Num();i++)
+		for (int i = 0; i < DefaultInputSettingsObject->AxisMappings.Num(); i++)
 		{
 			AxisMappings.Add(DefaultInputSettingsObject->AxisMappings[i]);
 		}
 
 		AxisConfig.Empty();
-		for (int i=0;i < DefaultInputSettingsObject->AxisConfig.Num() ;i++)
+		for (int i = 0; i < DefaultInputSettingsObject->AxisConfig.Num(); i++)
 		{
 			AxisConfig.Add(DefaultInputSettingsObject->AxisConfig[i]);
 			if (AxisConfig[i].AxisKeyName == EKeys::MouseY && AxisConfig[i].AxisProperties.bInvert)
@@ -82,42 +119,59 @@ void UUTProfileSettings::GatherInputSettings()
 			ConsoleKey = DefaultInputSettingsObject->ConsoleKeys[0];
 		}
 	}
+}
+void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
+{
+	ProfilePlayer->SetNickname(PlayerName);
+	ProfilePlayer->SaveConfig();
 
-
-	UUTPlayerInput* UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
-	if (UTPlayerInput)
-	{
-		CustomBinds.Empty();
-		for (int i=0;i < UTPlayerInput->CustomBinds.Num() ;i++)
-		{
-			CustomBinds.Add(UTPlayerInput->CustomBinds[i]);
-		}
-		MouseSensitivity = UTPlayerInput->GetMouseSensitivity();
-		
-	}
-
-	AUTPlayerController* PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
+	// Get all settings from the Player Controller
+	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
 	if (PC != NULL)
 	{
-		MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
-		MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
-		bSingleTapWallDodge = PC->bSingleTapWallDodge;
-		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
-		WeaponBob = PC->WeaponBobGlobalScaling;
-		FFAPlayerColor = PC->FFAPlayerColor;
+		PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
 	}
 
-}
+	if (PC != NULL)
+	{
+		PC->MaxDodgeClickTime = MaxDodgeClickTimeValue;
+		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
+		PC->bSingleTapWallDodge = bSingleTapWallDodge;
+		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
+		PC->WeaponBobGlobalScaling = WeaponBob;
+		PC->FFAPlayerColor = FFAPlayerColor;
+		PC->ConfigDefaultFOV = PlayerFOV;
 
-void UUTProfileSettings::ApplyInputSettings()
-{
+		PC->SaveConfig();
+		// Get any settings from UTPlayerInput
+		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PC->PlayerInput);
+		if (UTPlayerInput && CustomBinds.Num() > 0)
+		{
+			UTPlayerInput->CustomBinds.Empty();
+			for (int i = 0; i < CustomBinds.Num(); i++)
+			{
+				UTPlayerInput->CustomBinds.Add(CustomBinds[i]);
+			}
+			UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
+			UTPlayerInput->UTForceRebuildingKeyMaps(true);
+			UTPlayerInput->SaveConfig();
+		}
+
+		AUTCharacter* C = Cast<AUTCharacter>(PC->GetPawn());
+		if (C != NULL)
+		{
+			C->NotifyTeamChanged();
+		}
+	}
+
+	// Save all settings to the UInputSettings object
 	UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 	if (DefaultInputSettingsObject)
 	{
 		if (ActionMappings.Num() > 0)
 		{
 			DefaultInputSettingsObject->ActionMappings.Empty();
-			for (int i=0;i<ActionMappings.Num();i++)
+			for (int i = 0; i < ActionMappings.Num(); i++)
 			{
 				DefaultInputSettingsObject->ActionMappings.Add(ActionMappings[i]);
 			}
@@ -126,7 +180,7 @@ void UUTProfileSettings::ApplyInputSettings()
 		if (AxisConfig.Num() > 0)
 		{
 			DefaultInputSettingsObject->AxisConfig.Empty();
-			for (int i=0;i<AxisConfig.Num();i++)
+			for (int i = 0; i < AxisConfig.Num(); i++)
 			{
 				DefaultInputSettingsObject->AxisConfig.Add(AxisConfig[i]);
 				if (bInvertMouse && AxisConfig[i].AxisKeyName == EKeys::MouseY)
@@ -139,7 +193,7 @@ void UUTProfileSettings::ApplyInputSettings()
 		if (AxisMappings.Num() > 0)
 		{
 			DefaultInputSettingsObject->AxisMappings.Empty();
-			for (int i=0;i<AxisMappings.Num();i++)
+			for (int i = 0; i < AxisMappings.Num(); i++)
 			{
 				DefaultInputSettingsObject->AxisMappings.Add(AxisMappings[i]);
 			}
@@ -151,23 +205,6 @@ void UUTProfileSettings::ApplyInputSettings()
 		DefaultInputSettingsObject->DoubleClickTime = DoubleClickTime;
 		DefaultInputSettingsObject->ConsoleKeys.Empty();
 		DefaultInputSettingsObject->ConsoleKeys.Add(ConsoleKey);
+		DefaultInputSettingsObject->SaveConfig();
 	}
-
-	UUTPlayerInput* DefaultUTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
-	if (DefaultUTPlayerInput && CustomBinds.Num() > 0)
-	{
-		for (int i=0;i < CustomBinds.Num() ;i++)
-		{
-			DefaultUTPlayerInput->CustomBinds.Add(CustomBinds[i]);
-		}
-		DefaultUTPlayerInput->SetMouseSensitivity(MouseSensitivity);
-	}
-
-	for (TObjectIterator<UUTPlayerInput> It(RF_ClassDefaultObject); It; ++It)
-	{
-		UUTPlayerInput* UTPlayerInput = *It;
-		UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
-		UTPlayerInput->UTForceRebuildingKeyMaps(true);
-	}
-
 }

@@ -387,47 +387,26 @@ void SUWPlayerSettingsDialog::PlayerColorChanged(FLinearColor NewValue)
 
 FReply SUWPlayerSettingsDialog::OKClick()
 {
-	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
 
 	// If we have a valid PC then tell the PC to set it's name
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPlayerController != NULL)
 	{
-		UTPlayerController->SetName(PlayerName->GetText().ToString());
-	}
-	else
-	{
-		GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
-	}
+		UTPlayerController->ServerChangeName(PlayerName->GetText().ToString());
+		UTPlayerController->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
+		UTPlayerController->WeaponBobGlobalScaling = WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR;
+		UTPlayerController->EyeOffsetGlobalScaling = ViewBobScaling->GetValue() * BOB_SCALING_FACTOR;
+		UTPlayerController->FFAPlayerColor = SelectedPlayerColor;
+		UTPlayerController->SaveConfig();
 
-	// auto weapon switch, weapon/view bob
-	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
-	{
-		It->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
-		It->WeaponBobGlobalScaling = WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR;
-		It->EyeOffsetGlobalScaling = ViewBobScaling->GetValue() * BOB_SCALING_FACTOR;
-		It->FFAPlayerColor = SelectedPlayerColor;
-	}
-	AUTPlayerController::StaticClass()->GetDefaultObject()->SaveConfig();
-	if (ProfileSettings != NULL)
-	{
-		ProfileSettings->SetAutoWeaponSwitch(AutoWeaponSwitch->IsChecked());
-		ProfileSettings->SetWeaponBob(WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR);
-		ProfileSettings->SetFFAPlayerColor(SelectedPlayerColor);
-	}
-	// call to characters to apply FFA color change
-	if (GetPlayerOwner()->PlayerController != NULL)
-	{
-		for (FConstPawnIterator It = GetPlayerOwner()->PlayerController->GetWorld()->GetPawnIterator(); It; ++It)
+		if (UTPlayerController->GetUTCharacter())
 		{
-			AUTCharacter* C = Cast<AUTCharacter>(*It);
-			if (C != NULL)
-			{
-				C->NotifyTeamChanged();
-			}
+			UTPlayerController->GetUTCharacter()->NotifyTeamChanged();
 		}
 	}
+
+	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
 
 	// note that the array mirrors the list widget so we can use it directly
 	for (int32 i = 0; i < WeaponList.Num(); i++)
@@ -441,9 +420,8 @@ FReply SUWPlayerSettingsDialog::OKClick()
 		}
 	}
 
-	Settings->SaveSettings();
-	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	GetPlayerOwner()->SaveProfileSettings();
+	GetPlayerOwner()->CloseDialog(SharedThis(this));
 
 	return FReply::Handled();
 }

@@ -52,6 +52,8 @@ public:
 
 	virtual FString GetNickname() const;
 	virtual FText GetAccountSummary() const;
+	virtual FText GetAccountDisplayName() const;
+
 	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
 
 	virtual void ShowMenu();
@@ -59,7 +61,7 @@ public:
 	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
 
 #if !UE_SERVER
-	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
+	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
 
 	/** utilities for opening and closing dialogs */
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog);
@@ -84,7 +86,7 @@ protected:
 	TArray<TSharedPtr<class SUWToast>> ToastList;
 
 	virtual void AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay);
-
+	void WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
 
@@ -138,8 +140,11 @@ public:
 
 protected:
 
-
 	bool bInitialSignInAttempt;
+
+	// Holds the local copy of the player nickname.
+	UPROPERTY(config)
+	FString PlayerNickname;
 
 	// What is the Epic ID associated with this player.
 	UPROPERTY(config)
@@ -190,7 +195,6 @@ private:
 public:
 	virtual void LoadProfileSettings();
 	virtual void SaveProfileSettings();
-	virtual void ApplyProfileSettings();
 	virtual UUTProfileSettings* GetProfileSettings() { return CurrentProfileSettings; };
 
 	virtual void SetNickname(FString NewName);

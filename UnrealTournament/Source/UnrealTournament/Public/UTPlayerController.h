@@ -436,10 +436,16 @@ protected:
 	virtual void OnAltFire();
 	virtual void OnStopAltFire();
 
-	/** Handles moving forward/backward */
+	/** Handles moving forward */
 	virtual void MoveForward(float Val);
 
-	/** Handles strafing movement, left and right */
+	/** Handles moving backward */
+	virtual void MoveBackward(float Val);
+
+	/** Handles strafing movement left */
+	virtual void MoveLeft(float Val);
+
+	/** Handles strafing movement right */
 	virtual void MoveRight(float Val);
 
 	/** Up and down when flying or swimming */
