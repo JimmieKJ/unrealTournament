@@ -263,10 +263,9 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	 * @param Weight (in/out) - input is minimum weight (as returned by NodeEval) for a node to be chosen; output is the weight of the found node (if any)
 	 * @param bAllowDetours - whether to allow post processing the final path with redirects to nearby inventory items (ignored if Asker is NULL)
 	 * @param NodeRoute - the route found over the node network
-	 * @param PolyRoute (optional) - the polygons to traverse on the navmesh to hit all the desired nodes. Not specifying this when not needed improves performance somewhat. (for example, if you intend to re-run the search regularly throughout the path, you don't need the whole detailed path returned)
 	 * @return whether a valid path was found
 	 */
-	virtual bool FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<NavNodeRef>* PolyRoute = NULL);
+	virtual bool FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute);
 
 	/** calculate effective traveling distance between two polys
 	 * returns direct distance if reachable by straight line or no navmesh path exists, otherwise does navmesh pathfinding and returns path distance
@@ -289,7 +288,7 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	/** returns if the agent has reached the specified goal, taking into account any special reachability concerns (i.e. if touching is required use collision instead of navigation query, etc)
 	 * ASKER is required here!
 	 */
-	virtual bool HasReachedTarget(APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const FUTPathLink& CurrentPath) const;
+	virtual bool HasReachedTarget(APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target) const;
 
 	/** HACK: workaround for navmesh not supporting moving objects
 	* and thus when on lifts players will be temporarily off the navmesh

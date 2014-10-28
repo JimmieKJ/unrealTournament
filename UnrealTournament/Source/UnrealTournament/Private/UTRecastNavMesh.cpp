@@ -10,6 +10,8 @@
 #include "Runtime/Engine/Public/AI/Navigation/RecastHelpers.h"
 #include "UTPathBuilderInterface.h"
 #include "UTDroppedPickup.h"
+#include "UTReachSpec_HighJump.h"
+#include "UTTeleporter.h"
 #if WITH_EDITOR
 #include "EditorBuildUtils.h"
 #endif
@@ -780,6 +782,17 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 
 			FCapsuleSize PathSize = GetHumanPathSize();
 
+			// HACK: avoid placing jumps to extra lift navmesh geometry created to work around lack of movable navmeshes
+			TArray<FVector> LiftHackLocs;
+			for (TActorIterator<AUTLift> It(GetWorld()); It; ++It)
+			{
+				TArray<FVector> Stops = It->GetStops();
+				if (Stops.Num() > 1)
+				{
+					LiftHackLocs.Add(Stops.Last());
+				}
+			}
+
 			for (; SpecialLinkBuildNodeIndex < PathNodes.Num() && NumToProcess > 0; SpecialLinkBuildNodeIndex++, NumToProcess--)
 			{
 				UUTPathNode* Node = PathNodes[SpecialLinkBuildNodeIndex];
@@ -822,27 +835,70 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 											bWalkReachable = (HitTime >= 1.0f);
 										}
 									}
+									// HACK: avoid placing jumps to extra lift navmesh geometry created to work around lack of movable navmeshes
+									bool bSkipForLift = false;
 									if (!bWalkReachable)
+									{
+										for (const FVector& LiftLoc : LiftHackLocs)
+										{
+											if ((TestLoc - LiftLoc).SizeSquared() < 250000.0f) // 500 * 500
+											{
+												bSkipForLift = true;
+												break;
+											}
+										}
+									}
+									if (!bWalkReachable && !bSkipForLift)
 									{
 										TestLoc += HeightAdjust;
 										float RequiredJumpZ = 0.0f;
-										if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), BaseJumpZ, &RequiredJumpZ))
+										if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), -1.0f, &RequiredJumpZ))
 										{
-											// TODO: account for RequiredJumpZ and MaxFallSpeed
+											bool bNeedsJumpSpec = RequiredJumpZ > BaseJumpZ;
+											// TODO: account for MaxFallSpeed
 											bool bFound = false;
 											for (FUTPathLink& ExistingLink : Node->Paths)
 											{
 												if (ExistingLink.End == It.Value() && ExistingLink.StartEdgePoly == PolyRef)
 												{
-													ExistingLink.AdditionalEndPolys.Add(It.Key());
-													bFound = true;
-													break;
+													bool bValid = false;
+													if (!bNeedsJumpSpec)
+													{
+														if (ExistingLink.Spec.Get() == NULL)
+														{
+															bValid = true;
+														}
+													}
+													else
+													{
+														// accept if existing jump is reasonably close in requirements
+														UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(ExistingLink.Spec.Get());
+														if (JumpSpec != NULL && JumpSpec->RequiredJumpZ > RequiredJumpZ && RequiredJumpZ > JumpSpec->RequiredJumpZ * 0.9f)
+														{
+															bValid = true;
+														}
+													}
+													if (bValid)
+													{
+														ExistingLink.AdditionalEndPolys.Add(It.Key());
+														bFound = true;
+														break;
+													}
 												}
 											}
 
 											if (!bFound)
 											{
-												FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), NULL, PathSize.Radius, PathSize.Height, R_JUMP);
+												UUTReachSpec_HighJump* JumpSpec = NULL;
+												if (bNeedsJumpSpec)
+												{
+													JumpSpec = NewObject<UUTReachSpec_HighJump>(Node);
+													JumpSpec->RequiredJumpZ = RequiredJumpZ;
+													JumpSpec->GravityVolume = FindPhysicsVolume(GetWorld(), WallCenter, FCollisionShape::MakeSphere(0.0f));
+													JumpSpec->OriginalGravityZ = (JumpSpec->GravityVolume != NULL) ? JumpSpec->GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
+													AllReachSpecs.Add(JumpSpec);
+												}
+												FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), JumpSpec, PathSize.Radius, PathSize.Height, R_JUMP);
 											}
 										}
 									}
@@ -1263,19 +1319,24 @@ void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& 
 		// Radius = CrouchRadius;
 		// Height = CrouchHeight;
 	}
+
+	if (Asker != NULL)
+	{
+		AUTBot* B = Cast<AUTBot>(Asker->Controller);
+		if (B != NULL)
+		{
+			B->SetupSpecialPathAbilities();
+		}
+	}
 }
 
-bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<NavNodeRef>* PolyRoute)
+bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute)
 {
 	DECLARE_CYCLE_STAT(TEXT("UT node pathing time"), STAT_Navigation_UTPathfinding, STATGROUP_Navigation);
 
 	SCOPE_CYCLE_COUNTER(STAT_Navigation_UTPathfinding);
 
 	NodeRoute.Reset();
-	if (PolyRoute != NULL)
-	{
-		PolyRoute->Reset();
-	}
 	bool bNeedMoveToStartNode = false;
 	NavNodeRef StartPoly = FindNearestPoly(StartLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
 	// HACK: handle lifts (see FindLiftPoly())
@@ -1521,28 +1582,14 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					}
 				}
 			}
-
-			if (PolyRoute != NULL)
+			
+			// pull off any route points that have actually been reached already
+			// this is a workaround for sliver polygons causing AI confusion with the poly it is on
+			if (Asker != NULL)
 			{
-				dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
-
-				NavNodeRef CurrentPoly = StartPoly;
-				FVector CurrentRecastLoc = Unreal2RecastPoint(StartLoc);
-
-				for (int32 i = 0; i < NodeRoute.Num(); i++)
+				while (NodeRoute.Num() > 1 && HasReachedTarget(Asker, AgentProps, NodeRoute[0]))
 				{
-					float RecastStart[3] = { CurrentRecastLoc.X, CurrentRecastLoc.Y, CurrentRecastLoc.Z };
-					FVector RecastEndVect = Unreal2RecastPoint(GetPolyCenter(NodeRoute[i].TargetPoly));
-					float RecastEnd[3] = { RecastEndVect.X, RecastEndVect.Y, RecastEndVect.Z };
-					dtQueryResult PathData;
-					InternalQuery.findPath(CurrentPoly, NodeRoute[i].TargetPoly, RecastStart, RecastEnd, GetDefaultDetourFilter(), PathData, NULL);
-					for (int32 j = 0; j < PathData.size(); j++)
-					{
-						PolyRoute->Add(PathData.getRef(j));
-					}
-
-					CurrentRecastLoc = RecastEndVect;
-					CurrentPoly = NodeRoute[i].TargetPoly;
+					NodeRoute.RemoveAt(0);
 				}
 			}
 
@@ -1697,7 +1744,7 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 	}
 }
 
-bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const FUTPathLink& PathLink) const
+bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target) const
 {
 	if (Asker == NULL)
 	{
@@ -1708,13 +1755,20 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 		// TODO: probably some kind of interface needed here
 
 		AUTPickup* Pickup = NULL;
+		AUTTeleporter* Teleporter = NULL;
 		if (Target.Actor.IsValid())
 		{
 			Pickup = Cast<AUTPickup>(Target.Actor.Get());
+			Teleporter = Cast<AUTTeleporter>(Target.Actor.Get());
 		}
 		if (Pickup != NULL && Pickup->State.bActive)
 		{
 			return Pickup->IsOverlappingActor(Asker);
+		}
+		else if (Teleporter != NULL && Teleporter->IsOverlappingActor(Asker))
+		{
+			Teleporter->OnOverlapBegin(Asker);
+			return true;
 		}
 		else
 		{
@@ -1745,10 +1799,11 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 					dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
 					FVector RecastAskerLoc = Unreal2RecastPoint(AskerLoc);
-					FVector RecastExtent = Unreal2RecastPoint(FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+					FVector QueryExtent = FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f);
+					float RecastExtent[3] = { QueryExtent.X, QueryExtent.Z, QueryExtent.Y };
 					NavNodeRef Polys[16];
 					int32 PolyCount = 0;
-					if (dtStatusSucceed(InternalQuery.queryPolygons((float*)&RecastAskerLoc, (float*)&RecastExtent, GetDefaultDetourFilter(), Polys, &PolyCount, ARRAY_COUNT(Polys))))
+					if (dtStatusSucceed(InternalQuery.queryPolygons((float*)&RecastAskerLoc, RecastExtent, GetDefaultDetourFilter(), Polys, &PolyCount, ARRAY_COUNT(Polys))))
 					{
 						for (int32 i = 0; i < PolyCount; i++)
 						{

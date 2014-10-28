@@ -15,6 +15,8 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializePropert
 	TransState = TLS_InAir;
 	CollisionComp->SetCollisionProfileName("ProjectileShootable");
 	bAlwaysShootable = true;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
@@ -184,6 +186,24 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 		ProjectileMovement->Velocity = ComputeBounceResult(Hit, 0.0f, FVector::ZeroVector);
 		OnBounce(Hit, ProjectileMovement->Velocity);
 		DetachRootComponentFromParent(true);
+
+		// if bot, check for telefrag
+		if (Cast<AUTCharacter>(OtherActor) != NULL)
+		{
+			AUTBot* B = Cast<AUTBot>(InstigatorController);
+			if (B != NULL /*&& B->WeaponProficiencyCheck()*/ && FMath::FRand() < 0.1f * (B->Skill + B->Personality.Alertness + B->Personality.Tactics + B->Personality.ReactionTime))
+			{
+				AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
+				if (UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+				{
+					UTC->StartFire(1);
+					UTC->StopFire(1);
+					B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
+					B->MoveTimer = -1.0f;
+					B->LastTranslocTime = GetWorld()->TimeSeconds;
+				}
+			}
+		}
 	}
 }
 
@@ -222,4 +242,48 @@ void AUTProj_TransDisk::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 
 	//TODO: Do rep on only visible so players cant hack and see if it was disrupted
 	DOREPLIFETIME_CONDITION(AUTProj_TransDisk, TransState, COND_None);
+}
+
+void AUTProj_TransDisk::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// AI interface
+	AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
+	if (UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+	{
+		AUTBot* B = Cast<AUTBot>(InstigatorController);
+		if (B != NULL)
+		{
+			if (!B->TranslocTarget.IsZero())
+			{
+				FVector Diff = B->TranslocTarget - GetActorLocation();
+				// TODO: maybe check for overshoot that happens to be along bot's path?
+				if ( (Diff.Size2D() < FMath::Max<float>(ProjectileMovement->MaxSpeed * 0.04f, 120.0f) || (B->TranslocTarget - (GetActorLocation() + GetVelocity() * DeltaTime)).Size2D() > Diff.Size2D()) &&
+					!GetWorld()->LineTraceTest(GetActorLocation(), B->TranslocTarget, ECC_Pawn, FCollisionQueryParams(FName(TEXT("TransDiskAI")), false, this)) &&
+					GetWorld()->LineTraceTest(GetActorLocation(), GetActorLocation() - FVector(0.0f, 0.0f, 500.0f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("TransDiskAI")), false, this)) )
+				{
+					// translocate!
+					UTC->StartFire(1);
+					UTC->StopFire(1);
+					B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
+					B->MoveTimer = -1.0f;
+					B->LastTranslocTime = GetWorld()->TimeSeconds;
+				}
+				else if ((Diff.SafeNormal() | GetVelocity().SafeNormal()) <= 0.0f)
+				{
+					// recall disk
+					UTC->StartFire(0);
+					UTC->StopFire(0);
+				}
+			}
+			else if (TransState == TLS_OnGround)
+			{
+				// recall since unused
+				// TODO: high Tactics bots should consider leaving translocator disc in enemy base
+				UTC->StartFire(0);
+				UTC->StopFire(0);
+			}
+		}
+	}
 }

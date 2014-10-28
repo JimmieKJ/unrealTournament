@@ -47,6 +47,10 @@ class UNREALTOURNAMENT_API UUTAIAction : public UObject
 	{
 		return GetOuterAUTBot()->GetTarget();
 	}
+	inline AUTWeapon* GetWeapon() const
+	{
+		return (GetUTChar() != NULL) ? GetUTChar()->GetWeapon() : NULL;
+	}
 
 	/** ticks the action; returns true on completion */
 	virtual bool Update(float DeltaTime) PURE_VIRTUAL(UUTAIAction::Update, return true;);

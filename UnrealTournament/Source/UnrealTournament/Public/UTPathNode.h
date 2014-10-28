@@ -194,6 +194,8 @@ struct FUTPathLink
 	int32 CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const;
 
 	bool GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const;
+	/** implementation of GetMovePoints() for paths with a jump at the end, split out because some UTReachSpec paths also use it */
+	bool GetJumpMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const;
 
 	/** returns color to identify the path type for debug path drawing */
 	FLinearColor GetPathColor() const;

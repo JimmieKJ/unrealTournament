@@ -17,7 +17,7 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 
 	/** minimum charge for full impact jump */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
-		float FullImpactChargePct;
+	float FullImpactChargePct;
 
 	/** sound played when impact jumping (fire at wall) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
@@ -25,7 +25,7 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 
 	/** sound played when reach new charge level. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
-		USoundBase* ChargeClickSound;
+	USoundBase* ChargeClickSound;
 
 	/** set when automatically firing charged mode due to proximity */
 	UPROPERTY(BlueprintReadWrite, Category = ImpactHammer)
@@ -48,4 +48,8 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta) override;
+
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual float GetAISelectRating_Implementation() override;
+	virtual bool DoAssistedJump() override;
 };

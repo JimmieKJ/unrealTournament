@@ -446,12 +446,15 @@ void AUTCharacter::NotifyJumpApex()
 	AUTBot* B = Cast<AUTBot>(Controller);
 	if (B != NULL)
 	{
-		//B->NotifyJumpApex();
+		B->NotifyJumpApex();
 	}
 }
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	static bool bInDamage = false;
+	check(!bInDamage);
+	TGuardValue<bool> Test(bInDamage, true);
 	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
 	{
 		return 0.f;
@@ -602,7 +605,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				Died(EventInstigator, DamageEvent);
 			}
 		}
-		else
+		else if (IsRagdoll())
 		{
 			FVector HitLocation = Mesh->GetComponentLocation();
 			if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
@@ -1056,10 +1059,7 @@ void AUTCharacter::PlayDying()
 	else
 	{
 		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		if (!bPendingKillPending) // FIXME temp hack
-		{
-			SetLifeSpan(0.25f);
-		}
+		SetLifeSpan(0.25f);
 	}
 }
 

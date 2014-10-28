@@ -42,53 +42,58 @@ bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNa
 	}
 	else if (ReachFlags & R_JUMP)
 	{
-		TArray<NavNodeRef> PolyRoute;
-		if (NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(NavMesh->GetPolyCenter(StartEdgePoly), StartEdgePoly), PolyRoute, false) && PolyRoute.Num() > 0 && NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints))
+		return GetJumpMovePoints(StartLoc, Asker, AgentProps, Target, FullRoute, NavMesh, MovePoints);
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool FUTPathLink::GetJumpMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
+{
+	TArray<NavNodeRef> PolyRoute;
+	if (NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(NavMesh->GetPolyCenter(StartEdgePoly), StartEdgePoly), PolyRoute, false) && PolyRoute.Num() > 0 && NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints))
+	{
+		FVector DirectLoc = Target.GetLocation(Asker);
+		// if there's a future point in the route try adjusting move location to one of AdditionalEndPolys
+		int32 Index = FullRoute.Find(Target);
+		if (Index != INDEX_NONE && Index + 1 < FullRoute.Num() && AdditionalEndPolys.Contains(FullRoute[Index + 1].TargetPoly))
 		{
-			FVector DirectLoc = Target.GetLocation(Asker);
-			// if there's a future point in the route try adjusting move location to one of AdditionalEndPolys
-			int32 Index = FullRoute.Find(Target);
-			if (Index != INDEX_NONE && Index + 1 < FullRoute.Num() && AdditionalEndPolys.Contains(FullRoute[Index + 1].TargetPoly))
+			DirectLoc = NavMesh->GetPolyCenter(FullRoute[Index + 1].TargetPoly);
+		}
+		// find poly wall that has the best angle to the target
+		// add a move point for it if going straight to dest from poly center doesn't intersect that wall
+		TArray<FLine> Walls = NavMesh->GetPolyWalls(StartEdgePoly);
+		if (Walls.Num() > 0)
+		{
+			FVector PolyCenter = NavMesh->GetPolyCenter(StartEdgePoly);
+			int32 BestIndex = INDEX_NONE;
+			float BestAngle = -2.0f;
+			for (int32 i = 0; i < Walls.Num(); i++)
 			{
-				DirectLoc = NavMesh->GetPolyCenter(FullRoute[Index + 1].TargetPoly);
-			}
-			// find poly wall that has the best angle to the target
-			// add a move point for it if going straight to dest from poly center doesn't intersect that wall
-			TArray<FLine> Walls = NavMesh->GetPolyWalls(StartEdgePoly);
-			if (Walls.Num() > 0)
-			{
-				FVector PolyCenter = NavMesh->GetPolyCenter(StartEdgePoly);
-				int32 BestIndex = INDEX_NONE;
-				float BestAngle = -2.0f;
-				for (int32 i = 0; i < Walls.Num(); i++)
+				FVector WallCenter = (Walls[i].A + Walls[i].B) * 0.5f;
+				float TestAngle = (DirectLoc - WallCenter).SafeNormal() | (WallCenter - PolyCenter).SafeNormal();
+				if (TestAngle > BestAngle)
 				{
-					FVector WallCenter = (Walls[i].A + Walls[i].B) * 0.5f;
-					float TestAngle = (DirectLoc - WallCenter).SafeNormal() | (WallCenter - PolyCenter).SafeNormal();
-					if (TestAngle > BestAngle)
-					{
-						BestIndex = i;
-						BestAngle = TestAngle;
-					}
-				}
-				// check for intersection against the wall
-				FBox TestBox(0);
-				TestBox += Walls[BestIndex].A;
-				TestBox += Walls[BestIndex].B;
-				FVector HitLoc;
-				FVector HitNormal;
-				float HitTime;
-				if (!FMath::LineExtentBoxIntersection(TestBox, DirectLoc, PolyCenter, FVector::ZeroVector, HitLoc, HitNormal, HitTime))
-				{
-					MovePoints.Add(FComponentBasedPosition((Walls[BestIndex].A + Walls[BestIndex].B) * 0.5f + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f)));
+					BestIndex = i;
+					BestAngle = TestAngle;
 				}
 			}
-			MovePoints.Add(FComponentBasedPosition(DirectLoc));
-			return true;
+			// check for intersection against the wall
+			FBox TestBox(0);
+			TestBox += Walls[BestIndex].A;
+			TestBox += Walls[BestIndex].B;
+			FVector HitLoc;
+			FVector HitNormal;
+			float HitTime;
+			if (!FMath::LineExtentBoxIntersection(TestBox, DirectLoc, PolyCenter, FVector::ZeroVector, HitLoc, HitNormal, HitTime))
+			{
+				MovePoints.Add(FComponentBasedPosition((Walls[BestIndex].A + Walls[BestIndex].B) * 0.5f + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f)));
+			}
 		}
-		else
-		{
-			return false;
-		}
+		MovePoints.Add(FComponentBasedPosition(DirectLoc));
+		return true;
 	}
 	else
 	{

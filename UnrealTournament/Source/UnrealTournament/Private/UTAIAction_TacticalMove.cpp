@@ -90,7 +90,7 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 		FVector Extent = GetPawn()->GetSimpleCollisionRadius() * FVector(1.0f, 1.0f, 0.0f);
 		Extent.Z = FMath::Max<float>(15.0f, GetPawn()->GetSimpleCollisionHalfHeight() - GetPawn()->GetNavAgentProperties()->AgentStepHeight);
 
-		bool bWantJump = GetCharacter() != NULL && GetCharacter()->CanJump() && (FMath::FRand() < 0.05f * GetOuterAUTBot()->Skill + 0.6f * GetOuterAUTBot()->Personality.Jumpiness/* || (UTWeapon(Pawn.Weapon).SplashJump() && ProficientWithWeapon())*/)
+		bool bWantJump = GetCharacter() != NULL && GetCharacter()->CanJump() && (FMath::FRand() < 0.05f * GetOuterAUTBot()->Skill + 0.6f * GetOuterAUTBot()->Personality.Jumpiness || (GetWeapon() != NULL && GetWeapon()->bRecommendSplashDamage && GetOuterAUTBot()->WeaponProficiencyCheck()))
 			&& (GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true).Z - GetEnemy()->GetSimpleCollisionHalfHeight() <= GetPawn()->GetActorLocation().Z + GetPawn()->GetNavAgentProperties()->AgentStepHeight - GetPawn()->GetSimpleCollisionHalfHeight())
 			&& !GetOuterAUTBot()->NeedToTurn(GetOuterAUTBot()->GetFocalPoint());
 		FCollisionQueryParams TraceParams(FName(TEXT("EngageDirection")), false, GetPawn());
@@ -116,8 +116,7 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 
 			if (bWantJump)
 			{
-				//if (GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetUTWeapon()->SplashJump())
-				if (false)
+				if (GetWeapon() != NULL && GetWeapon()->bRecommendSplashDamage)
 				{
 					GetUTChar()->StopFiring();
 

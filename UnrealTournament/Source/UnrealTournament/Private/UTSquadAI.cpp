@@ -84,7 +84,7 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 		return true;
 	}
 	// keep moving to previous retreat destination if possible (don't oscillate)
-	else if (B->RouteCache.Num() > 1 && NavData->HasReachedTarget(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), B->RouteCache[0], B->GetCurrentPath()))
+	else if (B->RouteCache.Num() > 1 && NavData->HasReachedTarget(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), B->RouteCache[0]))
 	{
 		B->RouteCache.RemoveAt(0);
 		B->SetMoveTarget(B->RouteCache[0]);

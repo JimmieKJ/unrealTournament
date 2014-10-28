@@ -74,4 +74,9 @@ class AUTWeap_Translocator : public AUTWeapon
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
 	virtual void DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta) override;
+
+	virtual void Tick(float DeltaTime) override;
+	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
+	virtual float GetAISelectRating_Implementation() override;
+	virtual bool DoAssistedJump() override;
 };

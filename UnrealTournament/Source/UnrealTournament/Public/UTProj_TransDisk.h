@@ -61,4 +61,6 @@ class AUTProj_TransDisk : public AUTProjectile
 	UStaticMeshComponent* DiskMesh;
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser);
+
+	virtual void Tick(float DeltaTime) override;
 };

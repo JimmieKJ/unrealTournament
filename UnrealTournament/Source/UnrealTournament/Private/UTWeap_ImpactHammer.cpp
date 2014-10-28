@@ -4,6 +4,7 @@
 #include "UTWeaponStateFiringCharged.h"
 #include "UTCharacterMovement.h"
 #include "UTLift.h"
+#include "UTReachSpec_HighJump.h"
 
 AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState0")))
@@ -125,23 +126,31 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				// Special case of fixed damage and momentum
 				bool bIsFullImpactImpulse = (ChargedMode->ChargeTime > FullChargeTime * FullImpactChargePct);
 				float FinalDamage = bIsFullImpactImpulse ? UTOwner->UTCharacterMovement->FullImpactDamage : UTOwner->UTCharacterMovement->EasyImpactDamage;
-				if (UTOwner->CharacterMovement->Velocity.Z >= -1.f * UTOwner->MaxSafeFallSpeed)
+				if (UTOwner->CharacterMovement->Velocity.Z <= -1.f * UTOwner->MaxSafeFallSpeed)
 				{
 					// take falling damage, but give credit for it against impact damage
 					float OldHealth = UTOwner->Health;
 					UTOwner->TakeFallingDamage(Hit, UTOwner->CharacterMovement->Velocity.Z);
-					FinalDamage = FMath::Max(0.f, FinalDamage - (OldHealth - UTOwner->Health));
+					// damage might kill them
+					if (UTOwner != NULL)
+					{
+						FinalDamage = FMath::Max(0.f, FinalDamage - (OldHealth - UTOwner->Health));
+					}
 				}
-				FVector JumpDir = -1.f*FireDir;
-				if ((SpawnRotation.Pitch < 290.f) && (SpawnRotation.Pitch > 260.f))
+				// falling damage might have killed Owner
+				if (UTOwner != NULL)
 				{
-					// consider as straight down
-					JumpDir = FVector(0.f, 0.f, 1.f);
-				}
+					FVector JumpDir = -1.f*FireDir;
+					if ((SpawnRotation.Pitch < 290.f) && (SpawnRotation.Pitch > 260.f))
+					{
+						// consider as straight down
+						JumpDir = FVector(0.f, 0.f, 1.f);
+					}
 
-				UTOwner->UTCharacterMovement->ApplyImpactVelocity(JumpDir, bIsFullImpactImpulse);
-				UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner);
-				UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
+					UTOwner->UTCharacterMovement->ApplyImpactVelocity(JumpDir, bIsFullImpactImpulse);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner);
+					UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
+				}
 			}
 		}
 		if (OutHit != NULL)
@@ -208,6 +217,139 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 					ChargedMode->EndFiringSequence(CurrentFireMode);
 					AutoHitTarget = NULL;
 				}
+			}
+		}
+	}
+}
+
+void AUTWeap_ImpactHammer::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+
+	// tell bot that it has an impact hammer
+	AUTBot* B = Cast<AUTBot>(NewOwner->Controller);
+	if (B != NULL)
+	{
+		B->ImpactJumpZ = FMath::Max<float>(B->ImpactJumpZ, UTOwner->UTCharacterMovement->FullImpactImpulse - UTOwner->CharacterMovement->JumpZVelocity);
+	}
+}
+
+float AUTWeap_ImpactHammer::GetAISelectRating_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL)
+	{
+		return BaseAISelectRating;
+	}
+	else
+	{
+		// super desireable for bot waiting to impact jump
+		UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get());
+		if (JumpSpec != NULL && !B->AllowTranslocator() && JumpSpec->CalcAvailableSimpleJumpZ(UTOwner) < JumpSpec->CalcRequiredJumpZ(UTOwner))
+		{
+			return 9.f;
+		}
+		else if (B->GetEnemy() == NULL)
+		{
+			return BaseAISelectRating;
+		}
+		else
+		{
+			float EnemyDist = (B->GetEnemyLocation(B->GetEnemy(), true) - UTOwner->GetActorLocation()).Size();
+			if (B->IsStopped() && EnemyDist > 225.0f)
+			{
+				return 0.1;
+			}
+			else if (EnemyDist < 1600.0f && B->Skill <= 2.0f && Cast<AUTCharacter>(B->GetEnemy()) != NULL && Cast<AUTWeap_ImpactHammer>(((AUTCharacter*)B->GetEnemy())->GetWeapon()) != NULL)
+			{
+				return FMath::Clamp<float>(650.0f / (EnemyDist + 1.0f), 0.6f, 0.75f);
+			}
+			else if (EnemyDist > 900.0f)
+			{
+				return 0.1;
+			}
+			else if (UTOwner->GetWeapon() != this && EnemyDist < 250.0f)
+			{
+				return 0.25;
+			}
+			else
+			{
+				return FMath::Min<float>(0.6f, 200.0f / (EnemyDist + 1.0f));
+			}
+		}
+	}
+}
+
+bool AUTWeap_ImpactHammer::DoAssistedJump()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		// look at ground
+		FVector LookPoint = UTOwner->GetActorLocation() + (B->GetMovePoint() - UTOwner->GetActorLocation()).SafeNormal2D() - FVector(0.0f, 0.0f, 1000.0f);
+		if (B->NeedToTurn(LookPoint))
+		{
+			B->SetFocalPoint(LookPoint, true, SCRIPTEDMOVE_FOCUS_PRIORITY);
+			return false; // not ready yet
+		}
+		else if (!UTOwner->CanJump())
+		{
+			return false; // not ready yet
+		}
+		else if (CurrentFireMode != 0 && IsFiring())
+		{
+			// stop other firemode
+			UTOwner->StopFiring();
+			return false;
+		}
+		else if (!IsFiring())
+		{
+			// start charging
+			UTOwner->StartFire(0);
+			return false;
+		}
+		else
+		{
+			UUTWeaponStateFiringCharged* ChargedState = Cast<UUTWeaponStateFiringCharged>(CurrentState);
+			const bool bFullImpactJump = (ChargedState == NULL || ChargedState->ChargeTime >= FullChargeTime * FullImpactChargePct);
+			UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get());
+			if (bFullImpactJump || (JumpSpec != NULL && JumpSpec->CalcRequiredJumpZ(UTOwner) * 1.05f < UTOwner->UTCharacterMovement->EasyImpactImpulse))
+			{
+				// do it!
+				const float ZSpeed = bFullImpactJump ? UTOwner->UTCharacterMovement->EasyImpactImpulse : UTOwner->UTCharacterMovement->FullImpactImpulse;
+				FVector DesiredVel2D;
+				if (AUTBot::FindBestJumpVelocityXY(DesiredVel2D, UTOwner->GetActorLocation(), B->GetMovePoint(), ZSpeed, UTOwner->UTCharacterMovement->GetGravityZ(), UTOwner->GetSimpleCollisionHalfHeight()))
+				{
+					float DesiredSpeed = DesiredVel2D.Size2D();
+					// if low speed and not going to bump head on ceiling, do normal jump
+					if (DesiredSpeed < UTOwner->UTCharacterMovement->GetMaxSpeed() && !GetWorld()->LineTraceTest(UTOwner->GetActorLocation(), UTOwner->GetActorLocation() + FVector(0.0f, 0.0f, ZSpeed * 0.5f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("ImpactJump")), false, UTOwner)))
+					{
+						UTOwner->UTCharacterMovement->Velocity = DesiredVel2D;
+					}
+					else
+					{
+						// forward dodge for more XY speed
+						FRotationMatrix YawMat(FRotator(0.f, (B->GetMovePoint() - UTOwner->GetActorLocation()).Rotation().Yaw, 0.f));
+						FVector X = YawMat.GetScaledAxis(EAxis::X).SafeNormal();
+						FVector Y = YawMat.GetScaledAxis(EAxis::Y).SafeNormal();
+						UTOwner->Dodge(X, Y);
+					}
+				}
+				else
+				{
+					UTOwner->UTCharacterMovement->Velocity = (B->GetMovePoint() - UTOwner->GetActorLocation()).SafeNormal2D() * UTOwner->UTCharacterMovement->GetMaxSpeed();
+				}
+				UTOwner->StopFire(0);
+				return true;
+			}
+			else
+			{
+				// waiting for charge
+				return false;
 			}
 		}
 	}

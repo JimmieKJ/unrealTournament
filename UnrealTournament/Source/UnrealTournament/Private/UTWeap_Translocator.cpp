@@ -1,11 +1,10 @@
-
-
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeap_Translocator.h"
 #include "UTProj_TransDisk.h"
 #include "UTWeaponStateFiringOnce.h"
 #include "UnrealNetwork.h"
-
+#include "UTReachSpec_HighJump.h"
 
 AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
@@ -205,4 +204,94 @@ void AUTWeap_Translocator::GetLifetimeReplicatedProps(TArray<class FLifetimeProp
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTWeap_Translocator, TransDisk, COND_None);
+}
+
+void AUTWeap_Translocator::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// check for AI shooting disc at translocator target
+	if (CurrentState == ActiveState && (TransDisk == NULL || TransDisk->bPendingKillPending))
+	{
+		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+		if (B != NULL && !B->TranslocTarget.IsZero() && (Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get()) == NULL || B->GetMovePoint() != B->GetMoveTarget().GetLocation(UTOwner)) && !B->NeedToTurn(B->GetFocalPoint(), true))
+		{
+			// fire disk
+			UTOwner->StartFire(0);
+			UTOwner->StopFire(0);
+		}
+	}
+}
+
+void AUTWeap_Translocator::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+{
+	Super::GivenTo(NewOwner, bAutoActivate);
+
+	AUTBot* B = Cast<AUTBot>(NewOwner->Controller);
+	if (B != NULL)
+	{
+		B->bHasTranslocator = true;
+	}
+}
+
+float AUTWeap_Translocator::GetAISelectRating_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL || !B->AllowTranslocator())
+	{
+		return BaseAISelectRating;
+	}
+	else if (!B->TranslocTarget.IsZero())
+	{
+		return 9.1f;
+	}
+	else
+	{
+		UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get());
+		if (JumpSpec != NULL && JumpSpec->CalcAvailableSimpleJumpZ(UTOwner) < JumpSpec->CalcRequiredJumpZ(UTOwner))
+		{
+			return 9.1f;
+		}
+		else if (UTOwner->GetWeapon() == this && B->TranslocInterval < 1.0f && !B->IsStopped() && (B->GetEnemy() == NULL || !B->LineOfSightTo(B->GetEnemy())))
+		{
+			// leave translocator out for now so bot can spam teleports if desired
+			return 1.0f;
+		}
+		else
+		{
+			return BaseAISelectRating;
+		}
+	}
+}
+
+bool AUTWeap_Translocator::DoAssistedJump()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		B->TranslocTarget = B->GetMovePoint();
+		// look at target
+		FVector LookPoint = B->TranslocTarget;
+		// account for projectile toss
+		B->ApplyWeaponAimAdjust(LookPoint, LookPoint);
+		if (B->NeedToTurn(LookPoint, true))
+		{
+			B->SetFocalPoint(B->TranslocTarget, true, SCRIPTEDMOVE_FOCUS_PRIORITY);
+			return false; // not ready yet
+		}
+		else
+		{
+			if (TransDisk == NULL || TransDisk->bPendingKillPending)
+			{
+				// shoot!
+				UTOwner->StartFire(0);
+				UTOwner->StopFire(0);
+			}
+			return false;
+		}
+	}
 }

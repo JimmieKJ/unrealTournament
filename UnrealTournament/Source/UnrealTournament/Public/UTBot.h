@@ -6,6 +6,9 @@
 
 #include "UTBot.generated.h"
 
+// priority passed to SetFocus()/SetFocalPoint() for AI looking at a required target to do a special move (e.g. impact jump)
+#define SCRIPTEDMOVE_FOCUS_PRIORITY 10
+
 USTRUCT(BlueprintType)
 struct FBotPersonality
 {
@@ -25,6 +28,9 @@ struct FBotPersonality
 	/** likelihood of jumping/dodging, particularly in combat */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	float Jumpiness;
+	/** ability to perform advanced movement options (lift jumps, impact jumps, advanced translocator throws, etc) (skill modifier) [-1, 1] */
+	UPROPERTY(EditAnywhere, Category = Personality)
+	float MovementAbility;
 	/** reaction time (skill modifier) [-1, +1], positive is better (lower reaction time)
 	 * affects enemy acquisition and incoming fire avoidance
 	 */
@@ -221,6 +227,23 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	bool bSeeFriendly;
 
+	/** additional jump Z speed that can be attained by impact jumping (or weapon with equivalent boost jump AI) */
+	UPROPERTY(BlueprintReadWrite, Category = AI)
+	float ImpactJumpZ;
+
+	/** whether bot has the translocator (or weapon that serves the same purpose) */
+	UPROPERTY(BlueprintReadWrite, Category = AI)
+	bool bHasTranslocator;
+	/** minimum delay between translocation attempts - mostly skill level bound */
+	UPROPERTY(BlueprintReadWrite, Category = AI)
+	float TranslocInterval;
+	/** last time bot translocated, for tracking against TranslocDelay */
+	UPROPERTY(BlueprintReadWrite, Category = AI)
+	float LastTranslocTime;
+	/** if nonzero, bot wants to translocate to this location */
+	UPROPERTY()
+	FVector TranslocTarget;
+
 	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
 	UPROPERTY()
 	float CurrentAggression;
@@ -296,6 +319,8 @@ public:
 		MoveTargetPoints.Empty();
 		bAdjusting = false;
 		CurrentPath = FUTPathLink();
+		ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
+		TranslocTarget = FVector::ZeroVector;
 		MoveTimer = -1.0f;
 	}
 	inline const FUTPathLink& GetCurrentPath() const
@@ -470,10 +495,32 @@ public:
 	virtual void ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint);
 	virtual void Tick(float DeltaTime) override;
 	virtual void UTNotifyKilled(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType);
+
+	// focal point changes need to call UpdateControlRotation() immediately to set FinalFocalPoint
+	virtual void SetFocalPoint(FVector FP, bool bOffsetFromBase = false, uint8 InPriority = EAIFocusPriority::Gameplay) override
+	{
+		Super::SetFocalPoint(FP, bOffsetFromBase, InPriority);
+		UpdateControlRotation(0.0f, false);
+	}
+	virtual void SetFocus(AActor* NewFocus, EAIFocusPriority::Type InPriority = EAIFocusPriority::Gameplay)
+	{
+		Super::SetFocus(NewFocus, InPriority);
+		UpdateControlRotation(0.0f, false);
+	}
+	virtual void ClearFocus(EAIFocusPriority::Type InPriority)
+	{
+		Super::ClearFocus(InPriority);
+		UpdateControlRotation(0.0f, false);
+	}
 	virtual FVector GetFocalPoint() const
 	{
 		return FinalFocalPoint;
 	}
+
+	/** given a set Z speed, find the XY velocity that will cause the bot to reach the desired location just as the Z coordinate arcs to it
+	 * if there is no solution, JumpVelocity is not modified; otherwise, it contains the needed velocity in XY and Z is zero
+	 */
+	static bool FindBestJumpVelocityXY(FVector& JumpVelocity, const FVector& StartLoc, const FVector& TargetLoc, float ZSpeed, float GravityZ, float PawnHeight);
 
 	virtual uint8 GetTeamNum() const;
 
@@ -481,6 +528,7 @@ public:
 	virtual void NotifyWalkingOffLedge();
 	virtual void NotifyMoveBlocked(const FHitResult& Impact);
 	virtual void NotifyLanded(const FHitResult& Hit);
+	virtual void NotifyJumpApex();
 
 	// causes the bot decision logic to be run within one frame
 	virtual void WhatToDoNext();
@@ -501,8 +549,11 @@ public:
 
 	/** called by timer and also by weapons when ready to fire. Bot sets appropriate fire mode it wants to shoot (if any) */
 	virtual void CheckWeaponFiring(bool bFromWeapon = true);
-	/** return if bot thinks it needs to turn to attack TargetLoc (intentionally inaccurate for low skill bots) */
-	virtual bool NeedToTurn(const FVector& TargetLoc);
+	/** return if bot thinks it needs to turn to attack TargetLoc (intentionally inaccurate for low skill bots unless bForcePrecise is true, which is used for special cases like translocator throws) */
+	virtual bool NeedToTurn(const FVector& TargetLoc, bool bForcePrecise = false);
+
+	/** initialize any cached values for pathfinding (for example, special movement capabilities) */
+	virtual void SetupSpecialPathAbilities();
 
 	/** find pickup with distance modified rating greater than value passed in
 	 * handles avoiding redundant searches in the same frame so it isn't necessary to manually throttle
@@ -524,8 +575,13 @@ public:
 	virtual float RateWeapon(AUTWeapon* W);
 	/** returns whether the passed in class is the bot's favorite weapon (bonus to desire to pick up, select, and improved accuracy/effectiveness) */
 	virtual bool IsFavoriteWeapon(TSubclassOf<AUTWeapon> TestClass);
+	/** returns result of a random skill check against current weapon with success based on bot skill, favorite weapon, etc */
+	virtual bool WeaponProficiencyCheck();
 	/** returns whether bot really wants to find a better weapon (i.e. because have none with ammo or current is a weak starting weapon) */
 	virtual bool NeedsWeapon();
+
+	/** if translocator available, consider translocation to a point along our current path */
+	virtual void ConsiderTranslocation();
 
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
@@ -598,6 +654,15 @@ public:
 		return ((GetTarget() != NULL && MoveTarget.Actor == GetTarget()) || CurrentAction == ChargeAction);
 	}
 
+	inline bool AllowImpactJump() const
+	{
+		return bAllowImpactJump;
+	}
+	inline bool AllowTranslocator() const
+	{
+		return bAllowTranslocator;
+	}
+
 protected:
 	/** timer to call CheckWeaponFiring() */
 	UFUNCTION()
@@ -614,4 +679,8 @@ protected:
 	/** FindInventoryGoal() transients */
 	float LastFindInventoryTime;
 	float LastFindInventoryWeight;
+
+	/** transient pathing flags */
+	bool bAllowImpactJump;
+	bool bAllowTranslocator;
 };

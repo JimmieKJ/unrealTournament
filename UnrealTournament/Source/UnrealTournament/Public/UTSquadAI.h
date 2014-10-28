@@ -67,6 +67,12 @@ public:
 		return false;
 	}
 
+	/** @return if allowed to use translocator */
+	virtual bool AllowTranslocator(AUTBot* B)
+	{
+		return true;
+	}
+
 	/** called when bot lost track of enemy and wants a new one. Assigning one is optional.
 	 * @return whether a new enemy was assigned
 	 */

@@ -642,6 +642,14 @@ public:
 		return CanAttack(Target, TargetLoc, bDirectOnly, false, UnusedFireMode, UnusedOptimalLoc);
 	}
 
+	/** called by AI to try an assisted jump (e.g. impact jump or rocket jump)
+	 * return true if an action was performed and the bot can continue along its path
+	 */
+	virtual bool DoAssistedJump()
+	{
+		return false;
+	}
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;

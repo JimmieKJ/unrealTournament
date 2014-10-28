@@ -50,6 +50,9 @@ extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);
 /** utility to detach and unregister a component and all its children */
 extern void UnregisterComponentTree(USceneComponent* Comp);
 
+/** utility to retrieve the highest priority physics volume overlapping the passed in primitive */
+extern APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const FCollisionShape& Shape);
+
 /** workaround for FCanvasIcon not having a constructor you can pass in the values to */
 FORCEINLINE FCanvasIcon MakeCanvasIcon(UTexture* Tex, float InU, float InV, float InUL, float InVL)
 {

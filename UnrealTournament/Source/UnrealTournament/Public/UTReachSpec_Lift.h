@@ -34,6 +34,15 @@ class UUTReachSpec_Lift : public UUTReachSpec
 
 	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const override
 	{
+		// low skill bots avoid lift jumps unless required to get to an area at all
+		if ((OwnerLink.ReachFlags & R_JUMP) && Asker != NULL)
+		{
+			AUTBot* B = Cast<AUTBot>(Asker->Controller);
+			if (B != NULL && B->Skill + B->Personality.MovementAbility < 2.0f)
+			{
+				DefaultCost += 100000;
+			}
+		}
 		// TODO: check if lift is usable?
 		// TODO: check lift position instead of static cost at build time?
 		return Lift.IsValid() ? DefaultCost : BLOCKED_PATH_COST;
