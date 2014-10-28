@@ -71,6 +71,9 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	MaxYawLag = 4.4f;
 	MaxPitchLag = 3.3f; 
 
+	ImpactEffectAlwaysSpawnDist = 200.f;
+	ImpactEffectCullDistance = 5000.f;
+
 	// default icon texture
 	static ConstructorHelpers::FObjectFinder<UTexture> WeaponTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseB.UI_HUD_BaseB'"));
 	HUDIcon.Texture = WeaponTexture.Object;
@@ -587,15 +590,18 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 			MuzzleFlash[FireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[FireMode]->ComponentToWorld.InverseTransformPositionNoScale(TargetLoc));
 		}
 
-		if ((TargetLoc - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
+		if (EffectIsRelevant(TargetLoc, false, ImpactEffectCullDistance, ImpactEffectAlwaysSpawnDist, false))
 		{
-			if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
+			if ((TargetLoc - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
 			{
-				FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
-				ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+				if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
+				{
+					FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
+					ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+				}
+				LastImpactEffectLocation = TargetLoc;
+				LastImpactEffectTime = GetWorld()->TimeSeconds;
 			}
-			LastImpactEffectLocation = TargetLoc;
-			LastImpactEffectTime = GetWorld()->TimeSeconds;
 		}
 	}
 }
@@ -1605,3 +1611,62 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 		return false;
 	}
 }
+
+bool AUTWeapon::EffectIsRelevant(const FVector& SpawnLocation, bool bSpawnNearSelf, float CullDistance, float AlwaysSpawnDist, bool bForceDedicated)
+{
+	// dedicated server entirely controlled by bForceDedicated flag, as most effects shouldn't be spawned on server
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return bForceDedicated;
+	}
+
+	// Always spawn effects instigated by local player unless beyond cull distance
+	bool bIsLocallyOwnedEffect = (UTOwner && UTOwner->GetController() && UTOwner->GetController()->IsLocalPlayerController());
+
+	// Check if beyond cull distance for all local viewers
+	bool bWithinCullDistance = false;
+	bool bBehindAllPlayers = true;
+	for (ULocalPlayer* LocalPlayer : GEngine->GetGamePlayers(GetWorld()))
+	{
+		if (LocalPlayer->PlayerController)
+		{
+			FVector ViewLoc = LocalPlayer->PlayerController->GetFocalLocation();
+			float DistSq = (ViewLoc - SpawnLocation).SizeSquared();
+			//UE_LOG(UT, Warning, TEXT("Effect dist %f"), (ViewLoc - SpawnLocation).Size());
+			if (DistSq < FMath::Square(CullDistance))
+			{
+				// @TODO FIXMESTEVE different cull distance for own effect vs others
+				bWithinCullDistance = true;
+				if (DistSq < FMath::Square(AlwaysSpawnDist))
+				{
+					// Always spawn effect when this close
+					// @TODO FIXMESTEVE - do we want to differentiate between dist when in front of viewer versus behind?
+					return true;
+				}
+				if ((LocalPlayer->PlayerController->GetControlRotation().Vector() | (SpawnLocation - ViewLoc)) > 0.f)
+				{
+					bBehindAllPlayers = false;
+				}
+			}
+		}
+	}
+	if (bIsLocallyOwnedEffect && bWithinCullDistance)
+	{
+		return true;
+	}
+	if (!bWithinCullDistance || bBehindAllPlayers)
+	{
+		return false;
+	}
+
+	// if effect is spawning near me, always spawn if being rendered
+	if (bSpawnNearSelf)
+	{
+		return (GetWorld()->GetTimeSeconds() - UTOwner->GetLastRenderTime() < 0.3f);
+	}
+
+	return true;
+}
+
+
+

@@ -25,34 +25,32 @@ UUTVictoryMessage::UUTVictoryMessage(const class FPostConstructInitializePropert
 // @TODO FIXMESTEVE why not passing playerstates here too?
 FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
-/*	if (Switch == 2)
+	if (Switch == 2)
 	{
-		return FName(TEXT("HumiliatingDefeat"));
+		//return FName(TEXT("HumiliatingDefeat"));
+		Switch = 1;
 	}
 	else 
-*/
 	if (Switch == 3)
 	{
 		return FName(TEXT("FlawlessVictory"));
 	}
-	else
+
+	const AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
+	if (WinningTeam)
 	{
-		const AUTTeamInfo* WinningTeam = Cast<AUTTeamInfo>(OptionalObject);
-		if (WinningTeam)
+		if (WinningTeam->TeamIndex == 0)
 		{
-			if (WinningTeam->TeamIndex == 0)
-			{
-				return FName(TEXT("RedTeamWinsMatch"));
-			}
-			else
-			{
-				return FName(TEXT("BlueTeamWinsMatch"));
-			}
+			return FName(TEXT("RedTeamWinsMatch"));
 		}
 		else
 		{
-			return (Switch == 0) ? FName(TEXT("WonMatch")) : FName(TEXT("LostMatch"));
+			return FName(TEXT("BlueTeamWinsMatch"));
 		}
+	}
+	else
+	{
+		return (Switch == 0) ? FName(TEXT("WonMatch")) : FName(TEXT("LostMatch"));
 	}
 }
 

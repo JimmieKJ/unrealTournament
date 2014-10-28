@@ -29,6 +29,9 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 	bPrioritizeAccuracy = true;
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
+
+	ImpactEffectAlwaysSpawnDist = 1000.f;
+	ImpactEffectCullDistance = 50000.f;
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const
