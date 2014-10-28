@@ -452,9 +452,6 @@ void AUTCharacter::NotifyJumpApex()
 
 float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	static bool bInDamage = false;
-	check(!bInDamage);
-	TGuardValue<bool> Test(bInDamage, true);
 	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
 	{
 		return 0.f;
