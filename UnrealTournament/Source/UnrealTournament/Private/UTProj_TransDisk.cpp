@@ -250,7 +250,7 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 
 	// AI interface
 	AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
-	if (UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+	if (Role == ROLE_Authority && MyTranslocator != nullptr && UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
 	{
 		AUTBot* B = Cast<AUTBot>(InstigatorController);
 		if (B != NULL)
