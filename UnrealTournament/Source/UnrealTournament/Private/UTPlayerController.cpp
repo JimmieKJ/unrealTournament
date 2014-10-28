@@ -267,6 +267,9 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("FasterEmote", IE_Pressed, this, &AUTPlayerController::FasterEmote);
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
+	InputComponent->BindAction("PlayEmote1", IE_Pressed, this, &AUTPlayerController::PlayEmote1);
+	InputComponent->BindAction("PlayEmote2", IE_Pressed, this, &AUTPlayerController::PlayEmote2);
+	InputComponent->BindAction("PlayEmote3", IE_Pressed, this, &AUTPlayerController::PlayEmote3);
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -1498,6 +1501,33 @@ void AUTPlayerController::Emote(int32 EmoteIndex)
 	{
 		ServerEmote(EmoteIndex);
 		LastEmoteTime = GetWorld()->GetRealTimeSeconds();
+	}
+}
+
+void AUTPlayerController::PlayEmote1()
+{
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (GS)
+	{
+		Emote(GS->GetEmoteIndex1());
+	}
+}
+
+void AUTPlayerController::PlayEmote2()
+{
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (GS)
+	{
+		Emote(GS->GetEmoteIndex2());
+	}
+}
+
+void AUTPlayerController::PlayEmote3()
+{
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (GS)
+	{
+		Emote(GS->GetEmoteIndex3());
 	}
 }
 

@@ -285,9 +285,15 @@ void SUWControlSettingsDialog::CreateBinds()
 		->AddDefaults(EKeys::Zero)));
 	//Emotes
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emotes", "Emotes")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Pelvic Thrust", "Pelvic Thrust")))
-		->AddMapping("Emote 0")
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emote 1", "Emote 1")))
+		->AddMapping("PlayEmote1")
 		->AddDefaults(EKeys::J)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emote 2", "Emote 2")))
+		->AddMapping("PlayEmote2")
+		->AddDefaults(EKeys::K)));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emote 3", "Emote 3")))
+		->AddMapping("PlayEmote3")
+		->AddDefaults(EKeys::L)));
 	//Misc
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Misc", "Misc")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))

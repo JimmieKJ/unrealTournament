@@ -42,6 +42,17 @@ protected:
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
 	FLinearColor SelectedPlayerColor;
 
+	int32 Emote1Index;
+	int32 Emote2Index;
+	int32 Emote3Index;
+
+	void OnEmote1Committed(int32 NewValue, ETextCommit::Type CommitInfo);
+	void OnEmote2Committed(int32 NewValue, ETextCommit::Type CommitInfo);
+	void OnEmote3Committed(int32 NewValue, ETextCommit::Type CommitInfo);
+	TOptional<int32> GetEmote1Value() const;
+	TOptional<int32> GetEmote2Value() const;
+	TOptional<int32> GetEmote3Value() const;
+
 	virtual FReply OnButtonClick(uint16 ButtonID);	
 
 	FReply OKClick();

@@ -27,12 +27,16 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.ButtonMask(InArgs._ButtonMask)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
-
+	
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
 	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
+	Emote1Index = Settings->GetEmoteIndex1();
+	Emote2Index = Settings->GetEmoteIndex2();
+	Emote3Index = Settings->GetEmoteIndex3();
 
 	WeaponLibrary = UObjectLibrary::CreateLibrary(AUTWeapon::StaticClass(), true, false);
 	WeaponLibrary->LoadBlueprintAssetDataFromPath(TEXT("/Game/")); // TODO: do we need to iterate through all the root paths?
@@ -75,7 +79,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	WeaponList.Sort(FWeaponListSort());
 
 	SelectedPlayerColor = GetDefault<AUTPlayerController>()->FFAPlayerColor;
-
+	
 	if (DialogContent.IsValid())
 	{
 		const float MessageTextPaddingX = 10.0f;
@@ -278,6 +282,77 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
 				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SNumericEntryBox<int32>)
+					.LabelPadding(FMargin(10.0f, 0.0f))
+					.OnValueCommitted(this, &SUWPlayerSettingsDialog::OnEmote1Committed)
+					.Value(this, &SUWPlayerSettingsDialog::GetEmote1Value)
+					.AllowSpin(true)
+					.Delta(1)
+					.MinValue(0)
+					.MaxValue(5)
+					.MinSliderValue(0)
+					.MaxSliderValue(5)
+					.Label()
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FLinearColor::Black)
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 1", "Emote 1"))
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SNumericEntryBox<int32>)
+					.LabelPadding(FMargin(10.0f, 0.0f))
+					.OnValueCommitted(this, &SUWPlayerSettingsDialog::OnEmote2Committed)
+					.Value(this, &SUWPlayerSettingsDialog::GetEmote2Value)
+					.AllowSpin(true)
+					.Delta(1)
+					.MinValue(0)
+					.MaxValue(5)
+					.MinSliderValue(0)
+					.MaxSliderValue(5)
+					.Label()
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FLinearColor::Black)
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 2", "Emote 2"))
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SNumericEntryBox<int32>)
+					.LabelPadding(FMargin(10.0f, 0.0f))
+					.OnValueCommitted(this, &SUWPlayerSettingsDialog::OnEmote3Committed)
+					.Value(this, &SUWPlayerSettingsDialog::GetEmote3Value)
+					.AllowSpin(true)
+					.Delta(1)
+					.MinValue(0)
+					.MaxValue(5)
+					.MinSliderValue(0)
+					.MaxSliderValue(5)
+					.Label()
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FLinearColor::Black)
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 3", "Emote 3"))
+					]
+				]
+			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 				.AutoWidth()
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Center)
@@ -420,6 +495,11 @@ FReply SUWPlayerSettingsDialog::OKClick()
 		}
 	}
 
+	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	Settings->SetEmoteIndex1(Emote1Index);
+	Settings->SetEmoteIndex2(Emote2Index);
+	Settings->SetEmoteIndex3(Emote3Index);
+
 	GetPlayerOwner()->SaveProfileSettings();
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 
@@ -437,6 +517,36 @@ FReply SUWPlayerSettingsDialog::OnButtonClick(uint16 ButtonID)
 	if (ButtonID == UTDIALOG_BUTTON_OK) OKClick();
 	else if (ButtonID == UTDIALOG_BUTTON_CANCEL) CancelClick();
 	return FReply::Handled();
+}
+
+void SUWPlayerSettingsDialog::OnEmote1Committed(int32 NewValue, ETextCommit::Type CommitInfo)
+{
+	Emote1Index = NewValue;
+}
+
+void SUWPlayerSettingsDialog::OnEmote2Committed(int32 NewValue, ETextCommit::Type CommitInfo)
+{
+	Emote2Index = NewValue;
+}
+
+void SUWPlayerSettingsDialog::OnEmote3Committed(int32 NewValue, ETextCommit::Type CommitInfo)
+{
+	Emote3Index = NewValue;
+}
+
+TOptional<int32> SUWPlayerSettingsDialog::GetEmote1Value() const
+{
+	return Emote1Index;
+}
+
+TOptional<int32> SUWPlayerSettingsDialog::GetEmote2Value() const
+{
+	return Emote2Index;
+}
+
+TOptional<int32> SUWPlayerSettingsDialog::GetEmote3Value() const
+{
+	return Emote3Index;
 }
 
 #endif
