@@ -3,11 +3,11 @@
 #include "UTRecastNavMesh.h"
 #include "UTNavGraphRenderingComponent.h"
 #include "RecastNavMeshGenerator.h"
-#include "Runtime/Engine/Private/AI/Navigation/PImplRecastNavMesh.h"
+#include "Runtime/Engine/Public/AI/Navigation/PImplRecastNavMesh.h"
 #include "Runtime/Navmesh/Public/Detour/DetourNavMesh.h"
 #include "Runtime/Navmesh/Public/Detour/DetourNavMeshQuery.h"
 #include "Runtime/Navmesh/Public/DetourCrowd/DetourPathCorridor.h"
-#include "Runtime/Engine/Private/AI/Navigation/RecastHelpers.h"
+#include "Runtime/Engine/Public/AI/Navigation/RecastHelpers.h"
 #include "UTPathBuilderInterface.h"
 #include "UTDroppedPickup.h"
 #if WITH_EDITOR
