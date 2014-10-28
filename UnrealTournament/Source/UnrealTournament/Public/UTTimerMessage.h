@@ -23,6 +23,7 @@ class UUTTimerMessage : public UUTLocalMessage
 		bIsUnique = true;
 		Lifetime = 2.0f;
 		bIsStatusAnnouncement = true;
+		bOptionalSpoken = true; // @TODO FIXMESTEVE - depends on the message - some should just delay!
 
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text1","1..."));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text2","2..."));

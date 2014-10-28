@@ -63,7 +63,6 @@ void AUTCTFFlag::DefaultTimer()
 	}
 }
 
-
 bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 {
 	if (Character != NULL)
@@ -73,8 +72,7 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 		{
 			if (CarriedFlag->GetTeamNum() != GetTeamNum())
 			{
-				SendGameMessage(2, CarriedFlag->Holder, NULL);
-				CarriedFlag->Score( FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);		
+				CarriedFlag->Score(FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);
 				CarriedFlag->Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
 				CarriedFlag->Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 				return false;
@@ -117,20 +115,19 @@ void AUTCTFFlag::OnObjectStateChanged()
 	{
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
-			GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::AutoReturn, 30, false);
+			GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::SendHome, 30, false);
 		}
 		else
 		{
-			GetWorldTimerManager().ClearTimer(this, &AUTCTFFlag::AutoReturn);
+			GetWorldTimerManager().ClearTimer(this, &AUTCTFFlag::SendHome);
 		}
 	}
-
 }
 
-void AUTCTFFlag::AutoReturn()
+void AUTCTFFlag::SendHome()
 {
 	SendGameMessage(1, NULL, NULL);
 	Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
 	Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
-	SendHome();
+	Super::SendHome();
 }

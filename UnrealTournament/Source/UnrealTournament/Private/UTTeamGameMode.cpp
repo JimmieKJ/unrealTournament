@@ -4,6 +4,7 @@
 #include "UTTeamInfo.h"
 #include "UTTeamPlayerStart.h"
 #include "Slate.h"
+#include "UTCTFGameMessage.h"
 
 UUTTeamInterface::UUTTeamInterface(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -27,7 +28,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
 
 	TeamMomentumPct = 0.3f;
 	bTeamGame = true;
-
+	bHasBroadcastDominating = false;
 }
 
 void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -277,7 +278,55 @@ AUTPlayerState* AUTTeamGameMode::FindBestPlayerOnTeam(int TeamNumToTest)
 	return Best;
 }
 
-bool AUTTeamGameMode::IsAWinner(AUTPlayerController* PC)
+void AUTTeamGameMode::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam)
 {
-	return (PC->UTPlayerState->Team != NULL && UTGameState->WinningTeam != NULL && PC->UTPlayerState->Team == UTGameState->WinningTeam);
+	// find best competing score - assume this is called after scores are updated.
+	int32 BestScore = 0;
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		if ((Teams[i] != ScoringTeam) && (Teams[i]->Score >= BestScore))
+		{
+			BestScore = Teams[i]->Score;
+		}
+	}
+	if (ScoringTeam->Score == BestScore + 2)
+	{
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);
+	}
+	else if (!bHasBroadcastDominating && ScoringTeam->Score >= BestScore + 4)
+	{
+		bHasBroadcastDominating = true;
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 9, ScoringPlayer, NULL, ScoringTeam);
+	}
+	else
+	{
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
+	}
 }
+
+void AUTTeamGameMode::PlayEndOfMatchMessage()
+{
+	int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score > 3) ? 1 : 0;
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		if ((Teams[i] != UTGameState->WinningTeam) && (Teams[i]->Score > 0))
+		{
+			IsFlawlessVictory = 0;
+			break;
+		}
+	}
+
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* Controller = *Iterator;
+		if (Controller->IsA(AUTPlayerController::StaticClass()))
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+			if (Cast<AUTPlayerState>(PC->PlayerState) && !PC->PlayerState->bOnlySpectator)
+			{
+				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+			}
+		}
+	}
+}
+

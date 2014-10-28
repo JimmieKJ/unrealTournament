@@ -450,7 +450,6 @@ void AUTGameMode::DefaultTimer()
 	}
 }
 
-
 void AUTGameMode::Reset()
 {
 	Super::Reset();
@@ -850,23 +849,28 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 	}
 }
 
-
-bool AUTGameMode::IsAWinner(AUTPlayerController* PC)
-{
-	return ( PC != NULL && PC->UTPlayerState != NULL && ( PC->UTPlayerState->bOnlySpectator || PC->UTPlayerState == UTGameState->WinnerPlayerState));
-}
-
 void AUTGameMode::PlayEndOfMatchMessage()
 {
-	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+	int32 IsFlawlessVictory = 1;
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AController* Controller = *Iterator;
+		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator && (Controller->PlayerState->Score > 0.f) & (Controller->PlayerState != UTGameState->WinnerPlayerState))
+		{
+			IsFlawlessVictory = 0;
+			break;
+		}
+	}
+
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* Controller = *Iterator;
 		if (Controller->IsA(AUTPlayerController::StaticClass()))
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-			if ( (PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator )
+			if ((PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
 			{
-				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, IsAWinner(PC) ? 0 : 1);
+				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
 			}
 		}
 	}
@@ -1355,7 +1359,7 @@ void AUTGameMode::HandleMatchInOvertime()
 void AUTGameMode::HandleCountdownToBegin()
 {
 	CountDown = 5;
-	CheckCountDown();
+	GetWorldTimerManager().SetTimer(this, &AUTGameMode::CheckCountDown, 1.0, false);
 }
 
 void AUTGameMode::CheckCountDown()

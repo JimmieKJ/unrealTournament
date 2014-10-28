@@ -13,6 +13,7 @@ UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties&
 	Lifetime = 2.0;
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	StyleTag = FName(TEXT("Default"));
+	bOptionalSpoken = false;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -127,8 +128,8 @@ FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UO
 
 bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	// by default interrupt messages of same type
-	return GetClass() == OtherMessageClass;
+	// by default interrupt messages of same type, and countdown messages
+	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
 }
 
 void UUTLocalMessage::OnAnnouncementPlayed_Implementation(int32 Switch, const UObject* OptionalObject) const

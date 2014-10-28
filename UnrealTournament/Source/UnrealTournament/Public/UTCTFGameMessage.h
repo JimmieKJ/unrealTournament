@@ -35,27 +35,7 @@ class UUTCTFGameMessage : public UUTCarriedObjectMessage
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
 
-	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
-	{
-		uint8 TeamNum = 0;
-
-		const AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
-		if (TeamInfo != NULL)
-		{
-			TeamNum = TeamInfo->GetTeamNum();
-		}
-
-		switch (Switch)
-		{
-			case 0 : return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
-			case 1 : return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
-			case 2 : return TeamNum == 0 ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
-			case 3 : return TeamNum == 0 ? TEXT("RedFlagDropped") : TEXT("BlueFlagDropped"); break;
-			case 4 : return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
-		}
-
-		return NAME_None;
-	}
+	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 
 };
 

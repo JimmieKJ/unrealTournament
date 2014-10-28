@@ -20,7 +20,7 @@ class AUTCTFFlag : public AUTCarriedObject
 	virtual void OnObjectStateChanged();
 	virtual void OnHolderChanged();
 
-	virtual void AutoReturn();
+	virtual void SendHome() override;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void DefaultTimer();

@@ -129,6 +129,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			// Give the team a capture.
 			Holder->Team->Score++;
 			Holder->FlagCaptures++;
+			BroadcastScoreUpdate(Holder, Holder->Team);
 
 			// We have to count up since it's possible a player left the game...
 			int AssistCount = 0;

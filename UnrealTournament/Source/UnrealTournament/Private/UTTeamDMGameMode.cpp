@@ -3,6 +3,7 @@
 #include "UTTeamGameMode.h"
 #include "UTTeamDMGameMode.h"
 #include "UTHUD_TeamDM.h"
+#include "UTCTFGameMessage.h"
 
 AUTTeamDMGameMode::AUTTeamDMGameMode(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -51,6 +52,22 @@ void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubc
 		{
 			KillerState->Team->Score += ScoreChange;
 			KillerState->Team->ForceNetUpdate();
+			if (!bHasBroadcastDominating)
+			{
+				int32 BestScore = 0;
+				for (int32 i = 0; i < Teams.Num(); i++)
+				{
+					if ((Teams[i] != KillerState->Team) && (Teams[i]->Score >= BestScore))
+					{
+						BestScore = Teams[i]->Score;
+					}
+				}
+				if (KillerState->Team->Score >= BestScore + 20)
+				{
+					bHasBroadcastDominating = true;
+					BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 9, KillerState, NULL, KillerState->Team);
+				}
+			}
 		}
 		else
 		{

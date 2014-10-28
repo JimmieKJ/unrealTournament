@@ -22,7 +22,6 @@ AUTDuelGame::AUTDuelGame(const class FPostConstructInitializeProperties& PCIP)
 	bForceRespawn = true;
 }
 
-
 void AUTDuelGame::InitGameState()
 {
 	Super::InitGameState();
@@ -57,4 +56,10 @@ void AUTDuelGame::InitGame(const FString& MapName, const FString& Options, FStri
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	GameSession->MaxPlayers = 2;
+}
+
+void AUTDuelGame::PlayEndOfMatchMessage()
+{
+	// individual winner, not team
+	AUTGameMode::PlayEndOfMatchMessage();
 }

@@ -19,7 +19,6 @@ UUTGameMessage::UUTGameMessage(const class FPostConstructInitializeProperties& P
 	NoNameChange = NSLOCTEXT("UTGameMessage","NoNameChange","You can not change your name.");
 	BecameSpectator = NSLOCTEXT("UTGameMessage","BecameSpectator","You are now a spectator.");
 	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","!! You didn't make the cut !!");
-
 }
 
 FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const
@@ -56,4 +55,14 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 		default:
 			return FText::GetEmpty();
 	}
+}
+
+FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	switch (Switch)
+	{
+		case 1: return TEXT("SuddenDeath"); break;
+		case 7: return TEXT("SuddenDeath"); break;
+	}
+	return NAME_None;
 }
