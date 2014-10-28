@@ -54,7 +54,11 @@ void FUTAnalytics::Initialize()
 
 void FUTAnalytics::Shutdown()
 {
-	checkf(bIsInitialized, TEXT("FUTAnalytics::Shutdown called outside of Initialize."));
+	if (!bIsInitialized)
+	{
+		return;
+	}
+
 	Analytics.Reset();
 	bIsInitialized = false;
 }

@@ -39,13 +39,13 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 		EAppReturnType::Type LINUXMessageBoxExt(EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption);
 		if (LINUXMessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
 		{
-			FPlatformMisc::RequestExit(true);
+			FPlatformMisc::RequestExit(false);
 			return;
 		}
 #else
 		if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
 		{
-			FPlatformMisc::RequestExit(true);
+			FPlatformMisc::RequestExit(false);
 			return;
 		}
 #endif
