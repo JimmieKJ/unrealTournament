@@ -319,6 +319,10 @@ void AUTCarriedObject::Use()
 	// Use should be managed in child classes.
 }
 
+void AUTCarriedObject::SendHomeWithNotify()
+{
+	SendHome();
+}
 
 void AUTCarriedObject::SendHome()
 {
@@ -344,7 +348,6 @@ void AUTCarriedObject::MoveToHome()
 	}
 
 	PreviousHolders.Empty();
-
 }
 
 void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
@@ -368,7 +371,7 @@ void AUTCarriedObject::FellOutOfWorld(const UDamageType& dmgType)
 {
 	if (Role == ROLE_Authority)
 	{
-		SendHome();
+		SendHomeWithNotify();
 	}
 	else
 	{

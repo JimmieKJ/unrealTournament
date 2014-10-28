@@ -133,11 +133,10 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UFUNCTION()
 	virtual void Drop(AController* Killer = NULL);
 
-	/**
-	 *	Sends this object back to it's base
-	 **/
+	/**	Sends this object back to its base */
 	UFUNCTION()
 	virtual void SendHome();
+	virtual void SendHomeWithNotify();
 
 	/**
 	 *	Uses this carried object

@@ -115,18 +115,23 @@ void AUTCTFFlag::OnObjectStateChanged()
 	{
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
-			GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::SendHome, 30, false);
+			GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::SendHomeWithNotify, 30, false);
 		}
 		else
 		{
-			GetWorldTimerManager().ClearTimer(this, &AUTCTFFlag::SendHome);
+			GetWorldTimerManager().ClearTimer(this, &AUTCTFFlag::SendHomeWithNotify);
 		}
 	}
 }
 
-void AUTCTFFlag::SendHome()
+void AUTCTFFlag::SendHomeWithNotify()
 {
 	SendGameMessage(1, NULL, NULL);
+	SendHome();
+}
+
+void AUTCTFFlag::SendHome()
+{
 	Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
 	Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 	Super::SendHome();
