@@ -2774,6 +2774,10 @@ void AUTCharacter::StartDriving(APawn* Vehicle)
 {
 	DrivenVehicle = Vehicle;
 	StopFiring();
+	if (CharacterMovement != nullptr)
+	{
+		CharacterMovement->StopActiveMovement();
+	}
 }
 
 void AUTCharacter::StopDriving(APawn* Vehicle)
