@@ -205,6 +205,7 @@ public:
 	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
+	virtual void FindAndMarkHighScorer();
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
 	virtual void StartMatch();

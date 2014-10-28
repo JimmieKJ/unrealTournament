@@ -142,6 +142,7 @@ public:
 
 	virtual FVector GetFocalLocation() const override;
 
+	virtual void Possess(APawn*) override;
 	virtual void PawnLeavingGame() override;
 
 	/**	We override player tick to keep updating the player's rotation when the game is over. */

@@ -492,6 +492,7 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclas
 
 			AttackerPS->AdjustScore(Points);
 			AttackerPS->IncrementKills(true);
+			FindAndMarkHighScorer();
 
 			UE_LOG(UT,Verbose,TEXT("========================================="));
 			UE_LOG(UT,Verbose,TEXT("Kill Score: %s %i"), *AttackerPS->PlayerName, Points);

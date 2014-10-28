@@ -1940,6 +1940,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteReplicationInfo, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteSpeed, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3489,3 +3490,7 @@ bool AUTCharacter::UTServerMoveDual_Validate(
 	return true;
 }
 
+void AUTCharacter::OnRep_HasHighScore()
+{
+	HasHighScoreChanged();
+}

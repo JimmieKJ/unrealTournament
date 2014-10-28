@@ -64,6 +64,9 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	bool bIsRconAdmin;
 
+	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
+	bool bHasHighScore;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/

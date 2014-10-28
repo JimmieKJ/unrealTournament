@@ -1301,6 +1301,21 @@ void AUTPlayerController::TestResult(uint16 ButtonID)
 }
 
 
+void AUTPlayerController::Possess(APawn* PawnToPossess)
+{
+	Super::Possess(PawnToPossess);
+
+	if (UTPlayerState->bHasHighScore)
+	{
+		AUTCharacter *UTChar = Cast<AUTCharacter>(GetPawn());
+		if (UTChar != nullptr)
+		{
+			UTChar->bHasHighScore = true;
+			UTChar->HasHighScoreChanged();
+		}
+	}
+}
+
 void AUTPlayerController::PawnLeavingGame()
 {
 	if (UTCharacter != NULL)

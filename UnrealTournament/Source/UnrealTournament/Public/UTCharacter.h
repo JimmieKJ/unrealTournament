@@ -1146,6 +1146,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float TeamPlayerIndicatorMaxDistance;
 
+	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
+	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)
+	bool bHasHighScore;
+
+	UFUNCTION()
+	void OnRep_HasHighScore();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void HasHighScoreChanged();
+
 	virtual void RecalculateBaseEyeHeight() override;
 
 	/** Returns offset to add to first person mesh for weapon bob. */

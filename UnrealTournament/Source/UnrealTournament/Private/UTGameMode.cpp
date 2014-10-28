@@ -562,6 +562,7 @@ void AUTGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf
 		{
 			KillerPlayerState->AdjustScore(+1);
 			KillerPlayerState->IncrementKills(true);
+			FindAndMarkHighScorer();
 			CheckScore(KillerPlayerState);
 		}
 
@@ -593,6 +594,52 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 		}
 		// delete the rest
 		UTC->DiscardAllInventory();
+	}
+}
+
+void AUTGameMode::FindAndMarkHighScorer()
+{
+	int32 BestScore = 0;
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS != nullptr)
+		{
+			// Clear previous high scores
+			PS->bHasHighScore = false;
+			AController *C = Cast<AController>(PS->GetOwner());
+			if (C != nullptr)
+			{
+				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
+				if (UTChar)
+				{
+					UTChar->bHasHighScore = false;
+				}
+			}
+
+			if (BestScore == 0 || PS->Score > BestScore)
+			{
+				BestScore = PS->Score;
+			}
+		}
+	}
+
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS != nullptr && PS->Score == BestScore)
+		{
+			PS->bHasHighScore = true;
+			AController *C = Cast<AController>(PS->GetOwner());
+			if (C != nullptr)
+			{
+				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
+				if (UTChar)
+				{
+					UTChar->bHasHighScore = true;
+				}
+			}
+		}
 	}
 }
 
