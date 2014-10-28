@@ -32,6 +32,10 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category = Sound, meta = (HidePin = "TheWorld", DefaultToSelf = "SourceActor", AutoCreateRefTerm = "SoundLoc"))
 	static void UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor = NULL, ESoundReplicationType RepType = SRT_All, bool bStopWhenOwnerDestroyed = false, const FVector& SoundLoc = FVector::ZeroVector, class AUTPlayerController* AmpedListener = NULL, APawn* Instigator = NULL, bool bNotifyAI = true);
 
+	/** retrieves gravity; if no location is specified, level default gravity is returned */
+	UFUNCTION(BlueprintCallable, Category = World, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", AutoCreateRefTerm = "TestLoc"))
+	static float GetGravityZ(UObject* WorldContextObject, const FVector& TestLoc = FVector::ZeroVector);
+
 	/** Hurt locally authoritative actors within the radius. Uses the Weapon trace channel.
 	 * Also allows passing in momentum (instead of using value hardcoded in damage type - allows for gameplay code to scale, e.g. for a charging weapon)
 	* @param BaseDamage - The base damage to apply, i.e. the damage at the origin.

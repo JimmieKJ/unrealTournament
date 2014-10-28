@@ -116,6 +116,24 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 	}
 }
 
+float UUTGameplayStatics::GetGravityZ(UObject* WorldContextObject, const FVector& TestLoc)
+{
+	UWorld* World = (WorldContextObject != NULL) ? WorldContextObject->GetWorld() : NULL;
+	if (World == NULL)
+	{
+		return GetDefault<UPhysicsSettings>()->DefaultGravityZ;
+	}
+	else if (TestLoc.IsZero())
+	{
+		return World->GetDefaultGravityZ();
+	}
+	else
+	{
+		APhysicsVolume* Volume = FindPhysicsVolume(World, TestLoc, FCollisionShape::MakeSphere(0.0f));
+		return (Volume != NULL) ? Volume->GetGravityZ() : World->GetDefaultGravityZ();
+	}
+}
+
 /** largely copied from GameplayStatics.cpp, with mods to use our trace channel and better handling if we don't get a hit on the target */
 static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector const& Origin, AActor const* IgnoredActor, const TArray<AActor*>& IgnoreActors, FHitResult& OutHitResult)
 {
