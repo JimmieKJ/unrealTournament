@@ -9,6 +9,9 @@
 
 #include "UTSquadAI.generated.h"
 
+extern FName NAME_Attack;
+extern FName NAME_Defend;
+
 UCLASS(NotPlaceable)
 class AUTSquadAI : public AInfo, public IUTTeamInterface
 {
@@ -22,9 +25,6 @@ class AUTSquadAI : public AInfo, public IUTTeamInterface
 	/** squad role/orders */
 	UPROPERTY(BlueprintReadOnly, Category = Squad)
 	FName Orders;
-	/** squad objective (target to attack, defend, etc) - may be NULL */
-	UPROPERTY(BlueprintReadOnly, Category = Squad)
-	AActor* Objective;
 protected:
 	/** cached pointer to navigation data */
 	AUTRecastNavMesh* NavData;
@@ -35,6 +35,12 @@ protected:
 	/** leader (prefer to stay near this player when objectives permit)*/
 	UPROPERTY(BlueprintReadOnly, Category = Squad)
 	AController* Leader;
+	/** squad objective (target to attack, defend, etc) - may be NULL */
+	UPROPERTY(BlueprintReadOnly, Category = Squad)
+	AActor* Objective;
+	/** precast to AUTGameObjective for convenience */
+	UPROPERTY(BlueprintReadOnly, Category = Squad)
+	AUTGameObjective* GameObjective;
 public:
 
 	inline AController* GetLeader() const
@@ -44,6 +50,14 @@ public:
 	inline int32 GetSize() const
 	{
 		return Members.Num();
+	}
+	inline AActor* GetObjective() const
+	{
+		return Objective;
+	}
+	inline AUTGameObjective* GetGameObjective() const
+	{
+		return GameObjective;
 	}
 
 	virtual uint8 GetTeamNum() const override
@@ -55,6 +69,29 @@ public:
 	{
 		NavData = GetUTNavData(GetWorld());
 		Super::BeginPlay();
+	}
+
+	virtual void Initialize(AUTTeamInfo* InTeam, FName InOrders)
+	{
+		Team = InTeam;
+		Orders = InOrders;
+	}
+
+	virtual void SetObjective(AActor* InObjective)
+	{
+		if (InObjective != Objective)
+		{
+			Objective = InObjective;
+			GameObjective = Cast<AUTGameObjective>(InObjective);
+			for (AController* C : Members)
+			{
+				AUTBot* B = Cast<AUTBot>(C);
+				if (B != NULL)
+				{
+					B->WhatToDoNext();
+				}
+			}
+		}
 	}
 
 	virtual void AddMember(AController* C);
@@ -93,6 +130,14 @@ public:
 		}
 	}
 
+	/** return current orders for this bot
+	 * generally just returns Orders, but for certain squads (e.g. freelance) this may change based on the bot's state (for example, when stacked switch to attacking)
+	 */
+	virtual FName GetCurrentOrders(AUTBot* B)
+	{
+		return Orders;
+	}
+
 	/** called by bot during its decision logic to see if there's an action relating to the game's objectives it should take
 	 * @return if an action was assigned
 	 */
@@ -102,4 +147,9 @@ public:
 	 * should set MoveTarget to desired destination but don't set action
 	 */
 	virtual bool PickRetreatDestination(AUTBot* B);
+
+	/** notifies AI of some game objective related event (e.g. flag taken)
+	 * generally bots will get retasked if they were performing some action relating to the object that is no longer relevant
+	 */
+	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName);
 };

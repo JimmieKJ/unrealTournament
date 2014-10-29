@@ -496,22 +496,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void UTNotifyKilled(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType);
 
-	// focal point changes need to call UpdateControlRotation() immediately to set FinalFocalPoint
-	virtual void SetFocalPoint(FVector FP, bool bOffsetFromBase = false, uint8 InPriority = EAIFocusPriority::Gameplay) override
-	{
-		Super::SetFocalPoint(FP, bOffsetFromBase, InPriority);
-		UpdateControlRotation(0.0f, false);
-	}
-	virtual void SetFocus(AActor* NewFocus, EAIFocusPriority::Type InPriority = EAIFocusPriority::Gameplay)
-	{
-		Super::SetFocus(NewFocus, InPriority);
-		UpdateControlRotation(0.0f, false);
-	}
-	virtual void ClearFocus(EAIFocusPriority::Type InPriority)
-	{
-		Super::ClearFocus(InPriority);
-		UpdateControlRotation(0.0f, false);
-	}
 	virtual FVector GetFocalPoint() const
 	{
 		return FinalFocalPoint;
@@ -559,6 +543,10 @@ public:
 	 * handles avoiding redundant searches in the same frame so it isn't necessary to manually throttle
 	 */
 	virtual bool FindInventoryGoal(float MinWeight);
+	/** attempt to path to Goal as a single target and if successful set MoveTarget and start WaitForMove action
+	 * (basically a shortcut for the simple case of "I want to go here"; if this function succeeds the decision logic can end as the bot has a valid action)
+	 */
+	virtual bool TryPathToward(AActor* Goal, const FString& SuccessGoalString = FString());
 
 	/** tries to perform an evasive action in the indicated direction, most commonly a dodge but if dodge is not available or low skill, possibly strafe that way instead
 	 * this function may interrupt the bot's current action

@@ -48,6 +48,7 @@ void AUTCarriedObject::Init(AUTGameObjective* NewBase)
 
 	HomeBase = NewBase;
 	ObjectState = CarriedObjectState::Home;
+	HomeBase->ObjectStateWasChanged(ObjectState);
 	MoveToHome();
 	OnHolderChanged();
 }
@@ -239,9 +240,21 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	HoldingPawn->MakeNoise(2.0);
 
 	SendGameMessage(4, Holder, NULL);
+
+	if (Role == ROLE_Authority)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			for (AUTTeamInfo* Team : GS->Teams)
+			{
+				Team->NotifyObjectiveEvent(HomeBase, NewHolder->Controller, FName(TEXT("FlagStatusChange")));
+			}
+		}
+	}
 }
 
-void AUTCarriedObject::NoLongerHeld()
+void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 {
 	// Have the holding pawn drop the object
 	if (HoldingPawn != NULL)
@@ -274,6 +287,15 @@ void AUTCarriedObject::NoLongerHeld()
 	if (Role == ROLE_Authority)
 	{
 		OnHolderChanged();
+
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			for (AUTTeamInfo* Team : GS->Teams)
+			{
+				Team->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
+			}
+		}
 	}
 }
 
@@ -299,7 +321,7 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 void AUTCarriedObject::Drop(AController* Killer)
 {
 	SendGameMessage(3, Holder, NULL);
-	NoLongerHeld();
+	NoLongerHeld(Killer);
 
 	// Toss is out
 	TossObject(LastHoldingPawn);

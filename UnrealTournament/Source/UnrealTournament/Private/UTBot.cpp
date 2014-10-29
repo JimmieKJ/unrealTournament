@@ -529,6 +529,20 @@ void AUTBot::Tick(float DeltaTime)
 			{
 				UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
 			}
+			// set default focus
+			// note that decision code can override by setting a higher priority focus item
+			if (GetTarget() != NULL)
+			{
+				SetFocus(GetTarget());
+			}
+			else if (MoveTarget.Actor.IsValid())
+			{
+				SetFocus(MoveTarget.Actor.Get());
+			}
+			else
+			{
+				SetFocalPoint(MoveTarget.GetLocation(MyPawn)); // hmm, better in some situations, worse in others. Maybe periodically trace? Or maybe it doesn't matter because we'll have an enemy most of the time
+			}
 		}
 
 		if (MoveTarget.IsValid())
@@ -562,25 +576,6 @@ void AUTBot::Tick(float DeltaTime)
 			if (MoveTarget.IsValid())
 			{
 				FVector TargetLoc = GetMovePoint();
-				if (Target != NULL && Target != Enemy && LineOfSightTo(Target))
-				{
-					SetFocus(Target);
-				}
-				else  if (Enemy != NULL && LineOfSightTo(Enemy)) // TODO: cache this
-				{
-					SetFocus(Enemy);
-				}
-				else
-				{
-					if (MoveTarget.Actor.IsValid())
-					{
-						SetFocus(MoveTarget.Actor.Get());
-					}
-					else
-					{
-						SetFocalPoint(MoveTarget.GetLocation(MyPawn)); // hmm, better in some situations, worse in others. Maybe periodically trace? Or maybe it doesn't matter because we'll have an enemy most of the time
-					}
-				}
 				if (GetCharacter() != NULL && GetCharacter()->CharacterMovement != NULL)
 				{
 					GetCharacter()->CharacterMovement->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP)) && (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
@@ -714,7 +709,19 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 
 void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 {
-	AUTWeapon* MyWeap = (UTChar != NULL) ? UTChar->GetWeapon() : NULL;
+	AUTWeapon* MyWeap = NULL;
+	if (UTChar != NULL)
+	{
+		// if switching weapons, aim using upcoming weapon instead
+		if (UTChar->GetPendingWeapon() != NULL && (UTChar->GetWeapon() == NULL || !UTChar->GetWeapon()->IsFiring()))
+		{
+			MyWeap = UTChar->GetPendingWeapon();
+		}
+		else
+		{
+			MyWeap = UTChar->GetWeapon();
+		}
+	}
 	if (MyWeap != NULL)
 	{
 		// tactical aim adjustments
@@ -727,7 +734,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 			{
 				DefaultProj = MyWeap->ProjClass[NextFireMode].GetDefaultObject();
 				// handle leading
-				if (bLeadTarget && GetTarget() != NULL)
+				if (bLeadTarget && GetTarget() != NULL && GetTarget() == GetFocusActor())
 				{
 					float TravelTime = DefaultProj->GetTimeToLocation(FocalPoint);
 					if (TravelTime > 0.0f)
@@ -816,6 +823,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					TArray<AActor*> IgnoreActors;
 					IgnoreActors.Add(GetPawn());
 					IgnoreActors.Add(GetTarget());
+					IgnoreActors.Add(GetFocusActor());
 					FVector TossVel;
 					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, GetPawn()->GetActorLocation(), FocalPoint, DefaultProj->ProjectileMovement->InitialSpeed, false, DefaultProj->GetSimpleCollisionRadius(), GravityZ, ESuggestProjVelocityTraceOption::OnlyTraceWhileAsceding, FCollisionResponseParams::DefaultResponseParam, IgnoreActors))
 					{
@@ -1186,7 +1194,7 @@ void AUTBot::NotifyJumpApex()
 
 float AUTBot::RateWeapon(AUTWeapon* W)
 {
-	if (W != NULL && W->GetUTOwner() == GetUTChar() && GetUTChar() != NULL)
+	if (W != NULL && W->GetUTOwner() == GetUTChar() && GetUTChar() != NULL && W->HasAnyAmmo())
 	{
 		float Rating = W->GetAISelectRating();
 		// prefer favorite weapon
@@ -1266,7 +1274,33 @@ bool AUTBot::WeaponProficiencyCheck()
 
 bool AUTBot::NeedsWeapon()
 {
-	return (GetUTChar() != NULL && (GetUTChar()->GetWeapon() == NULL || GetUTChar()->GetWeapon()->BaseAISelectRating < 0.5f));
+	if (UTChar == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		if (UTChar->GetWeapon() == NULL)
+		{
+			return true;
+		}
+		else if (UTChar->GetWeapon()->BaseAISelectRating >= 0.5f)
+		{
+			return false;
+		}
+		else
+		{
+			// make sure we don't have a good weapon we just don't have selected right now due to special circumstances (e.g. translocator)
+			for (TInventoryIterator<AUTWeapon> It(UTChar); It; ++It)
+			{
+				if (It->BaseAISelectRating >= 0.5f && It->HasAnyAmmo())
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+	}
 }
 
 void AUTBot::CheckWeaponFiring(bool bFromWeapon)
@@ -1425,6 +1459,23 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 
 		FBestInventoryEval NodeEval;
 		return NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
+	}
+}
+
+bool AUTBot::TryPathToward(AActor* Goal, const FString& SuccessGoalString)
+{
+	FSingleEndpointEval NodeEval(Goal);
+	float Weight = 0.0f;
+	if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+	{
+		GoalString = SuccessGoalString;
+		SetMoveTarget(RouteCache[0]);
+		StartWaitForMove();
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 

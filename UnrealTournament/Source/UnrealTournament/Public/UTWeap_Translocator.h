@@ -30,6 +30,7 @@ class AUTWeap_Translocator : public AUTWeapon
 
 	virtual void ClearDisk();
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
 	USoundBase* ThrowSound;
@@ -79,4 +80,5 @@ class AUTWeap_Translocator : public AUTWeapon
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual float GetAISelectRating_Implementation() override;
 	virtual bool DoAssistedJump() override;
+	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
 };

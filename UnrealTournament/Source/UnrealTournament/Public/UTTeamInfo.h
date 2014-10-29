@@ -74,6 +74,12 @@ class AUTTeamInfo : public AInfo, public IUTTeamInterface
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
 	virtual void UpdateEnemyInfo(APawn* NewEnemy, enum EAIEnemyUpdateType UpdateType);
 
+	/** notifies AI of some game objective related event (e.g. flag taken)
+	 * generally bots will get retasked if they were performing some action relating to the object that is no longer relevant
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName);
+
 protected:
 	/** list of players on this team currently (server only) */
 	UPROPERTY(BlueprintReadOnly, Category = Team)

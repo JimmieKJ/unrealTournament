@@ -63,4 +63,7 @@ class AUTProj_TransDisk : public AUTProjectile
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser);
 
 	virtual void Tick(float DeltaTime) override;
+
+	/** used for bot translocations to check that translocating to our current position allows reaching DesiredDest and is a safe target (e.g. not going to fall to death, etc) */
+	virtual bool IsAcceptableTranslocationTo(const FVector& DesiredDest);
 };

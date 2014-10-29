@@ -4,11 +4,12 @@
 
 #include "UTCharacter.h"
 #include "UTPathBuilderInterface.h"
+#include "UTTeamInterface.h"
 
 #include "UTGameObjective.generated.h"
 
 UCLASS()
-class AUTGameObjective : public AActor, public IUTPathBuilderInterface
+class AUTGameObjective : public AActor, public IUTPathBuilderInterface, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -37,21 +38,25 @@ class AUTGameObjective : public AActor, public IUTPathBuilderInterface
 	virtual void ObjectReturnedHome(AUTCharacter* Returner);
 
 	/**	@returns the carried object*/
-	virtual AUTCarriedObject* GetCarriedObject();
+	virtual AUTCarriedObject* GetCarriedObject() const;
 
 	/**	@returns the state of the owned UTCarriedObject*/
-	virtual FName GetCarriedObjectState();
+	virtual FName GetCarriedObjectState() const;
 
 	/**	@returns the PlayerState of the UTCharacter holding CarriedObject otherwise returns NULL*/
 	virtual AUTPlayerState* GetCarriedObjectHolder();
 
 	/** Within this distance is considered last second save. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
-		float LastSecondSaveDistance;
+	float LastSecondSaveDistance;
 
 	/** Return true if Other is within LastSecondSaveDistance. */
 	virtual bool ActorIsNearMe(AActor *Other) const;
 
+	virtual uint8 GetTeamNum() const
+	{
+		return (GetCarriedObject() != NULL) ? GetCarriedObject()->GetTeamNum() : 255;
+	}
 protected:
 
 	// Holds the actual object

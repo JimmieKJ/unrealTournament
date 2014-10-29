@@ -2,6 +2,9 @@
 #include "UnrealTournament.h"
 #include "UTSquadAI.h"
 
+FName NAME_Attack(TEXT("Attack"));
+FName NAME_Defend(TEXT("Defend"));
+
 AUTSquadAI::AUTSquadAI(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
@@ -102,6 +105,29 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 		else
 		{
 			return false;
+		}
+	}
+}
+
+void AUTSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName)
+{
+	if (InObjective == Objective)
+	{
+		for (AController* C : Members)
+		{
+			AUTBot* B = Cast<AUTBot>(C);
+			if (B != NULL)
+			{
+				if (B == InstigatedBy)
+				{
+					B->WhatToDoNext();
+				}
+				else
+				{
+					// set timer to retask bot, partially just to stagger updates and partially to account for their reaction time
+					GetWorldTimerManager().SetTimer(B, &AUTBot::WhatToDoNext, 0.1f + 0.15f * FMath::FRand() + (0.5f - 0.5f * B->Personality.ReactionTime) * FMath::FRand(), false);
+				}
+			}
 		}
 	}
 }

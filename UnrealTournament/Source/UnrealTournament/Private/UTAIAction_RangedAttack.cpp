@@ -31,7 +31,7 @@ bool UUTAIAction_RangedAttack::FindStrafeDest()
 void UUTAIAction_RangedAttack::FirstShotTimer()
 {
 	if ( (GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->bMeleeWeapon) || GetTarget() == NULL || GetTarget() != GetOuterAUTBot()->GetFocusActor() ||
-		(GetTarget() != GetEnemy() && GetTarget() != GetSquad()->Objective && GetEnemy() != NULL && GetOuterAUTBot()->LineOfSightTo(GetEnemy())) )
+		(GetTarget() != GetEnemy() && GetTarget() != GetSquad()->GetObjective() && GetEnemy() != NULL && GetOuterAUTBot()->LineOfSightTo(GetEnemy())) )
 	{
 		GetOuterAUTBot()->WhatToDoNext();
 	}

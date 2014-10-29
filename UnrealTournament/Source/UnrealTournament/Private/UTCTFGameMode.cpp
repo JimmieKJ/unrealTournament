@@ -8,6 +8,7 @@
 #include "UTPickup.h"
 #include "UTGameMessage.h"
 #include "UTMutator.h"
+#include "UTCTFSquadAI.h"
 
 namespace MatchState
 {
@@ -35,6 +36,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 	GoalScore = 0;
 	TimeLimit = 14;
 	MapPrefix = TEXT("CTF");
+	SquadType = AUTCTFSquadAI::StaticClass();
 
 	SuddenDeathHealthDrain = 5;
 
@@ -311,7 +313,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		if (PC != NULL)
 		{
 			PC->ClientHalftime();
-			PC->SetViewTarget(CTFGameState->FlagBases[PC->GetTeamNum()]);
+			PC->SetViewTarget(CTFGameState->FlagBases[CTFGameState->FlagBases.IsValidIndex(PC->GetTeamNum()) ? PC->GetTeamNum() : 0]);
 		}
 	}
 

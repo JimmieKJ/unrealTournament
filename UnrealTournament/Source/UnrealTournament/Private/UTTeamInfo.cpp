@@ -13,6 +13,7 @@ AUTTeamInfo::AUTTeamInfo(const FPostConstructInitializeProperties& PCIP)
 	NetUpdateFrequency = 1.0f;
 	TeamIndex = 255; // invalid so we will always get ReceivedTeamIndex() on clients
 	TeamColor = FLinearColor::White;
+	DefaultOrderIndex = -1;
 	DefaultOrders.Add(FName(TEXT("Attack")));
 	DefaultOrders.Add(FName(TEXT("Defend")));
 }
@@ -130,11 +131,10 @@ bool AUTTeamInfo::AssignToSquad(AController* C, FName Orders, AController* Leade
 			break;
 		}
 	}
-	if (NewSquad == NULL && Leader == NULL)
+	if (NewSquad == NULL && (Leader == NULL || Leader == C))
 	{
 		NewSquad = GetWorld()->SpawnActor<AUTSquadAI>(GetWorld()->GetAuthGameMode<AUTGameMode>()->SquadType);
-		NewSquad->Team = this;
-		NewSquad->Orders = Orders;
+		NewSquad->Initialize(this, Orders);
 	}
 	if (NewSquad == NULL)
 	{
@@ -160,10 +160,27 @@ void AUTTeamInfo::AssignDefaultSquadFor(AController* C)
 {
 	if (Cast<AUTBot>(C) != NULL)
 	{
-		AssignToSquad(C, (DefaultOrders.Num() > 0) ? DefaultOrders[DefaultOrderIndex++] : NAME_None);
+		if (DefaultOrders.Num() > 0)
+		{
+			DefaultOrderIndex = (DefaultOrderIndex + 1) % DefaultOrders.Num();
+			AssignToSquad(C, DefaultOrders[DefaultOrderIndex]);
+		}
+		else
+		{
+			AssignToSquad(C, NAME_None);
+		}
 	}
 	else
 	{
 		// TODO: playercontroller
+	}
+}
+
+void AUTTeamInfo::NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName)
+{
+	for (AUTSquadAI* Squad : Squads)
+	{
+		// by default just notify all squads and let them filter
+		Squad->NotifyObjectiveEvent(InObjective, InstigatedBy, EventName);
 	}
 }

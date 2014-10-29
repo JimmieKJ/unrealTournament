@@ -193,11 +193,12 @@ void AUTWeap_Translocator::FireShot()
 //Dont drop Weapon when killed
 void AUTWeap_Translocator::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
 {
-	if (TransDisk != NULL)
-	{
-		TransDisk->ShutDown();
-	}
 	Destroy();
+}
+void AUTWeap_Translocator::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	ClearDisk();
 }
 
 void AUTWeap_Translocator::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -293,5 +294,21 @@ bool AUTWeap_Translocator::DoAssistedJump()
 			}
 			return false;
 		}
+	}
+}
+
+bool AUTWeap_Translocator::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL || B->GetFocusActor() == Target)
+	{
+		bool bResult = Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc);
+		BestFireMode = 0;
+		return bResult;
+	}
+	else
+	{
+		// when using translocator for movement other code will handle firing, don't use normal path
+		return false;
 	}
 }

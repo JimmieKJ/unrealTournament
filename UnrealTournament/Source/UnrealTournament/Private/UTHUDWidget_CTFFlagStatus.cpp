@@ -25,7 +25,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	if (CGS != NULL && CGS->IsMatchInProgress() && UTHUDOwner != NULL && UTHUDOwner->PlayerOwner != NULL)
 	{
 		AUTPlayerState* OwnerPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
-		if (OwnerPS != NULL)
+		if (OwnerPS != NULL && OwnerPS->Team != NULL)
 		{
 			uint8 MyTeamNum = OwnerPS->GetTeamNum();
 			uint8 OtherTeamNum = MyTeamNum == 0 ? 1 : 0;
@@ -51,9 +51,6 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 						StatusText = EnemyHasFlagText;
 					}
 				}
-
-
-
 			}
 			else if (OwnerPS->CarriedObject != NULL && Cast<AUTCTFFlag>(OwnerPS->CarriedObject) != NULL)
 			{

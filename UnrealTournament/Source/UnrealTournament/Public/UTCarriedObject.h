@@ -234,7 +234,7 @@ protected:
 
 	/**	Called from both Drop and SendHome - cleans up the current holder.*/
 	UFUNCTION()
-	virtual void NoLongerHeld();
+	virtual void NoLongerHeld(AController* InstigatedBy = NULL);
 
 	/**	Move the flag to it's home base*/
 	UFUNCTION()

@@ -244,6 +244,23 @@ void AUTProj_TransDisk::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 	DOREPLIFETIME_CONDITION(AUTProj_TransDisk, TransState, COND_None);
 }
 
+bool AUTProj_TransDisk::IsAcceptableTranslocationTo(const FVector& DesiredDest)
+{
+	FCollisionQueryParams Params(FName(TEXT("TransDiskAI")), false, this);
+	Params.AddIgnoredActor(Instigator);
+	if (GetWorld()->LineTraceTest(GetActorLocation(), DesiredDest, ECC_Pawn, Params) || !GetWorld()->LineTraceTest(GetActorLocation(), GetActorLocation() - FVector(0.0f, 0.0f, 500.0f), ECC_Pawn, Params))
+	{
+		return false;
+	}
+	else
+	{
+		// if Instigator is moving, its velocity will be maintained, so check for ground in that direction as well
+		FVector InstigatorVel = Instigator->GetVelocity();
+		InstigatorVel.Z = 0.0f;
+		return (InstigatorVel.IsNearlyZero() || GetWorld()->LineTraceTest(GetActorLocation(), GetActorLocation() - FVector(0.0f, 0.0f, 500.0f) + InstigatorVel * 0.25f, ECC_Pawn, Params));
+	}
+}
+
 void AUTProj_TransDisk::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -257,11 +274,10 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 		{
 			if (!B->TranslocTarget.IsZero())
 			{
-				FVector Diff = B->TranslocTarget - GetActorLocation();
-				// TODO: maybe check for overshoot that happens to be along bot's path?
-				if ( (Diff.Size2D() < FMath::Max<float>(ProjectileMovement->MaxSpeed * 0.04f, 120.0f) || (B->TranslocTarget - (GetActorLocation() + GetVelocity() * DeltaTime)).Size2D() > Diff.Size2D()) &&
-					!GetWorld()->LineTraceTest(GetActorLocation(), B->TranslocTarget, ECC_Pawn, FCollisionQueryParams(FName(TEXT("TransDiskAI")), false, this)) &&
-					GetWorld()->LineTraceTest(GetActorLocation(), GetActorLocation() - FVector(0.0f, 0.0f, 500.0f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("TransDiskAI")), false, this)) )
+				const FVector MyLoc = GetActorLocation();
+				FVector Diff = B->TranslocTarget - MyLoc;
+				if ( (Diff.Size2D() < FMath::Max<float>(ProjectileMovement->MaxSpeed * 0.04f, 120.0f) || (B->TranslocTarget - (MyLoc + GetVelocity() * DeltaTime)).Size2D() > Diff.Size2D()) &&
+					 IsAcceptableTranslocationTo(B->TranslocTarget) )
 				{
 					// translocate!
 					UTC->StartFire(1);
@@ -272,9 +288,35 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 				}
 				else if ((Diff.SafeNormal() | GetVelocity().SafeNormal()) <= 0.0f)
 				{
-					// recall disk
-					UTC->StartFire(0);
-					UTC->StopFire(0);
+					// check if disk ended up further along bot's path even though not at desired destination
+					bool bIsForward = ((B->GetMovePoint() - MyLoc).Size() < (B->GetMovePoint() - UTC->GetActorLocation()).Size() * 0.75f && IsAcceptableTranslocationTo(B->GetMovePoint()));
+					if (!bIsForward)
+					{
+						for (const FRouteCacheItem& RouteItem : B->RouteCache)
+						{
+							const FVector RouteLoc = RouteItem.GetLocation(UTC);
+							if ((RouteLoc - MyLoc).Size2D() < UTC->GetSimpleCollisionRadius() * 2.0f && IsAcceptableTranslocationTo(RouteLoc))
+							{
+								bIsForward = true;
+								break;
+							}
+						}
+					}
+					if (bIsForward)
+					{
+						// translocate!
+						UTC->StartFire(1);
+						UTC->StopFire(1);
+						B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
+						B->MoveTimer = -1.0f;
+						B->LastTranslocTime = GetWorld()->TimeSeconds;
+					}
+					else
+					{
+						// recall disk
+						UTC->StartFire(0);
+						UTC->StopFire(0);
+					}
 				}
 			}
 			else if (TransState == TLS_OnGround)

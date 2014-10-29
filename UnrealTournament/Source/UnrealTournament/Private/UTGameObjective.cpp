@@ -62,12 +62,12 @@ void AUTGameObjective::CreateCarriedObject()
 	UE_LOG(UT,Log,TEXT("Base: %s   Flag: %s"), *GetActorLocation().ToString(), *CarriedObject->GetActorLocation().ToString());	
 }
 
-AUTCarriedObject* AUTGameObjective::GetCarriedObject()
+AUTCarriedObject* AUTGameObjective::GetCarriedObject() const
 {
 	return CarriedObject;
 }
 
-FName AUTGameObjective::GetCarriedObjectState()
+FName AUTGameObjective::GetCarriedObjectState() const
 {
 	return CarriedObjectState;
 }
