@@ -165,12 +165,6 @@ void AUTCTFFlag::Drop(AController* Killer)
 			}
 		}
 	}
-	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GM)
-	{
-		bDelayDroppedMessage = true;
-		GM->BroadcastLocalized(this, UUTLastSecondMessage::StaticClass(), 0, Holder, Holder, NULL);
-	}
 
 	FlagDropTime = GetWorld()->GetTimeSeconds();
 	if (bDelayDroppedMessage)
