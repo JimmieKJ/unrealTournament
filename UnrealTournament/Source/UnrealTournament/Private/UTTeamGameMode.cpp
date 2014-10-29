@@ -35,6 +35,8 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
+	bBalanceTeams = EvalBoolOptions(ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
+
 	if (bAllowURLTeamCountOverride)
 	{
 		NumTeams = GetIntOption(Options, TEXT("NumTeams"), NumTeams);
