@@ -23,6 +23,8 @@ class AUTProj_Redeemer : public AUTProjectile
 
 	void ExplodeStage(float RangeMultiplier);
 
+	virtual void RedeemerDenied(AController* InstigatedBy);
+
 	UFUNCTION()
 	void ExplodeStage1();
 	UFUNCTION()

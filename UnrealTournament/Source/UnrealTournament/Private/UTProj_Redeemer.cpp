@@ -4,6 +4,7 @@
 #include "UTProjectileMovementComponent.h"
 #include "UTImpactEffect.h"
 #include "UTProj_Redeemer.h"
+#include "UTLastSecondMessage.h"
 
 AUTProj_Redeemer::AUTProj_Redeemer(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -33,6 +34,20 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FPostConstructInitializePropertie
 	bExplosionAlwaysRelevant = true;
 }
 
+void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
+{
+	APlayerState* InstigatorPS = InstigatorController ? InstigatorController->PlayerState : NULL;
+	APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
+	if (Cast<AUTPlayerController>(InstigatedBy))
+	{
+		Cast<AUTPlayerController>(InstigatedBy)->ClientReceiveLocalizedMessage(UUTLastSecondMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+	}
+	if (Cast<AUTPlayerController>(InstigatorController))
+	{
+		Cast<AUTPlayerController>(InstigatorController)->ClientReceiveLocalizedMessage(UUTLastSecondMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+	}
+}
+
 void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
@@ -40,6 +55,8 @@ void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* D
 	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 	{
 		Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CollisionComp);
+		RedeemerDenied(InstigatedBy);
+
 	}
 	else if ((Role != ROLE_Authority) && bUsingClientSideHits)
 	{
@@ -50,6 +67,7 @@ void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* D
 void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
 {
 	Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CollisionComp);
+	RedeemerDenied(InstigatedBy);
 }
 
 void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)

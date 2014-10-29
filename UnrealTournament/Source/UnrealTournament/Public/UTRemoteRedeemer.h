@@ -29,7 +29,6 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void Destroyed() override;
-	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	UPROPERTY(BlueprintReadOnly, Category = Vehicle)
@@ -129,6 +128,10 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	virtual FVector GetVelocity() const override;
 
+	virtual void RedeemerDenied(AController* InstigatedBy);
+
 	// This should get moved to Vehicle when it gets implemented
 	virtual bool IsRelevancyOwnerFor(AActor* ReplicatedActor, AActor* ActorOwner, AActor* ConnectionActor) override;
+
+	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 };

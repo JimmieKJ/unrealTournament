@@ -5,6 +5,7 @@
 #include "UTProjectileMovementComponent.h"
 #include "UTImpactEffect.h"
 #include "UTRemoteRedeemer.h"
+#include "UTLastSecondMessage.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -57,13 +58,6 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 	ExplosionRadii[5] = 1.0f;
 
 	CollisionFreeRadius = 1200;
-}
-
-void AUTRemoteRedeemer::BeginPlay()
-{
-	Super::BeginPlay();
-
-	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::BlowUp, 20.0, false);
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -407,5 +401,67 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 		float SmoothRoll = FMath::Min(1.0f, RollSmoothingMultiplier * DeltaSeconds);
 		RolledRotation.Roll = RolledRotation.Roll * SmoothRoll + Rotation.Roll * (1.0f - SmoothRoll);
 		SetActorRotation(RolledRotation);
+	}
+}
+
+void AUTRemoteRedeemer::RedeemerDenied(AController* InstigatedBy)
+{
+	APlayerState* InstigatorPS = GetController() ? GetController()->PlayerState : NULL;
+	APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
+	if (Cast<AUTPlayerController>(InstigatedBy))
+	{
+		Cast<AUTPlayerController>(InstigatedBy)->ClientReceiveLocalizedMessage(UUTLastSecondMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+	}
+	if (Cast<AUTPlayerController>(GetController()))
+	{
+		Cast<AUTPlayerController>(GetController())->ClientReceiveLocalizedMessage(UUTLastSecondMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+	}
+}
+
+float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	if (!ShouldTakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser))
+	{
+		return 0.f;
+	}
+	else
+	{
+		int32 ResultDamage = Damage;
+		FVector ResultMomentum(0.f);
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != NULL)
+		{
+			// we need to pull the hit info out of FDamageEvent because ModifyDamage() goes through blueprints and that doesn't correctly handle polymorphic structs
+			FHitResult HitInfo;
+			FVector UnusedDir;
+			DamageEvent.GetBestHitInfo(this, DamageCauser, HitInfo, UnusedDir);
+
+			Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser);
+		}
+
+		if (ResultDamage > 0)
+		{
+			if (EventInstigator != NULL && EventInstigator != Controller)
+			{
+				LastHitBy = EventInstigator;
+			}
+
+			if (ResultDamage > 0)
+			{
+				// this is partially copied from AActor::TakeDamage() (just the calls to the various delegates and K2 notifications)
+				const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+
+				float ActualDamage = float(ResultDamage); // engine hooks want float
+				// generic damage notifications sent for any damage
+				ReceiveAnyDamage(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
+				OnTakeAnyDamage.Broadcast(ActualDamage, DamageTypeCDO, EventInstigator, DamageCauser);
+				if (EventInstigator != NULL)
+				{
+					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
+				}
+				BlowUp();
+			}
+		}
+		return float(ResultDamage);
 	}
 }
