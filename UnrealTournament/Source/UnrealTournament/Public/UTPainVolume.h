@@ -11,6 +11,7 @@ class AUTPainVolume : public APainCausingVolume
 
 	virtual void ActorEnteredVolume(class AActor* Other) override;
 	virtual void ActorLeavingVolume(class AActor* Other) override;
+	virtual void PainTimer() override;
 
 	/** Sound played when actor enters this volume. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)

@@ -82,7 +82,16 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
 		}
-		Super::ActorEnteredVolume(Other);
+		if (bPainCausing && bEntryPain && Other->bCanBeDamaged)
+		{
+			CausePainTo(Other);
+		}
+
+		// Start timer if none is active
+		if (!GetWorldTimerManager().IsTimerActive(this, &AUTPainVolume::PainTimer))
+		{
+			GetWorldTimerManager().SetTimer(this, &AUTPainVolume::PainTimer, PainInterval, true);
+		}
 	}
 }
 
@@ -102,5 +111,30 @@ void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
 		Super::ActorLeavingVolume(Other);
 	}
 }
+
+void AUTPainVolume::PainTimer()
+{
+	if (bPainCausing)
+	{
+		TArray<AActor*> TouchingActors;
+		GetOverlappingActors(TouchingActors, APawn::StaticClass());
+
+		for (int32 iTouching = 0; iTouching < TouchingActors.Num(); ++iTouching)
+		{
+			AActor* const A = TouchingActors[iTouching];
+			if (A && A->bCanBeDamaged && !A->IsPendingKill())
+			{
+				CausePainTo(A);
+			}
+		}
+
+		// Stop timer if nothing is overlapping us
+		if (TouchingActors.Num() == 0)
+		{
+			GetWorldTimerManager().ClearTimer(this, &AUTPainVolume::PainTimer);
+		}
+	}
+}
+
 
 
