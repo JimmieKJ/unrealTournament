@@ -452,6 +452,11 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 //		UUTHUDWidget_WeaponCrosshair* CrossHairWidget =
 	
 
+		if (DamageAmount > 0)
+		{
+			UTC->PlayDamageEffects();
+		}
+
 	}
 }
 

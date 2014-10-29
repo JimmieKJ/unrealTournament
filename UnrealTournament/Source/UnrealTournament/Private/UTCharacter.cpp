@@ -702,6 +702,10 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUT
 	PlayTakeHitEffects();
 }
 
+void AUTCharacter::PlayDamageEffects_Implementation()
+{
+}
+
 void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
 	if (GetNetMode() != NM_DedicatedServer)

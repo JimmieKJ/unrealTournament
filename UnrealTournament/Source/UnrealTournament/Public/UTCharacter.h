@@ -676,6 +676,10 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void PlayTakeHitEffects();
 
+	/** plays clientside damage effects.  NOTE: This is only called if the player takes actual damage  */
+	UFUNCTION(blueprintNativeEvent, BlueprintCosmetic)
+	void PlayDamageEffects();
+
 	/** called when we die (generally, by running out of health)
 	 *  SERVER ONLY - do not do visual effects here!
 	 * return true if we can die, false if immortal (gametype effect, powerup, mutator, etc)
