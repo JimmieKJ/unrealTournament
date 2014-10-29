@@ -1344,18 +1344,16 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 		{
 			float W = CrosshairTexture->GetSurfaceWidth();
 			float H = CrosshairTexture->GetSurfaceHeight();
-
-			float Scale = WeaponHudWidget->GetRenderScale();
-			
+		
 			// draw a different indicator if there is a friendly where the camera is pointing
 			AUTPlayerState* PS;
 			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
 			{
-				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale * 2.0f, H * Scale * 2.0f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * 2.0f, H  * 2.0f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
 			}
 			else
 			{
-				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * Scale, H * Scale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W , H , 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
 				UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 			}
 		}
