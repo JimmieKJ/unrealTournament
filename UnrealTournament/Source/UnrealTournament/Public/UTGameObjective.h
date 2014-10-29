@@ -24,40 +24,25 @@ class AUTGameObjective : public AActor, public IUTPathBuilderInterface
 	 **/
 	virtual void InitializeObjective();
 
-
-	/**
-	 *	This is a server-side function that is called by CarriedObject when it's state is changed.
-	 **/
+	/**	This is a server-side function that is called by CarriedObject when it's state is changed.*/
 	virtual void ObjectStateWasChanged(FName NewObjectState);
 
-	/**
-	 *	Will be called via the GameObject when it has been picked up.
-	 **/
-	virtual void ObjectWasPickedUp(AUTCharacter* NewHolder);
+	/**	Will be called via the GameObject when it has been picked up.*/
+	virtual void ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome);
 
-	/**
-	 *	Will be called via the GameObject when this object has been dropped
-	 **/
+	/**	Will be called via the GameObject when this object has been dropped*/
 	virtual void ObjectWasDropped(AUTCharacter* LastHolder);
 
-	/**
-	 *	Will be called when the GameObject has been returned home
-	 **/
+	/**	Will be called when the GameObject has been returned home*/
 	virtual void ObjectReturnedHome(AUTCharacter* Returner);
 
-	/**
-	 *	@returns the carried object
-	 **/
+	/**	@returns the carried object*/
 	virtual AUTCarriedObject* GetCarriedObject();
 
-	/**
-	 *	@returns the state of the owned UTCarriedObject
-	 **/
+	/**	@returns the state of the owned UTCarriedObject*/
 	virtual FName GetCarriedObjectState();
 
-	/**
-	 *	@returns the PlayerState of the UTCharacter holding CarriedObject otherwise returns NULL
-	 **/
+	/**	@returns the PlayerState of the UTCharacter holding CarriedObject otherwise returns NULL*/
 	virtual AUTPlayerState* GetCarriedObjectHolder();
 
 protected:
@@ -69,18 +54,13 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameObject)
 	AUTPlayerState* CarriedObjectHolder;
 	
-	/**
-	 *	The owned game object replicates it's state via it's base.
-	 **/
+	/**	The owned game object replicates it's state via it's base.*/
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnObjectStateChanged, Category = GameObject)
 	FName CarriedObjectState;
 
 	virtual void CreateCarriedObject();
 
-	/**
-	 *	Called when CarriedObject's state changes and is replicated to the client
-	 **/
+	/**	Called when CarriedObject's state changes and is replicated to the client*/
 	UFUNCTION()
 	virtual void OnObjectStateChanged();
-
 };

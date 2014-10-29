@@ -26,7 +26,6 @@ void AUTGameObjective::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTGameObjective, CarriedObjectHolder);
 }
 
-
 void AUTGameObjective::InitializeObjective()
 {
 	Super::BeginPlay();
@@ -59,14 +58,12 @@ void AUTGameObjective::CreateCarriedObject()
 	}
 
 	UE_LOG(UT,Log,TEXT("Base: %s   Flag: %s"), *GetActorLocation().ToString(), *CarriedObject->GetActorLocation().ToString());	
-
 }
 
 AUTCarriedObject* AUTGameObjective::GetCarriedObject()
 {
 	return CarriedObject;
 }
-
 
 FName AUTGameObjective::GetCarriedObjectState()
 {
@@ -78,7 +75,7 @@ AUTPlayerState* AUTGameObjective::GetCarriedObjectHolder()
 	return CarriedObjectHolder;
 }
 
-void AUTGameObjective::ObjectWasPickedUp(AUTCharacter* NewHolder)
+void AUTGameObjective::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
 {
 	CarriedObjectHolder = NewHolder != NULL ? Cast<AUTPlayerState>(NewHolder->PlayerState) : NULL;
 }

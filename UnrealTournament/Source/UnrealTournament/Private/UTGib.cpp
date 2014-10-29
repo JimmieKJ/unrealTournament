@@ -38,7 +38,7 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 {
 #if !UE_SERVER
 	// maybe spawn blood as we smack into things
-	if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastBloodTime > 0.5f && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f)
+	if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastBloodTime > 0.5f && GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f)
 	{
 		if (BloodEffects.Num() > 0)
 		{

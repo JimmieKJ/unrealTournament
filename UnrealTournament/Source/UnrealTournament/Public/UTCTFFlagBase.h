@@ -18,8 +18,20 @@ class AUTCTFFlagBase : public AUTGameObjective
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = GameObject)
 	TSubobjectPtr<UStaticMeshComponent> Mesh;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Sound)
+		USoundBase* FlagScoreRewardSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
+		USoundBase* FlagTakenSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
+		USoundBase* FlagReturnedSound;
+
 	virtual FName GetFlagState();
 	virtual void RecallFlag();
+
+	virtual void ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome) override;
+	virtual void ObjectReturnedHome(AUTCharacter* Returner) override;
 
 protected:
 	virtual void CreateCarriedObject();

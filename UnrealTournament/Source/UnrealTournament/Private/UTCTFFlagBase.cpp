@@ -43,3 +43,20 @@ void AUTCTFFlagBase::RecallFlag()
 		MyFlag->SendHome();
 	}
 }
+
+void AUTCTFFlagBase::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
+{
+	Super::ObjectWasPickedUp(NewHolder, bWasHome);
+
+	if (bWasHome)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FlagTakenSound, this);
+	}
+}
+
+void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)
+{
+	Super::ObjectReturnedHome(Returner);
+
+	UUTGameplayStatics::UTPlaySound(GetWorld(), FlagReturnedSound, this);
+}

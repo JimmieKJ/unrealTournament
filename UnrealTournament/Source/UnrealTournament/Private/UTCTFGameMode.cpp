@@ -130,6 +130,10 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			Holder->Team->Score++;
 			Holder->FlagCaptures++;
 			BroadcastScoreUpdate(Holder, Holder->Team);
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				(*Iterator)->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+			}
 
 			// We have to count up since it's possible a player left the game...
 			int AssistCount = 0;
