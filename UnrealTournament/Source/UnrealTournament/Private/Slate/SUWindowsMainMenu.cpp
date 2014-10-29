@@ -101,7 +101,7 @@ void SUWindowsMainMenu::CreateDesktop()
 							[
 								SNew(SImage)
 								//.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background"))
-								.Image(SUWindowsStyle::Get().GetBrush("NewSchool.Background"))
+								.Image(SUWindowsStyle::Get().GetBrush("BadSchool.Background"))
 							]
 						]
 					]
@@ -118,14 +118,16 @@ void SUWindowsMainMenu::CreateDesktop()
 						+SHorizontalBox::Slot()
 						.HAlign(HAlign_Fill)
 						[
+							SNew(SCanvas)
+/*
 							SNew(SUWScaleBox)
 							.bMaintainAspectRatio(true)
 							[
 								SNew(SImage)
 //								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Desktop.Background.Logo"))
 								.Image(SUWindowsStyle::Get().GetBrush("NewSchool.AnniLogo"))
-								
 							]
+*/								
 						]
 					]
 				];
