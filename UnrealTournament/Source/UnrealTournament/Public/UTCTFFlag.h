@@ -25,4 +25,13 @@ class AUTCTFFlag : public AUTCarriedObject
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void DefaultTimer();
+
+	virtual void Drop(AController* Killer) override;
+
+	/** World time when flag was last dropped. */
+	UPROPERTY()
+		float FlagDropTime;
+
+	/** Broadcast delayed flag drop announcement. */
+	virtual void DelayedDropMessage();
 };

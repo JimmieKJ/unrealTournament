@@ -45,6 +45,13 @@ class AUTGameObjective : public AActor, public IUTPathBuilderInterface
 	/**	@returns the PlayerState of the UTCharacter holding CarriedObject otherwise returns NULL*/
 	virtual AUTPlayerState* GetCarriedObjectHolder();
 
+	/** Within this distance is considered last second save. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+		float LastSecondSaveDistance;
+
+	/** Return true if Other is within LastSecondSaveDistance. */
+	virtual bool ActorIsNearMe(AActor *Other) const;
+
 protected:
 
 	// Holds the actual object

@@ -15,6 +15,8 @@ AUTGameObjective::AUTGameObjective(const FPostConstructInitializeProperties& PCI
 	bReplicateMovement = true;
 	bAlwaysRelevant = true;
 	NetPriority=1.0;
+
+	LastSecondSaveDistance = 2000.f;
 }
 
 void AUTGameObjective::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -102,4 +104,9 @@ void AUTGameObjective::ObjectStateWasChanged(FName NewObjectState)
 void AUTGameObjective::OnObjectStateChanged()
 {
 	// Subclass me
+}
+
+bool AUTGameObjective::ActorIsNearMe(AActor *Other) const
+{
+	return ((Other->GetActorLocation() - GetActorLocation()).Size() < LastSecondSaveDistance);
 }

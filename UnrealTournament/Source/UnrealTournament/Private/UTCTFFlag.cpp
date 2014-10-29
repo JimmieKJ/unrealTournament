@@ -5,6 +5,7 @@
 #include "UTCTFGameMessage.h"
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
+#include "UTLastSecondMessage.h"
 
 AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -135,4 +136,67 @@ void AUTCTFFlag::SendHome()
 	Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
 	Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 	Super::SendHome();
+}
+
+void AUTCTFFlag::Drop(AController* Killer)
+{
+	bool bDelayDroppedMessage = false;
+	AUTPlayerState* KillerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
+	if (KillerState && KillerState->Team && (KillerState != Holder))
+	{
+		// see if this is a last second save
+		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (GameState)
+		{
+			AUTCTFFlagBase* KillerBase = GameState->FlagBases[KillerState->Team->TeamIndex];
+			AActor* Considered = LastHoldingPawn;
+			if (!Considered)
+			{
+				Considered = this;
+			}
+			if (KillerBase && KillerBase->ActorIsNearMe(Considered))
+			{
+				AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (GM)
+				{
+					bDelayDroppedMessage = true;
+					GM->BroadcastLocalized(this, UUTLastSecondMessage::StaticClass(), 0, Killer->PlayerState, Holder, NULL);
+				}
+			}
+		}
+	}
+	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GM)
+	{
+		bDelayDroppedMessage = true;
+		GM->BroadcastLocalized(this, UUTLastSecondMessage::StaticClass(), 0, Holder, Holder, NULL);
+	}
+
+	FlagDropTime = GetWorld()->GetTimeSeconds();
+	if (bDelayDroppedMessage)
+	{
+		GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::DelayedDropMessage, 0.8f, false);
+	}
+	else
+	{
+		SendGameMessage(3, Holder, NULL);
+	}
+	NoLongerHeld();
+
+	// Toss is out
+	TossObject(LastHoldingPawn);
+
+	if (HomeBase != NULL)
+	{
+		HomeBase->ObjectWasDropped(LastHoldingPawn);
+	}
+	ChangeState(CarriedObjectState::Dropped);
+}
+
+void AUTCTFFlag::DelayedDropMessage()
+{
+	if ((LastGameMessageTime < FlagDropTime) && (ObjectState == CarriedObjectState::Dropped))
+	{
+		SendGameMessage(3, Holder, NULL);
+	}
 }

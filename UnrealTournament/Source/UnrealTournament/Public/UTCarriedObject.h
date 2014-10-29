@@ -43,7 +43,6 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	FName ObjectState;
 
 	// Holds the UTPlayerState of the person currently holding this object.  
-
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnHolderChanged, Category = GameObject)
 	AUTPlayerState* Holder;
 
@@ -102,10 +101,9 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(BlueprintAssignable)
 	FOnCarriedObjectHolderChangedDelegate OnCarriedObjectHolderChangedDelegate;
 
-	// DONT KNOW IF WE NEED THESE YET
-
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
-	uint32 bLastSecondSave : 1;
+	/** Last time a game announcement message was sent */
+	UPROPERTY()
+		float LastGameMessageTime;
 
 	void Init(AUTGameObjective* NewBase);
 
@@ -113,9 +111,7 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UFUNCTION()
 	virtual uint8 GetTeamNum() const;
 
-	/**
-	 *	Changes the current state of the carried object.  NOTE: this should only be called on the server
-	 **/
+	/**	Changes the current state of the carried object.  NOTE: this should only be called on the server*/
 	UFUNCTION()
 	void ChangeState(FName NewCarriedObjectState);
 
@@ -138,15 +134,11 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	virtual void SendHome();
 	virtual void SendHomeWithNotify();
 
-	/**
-	 *	Uses this carried object
-	 **/
+	/**	Uses this carried object*/
 	UFUNCTION()
 	virtual void Use();
 
-	/**
-	 *  Call this to tell the object to score.  
-	 **/
+	/**  Call this to tell the object to score.*/
 	UFUNCTION()
 	virtual void Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS);
 
@@ -160,7 +152,6 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 
 	UFUNCTION()
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
-
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = GameObject)
 	TSubobjectPtr<UCapsuleComponent> Collision;
@@ -183,9 +174,7 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	float TotalHeldTime;
 
-	/**
-	 *	@Returns the index of a player in the assist array
-	 **/
+	/**	@Returns the index of a player in the assist array */
 	virtual int32 FindAssist(AUTPlayerState* Holder)
 	{
 		for (int32 i=0; i<AssistTracking.Num(); i++)
@@ -197,7 +186,6 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	}
 
 protected:
-
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	uint8 DesiredTeamNum;
@@ -226,7 +214,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	USoundCue* HomeSound;	
 
-
 	UFUNCTION()
 	virtual void OnObjectStateChanged();
 
@@ -242,26 +229,18 @@ protected:
 	 **/
 	virtual bool CanBePickedUpBy(AUTCharacter* Character);
 
-	/**
-	 *	This function will be called when a pick up is denied.
-	 **/
+	/**	This function will be called when a pick up is denied.*/
 	virtual void PickupDenied(AUTCharacter* Character);
 
-	/**
-	 *	Called from both Drop and SendHome - cleans up the current holder.
-	 **/
+	/**	Called from both Drop and SendHome - cleans up the current holder.*/
 	UFUNCTION()
 	virtual void NoLongerHeld();
 
-	/**
-	 *	Move the flag to it's home base
-	 **/
+	/**	Move the flag to it's home base*/
 	UFUNCTION()
 	virtual void MoveToHome();
 
 	virtual void SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject = NULL);
 
 	virtual void TossObject(AUTCharacter* ObjectHolder);
-
-
 };

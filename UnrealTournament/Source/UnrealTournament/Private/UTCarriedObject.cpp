@@ -22,6 +22,7 @@ AUTCarriedObject::AUTCarriedObject(const FPostConstructInitializeProperties& PCI
 	SetReplicates(true);
 	bReplicateMovement = true;
 	NetPriority=3.0;
+	LastGameMessageTime = 0.f;
 }
 
 void AUTCarriedObject::OnConstruction(const FTransform& Transform)
@@ -61,7 +62,6 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME_CONDITION(AUTCarriedObject, HomeBase, COND_InitialOnly);
 }
 
-
 void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 {
 	if (AttachToMesh != NULL && Collision != NULL)
@@ -82,7 +82,6 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		DetachRootComponentFromParent(true);
 	}
 }
-
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -106,7 +105,6 @@ void AUTCarriedObject::TryPickup_Implementation(AUTCharacter* Character)
 	}
 }
 
-
 void AUTCarriedObject::OnObjectStateChanged()
 {
 	// Look to see if the 
@@ -124,7 +122,6 @@ void AUTCarriedObject::OnObjectStateChanged()
 	}
 
 	OnCarriedObjectStateChangedDelegate.Broadcast(this, ObjectState);
-
 }
 
 void AUTCarriedObject::OnHolderChanged()
@@ -140,7 +137,6 @@ void AUTCarriedObject::OnHolderChanged()
 	}
 
 	OnCarriedObjectHolderChangedDelegate.Broadcast(this);
-
 }
 
 uint8 AUTCarriedObject::GetTeamNum() const
@@ -187,6 +183,7 @@ void AUTCarriedObject::PickupDenied(AUTCharacter* Character)
 
 void AUTCarriedObject::SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject)
 {
+	LastGameMessageTime = GetWorld()->GetTimeSeconds();
 	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GM != NULL && MessageClass != NULL)
 	{
@@ -238,14 +235,11 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		HoldingPawn->DeactivateSpawnProtection();
 	}
 
-
 	Holder->SetCarriedObject(this);
 	HoldingPawn->MakeNoise(2.0);
 
 	SendGameMessage(4, Holder, NULL);
 }
-
-
 
 void AUTCarriedObject::NoLongerHeld()
 {
@@ -355,6 +349,7 @@ void AUTCarriedObject::MoveToHome()
 
 void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
+	LastGameMessageTime = GetWorld()->GetTimeSeconds();
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (Game != NULL)
 	{
