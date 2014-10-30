@@ -55,6 +55,10 @@ class AUTProj_TransDisk : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
 	UParticleSystem* LandedEffect;
 
+	/** Max speed while underwater */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
+	float MaxSpeedUnderWater;
+	
 	FVector ComputeBounceResult(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)

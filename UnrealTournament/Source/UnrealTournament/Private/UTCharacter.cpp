@@ -2658,6 +2658,10 @@ void AUTCharacter::Tick(float DeltaTime)
 			LastBreathTime = GetWorld()->GetTimeSeconds();
 		}
 	}
+	else
+	{
+		LastBreathTime = GetWorld()->GetTimeSeconds();
+	}
 	/*
 	if (CharacterMovement && ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f))
 	{

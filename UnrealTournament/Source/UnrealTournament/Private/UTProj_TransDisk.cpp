@@ -17,6 +17,8 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializePropert
 	bAlwaysShootable = true;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+	ProjectileMovement->Buoyancy = 0.5f;
+	MaxSpeedUnderWater = 1300.f;
 }
 
 void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
@@ -140,7 +142,7 @@ void AUTProj_TransDisk::ShutDown()
 	Super::ShutDown();
 }
 
-/**Coppied from UProjectileMovementComponent*/
+/**Copied from UProjectileMovementComponent*/
 FVector AUTProj_TransDisk::ComputeBounceResult(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
 {
 	FVector TempVelocity = ProjectileMovement->Velocity;
@@ -170,7 +172,7 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 {
 	if (OtherActor == Instigator)
 	{
-		//Pickup Disk
+		//Pick up Disk
 		if (TransState == TLS_OnGround)
 		{
 			ShutDown();
@@ -182,25 +184,33 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 	}
 	else if (TransState == TLS_InAir)
 	{
-		FHitResult Hit(OtherActor, OtherComp, HitLocation, HitNormal);
-		ProjectileMovement->Velocity = ComputeBounceResult(Hit, 0.0f, FVector::ZeroVector);
-		OnBounce(Hit, ProjectileMovement->Velocity);
-		DetachRootComponentFromParent(true);
-
-		// if bot, check for telefrag
-		if (Cast<AUTCharacter>(OtherActor) != NULL)
+		APhysicsVolume* WaterVolume = Cast<APhysicsVolume>(OtherActor);
+		if (WaterVolume && WaterVolume->bWaterVolume)
 		{
-			AUTBot* B = Cast<AUTBot>(InstigatorController);
-			if (B != NULL /*&& B->WeaponProficiencyCheck()*/ && FMath::FRand() < 0.1f * (B->Skill + B->Personality.Alertness + B->Personality.Tactics + B->Personality.ReactionTime))
+			ProjectileMovement->MaxSpeed = MaxSpeedUnderWater;
+		}
+		else if (Cast<AVolume>(OtherActor) == NULL)
+		{
+			FHitResult Hit(OtherActor, OtherComp, HitLocation, HitNormal);
+			ProjectileMovement->Velocity = ComputeBounceResult(Hit, 0.0f, FVector::ZeroVector);
+			OnBounce(Hit, ProjectileMovement->Velocity);
+			DetachRootComponentFromParent(true);
+
+			// if bot, check for telefrag
+			if (Cast<AUTCharacter>(OtherActor) != NULL)
 			{
-				AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
-				if (UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+				AUTBot* B = Cast<AUTBot>(InstigatorController);
+				if (B != NULL /*&& B->WeaponProficiencyCheck()*/ && FMath::FRand() < 0.1f * (B->Skill + B->Personality.Alertness + B->Personality.Tactics + B->Personality.ReactionTime))
 				{
-					UTC->StartFire(1);
-					UTC->StopFire(1);
-					B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
-					B->MoveTimer = -1.0f;
-					B->LastTranslocTime = GetWorld()->TimeSeconds;
+					AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
+					if (UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+					{
+						UTC->StartFire(1);
+						UTC->StopFire(1);
+						B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
+						B->MoveTimer = -1.0f;
+						B->LastTranslocTime = GetWorld()->TimeSeconds;
+					}
 				}
 			}
 		}
