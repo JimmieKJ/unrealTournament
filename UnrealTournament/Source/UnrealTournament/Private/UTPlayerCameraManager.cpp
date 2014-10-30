@@ -6,7 +6,9 @@
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	FreeCamOffset = FVector(-256,0,90);
+	FreeCamOffset = FVector(-256, 0, 90);
+	EndGameFreeCamOffset = FVector(-256, 0, 45);
+	EndGameFreeCamDistance = 55.0f;
 	bUseClientSideCameraUpdates = false;
 
 	DefaultPPSettings.SetBaseValues();
@@ -52,13 +54,14 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));	
 
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = GetCameraStyleWithOverrides();
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
 
-	// special third person camera for ragdoll
-	if (UTCharacter != nullptr && UTCharacter->IsRagdoll())
+	// smooth third person camera all the time
+	if (UTCharacter != nullptr && CameraStyle == NAME_FreeCam)
 	{
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
@@ -76,7 +79,16 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 		LastThirdPersonCameraLoc = Loc;
 
-		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(FreeCamOffset) - Rotator.Vector() * FreeCamDistance;
+		float CameraDistance = FreeCamDistance;
+		FVector CameraOffset = FreeCamOffset;
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
+		if (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver)
+		{
+			CameraDistance = EndGameFreeCamDistance;
+			CameraOffset = EndGameFreeCamOffset;
+		}
+
+		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
 		FCollisionQueryParams BoxParams(NAME_FreeCam, false, this);
 		BoxParams.AddIgnoredActor(OutVT.Target);
 		FHitResult Result;

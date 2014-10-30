@@ -17,6 +17,13 @@ class AUTPlayerCameraManager : public APlayerCameraManager
 	UPROPERTY()
 	float ThirdPersonCameraSmoothingSpeed;
 
+	UPROPERTY()
+	FVector EndGameFreeCamOffset;
+
+	/** Offset to Z free camera position */
+	UPROPERTY()
+	float EndGameFreeCamDistance;
+
 	/** get CameraStyle after state based and gametype based override logic
 	 * generally UT code should always query the current camera style through this method to account for ragdoll, etc
 	 */
