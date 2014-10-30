@@ -784,10 +784,18 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 
 			static FName NAME_BloodDecal(TEXT("BloodDecal"));
 			FHitResult Hit;
-			if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (CapsuleComponent->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)))
+			if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (CapsuleComponent->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
 			{
 				UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
-				Decal->SetAbsolute(true, true, true);
+				if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
+				{
+					Decal->SetAbsolute(false, false, true);
+					Decal->AttachTo(Hit.Component.Get());
+				}
+				else
+				{
+					Decal->SetAbsolute(true, true, true);
+				}
 				FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
 				Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
 				Decal->SetWorldLocation(Hit.Location);

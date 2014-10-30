@@ -9,8 +9,10 @@ AUTGib::AUTGib(const FPostConstructInitializeProperties& PCIP)
 	Mesh = PCIP.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
 	if (Mesh != NULL)
 	{
+		Mesh->bReceivesDecals = false;
 		Mesh->SetCollisionProfileName(FName(TEXT("CharacterMesh")));
 		Mesh->SetCollisionObjectType(ECC_PhysicsBody);
+		Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
 		Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		Mesh->SetNotifyRigidBodyCollision(true);
 		Mesh->OnComponentHit.AddDynamic(this, &AUTGib::OnPhysicsCollision);
@@ -23,6 +25,7 @@ AUTGib::AUTGib(const FPostConstructInitializeProperties& PCIP)
 
 void AUTGib::PreInitializeComponents()
 {
+	LastBloodTime = GetWorld()->TimeSeconds;
 	if (MeshChoices.Num() > 0 && Mesh != NULL)
 	{
 		if (Mesh->StaticMesh != NULL)
@@ -38,7 +41,7 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 {
 #if !UE_SERVER
 	// maybe spawn blood as we smack into things
-	if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastBloodTime > 0.5f && GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f)
+	if (OtherComp != NULL && Cast<AUTGib>(OtherActor) == NULL && GetWorld()->TimeSeconds - LastBloodTime > 0.5f && GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f)
 	{
 		if (BloodEffects.Num() > 0)
 		{
@@ -65,10 +68,18 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 
 				static FName NAME_BloodDecal(TEXT("BloodDecal"));
 				FHitResult DecalHit;
-				if (GetWorld()->LineTraceSingle(DecalHit, GetActorLocation(), GetActorLocation() - Hit.Normal * 200.0f, ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)))
+				if (GetWorld()->LineTraceSingle(DecalHit, GetActorLocation(), GetActorLocation() - Hit.Normal * 200.0f, ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
 				{
 					UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
-					Decal->SetAbsolute(true, true, true);
+					if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
+					{
+						Decal->SetAbsolute(false, false, true);
+						Decal->AttachTo(Hit.Component.Get());
+					}
+					else
+					{
+						Decal->SetAbsolute(true, true, true);
+					}
 					FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
 					Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
 					Decal->SetWorldLocation(DecalHit.Location);

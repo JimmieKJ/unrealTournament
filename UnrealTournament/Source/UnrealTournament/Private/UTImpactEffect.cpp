@@ -149,6 +149,11 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 			{
 				Decal->RelativeRotation.Roll += 360.0f * FMath::FRand();
 			}
+			if (HitComp != NULL && HitComp->Mobility == EComponentMobility::Movable)
+			{
+				Decal->bAbsoluteScale = true;
+				Decal->AttachTo(HitComp, NAME_None, EAttachLocation::KeepWorldPosition);
+			}
 			Decal->UpdateComponentToWorld();
 		}
 	}
@@ -203,7 +208,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
 			}
-			else
+			if (CurrentAttachment == NULL || CurrentAttachment == HitComp)
 			{
 				NewComp->SetWorldTransform(FTransform(NewComp->RelativeRotation, NewComp->RelativeLocation, NewComp->RelativeScale3D) * BaseTransform);
 			}
@@ -233,7 +238,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
 			}
-			else
+			if (CurrentAttachment == NULL || CurrentAttachment == HitComp)
 			{
 				NewComp->SetWorldTransform(FTransform(NewComp->RelativeRotation, NewComp->RelativeLocation, NewComp->RelativeScale3D) * BaseTransform);
 			}
