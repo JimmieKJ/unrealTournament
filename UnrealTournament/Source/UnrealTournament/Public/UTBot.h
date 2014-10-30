@@ -186,6 +186,14 @@ struct FBotEnemyRating
 	{}
 };
 
+UENUM()
+enum EBotTranslocStatus
+{
+	BTS_Monitoring, // still waiting for projectile to reach destination
+	BTS_Translocate, // translocate now
+	BTS_Abort, // give up current attempt (recall disk for standard translocator)
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterface
 {
@@ -650,6 +658,15 @@ public:
 	{
 		return bAllowTranslocator;
 	}
+
+	/** return whether the passed in teleport location is good enough for reaching DesiredLoc and is a safe teleport spot (e.g. not going to fall to death) */
+	virtual bool IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector& DesiredDest);
+
+	/** return how bot wants to handle potential translocation
+	 * @param CurrentDest - current potential teleport destination
+	 * @param DestVelocity - velocity of teleport target in the future if this function says to continue monitoring
+	 */
+	virtual EBotTranslocStatus ShouldTriggerTranslocation(const FVector& CurrentDest, const FVector& DestVelocity);
 
 protected:
 	/** timer to call CheckWeaponFiring() */

@@ -2114,6 +2114,88 @@ bool AUTBot::ShouldDefendPosition()
 	return false; // TODO
 }
 
+bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector& DesiredDest)
+{
+	FCollisionQueryParams Params(FName(TEXT("TransDiskAI")), false, GetPawn());
+	if (GetWorld()->LineTraceTest(TeleportLoc, DesiredDest, ECC_Pawn, Params) || !GetWorld()->LineTraceTest(TeleportLoc, TeleportLoc - FVector(0.0f, 0.0f, 500.0f), ECC_Pawn, Params))
+	{
+		return false;
+	}
+	else
+	{
+		// if we're moving, our velocity will be maintained, so check for ground in that direction as well
+		FVector MyVel = GetPawn()->GetVelocity();
+		MyVel.Z = 0.0f;
+		MyVel *= 0.25f;
+		return (MyVel.IsNearlyZero() || GetWorld()->LineTraceTest(TeleportLoc + MyVel, TeleportLoc - FVector(0.0f, 0.0f, 500.0f) + MyVel, ECC_Pawn, Params));
+	}
+}
+
+EBotTranslocStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDest, const FVector& DestVelocity)
+{
+	if (!TranslocTarget.IsZero())
+	{
+		FVector Diff = TranslocTarget - CurrentDest;
+		if ( (Diff.Size2D() < FMath::Max<float>(DestVelocity.Size() * 0.04f, 120.0f) || (TranslocTarget - (CurrentDest + DestVelocity * GetWorld()->DeltaTimeSeconds)).Size2D() > Diff.Size2D()) &&
+			IsAcceptableTranslocation(CurrentDest, TranslocTarget) )
+		{
+			// translocate!
+			return BTS_Translocate;
+
+		}
+		else if ((Diff.SafeNormal() | DestVelocity.SafeNormal()) <= 0.0f)
+		{
+			// check if disk ended up further along bot's path even though not at desired destination
+			if ((GetMovePoint() - CurrentDest).Size() < (GetMovePoint() - GetPawn()->GetActorLocation()).Size() * 0.75f && IsAcceptableTranslocation(CurrentDest, GetMovePoint()))
+			{
+				return BTS_Translocate;
+			}
+			else
+			{
+				if (MoveTargetPoints.Num() > 1)
+				{
+					for (int32 i = 1; i < MoveTargetPoints.Num(); i++)
+					{
+						// don't test Z; we'll trace for fall/climb reachability in IsAcceptableTranslocation()
+						FVector PrevLocNoZ = MoveTargetPoints[i - 1].Get();
+						PrevLocNoZ.Z = 0.0f;
+						const FVector TestLoc = (i == MoveTargetPoints.Num() - 1) ? MoveTarget.GetLocation(GetPawn()) : MoveTargetPoints[i].Get();
+						const FVector TestLocNoZ(TestLoc.X, TestLoc.Y, 0.0f);
+						const FVector CurrentDestNoZ(CurrentDest.X, CurrentDest.Y, 0.0f);
+						if (FMath::PointDistToSegment(CurrentDestNoZ, PrevLocNoZ, TestLocNoZ) < GetPawn()->GetSimpleCollisionRadius())
+						{
+							return IsAcceptableTranslocation(CurrentDest, TestLoc) ? BTS_Translocate : BTS_Abort;
+						}
+					}
+				}
+				for (const FRouteCacheItem& RouteItem : RouteCache)
+				{
+					const FVector RouteLoc = RouteItem.GetLocation(GetPawn());
+					if ((RouteLoc - CurrentDest).Size2D() < GetPawn()->GetSimpleCollisionRadius() * 2.0f)
+					{
+						return IsAcceptableTranslocation(CurrentDest, RouteLoc) ? BTS_Translocate : BTS_Abort;
+					}
+				}
+				return BTS_Abort;
+			}
+		}
+		else
+		{
+			return BTS_Monitoring;
+		}
+	}
+	else if (DestVelocity.IsZero())
+	{
+		// recall since unused
+		// TODO: high Tactics bots should consider leaving translocator disc in enemy base
+		return BTS_Abort;
+	}
+	else
+	{
+		return BTS_Monitoring;
+	}
+}
+
 void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType)
 {
 	if (KilledPawn == Enemy)

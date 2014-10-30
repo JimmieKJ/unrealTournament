@@ -282,59 +282,21 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 		AUTBot* B = Cast<AUTBot>(InstigatorController);
 		if (B != NULL)
 		{
-			if (!B->TranslocTarget.IsZero())
+			switch (B->ShouldTriggerTranslocation(GetActorLocation(), GetVelocity()))
 			{
-				const FVector MyLoc = GetActorLocation();
-				FVector Diff = B->TranslocTarget - MyLoc;
-				if ( (Diff.Size2D() < FMath::Max<float>(ProjectileMovement->MaxSpeed * 0.04f, 120.0f) || (B->TranslocTarget - (MyLoc + GetVelocity() * DeltaTime)).Size2D() > Diff.Size2D()) &&
-					 IsAcceptableTranslocationTo(B->TranslocTarget) )
-				{
-					// translocate!
+				case BTS_Translocate:
 					UTC->StartFire(1);
 					UTC->StopFire(1);
 					B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
 					B->MoveTimer = -1.0f;
 					B->LastTranslocTime = GetWorld()->TimeSeconds;
-				}
-				else if ((Diff.SafeNormal() | GetVelocity().SafeNormal()) <= 0.0f)
-				{
-					// check if disk ended up further along bot's path even though not at desired destination
-					bool bIsForward = ((B->GetMovePoint() - MyLoc).Size() < (B->GetMovePoint() - UTC->GetActorLocation()).Size() * 0.75f && IsAcceptableTranslocationTo(B->GetMovePoint()));
-					if (!bIsForward)
-					{
-						for (const FRouteCacheItem& RouteItem : B->RouteCache)
-						{
-							const FVector RouteLoc = RouteItem.GetLocation(UTC);
-							if ((RouteLoc - MyLoc).Size2D() < UTC->GetSimpleCollisionRadius() * 2.0f && IsAcceptableTranslocationTo(RouteLoc))
-							{
-								bIsForward = true;
-								break;
-							}
-						}
-					}
-					if (bIsForward)
-					{
-						// translocate!
-						UTC->StartFire(1);
-						UTC->StopFire(1);
-						B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
-						B->MoveTimer = -1.0f;
-						B->LastTranslocTime = GetWorld()->TimeSeconds;
-					}
-					else
-					{
-						// recall disk
-						UTC->StartFire(0);
-						UTC->StopFire(0);
-					}
-				}
-			}
-			else if (TransState == TLS_OnGround)
-			{
-				// recall since unused
-				// TODO: high Tactics bots should consider leaving translocator disc in enemy base
-				UTC->StartFire(0);
-				UTC->StopFire(0);
+					break;
+				case BTS_Abort:
+					UTC->StartFire(0);
+					UTC->StopFire(0);
+					break;
+				default:
+					break;
 			}
 		}
 	}
