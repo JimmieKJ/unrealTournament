@@ -215,63 +215,111 @@ void AUTCTFGameMode::CheckGameTime()
 	}
 	else if ( CTFGameState->IsMatchInProgress() )
 	{
-		// UE_LOG(UT,Log, TEXT("Time Remaining %i %i"),CTFGameState->RemainingTime, CTFGameState->bPlayingAdvantage);
-		if ( CTFGameState->RemainingTime <= 0 )
+
+		// First look to see if we are in halftime. 
+		if (CTFGameState->IsMatchAtHalftime())		
 		{
-			// Halftime?? then exit it
-			if (CTFGameState->IsMatchAtHalftime())
+			if (CTFGameState->RemainingTime <= 0)
 			{
 				SetMatchState(MatchState::MatchExitingHalftime);
 			}
+		}
 
-			// If we are in Overtime, look to see if we should start sudden death
-			else if ( CTFGameState->IsMatchInOvertime() )
+		// If the match is in progress and we are not playing advantage, then enter the halftime/end of game logic depending on the half
+		else if (CTFGameState->RemainingTime <= 0)
+		{
+			if (!CTFGameState->bPlayingAdvantage)
 			{
-				AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
-				if ( WinningTeam != NULL )
+				// If we are in Overtime - Keep battling until one team wins.  We might want to add half-time or bring sudden death back 
+				if ( CTFGameState->IsMatchInOvertime() )
 				{
-					// Match is over....
-					AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
-					EndGame(WinningPS, FName(TEXT("TimeLimit")));	
+					AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
+					if ( WinningTeam != NULL )
+					{
+						// Match is over....
+						AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
+						EndGame(WinningPS, FName(TEXT("TimeLimit")));	
+					}
 				}
+				// We are in normal time, so figure out what to do...
+				else
+				{
+					// Look to see if we should be playing advantage
+					if (!CTFGameState->bPlayingAdvantage)
+					{
+						int32 AdvantageTeam = TeamWithAdvantage();
+						if (AdvantageTeam >= 0 && AdvantageTeam <= 1)
+						{
+							// A team has advantage.. so set the flags.
+							CTFGameState->bPlayingAdvantage = true;
+							CTFGameState->AdvantageTeamIndex = AdvantageTeam;
+							CTFGameState->SetTimeLimit(60);
+
+							// Broadcast the Advantage Message....
+							BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 6, NULL, NULL, CTFGameState->Teams[AdvantageTeam]);
+
+							return;
+						}
+					}
+
+					// If we still aren't playing advantage, handle halftime, etc.
+					if (!CTFGameState->bPlayingAdvantage)
+					{
+						EndOfHalf();
+					}
+				}
+			}
+			// Advantage Time ran out
+			else
+			{
+				EndOfHalf();
+			}
+		}
+		// If we are playing advantage, we need to check to see if we should be playing advantage
+		else if (CTFGameState->bPlayingAdvantage)
+		{
+			// Look to see if we should still be playing advantage
+			if (!CheckAdvantage())
+			{
+				EndOfHalf();
+			}
+		}
+	}
+}
+
+void AUTCTFGameMode::EndOfHalf()
+{
+	// Handle possible end of game at the end of the second half
+	if (CTFGameState->bSecondHalf)
+	{
+		// Look to see if there is a winning team
+		AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
+		if (WinningTeam != NULL)
+		{
+			// Game Over... yeh!
+			AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
+			EndGame(WinningPS, FName(TEXT("TimeLimit")));
+		}
+
+		// Otherwise look to see if we should enter overtime
+		else
+		{
+			if (bAllowOvertime)
+			{
+				SetMatchState(MatchState::MatchIsInOvertime);
 			}
 			else
 			{
-				if ( CTFGameState->bSecondHalf )
-				{
-					AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
-					if (WinningTeam != NULL)
-					{
-						AUTPlayerState* WinningPS = FindBestPlayerOnTeam(WinningTeam->GetTeamNum());
-						EndGame(WinningPS, FName(TEXT("TimeLimit")));	
-				
-					}
-					else 
-					{
-						if (bAllowOvertime)
-						{
-							SetMatchState(MatchState::MatchIsInOvertime);
-						}
-						else
-						{
-							// Match is over....
-							EndGame(NULL, FName(TEXT("TimeLimit")));
-						}
-					}
-				}
-				else 
-				{
-					SetMatchState(MatchState::MatchEnteringHalftime);
-				}
+				// Match is over....
+				EndGame(NULL, FName(TEXT("TimeLimit")));
 			}
 		}
-		else if (CTFGameState->bPlayingAdvantage)
-		{
-			if (!CheckAdvantage())
-			{
-				CTFGameState->SetTimeLimit(0);
-			}
-		}
+	}
+
+	// Time expired and noone has advantage so enter the second half.
+	else
+	{
+		SetMatchState(MatchState::MatchEnteringHalftime);
 	}
 }
 
@@ -290,10 +338,39 @@ void AUTCTFGameMode::HandleHalftime()
 void AUTCTFGameMode::HandleEnteringHalftime()
 {
 
-	// Set the flags home if they are out
-
 	CTFGameState->ResetFlags();
-	
+	// Figure out who we should look at
+
+	// Init targets
+	TArray<AUTCharacter*> BestPlayers;
+	for (int i=0;i<Teams.Num();i++)
+	{
+		BestPlayers.Add(NULL);
+	}
+
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+
+		AController* Controller = *Iterator;
+		if (Controller->GetPawn() != NULL && Controller->PlayerState != NULL)
+		{
+			AUTCharacter* Char = Cast<AUTCharacter>(Controller->GetPawn());
+			if (Char != NULL)
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
+				uint8 TeamNum = PS->GetTeamNum();
+				if (TeamNum < BestPlayers.Num())
+				{
+					if (BestPlayers[TeamNum] == NULL || PS->Score > BestPlayers[TeamNum]->PlayerState->Score || Cast<AUTCTFFlag>(PS->CarriedObject) != NULL)
+					{
+						BestPlayers[TeamNum] = Char;
+					}
+				}
+			}
+		}
+	}	
+
+
 	// Freeze all of the pawns and detach their controllers
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
@@ -319,6 +396,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 
 	CTFGameState->bHalftime = true;
 	CTFGameState->bPlayingAdvantage = false;
+	CTFGameState->AdvantageTeamIndex = 255;
 	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
 
 	SetMatchState(MatchState::MatchIsAtHalftime);
@@ -375,8 +453,6 @@ void AUTCTFGameMode::HandleExitingHalftime()
 
 	CTFGameState->ResetFlags();
 	CTFGameState->bHalftime = false;
-	CTFGameState->bPlayingAdvantage = false;
-	CTFGameState->AdvantageTeamIndex = 255;
 	
 	if (CTFGameState->bSecondHalf)
 	{
@@ -561,22 +637,6 @@ void AUTCTFGameMode::SetMatchState(FName NewState)
 		return;
 	}
 
-	// Look to see if one team has an advantage.  If they do set for advantage instead of half-time..
-
-	if ((NewState == MatchState::MatchEnteringHalftime || FMath::Abs<int32>(Teams[0]->Score - Teams[1]->Score) <= 1) && !CTFGameState->bPlayingAdvantage)		// Only check if we aren't already playing advantage
-	{
-		int32 AdvantageTeam = TeamWithAdvantage();
-		if (AdvantageTeam >= 0 && AdvantageTeam <= 1)
-		{
-			// A team has advantage.. so set the flags.
-			CTFGameState->bPlayingAdvantage = true;
-			CTFGameState->AdvantageTeamIndex = AdvantageTeam;
-			CTFGameState->SetTimeLimit(60);
-			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 6, NULL, NULL, CTFGameState->Teams[AdvantageTeam]);
-			return;
-		}
-	}
-
 	Super::SetMatchState(NewState);
 
 	if (NewState == MatchState::MatchEnteringHalftime)
@@ -686,6 +746,7 @@ bool AUTCTFGameMode::CheckAdvantage()
 		return false;	
 	}
 
+	// If our flag is held, then look to see if our advantage is lost.. has to be held for 5 seconds.
 	if (Flags[CTFGameState->AdvantageTeamIndex]->ObjectState == CarriedObjectState::Held)
 	{
 		AdvantageGraceTime++;
@@ -743,7 +804,6 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 		Mut = Mut->NextMutator;
 	}
 }
-
 void AUTCTFGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 {
 	// Dont ever end the game in PIE
