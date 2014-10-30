@@ -3393,7 +3393,7 @@ void AUTCharacter::OnRep_ReplicatedMovement()
 
 void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 {
-	if (EmoteCount > 0)
+	if ((EmoteCount > 0) || IsFeigningDeath())
 	{
 		return;
 	}
