@@ -1663,7 +1663,10 @@ bool AUTPlayerController::ServerViewPawn_Validate(APawn* PawnToView)
 
 void AUTPlayerController::ServerViewPawn_Implementation(APawn* PawnToView)
 {
-	SetViewTarget(PawnToView->PlayerState);
+	if (PawnToView)
+	{
+		SetViewTarget(PawnToView->PlayerState);
+	}
 }
 
 void AUTPlayerController::SetMouseSensitivityUT(float NewSensitivity)
