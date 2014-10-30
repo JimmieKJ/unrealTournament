@@ -44,6 +44,9 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTGameMode.h"
 #include "UTTeamGameMode.h"
 
+/** handy object query params for world-only checks */
+extern FCollisionObjectQueryParams WorldObjectQueryParams;
+
 /** utility to find out if a particle system loops */
 extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);
 

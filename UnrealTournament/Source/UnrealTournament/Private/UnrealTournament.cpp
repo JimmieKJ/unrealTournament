@@ -35,6 +35,14 @@ void FUTModule::StartupModule()
 }
 #endif
 
+FCollisionObjectQueryParams WorldObjectQueryParams = []()
+{
+	FCollisionObjectQueryParams Result;
+	Result.AddObjectTypesToQuery(ECC_WorldDynamic);
+	Result.AddObjectTypesToQuery(ECC_WorldStatic);
+	return Result;
+}();
+
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleModuleRequired.h"
 #include "Particles/ParticleLODLevel.h"
