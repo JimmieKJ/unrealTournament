@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTPlayerCameraManager.h"
+#include "UTCTFFlagBase.h"
 
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -9,6 +10,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitial
 	FreeCamOffset = FVector(-256, 0, 90);
 	EndGameFreeCamOffset = FVector(-256, 0, 45);
 	EndGameFreeCamDistance = 55.0f;
+	FlagBaseFreeCamOffset = FVector(0, 0, 90);
 	bUseClientSideCameraUpdates = false;
 
 	DefaultPPSettings.SetBaseValues();
@@ -59,9 +61,10 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = GetCameraStyleWithOverrides();
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
+	AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
 
 	// smooth third person camera all the time
-	if (UTCharacter != nullptr && CameraStyle == NAME_FreeCam)
+	if (CameraStyle == NAME_FreeCam)
 	{
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
@@ -70,6 +73,11 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
 		FVector DesiredLoc = OutVT.Target->GetActorLocation();
+		if (UTFlagBase != nullptr)
+		{
+			DesiredLoc += FlagBaseFreeCamOffset;
+		}
+
 		FRotator Rotator = PCOwner->GetControlRotation();
 
 		FVector Loc = DesiredLoc;

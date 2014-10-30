@@ -18,6 +18,9 @@ class AUTPlayerCameraManager : public APlayerCameraManager
 	float ThirdPersonCameraSmoothingSpeed;
 
 	UPROPERTY()
+	FVector FlagBaseFreeCamOffset;
+	
+	UPROPERTY()
 	FVector EndGameFreeCamOffset;
 
 	/** Offset to Z free camera position */
