@@ -2094,7 +2094,7 @@ FVector AUTCharacter::GetTransformedEyeOffset() const
 {
 	FRotationMatrix ViewRotMatrix = FRotationMatrix(GetViewRotation());
 	FVector XTransform = ViewRotMatrix.GetScaledAxis(EAxis::X) * EyeOffset.X;
-	if (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f)
+	if ((XTransform.Z > 0.f) && (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f))
 	{
 		float MaxZ = FMath::Max(0.f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
 		XTransform = XTransform * MaxZ / XTransform.Z;
@@ -2615,7 +2615,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	// clamp transformed offset z contribution
 	FRotationMatrix ViewRotMatrix = FRotationMatrix(GetViewRotation());
 	FVector XTransform = ViewRotMatrix.GetScaledAxis(EAxis::X) * EyeOffset.X;
-	if (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f)
+	if ((XTransform.Z > 0.f) && (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f))
 	{
 		float MaxZ = FMath::Max(0.f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
 		EyeOffset.X *= MaxZ / XTransform.Z;
