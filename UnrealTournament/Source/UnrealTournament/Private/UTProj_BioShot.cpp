@@ -43,13 +43,14 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	ExtraRestTimePerStrength = 0.5f;
 
 	SplashSpread = 0.8f;
-	BioInteractStartTime = 0.f;
-	BioInteractDelayTime = 0.f;
 }
 
 void AUTProj_BioShot::BeginPlay()
 {
-	BioInteractStartTime = GetWorld()->GetTimeSeconds() + BioInteractDelayTime;
+	if (Cast<AUTProjectile>(GetOwner()))
+	{
+		ProjectileMovement->MaxSpeed = 1500.f;
+	}
 	Super::BeginPlay();
 	if (!IsPendingKillPending())
 	{
@@ -106,7 +107,7 @@ void AUTProj_BioShot::SetRemainingRestTime(float NewValue)
 	}
 }
 
-void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
+void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLocation)
 {
 	if (bFakeClientProjectile)
 	{
@@ -123,9 +124,9 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 		CollisionComp->SetCollisionProfileName("ProjectileShootable");
 
 		//Rotate away from the floor
-		FRotator NewRotation = (SurfaceNormal).Rotation();
-		NewRotation.Roll = FMath::FRand() * 360.0f;	//Random spin
-		SetActorRotation(NewRotation);
+		FRotator NormalRotation = (SurfaceNormal).Rotation();
+		NormalRotation.Roll = FMath::FRand() * 360.0f;	//Random spin
+		SetActorRotation(NormalRotation);
 
 		//Stop the projectile
 		ProjectileMovement->ProjectileGravityScale = 0.0f;
@@ -165,7 +166,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 
 		if (LandedEffects != NULL)
 		{
-			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(SurfaceNormal.Rotation(), GetActorLocation()), HitComp, this, InstigatorController);
+			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(NormalRotation, HitLocation), HitComp, this, InstigatorController);
 		}
 		SetGlobStrength(GlobStrength);
 	}
@@ -177,7 +178,7 @@ void AUTProj_BioShot::OnLanded_Implementation()
 
 bool AUTProj_BioShot::CanInteractWithBio()
 {
-	return ((BioInteractStartTime < GetWorld()->GetTimeSeconds()) && !bExploded && !bHasMerged);
+	return (!bExploded && !bHasMerged);
 }
 
 // @TODO FIXMESTEVE- fake and non-fake projectile merging!
@@ -247,8 +248,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		}
 
 		SetActorLocation(HitLocation);
-
-		Landed(OtherComp);
+		Landed(OtherComp, HitLocation);
 
 		AUTLift* Lift = Cast<AUTLift>(OtherActor);
 		if (Lift && Lift->GetEncroachComponent())
@@ -264,6 +264,10 @@ void AUTProj_BioShot::OnRep_GlobStrength()
 
 void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 {
+	if (bHasMerged)
+	{
+		return;
+	}
 	uint8 OldStrength = GlobStrength;
 
 	GlobStrength = FMath::Max(NewStrength, (uint8)1);
@@ -308,21 +312,23 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 
 	if (bLanded && (GlobStrength > MaxRestingGlobStrength))
 	{
-		if (Role == ROLE_Authority && SplashProjClass != NULL)
+		if (Role == ROLE_Authority)
 		{
 			FActorSpawnParameters Params;
 			Params.Instigator = Instigator;
-			Params.Owner = Instigator;
+			Params.Owner = this;
 
 			//Adjust a bit so we don't spawn in the floor
 			FVector FloorOffset = GetActorLocation() + (SurfaceNormal * 10.0f);
 
-			//Spawn goblings for as many Glob's above MaxRestingGlobStrength
+			//Spawn globlings for as many Glob's above MaxRestingGlobStrength
+			bHasMerged = true;
 			for (uint8 g = 0; g < GlobStrength - MaxRestingGlobStrength; g++)
 			{
 				FVector Dir = SurfaceNormal + FMath::VRand() * SplashSpread;
-				GetWorld()->SpawnActor<AUTProjectile>(SplashProjClass, FloorOffset, Dir.Rotation(), Params);
+				AUTProjectile* Globling = GetWorld()->SpawnActor<AUTProjectile>(GetClass(), FloorOffset, Dir.Rotation(), Params);
 			}
+			bHasMerged = false;
 		}
 		GlobStrength = MaxRestingGlobStrength;
 	}

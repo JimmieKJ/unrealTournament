@@ -65,14 +65,7 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float SurfaceWallThreshold;
 
-	/** delay time before this projectile will interact with other bios. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-		float BioInteractDelayTime;
-
-	UPROPERTY()
-		float BioInteractStartTime;
-
-	virtual void Landed(UPrimitiveComponent* HitComp);
+	virtual void Landed(UPrimitiveComponent* HitComp, const FVector& HitLocation);
 
 	/** hook to spawn effects when the glob lands*/
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Bio)
@@ -138,10 +131,6 @@ class AUTProj_BioShot : public AUTProjectile
 		TSubclassOf<UDamageType> GibDamageType;
 
 	virtual void MergeWithGlob(AUTProj_BioShot* OtherBio);
-
-	/** The projectile type that will spawn when (GlobStrength > MaxRestingGlobStrength) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-		TSubclassOf<AUTProjectile> SplashProjClass;
 
 	/** Randomness added to Splash projectile direction. (Dir = SurfaceNormal + VRand() * SplashSpread)  */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
