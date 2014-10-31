@@ -185,13 +185,14 @@ void UUTLocalPlayer::ShowMenu()
 		{
 
 			AGameState* GameState = GetWorld()->GetGameState<AGameState>();
-			AUTBaseGameMode* UTGameMode = GameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
-
-			if (UTGameMode)
+			if (GameState != nullptr && GameState->GameModeClass != nullptr)
 			{
-				DesktopSlateWidget = UTGameMode->GetGameMenu(this);
+				AUTBaseGameMode* UTGameMode = GameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+				if (UTGameMode != nullptr)
+				{
+					DesktopSlateWidget = UTGameMode->GetGameMenu(this);
+				}
 			}
-
 		}
 		if (DesktopSlateWidget.IsValid())
 		{
