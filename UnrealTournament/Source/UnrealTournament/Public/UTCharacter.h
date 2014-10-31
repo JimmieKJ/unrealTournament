@@ -1093,7 +1093,7 @@ public:
 
 	/** How fast EyeOffset interpolates to TargetEyeOffset. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
-	float EyeOffsetInterpRate;
+	FVector EyeOffsetInterpRate;
 
 	/** How fast CrouchEyeOffset interpolates to 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
@@ -1101,7 +1101,7 @@ public:
 
 	/** How fast TargetEyeOffset decays. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
-	float EyeOffsetDecayRate;
+	FVector EyeOffsetDecayRate;
 
 	/** Jump target view bob magnitude. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)

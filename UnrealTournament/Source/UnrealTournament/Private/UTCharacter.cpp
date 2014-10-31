@@ -83,9 +83,9 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	EyeOffset = FVector(0.f, 0.f, 0.f);
 	CrouchEyeOffset = EyeOffset;
 	TargetEyeOffset = EyeOffset;
-	EyeOffsetInterpRate = 9.f;
+	EyeOffsetInterpRate = FVector(18.f, 9.f, 9.f);
 	CrouchEyeOffsetInterpRate = 6.f;
-	EyeOffsetDecayRate = 7.f;
+	EyeOffsetDecayRate = FVector(7.f, 7.f, 7.f);
 	EyeOffsetJumpBob = 20.f;
 	EyeOffsetLandBob = -110.f;
 	EyeOffsetLandBobThreshold = 300.f;
@@ -2622,16 +2622,22 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 
 	// decay offset
-	float InterpTime = FMath::Min(1.f, EyeOffsetInterpRate*DeltaTime);
-	EyeOffset = (1.f - InterpTime)*EyeOffset + InterpTime*TargetEyeOffset;
+	float InterpTimeX = FMath::Min(1.f, EyeOffsetInterpRate.X*DeltaTime);
+	float InterpTimeY = FMath::Min(1.f, EyeOffsetInterpRate.Y*DeltaTime);
+	float InterpTimeZ = FMath::Min(1.f, EyeOffsetInterpRate.Z*DeltaTime);
+	EyeOffset.X = (1.f - InterpTimeX)*EyeOffset.X + InterpTimeX*TargetEyeOffset.X;
+	EyeOffset.Y = (1.f - InterpTimeY)*EyeOffset.Y + InterpTimeY*TargetEyeOffset.Y;
+	EyeOffset.Z = (1.f - InterpTimeZ)*EyeOffset.Z + InterpTimeZ*TargetEyeOffset.Z;
 	float CrouchInterpTime = FMath::Min(1.f, CrouchEyeOffsetInterpRate*DeltaTime);
 	CrouchEyeOffset = (1.f - CrouchInterpTime)*CrouchEyeOffset;
 	if (EyeOffset.Z > 0.f)
 	{
 		// faster decay if positive
-		EyeOffset.Z = (1.f - InterpTime)*EyeOffset.Z + InterpTime*TargetEyeOffset.Z;
+		EyeOffset.Z = (1.f - InterpTimeZ)*EyeOffset.Z + InterpTimeZ*TargetEyeOffset.Z;
 	}
-	TargetEyeOffset *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate*DeltaTime));
+	TargetEyeOffset.X *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.X*DeltaTime));
+	TargetEyeOffset.Y *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Y*DeltaTime));
+	TargetEyeOffset.Z *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Z*DeltaTime));
 	if (IsLocallyControlled() && CharacterMovement) // @TODO FIXME ALSO FOR SPECTATORS
 	{
 		// @TODO FIXMESTEVE this should all be event driven
