@@ -32,6 +32,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 
 	ImpactEffectAlwaysSpawnDist = 1000.f;
 	ImpactEffectCullDistance = 50000.f;
+	FiringViewKickback = -50.f;
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const

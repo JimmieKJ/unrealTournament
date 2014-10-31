@@ -9,8 +9,8 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FPostConstructInitializePropertie
 	PutDownTime = 1.44f;
 	Ammo = 1;
 	MaxAmmo = 1;
+	FiringViewKickback = -50.f;
 }
-
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 {

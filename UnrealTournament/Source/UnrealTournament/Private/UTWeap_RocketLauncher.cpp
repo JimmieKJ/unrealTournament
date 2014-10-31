@@ -52,6 +52,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FPostConstructInitial
 
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
+	FiringViewKickback = -50.f;
 }
 
 void AUTWeap_RocketLauncher::BeginLoadRocket()
@@ -278,6 +279,8 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 {
 	if (CurrentFireMode == 1 && GetNetMode() != NM_DedicatedServer && UTOwner != NULL)
 	{
+		UTOwner->TargetEyeOffset.X = FiringViewKickback;
+
 		// try and play the sound if specified
 		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].FireSound != NULL)
 		{

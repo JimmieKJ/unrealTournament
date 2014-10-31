@@ -38,6 +38,7 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	BringUpTime = 0.41f;
 	PutDownTime = 0.3f;
 	WeaponBobScaling = 1.f;
+	FiringViewKickback = -20.f;
 
 	bFPFireFromCenter = true;
 	FireOffset = FVector(75.0f, 0.0f, 0.0f);
@@ -520,6 +521,8 @@ void AUTWeapon::PlayFiringEffects()
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
+			UTOwner->TargetEyeOffset.X = FiringViewKickback;
+			// @TODO FIXMESTEVE is this causing first person muzzle flash for bots in standalone?
 			// try and play a firing animation if specified
 			if (FireAnimation.IsValidIndex(CurrentFireMode) && FireAnimation[CurrentFireMode] != NULL)
 			{
@@ -542,6 +545,7 @@ void AUTWeapon::PlayFiringEffects()
 		}
 	}
 }
+
 void AUTWeapon::StopFiringEffects()
 {
 	if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)

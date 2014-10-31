@@ -21,6 +21,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializePropert
 		}
 	}
 	WeaponBobScaling = 0.7f;
+	FiringViewKickback = -50.f;
 	FullChargeTime = 2.5f;
 	FullImpactChargePct = 0.4f;
 	MinAutoChargePct = 1.f;

@@ -292,6 +292,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float WeaponBobScaling;
 
+	/** Scaling for 1st person firing view kickback */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
+		float FiringViewKickback;
+
 	virtual void PostInitProperties() override;
 	virtual void BeginPlay() override;
 	virtual void RegisterAllComponents() override

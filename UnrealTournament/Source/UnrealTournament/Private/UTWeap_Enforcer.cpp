@@ -55,6 +55,8 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 	}
 	else if ((UTOwner != NULL) && (GetNetMode() != NM_DedicatedServer))
 	{
+		UTOwner->TargetEyeOffset.X = FiringViewKickback;
+		// @TODO FIXMESTEVE is this causing first person muzzle flash for bots in standalone?
 		// muzzle flash
 		if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
 		{

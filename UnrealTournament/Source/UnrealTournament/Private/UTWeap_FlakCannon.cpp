@@ -28,6 +28,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties&
 	MaxAmmo = 30;
 
 	FireOffset = FVector(75.f, 18.f, -15.f);
+	FiringViewKickback = -50.f;
 
 	// MultiShot
 	MultiShotLocationSpread.SetNum(1);

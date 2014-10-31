@@ -1163,7 +1163,10 @@ public:
 	virtual void RecalculateBaseEyeHeight() override;
 
 	/** Returns offset to add to first person mesh for weapon bob. */
-	FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
+	virtual FVector GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon);
+	
+	/** Returns eyeoffset transformed into current view */
+	virtual FVector GetTransformedEyeOffset() const;
 
 	virtual FVector GetPawnViewLocation() const override;
 
