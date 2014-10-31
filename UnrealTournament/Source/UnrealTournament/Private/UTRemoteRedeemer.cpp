@@ -15,7 +15,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 	if (CollisionComp != NULL)
 	{
 		CollisionComp->InitSphereRadius(0.0f);
-		CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
+		CollisionComp->BodyInstance.SetCollisionProfileName("ProjectileShootable");			// Collision profiles are defined in DefaultEngine.ini
 		CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AUTRemoteRedeemer::OnOverlapBegin);
 		CollisionComp->bTraceComplexOnMove = true;
 		CollisionComp->bGenerateOverlapEvents = false;
