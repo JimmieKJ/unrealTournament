@@ -3,7 +3,6 @@
 #include "UnrealTournament.h"
 #include "UTWeap_BioRifle.h"
 #include "UTProj_BioShot.h"
-#include "UTProj_BioGlob.h"
 #include "UTWeaponStateFiringCharged.h"
 
 
@@ -90,7 +89,7 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 			// TODO: maybe also if predicting target to go behind wall?
 			else if (B->GetTarget() == B->GetEnemy() && ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 			{
-				AUTProj_BioGlob* DefaultGlob = Cast<AUTProj_BioGlob>(ProjClass[CurrentFireMode]->GetDefaultObject());
+				AUTProj_BioShot* DefaultGlob = Cast<AUTProj_BioShot>(ProjClass[CurrentFireMode]->GetDefaultObject());
 				if (DefaultGlob != NULL)
 				{
 					AUTCharacter* P = Cast<AUTCharacter>(B->GetEnemy());
@@ -134,7 +133,7 @@ void AUTWeap_BioRifle::FireShot()
 	{
 		if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 		{
-			AUTProj_BioGlob* Glob = Cast<AUTProj_BioGlob>(FireProjectile());
+			AUTProj_BioShot* Glob = Cast<AUTProj_BioShot>(FireProjectile());
 
 			if (Glob != NULL)
 			{

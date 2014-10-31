@@ -2,7 +2,6 @@
 
 #include "UnrealTournament.h"
 #include "UTProj_BioShot.h"
-#include "UTProj_BioGlob.h"
 #include "UnrealNetwork.h"
 #include "UTImpactEffect.h"
 #include "UTLift.h"
@@ -13,7 +12,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	: Super(PCIP)
 {
 	ProjectileMovement->InitialSpeed = 4000.0f;
-	ProjectileMovement->MaxSpeed = 5000.0f;
+	ProjectileMovement->MaxSpeed = 6000.0f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bInitialVelocityInLocalSpace = true;
 	ProjectileMovement->ProjectileGravityScale = 0.9f;
@@ -29,9 +28,33 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	SurfaceWallThreshold = 0.3f;
 	FloorCollisionRadius = 40.0f;
 
-	InitialLifeSpan = 10.0f;
-	RestTime = 3.0f;
+	RestTime = 10.f;
 	bAlwaysShootable = true;
+
+	GlobStrength = 1;
+
+	MaxRestingGlobStrength = 6;
+	RemainingRestTime = 0.0f;
+	DamageRadiusGainFactor = 0.3f;
+
+	InitialLifeSpan = 0.0f;
+
+	GlobStrengthCollisionScale = 2.0f;
+	ExtraRestTimePerStrength = 0.5f;
+
+	SplashSpread = 0.8f;
+	BioInteractStartTime = 0.f;
+	BioInteractDelayTime = 0.f;
+}
+
+void AUTProj_BioShot::BeginPlay()
+{
+	BioInteractStartTime = GetWorld()->GetTimeSeconds() + BioInteractDelayTime;
+	Super::BeginPlay();
+	if (!IsPendingKillPending())
+	{
+		SetGlobStrength(GlobStrength);
+	}
 }
 
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
@@ -40,7 +63,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 	{
 		if (bLanded && !bExploded)
 		{
-			RemainingRestTime = -1.0;
+			RemainingRestTime = -1.f;
 			RemainingRestTimer();
 		}
 	}
@@ -83,11 +106,6 @@ void AUTProj_BioShot::SetRemainingRestTime(float NewValue)
 	}
 }
 
-void AUTProj_BioShot::GrowCollision()
-{
-	CollisionComp->SetSphereRadius(FloorCollisionRadius, false);
-}
-
 void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 {
 	if (bFakeClientProjectile)
@@ -103,7 +121,6 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 
 		//Change the collision so that weapons make it explode
 		CollisionComp->SetCollisionProfileName("ProjectileShootable");
-		GrowCollision();
 
 		//Rotate away from the floor
 		FRotator NewRotation = (SurfaceNormal).Rotation();
@@ -150,6 +167,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp)
 		{
 			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(SurfaceNormal.Rotation(), GetActorLocation()), HitComp, this, InstigatorController);
 		}
+		SetGlobStrength(GlobStrength);
 	}
 }
 
@@ -157,47 +175,171 @@ void AUTProj_BioShot::OnLanded_Implementation()
 {
 }
 
+bool AUTProj_BioShot::CanInteractWithBio()
+{
+	return ((BioInteractStartTime < GetWorld()->GetTimeSeconds()) && !bExploded && !bHasMerged);
+}
+
+// @TODO FIXMESTEVE- fake and non-fake projectile merging!
+void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
+{
+	if (!OtherBio || !CanInteractWithBio() || !OtherBio->CanInteractWithBio())
+	{
+		//Let the globlings pass through so they dont explode the glob, ignore exploded bio
+		return;
+	}
+	// let the landed glob grow
+	if (!bLanded && OtherBio->bLanded)
+	{
+		return;
+	}
+	OtherBio->bHasMerged = true;
+
+	if (OtherBio->GlobStrength > GlobStrength)
+	{
+		InstigatorController = OtherBio->InstigatorController;
+		Instigator = OtherBio->Instigator;
+	}
+
+	SetGlobStrength(GlobStrength + OtherBio->GlobStrength);
+
+	//Effects
+	UUTGameplayStatics::UTPlaySound(GetWorld(), MergeSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), MergeEffect, GetActorLocation(), SurfaceNormal.Rotation(), true);
+	}
+	OtherBio->ShutDown();
+}
+
 void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	if (bHasMerged)
+	{
+		ShutDown(); 
+		return;
+	}
 	if (bFakeClientProjectile)
 	{
 		ShutDown(); // @TODO FIXMESTEVE
 		return;
 	}
-	if (Cast<AUTProj_BioGlob>(OtherActor) == NULL) // bio glob's ProcessHit() will absorb us
+	AUTProj_BioShot* OtherBio = Cast<AUTProj_BioShot>(OtherActor);
+	if (OtherBio)
 	{
-		if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
+		MergeWithGlob(OtherBio);
+	}
+	else if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
+	{
+		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+	}
+	else if (!bLanded)
+	{
+		//Determine if we hit a Wall/Floor/Ceiling
+		SurfaceNormal = HitNormal;
+		if (FMath::Abs(SurfaceNormal.Z) > SurfaceWallThreshold) // A wall will have a low Z in the HitNormal since it's a unit vector
 		{
-			Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+			SurfaceType = (SurfaceNormal.Z >= 0) ? HIT_Floor : HIT_Ceiling;
 		}
-		else if (!bLanded)
+		else
 		{
-			//Determine if we hit a Wall/Floor/Ceiling
-			SurfaceNormal = HitNormal;
-			if (FMath::Abs(SurfaceNormal.Z) > SurfaceWallThreshold) // A wall will have a low Z in the HitNormal since it's a unit vector
-			{
-				SurfaceType = (SurfaceNormal.Z >= 0) ? HIT_Floor : HIT_Ceiling;
-			}
-			else
-			{
-				SurfaceType = HIT_Wall;
-			}
+			SurfaceType = HIT_Wall;
+		}
 
-			SetActorLocation(HitLocation);
+		SetActorLocation(HitLocation);
 
-			Landed(OtherComp);
+		Landed(OtherComp);
 
-			AUTLift* Lift = Cast<AUTLift>(OtherActor);
-			if (Lift && Lift->GetEncroachComponent())
-			{
-				AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
-			}
+		AUTLift* Lift = Cast<AUTLift>(OtherActor);
+		if (Lift && Lift->GetEncroachComponent())
+		{
+			AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
 		}
 	}
 }
+void AUTProj_BioShot::OnRep_GlobStrength()
+{
+	SetGlobStrength(GlobStrength);
+}
+
+void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
+{
+	uint8 OldStrength = GlobStrength;
+
+	GlobStrength = FMath::Max(NewStrength, (uint8)1);
+
+	RestTime = GetClass()->GetDefaultObject<AUTProj_BioShot>()->RestTime + ExtraRestTimePerStrength * float(GlobStrength);
+	if (!bLanded)
+	{
+		//Set the projectile speed here so the client can mirror the strength speed
+		ProjectileMovement->InitialSpeed = ProjectileMovement->InitialSpeed * (0.4f + (float)NewStrength) / (1.35f * (float)NewStrength);
+		ProjectileMovement->MaxSpeed = ProjectileMovement->InitialSpeed;
+	}
+	// don't reduce remaining time for strength lost (i.e. SplashGloblings())
+	else if (GlobStrength > OldStrength)
+	{
+		RemainingRestTime += float(GlobStrength - OldStrength) * ExtraRestTimePerStrength;
+		if (Role < ROLE_Authority)
+		{
+			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, RemainingRestTime, false);
+		}
+	}
+
+	//Increase The collision of the flying Glob if over a certain strength
+	if (!bLanded && GlobStrength > 4)
+	{
+		float DefaultRadius = Cast<AUTProjectile>(StaticClass()->GetDefaultObject())->CollisionComp->GetUnscaledSphereRadius();
+		CollisionComp->SetSphereRadius(DefaultRadius + (GlobStrength * GlobStrengthCollisionScale));
+	}
+
+	// set different damagetype for charged shots
+	if (GlobStrength > 1)
+	{
+		MyDamageType = ChargedDamageType;
+	}
+
+	DamageParams = GetClass()->GetDefaultObject<AUTProjectile>()->DamageParams;
+	DamageParams.BaseDamage *= GlobStrength;
+	DamageParams.OuterRadius *= 1.0 + (DamageRadiusGainFactor * float(GlobStrength - 1));
+	Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * FMath::Sqrt(GlobStrength);
+
+	//Update any effects
+	OnSetGlobStrength();
+
+	if (bLanded && (GlobStrength > MaxRestingGlobStrength))
+	{
+		if (Role == ROLE_Authority && SplashProjClass != NULL)
+		{
+			FActorSpawnParameters Params;
+			Params.Instigator = Instigator;
+			Params.Owner = Instigator;
+
+			//Adjust a bit so we don't spawn in the floor
+			FVector FloorOffset = GetActorLocation() + (SurfaceNormal * 10.0f);
+
+			//Spawn goblings for as many Glob's above MaxRestingGlobStrength
+			for (uint8 g = 0; g < GlobStrength - MaxRestingGlobStrength; g++)
+			{
+				FVector Dir = SurfaceNormal + FMath::VRand() * SplashSpread;
+				GetWorld()->SpawnActor<AUTProjectile>(SplashProjClass, FloorOffset, Dir.Rotation(), Params);
+			}
+		}
+		GlobStrength = MaxRestingGlobStrength;
+	}
+
+	CollisionComp->SetSphereRadius(FloorCollisionRadius + (GlobStrength * GlobStrengthCollisionScale), false);
+	float GlobSize = FMath::Pow(GlobStrength, 0.5f);
+	GetRootComponent()->SetRelativeScale3D(FVector(GlobSize));
+}
+
+void AUTProj_BioShot::OnSetGlobStrength_Implementation()
+{
+}
+
 void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, RemainingRestTime, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_InitialOnly);
 }

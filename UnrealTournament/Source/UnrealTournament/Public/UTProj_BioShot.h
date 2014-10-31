@@ -21,6 +21,8 @@ class AUTProj_BioShot : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void BeginPlay() override;
+
 	/** played on landing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<AUTImpactEffect> LandedEffects;
@@ -50,9 +52,11 @@ class AUTProj_BioShot : public AUTProjectile
 	/**Set when the glob sticks to a wall*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
 	bool bLanded;
+
 	/**The noraml of the wall we are stuck to*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
 	FVector SurfaceNormal;
+
 	/**The surface type (wall/floor/ceiling)*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
 	TEnumAsByte<EHitType> SurfaceType;
@@ -60,6 +64,13 @@ class AUTProj_BioShot : public AUTProjectile
 	/**Abs(SurfaceNormal.Z) > SurfaceWallThreshold != Wall*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float SurfaceWallThreshold;
+
+	/** delay time before this projectile will interact with other bios. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float BioInteractDelayTime;
+
+	UPROPERTY()
+		float BioInteractStartTime;
 
 	virtual void Landed(UPrimitiveComponent* HitComp);
 
@@ -71,8 +82,68 @@ class AUTProj_BioShot : public AUTProjectile
 	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
 
 	/**Explode on recieving any damage*/
-	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser);
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) override;
 
-	/**Grows the collision when we land*/
-	virtual void GrowCollision();
+	/** True if can interact with other bio */
+	virtual bool CanInteractWithBio();
+
+	/**The sound played when the globs merge together*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		USoundBase* MergeSound;
+
+	/**The effect played when the globs merge together*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		UParticleSystem* MergeEffect;
+
+	/** To prevent double merging */
+	UPROPERTY()
+		bool bHasMerged;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_GlobStrength, Category = Bio)
+		uint8 GlobStrength;
+
+	UFUNCTION()
+		virtual void OnRep_GlobStrength();
+
+	/**The amount to scale the collision per GlobStrength*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float GlobStrengthCollisionScale;
+
+	/** add this multiplier to damage radius for every point of glob strength beyond the first */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float DamageRadiusGainFactor;
+
+	/**The Time added to RestTime when the glob lands*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float ExtraRestTimePerStrength;
+
+	/**Sets the strength of the glob*/
+	UFUNCTION(BlueprintCallable, Category = Bio)
+		virtual void SetGlobStrength(uint8 NewStrength);
+
+	/** hook to size any mesh or effect based on the GlobStrength */
+	UFUNCTION(BlueprintNativeEvent, Category = Bio)
+		void OnSetGlobStrength();
+
+	/**Anything higher than this will SplashGloblings*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		uint8 MaxRestingGlobStrength;
+
+	/**GlobStrength > 1 uses this damage type*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		TSubclassOf<UDamageType> ChargedDamageType;
+
+	/**Over a certain strength we will use this damage type to gib*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		TSubclassOf<UDamageType> GibDamageType;
+
+	virtual void MergeWithGlob(AUTProj_BioShot* OtherBio);
+
+	/** The projectile type that will spawn when (GlobStrength > MaxRestingGlobStrength) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		TSubclassOf<AUTProjectile> SplashProjClass;
+
+	/** Randomness added to Splash projectile direction. (Dir = SurfaceNormal + VRand() * SplashSpread)  */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float SplashSpread;
 };
