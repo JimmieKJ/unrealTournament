@@ -1012,8 +1012,11 @@ void AUTWeapon::PlayPredictedImpactEffects(FVector ImpactLoc)
 
 void AUTWeapon::PlayDelayedImpactEffects()
 {
-	UTOwner->SetFlashLocation(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode);
-	PlayImpactEffects(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode, DelayedHitScan.SpawnLocation, DelayedHitScan.SpawnRotation);
+	if (UTOwner)
+	{
+		UTOwner->SetFlashLocation(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode);
+		PlayImpactEffects(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode, DelayedHitScan.SpawnLocation, DelayedHitScan.SpawnRotation);
+	}
 }
 
 float AUTWeapon::GetImpartedMomentumMag(AActor* HitActor)
