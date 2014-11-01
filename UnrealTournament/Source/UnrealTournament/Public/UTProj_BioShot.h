@@ -92,6 +92,10 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY()
 		bool bHasMerged;
 
+	/** To prevent merging while spawning globlings */
+	UPROPERTY()
+		bool bSpawningGloblings;
+
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_GlobStrength, Category = Bio)
 		uint8 GlobStrength;
 

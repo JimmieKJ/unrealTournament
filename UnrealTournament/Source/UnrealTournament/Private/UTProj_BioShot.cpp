@@ -47,10 +47,6 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 
 void AUTProj_BioShot::BeginPlay()
 {
-	if (Cast<AUTProjectile>(GetOwner()))
-	{
-		ProjectileMovement->MaxSpeed = 1500.f;
-	}
 	Super::BeginPlay();
 	if (!IsPendingKillPending())
 	{
@@ -163,8 +159,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 
 		//Spawn Effects
 		OnLanded();
-
-		if (LandedEffects != NULL)
+		if ((LandedEffects != NULL) && (GetNetMode() != NM_DedicatedServer))
 		{
 			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(NormalRotation, HitLocation), HitComp, this, InstigatorController);
 		}
@@ -178,7 +173,7 @@ void AUTProj_BioShot::OnLanded_Implementation()
 
 bool AUTProj_BioShot::CanInteractWithBio()
 {
-	return (!bExploded && !bHasMerged);
+	return (!bExploded && !bHasMerged && !bSpawningGloblings);
 }
 
 // @TODO FIXMESTEVE- fake and non-fake projectile merging!
@@ -208,7 +203,7 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	UUTGameplayStatics::UTPlaySound(GetWorld(), MergeSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), MergeEffect, GetActorLocation(), SurfaceNormal.Rotation(), true);
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), MergeEffect, GetActorLocation() - CollisionComp->GetUnscaledSphereRadius(), SurfaceNormal.Rotation(), true);
 	}
 	OtherBio->ShutDown();
 }
@@ -290,7 +285,7 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 	}
 
 	//Increase The collision of the flying Glob if over a certain strength
-	if (!bLanded && GlobStrength > 4)
+	if (GlobStrength > 4)
 	{
 		float DefaultRadius = Cast<AUTProjectile>(StaticClass()->GetDefaultObject())->CollisionComp->GetUnscaledSphereRadius();
 		CollisionComp->SetSphereRadius(DefaultRadius + (GlobStrength * GlobStrengthCollisionScale));
@@ -316,24 +311,32 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 		{
 			FActorSpawnParameters Params;
 			Params.Instigator = Instigator;
-			Params.Owner = this;
+			Params.Owner = Instigator;
 
-			//Adjust a bit so we don't spawn in the floor
+			//Adjust a bit so globlings don't spawn in the floor
 			FVector FloorOffset = GetActorLocation() + (SurfaceNormal * 10.0f);
 
 			//Spawn globlings for as many Glob's above MaxRestingGlobStrength
-			bHasMerged = true;
+			bSpawningGloblings = true;
 			for (uint8 g = 0; g < GlobStrength - MaxRestingGlobStrength; g++)
 			{
 				FVector Dir = SurfaceNormal + FMath::VRand() * SplashSpread;
 				AUTProjectile* Globling = GetWorld()->SpawnActor<AUTProjectile>(GetClass(), FloorOffset, Dir.Rotation(), Params);
+				if (Globling)
+				{
+					Globling->ProjectileMovement->InitialSpeed *= 0.2f;
+					Globling->ProjectileMovement->Velocity *= 0.2f;
+				}
 			}
-			bHasMerged = false;
+			bSpawningGloblings = false;
 		}
 		GlobStrength = MaxRestingGlobStrength;
 	}
 
-	CollisionComp->SetSphereRadius(FloorCollisionRadius + (GlobStrength * GlobStrengthCollisionScale), false);
+	if (bLanded)
+	{
+		PawnOverlapSphere->SetSphereRadius(FloorCollisionRadius + (GlobStrength  * GlobStrengthCollisionScale), false);
+	}
 	float GlobSize = FMath::Pow(GlobStrength, 0.5f);
 	GetRootComponent()->SetRelativeScale3D(FVector(GlobSize));
 }
@@ -346,6 +349,6 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, RemainingRestTime, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, RemainingRestTime, COND_None); // @TODO FIXMESTEVE WHY REPLICATE THIS?
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_InitialOnly);
 }
