@@ -42,6 +42,9 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	ExtraRestTimePerStrength = 0.5f;
 
 	SplashSpread = 0.8f;
+	bSpawningGloblings = false;
+	bLanded = false;
+	bHasMerged = false;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -138,7 +141,7 @@ void AUTProj_BioShot::OnLanded_Implementation()
 
 bool AUTProj_BioShot::CanInteractWithBio()
 {
-	return (!bExploded && !bHasMerged && !bSpawningGloblings);
+	return (!bExploded && !bHasMerged && !bSpawningGloblings && !bFakeClientProjectile && (Role == ROLE_Authority));
 }
 
 // @TODO FIXMESTEVE- fake and non-fake projectile merging!
@@ -163,14 +166,7 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	}
 
 	SetGlobStrength(GlobStrength + OtherBio->GlobStrength);
-
-	//Effects
-	UUTGameplayStatics::UTPlaySound(GetWorld(), MergeSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), MergeEffect, GetActorLocation() - CollisionComp->GetUnscaledSphereRadius(), SurfaceNormal.Rotation(), true);
-	}
-	OtherBio->ShutDown();
+	OtherBio->Destroy();
 }
 
 void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
@@ -180,11 +176,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		ShutDown(); 
 		return;
 	}
-	if (bFakeClientProjectile)
-	{
-		ShutDown(); // @TODO FIXMESTEVE
-		return;
-	}
+
 	AUTProj_BioShot* OtherBio = Cast<AUTProj_BioShot>(OtherActor);
 	if (OtherBio)
 	{
@@ -220,6 +212,10 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 void AUTProj_BioShot::OnRep_GlobStrength()
 {
 	SetGlobStrength(GlobStrength);
+	if (Cast<AUTProj_BioShot>(MyFakeProjectile))
+	{
+		Cast<AUTProj_BioShot>(MyFakeProjectile)->SetGlobStrength(GlobStrength);
+	}
 }
 
 void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
@@ -232,7 +228,6 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 
 	GlobStrength = FMath::Max(NewStrength, (uint8)1);
 
-	RestTime = GetClass()->GetDefaultObject<AUTProj_BioShot>()->RestTime + ExtraRestTimePerStrength * float(GlobStrength);
 	if (!bLanded)
 	{
 		//Set the projectile speed here so the client can mirror the strength speed
@@ -240,10 +235,20 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 		ProjectileMovement->MaxSpeed = ProjectileMovement->InitialSpeed;
 	}
 	// don't reduce remaining time for strength lost (i.e. SplashGloblings())
-	else if ((GlobStrength > OldStrength) && (Role < ROLE_Authority))
+	else if (GlobStrength > OldStrength)
 	{
-		float RemainingRestTime = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTProj_BioShot::BioStabilityTimer) + (GlobStrength - OldStrength) * ExtraRestTimePerStrength;
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RemainingRestTime, false);
+		if (Role == ROLE_Authority)
+		{
+			float RemainingRestTime = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTProj_BioShot::BioStabilityTimer) + (GlobStrength - OldStrength) * ExtraRestTimePerStrength;
+			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RemainingRestTime, false);
+
+		}
+		// Glob merge effects
+		UUTGameplayStatics::UTPlaySound(GetWorld(), MergeSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), MergeEffect, GetActorLocation() - CollisionComp->GetUnscaledSphereRadius(), SurfaceNormal.Rotation(), true);
+		}
 	}
 
 	//Increase The collision of the flying Glob if over a certain strength
@@ -263,9 +268,6 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 	DamageParams.BaseDamage *= GlobStrength;
 	DamageParams.OuterRadius *= 1.0 + (DamageRadiusGainFactor * float(GlobStrength - 1));
 	Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * FMath::Sqrt(GlobStrength);
-
-	//Update any effects
-	OnSetGlobStrength();
 
 	if (bLanded && (GlobStrength > MaxRestingGlobStrength))
 	{
@@ -295,9 +297,13 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 		GlobStrength = MaxRestingGlobStrength;
 	}
 
+	//Update any effects
+	OnSetGlobStrength();
+
 	if (bLanded)
 	{
 		PawnOverlapSphere->SetSphereRadius(FloorCollisionRadius + (GlobStrength  * GlobStrengthCollisionScale), false);
+		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileShootable");
 	}
 	float GlobSize = FMath::Pow(GlobStrength, 0.5f);
 	GetRootComponent()->SetRelativeScale3D(FVector(GlobSize));
@@ -311,5 +317,5 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_None);
 }
