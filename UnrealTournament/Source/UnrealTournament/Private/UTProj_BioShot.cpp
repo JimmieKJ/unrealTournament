@@ -30,7 +30,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	RestTime = 10.f;
 	bAlwaysShootable = true;
 
-	GlobStrength = 1;
+	GlobStrength = 1.f;
 	MaxRestingGlobStrength = 6;
 	DamageRadiusGainFactor = 1.f;
 	InitialLifeSpan = 0.0f;
@@ -159,7 +159,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	else if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
 		// set different damagetype for charged shots
-		MyDamageType = (GlobStrength > 1) ? ChargedDamageType : GetClass()->GetDefaultObject<AUTProjectile>()->MyDamageType;
+		MyDamageType = (GlobStrength > 1.f) ? ChargedDamageType : GetClass()->GetDefaultObject<AUTProjectile>()->MyDamageType;
 		float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
 		DamageParams = GetClass()->GetDefaultObject<AUTProjectile>()->DamageParams;
 		DamageParams.BaseDamage *= GlobStrength;
@@ -202,20 +202,19 @@ void AUTProj_BioShot::OnRep_GlobStrength()
 	}
 }
 
-void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
+void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 {
 	if (bHasMerged)
 	{
 		return;
 	}
-	uint8 OldStrength = GlobStrength;
-
-	GlobStrength = FMath::Max(NewStrength, (uint8)1);
+	float OldStrength = GlobStrength;
+	GlobStrength = NewStrength;
 
 	if (!bLanded)
 	{
 		//Set the projectile speed here so the client can mirror the strength speed
-		ProjectileMovement->InitialSpeed = ProjectileMovement->InitialSpeed * (0.4f + (float)NewStrength) / (1.35f * (float)NewStrength);
+		ProjectileMovement->InitialSpeed = ProjectileMovement->InitialSpeed * (0.4f + GlobStrength) / (1.35f * GlobStrength);
 		ProjectileMovement->MaxSpeed = ProjectileMovement->InitialSpeed;
 	}
 	// don't reduce remaining time for strength lost (i.e. SplashGloblings())
@@ -237,7 +236,7 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 
 	//Increase The collision of the flying Glob if over a certain strength
 	float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
-	if (GlobStrength > 4)
+	if (GlobStrength > 4.f)
 	{
 		float DefaultRadius = Cast<AUTProjectile>(StaticClass()->GetDefaultObject())->CollisionComp->GetUnscaledSphereRadius();
 		CollisionComp->SetSphereRadius(DefaultRadius * 	GlobScalingSqrt);
@@ -256,7 +255,8 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 
 			//Spawn globlings for as many Glob's above MaxRestingGlobStrength
 			bSpawningGloblings = true;
-			for (int32 i=0; i<GlobStrength - MaxRestingGlobStrength; i++)
+			int32 NumGloblings = int32(GlobStrength) - MaxRestingGlobStrength;
+			for (int32 i = 0; i<NumGloblings; i++)
 			{
 				FVector Dir = SurfaceNormal + FMath::VRand() * SplashSpread;
 				AUTProjectile* Globling = GetWorld()->SpawnActor<AUTProjectile>(GetClass(), FloorOffset, Dir.Rotation(), Params);

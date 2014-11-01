@@ -83,7 +83,7 @@ class AUTProj_BioShot : public AUTProjectile
 		bool bSpawningGloblings;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_GlobStrength, Category = Bio)
-		uint8 GlobStrength;
+		float GlobStrength;
 
 	UFUNCTION()
 		virtual void OnRep_GlobStrength();
@@ -98,7 +98,7 @@ class AUTProj_BioShot : public AUTProjectile
 
 	/**Sets the strength of the glob*/
 	UFUNCTION(BlueprintCallable, Category = Bio)
-		virtual void SetGlobStrength(uint8 NewStrength);
+		virtual void SetGlobStrength(float NewStrength);
 
 	/** hook to size any mesh or effect based on the GlobStrength */
 	UFUNCTION(BlueprintNativeEvent, Category = Bio)
