@@ -27,10 +27,6 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<AUTImpactEffect> LandedEffects;
 
-	/**The size of the glob collision when we land*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-	float FloorCollisionRadius;
-
 	/**How long the glob will remain on the ground before exploding*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float RestTime;
@@ -91,10 +87,6 @@ class AUTProj_BioShot : public AUTProjectile
 
 	UFUNCTION()
 		virtual void OnRep_GlobStrength();
-
-	/**The amount to scale the collision per GlobStrength*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-		float GlobStrengthCollisionScale;
 
 	/** add this multiplier to damage radius for every point of glob strength beyond the first */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
