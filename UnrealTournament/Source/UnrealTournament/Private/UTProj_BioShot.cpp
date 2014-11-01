@@ -32,7 +32,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 
 	GlobStrength = 1;
 	MaxRestingGlobStrength = 6;
-	DamageRadiusGainFactor = 0.3f;
+	DamageRadiusGainFactor = 1.f;
 	InitialLifeSpan = 0.0f;
 	ExtraRestTimePerStrength = 0.5f;
 
@@ -76,11 +76,6 @@ void AUTProj_BioShot::BioStabilityTimer()
 
 void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLocation)
 {
-	if (bFakeClientProjectile)
-	{
-		ShutDown(); // @TODO FIXMESTEVE
-		return;
-	}
 	if (!bLanded)
 	{
 		bLanded = true;
@@ -105,24 +100,9 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
 		}
 
-		//Stop any flight looping sounds
-		TArray<USceneComponent*> Components;
-		GetComponents<USceneComponent>(Components);
-		for (int32 i = 0; i < Components.Num(); i++)
-		{
-			UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
-			if (Audio != NULL)
-			{
-				if (Audio->Sound != NULL && Audio->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
-				{
-					Audio->Stop();
-				}
-			}
-		}
-
 		//Spawn Effects
 		OnLanded();
-		if ((LandedEffects != NULL) && (GetNetMode() != NM_DedicatedServer))
+		if ((LandedEffects != NULL) && (GetNetMode() != NM_DedicatedServer) && !MyFakeProjectile)
 		{
 			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(NormalRotation, HitLocation), HitComp, this, InstigatorController);
 		}
@@ -139,7 +119,6 @@ bool AUTProj_BioShot::CanInteractWithBio()
 	return (!bExploded && !bHasMerged && !bSpawningGloblings && !bFakeClientProjectile && (Role == ROLE_Authority));
 }
 
-// @TODO FIXMESTEVE- fake and non-fake projectile merging!
 void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 {
 	if (!OtherBio || !CanInteractWithBio() || !OtherBio->CanInteractWithBio())
@@ -179,6 +158,13 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	}
 	else if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
+		// set different damagetype for charged shots
+		MyDamageType = (GlobStrength > 1) ? ChargedDamageType : GetClass()->GetDefaultObject<AUTProjectile>()->MyDamageType;
+		float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
+		DamageParams = GetClass()->GetDefaultObject<AUTProjectile>()->DamageParams;
+		DamageParams.BaseDamage *= GlobStrength;
+		DamageParams.OuterRadius *= DamageRadiusGainFactor * GlobScalingSqrt;
+		Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * GlobScalingSqrt;
 		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 	}
 	else if (!bLanded)
@@ -206,10 +192,13 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 }
 void AUTProj_BioShot::OnRep_GlobStrength()
 {
-	SetGlobStrength(GlobStrength);
 	if (Cast<AUTProj_BioShot>(MyFakeProjectile))
 	{
 		Cast<AUTProj_BioShot>(MyFakeProjectile)->SetGlobStrength(GlobStrength);
+	}
+	else
+	{
+		SetGlobStrength(GlobStrength);
 	}
 }
 
@@ -253,16 +242,6 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 		float DefaultRadius = Cast<AUTProjectile>(StaticClass()->GetDefaultObject())->CollisionComp->GetUnscaledSphereRadius();
 		CollisionComp->SetSphereRadius(DefaultRadius * 	GlobScalingSqrt);
 	}
-
-	// set different damagetype for charged shots
-	if (GlobStrength > 1)
-	{
-		MyDamageType = ChargedDamageType;
-	}
-	DamageParams = GetClass()->GetDefaultObject<AUTProjectile>()->DamageParams;
-	DamageParams.BaseDamage *= GlobStrength;
-	DamageParams.OuterRadius *= 1.0 + (DamageRadiusGainFactor * float(GlobStrength - 1));
-	Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * GlobScalingSqrt;
 
 	if (bLanded && (GlobStrength > MaxRestingGlobStrength))
 	{

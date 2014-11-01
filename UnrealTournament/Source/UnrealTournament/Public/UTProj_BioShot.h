@@ -112,10 +112,6 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 		TSubclassOf<UDamageType> ChargedDamageType;
 
-	/**Over a certain strength we will use this damage type to gib*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-		TSubclassOf<UDamageType> GibDamageType;
-
 	virtual void MergeWithGlob(AUTProj_BioShot* OtherBio);
 
 	/** Randomness added to Splash projectile direction. (Dir = SurfaceNormal + VRand() * SplashSpread)  */
