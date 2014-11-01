@@ -34,7 +34,6 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	GlobStrength = 1;
 
 	MaxRestingGlobStrength = 6;
-	RemainingRestTime = 0.0f;
 	DamageRadiusGainFactor = 0.3f;
 
 	InitialLifeSpan = 0.0f;
@@ -51,6 +50,9 @@ void AUTProj_BioShot::BeginPlay()
 	if (!IsPendingKillPending())
 	{
 		SetGlobStrength(GlobStrength);
+
+		// failsafe if never land
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, 10.f, false);
 	}
 }
 
@@ -60,46 +62,17 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 	{
 		if (bLanded && !bExploded)
 		{
-			RemainingRestTime = -1.f;
-			RemainingRestTimer();
+			Explode(GetActorLocation(), SurfaceNormal);
 		}
 	}
 	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 }
 
-void AUTProj_BioShot::OnRep_RemainingRestTime()
+void AUTProj_BioShot::BioStabilityTimer()
 {
-	if (RemainingRestTime <= 0.0 && !bExploded)
-	{
-		RemainingRestTimer();
-	}
-	else
-	{
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, RemainingRestTime, false);
-	}
-}
-
-void AUTProj_BioShot::RemainingRestTimer()
-{
-	//Server ticks to update clients
-	if (Role == ROLE_Authority)
-	{
-		RemainingRestTime -= GOO_TIMER_TICK;
-	}
-
-	if (RemainingRestTime <= 0.0 && !bExploded)
+	if (!bExploded)
 	{
 		Explode(GetActorLocation(), SurfaceNormal);
-	}
-}
-
-void AUTProj_BioShot::SetRemainingRestTime(float NewValue)
-{
-	RestTime = NewValue;
-	RemainingRestTime = NewValue;
-	if (!bPendingKillPending && GetWorld()->GetTimerManager().IsTimerActive(this, &AUTProj_BioShot::RemainingRestTimer))
-	{
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, NewValue, false);
 	}
 }
 
@@ -129,17 +102,9 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		ProjectileMovement->Velocity = FVector::ZeroVector;
 
 		//Start the explosion timer
-		RemainingRestTime = RestTime;
-		if (!bPendingKillPending)
+		if (!bPendingKillPending && (Role == ROLE_Authority))
 		{
-			if (Role == ROLE_Authority)
-			{
-				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, GOO_TIMER_TICK, true);
-			}
-			else
-			{
-				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, RemainingRestTime, false);
-			}
+			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
 		}
 
 		//Stop any flight looping sounds
@@ -275,13 +240,10 @@ void AUTProj_BioShot::SetGlobStrength(uint8 NewStrength)
 		ProjectileMovement->MaxSpeed = ProjectileMovement->InitialSpeed;
 	}
 	// don't reduce remaining time for strength lost (i.e. SplashGloblings())
-	else if (GlobStrength > OldStrength)
+	else if ((GlobStrength > OldStrength) && (Role < ROLE_Authority))
 	{
-		RemainingRestTime += float(GlobStrength - OldStrength) * ExtraRestTimePerStrength;
-		if (Role < ROLE_Authority)
-		{
-			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::RemainingRestTimer, RemainingRestTime, false);
-		}
+		float RemainingRestTime = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTProj_BioShot::BioStabilityTimer) + (GlobStrength - OldStrength) * ExtraRestTimePerStrength;
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RemainingRestTime, false);
 	}
 
 	//Increase The collision of the flying Glob if over a certain strength
@@ -349,6 +311,5 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, RemainingRestTime, COND_None); // @TODO FIXMESTEVE WHY REPLICATE THIS?
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_InitialOnly);
 }

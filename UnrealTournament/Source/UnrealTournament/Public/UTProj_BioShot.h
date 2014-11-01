@@ -35,19 +35,9 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float RestTime;
 
-	/**The remaining time until this explodes*/
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RemainingRestTime)
-	float RemainingRestTime;
+	/** Biostability expiring = explosion. */
 	UFUNCTION()
-	virtual void OnRep_RemainingRestTime();
-
-	/**Server: Update RemainingRestTime and explode when finished
-	Client: explode when called*/
-	UFUNCTION()
-	void RemainingRestTimer();
-
-	UFUNCTION(BlueprintCallable, Category = Bio)
-	virtual void SetRemainingRestTime(float NewValue);
+	virtual void BioStabilityTimer();
 
 	/**Set when the glob sticks to a wall*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
