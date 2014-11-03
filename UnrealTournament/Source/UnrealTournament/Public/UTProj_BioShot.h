@@ -63,6 +63,12 @@ class AUTProj_BioShot : public AUTProjectile
 	/**Explode on recieving any damage*/
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) override;
 
+	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
+
+	/** Max speed goo can slide. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+	float MaxSlideSpeed;
+
 	/** True if can interact with other bio */
 	virtual bool CanInteractWithBio();
 

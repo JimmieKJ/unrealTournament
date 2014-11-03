@@ -19,14 +19,13 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 
 	ProjectileMovement->bShouldBounce = true;
 	ProjectileMovement->Bounciness = 0.1f;
-	ProjectileMovement->Friction = 0.6f;
-	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 20.f;
+	ProjectileMovement->Friction = 0.008f;
+	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 100.f;
 
 	DamageParams.BaseDamage = 21.0f;
 
 	Momentum = 40000.0f;
 
-	bLanded = false;
 	SurfaceNormal = FVector(0.0f, 0.0f, 1.0f);
 	SurfaceType = EHitType::HIT_None;
 	SurfaceWallThreshold = 0.3f;
@@ -47,6 +46,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 
 	LandedOverlapRadius = 13.f;
 	LandedOverlapScaling = 7.f;
+	MaxSlideSpeed = 1500.f;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -59,6 +59,15 @@ void AUTProj_BioShot::BeginPlay()
 		// failsafe if never land
 		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, 10.f, false);
 	}
+}
+
+void AUTProj_BioShot::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
+{
+	Super::OnBounce(ImpactResult, ImpactVelocity);
+	ProjectileMovement->MaxSpeed = MaxSlideSpeed;
+
+	// only one bounce sound
+	BounceSound = NULL;
 }
 
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
@@ -96,10 +105,6 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		FRotator NormalRotation = (SurfaceNormal).Rotation();
 		NormalRotation.Roll = FMath::FRand() * 360.0f;	//Random spin
 		SetActorRotation(NormalRotation);
-
-		//Stop the projectile
-		//ProjectileMovement->ProjectileGravityScale = 0.0f;
-		//ProjectileMovement->Velocity = FVector::ZeroVector;
 
 		//Spawn Effects
 		OnLanded();
@@ -221,6 +226,7 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 	}
 	float OldStrength = GlobStrength;
 	GlobStrength = NewStrength;
+	ProjectileMovement->bShouldBounce = (GlobStrength <= 1.f);
 
 	if (!bLanded)
 	{
