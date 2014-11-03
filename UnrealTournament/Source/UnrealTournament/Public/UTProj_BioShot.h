@@ -88,6 +88,14 @@ class AUTProj_BioShot : public AUTProjectile
 	UFUNCTION()
 		virtual void OnRep_GlobStrength();
 
+	/** Base overlap radius for Landed bio */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float LandedOverlapRadius;
+
+	/** Adds to landed overlap radius based on glob size */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float LandedOverlapScaling;
+
 	/** add this multiplier to damage radius for every point of glob strength beyond the first */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 		float DamageRadiusGainFactor;

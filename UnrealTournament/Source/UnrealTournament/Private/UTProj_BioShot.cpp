@@ -16,7 +16,11 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bInitialVelocityInLocalSpace = true;
 	ProjectileMovement->ProjectileGravityScale = 0.9f;
-	ProjectileMovement->bShouldBounce = false;
+
+	ProjectileMovement->bShouldBounce = true;
+	ProjectileMovement->Bounciness = 0.1f;
+	ProjectileMovement->Friction = 0.6f;
+	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 20.f;
 
 	DamageParams.BaseDamage = 21.0f;
 
@@ -40,6 +44,9 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	bSpawningGloblings = false;
 	bLanded = false;
 	bHasMerged = false;
+
+	LandedOverlapRadius = 13.f;
+	LandedOverlapScaling = 7.f;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -91,8 +98,8 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		SetActorRotation(NormalRotation);
 
 		//Stop the projectile
-		ProjectileMovement->ProjectileGravityScale = 0.0f;
-		ProjectileMovement->Velocity = FVector::ZeroVector;
+		//ProjectileMovement->ProjectileGravityScale = 0.0f;
+		//ProjectileMovement->Velocity = FVector::ZeroVector;
 
 		//Spawn Effects
 		OnLanded();
@@ -280,8 +287,10 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 
 	if (bLanded)
 	{
-		PawnOverlapSphere->SetSphereRadius(OverlapRadius*GlobScalingSqrt, false);
+		PawnOverlapSphere->SetSphereRadius(LandedOverlapRadius + LandedOverlapScaling*GlobScalingSqrt, false);
 		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileShootable");
+		//PawnOverlapSphere->bHiddenInGame = false;
+		//PawnOverlapSphere->bVisible = true;
 	}
 	GetRootComponent()->SetRelativeScale3D(FVector(GlobScalingSqrt));
 }
