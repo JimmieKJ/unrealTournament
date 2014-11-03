@@ -254,10 +254,7 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Default01.uasset" Hash="36a28f5b31fb7f7e83b27bace9bf0c9379133f83" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Default02.uasset" Hash="32c60749e0566ac9abb505d2ae16b1299dc709cb" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Dirt01.uasset" Hash="f5d19fcf025701e74f1f0e23f99f5de765b332fd" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Dirt02.uasset" Hash="7b1f13aad54df426f995dd4ad096395dae39c70d" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Dirt03.uasset" Hash="31b8a313adb9f99d1943b73fbffe456f1479a498" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Dirt04.uasset" Hash="ad2f27ca3c46720f9ab59194130446996256e7d3" />
-    <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Dirt05.uasset" Hash="7bbb75ff4656934b836de09d540ae6c95fb9f2c0" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_Dirt06.uasset" Hash="58cda67fe502c0e8643cabc12aeb7729a9a55909" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_DirtJump01.uasset" Hash="624b1e52271e598b95bab5e8b2fcb87526a39d66" />
     <File Name="UnrealTournament/Content/RestrictedAssets/Audio/Character/Footsteps/A_Character_Footstep_DirtJump02.uasset" Hash="cb49799873f2b0d7282d76ea260aec38c87ed497" />
@@ -5048,9 +5045,7 @@
     <Blob Hash="7ab37da8b79aea81fb993abe336afac13d966315" Size="142363" PackHash="8d0cff0bd75b161be2160a4640a2a967742a4a23" PackOffset="1070551" />
     <Blob Hash="7aeb4258e402d141f4af43aafb5d403a73cadd04" Size="1489" PackHash="99105dff0ae437c339389b6ef4e391cd1d78e34b" PackOffset="1982046" />
     <Blob Hash="7b142826e6326a7b31166ed61622ec305217f696" Size="1298" PackHash="276955400d38a41e164155452c4da9c10443a299" PackOffset="2062421" />
-    <Blob Hash="7b1f13aad54df426f995dd4ad096395dae39c70d" Size="32580" PackHash="5327a0536a42a8a416f5e7af3326f9a14d9cbe3f" PackOffset="59427" />
     <Blob Hash="7b98c2a91f1c9292d6302b942d90ca06209aa2b6" Size="79189" PackHash="77f1906e2a39e686045117715e2afac83ad69bf6" PackOffset="204811" />
-    <Blob Hash="7bbb75ff4656934b836de09d540ae6c95fb9f2c0" Size="31470" PackHash="5327a0536a42a8a416f5e7af3326f9a14d9cbe3f" PackOffset="124366" />
     <Blob Hash="7bc1055ad16fac45b7a91778cee818bd0c34a2ae" Size="5292" PackHash="d61fc7eca6b33e13ccaa43648f62448817375023" PackOffset="1652514" />
     <Blob Hash="7bc1b663f58b9b2daa3f83b433d56fcf2db81531" Size="50059" PackHash="b907ca167e992990f3fd19d281a9ea82eef8603b" PackOffset="993339" />
     <Blob Hash="7bdfff1e3738714a1e44aad8d4325f81d73a0d40" Size="98353" PackHash="f99416e800fae897385eeb63e735a1538654ef16" PackOffset="612768" />
@@ -5695,7 +5690,6 @@
     <Blob Hash="ad0ea47f65a4dfc12bf79e9a739d142c51558f19" Size="78942" PackHash="b2f5a422652499f69751fdc64e223071cec6ae8a" PackOffset="753806" />
     <Blob Hash="ad1035be96d27c13b894df6030d49f30aba0b874" Size="135621" PackHash="83f47fb82f8972b8230cc8601389aed6a9a0016d" PackOffset="8" />
     <Blob Hash="ad169a91fddfdf6d6cf285231c8be91f835cb4a0" Size="42532" PackHash="8ce0c366121707e299931bb4c46023421da221c6" PackOffset="643282" />
-    <Blob Hash="ad2f27ca3c46720f9ab59194130446996256e7d3" Size="32359" PackHash="5327a0536a42a8a416f5e7af3326f9a14d9cbe3f" PackOffset="92007" />
     <Blob Hash="ad709e9e7e5a83a26a36d7564ce1a5b8b36407d1" Size="2828" PackHash="bb704d718123ba978a73d61362d8f110d5c3e01b" PackOffset="1776503" />
     <Blob Hash="ad8654de7853b33b5d23cd25bca49a23f48f8b50" Size="2542" PackHash="77f1906e2a39e686045117715e2afac83ad69bf6" PackOffset="1642001" />
     <Blob Hash="ad8759fccf6c94518c84873dc2e3e5fb27996d92" Size="80883" PackHash="5de4d4dc61f56067b5e592f46206c19ffc8557a2" PackOffset="1073183" />
