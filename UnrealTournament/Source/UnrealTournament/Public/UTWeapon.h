@@ -334,12 +334,18 @@ public:
 	/** hook when the firing state starts; called on both client and server */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnStartedFiring();
+
 	/** hook for the return to active state (was firing, refire timer expired, trigger released and/or out of ammo)  */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnStoppedFiring();
+
+	/** Return true and  trigger effects if should continue firing, otherwise sends weapon to its active state */
+	virtual bool HandleContinuedFiring();
+
 	/** hook for when the weapon has fired, the refire delay passes, and the user still wants to fire (trigger still down) so the firing loop will repeat */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnContinuedFiring();
+
 	/** blueprint hook for pressing one fire mode while another is currently firing (e.g. hold alt, press primary)
 	 * CurrentFireMode == current, OtherFireMode == one just pressed
 	 */
@@ -475,7 +481,7 @@ public:
 		GotoState(ActiveState);
 	}
 
-	void GotoFireMode(uint8 NewFireMode);
+	virtual void GotoFireMode(uint8 NewFireMode);
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool IsFiring() const;

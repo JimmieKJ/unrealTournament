@@ -73,14 +73,9 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 			B->CheckWeaponFiring();
 		}
 
-		if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
-		{
-			GetOuterAUTWeapon()->GotoActiveState();
-		}
-		else
+		if (GetOuterAUTWeapon()->HandleContinuedFiring())
 		{
 			ToggleLoopingEffects(true);
-			GetOuterAUTWeapon()->OnContinuedFiring();
 			bCharging = true;
 			if (bChargeFlashCount)
 			{

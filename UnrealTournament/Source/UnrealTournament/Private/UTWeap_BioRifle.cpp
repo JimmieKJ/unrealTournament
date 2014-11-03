@@ -16,13 +16,70 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FPostConstructInitializePropertie
 #endif
 	}
 
-	FireInterval[0] = 0.33f;
+	Ammo = 40;
+	MaxAmmo = 100;
+	AmmoCost[0] = 2;
+	AmmoCost[1] = 2;
+
+	FireInterval[0] = 0.4f;
 	FireInterval[1] = 0.66f;
 
 	GlobConsumeTime = 0.33f;
 
 	MaxGlobStrength = 10;
 	GlobStrength = 0;
+
+	SqueezeFireInterval = 0.2f;
+	SqueezeFireSpread = 0.3f;
+	SqueezeAmmoCost = 1;
+}
+
+void AUTWeap_BioRifle::UpdateSqueeze()
+{
+	if (GetUTOwner() && GetUTOwner()->IsPendingFire(1))
+	{
+		FireInterval[0] = SqueezeFireInterval;
+		Spread[0] = SqueezeFireSpread;
+		ProjClass[0] = SqueezeProjClass;
+		AmmoCost[0] = SqueezeAmmoCost;
+	}
+	else
+	{
+		FireInterval[0] = GetClass()->GetDefaultObject<AUTWeapon>()->FireInterval[0];
+		Spread[0] = GetClass()->GetDefaultObject<AUTWeapon>()->Spread[0];
+		ProjClass[0] = GetClass()->GetDefaultObject<AUTWeapon>()->ProjClass[0];
+		AmmoCost[0] = GetClass()->GetDefaultObject<AUTWeapon>()->AmmoCost[0];
+	}
+}
+
+void AUTWeap_BioRifle::GotoFireMode(uint8 NewFireMode)
+{
+	if (NewFireMode == 0)
+	{
+		UpdateSqueeze();
+	}
+	Super::GotoFireMode(NewFireMode);
+}
+
+bool AUTWeap_BioRifle::HandleContinuedFiring()
+{
+	if (GetUTOwner())
+	{
+		// possible switch to squirt mode
+		if (GetCurrentFireMode() == 0)
+		{
+			float OldFireInterval = FireInterval[0];
+			// if currently in firemode 0, and 1 pressed, just switch mode
+			UpdateSqueeze();
+
+			if (FireInterval[0] != OldFireInterval)
+			{
+				UpdateTiming();
+			}
+		}
+	}
+
+	return Super::HandleContinuedFiring();
 }
 
 void AUTWeap_BioRifle::OnStartedFiring_Implementation()

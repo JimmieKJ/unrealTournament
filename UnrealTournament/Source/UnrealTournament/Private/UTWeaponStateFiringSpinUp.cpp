@@ -61,7 +61,7 @@ void UUTWeaponStateFiringSpinUp::RefireCheckTimer()
 		B->CheckWeaponFiring();
 	}
 
-	if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
+	if (!GetOuterAUTWeapon()->HandleContinuedFiring())
 	{
 		// spin down instead of going to active immediately
 		float TotalWarmupTime = 0.0f;
@@ -97,7 +97,6 @@ void UUTWeaponStateFiringSpinUp::RefireCheckTimer()
 	}
 	else
 	{
-		GetOuterAUTWeapon()->OnContinuedFiring();
 		FireShot();
 		CurrentShot++;
 		IncrementShotTimer();

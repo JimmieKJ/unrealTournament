@@ -94,19 +94,23 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		ProjectileMovement->ProjectileGravityScale = 0.0f;
 		ProjectileMovement->Velocity = FVector::ZeroVector;
 
-		//Start the explosion timer
-		if (!bPendingKillPending && (Role == ROLE_Authority))
-		{
-			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
-		}
-
 		//Spawn Effects
 		OnLanded();
 		if ((LandedEffects != NULL) && (GetNetMode() != NM_DedicatedServer) && !MyFakeProjectile)
 		{
 			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(NormalRotation, HitLocation), HitComp, this, InstigatorController);
 		}
-		SetGlobStrength(GlobStrength);
+
+		//Start the explosion timer
+		if (GlobStrength < 1.f)
+		{
+			BioStabilityTimer();
+		}
+		if (!bPendingKillPending && (Role == ROLE_Authority))
+		{
+			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
+			SetGlobStrength(GlobStrength);
+		}
 	}
 }
 
@@ -121,7 +125,7 @@ bool AUTProj_BioShot::CanInteractWithBio()
 
 void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 {
-	if (!OtherBio || !CanInteractWithBio() || !OtherBio->CanInteractWithBio())
+	if (!OtherBio || !CanInteractWithBio() || !OtherBio->CanInteractWithBio() || (GlobStrength < 1.f))
 	{
 		//Let the globlings pass through so they dont explode the glob, ignore exploded bio
 		return;

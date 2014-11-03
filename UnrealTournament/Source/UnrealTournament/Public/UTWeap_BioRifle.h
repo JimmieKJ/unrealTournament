@@ -24,6 +24,24 @@ class AUTWeap_BioRifle : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float GlobConsumeTime;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+	float SqueezeFireInterval;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+	float SqueezeFireSpread;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float SqueezeAmmoCost;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+	TSubclassOf<AUTProjectile> SqueezeProjClass;
+
+	virtual void UpdateSqueeze();
+
+	virtual void GotoFireMode(uint8 NewFireMode) override;
+
+	virtual bool HandleContinuedFiring() override;
+
 	virtual void OnStartedFiring_Implementation() override;
 	virtual void OnContinuedFiring_Implementation() override;
 	virtual void OnStoppedFiring_Implementation() override;

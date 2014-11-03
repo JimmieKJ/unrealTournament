@@ -1272,6 +1272,18 @@ void AUTWeapon::Destroyed()
 	GotoState(InactiveState);
 }
 
+bool AUTWeapon::HandleContinuedFiring()
+{
+	if (!GetUTOwner() || GetUTOwner()->GetPendingWeapon() != NULL || !GetUTOwner()->IsPendingFire(GetCurrentFireMode()) || !HasAmmo(GetCurrentFireMode()))
+	{
+		GotoActiveState();
+		return false;
+	}
+
+	OnContinuedFiring();
+	return true;
+}
+
 // hooks meant for subclasses/blueprints, empty by default
 void AUTWeapon::OnStartedFiring_Implementation()
 {}

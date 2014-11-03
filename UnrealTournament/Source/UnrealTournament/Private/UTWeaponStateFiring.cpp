@@ -44,13 +44,8 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 		B->CheckWeaponFiring();
 	}
 
-	if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
+	if (GetOuterAUTWeapon()->HandleContinuedFiring())
 	{
-		GetOuterAUTWeapon()->GotoActiveState();
-	}
-	else
-	{
-		GetOuterAUTWeapon()->OnContinuedFiring();
 		FireShot();
 	}
 }

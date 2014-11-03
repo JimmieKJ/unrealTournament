@@ -82,7 +82,7 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY()
 		bool bSpawningGloblings;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_GlobStrength, Category = Bio)
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Replicated, ReplicatedUsing = OnRep_GlobStrength, Category = Bio)
 		float GlobStrength;
 
 	UFUNCTION()
