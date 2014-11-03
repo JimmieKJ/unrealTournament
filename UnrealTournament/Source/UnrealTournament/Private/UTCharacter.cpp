@@ -3424,6 +3424,13 @@ void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 		return;
 	}
 
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	AUTPlayerController *UTPC = Cast<AUTPlayerController>(Controller);
+	if (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver)
+	{
+		return;
+	}
+
 	Super::FaceRotation(NewControlRotation, DeltaTime);
 }
 
