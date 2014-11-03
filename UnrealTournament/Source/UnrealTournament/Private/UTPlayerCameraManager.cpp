@@ -33,7 +33,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitial
 	DefaultPPSettings.ScreenSpaceReflectionIntensity = 0.0f;
 
 	LastThirdPersonCameraLoc = FVector(0);
-	ThirdPersonCameraSmoothingSpeed = 2.0f;
+	ThirdPersonCameraSmoothingSpeed = 6.0f;
 }
 
 FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
