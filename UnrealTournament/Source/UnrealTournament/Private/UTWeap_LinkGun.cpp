@@ -13,7 +13,7 @@ void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode
 {
 	FVector ModifiedTargetLoc = TargetLoc;
 
-	if (LinkedBio && (LinkedBio->IsPendingKillPending() || (FireMode != 1) || ((TargetLoc - LinkedBio->GetActorLocation()).Size() > LinkedBio->MaxLinkDistance)))
+	if (LinkedBio && (LinkedBio->IsPendingKillPending() || (FireMode != 1) || !UTOwner || ((UTOwner->GetActorLocation() - LinkedBio->GetActorLocation()).Size() > LinkedBio->MaxLinkDistance + InstantHitInfo[1].TraceRange)))
 	{
 		LinkedBio = NULL;
 	}

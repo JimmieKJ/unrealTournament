@@ -47,7 +47,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	bHasMerged = false;
 	bCanTrack = false;
 	WebLifeBoost = 120.f; // @TODO FIXMESTEVE reduce once have link recharging
-	MaxLinkDistance = 2000.f;
+	MaxLinkDistance = 1000.f;
 
 	LandedOverlapRadius = 16.f;
 	LandedOverlapScaling = 7.f;
@@ -168,6 +168,7 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 		float Dist = (GetActorLocation() - LinkedBio->GetActorLocation()).Size();
 		FVector Sag = (Dist > 200.f) ? FVector(0.f, 0.f, 0.25*Dist) : FVector(0.f);
 		UParticleSystemComponent* NewWebLinkEffect = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WebLinkEffect, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), false);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 		if (NewWebLinkEffect)
 		{
 			NewWebLinkEffect->bAutoActivate = false;

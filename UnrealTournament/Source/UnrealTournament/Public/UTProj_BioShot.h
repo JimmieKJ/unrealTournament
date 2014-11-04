@@ -64,6 +64,10 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		UParticleSystem* WebLinkEffect;
 
+	/**The sound played when the globs WebLink together*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		USoundBase* WebLinkSound;
+
 	/** Make a connection between this goo and LinkedBio */
 	virtual void WebConnected(AUTProj_BioShot* LinkedBio);
 
