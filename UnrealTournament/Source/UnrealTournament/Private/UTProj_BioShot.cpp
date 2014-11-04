@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTImpactEffect.h"
 #include "UTLift.h"
+#include "UTWeap_LinkGun.h"
 #include "UTProjectileMovementComponent.h"
 
 static const float GOO_TIMER_TICK = 0.5f;
@@ -38,13 +39,15 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	MaxRestingGlobStrength = 6;
 	DamageRadiusGainFactor = 1.f;
 	InitialLifeSpan = 0.0f;
-	ExtraRestTimePerStrength = 0.5f;
+	ExtraRestTimePerStrength = 5.f;
 
 	SplashSpread = 0.8f;
 	bSpawningGloblings = false;
 	bLanded = false;
 	bHasMerged = false;
 	bCanTrack = false;
+	WebLifeBoost = 120.f; // @TODO FIXMESTEVE reduce once have link recharging
+	MaxLinkDistance = 2000.f;
 
 	LandedOverlapRadius = 16.f;
 	LandedOverlapScaling = 7.f;
@@ -82,10 +85,133 @@ void AUTProj_BioShot::OnBounce(const struct FHitResult& ImpactResult, const FVec
 	BounceSound = NULL;
 }
 
+void AUTProj_BioShot::Destroyed()
+{
+	Super::Destroyed();
+
+	while (WebLinks.Num() > 0)
+	{
+		RemoveWebLink(WebLinks[0].LinkedBio);
+	}
+}
+
+void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
+{
+	if (bRemovingWebLink)
+	{
+		// prevent re-entry
+		return;
+	}
+
+	// find the associated link
+	bool bFoundLink = false;
+	int32 i = 0;
+	for (i=0; i<WebLinks.Num(); i++)
+	{
+		if (WebLinks[i].LinkedBio == LinkedBio)
+		{
+			bFoundLink = true;
+			break;
+		}
+	}
+
+	if (bFoundLink)
+	{
+		// remove the link
+		bRemovingWebLink = true;
+		if (WebLinks[i].LinkedBio && !WebLinks[i].LinkedBio->IsPendingKillPending())
+		{
+			WebLinks[i].LinkedBio->RemoveWebLink(this);
+			WebLinks[i].LinkedBio = NULL;
+		}
+		if (WebLinks[i].WebLink)
+		{
+			WebLinks[i].WebLink->DeactivateSystem();
+			WebLinks[i].WebLink->bAutoDestroy = true;
+		}
+		WebLinks.RemoveAt(i);
+		bRemovingWebLink = false;
+	}
+}
+
+void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
+{
+	if (bAddingWebLink || !LinkedBio)
+	{
+		// no re-entry
+		return;
+	}
+	static FName NAME_HitLocation(TEXT("HitLocation"));
+	static FName NAME_LocalHitLocation(TEXT("LocalHitLocation"));
+
+	// find already existing associated link
+	int32 i = 0;
+	for (i = 0; i<WebLinks.Num(); i++)
+	{
+		if (WebLinks[i].LinkedBio == LinkedBio)
+		{
+			return;
+		}
+	}
+
+	bAddingWebLink = true;
+	if (WebLinks.Num() == 0)
+	{
+		// lifespan boost for being connected to web
+		float RemainingRestTime = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTProj_BioShot::BioStabilityTimer) + WebLifeBoost;
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RemainingRestTime, false);
+	}
+	UParticleSystemComponent* NewWebLinkEffect = NULL;
+	if (!LinkedBio->bAddingWebLink)
+	{
+		float Dist = (GetActorLocation() - LinkedBio->GetActorLocation()).Size();
+		FVector Sag = (Dist > 200.f) ? FVector(0.f, 0.f, 0.25*Dist) : FVector(0.f);
+		UParticleSystemComponent* NewWebLinkEffect = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WebLinkEffect, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), false);
+		if (NewWebLinkEffect)
+		{
+			NewWebLinkEffect->bAutoActivate = false;
+			NewWebLinkEffect->ActivateSystem();
+			NewWebLinkEffect->SetVectorParameter(NAME_HitLocation, LinkedBio->GetActorLocation());
+			NewWebLinkEffect->SetVectorParameter(NAME_LocalHitLocation, NewWebLinkEffect->ComponentToWorld.InverseTransformPositionNoScale(LinkedBio->GetActorLocation()));
+		}
+	}
+	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect);
+	LinkedBio->WebConnected(this);
+	bAddingWebLink = false;
+}
+
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
 	if (Role == ROLE_Authority)
 	{
+		if (InstigatorController && EventInstigator && Cast<AUTWeap_LinkGun>(DamageCauser))
+		{
+			if (GlobStrength > 1.f)
+			{
+				AUTGameState* GameState = InstigatorController->GetWorld()->GetGameState<AUTGameState>();
+				if ((EventInstigator == InstigatorController) || (GameState && GameState->OnSameTeam(InstigatorController, EventInstigator)))
+				{
+					// ignore link damage from teammates and start linking process
+					AUTWeap_LinkGun *Linker = Cast<AUTWeap_LinkGun>(DamageCauser);
+					if (Linker->LinkedBio && !Linker->LinkedBio->IsPendingKillPending() && (GetActorLocation() - Linker->LinkedBio->GetActorLocation()).Size() < MaxLinkDistance)
+					{
+						// verify line of sight
+						FHitResult Hit;
+						static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
+						bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation(), Linker->LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+						if (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()))
+						{
+							WebConnected(Linker->LinkedBio);
+							// this costs ammo!
+							// flash line when low, allow recharge
+							// spider web trap springing
+						}
+					}
+					Linker->LinkedBio = this;
+				}
+			}
+			return 0.f;
+		}
 		if (bLanded && !bExploded)
 		{
 			Explode(GetActorLocation(), SurfaceNormal);

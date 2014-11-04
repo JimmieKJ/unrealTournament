@@ -13,15 +13,64 @@ enum EHitType
 	HIT_Ceiling,
 	HIT_Floor
 };
-/**
- * 
- */
+
+USTRUCT()
+struct FBioWebLink
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	class AUTProj_BioShot* LinkedBio;
+
+	UPROPERTY()
+	UParticleSystemComponent* WebLink;
+
+	FBioWebLink()
+		: LinkedBio(NULL)
+		, WebLink(NULL)
+	{}
+
+	FBioWebLink(class AUTProj_BioShot* InLinkedBio, UParticleSystemComponent* InWebLink) : LinkedBio(InLinkedBio), WebLink(InWebLink) {};
+};
+
 UCLASS()
 class AUTProj_BioShot : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
 	virtual void BeginPlay() override;
+
+	/** Array of bio goo web linked to this bio. */
+	UPROPERTY()
+	TArray<FBioWebLink> WebLinks;
+
+	/** How much life to add to goo when added to web. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		float WebLifeBoost;
+
+	/** Prevent re-entrancy of RemoveWebLink(). */
+	UPROPERTY()
+		bool bRemovingWebLink;
+
+	/** Prevent re-entrancy of WebConnected(). */
+	UPROPERTY()
+		bool bAddingWebLink;
+
+	/** Max distance between goo to link in web */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		float MaxLinkDistance;
+
+	/** Linking effect between webbed bio goo */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		UParticleSystem* WebLinkEffect;
+
+	/** Make a connection between this goo and LinkedBio */
+	virtual void WebConnected(AUTProj_BioShot* LinkedBio);
+
+	/** Remove connection between this goo and LinkedBio */
+	virtual void RemoveWebLink(AUTProj_BioShot* LinkedBio);
+
+	virtual void Destroyed() override;
 
 	/** played on landing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
