@@ -9,6 +9,7 @@ AUTTimedPowerup::AUTTimedPowerup(const FPostConstructInitializeProperties& PCIP)
 	TimeRemaining = 30.0f;
 	RespawnTime = 90.0f;
 	bAlwaysDropOnDeath = true;
+	BasePickupDesireability = 2.0f;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
