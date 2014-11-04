@@ -1883,7 +1883,7 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 	}
 
 	// If base is not resolved on the client, we should not try to simulate at all
-	if (MovementMode == MOVE_Walking && CharacterOwner->GetBasedMovement().IsBaseUnresolved())
+	if (CharacterOwner->GetReplicatedBasedMovement().IsBaseUnresolved())
 	{
 		UE_LOG(LogNetPlayerMovement, Verbose, TEXT("Base for simulated character '%s' is not resolved on client, skipping SimulateMovement"), *CharacterOwner->GetName());
 		return;
