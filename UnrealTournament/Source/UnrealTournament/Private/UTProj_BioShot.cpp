@@ -222,7 +222,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	else if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
 		AUTCharacter* TargetCharacter = Cast<AUTCharacter>(OtherActor);
-		if (TargetCharacter && !bFakeClientProjectile && (Role == ROLE_Authority) ) //&& (TargetCharacter != Instigator))
+		if (TargetCharacter && !bFakeClientProjectile && (Role == ROLE_Authority) && (TargetCharacter != Instigator))
 		{
 			// tell nearby bio that is on ground @TODO FIXMESTEVE OPTIMIZE
 			for (TActorIterator<AUTProj_BioShot> It(GetWorld()); It; ++It)
