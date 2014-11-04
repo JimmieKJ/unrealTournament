@@ -1289,8 +1289,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	}
 
 	// If we're going to be viewing our killer, go into third person
-	AUTCharacter *UTChar = Cast<AUTCharacter>(NewViewTarget);
-	if (UTChar != nullptr && UTPlayerState != nullptr && UTChar->PlayerState == UTPlayerState->LastKillerPlayerState)
+	if (UTPlayerState != nullptr && NewViewTarget == UTPlayerState->LastKillerPlayerState)
 	{
 		SetCameraMode(FName(TEXT("FreeCam")));
 	}
