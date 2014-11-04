@@ -42,6 +42,13 @@ FCollisionObjectQueryParams WorldObjectQueryParams = []()
 	Result.AddObjectTypesToQuery(ECC_WorldStatic);
 	return Result;
 }();
+FCollisionResponseParams WorldResponseParams = []()
+{
+	FCollisionResponseParams Result(ECR_Ignore);
+	Result.CollisionResponse.WorldStatic = ECR_Block;
+	Result.CollisionResponse.WorldDynamic = ECR_Block;
+	return Result;
+}();
 
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleModuleRequired.h"

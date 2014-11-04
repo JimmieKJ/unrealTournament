@@ -116,7 +116,7 @@ void AUTPickup::Reset_Implementation()
 void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
 {
 	APawn* P = Cast<APawn>(OtherActor);
-	if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTest(P->GetActorLocation(), GetActorLocation(), FCollisionQueryParams(), WorldObjectQueryParams))
+	if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTest(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 	{
 		ProcessTouch(P);
 	}

@@ -93,7 +93,7 @@ void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 	if (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(this, &AUTDroppedPickup::EnableInstigatorTouch))
 	{
 		APawn* P = Cast<APawn>(OtherActor);
-		if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTest(P->GetActorLocation(), GetActorLocation(), FCollisionQueryParams(), WorldObjectQueryParams))
+		if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTest(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 		{
 			ProcessTouch(P);
 		}

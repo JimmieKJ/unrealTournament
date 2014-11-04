@@ -46,6 +46,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 
 /** handy object query params for world-only checks */
 extern FCollisionObjectQueryParams WorldObjectQueryParams;
+extern FCollisionResponseParams WorldResponseParams;
 
 /** utility to find out if a particle system loops */
 extern bool IsLoopingParticleSystem(const UParticleSystem* PSys);
