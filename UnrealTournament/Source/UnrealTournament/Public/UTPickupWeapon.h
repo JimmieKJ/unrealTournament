@@ -53,6 +53,11 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
 
+	/** checks for anyone touching the pickup and checks if they should get the item
+	 * this is necessary because this type of pickup doesn't toggle collision when weapon stay is on
+	 */
+	void CheckTouching();
+
 	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
 	{
 		return (IsTaken(Asker) ? 0.0f : Super::BotDesireability_Implementation(Asker, TotalDistance));

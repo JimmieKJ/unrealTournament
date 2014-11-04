@@ -52,6 +52,10 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 			if (Role == ROLE_Authority)
 			{
 				GiveTo(TouchedBy);
+				if (!GetWorldTimerManager().IsTimerActive(this, &AUTPickupWeapon::CheckTouching))
+				{
+					GetWorldTimerManager().SetTimer(this, &AUTPickupWeapon::CheckTouching, RespawnTime, false);
+				}
 			}
 			PlayTakenEffects(false);
 			if (TouchedBy->IsLocallyControlled())
@@ -63,6 +67,30 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 				}
 			}
 		}
+	}
+}
+
+void AUTPickupWeapon::CheckTouching()
+{
+	TArray<AActor*> Touching;
+	GetOverlappingActors(Touching, APawn::StaticClass());
+	for (AActor* TouchingActor : Touching)
+	{
+		APawn* P = Cast<APawn>(TouchingActor);
+		if (P != NULL)
+		{
+			ProcessTouch(P);
+		}
+	}
+	// see if we should reset the timer
+	float NextCheckInterval = 0.0f;
+	for (const FWeaponPickupCustomer& PrevCustomer : Customers)
+	{
+		NextCheckInterval = FMath::Max<float>(NextCheckInterval, PrevCustomer.NextPickupTime - GetWorld()->TimeSeconds);
+	}
+	if (NextCheckInterval > 0.0f)
+	{
+		GetWorldTimerManager().SetTimer(this, &AUTPickupWeapon::CheckTouching, NextCheckInterval, false);
 	}
 }
 
