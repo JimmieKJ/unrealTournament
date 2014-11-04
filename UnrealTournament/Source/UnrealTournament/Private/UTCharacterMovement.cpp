@@ -1796,7 +1796,7 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 			DeltaTime = FMath::Min(0.5f*RemainingTime, MaxSimulationTimeStep);
 		}
 		RemainingTime -= DeltaTime;
-		Super::SimulateMovement(DeltaTime);
+		SimulateMovement_Internal(DeltaTime);
 
 		if (CharacterOwner->Role == ROLE_SimulatedProxy)
 		{
@@ -1832,6 +1832,141 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 	Velocity = RealVelocity;
 }
 
+// Waiting on update of UCharacterMovementComponent::CharacterMovement(), overriding for now
+void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
+{
+	if (!HasValidData() || UpdatedComponent->Mobility != EComponentMobility::Movable || UpdatedComponent->IsSimulatingPhysics())
+	{
+		return;
+	}
+
+	const bool bIsSimulatedProxy = (CharacterOwner->Role == ROLE_SimulatedProxy);
+
+	// Workaround for replication not being updated initially
+	if (bIsSimulatedProxy &&
+		CharacterOwner->ReplicatedMovement.Location.IsZero() &&
+		CharacterOwner->ReplicatedMovement.Rotation.IsZero() &&
+		CharacterOwner->ReplicatedMovement.LinearVelocity.IsZero())
+	{
+		return;
+	}
+
+	// If base is not resolved on the client, we should not try to simulate at all
+	if (MovementMode == MOVE_Walking && CharacterOwner->GetBasedMovement().IsBaseUnresolved())
+	{
+		UE_LOG(LogNetPlayerMovement, Verbose, TEXT("Base for simulated character '%s' is not resolved on client, skipping SimulateMovement"), *CharacterOwner->GetName());
+		return;
+	}
+
+	FVector OldVelocity;
+	FVector OldLocation;
+
+	// Scoped updates can improve performance of multiple MoveComponent calls.
+	{
+		FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
+
+		if (bIsSimulatedProxy)
+		{
+			// Handle network changes
+			if (bNetworkUpdateReceived)
+			{
+				bNetworkUpdateReceived = false;
+				if (bNetworkMovementModeChanged)
+				{
+					bNetworkMovementModeChanged = false;
+					ApplyNetworkMovementMode(CharacterOwner->GetReplicatedMovementMode());
+				}
+				else if (bJustTeleported)
+				{
+					// Make sure floor is current. We will continue using the replicated base, if there was one.
+					bJustTeleported = false;
+					UpdateFloorFromAdjustment();
+				}
+			}
+
+			HandlePendingLaunch();
+		}
+
+		if (MovementMode == MOVE_None)
+		{
+			return;
+		}
+
+		Acceleration = Velocity.SafeNormal();	// Not currently used for simulated movement
+		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
+
+		MaybeUpdateBasedMovement(DeltaSeconds);
+
+		// simulated pawns predict location
+		OldVelocity = Velocity;
+		OldLocation = UpdatedComponent->GetComponentLocation();
+		FStepDownResult StepDownResult;
+		MoveSmooth(Velocity, DeltaSeconds, &StepDownResult);
+
+		// consume path following requested velocity
+		bHasRequestedVelocity = false;
+
+		// if simulated gravity, find floor and check if falling
+		const bool bEnableFloorCheck = (!CharacterOwner->bSimGravityDisabled || !bIsSimulatedProxy);
+		if (bEnableFloorCheck && (MovementMode == MOVE_Walking || MovementMode == MOVE_Falling))
+		{
+			const FVector CollisionCenter = UpdatedComponent->GetComponentLocation();
+			if (StepDownResult.bComputedFloor)
+			{
+				CurrentFloor = StepDownResult.FloorResult;
+			}
+			else if (Velocity.Z <= 0.f)
+			{
+				FindFloor(CollisionCenter, CurrentFloor, Velocity.IsZero(), NULL);
+			}
+			else
+			{
+				CurrentFloor.Clear();
+			}
+
+			if (!CurrentFloor.IsWalkableFloor())
+			{
+				// No floor, must fall.
+				Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
+				SetMovementMode(MOVE_Falling);
+			}
+			else
+			{
+				// Walkable floor
+				if (MovementMode == MOVE_Walking)
+				{
+					AdjustFloorHeight();
+					SetBase(CurrentFloor.HitResult.Component.Get(), CurrentFloor.HitResult.BoneName);
+				}
+				else if (MovementMode == MOVE_Falling)
+				{
+					if (CurrentFloor.FloorDist <= MIN_FLOOR_DIST)
+					{
+						// Landed
+						SetMovementMode(MOVE_Walking);
+					}
+					else
+					{
+						// Continue falling.
+						Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
+						CurrentFloor.Clear();
+					}
+				}
+			}
+		}
+
+		OnMovementUpdated(DeltaSeconds, OldLocation, OldVelocity);
+	} // End scoped movement update
+
+	// Call custom post-movement events. These happen after the scoped movement completes in case the events want to use the current state of overlaps etc.
+	CallMovementUpdateDelegate(DeltaSeconds, OldLocation, OldVelocity);
+
+	SaveBaseLocation();
+	UpdateComponentVelocity();
+	bJustTeleported = false;
+
+	LastUpdateLocation = UpdatedComponent ? UpdatedComponent->GetComponentLocation() : FVector::ZeroVector;
+}
 
 void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult)
 {

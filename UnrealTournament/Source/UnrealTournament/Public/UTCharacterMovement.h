@@ -481,6 +481,7 @@ public:
 	virtual void SmoothClientPosition(float DeltaTime) override;
 
 	virtual void SimulateMovement(float DeltaTime) override;
+	virtual void SimulateMovement_Internal(float DeltaTime);
 
 	/** Used for remote client simulation */
 	UPROPERTY()
