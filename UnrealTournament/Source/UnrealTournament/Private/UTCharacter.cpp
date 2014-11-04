@@ -54,6 +54,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Mesh->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
+	Mesh->bReceivesDecals = false;
 
 	UTCharacterMovement = Cast<UUTCharacterMovement>(CharacterMovement);
 
@@ -776,16 +777,6 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 		const FBloodDecalInfo& DecalInfo = BloodDecals[FMath::RandHelper(BloodDecals.Num())];
 		if (DecalInfo.Material != NULL)
 		{
-			// FIXME: hack to prevent decals from SM4- until engine is fixed (4.5?)
-			if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::SM4)
-			{
-				UMaterial* Mat = DecalInfo.Material->GetMaterial();
-				if (Mat != NULL && Mat->DecalBlendMode > DBM_Emissive)
-				{
-					return;
-				}
-			}
-
 			static FName NAME_BloodDecal(TEXT("BloodDecal"));
 			FHitResult Hit;
 			if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (CapsuleComponent->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)

@@ -35,13 +35,6 @@ void FUTModule::StartupModule()
 }
 #endif
 
-FCollisionObjectQueryParams WorldObjectQueryParams = []()
-{
-	FCollisionObjectQueryParams Result;
-	Result.AddObjectTypesToQuery(ECC_WorldDynamic);
-	Result.AddObjectTypesToQuery(ECC_WorldStatic);
-	return Result;
-}();
 FCollisionResponseParams WorldResponseParams = []()
 {
 	FCollisionResponseParams Result(ECR_Ignore);

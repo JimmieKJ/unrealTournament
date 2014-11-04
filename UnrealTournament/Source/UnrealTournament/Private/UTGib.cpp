@@ -56,16 +56,6 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 			const FBloodDecalInfo& DecalInfo = BloodDecals[FMath::RandHelper(BloodDecals.Num())];
 			if (DecalInfo.Material != NULL)
 			{
-				// FIXME: hack to prevent decals from SM4- until engine is fixed (4.5?)
-				if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::SM4)
-				{
-					UMaterial* Mat = DecalInfo.Material->GetMaterial();
-					if (Mat != NULL && Mat->DecalBlendMode > DBM_Emissive)
-					{
-						return;
-					}
-				}
-
 				static FName NAME_BloodDecal(TEXT("BloodDecal"));
 				FHitResult DecalHit;
 				if (GetWorld()->LineTraceSingle(DecalHit, GetActorLocation(), GetActorLocation() - Hit.Normal * 200.0f, ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
