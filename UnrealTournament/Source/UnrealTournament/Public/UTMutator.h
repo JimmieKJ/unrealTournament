@@ -77,7 +77,7 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 
 	/** allows mutators to modify/react to damage */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser);
+	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
 	/** allows preserving Actors during travel
 	 * this function does not need to invoke NextMutator; the GameMode guarantees everyone gets a shot

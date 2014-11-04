@@ -1564,12 +1564,17 @@ bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 	return Super::PlayerCanRestart(Player);
 }
 
-void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser)
+void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
 	if (InjuredChar != NULL && InjuredChar->bSpawnProtectionEligible && InstigatedBy != NULL && InstigatedBy != Injured->Controller && GetWorld()->TimeSeconds - Injured->CreationTime < UTGameState->SpawnProtectionTime)
 	{
 		Damage = 0;
+	}
+
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ModifyDamage(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	}
 }
 

@@ -436,7 +436,7 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 			FVector UnusedDir;
 			DamageEvent.GetBestHitInfo(this, DamageCauser, HitInfo, UnusedDir);
 
-			Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser);
+			Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser, DamageEvent.DamageTypeClass);
 		}
 
 		if (ResultDamage > 0)

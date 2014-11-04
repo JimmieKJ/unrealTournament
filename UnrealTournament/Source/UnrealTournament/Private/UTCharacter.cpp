@@ -502,7 +502,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				FVector UnusedDir;
 				DamageEvent.GetBestHitInfo(this, DamageCauser, HitInfo, UnusedDir);
 
-				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser);
+				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser, DamageEvent.DamageTypeClass);
 			}
 			AUTInventory* HitArmor = NULL;
 			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
