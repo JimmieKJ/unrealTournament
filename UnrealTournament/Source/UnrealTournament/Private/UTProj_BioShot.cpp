@@ -137,6 +137,8 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 			SetGlobStrength(GlobStrength);
 		}
 	}
+	// uncomment to easily test tracking
+	//Track(Cast<AUTCharacter>(Instigator));
 }
 
 void AUTProj_BioShot::OnLanded_Implementation()
