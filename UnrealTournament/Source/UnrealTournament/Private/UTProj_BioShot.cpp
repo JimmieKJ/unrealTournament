@@ -154,6 +154,7 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 		}
 	}
 
+	bCanTrack = false;
 	bAddingWebLink = true;
 	if (WebLinks.Num() == 0)
 	{
@@ -186,7 +187,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 	{
 		if (InstigatorController && EventInstigator && Cast<AUTWeap_LinkGun>(DamageCauser))
 		{
-			if (GlobStrength > 1.f)
+			if ((GlobStrength > 1.f) && bLanded)
 			{
 				AUTGameState* GameState = InstigatorController->GetWorld()->GetGameState<AUTGameState>();
 				if ((EventInstigator == InstigatorController) || (GameState && GameState->OnSameTeam(InstigatorController, EventInstigator)))
