@@ -71,6 +71,10 @@ public:
 
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 
+	virtual void BeginInactiveState() override;
+	virtual void EndInactiveState() override;
+	virtual void SpectateKiller();
+
 	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
 
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
@@ -383,6 +387,10 @@ protected:
 	/** Current movement axis deflecton right/left (left is negative) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement)
 	float MovementStrafeAxis;
+
+	UPROPERTY(config)
+	float KillerSpectateDelay;
+
 public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
 	float MaxDodgeClickTime;

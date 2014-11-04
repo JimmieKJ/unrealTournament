@@ -58,7 +58,7 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 Assists;
 
-	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)

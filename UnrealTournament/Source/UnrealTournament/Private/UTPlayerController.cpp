@@ -1288,6 +1288,13 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		NewViewTarget = FinalViewTarget;
 	}
 
+	// If we're going to be viewing our killer, go into third person
+	AUTCharacter *UTChar = Cast<AUTCharacter>(NewViewTarget);
+	if (UTChar != nullptr && UTPlayerState != nullptr && UTChar->PlayerState == UTPlayerState->LastKillerPlayerState)
+	{
+		SetCameraMode(FName(TEXT("FreeCam")));
+	}
+
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 }
 
@@ -1663,6 +1670,12 @@ bool AUTPlayerController::ServerViewPawn_Validate(APawn* PawnToView)
 
 void AUTPlayerController::ServerViewPawn_Implementation(APawn* PawnToView)
 {
+	// Don't view other pawns when we already have a pawn
+	if (GetPawn() != nullptr)
+	{
+		return;
+	}
+
 	if (PawnToView)
 	{
 		SetViewTarget(PawnToView->PlayerState);
@@ -1790,5 +1803,36 @@ void AUTPlayerController::ServerRconNextMap_Implementation(const FString& NextMa
 	else
 	{
 		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), false);
+	}
+}
+
+void AUTPlayerController::BeginInactiveState()
+{
+	Super::BeginInactiveState();
+
+	AGameState const* const GameState = GetWorld()->GameState;
+
+	GetWorldTimerManager().SetTimer(this, &AUTPlayerController::SpectateKiller, KillerSpectateDelay);
+}
+
+void AUTPlayerController::EndInactiveState()
+{
+	Super::EndInactiveState();
+
+	GetWorldTimerManager().ClearTimer(this, &AUTPlayerController::SpectateKiller);
+}
+
+void AUTPlayerController::SpectateKiller()
+{
+	if (UTPlayerState->LastKillerPlayerState != nullptr)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
+			if (UTChar != nullptr && UTChar->PlayerState == UTPlayerState->LastKillerPlayerState)
+			{
+				ServerViewPawn(UTChar);
+			}
+		}
 	}
 }

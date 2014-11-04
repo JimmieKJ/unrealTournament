@@ -34,6 +34,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, FlagCaptures);
 	DOREPLIFETIME(AUTPlayerState, FlagReturns);
 	DOREPLIFETIME(AUTPlayerState, Assists);
+	DOREPLIFETIME(AUTPlayerState, LastKillerPlayerState);
 	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
 }
 
