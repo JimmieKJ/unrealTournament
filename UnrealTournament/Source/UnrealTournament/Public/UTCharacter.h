@@ -866,44 +866,44 @@ public:
 	// Swimming
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* SwimPushSound;
+	USoundBase* SwimPushSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* WaterEntrySound;
+	USoundBase* WaterEntrySound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* WaterExitSound;
+	USoundBase* WaterExitSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* DrowningSound;
+	USoundBase* DrowningSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* GaspSound;
+	USoundBase* GaspSound;
 
 	/** Minimum time between playing water entry/exit sounds */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
-		float MinWaterSoundInterval;
+	float MinWaterSoundInterval;
 
 	/** Last time a water sound was played (for limiting frequency). */
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
-		float LastWaterSoundTime;
+	float LastWaterSoundTime;
 
 	/** Maximum time underwater without breathing before taking damage */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
-		float MaxUnderWaterTime;
+	float MaxUnderWaterTime;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
-		float DrowningDamagePerSecond;
+	float DrowningDamagePerSecond;
 
 	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
-		bool bHeadIsUnderwater;
+	bool bHeadIsUnderwater;
 
 	/** Compare to MaxUnderWaterTime to see if drowning */
 	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
-		float LastBreathTime;
+	float LastBreathTime;
 
 	/** Take drowning damage once per seconds */
 	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
-		float LastDrownTime;
+	float LastDrownTime;
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-		virtual void PlayWaterSound(USoundBase* WaterSound);
+	virtual void PlayWaterSound(USoundBase* WaterSound);
 
 	/** Returns true if BaseEyeHeight position is underwater */
 	virtual bool HeadIsUnderWater() const;
@@ -1203,6 +1203,12 @@ public:
 			}
 		}
 		return false;
+	}
+
+	virtual FVector GetNavAgentLocation() const override
+	{
+		// push down a little to make sure we intersect with the navmesh but not so much that we get stuff on a lower level that requires a jump
+		return GetActorLocation() - FVector(0.f, 0.f, FMath::Max<float>(25.0f, CharacterMovement->MaxStepHeight));
 	}
 
 protected:
