@@ -51,6 +51,12 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 
 	void UpdateState(float DeltaSeconds);
 
+	/** If true, projectile does not home in Z axis */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile, Meta = (EditCondition = "!bBounce"))
+	bool bPreventZHoming;
+
+	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime, bool bGravityEnabled) const override;
+
 protected:
 	virtual FVector ComputeMoveDelta(const FVector& InVelocity, float DeltaTime, bool bApplyGravity = true) const override;
 	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;

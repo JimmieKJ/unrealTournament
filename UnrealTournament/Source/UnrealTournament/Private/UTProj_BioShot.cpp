@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTImpactEffect.h"
 #include "UTLift.h"
+#include "UTProjectileMovementComponent.h"
 
 static const float GOO_TIMER_TICK = 0.5f;
 
@@ -20,7 +21,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	ProjectileMovement->bShouldBounce = true;
 	ProjectileMovement->Bounciness = 0.1f;
 	ProjectileMovement->Friction = 0.008f;
-	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 100.f;
+	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 140.f;
 
 	DamageParams.BaseDamage = 21.0f;
 
@@ -43,10 +44,20 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	bSpawningGloblings = false;
 	bLanded = false;
 	bHasMerged = false;
+	bCanTrack = false;
 
-	LandedOverlapRadius = 13.f;
+	LandedOverlapRadius = 16.f;
 	LandedOverlapScaling = 7.f;
 	MaxSlideSpeed = 1500.f;
+	TrackingRange = 1000.f;
+	MaxTrackingSpeed = 400.f;
+	ProjectileMovement->HomingAccelerationMagnitude = 600.f;
+	UUTProjectileMovementComponent* UTProjMovement = Cast<UUTProjectileMovementComponent>(ProjectileMovement);
+	if (UTProjMovement)
+	{
+		UTProjMovement->bPreventZHoming = true;
+	}
+	GlobRadiusScaling = 4.f;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -65,6 +76,7 @@ void AUTProj_BioShot::OnBounce(const struct FHitResult& ImpactResult, const FVec
 {
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 	ProjectileMovement->MaxSpeed = MaxSlideSpeed;
+	bCanTrack = true;
 
 	// only one bounce sound
 	BounceSound = NULL;
@@ -94,6 +106,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 {
 	if (!bLanded)
 	{
+		bCanTrack = true;
 		bLanded = true;
 		bCanHitInstigator = true;
 		bReplicateUTMovement = true;
@@ -159,6 +172,40 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	OtherBio->Destroy();
 }
 
+void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
+{
+	// track closest
+	if (!TrackedPawn || !ProjectileMovement->HomingTargetComponent.IsValid() || ((ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SizeSquared() > (NewTrackedPawn->CapsuleComponent->GetComponentLocation() - GetActorLocation()).SizeSquared()))
+	{
+		TrackedPawn = NewTrackedPawn;
+		ProjectileMovement->bIsHomingProjectile = true;
+		ProjectileMovement->SetUpdatedComponent(CollisionComp);
+		ProjectileMovement->MaxSpeed = MaxTrackingSpeed / FMath::Sqrt(GlobStrength);
+		ProjectileMovement->HomingTargetComponent = TrackedPawn->CapsuleComponent.Get();
+		ProjectileMovement->bShouldBounce = true;
+		bLanded = false;
+		
+		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
+		{
+			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SafeNormal();
+		}
+	}
+}
+
+void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
+{
+	if (ProjectileMovement->bIsHomingProjectile)
+	{
+		if (!ProjectileMovement->HomingTargetComponent.IsValid() || ((ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SizeSquared() > FMath::Square(1.5f * TrackingRange)))
+		{
+			ProjectileMovement->HomingTargetComponent = NULL;
+			ProjectileMovement->bIsHomingProjectile = false;
+			TrackedPawn = NULL;
+		}
+	}
+	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
+}
+
 void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	if (bHasMerged)
@@ -174,6 +221,19 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	}
 	else if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
+		AUTCharacter* TargetCharacter = Cast<AUTCharacter>(OtherActor);
+		if (TargetCharacter && !bFakeClientProjectile && (Role == ROLE_Authority) ) //&& (TargetCharacter != Instigator))
+		{
+			// tell nearby bio that is on ground @TODO FIXMESTEVE OPTIMIZE
+			for (TActorIterator<AUTProj_BioShot> It(GetWorld()); It; ++It)
+			{
+				AUTProj_BioShot* Glob = *It;
+				if ((Glob != this) && !Glob->IsPendingKillPending() && Glob->bCanTrack && ((TargetCharacter->GetActorLocation() - Glob->GetActorLocation()).SizeSquared() < FMath::Square(TrackingRange)))
+				{
+					Glob->Track(TargetCharacter);
+				}
+			}
+		}
 		// set different damagetype for charged shots
 		MyDamageType = (GlobStrength > 1.f) ? ChargedDamageType : GetClass()->GetDefaultObject<AUTProjectile>()->MyDamageType;
 		float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
@@ -253,10 +313,9 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 
 	//Increase The collision of the flying Glob if over a certain strength
 	float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
-	if (GlobStrength > 4.f)
+	if (GlobStrength > 3.f)
 	{
-		float DefaultRadius = Cast<AUTProjectile>(StaticClass()->GetDefaultObject())->CollisionComp->GetUnscaledSphereRadius();
-		CollisionComp->SetSphereRadius(DefaultRadius * 	GlobScalingSqrt);
+		CollisionComp->SetSphereRadius(GlobRadiusScaling * GlobScalingSqrt);
 	}
 
 	if (bLanded && (GlobStrength > MaxRestingGlobStrength))
@@ -294,7 +353,6 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 	if (bLanded)
 	{
 		PawnOverlapSphere->SetSphereRadius(LandedOverlapRadius + LandedOverlapScaling*GlobScalingSqrt, false);
-		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileShootable");
 		//PawnOverlapSphere->bHiddenInGame = false;
 		//PawnOverlapSphere->bVisible = true;
 	}

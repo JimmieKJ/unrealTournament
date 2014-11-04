@@ -35,9 +35,34 @@ class AUTProj_BioShot : public AUTProjectile
 	UFUNCTION()
 	virtual void BioStabilityTimer();
 
-	/**Set when the glob sticks to a wall*/
+	/**Set when the glob sticks to a wall/floor*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
 	bool bLanded;
+
+	/**Set when the glob can track enemies*/
+	UPROPERTY(BlueprintReadOnly, Category = Bio)
+	bool bCanTrack;
+
+	/** How far away to notify other bio about tracking*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float TrackingRange;
+
+	/** How far away to notify other bio about tracking*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float MaxTrackingSpeed;
+
+	/** Radius scaling for large globs in the air*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Bio)
+		float GlobRadiusScaling;
+
+	/** Move toward TrackedPawn */
+	virtual void Track(AUTCharacter* NewTracked);
+
+	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
+
+	/**The noraml of the wall we are stuck to*/
+	UPROPERTY(BlueprintReadWrite, Category = Bio)
+	AUTCharacter* TrackedPawn;
 
 	/**The noraml of the wall we are stuck to*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)

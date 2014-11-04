@@ -8,6 +8,7 @@ UUTProjectileMovementComponent::UUTProjectileMovementComponent(const FPostConstr
 : Super(PCIP)
 {
 	HitZStopSimulatingThreshold = -1.1f; // default is always stop
+	bPreventZHoming = false;
 }
 
 void UUTProjectileMovementComponent::InitializeComponent()
@@ -302,4 +303,14 @@ void UUTProjectileMovementComponent::ServerUpdateState_Implementation(FVector In
 
 	Acceleration = InAcceleration;
 	ReplicatedAcceleration = Acceleration;
+}
+
+FVector UUTProjectileMovementComponent::ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime, bool bGravityEnabled) const
+{
+	FVector HomingAcceleration = ((HomingTargetComponent->GetComponentLocation() - UpdatedComponent->GetComponentLocation()).SafeNormal() * HomingAccelerationMagnitude);
+	if (bPreventZHoming)
+	{
+		HomingAcceleration.Z = 0.f;
+	}
+	return HomingAcceleration;
 }
