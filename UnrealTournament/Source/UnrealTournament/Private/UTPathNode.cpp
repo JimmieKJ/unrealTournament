@@ -84,6 +84,8 @@ bool FUTPathLink::GetJumpMovePoints(const FVector& StartLoc, APawn* Asker, const
 			FBox TestBox(0);
 			TestBox += Walls[BestIndex].A;
 			TestBox += Walls[BestIndex].B;
+			TestBox.Min.Z = FMath::Min3<float>(TestBox.Min.Z, DirectLoc.Z, PolyCenter.Z);
+			TestBox.Max.Z = FMath::Max3<float>(TestBox.Max.Z, DirectLoc.Z, PolyCenter.Z);
 			FVector HitLoc;
 			FVector HitNormal;
 			float HitTime;

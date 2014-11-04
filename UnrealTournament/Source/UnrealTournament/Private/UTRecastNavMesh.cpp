@@ -151,7 +151,8 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 		DefaultJumpZ = FMath::Min<float>(DefaultJumpZ, MaxJumpZ);
 		DesiredJumpZ = FMath::Min<float>(DesiredJumpZ, MaxJumpZ);
 	}
-	for (int32 i = 0; i < ((DesiredJumpZ > DefaultJumpZ) ? 3 : 2); i++)
+	bool bLastJumpBlocked = false;
+	for (int32 i = 0; i < ((DesiredJumpZ > DefaultJumpZ) ? 4 : 2); i++)
 	{
 		float JumpZ = 0.0f;
 		if (i == 1)
@@ -162,6 +163,16 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 		{
 			JumpZ = DesiredJumpZ;
 		}
+		else if (i == 3)
+		{
+			// extra test using extra jumpZ if we might have failed due to needing a little extra to get over an obstacle
+			// (particularly relevant for jumps that go almost straight up)
+			if (bLastJumpBlocked)
+			{
+				continue;
+			}
+			JumpZ = DesiredJumpZ + 400.0f; // TODO: arbitrary number that made test cases work; probably should be a factor of capsule size?
+		}
 		if (RequiredJumpZ != NULL)
 		{
 			*RequiredJumpZ = JumpZ;
@@ -170,6 +181,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 		FVector CurrentLoc = Start;
 		float ZSpeed = JumpZ;
 		float TimeRemaining = 10.0f; // large number for sanity
+		bLastJumpBlocked = false;
 		while (TimeRemaining > 0.0f)
 		{
 			FBox TestBox(0);
@@ -184,7 +196,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 				}
 				return true;
 			}
-			if (Start.Z - End.Z < -ScoutShape.GetCapsuleHalfHeight() && ZSpeed < 0.0f)
+			if (CurrentLoc.Z - End.Z < -ScoutShape.GetCapsuleHalfHeight() && ZSpeed < 0.0f)
 			{
 				// missed, fell below target
 				break;
@@ -198,7 +210,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 			FHitResult Hit;
 			if (GetWorld()->SweepSingle(Hit, CurrentLoc, NewLoc, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 			{
-				if (Hit.Time > 0.0f && CurrentLoc != Hit.Location)
+				if (Hit.Time > KINDA_SMALL_NUMBER && CurrentLoc != Hit.Location)
 				{
 					// we got some movement so take it
 					CurrentLoc = Hit.Location;
@@ -219,6 +231,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 							return true;
 						}
 						// give up, nowhere to go
+						bLastJumpBlocked = true;
 						break;
 					}
 					else
@@ -276,7 +289,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 					!Hit.bStartPenetrating )
 			{
 				bAnyHit = true;
-				Start = Hit.Location;
+				Start = Hit.Location + Hit.Normal;
 				FBox TestBox(0);
 				TestBox += Start + ScoutShape.GetExtent();
 				TestBox += Start - ScoutShape.GetExtent();
@@ -817,7 +830,8 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 								FVector TestLoc = GetPolyCenter(It.Key());
 								// if there's a valid jump more than ~45 degrees off the direction to the wall there is probably another poly wall in this polygon that will handle it
 								// we add a little leeway to ~50 degrees since we're only testing the wall center and not the whole thing
-								if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && ((TestLoc - WallCenter).SafeNormal2D() | (WallCenter - PolyCenter).SafeNormal2D()) > 0.64f &&
+								// FIXME: replace NumSegments hack and threshold dot test with loop that uses wall with best angle
+								if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).SafeNormal2D() | (WallCenter - PolyCenter).SafeNormal2D()) > 0.64f) &&
 									!IsInPain(GetWorld(), TestLoc)) // TODO: probably want to allow pain volumes in some situations... maybe make LDs manually specify those edge cases?
 								{
 									// make sure not directly walk reachable
@@ -947,7 +961,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 						
 						for (NavNodeRef SrcPolyRef : Node->Polys)
 						{
-							Link.Distances.Add(FMath::TruncToInt((Center - GetPolyCenter(SrcPolyRef)).Size()));
+							Link.Distances.Add(CalcPolyDistance(SrcPolyRef, Link.StartEdgePoly) + FMath::TruncToInt((Center - GetPolyCenter(Link.StartEdgePoly)).Size()));
 						}
 					}
 				}
@@ -1154,49 +1168,20 @@ UUTPathNode* AUTRecastNavMesh::FindNearestNode(const FVector& TestLoc, const FVe
 	return PolyToNode.FindRef(PolyRef);
 }
 
-bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, float ZExtent, FVector& HitLocation) const
+bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation) const
 {
-	struct FRecastZCheckFilter : public FRecastQueryFilter
-	{
-		float ZMin, ZMax;
-		const AUTRecastNavMesh* NavMesh;
-
-		FRecastZCheckFilter()
-		: FRecastQueryFilter(true), ZMin(0.0f), ZMax(0.0f), NavMesh(NULL)
-		{}
-
-		virtual bool passVirtualFilter(const dtPolyRef ref, const dtMeshTile* tile, const dtPoly* poly) const
-		{
-			if (!passInlineFilter(ref, tile, poly))
-			{
-				return false;
-			}
-			else
-			{
-				FVector PolyCenter = NavMesh->GetPolyCenter(ref);
-				return (PolyCenter.Z >= ZMin && PolyCenter.Z <= ZMax);
-			}
-		}
-	};
-	TSharedPtr<FNavigationQueryFilter> FilterContainer = MakeShareable(new FNavigationQueryFilter);
-	FilterContainer->SetFilterType<FRecastZCheckFilter>();
-	((FRecastZCheckFilter*)FilterContainer->GetImplementation())->NavMesh = this;
-	((FRecastZCheckFilter*)FilterContainer->GetImplementation())->ZMin = FMath::Min<float>(RayStart.Z, RayEnd.Z) - ZExtent;
-	((FRecastZCheckFilter*)FilterContainer->GetImplementation())->ZMax = FMath::Max<float>(RayStart.Z, RayEnd.Z) + ZExtent;
-
-
 	// partially copied from ARecastNavMesh::NavMeshRaycast() and FPImplRecastNavMesh::Raycast2D() to work around some issues
 	BeginBatchQuery();
 	
 	FRaycastResult RayResult;
 
-	const dtQueryFilter* QueryFilter = ((const FRecastQueryFilter*)(GetRightFilterRef(FilterContainer).GetImplementation()))->GetAsDetourQueryFilter();
+	const dtQueryFilter* QueryFilter = GetDefaultDetourFilter();
 
 	FRecastSpeciaLinkFilter LinkFilter(UNavigationSystem::GetCurrent(GetWorld()), NULL);
 	
 	dtNavMeshQuery NavQuery;
 	dtNavMeshQuery& NavQueryVariable = IsInGameThread() ? GetRecastNavMeshImpl()->SharedNavQuery : NavQuery;
-	NavQueryVariable.init(GetRecastNavMeshImpl()->GetRecastMesh(), GetRightFilterRef(FilterContainer).GetMaxSearchNodes(), &LinkFilter);
+	NavQueryVariable.init(GetRecastNavMeshImpl()->GetRecastMesh(), RECAST_MAX_SEARCH_NODES, &LinkFilter);
 	
 	const FCapsuleSize HumanSize = GetHumanPathSize();
 	const float Extent[3] = { float(HumanSize.Radius), float(HumanSize.Height), float(HumanSize.Radius) };
@@ -1212,8 +1197,26 @@ bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector&
 	FinishBatchQuery();
 	if (bResult)
 	{
-		HitLocation = RayResult.HasHit() ? (RayStart + (RayEnd - RayStart) * RayResult.HitTime) : RayEnd;
-		return RayResult.HasHit();
+		if (RayResult.HasHit())
+		{
+			HitLocation = (RayStart + (RayEnd - RayStart) * RayResult.HitTime);
+			return true;
+		}
+		else
+		{
+			HitLocation = RayEnd;
+			// handle the Z axis issue in the recast function by making sure the end poly is the one we expect
+			NavNodeRef EndNode = INVALID_NAVNODEREF;
+			NavQueryVariable.findNearestPoly(&RecastEnd.X, Extent, QueryFilter, &EndNode, NULL);
+			if (EndNode != INVALID_NAVNODEREF && RayResult.CorridorPolysCount > 0 && RayResult.CorridorPolys[RayResult.CorridorPolysCount - 1] != EndNode)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
 	}
 	else
 	{
@@ -1339,6 +1342,19 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 	NodeRoute.Reset();
 	bool bNeedMoveToStartNode = false;
 	NavNodeRef StartPoly = FindNearestPoly(StartLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+	if (StartPoly == INVALID_NAVNODEREF)
+	{
+		// currently in a water volume the polys are at the bottom of the water area
+		APhysicsVolume* Volume = FindPhysicsVolume(GetWorld(), StartLoc, FCollisionShape::MakeCapsule(AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+		if (Volume->bWaterVolume && Volume->BrushComponent != NULL)
+		{
+			FHitResult Hit;
+			if (Volume->BrushComponent->LineTraceComponent(Hit, StartLoc - FVector(0.0f, 0.0f, 100000.0f), StartLoc, FCollisionQueryParams()))
+			{
+				StartPoly = FindNearestPoly(Hit.Location + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+			}
+		}
+	}
 	// HACK: handle lifts (see FindLiftPoly())
 	if (StartPoly == INVALID_NAVNODEREF)
 	{

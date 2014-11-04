@@ -3,7 +3,7 @@
 
 #include "UTPlayerCameraManager.generated.h"
 
-UCLASS()
+UCLASS(Config = Game)
 class AUTPlayerCameraManager : public APlayerCameraManager
 {
 	GENERATED_UCLASS_BODY()
@@ -14,7 +14,7 @@ class AUTPlayerCameraManager : public APlayerCameraManager
 	
 	FVector LastThirdPersonCameraLoc;
 
-	UPROPERTY()
+	UPROPERTY(Config)
 	float ThirdPersonCameraSmoothingSpeed;
 
 	UPROPERTY()

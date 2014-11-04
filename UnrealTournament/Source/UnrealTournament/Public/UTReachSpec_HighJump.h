@@ -106,6 +106,11 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 				// extra cost if limited availability movement required
 				return DefaultCost + ((RepeatableJumpZ >= AdjustedRequiredJumpZ) ? 0 : 2000);
 			}
+			// don't try to translocate or impact jump out of a water volume
+			else if (GravityVolume.IsValid() && GravityVolume->bWaterVolume)
+			{
+				return BLOCKED_PATH_COST;
+			}
 			else
 			{
 				AUTBot* B = Cast<AUTBot>(Asker->Controller);
@@ -115,9 +120,14 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 				}
 				else
 				{
-					if (B->AllowTranslocator() && NavMesh->GetPolyCenter(OwnerLink.EndPoly).Z - NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly).Z < 2000.0f)
+					const FVector JumpEnd = NavMesh->GetPolyCenter(OwnerLink.EndPoly);
+					const FVector JumpStart = NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly);
+					int32 JumpDist = FMath::TruncToInt((JumpEnd - JumpStart).Size());
+					// TODO: hardcoded numbers based on default translocator
+					if (B->AllowTranslocator() && JumpDist < 2000 * (-2150.0f / FMath::Min<float>(-1.0f, GravityVolume.IsValid() ? GravityVolume->GetGravityZ() : NavMesh->GetWorld()->GetGravityZ())))
 					{
-						return 450 + DefaultCost / 2;
+						// the higher we need to throw the disc for a lower Z change, the more time the throw will take; adjust distance for that
+						return FMath::Max<int32>(450, FMath::TruncToInt((AdjustedRequiredJumpZ - (JumpEnd.Z - JumpStart.Z)) / 1.5f)) + (DefaultCost - JumpDist) + (JumpDist / 2);
 					}
 					else if (B->AllowImpactJump())
 					{

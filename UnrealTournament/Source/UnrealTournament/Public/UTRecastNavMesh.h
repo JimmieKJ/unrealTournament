@@ -96,7 +96,7 @@ public:
 		: Node(InNode), Actor(NULL), Location(InLoc), bDirectTarget(false), TargetPoly(InTargetPoly)
 	{}
 	FRouteCacheItem(TWeakObjectPtr<AActor> InActor, const FVector& InLoc, NavNodeRef InTargetPoly)
-		: Node(NULL), Actor(InActor), Location(InLoc), bDirectTarget(false), TargetPoly(InTargetPoly)
+		: Node(NULL), Actor(InActor), Location(InLoc), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF), TargetPoly(InTargetPoly)
 	{}
 	explicit FRouteCacheItem(const FVector& InLoc, NavNodeRef InTargetPoly = INVALID_NAVNODEREF)
 		: Node(NULL), Actor(NULL), Location(InLoc), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF), TargetPoly(InTargetPoly)
@@ -235,12 +235,11 @@ class AUTRecastNavMesh : public ARecastNavMesh
 		return PolyToNode.FindRef(PolyRef);
 	}
 
-	/** extension to the default 2D Raycast() function with a simple Z bounding box check for poly centers
+	/** extension to the default 2D Raycast() function that has a sanity check against the most common Z-axis false negative
 	 * the default implementation can false negative when there is a walkable polygon directly under the trace even if in 3D the trace would hit a polygon border
-	 * this method gets around this by doing a simple Z check, which in the case of slopes may return false positives (hits)
-	 * but in cases where it is better to be conservative than optimistic this is a preferrable option
+	 * this method gets around this by attempting to match the end location to an explicit poly and checks that the trace traversed it
 	 */
-	bool RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, float ZExtent, FVector& HitLocation) const;
+	bool RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation) const;
 
 	/** returns an array of walls (edges with no connection to a neighbor) for the passed in poly */
 	TArray<FLine> GetPolyWalls(NavNodeRef PolyRef) const;

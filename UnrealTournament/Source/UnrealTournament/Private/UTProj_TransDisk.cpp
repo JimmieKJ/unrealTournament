@@ -200,7 +200,7 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 			if (Cast<AUTCharacter>(OtherActor) != NULL)
 			{
 				AUTBot* B = Cast<AUTBot>(InstigatorController);
-				if (B != NULL /*&& B->WeaponProficiencyCheck()*/ && FMath::FRand() < 0.1f * (B->Skill + B->Personality.Alertness + B->Personality.Tactics + B->Personality.ReactionTime))
+				if (B != NULL && B->WeaponProficiencyCheck() && FMath::FRand() < 0.1f * (B->Skill + B->Personality.Alertness + B->Personality.Tactics + B->Personality.ReactionTime))
 				{
 					AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
 					if (UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
@@ -277,7 +277,7 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 
 	// AI interface
 	AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
-	if (Role == ROLE_Authority && MyTranslocator != nullptr && UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+	if (Role == ROLE_Authority && MyTranslocator != NULL && UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this && !MyTranslocator->IsFiring())
 	{
 		AUTBot* B = Cast<AUTBot>(InstigatorController);
 		if (B != NULL)

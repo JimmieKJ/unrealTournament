@@ -87,7 +87,6 @@ void AUTWeap_Translocator::ClearDisk()
 void AUTWeap_Translocator::FireShot()
 {
 	UTOwner->DeactivateSpawnProtection();
-
 	if (!FireShotOverride() && GetUTOwner() != NULL) // script event may kill user
 	{
 		if (CurrentFireMode == 0)
@@ -274,7 +273,53 @@ bool AUTWeap_Translocator::DoAssistedJump()
 	}
 	else
 	{
-		B->TranslocTarget = B->GetMovePoint();
+		if (B->TranslocTarget.IsZero())
+		{
+			// get list of potential navmesh polys in this path to toss to, find best one we can actually hit
+			if (ProjClass.IsValidIndex(0) && ProjClass[0] != NULL && ProjClass[0].GetDefaultObject()->ProjectileMovement != NULL && ProjClass[0].GetDefaultObject()->CollisionComp != NULL)
+			{
+				const AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+				TArray<FVector> PotentialTargets;
+				PotentialTargets.Add(B->GetMovePoint());
+				for (NavNodeRef Poly : B->GetCurrentPath().AdditionalEndPolys)
+				{
+					if (Poly != B->GetMoveTarget().TargetPoly)
+					{
+						PotentialTargets.Add(NavData->GetPolyCenter(Poly) + FVector(0.0f, 0.0f, UTOwner->GetSimpleCollisionHalfHeight()));
+					}
+				}
+
+				AUTProjectile* DefaultProj = ProjClass[0].GetDefaultObject();
+				const float ProjRadius = DefaultProj->CollisionComp->GetUnscaledSphereRadius();
+				const float GravityZ = UTOwner->CharacterMovement->GetGravityZ() * DefaultProj->ProjectileMovement->ProjectileGravityScale;
+				TArray<AActor*> IgnoreActors;
+				IgnoreActors.Add(UTOwner);
+
+				bool bFound = false;
+				for (const FVector& TestLoc : PotentialTargets)
+				{
+					FVector StartLoc = UTOwner->GetActorLocation() + (TestLoc - UTOwner->GetActorLocation()).Rotation().RotateVector(FireOffset);
+					FVector TossVel;
+					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, DefaultProj->ProjectileMovement->InitialSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
+					{
+						// TODO: assemble successful toss list, allow bot to choose best to its goal?
+						B->TranslocTarget = TestLoc;
+						bFound = true;
+						break;
+					}
+				}
+				if (!bFound)
+				{
+					// try default anyway
+					// TODO: mark as probable failure, tag ReachSpec if bot in fact doesn't make it
+					B->TranslocTarget = B->GetMovePoint();
+				}
+			}
+			else
+			{
+				B->TranslocTarget = B->GetMovePoint();
+			}
+		}
 		// look at target
 		FVector LookPoint = B->TranslocTarget;
 		// account for projectile toss
