@@ -587,9 +587,13 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				// intentionally always apply to root because that replicates better
 				Mesh->AddImpulseAtLocation(ResultMomentum, Mesh->GetComponentLocation());
 			}
-			else if (UTCharacterMovement)
+			else if (UTCharacterMovement != NULL)
 			{
 				UTCharacterMovement->AddDampedImpulse(ResultMomentum, bIsSelfDamage);
+				if (UTDamageTypeCDO != NULL && UTDamageTypeCDO->WalkMovementReductionDuration > 0.0f)
+				{
+					SetWalkMovementReduction(UTDamageTypeCDO->WalkMovementReductionPct, UTDamageTypeCDO->WalkMovementReductionDuration);
+				}
 			}
 			else
 			{
@@ -1950,6 +1954,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteSpeed, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3545,4 +3551,10 @@ bool AUTCharacter::UTServerMoveDual_Validate(
 void AUTCharacter::OnRep_HasHighScore()
 {
 	HasHighScoreChanged();
+}
+
+void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
+{
+	WalkMovementReductionPct = (InDuration > 0.0f) ? InPct : 0.0f;
+	WalkMovementReductionTime = InDuration;
 }

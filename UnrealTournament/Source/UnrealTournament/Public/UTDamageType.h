@@ -52,6 +52,15 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 {
 	GENERATED_UCLASS_BODY()
 
+	/** allows temporarily reducing walking characters' ability to change directions
+	 * this is particularly useful for weapons to exert momentum without kicking the target up into the air
+	 * since by default friction and acceleration are very high
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
+	float WalkMovementReductionPct;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
+	float WalkMovementReductionDuration;
+
 	/** Multiplying factor for momentum applied to self */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	float SelfMomentumBoost;

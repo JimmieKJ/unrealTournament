@@ -674,23 +674,40 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	bWantsToCrouch = bSavedWantsToCrouch;
 	GroundFriction = RealGroundFriction;
 
-	if (Cast<AUTCharacter>(CharacterOwner))
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTOwner != NULL)
 	{
-		((AUTCharacter*)CharacterOwner)->PositionUpdated();
+		UTOwner->PositionUpdated();
+		// tick movement reduction timer
+		// we do this based on the client's movement timestamp to minimize corrections
+		UTOwner->WalkMovementReductionTime -= DeltaSeconds;
+		if (UTOwner->WalkMovementReductionTime <= 0.0f)
+		{
+			UTOwner->WalkMovementReductionPct = 0.0f;
+		}
 	}
 }
 
 float UUTCharacterMovement::GetMaxAcceleration() const
 {
+	float Result;
 	if (bIsDodgeRolling)
 	{
-		return DodgeRollAcceleration;
+		Result = DodgeRollAcceleration;
 	}
-	if (MovementMode == MOVE_Falling)
+	else if (MovementMode == MOVE_Falling)
 	{
-		return MaxFallingAcceleration;
+		Result = MaxFallingAcceleration;
 	}
-	return (bIsSprinting && (Velocity.SizeSquared() > MaxWalkSpeed*MaxWalkSpeed)) ? SprintAccel : Super::GetMaxAcceleration();
+	else
+	{
+		Result = (bIsSprinting && Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed)) ? SprintAccel : Super::GetMaxAcceleration();
+	}
+	if (MovementMode == MOVE_Walking && Cast<AUTCharacter>(CharacterOwner) != NULL)
+	{
+		Result *= (1.0f - ((AUTCharacter*)CharacterOwner)->GetWalkMovementReductionPct());
+	}
+	return Result;
 }
 
 bool UUTCharacterMovement::CanSprint() const
@@ -733,6 +750,20 @@ void UUTCharacterMovement::ApplyVelocityBraking(float DeltaTime, float Friction,
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	}
 	Super::ApplyVelocityBraking(DeltaTime, Friction, BrakingDeceleration);
+}
+
+void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bFluid, float BrakingDeceleration)
+{
+	if (MovementMode == MOVE_Walking)
+	{
+		AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
+		if (UTOwner != NULL)
+		{
+			Friction *= (1.0f - UTOwner->GetWalkMovementReductionPct());
+			BrakingDeceleration *= (1.0f - UTOwner->GetWalkMovementReductionPct());
+		}
+	}
+	Super::CalcVelocity(DeltaTime, Friction, bFluid, BrakingDeceleration);
 }
 
 float UUTCharacterMovement::GetCurrentMovementTime() const
@@ -2347,9 +2378,3 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 	}
 	ClientData->AckMove(MoveIndex);
 }
-
-
-
-
-
-

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTCarriedObject.h"
+#include "UTCharacterMovement.h"
 
 #include "UTCharacter.generated.h"
 
@@ -203,6 +204,8 @@ UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoEx
 class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
+
+	friend void UUTCharacterMovement::PerformMovement(float DeltaSeconds);
 
 	//====================================
 	// Networking
@@ -1210,6 +1213,25 @@ public:
 		// push down a little to make sure we intersect with the navmesh but not so much that we get stuff on a lower level that requires a jump
 		return GetActorLocation() - FVector(0.f, 0.f, FMath::Max<float>(25.0f, CharacterMovement->MaxStepHeight));
 	}
+
+protected:
+	/** reduces acceleration and friction while walking; generally applied temporarily by some weapons
+	* (1.0 == no acceleration or friction, 0.0 == unrestricted movement)
+	*/
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Movement)
+	float WalkMovementReductionPct;
+	/** time remaining until WalkMovementReductionPct is reset to zero */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Movement)
+	float WalkMovementReductionTime;
+
+public:
+	inline float GetWalkMovementReductionPct()
+	{
+		return WalkMovementReductionPct;
+	}
+	/** sets walking movement reduction */
+	UFUNCTION(BlueprintCallable, Category = Movement)
+	virtual void SetWalkMovementReduction(float InPct, float InDuration);
 
 protected:
 

@@ -48,6 +48,8 @@ public:
 	/** Return true if movement input should not be constrained to horizontal plane */
 	virtual bool Is3DMovementMode() const;
 
+	virtual void CalcVelocity(float DeltaTime, float Friction, bool bFluid, float BrakingDeceleration) override;
+
 	/** for replaying moves set up */
 	bool bIsSettingUpFirstReplayMove;
 
