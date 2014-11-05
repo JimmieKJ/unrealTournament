@@ -54,7 +54,7 @@ class UUTTimerMessage : public UUTLocalMessage
 		CountDownAnnouncements.Add(TEXT("ThirtySecondsRemain"));
 		CountDownAnnouncements.Add(TEXT("1MinRemains"));
 		CountDownAnnouncements.Add(TEXT("3MinRemains"));
-		CountDownAnnouncements.Add(TEXT("5MinRemains"));
+		CountDownAnnouncements.Add(TEXT("FiveMinuteWarning"));
 		CountDownAnnouncements.Add(TEXT("Overdose"));
 	}
 
