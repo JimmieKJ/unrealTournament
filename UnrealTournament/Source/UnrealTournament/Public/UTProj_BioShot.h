@@ -48,6 +48,10 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		float WebLifeBoost;
 
+	/** Prevent re-entrancy of TriggerWeb(). */
+	UPROPERTY()
+		bool bTriggeringWeb;
+
 	/** Prevent re-entrancy of RemoveWebLink(). */
 	UPROPERTY()
 		bool bRemovingWebLink;

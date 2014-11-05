@@ -38,7 +38,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	GlobStrength = 1.f;
 	MaxRestingGlobStrength = 6;
 	DamageRadiusGainFactor = 1.f;
-	InitialLifeSpan = 0.0f;
+	InitialLifeSpan = 0.f;
 	ExtraRestTimePerStrength = 5.f;
 
 	SplashSpread = 0.8f;
@@ -126,8 +126,7 @@ void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
 		}
 		if (WebLinks[i].WebLink)
 		{
-			WebLinks[i].WebLink->DeactivateSystem();
-			WebLinks[i].WebLink->bAutoDestroy = true;
+			WebLinks[i].WebLink->DestroyComponent();
 		}
 		WebLinks.RemoveAt(i);
 		bRemovingWebLink = false;
@@ -167,11 +166,13 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 	{
 		float Dist = (GetActorLocation() - LinkedBio->GetActorLocation()).Size();
 		FVector Sag = (Dist > 200.f) ? FVector(0.f, 0.f, 0.25*Dist) : FVector(0.f);
-		UParticleSystemComponent* NewWebLinkEffect = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WebLinkEffect, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), false);
+		UParticleSystemComponent* NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), EAttachLocation::KeepWorldPosition, false);
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 		if (NewWebLinkEffect)
 		{
 			NewWebLinkEffect->bAutoActivate = false;
+			NewWebLinkEffect->bAutoDestroy = false;
+			NewWebLinkEffect->SecondsBeforeInactive = 0.0f;
 			NewWebLinkEffect->ActivateSystem();
 			NewWebLinkEffect->SetVectorParameter(NAME_HitLocation, LinkedBio->GetActorLocation());
 			NewWebLinkEffect->SetVectorParameter(NAME_LocalHitLocation, NewWebLinkEffect->ComponentToWorld.InverseTransformPositionNoScale(LinkedBio->GetActorLocation()));
@@ -304,6 +305,11 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 
 void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 {
+	if (IsPendingKillPending() || !bCanTrack || ((NewTrackedPawn->GetActorLocation() - GetActorLocation()).SizeSquared() > FMath::Square(TrackingRange)))
+	{
+		return;
+	}
+
 	// track closest
 	if (!TrackedPawn || !ProjectileMovement->HomingTargetComponent.IsValid() || ((ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SizeSquared() > (NewTrackedPawn->CapsuleComponent->GetComponentLocation() - GetActorLocation()).SizeSquared()))
 	{
@@ -333,11 +339,44 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			TrackedPawn = NULL;
 		}
 	}
+	else
+	{
+		for (int32 i = 0; i<WebLinks.Num(); i++)
+		{
+			UE_LOG(UT, Warning, TEXT("TraceWeb 1"));
+			if (WebLinks[i].LinkedBio && WebLinks[i].WebLink)
+			{
+				UE_LOG(UT, Warning, TEXT("TraceWeb 2"));
+				FHitResult Hit;
+				static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
+				bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation(), WebLinks[i].LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+				if (Cast<AUTCharacter>(Hit.Actor.Get()))
+				{
+					UE_LOG(UT, Warning, TEXT("TraceWeb 3"));
+					ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
+					if (IsPendingKillPending())
+					{
+						return;
+					}
+					break;
+				}
+				else if (Hit.Actor.Get())
+				{
+					UE_LOG(UT, Warning, TEXT("WEB HIT %s"), *Hit.Actor->GetName());
+				}
+			}
+		}
+
+	}
 	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 }
 
 void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	if (bTriggeringWeb)
+	{
+		return;
+	}
 	if (bHasMerged)
 	{
 		ShutDown(); 
@@ -352,26 +391,37 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	else if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
 		AUTCharacter* TargetCharacter = Cast<AUTCharacter>(OtherActor);
-		if (TargetCharacter && !bFakeClientProjectile && (Role == ROLE_Authority) && (TargetCharacter != Instigator))
+		if (TargetCharacter && ((TargetCharacter != Instigator) || bCanHitInstigator))
 		{
-			// tell nearby bio that is on ground @TODO FIXMESTEVE OPTIMIZE
-			for (TActorIterator<AUTProj_BioShot> It(GetWorld()); It; ++It)
+			if (!bFakeClientProjectile && (Role == ROLE_Authority) && (TargetCharacter != Instigator))
 			{
-				AUTProj_BioShot* Glob = *It;
-				if ((Glob != this) && !Glob->IsPendingKillPending() && Glob->bCanTrack && ((TargetCharacter->GetActorLocation() - Glob->GetActorLocation()).SizeSquared() < FMath::Square(TrackingRange)))
+				// tell nearby bio that is on ground @TODO FIXMESTEVE OPTIMIZE
+				for (TActorIterator<AUTProj_BioShot> It(GetWorld()); It; ++It)
 				{
-					Glob->Track(TargetCharacter);
+					AUTProj_BioShot* Glob = *It;
+					if (Glob != this)
+					{
+						Glob->Track(TargetCharacter);
+					}
 				}
 			}
+			bTriggeringWeb = true;
+			for (int32 i = 0; i<WebLinks.Num(); i++)
+			{
+				if (WebLinks[i].LinkedBio)
+				{
+					WebLinks[i].LinkedBio->ProcessHit(OtherActor, OtherComp, HitLocation, HitNormal);
+				}
+			}
+			// set different damagetype for charged shots
+			MyDamageType = (GlobStrength > 1.f) ? ChargedDamageType : GetClass()->GetDefaultObject<AUTProjectile>()->MyDamageType;
+			float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
+			DamageParams = GetClass()->GetDefaultObject<AUTProjectile>()->DamageParams;
+			DamageParams.BaseDamage *= GlobStrength;
+			DamageParams.OuterRadius *= DamageRadiusGainFactor * GlobScalingSqrt;
+			Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * GlobScalingSqrt;
+			Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 		}
-		// set different damagetype for charged shots
-		MyDamageType = (GlobStrength > 1.f) ? ChargedDamageType : GetClass()->GetDefaultObject<AUTProjectile>()->MyDamageType;
-		float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
-		DamageParams = GetClass()->GetDefaultObject<AUTProjectile>()->DamageParams;
-		DamageParams.BaseDamage *= GlobStrength;
-		DamageParams.OuterRadius *= DamageRadiusGainFactor * GlobScalingSqrt;
-		Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * GlobScalingSqrt;
-		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 	}
 	else if (!bLanded)
 	{
@@ -396,6 +446,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		}
 	}
 }
+
 void AUTProj_BioShot::OnRep_GlobStrength()
 {
 	if (Cast<AUTProj_BioShot>(MyFakeProjectile))
