@@ -33,6 +33,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	SurfaceWallThreshold = 0.3f;
 
 	RestTime = 10.f;
+	ChargedRestTime = 16.f;
 	bAlwaysShootable = true;
 
 	GlobStrength = 1.f;
@@ -97,6 +98,18 @@ void AUTProj_BioShot::Destroyed()
 	}
 }
 
+void AUTProj_BioShot::ShutDown()
+{
+	Super::ShutDown();
+	if (!bPendingKillPending)
+	{
+		while (WebLinks.Num() > 0)
+		{
+			RemoveWebLink(WebLinks[0].LinkedBio);
+		}
+	}
+}
+
 void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
 {
 	if (bRemovingWebLink)
@@ -128,7 +141,8 @@ void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
 		}
 		if (WebLinks[i].WebLink)
 		{
-			WebLinks[i].WebLink->DestroyComponent();
+			WebLinks[i].WebLink->DeactivateSystem();
+			WebLinks[i].WebLink->bAutoDestroy = true;
 		}
 		WebLinks.RemoveAt(i);
 		bRemovingWebLink = false;
@@ -165,12 +179,12 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RemainingRestTime, false);
 	}
 	UParticleSystemComponent* NewWebLinkEffect = NULL;
+	UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 	if (!LinkedBio->bAddingWebLink)
 	{
 		float Dist = (GetActorLocation() - LinkedBio->GetActorLocation()).Size();
-		FVector Sag = (Dist > 200.f) ? FVector(0.f, 0.f, 0.25*Dist) : FVector(0.f);
-		UParticleSystemComponent* NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), EAttachLocation::KeepWorldPosition, false);
-		UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
+		FVector Sag = FVector(0.f); // (Dist > 200.f) ? FVector(0.f, 0.f, 0.25*Dist) : FVector(0.f);
+		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), EAttachLocation::KeepWorldPosition, false);
 		if (NewWebLinkEffect)
 		{
 			NewWebLinkEffect->bAutoActivate = false;
@@ -265,7 +279,8 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		}
 		if (!bPendingKillPending && (Role == ROLE_Authority))
 		{
-			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
+			float MyRestTime = (GlobStrength > 1.f) ? ChargedRestTime : RestTime;
+			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, MyRestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
 			SetGlobStrength(GlobStrength);
 		}
 	}
