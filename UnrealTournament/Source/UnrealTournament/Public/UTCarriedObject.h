@@ -202,18 +202,6 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Category = GameObject)
 	float AutoReturnTime;	
 
-	// Sound to play when this object is picked up
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
-	USoundCue* PickupSound;	
-
-	// Sound to play when this object is dropped
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
-	USoundCue* DroppedSound;	
-
-	// Sound to play when this object is sent home
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
-	USoundCue* HomeSound;	
-
 	UFUNCTION()
 	virtual void OnObjectStateChanged();
 
