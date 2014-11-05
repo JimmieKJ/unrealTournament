@@ -4,6 +4,7 @@
 #include "Core.h"
 #include "Engine.h"
 #include "UTMutator.h"
+#include "UTWeapon.h"
 
 #include "SampleMutator.generated.h"
 
@@ -13,4 +14,7 @@ class ASampleMutator : public AUTMutator
 	GENERATED_UCLASS_BODY()
 
 	bool CheckRelevance_Implementation(AActor* Other) override;
+
+	UPROPERTY()
+	TSubclassOf<AUTWeapon> RocketLauncherClass;
 };
