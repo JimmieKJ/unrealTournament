@@ -86,6 +86,13 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 
 void AUTProjectile::BeginPlay()
 {
+	if (IsPendingKillPending())
+	{
+		// engine bug that we need to do this
+		return;
+	}
+	Super::BeginPlay();
+
 	if (PawnOverlapSphere != NULL)
 	{
 		PawnOverlapSphere->SetSphereRadius(OverlapRadius);
@@ -95,8 +102,6 @@ void AUTProjectile::BeginPlay()
 	{
 		Instigator = SpawnInstigator;
 	}
-
-	Super::BeginPlay();
 
 	if (Instigator != NULL)
 	{
