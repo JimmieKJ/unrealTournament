@@ -348,26 +348,19 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 	{
 		for (int32 i = 0; i<WebLinks.Num(); i++)
 		{
-			UE_LOG(UT, Warning, TEXT("TraceWeb 1"));
 			if (WebLinks[i].LinkedBio) // && WebLinks[i].WebLink) @TODO FIXMESTEVE WHY NOT SET PROPERLY
 			{
-				UE_LOG(UT, Warning, TEXT("TraceWeb 2"));
 				FHitResult Hit;
 				static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
 				bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation(), WebLinks[i].LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
 				if (Cast<AUTCharacter>(Hit.Actor.Get()))
 				{
-					UE_LOG(UT, Warning, TEXT("TraceWeb 3"));
 					ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
 					if (IsPendingKillPending())
 					{
 						return;
 					}
 					break;
-				}
-				else if (Hit.Actor.Get())
-				{
-					UE_LOG(UT, Warning, TEXT("WEB HIT %s"), *Hit.Actor->GetName());
 				}
 			}
 		}

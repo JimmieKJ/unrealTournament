@@ -554,6 +554,8 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		// lift jump counts as wall dodge
 		CurrentWallDodgeCount++;
+		LastWallDodgeNormal = FVector(0.f, 0.f, 1.f);
+		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 	}
 
 	// perform the dodge
