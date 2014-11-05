@@ -50,6 +50,15 @@ public:
 
 	virtual void CalcVelocity(float DeltaTime, float Friction, bool bFluid, float BrakingDeceleration) override;
 
+	/** Allows custom handling of timestamp and delta time updates, including resetting movement timers. */
+	virtual float UpdateTimeStampAndDeltaTime(float DeltaTime, FNetworkPredictionData_Client_Character* ClientData);
+
+	/** Adjust movement timers after timestamp reset */
+	virtual void AdjustMovementTimers(float Adjustment);
+
+	/** Allows custom handling of timestamp and delta time updates, including resetting movement timers. */
+	virtual bool UTVerifyClientTimeStamp(float TimeStamp, FNetworkPredictionData_Server_Character & ServerData);
+
 	/** for replaying moves set up */
 	bool bIsSettingUpFirstReplayMove;
 

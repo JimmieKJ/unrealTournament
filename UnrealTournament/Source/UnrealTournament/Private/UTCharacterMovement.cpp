@@ -12,8 +12,9 @@ const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the ve
 UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
-	// @TODO FIXMESTEVE increase this to hour+ for release version
-	// MinTimeBetweenTimeStampResets = 3600.f;
+	// Reduce for testing of transitions
+	// MinTimeBetweenTimeStampResets = 5.f;
+	MinTimeBetweenTimeStampResets = 3600.f;
 
 	MaxWalkSpeed = 950.f;
 	MaxCustomMovementSpeed = MaxWalkSpeed;
@@ -241,6 +242,27 @@ void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo
 	YPos += YL;
 }
 
+float UUTCharacterMovement::UpdateTimeStampAndDeltaTime(float DeltaTime, FNetworkPredictionData_Client_Character* ClientData)
+{
+	float UnModifiedTimeStamp = ClientData->CurrentTimeStamp + DeltaTime;
+	DeltaTime = ClientData->UpdateTimeStampAndDeltaTime(DeltaTime, *CharacterOwner, *this);
+	if (ClientData->CurrentTimeStamp < UnModifiedTimeStamp)
+	{
+		// client timestamp rolled over, so roll over our movement timers
+		AdjustMovementTimers(UnModifiedTimeStamp - ClientData->CurrentTimeStamp);
+	}
+	return DeltaTime;
+}
+
+void UUTCharacterMovement::AdjustMovementTimers(float Adjustment)
+{
+	//UE_LOG(UT, Warning, TEXT("+++++++ROLLOVER time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
+	DodgeResetTime -= Adjustment;
+	SprintStartTime -= Adjustment;
+	DodgeRollTapTime -= Adjustment;
+	DodgeRollEndTime -= Adjustment;
+}
+
 void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
@@ -280,7 +302,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 				if (ClientData)
 				{
 					// Update our delta time for physics simulation.
-					DeltaTime = ClientData->UpdateTimeStampAndDeltaTime(DeltaTime, *CharacterOwner, *this);
+					DeltaTime = UpdateTimeStampAndDeltaTime(DeltaTime, ClientData);
 					CurrentServerMoveTime = ClientData->CurrentTimeStamp;
 				}
 				else
@@ -800,15 +822,6 @@ const FVector& NewAccel
 {
 	if (HasValidData())
 	{
-		if (CurrentServerMoveTime > ClientTimeStamp + 0.5f*MinTimeBetweenTimeStampResets)
-		{
-			// client timestamp rolled over, so roll over our movement timers
-			//UE_LOG(UT, Warning, TEXT("+++++++ROLLOVER time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
-			DodgeResetTime -= MinTimeBetweenTimeStampResets;
-			SprintStartTime -= MinTimeBetweenTimeStampResets;
-			DodgeRollTapTime -= MinTimeBetweenTimeStampResets;
-			DodgeRollEndTime -= MinTimeBetweenTimeStampResets;
-		}
 		CurrentServerMoveTime = ClientTimeStamp;
 		//UE_LOG(UT, Warning, TEXT("+++++++Set server move time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
 	}
@@ -2284,7 +2297,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 	check(ServerData);
 
-	if (!VerifyClientTimeStamp(TimeStamp, *ServerData))
+	if (!UTVerifyClientTimeStamp(TimeStamp, *ServerData))
 	{
 		return;
 	}
@@ -2337,7 +2350,7 @@ void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldA
 	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 	check(ServerData);
 
-	if (!VerifyClientTimeStamp(OldTimeStamp, *ServerData))
+	if (!UTVerifyClientTimeStamp(OldTimeStamp, *ServerData))
 	{
 		return;
 	}
@@ -2380,3 +2393,38 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 	}
 	ClientData->AckMove(MoveIndex);
 }
+
+bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPredictionData_Server_Character & ServerData)
+{
+	// Very large deltas happen around a TimeStamp reset.
+	const float DeltaTimeStamp = (TimeStamp - ServerData.CurrentClientTimeStamp);
+	if (FMath::Abs(DeltaTimeStamp) > (MinTimeBetweenTimeStampResets * 0.5f))
+	{
+		// Client is resetting TimeStamp to increase accuracy.
+		if (DeltaTimeStamp < 0.f)
+		{
+			//UE_LOG(UT, Log, TEXT("TimeStamp reset detected. CurrentTimeStamp: %f, new TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
+			ServerData.CurrentClientTimeStamp = 0.f;
+			AdjustMovementTimers(-1.f*DeltaTimeStamp);
+			return true;
+		}
+		else
+		{
+			// We already reset the TimeStamp, but we just got an old outdated move before the switch.
+			// Just ignore it.
+			//UE_LOG(UT, Log, TEXT("TimeStamp expired. Before TimeStamp Reset. CurrentTimeStamp: %f, TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
+			return false;
+		}
+	}
+
+	// If TimeStamp is in the past, move is outdated, ignore it.
+	if (TimeStamp <= ServerData.CurrentClientTimeStamp)
+	{
+		//UE_LOG(LogNetPlayerMovement, Log, TEXT("TimeStamp expired. %f, CurrentTimeStamp: %f"), TimeStamp, ServerData.CurrentClientTimeStamp);
+		return false;
+	}
+
+	//UE_LOG(LogNetPlayerMovement, VeryVerbose, TEXT("TimeStamp %f Accepted! CurrentTimeStamp: %f"), TimeStamp, ServerData.CurrentClientTimeStamp);
+	return true;
+}
+
