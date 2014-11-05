@@ -61,6 +61,8 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 		UTProjMovement->bPreventZHoming = true;
 	}
 	GlobRadiusScaling = 4.f;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.SetTickFunctionEnable(false);
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -155,6 +157,7 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 
 	bCanTrack = false;
 	bAddingWebLink = true;
+	PrimaryActorTick.SetTickFunctionEnable(true);
 	if (WebLinks.Num() == 0)
 	{
 		// lifespan boost for being connected to web
@@ -320,7 +323,8 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 		ProjectileMovement->HomingTargetComponent = TrackedPawn->CapsuleComponent.Get();
 		ProjectileMovement->bShouldBounce = true;
 		bLanded = false;
-		
+		PrimaryActorTick.SetTickFunctionEnable(true);
+
 		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
 		{
 			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SafeNormal();
@@ -337,6 +341,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			ProjectileMovement->HomingTargetComponent = NULL;
 			ProjectileMovement->bIsHomingProjectile = false;
 			TrackedPawn = NULL;
+			PrimaryActorTick.SetTickFunctionEnable(false);
 		}
 	}
 	else
@@ -344,7 +349,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 		for (int32 i = 0; i<WebLinks.Num(); i++)
 		{
 			UE_LOG(UT, Warning, TEXT("TraceWeb 1"));
-			if (WebLinks[i].LinkedBio && WebLinks[i].WebLink)
+			if (WebLinks[i].LinkedBio) // && WebLinks[i].WebLink) @TODO FIXMESTEVE WHY NOT SET PROPERLY
 			{
 				UE_LOG(UT, Warning, TEXT("TraceWeb 2"));
 				FHitResult Hit;
