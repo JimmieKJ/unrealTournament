@@ -3046,6 +3046,18 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 	return bResult;
 }
 
+bool AUTCharacter::CanBlockTelefrags()
+{
+	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
+	{
+		if (It->ArmorType == FName(TEXT("ShieldBelt")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 // @TODO FIXMESTEVE - why isn't this just an implementation of ReceiveActorBeginOverlap()
 void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 {
@@ -3058,7 +3070,14 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 			if (TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this))
 			{
 				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
-				OtherC->TakeDamage(100000.0f, DamageEvent, Controller, this);
+				if (OtherC->CanBlockTelefrags())
+				{
+					TakeDamage(100000.0f, DamageEvent, Controller, this);
+				}
+				else
+				{
+					OtherC->TakeDamage(100000.0f, DamageEvent, Controller, this);
+				}
 			}
 		}
 		// TODO: if OtherActor is a vehicle, then we should be killed instead

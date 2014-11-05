@@ -388,6 +388,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return Result;
 	}
 
+	/** Return true if this character can block telefrags. */
+	virtual bool CanBlockTelefrags();
+
 	/** toss an inventory item in the direction the player is facing
 	 * (the inventory must have a pickup defined)
 	 * ExtraVelocity is in the reference frame of the character (X is forward)
