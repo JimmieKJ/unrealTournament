@@ -50,7 +50,7 @@ FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	}
 	else
 	{
-		return (Switch == 0) ? FName(TEXT("WonMatch")) : FName(TEXT("LostMatch"));
+		return (Switch == 1) ? FName(TEXT("WonMatch")) : FName(TEXT("LostMatch"));
 	}
 }
 
