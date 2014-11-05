@@ -13,6 +13,9 @@ class UUTDmgType_Drown : public UUTDamageType
 	: Super(PCIP)
 	{
 		bCausedByWorld = true;
+		bBlockedByArmor = false;
+		bCausesBlood = false;
+
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_Fell", "{Player1Name} caused {Player2Name} to drown.");
 		MaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "MaleSuicideMessage_Fell", "{Player2Name} drowned.");
 		FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "FemaleSuicideMessage_Fell", "{Player2Name} drowned.");

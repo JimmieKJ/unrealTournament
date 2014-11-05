@@ -36,6 +36,12 @@ void AUTArmor::Removed()
 
 void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
 {
+	const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+	const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
+	if (UTDamageTypeCDO && !UTDamageTypeCDO->bBlockedByArmor)
+	{
+		return;
+	}
 	if (Damage > 0)
 	{
 		if (HitArmor == NULL)
