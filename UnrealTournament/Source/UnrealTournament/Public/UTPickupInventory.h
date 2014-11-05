@@ -7,7 +7,7 @@
 #include "UTPickupInventory.generated.h"
 
 UCLASS(Blueprintable)
-class AUTPickupInventory : public AUTPickup
+class UNREALTOURNAMENT_API AUTPickupInventory : public AUTPickup
 {
 	GENERATED_UCLASS_BODY()
 

@@ -209,7 +209,7 @@ public:
 	UPROPERTY(Category = "Dodging", BlueprintReadWrite)
 		float DodgeResetTime;
 
-	/** If falling, verify can wall dodge.  The cause character to dodge. */
+	/** If falling, verify can wall dodge.  This causes character to dodge. */
 	UFUNCTION()
 	bool PerformDodge(FVector &DodgeDir, FVector &DodgeCross);
 

@@ -782,7 +782,7 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	virtual void OnLandingAssist();
 
-	/** Blueprint override for dodge handling. Rteturn true to skip default dodge in C++. */
+	/** Blueprint override for dodge handling. Return true to skip default dodge in C++. */
 	UFUNCTION(BlueprintImplementableEvent)
 	bool DodgeOverride(const FVector &DodgeDir, const FVector &DodgeCross);
 
