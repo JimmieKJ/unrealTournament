@@ -13,9 +13,23 @@ void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode
 {
 	FVector ModifiedTargetLoc = TargetLoc;
 
-	if (LinkedBio && (LinkedBio->IsPendingKillPending() || (FireMode != 1) || !UTOwner || ((UTOwner->GetActorLocation() - LinkedBio->GetActorLocation()).Size() > LinkedBio->MaxLinkDistance + InstantHitInfo[1].TraceRange)))
+	if (LinkedBio) 
 	{
-		LinkedBio = NULL;
+		if (LinkedBio->IsPendingKillPending() || (FireMode != 1) || !UTOwner || ((UTOwner->GetActorLocation() - LinkedBio->GetActorLocation()).Size() > LinkedBio->MaxLinkDistance + InstantHitInfo[1].TraceRange))
+		{
+			LinkedBio = NULL;
+		}
+		else
+		{
+			// verify line of sight
+			FHitResult Hit;
+			static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
+			bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, SpawnLocation, LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, UTOwner));
+			if ((bBlockingHit || (Hit.Actor != NULL)) && !Cast<AUTProj_BioShot>(Hit.Actor.Get()))
+			{
+				LinkedBio = NULL;
+			}
+		}
 	}
 	if (LinkedBio)
 	{
