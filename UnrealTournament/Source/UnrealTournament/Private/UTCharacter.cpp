@@ -2067,7 +2067,7 @@ APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 
 void AUTCharacter::PlayFootstep(uint8 FootNum)
 {
-	if (GetWorld()->TimeSeconds - LastFootstepTime < 0.1f)
+	if ((GetWorld()->TimeSeconds - LastFootstepTime < 0.1f) || bFeigningDeath || IsDead())
 	{
 		return;
 	}
@@ -2881,6 +2881,7 @@ void AUTCharacter::PlayerSuicide()
 	{
 		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_Suicide::StaticClass());
+		UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 		Died(NULL, FakeDamageEvent);
 	}
 }
