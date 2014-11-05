@@ -61,7 +61,9 @@ void UUTWeaponStateFiringSpinUp::RefireCheckTimer()
 		B->CheckWeaponFiring();
 	}
 
-	if (!GetOuterAUTWeapon()->HandleContinuedFiring())
+	// FIXME: HandleContinuedFiring() goes to state active automatically which is not what we want
+	//if (!GetOuterAUTWeapon()->HandleContinuedFiring())
+	if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
 	{
 		// spin down instead of going to active immediately
 		float TotalWarmupTime = 0.0f;
