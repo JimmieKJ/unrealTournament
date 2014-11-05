@@ -73,6 +73,13 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
 		FVector DesiredLoc = OutVT.Target->GetActorLocation();
+
+		// we must use the capsule location here as the ragdoll's root component can be rubbbing a wall
+		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->CapsuleComponent != nullptr)
+		{
+			DesiredLoc = UTCharacter->CapsuleComponent->GetComponentLocation();
+		}
+
 		if (UTFlagBase != nullptr)
 		{
 			DesiredLoc += FlagBaseFreeCamOffset;
