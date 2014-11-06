@@ -19,7 +19,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	ProjectileMovement->bInitialVelocityInLocalSpace = true;
 	ProjectileMovement->ProjectileGravityScale = 0.9f;
 
-	ProjectileMovement->bShouldBounce = true;
+	ProjectileMovement->bShouldBounce = false;
 	ProjectileMovement->Bounciness = 0.1f;
 	ProjectileMovement->Friction = 0.008f;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 140.f;
@@ -129,6 +129,14 @@ void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
 			break;
 		}
 	}
+	if (WebLinkOne == LinkedBio)
+	{
+		WebLinkOne = NULL;
+	}
+	if (WebLinkTwo == LinkedBio)
+	{
+		WebLinkTwo = NULL;
+	}
 
 	if (bFoundLink)
 	{
@@ -146,6 +154,22 @@ void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
 		}
 		WebLinks.RemoveAt(i);
 		bRemovingWebLink = false;
+	}
+}
+
+void AUTProj_BioShot::OnRep_WebLinkOne()
+{
+	if (WebLinkOne && !WebLinkOne->IsPendingKillPending() && !WebLinkOne->bExploded)
+	{
+		WebConnected(WebLinkOne);
+	}
+}
+
+void AUTProj_BioShot::OnRep_WebLinkTwo()
+{
+	if (WebLinkTwo && !WebLinkTwo->IsPendingKillPending() && !WebLinkTwo->bExploded)
+	{
+		WebConnected(WebLinkTwo);
 	}
 }
 
@@ -193,6 +217,26 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 			NewWebLinkEffect->ActivateSystem();
 			NewWebLinkEffect->SetVectorParameter(NAME_HitLocation, LinkedBio->GetActorLocation());
 			NewWebLinkEffect->SetVectorParameter(NAME_LocalHitLocation, NewWebLinkEffect->ComponentToWorld.InverseTransformPositionNoScale(LinkedBio->GetActorLocation()));
+		}
+		// replication support (temp)
+		if (Role == ROLE_Authority)
+		{
+			if (!WebLinkOne)
+			{
+				WebLinkOne = LinkedBio;
+			}
+			else if (!WebLinkTwo)
+			{
+				WebLinkTwo = LinkedBio;
+			}
+			else if (!LinkedBio->WebLinkOne)
+			{
+				LinkedBio->WebLinkOne = this;
+			}
+			else if (!LinkedBio->WebLinkTwo)
+			{
+				LinkedBio->WebLinkTwo = this;
+			}
 		}
 	}
 	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect);
@@ -248,6 +292,12 @@ void AUTProj_BioShot::BioStabilityTimer()
 	}
 }
 
+void AUTProj_BioShot::OnRep_BioLanded()
+{
+	ProjectileMovement->ProjectileGravityScale = 0.0f;
+	ProjectileMovement->Velocity = FVector::ZeroVector;
+}
+
 void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLocation)
 {
 	if (!bLanded)
@@ -278,6 +328,10 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		}
 		else if (!bPendingKillPending && (Role == ROLE_Authority))
 		{
+			//Stop the projectile
+			ProjectileMovement->ProjectileGravityScale = 0.0f;
+			ProjectileMovement->Velocity = FVector::ZeroVector;
+
 			bReplicateUTMovement = true;
 			float MyRestTime = (GlobStrength > 1.f) ? ChargedRestTime : RestTime;
 			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, MyRestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
@@ -577,4 +631,6 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkOne, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkTwo, COND_SkipOwner);
 }

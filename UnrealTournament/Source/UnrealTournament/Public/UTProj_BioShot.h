@@ -44,6 +44,20 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY()
 	TArray<FBioWebLink> WebLinks;
 
+	/** @TODO FIXMESTEVE  figure out best way to replicate web once past prototype stage. */
+	UPROPERTY(ReplicatedUsing = OnRep_WebLinkOne)
+		AUTProj_BioShot* WebLinkOne;
+
+	/** @TODO FIXMESTEVE  figure out best way to replicate web once past prototype stage. */
+	UPROPERTY(ReplicatedUsing = OnRep_WebLinkTwo)
+		AUTProj_BioShot* WebLinkTwo;
+
+	UFUNCTION()
+		virtual void OnRep_WebLinkOne();
+
+	UFUNCTION()
+		virtual void OnRep_WebLinkTwo();
+
 	/** How much life to add to goo when added to web. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		float WebLifeBoost;
@@ -97,8 +111,11 @@ class AUTProj_BioShot : public AUTProjectile
 	virtual void BioStabilityTimer();
 
 	/**Set when the glob sticks to a wall/floor*/
-	UPROPERTY(BlueprintReadOnly, Category = Bio)
+	UPROPERTY(ReplicatedUsing = OnRep_BioLanded, BlueprintReadOnly, Category = Bio)
 	bool bLanded;
+
+	UFUNCTION()
+		virtual void OnRep_BioLanded();
 
 	/**Set when the glob can track enemies*/
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
