@@ -232,7 +232,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 			}
 			return 0.f;
 		}
-		if (bLanded && !bExploded)
+		if ((bLanded || TrackedPawn) && !bExploded)
 		{
 			Explode(GetActorLocation(), SurfaceNormal);
 		}
@@ -242,7 +242,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 
 void AUTProj_BioShot::BioStabilityTimer()
 {
-	if (!bExploded)
+	if (!bExploded && (!bFakeClientProjectile || !MasterProjectile) && (Role== ROLE_Authority))
 	{
 		Explode(GetActorLocation(), SurfaceNormal);
 	}
@@ -255,7 +255,6 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		bCanTrack = true;
 		bLanded = true;
 		bCanHitInstigator = true;
-		bReplicateUTMovement = true;
 
 		//Change the collision so that weapons make it explode
 		CollisionComp->SetCollisionProfileName("ProjectileShootable");
@@ -277,8 +276,9 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		{
 			BioStabilityTimer();
 		}
-		if (!bPendingKillPending && (Role == ROLE_Authority))
+		else if (!bPendingKillPending && (Role == ROLE_Authority))
 		{
+			bReplicateUTMovement = true;
 			float MyRestTime = (GlobStrength > 1.f) ? ChargedRestTime : RestTime;
 			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, MyRestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
 			SetGlobStrength(GlobStrength);
@@ -370,6 +370,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			ProjectileMovement->HomingTargetComponent = NULL;
 			ProjectileMovement->bIsHomingProjectile = false;
 			TrackedPawn = NULL;
+			bLanded = true;
 			PrimaryActorTick.SetTickFunctionEnable(false);
 		}
 	}
