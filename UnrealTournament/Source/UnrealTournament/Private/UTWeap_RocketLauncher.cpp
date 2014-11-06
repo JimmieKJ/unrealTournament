@@ -138,6 +138,12 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 		UUTWeaponStateFiringChargedRocket* AltState = Cast<UUTWeaponStateFiringChargedRocket>(FiringState[1]);
 		if (AltState != NULL && AltState->bCharging)
 		{
+			if (GetWorldTimerManager().IsTimerActive(AltState, &UUTWeaponStateFiringChargedRocket::GraceTimer)
+				&& (GetWorldTimerManager().GetTimerRemaining(AltState, &UUTWeaponStateFiringChargedRocket::GraceTimer) < 0.05f))
+			{
+				// too close to timer ending, so don't allow mode change to avoid de-synchronizing client and server
+				return;
+			}
 			CurrentRocketFireMode++;
 			bDrawRocketModeString = true;
 
@@ -145,7 +151,6 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 			{
 				CurrentRocketFireMode = 0;
 			}
-
 			UUTGameplayStatics::UTPlaySound(GetWorld(), AltFireModeChangeSound, UTOwner, SRT_AllButOwner);
 		}
 	}
