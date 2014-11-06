@@ -53,9 +53,9 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	LandedOverlapRadius = 16.f;
 	LandedOverlapScaling = 7.f;
 	MaxSlideSpeed = 1500.f;
-	TrackingRange = 1000.f;
-	MaxTrackingSpeed = 400.f;
-	ProjectileMovement->HomingAccelerationMagnitude = 600.f;
+	TrackingRange = 1400.f;
+	MaxTrackingSpeed = 600.f;
+	ProjectileMovement->HomingAccelerationMagnitude = 800.f;
 	UUTProjectileMovementComponent* UTProjMovement = Cast<UUTProjectileMovementComponent>(ProjectileMovement);
 	if (UTProjMovement)
 	{
@@ -74,7 +74,7 @@ void AUTProj_BioShot::BeginPlay()
 		SetGlobStrength(GlobStrength);
 
 		// failsafe if never land
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, 10.f, false);
+		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
 	}
 }
 
@@ -206,7 +206,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 	{
 		if (InstigatorController && EventInstigator && Cast<AUTWeap_LinkGun>(DamageCauser))
 		{
-			if ((GlobStrength > 1.f) && bLanded)
+			if ((GlobStrength >= 1.f) && bLanded)
 			{
 				AUTGameState* GameState = InstigatorController->GetWorld()->GetGameState<AUTGameState>();
 				if ((EventInstigator == InstigatorController) || (GameState && GameState->OnSameTeam(InstigatorController, EventInstigator)))
@@ -480,7 +480,7 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 	}
 	float OldStrength = GlobStrength;
 	GlobStrength = NewStrength;
-	ProjectileMovement->bShouldBounce = (GlobStrength <= 1.f);
+	ProjectileMovement->bShouldBounce = (GlobStrength < 1.f);
 
 	if (!bLanded)
 	{
