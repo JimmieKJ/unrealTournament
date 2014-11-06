@@ -338,7 +338,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 			SetGlobStrength(GlobStrength);
 		}
 	}
-	// uncomment to easily test tracking
+	// uncomment to easily test tracking (also remove instigator checks in Track())
 	//Track(Cast<AUTCharacter>(Instigator));
 }
 
@@ -372,7 +372,20 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	}
 
 	SetGlobStrength(GlobStrength + OtherBio->GlobStrength);
-	if (!TrackedPawn && OtherBio->TrackedPawn)
+	if (TrackedPawn)
+	{
+		ProjectileMovement->bIsHomingProjectile = true;
+		ProjectileMovement->SetUpdatedComponent(CollisionComp);
+		ProjectileMovement->MaxSpeed = MaxTrackingSpeed / FMath::Sqrt(GlobStrength);
+		ProjectileMovement->HomingTargetComponent = TrackedPawn->CapsuleComponent.Get();
+		ProjectileMovement->bShouldBounce = true;
+		bLanded = false;
+		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
+		{
+			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SafeNormal();
+		}
+	}
+	else if (OtherBio->TrackedPawn)
 	{
 		Track(OtherBio->TrackedPawn);
 	}
@@ -396,6 +409,7 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 		}
 	}
 
+	ProjectileMovement->ProjectileGravityScale = 0.9f;
 	// track closest
 	if (!TrackedPawn || !ProjectileMovement->HomingTargetComponent.IsValid() || ((ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SizeSquared() > (NewTrackedPawn->CapsuleComponent->GetComponentLocation() - GetActorLocation()).SizeSquared()))
 	{
@@ -551,7 +565,7 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 	GlobStrength = NewStrength;
 	ProjectileMovement->bShouldBounce = (GlobStrength < 1.f);
 
-	if (!bLanded)
+	if (!bLanded && !TrackedPawn)
 	{
 		//Set the projectile speed here so the client can mirror the strength speed
 		ProjectileMovement->InitialSpeed = ProjectileMovement->InitialSpeed * (0.4f + GlobStrength) / (1.35f * GlobStrength);
