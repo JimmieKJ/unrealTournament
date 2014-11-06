@@ -40,11 +40,9 @@ void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* 
 	if (ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
-		// @TODO FIXMESTEVE- we really need client to replicate his ping to server so there is never disagreement about whether using client-side hits - then can get rid of (PredictionTime < 15.f) below
-		float PredictionTime = UTPC != nullptr ? UTPC->GetPredictionTime() : 0.0f;
-		bool bUsingClientSideHits = UTPC && (PredictionTime > 0.f);
+		bool bUsingClientSideHits = UTPC && (UTPC->MaxPredictionPing > 0.f);
 
-		if ((Role == ROLE_Authority) && (!bUsingClientSideHits || (PredictionTime < 15.f)))
+		if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 		{
 			PerformCombo(InstigatedBy, DamageCauser);
 		}
