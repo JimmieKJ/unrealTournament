@@ -318,14 +318,28 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	}
 
 	SetGlobStrength(GlobStrength + OtherBio->GlobStrength);
+	if (!TrackedPawn && OtherBio->TrackedPawn)
+	{
+		Track(OtherBio->TrackedPawn);
+	}
+		
 	OtherBio->Destroy();
 }
 
 void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 {
-	if (IsPendingKillPending() || !bCanTrack || ((NewTrackedPawn->GetActorLocation() - GetActorLocation()).SizeSquared() > FMath::Square(TrackingRange)))
+	if (IsPendingKillPending() || !bCanTrack || ((NewTrackedPawn->GetActorLocation() - GetActorLocation()).SizeSquared() > FMath::Square(TrackingRange)) || (NewTrackedPawn == Instigator))
 	{
 		return;
+	}
+	if (InstigatorController)
+	{
+		// don't track teammates
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->OnSameTeam(InstigatorController, NewTrackedPawn))
+		{
+			return;
+		}
 	}
 
 	// track closest
