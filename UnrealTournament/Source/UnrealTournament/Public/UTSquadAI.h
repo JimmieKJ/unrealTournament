@@ -152,4 +152,12 @@ public:
 	 * generally bots will get retasked if they were performing some action relating to the object that is no longer relevant
 	 */
 	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName);
+
+	/** return whether the given bot should consider the squad objective as higher than normal priority and minimize unnecessary detours
+	 * (e.g. in CTF when flag is out)
+	 */
+	virtual bool HasHighPriorityObjective(AUTBot* B)
+	{
+		return false;
+	}
 };

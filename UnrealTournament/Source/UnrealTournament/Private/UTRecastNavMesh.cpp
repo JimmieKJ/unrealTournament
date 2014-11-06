@@ -1414,7 +1414,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		FEvaluatedNode* BestDest = NULL;
 		while (CurrentNode != NULL)
 		{
-			float ThisWeight = NodeEval.Eval(Asker, AgentProps, CurrentNode->Node, GetPolyCenter(CurrentNode->Poly), CurrentNode->TotalDistance);
+			float ThisWeight = NodeEval.Eval(Asker, AgentProps, CurrentNode->Node, (CurrentNode->TotalDistance == 0) ? StartLoc : GetPolyCenter(CurrentNode->Poly), CurrentNode->TotalDistance);
 			if (ThisWeight > Weight)
 			{
 				Weight = ThisWeight;
@@ -1552,8 +1552,14 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 
 			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
 			{
-				FVector NextLoc = NodeRoute[1].GetLocation(Asker);
+				FVector NextLoc = NodeRoute[0].GetLocation(Asker);
 				FVector NextDir = (NextLoc - StartLoc).SafeNormal();
+				float MaxDetourDist = (StartLoc - NextLoc).Size() * 1.5f;
+				// TODO: get movement speed for non-characters somehow
+				if (Cast<ACharacter>(Asker) != NULL)
+				{
+					MaxDetourDist = FMath::Max<float>(MaxDetourDist, ((ACharacter*)Asker)->CharacterMovement->GetMaxSpeed() * 2.0f);
+				}
 				AActor* BestDetour = NULL;
 				float BestDetourWeight = 0.0f;
 				for (TWeakObjectPtr<AActor> POI : NextRouteNode->Node->POIs)
@@ -1567,7 +1573,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 							// reject detours too far behind desired path
 							FVector POILoc = POI->GetActorLocation();
 							float Angle = (POILoc - StartLoc).SafeNormal() | NextDir;
-							float MaxDist = (Angle > 0.5f) ? FLT_MAX : (3000.0f / (2.0f - Angle));
+							float MaxDist = (MaxDetourDist / (2.0f - Angle));
 							float Dist = (POILoc - NextLoc).Size();
 							if (Dist < MaxDist)
 							{

@@ -29,4 +29,5 @@ class AUTCTFSquadAI : public AUTSquadAI
 	virtual bool SetFlagCarrierAction(AUTBot* B);
 
 	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName) override;
+	virtual bool HasHighPriorityObjective(AUTBot* B);
 };

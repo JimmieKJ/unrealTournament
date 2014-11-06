@@ -675,6 +675,14 @@ void AUTWeapon::OnRep_Ammo()
 			UE_LOG(UT, Warning, TEXT("********** %s ran out of ammo for %s"), *GetName(), *PC->GetHumanReadableName());
 			PC->SwitchToBestWeapon();
 		}
+		else
+		{
+			AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+			if (B != NULL)
+			{
+				B->SwitchToBestWeapon();
+			}
+		}
 	}
 }
 

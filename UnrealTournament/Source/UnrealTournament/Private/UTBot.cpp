@@ -410,7 +410,7 @@ void AUTBot::Tick(float DeltaTime)
 							if (i < MoveTargetPoints.Num() - 2 || CurrentPath.ReachFlags == 0)
 							{
 								FVector HitLoc;
-								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(GetNavAgentLocation(), MoveTargetPoints[i].Get() - FVector(0.0f, 0.0f, Extent.Z), HitLoc))
+								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(GetNavAgentLocation(), MoveTargetPoints[i + 1].Get() - FVector(0.0f, 0.0f, Extent.Z), HitLoc))
 								{
 									LastReachedMovePoint = MoveTargetPoints[i].Get();
 									MoveTargetPoints.RemoveAt(0, i + 1);
@@ -762,11 +762,11 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 				// handle leading
 				if (bLeadTarget && GetTarget() != NULL && GetTarget() == GetFocusActor())
 				{
-					float TravelTime = DefaultProj->GetTimeToLocation(FocalPoint);
+					FVector FireLocation = GetPawn()->GetActorLocation();
+					FireLocation.Z += GetPawn()->BaseEyeHeight;
+					float TravelTime = DefaultProj->StaticGetTimeToLocation(FocalPoint, FireLocation);
 					if (TravelTime > 0.0f)
 					{
-						FVector FireLocation = GetPawn()->GetActorLocation();
-						FireLocation.Z += GetPawn()->BaseEyeHeight;
 						bInstantHit = false;
 
 						ACharacter* EnemyChar = Cast<ACharacter>(GetTarget());
@@ -775,6 +775,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 							// take gravity and landing into account
 							TrackedVelocity.Z = TrackedVelocity.Z + 0.5f * TravelTime * EnemyChar->CharacterMovement->GetGravityZ();
 						}
+						// TODO: if target is walking on slope that needs to be taken into account
 						FocalPoint += TrackedVelocity * TravelTime;
 
 						if (BlockedAimTarget == GetTarget() || GetWorld()->TimeSeconds - LastTacticalAimUpdateTime < TacticalAimUpdateInterval)
@@ -1567,11 +1568,11 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 	}
 }
 
-bool AUTBot::TryPathToward(AActor* Goal, const FString& SuccessGoalString)
+bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
 {
 	FSingleEndpointEval NodeEval(Goal);
 	float Weight = 0.0f;
-	if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+	if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
 	{
 		GoalString = SuccessGoalString;
 		SetMoveTarget(RouteCache[0]);
@@ -1712,6 +1713,7 @@ void AUTBot::WhatToDoNext()
 void AUTBot::ExecuteWhatToDoNext()
 {
 	Target = NULL;
+	TranslocTarget = FVector::ZeroVector;
 
 	SwitchToBestWeapon();
 
@@ -1848,7 +1850,7 @@ void AUTBot::ChooseAttackMode()
 			}
 		}
 
-		if (/*(Squad.PriorityObjective(self) == 0) && */Skill + Personality.Tactics > 2.0f && (EnemyStrength > -0.3f || NeedsWeapon()))
+		if (!Squad->HasHighPriorityObjective(this) && Skill + Personality.Tactics > 2.0f && (EnemyStrength > -0.3f || NeedsWeapon()))
 		{
 			float WeaponRating;
 			if (MyWeap == NULL)
@@ -2928,7 +2930,8 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 				SeePawn(Enemy);
 			}
 		}
-		else
+		// don't interrupt in progress translocation
+		else if (TranslocTarget.IsZero() || UTChar == NULL || UTChar->GetWeapon() == NULL || UTChar->GetWeapon()->BaseAISelectRating >= 0.5f || (Enemy != NULL && Squad->MustKeepEnemy(Enemy)))
 		{
 			WhatToDoNext();
 		}

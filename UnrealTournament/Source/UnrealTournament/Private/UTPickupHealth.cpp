@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTPickup.h"
 #include "UTPickupHealth.h"
+#include "UTSquadAI.h"
 
 AUTPickupHealth::AUTPickupHealth(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -53,6 +54,8 @@ float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, float PathD
 	}
 	else
 	{
+		AUTBot* B = Cast<AUTBot>(P->Controller);
+
 		float Desire = FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)) - P->Health;
 
 		if (P->GetWeapon() != NULL && P->GetWeapon()->BaseAISelectRating > 0.5f)
@@ -62,12 +65,12 @@ float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, float PathD
 		if (bSuperHeal || P->Health < 45)
 		{
 			Desire = FMath::Min<float>(0.025f * Desire, 2.2);
-			/*if (bSuperHeal && !WorldInfo.Game.bTeamGame && UTBot(C) != None && UTBot(C).Skill >= 4.0)
+			if (bSuperHeal && B != NULL && B->Skill + B->Personality.Tactics >= 4.0f) // TODO: work off of whether bot is powerup timing, since it's a related strategy
 			{
 				// high skill bots keep considering powerups that they don't need if they can still pick them up
 				// to deny the enemy any chance of getting them
-				desire = FMax(desire, 0.001);
-			}*/
+				Desire = FMath::Max<float>(Desire, 0.001f);
+			}
 			return Desire;
 		}
 		else
@@ -76,6 +79,7 @@ float AUTPickupHealth::BotDesireability_Implementation(APawn* Asker, float PathD
 			{
 				Desire = FMath::Max<float>(Desire, 25.0f);
 			}
+			// TODO
 			//else if (UTBot(C) != None && UTBot(C).bHuntPlayer)
 			//	return 0;
 				
@@ -95,13 +99,21 @@ float AUTPickupHealth::DetourWeight_Implementation(APawn* Asker, float PathDista
 		// reduce distance for low value health pickups
 		// TODO: maybe increase value if multiple adjacent pickups?
 		int32 ActualHeal = FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)) - P->Health;
-		if (float(ActualHeal * 500) > PathDistance)
+		if (PathDistance > float(ActualHeal * 200))
 		{
 			return 0.0f;
 		}
 		else
 		{
-			return BotDesireability(Asker, PathDistance);
+			AUTBot* B = Cast<AUTBot>(P->Controller);
+			if (B != NULL && B->GetSquad() != NULL && B->GetSquad()->HasHighPriorityObjective(B) && P->Health > P->HealthMax * 0.65f)
+			{
+				return ActualHeal * 0.01f;
+			}
+			else
+			{
+				return ActualHeal * 0.02f;
+			}
 		}
 	}
 }

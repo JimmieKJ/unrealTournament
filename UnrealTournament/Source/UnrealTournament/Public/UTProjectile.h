@@ -296,6 +296,8 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	/** get time to target from current location */
 	virtual float GetTimeToLocation(const FVector& TargetLoc) const;
+	/** version of GetTimeToLocation() safe to call on default objects */
+	virtual float StaticGetTimeToLocation(const FVector& TargetLoc, const FVector& StartLoc) const;
 
 	/** get maximum damage radius this projectile can cause with any explosion type
 	 * i.e. if the projectile can explode in multiple ways (normal + combo, for instance), return the greater value
@@ -306,15 +308,15 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	/** Always spawn explosion effect if it is within this distance of a local camera */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect Culling")
-		float ExplosionAlwaysSpawnDist;
+	float ExplosionAlwaysSpawnDist;
 
 	/** Cull explosion effect if it is further than this from every local camera. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect Culling")
-		float ExplosionCullDistance;
+	float ExplosionCullDistance;
 
 	/** Skip explosion relevancy checking. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect Culling")
-		bool bExplosionAlwaysRelevant;
+	bool bExplosionAlwaysRelevant;
 
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level

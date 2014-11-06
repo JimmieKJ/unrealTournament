@@ -754,9 +754,9 @@ FRadialDamageParams AUTProjectile::GetDamageParams_Implementation(AActor* OtherA
 	return DamageParams;
 }
 
-float AUTProjectile::GetTimeToLocation(const FVector& TargetLoc) const
+float AUTProjectile::StaticGetTimeToLocation(const FVector& TargetLoc, const FVector& StartLoc) const
 {
-	const float Dist = (TargetLoc - GetActorLocation()).Size();
+	const float Dist = (TargetLoc - StartLoc).Size();
 	if (ProjectileMovement == NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("Unable to calculate time to location for %s; please implement GetTimeToLocation()"), *GetName());
@@ -786,6 +786,12 @@ float AUTProjectile::GetTimeToLocation(const FVector& TargetLoc) const
 			return ProjTime;
 		}
 	}
+}
+float AUTProjectile::GetTimeToLocation(const FVector& TargetLoc) const
+{
+	ensure(!IsTemplate()); // if this trips you meant to call StaticGetTimeToLocation()
+
+	return StaticGetTimeToLocation(TargetLoc, GetActorLocation());
 }
 
 float AUTProjectile::GetMaxDamageRadius_Implementation() const

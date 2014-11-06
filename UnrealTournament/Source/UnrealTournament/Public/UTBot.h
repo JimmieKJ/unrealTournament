@@ -554,7 +554,7 @@ public:
 	/** attempt to path to Goal as a single target and if successful set MoveTarget and start WaitForMove action
 	 * (basically a shortcut for the simple case of "I want to go here"; if this function succeeds the decision logic can end as the bot has a valid action)
 	 */
-	virtual bool TryPathToward(AActor* Goal, const FString& SuccessGoalString = FString());
+	virtual bool TryPathToward(AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString = FString());
 
 	/** tries to perform an evasive action in the indicated direction, most commonly a dodge but if dodge is not available or low skill, possibly strafe that way instead
 	 * this function may interrupt the bot's current action

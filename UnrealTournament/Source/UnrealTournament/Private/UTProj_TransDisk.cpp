@@ -288,6 +288,7 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 					UTC->StartFire(1);
 					UTC->StopFire(1);
 					B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
+					B->TranslocTarget = FVector::ZeroVector;
 					B->MoveTimer = -1.0f;
 					B->LastTranslocTime = GetWorld()->TimeSeconds;
 					break;

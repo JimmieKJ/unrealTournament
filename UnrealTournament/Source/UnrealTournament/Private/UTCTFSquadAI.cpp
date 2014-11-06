@@ -111,13 +111,15 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	{
 		// return to base
 		// TODO: much more to do here
-		return B->TryPathToward(FriendlyBase, "Return to base with enemy flag");
+		bool bAllowDetours = (FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home) || (B->GetPawn()->GetActorLocation() - EnemyBase->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size();
+		return B->TryPathToward(FriendlyBase, bAllowDetours, "Return to base with enemy flag");
 	}
 }
 
 bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 {
 	FName CurrentOrders = GetCurrentOrders(B);
+	// TODO: will need to redirect to vehicle for VCTF
 	if (B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL)
 	{
 		return SetFlagCarrierAction(B);
@@ -126,6 +128,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 	{
 		if (GameObjective != NULL && GameObjective->GetCarriedObject() != NULL && GameObjective->GetCarriedObjectState() != CarriedObjectState::Home)
 		{
+			bool bEnemyFlagOut = (EnemyBase == NULL || EnemyBase->GetCarriedObjectState() == CarriedObjectState::Home);
 			AUTCharacter* EnemyCarrier = GameObjective->GetCarriedObject()->HoldingPawn;
 			if (EnemyCarrier != NULL)
 			{
@@ -138,13 +141,13 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				else
 				{
 					// TODO: FindPathToIntercept()? Maybe adjust hunting logic to not require hunting target == enemy and use that?
-					return B->TryPathToward(EnemyCarrier, "Hunt flag carrier");
+					return B->TryPathToward(EnemyCarrier, bEnemyFlagOut, "Hunt flag carrier");
 				}
 			}
 			else
 			{
 				// TODO: model of where flag might be, search around for it
-				return B->TryPathToward(GameObjective->GetCarriedObject(), "Find dropped flag");
+				return B->TryPathToward(GameObjective->GetCarriedObject(), bEnemyFlagOut, "Find dropped flag");
 			}
 		}
 		else if (B->GetEnemy() != NULL)
@@ -162,7 +165,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		else if (Objective != NULL)
 		{
 			// TODO: find defense point
-			return B->TryPathToward(Objective, "Defend objective");
+			return B->TryPathToward(Objective, true, "Defend objective");
 		}
 		else
 		{
@@ -188,18 +191,18 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				}
 				else
 				{
-					return B->TryPathToward(GameObjective->GetCarriedObject()->HoldingPawn, "Find friendly flag carrier");
+					return B->TryPathToward(GameObjective->GetCarriedObject()->HoldingPawn, true, "Find friendly flag carrier");
 				}
 			}
 			else
 			{
-				return B->TryPathToward(GameObjective->GetCarriedObject(), "Go pickup flag");
+				return B->TryPathToward(GameObjective->GetCarriedObject(), false, "Go pickup flag");
 			}
 		}
 		else
 		{
 			// TODO: alternate path logic
-			return B->TryPathToward(Objective, "Attack objective");
+			return B->TryPathToward(Objective, true, "Attack objective");
 		}
 	}
 	else if (Cast<APlayerController>(Leader) != NULL && Leader->GetPawn() != NULL)
@@ -211,7 +214,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else
 		{
-			return B->TryPathToward(Leader->GetPawn(), "Find leader");
+			return B->TryPathToward(Leader->GetPawn(), true, "Find leader");
 		}
 	}
 	else
@@ -229,4 +232,18 @@ void AUTCTFSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* Insti
 	}
 
 	Super::NotifyObjectiveEvent(InObjective, InstigatedBy, EventName);
+}
+
+bool AUTCTFSquadAI::HasHighPriorityObjective(AUTBot* B)
+{
+	// if our flag is out and enemy's is safe, everyone needs to try to rectify that in some way or another
+	if (FriendlyBase != NULL && EnemyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home && EnemyBase->GetCarriedObjectState() == CarriedObjectState::Home)
+	{
+		return true;
+	}
+	else
+	{
+		// otherwise only high priority if the flag this squad cares about is out
+		return (GameObjective != NULL && GameObjective->GetCarriedObjectState() != CarriedObjectState::Home && GameObjective->GetCarriedObjectHolder() != B->PlayerState);
+	}
 }
