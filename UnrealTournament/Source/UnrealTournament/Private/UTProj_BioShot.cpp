@@ -182,8 +182,8 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 	UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 	if (!LinkedBio->bAddingWebLink)
 	{
-		float Dist = (GetActorLocation() - LinkedBio->GetActorLocation()).Size();
-		FVector Sag = FVector(0.f); // (Dist > 200.f) ? FVector(0.f, 0.f, 0.25*Dist) : FVector(0.f);
+		float Dist2D = (GetActorLocation() - LinkedBio->GetActorLocation()).Size2D();
+		FVector Sag = (Dist2D > 200.f) ? FVector(0.f, 0.f, 0.25*Dist2D) : FVector(0.f);
 		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), EAttachLocation::KeepWorldPosition, false);
 		if (NewWebLinkEffect)
 		{
