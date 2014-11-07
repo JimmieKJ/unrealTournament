@@ -1817,6 +1817,7 @@ void AUTPlayerController::EndInactiveState()
 
 void AUTPlayerController::SpectateKiller()
 {
+	/* FIXME: temporarily removed due to issues, needs to be reworked
 	if (UTPlayerState->LastKillerPlayerState != nullptr)
 	{
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
@@ -1827,5 +1828,5 @@ void AUTPlayerController::SpectateKiller()
 				ServerViewPawn(UTChar);
 			}
 		}
-	}
+	}*/
 }

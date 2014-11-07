@@ -43,6 +43,7 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
 
 	bool bViewingKiller = false;
+	/* FIXME: temporarily removed due to issues, needs to be reworked
 	if (PCOwner != nullptr)
 	{
 		AUTPlayerState* UTPSOwner = Cast<AUTPlayerState>(PCOwner->PlayerState);
@@ -53,7 +54,7 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 				bViewingKiller = true;
 			}
 		}
-	}
+	}*/
 
 	// force third person if target is dead, ragdoll or emoting
 	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0 || bViewingKiller))
