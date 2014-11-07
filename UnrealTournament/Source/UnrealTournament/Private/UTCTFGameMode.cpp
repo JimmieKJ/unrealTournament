@@ -719,15 +719,14 @@ uint8 AUTCTFGameMode::TeamWithAdvantage()
 	Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
 	Flags[1] = CTFGameState->FlagBases[1]->MyFlag;
 
-	if ((Flags[0]->ObjectState == CarriedObjectState::Held && Flags[1]->ObjectState == CarriedObjectState::Held) ||
-		(Flags[0]->ObjectState == CarriedObjectState::Home && Flags[1]->ObjectState == CarriedObjectState::Home))
+	if ( (Flags[0]->ObjectState == Flags[1]->ObjectState) ||
+		 (Flags[0]->ObjectState != CarriedObjectState::Held && Flags[1]->ObjectState != CarriedObjectState::Held))
 	{
-		// Both flags are either at home or held the no one has advantage.
+		// Both flags share the same state so noone has advantage
 		return 255;
 	}
 
 	int8 AdvantageNum = Flags[0]->ObjectState == CarriedObjectState::Held ? 1 : 0;
-	if (AdvantageNum < 0 || AdvantageNum > 1 || Flags[AdvantageNum] == NULL || Flags[AdvantageNum]->ObjectState == CarriedObjectState::Dropped) return 255;
 
 	return AdvantageNum;
 }
