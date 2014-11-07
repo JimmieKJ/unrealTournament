@@ -27,6 +27,7 @@ public class UnrealTournamentEditorTarget : TargetRules
         {
             OutExtraModuleNames.Add("OnlineSubsystemMcp");
         }
+        OutExtraModuleNames.Add("OnlineSubsystemNull");
 	}
     public override GUBPProjectOptions GUBP_IncludeProjectInPromotedBuild_EditorTypeOnly(UnrealTargetPlatform HostPlatform)
     {

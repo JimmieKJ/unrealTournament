@@ -28,7 +28,8 @@ public class UnrealTournamentTarget : TargetRules
 		if (UEBuildConfiguration.bCompileMcpOSS == true)
 		{
 			OutExtraModuleNames.Add("OnlineSubsystemMcp");
-		}
+        }
+        OutExtraModuleNames.Add("OnlineSubsystemNull");
 	}
     
     public override void SetupGlobalEnvironment(
