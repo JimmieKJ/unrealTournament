@@ -79,7 +79,7 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 }
 bool FBotEnemyInfo::IsValid(AActor* TeamHolder) const
 {
-	if (Pawn == NULL || Pawn->bPendingKillPending || (UTChar != NULL && UTChar->IsDead()))
+	if (Pawn == NULL || Pawn->bTearOff || Pawn->bPendingKillPending || (UTChar != NULL && UTChar->IsDead()))
 	{
 		return false;
 	}
@@ -2830,7 +2830,7 @@ float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
 
 void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 {
-	if (NewEnemy != NULL && Squad != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL))
+	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->bPendingKillPending && Squad != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(NewEnemy, this))

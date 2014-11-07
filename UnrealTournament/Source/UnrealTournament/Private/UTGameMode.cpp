@@ -511,14 +511,13 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		}
 
 		DiscardInventory(KilledPawn, Killer);
-		NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
 
 		if (UTGameState->IsMatchInOvertime() && UTGameState->bOnlyTheStrongSurvive)
 		{
 			KilledPlayer->ChangeState(NAME_Spectating);
 		}
-
 	}
+	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
 }
 
 void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)

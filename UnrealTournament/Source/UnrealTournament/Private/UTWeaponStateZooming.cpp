@@ -38,7 +38,7 @@ void UUTWeaponStateZooming::PendingFireStarted()
 				Camera->UnlockFOV();
 			}
 
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 		}
 	}
 	else
@@ -51,7 +51,7 @@ void UUTWeaponStateZooming::PendingFireStarted()
 		if (GetUTOwner()->IsLocallyControlled())
 		{
 			GetOuterAUTWeapon()->SetActorHiddenInGame(true);
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomInSound, GetUTOwner(), SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomInSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 			ToggleZoomInSound(true);
 		}
 	}
@@ -87,7 +87,7 @@ void UUTWeaponStateZooming::WeaponBecameInactive()
 			Camera->UnlockFOV();
 		}
 
-		UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 	}
 }
 
