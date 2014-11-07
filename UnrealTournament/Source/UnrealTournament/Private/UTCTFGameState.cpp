@@ -22,6 +22,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, FlagBases);
 	DOREPLIFETIME(AUTCTFGameState, bPlayingAdvantage);
 	DOREPLIFETIME(AUTCTFGameState, AdvantageTeamIndex);
+	DOREPLIFETIME(AUTCTFGameState, ScoringPlays);
 }
 
 void AUTCTFGameState::SetMaxNumberOfTeams(int TeamCount)
@@ -185,4 +186,20 @@ FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName Cur
 
 void AUTCTFGameState::OnHalftimeChanged()
 {
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+		if (PC != NULL)
+		{
+			PC->ClientToggleScoreboard(bHalftime);
+		}
+	}
+}
+
+void AUTCTFGameState::AddScoringPlay(const FCTFScoringPlay& NewScoringPlay)
+{
+	if (Role == ROLE_Authority)
+	{
+		ScoringPlays.AddUnique(NewScoringPlay);
+	}
 }

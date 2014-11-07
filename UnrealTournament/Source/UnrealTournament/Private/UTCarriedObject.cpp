@@ -352,6 +352,8 @@ void AUTCarriedObject::SendHome()
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();
+	AssistTracking.Empty();
+	PreviousHolders.Empty();
 	TotalHeldTime = 0.0f;
 }
 

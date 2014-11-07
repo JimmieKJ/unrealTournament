@@ -170,7 +170,7 @@ protected:
 
 public:
 
-	FText ConvertTime(FText Prefix, FText Suffix, int Seconds) const;
+	FText ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
 
 	void DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
 	void DrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);

@@ -350,12 +350,14 @@ void AUTHUD::DrawHUD()
 	}
 }
 
-FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds) const
+FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours, bool bForceMinutes, bool bForceTwoDigits) const
 {
 	int Hours = Seconds / 3600;
 	Seconds -= Hours * 3600;
 	int Mins = Seconds / 60;
 	Seconds -= Mins * 60;
+	bool bDisplayHours = bForceHours || Hours > 0;
+	bool bDisplayMinutes = bDisplayHours || bForceMinutes || Mins > 0;
 
 	FFormatNamedArguments Args;
 	FNumberFormattingOptions Options;
@@ -363,13 +365,24 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds) const
 	Options.MinimumIntegralDigits = 2;
 	Options.MaximumIntegralDigits = 2;
 
-	Args.Add(TEXT("Hours"), FText::AsNumber(Hours, &Options));
-	Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
-	Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
+	Args.Add(TEXT("Hours"), FText::AsNumber(Hours, bForceTwoDigits ? &Options : NULL));
+	Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, (bDisplayHours || bForceTwoDigits) ? &Options : NULL));
+	Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, (bDisplayMinutes || bForceTwoDigits) ? &Options : NULL));
 	Args.Add(TEXT("Prefix"), Prefix);
 	Args.Add(TEXT("Suffix"), Suffix);
 
-	return FText::Format( NSLOCTEXT("UTHUD","TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}"),Args);
+	if (bDisplayHours)
+	{
+		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}"), Args);
+	}
+	else if (bDisplayMinutes)
+	{
+		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Minutes}:{Seconds}{Suffix}"), Args);
+	}
+	else
+	{
+		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Seconds}{Suffix}"), Args);
+	}
 }
 
 

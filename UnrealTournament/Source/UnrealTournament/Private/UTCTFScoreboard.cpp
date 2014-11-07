@@ -2,16 +2,135 @@
 #include "UnrealTournament.h"
 #include "UTCTFScoreboard.h"
 #include "UTTeamScoreboard.h"
+#include "UTCTFGameState.h"
 
 UUTCTFScoreboard::UUTCTFScoreboard(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
 {
+	ScoringPlaysHeader = NSLOCTEXT("CTF", "ScoringPlaysHeader", "SCORING SUMMARY");
+	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assists:");
+	UnassistedText = NSLOCTEXT("CTF", "Unassisted", "Unassisted");
 }
 
 void UUTCTFScoreboard::DrawScoreboard(float RenderDelta)
 {
-	CellHeight = 48;
-	Super::DrawScoreboard(RenderDelta);
+	// temp hack: draw scoring plays instead of scoreboard for end of halftime
+	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+	if (CTFState != NULL && CTFState->IsMatchAtHalftime() && CTFState->RemainingTime > 0 && CTFState->RemainingTime <= CTFState->TimeLimit / 2)
+	{
+		ResScale = Canvas->ClipY / 720.0;
+		DrawScoringPlays();
+	}
+	else
+	{
+		CellHeight = 48;
+		Super::DrawScoreboard(RenderDelta);
+	}
+}
+
+void UUTCTFScoreboard::DrawScoringPlays()
+{
+	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+	uint8 CurrentPeriod = 0;
+	if (CTFState->HasMatchEnded())
+	{
+		// show scores for last played period
+		for (const FCTFScoringPlay& Play : CTFState->GetScoringPlays())
+		{
+			CurrentPeriod = FMath::Max<uint8>(CurrentPeriod, Play.Period);
+		}
+	}
+	// TODO: currently there's no intermission between second half and OT
+	else if (CTFState->IsMatchAtHalftime())
+	{
+		CurrentPeriod = 0;
+	}
+	float YPos = Canvas->ClipY * 0.1f;
+	const float XOffset = Canvas->ClipX * ((Canvas->ClipX / Canvas->ClipY > 1.5f) ? 0.2f : 0.1f);
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	TextRenderInfo.bClipText = true;
+	{
+		float XL, YL;
+		Canvas->TextSize(UTHUDOwner->LargeFont, ScoringPlaysHeader.ToString(), XL, YL, ResScale, ResScale);
+		Canvas->DrawText(UTHUDOwner->LargeFont, ScoringPlaysHeader, (Canvas->ClipX - XL) * 0.5, YPos, ResScale, ResScale, TextRenderInfo);
+		YPos += YL * 1.2f;
+	}
+	TArray<int32> ScoresSoFar;
+	ScoresSoFar.SetNumZeroed(CTFState->Teams.Num());
+	TMap<FSafePlayerName, int32> CapCount;
+	for (const FCTFScoringPlay& Play : CTFState->GetScoringPlays())
+	{
+		if (Play.Team != NULL) // should always be true...
+		{
+			ScoresSoFar.SetNumZeroed(FMath::Max<int32>(ScoresSoFar.Num(), int32(Play.Team->TeamIndex) + 1));
+			ScoresSoFar[Play.Team->TeamIndex]++;
+			int32* PlayerCaps = CapCount.Find(Play.ScoredBy);
+			if (PlayerCaps != NULL)
+			{
+				(*PlayerCaps)++;
+			}
+			else
+			{
+				CapCount.Add(Play.ScoredBy, 1);
+			}
+			if (Play.Period >= CurrentPeriod)
+			{
+				// draw this cap
+				Canvas->SetLinearDrawColor(Play.Team->TeamColor);
+				float XL, YL;
+				// scored by
+				FString ScoredByLine = Play.ScoredBy.GetPlayerName();
+				if (PlayerCaps != NULL)
+				{
+					ScoredByLine += FString::Printf(TEXT(" (%i)"), *PlayerCaps);
+				}
+				float PrevYPos = YPos;
+				Canvas->TextSize(UTHUDOwner->MediumFont, ScoredByLine, XL, YL, ResScale, ResScale);
+				Canvas->DrawText(UTHUDOwner->MediumFont, FText::FromString(ScoredByLine), XOffset, YPos, ResScale, ResScale, TextRenderInfo);
+				YPos += YL;
+				// assists
+				FString AssistLine;
+				if (Play.Assists.Num() > 0)
+				{
+					AssistLine = AssistedByText.ToString() + TEXT(" ");
+					for (const FSafePlayerName& Assist : Play.Assists)
+					{
+						AssistLine += Assist.GetPlayerName() + TEXT(", ");
+					}
+					AssistLine = AssistLine.LeftChop(2);
+				}
+				else
+				{
+					AssistLine = UnassistedText.ToString();
+				}
+				Canvas->TextSize(UTHUDOwner->MediumFont, AssistLine, XL, YL, ResScale * 0.6f, ResScale * 0.6f);
+				Canvas->DrawText(UTHUDOwner->MediumFont, FText::FromString(AssistLine), XOffset, YPos, ResScale * 0.6f, ResScale * 0.6f, TextRenderInfo);
+				YPos += YL;
+				// time of game
+				FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.ElapsedTime, false, true, false).ToString();
+				Canvas->TextSize(UTHUDOwner->MediumFont, TimeStampLine, XL, YL, ResScale * 0.6f, ResScale * 0.6f);
+				Canvas->DrawText(UTHUDOwner->MediumFont, FText::FromString(TimeStampLine), XOffset, YPos, ResScale * 0.6f, ResScale * 0.6f, TextRenderInfo);
+				YPos += YL;
+				// team score after this cap
+				Canvas->SetLinearDrawColor(FLinearColor::White);
+				FString CurrentScoreLine;
+				for (int32 Score : ScoresSoFar)
+				{
+					CurrentScoreLine += FString::Printf(TEXT("%i    "), Score);
+				}
+				Canvas->TextSize(UTHUDOwner->MediumFont, CurrentScoreLine, XL, YL, ResScale, ResScale);
+				Canvas->DrawText(UTHUDOwner->MediumFont, FText::FromString(CurrentScoreLine), Canvas->ClipX - XOffset - XL, PrevYPos + (YPos - PrevYPos - YL) * 0.5, ResScale, ResScale, TextRenderInfo);
+
+				YPos += YL * 0.25f;
+				if (YPos >= Canvas->ClipY)
+				{
+					// TODO: pagination
+					break;
+				}
+			}
+		}
+	}
 }
 
 void UUTCTFScoreboard::DrawPlayers(float RenderDelta, float X, float Y, float ClipX, float ClipY, int32 TeamFilter)

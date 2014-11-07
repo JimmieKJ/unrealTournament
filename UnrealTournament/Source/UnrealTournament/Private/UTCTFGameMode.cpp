@@ -25,7 +25,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
 {
 	// By default, we do 2 team CTF
 	MaxNumberOfTeams = 2;
-	HalftimeDuration = 15;	// 15 second half-time by default...
+	HalftimeDuration = 20;	// 20 second half-time by default...
 	HUDClass = AUTHUD_CTF::StaticClass();
 	GameStateClass = AUTCTFGameState::StaticClass();
 	bAllowOvertime = true;
@@ -128,6 +128,27 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 
 		else if (Reason == FName("FlagCapture"))
 		{
+			FCTFScoringPlay NewScoringPlay;
+			NewScoringPlay.Team = Holder->Team;
+			NewScoringPlay.ScoredBy = FSafePlayerName(Holder);
+			// TODO: need to handle no timelimit
+			if (CTFGameState->bPlayingAdvantage)
+			{
+				NewScoringPlay.ElapsedTime = TimeLimit + 60 - CTFGameState->RemainingTime;
+			}
+			else
+			{
+				NewScoringPlay.ElapsedTime = TimeLimit - CTFGameState->RemainingTime;
+			}
+			if (CTFGameState->IsMatchInOvertime())
+			{
+				NewScoringPlay.Period = 2;
+			}
+			else if (CTFGameState->bSecondHalf)
+			{
+				NewScoringPlay.Period = 1;
+			}
+
 			// Give the team a capture.
 			Holder->Team->Score++;
 			Holder->FlagCaptures++;
@@ -135,13 +156,6 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				(*Iterator)->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
-			}
-
-			// We have to count up since it's possible a player left the game...
-			int AssistCount = 0;
-			for (int i=0;i<GameObject->PreviousHolders.Num();i++)
-			{
-				if (GameObject->PreviousHolders[i] != NULL) AssistCount++;
 			}
 
 			// NOTE: It's possible that the first player to pickup this flag might have left so first might be NULL.  Not
@@ -164,6 +178,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					if (Who != Holder)
 					{
 						Who->Assists++;
+						NewScoringPlay.Assists.AddUnique(FSafePlayerName(Who));
 					}
 				}
 			}
@@ -182,6 +197,8 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					}
 				}
 			}
+
+			CTFGameState->AddScoringPlay(NewScoringPlay);
 
 			if (CTFGameState->IsMatchInOvertime())
 			{
@@ -395,6 +412,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 	}
 
 	CTFGameState->bHalftime = true;
+	CTFGameState->OnHalftimeChanged();
 	CTFGameState->bPlayingAdvantage = false;
 	CTFGameState->AdvantageTeamIndex = 255;
 	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
@@ -453,6 +471,7 @@ void AUTCTFGameMode::HandleExitingHalftime()
 
 	CTFGameState->ResetFlags();
 	CTFGameState->bHalftime = false;
+	CTFGameState->OnHalftimeChanged();
 	
 	if (CTFGameState->bSecondHalf)
 	{
