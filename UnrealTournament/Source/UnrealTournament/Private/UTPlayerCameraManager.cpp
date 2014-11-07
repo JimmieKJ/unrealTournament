@@ -40,9 +40,23 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
 
-	// force third person if target is dead, ragdoll or emoting
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
-	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0))
+
+	bool bViewingKiller = false;
+	if (PCOwner != nullptr)
+	{
+		AUTPlayerState* UTPSOwner = Cast<AUTPlayerState>(PCOwner->PlayerState);
+		if (UTPSOwner != nullptr && UTCharacter != nullptr && UTPSOwner->LastKillerPlayerState != nullptr)
+		{
+			if (UTCharacter->PlayerState == UTPSOwner->LastKillerPlayerState)
+			{
+				bViewingKiller = true;
+			}
+		}
+	}
+
+	// force third person if target is dead, ragdoll or emoting
+	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0 || bViewingKiller))
 	{
 		return NAME_FreeCam;
 	}
