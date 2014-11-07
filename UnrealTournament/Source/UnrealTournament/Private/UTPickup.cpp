@@ -122,9 +122,16 @@ void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherCom
 	}
 }
 
+bool AUTPickup::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
+{
+	bool bAllowPickup = bDefaultAllowPickup;
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, NULL, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
+}
+
 void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Role == ROLE_Authority && State.bActive && TouchedBy->Controller != NULL)
+	if (Role == ROLE_Authority && State.bActive && TouchedBy->Controller != NULL && AllowPickupBy(TouchedBy, true))
 	{
 		GiveTo(TouchedBy);
 		AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();

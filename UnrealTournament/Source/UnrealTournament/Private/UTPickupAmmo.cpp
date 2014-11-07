@@ -12,12 +12,9 @@ AUTPickupAmmo::AUTPickupAmmo(const FPostConstructInitializeProperties& PCIP)
 	BaseDesireability = 0.2f;
 }
 
-void AUTPickupAmmo::ProcessTouch_Implementation(APawn* TouchedBy)
+bool AUTPickupAmmo::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
-	if (Role == ROLE_Authority && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->HasMaxAmmo(Ammo.Type) && !((AUTCharacter*)TouchedBy)->IsRagdoll())
-	{
-		Super::ProcessTouch_Implementation(TouchedBy);
-	}
+	return Super::AllowPickupBy_Implementation(Other, bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->HasMaxAmmo(Ammo.Type) && !((AUTCharacter*)Other)->IsRagdoll());
 }
 
 void AUTPickupAmmo::GiveTo_Implementation(APawn* Target)

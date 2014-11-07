@@ -100,9 +100,16 @@ void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 	}
 }
 
+bool AUTDroppedPickup::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
+{
+	bool bAllowPickup = bDefaultAllowPickup;
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, InventoryType, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
+}
+
 void AUTDroppedPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (Role == ROLE_Authority && TouchedBy->Controller != NULL && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
+	if (Role == ROLE_Authority && TouchedBy->Controller != NULL && AllowPickupBy(TouchedBy, Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll()))
 	{
 		PlayTakenEffects(TouchedBy); // first allows PlayTakenEffects() to work off Inventory instead of InventoryType if it wants
 		GiveTo(TouchedBy);

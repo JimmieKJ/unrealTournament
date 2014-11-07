@@ -52,7 +52,7 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void InventoryTypeUpdated();
 
-	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
+	virtual bool AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
 	virtual void SetPickupHidden(bool bNowHidden) override;
 

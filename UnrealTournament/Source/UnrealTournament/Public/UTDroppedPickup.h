@@ -55,6 +55,8 @@ public:
 	virtual void PhysicsStopped(const FHitResult& ImpactResult);
 
 	UFUNCTION(BlueprintNativeEvent)
+	bool AllowPickupBy(APawn* Other, bool bDefaultAllowPickup);
+	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)

@@ -39,14 +39,16 @@ bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
 
 void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 {
-	if (State.bActive && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
+	if (State.bActive)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay || (GS != NULL && !GS->bWeaponStay))
 		{
 			Super::ProcessTouch_Implementation(TouchedBy);
 		}
-		else if (!IsTaken(TouchedBy))
+		// note that we don't currently call AllowPickupBy() and associated GameMode/Mutator overrides in the weapon stay case
+		// in part due to client synchronization issues
+		else if (!IsTaken(TouchedBy) && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
 		{
 			new(Customers) FWeaponPickupCustomer(TouchedBy, GetWorld()->TimeSeconds + RespawnTime);
 			if (Role == ROLE_Authority)

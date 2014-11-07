@@ -571,6 +571,16 @@ void AUTGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf
 			bFirstBloodOccurred = true;
 		}
 	}
+
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ScoreKill(Killer, Other, DamageType);
+	}
+}
+
+bool AUTGameMode::OverridePickupQuery_Implementation(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup)
+{
+	return (BaseMutator != NULL && BaseMutator->OverridePickupQuery(Other, ItemClass, Pickup, bAllowPickup));
 }
 
 void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
@@ -1619,6 +1629,10 @@ TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 void AUTGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	UE_LOG(UT,Log,TEXT("ScoreObject %s by %s (%s) %s"), *GetNameSafe(GameObject), *GetNameSafe(HolderPawn), *GetNameSafe(Holder), *Reason.ToString());
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+	}
 }
 
 void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList)

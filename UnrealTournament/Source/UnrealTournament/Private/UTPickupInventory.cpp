@@ -271,13 +271,13 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 	}
 }
 
-void AUTPickupInventory::ProcessTouch_Implementation(APawn* TouchedBy)
+bool AUTPickupInventory::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
-	if (Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
-	{
-		Super::ProcessTouch_Implementation(TouchedBy);
-	}
 	// TODO: vehicle consideration
+	bDefaultAllowPickup = bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->IsRagdoll();
+	bool bAllowPickup = bDefaultAllowPickup;
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, InventoryType, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
 }
 
 void AUTPickupInventory::GiveTo_Implementation(APawn* Target)

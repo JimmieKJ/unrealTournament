@@ -60,3 +60,24 @@ void AUTMutator::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, A
 		NextMutator->ModifyDamage(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	}
 }
+
+void AUTMutator::ScoreKill_Implementation(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->ScoreKill(Killer, Other, DamageType);
+	}
+}
+
+void AUTMutator::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+	}
+}
+
+bool AUTMutator::OverridePickupQuery_Implementation(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup)
+{
+	return (NextMutator != NULL && NextMutator->OverridePickupQuery(Other, ItemClass, Pickup, bAllowPickup));
+}

@@ -325,6 +325,18 @@ public:
 	// Returns true if the game wants to restrict all player spawns
 	virtual bool RestrictPlayerSpawns();
 
+	/** OverridePickupQuery()
+	* when pawn wants to pickup something, mutators are given a chance to modify it. If this function
+	* returns true, bAllowPickup will determine if the object can be picked up.
+	* Note that overriding bAllowPickup to false from this function without disabling the item in some way will have detrimental effects on bots,
+	* since the pickup's AI interface will assume the default behavior and keep telling the bot to pick the item up.
+	* @param Other the Pawn that wants the item
+	* @param Pickup the Actor containing the item (this may be a UTPickup or it may be a UTDroppedPickup)
+	* @param bAllowPickup (out) whether or not the Pickup actor should give its item to Other
+	* @return whether or not to override the default behavior with the value of bAllowPickup
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	bool OverridePickupQuery(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup);
 protected:
 
 

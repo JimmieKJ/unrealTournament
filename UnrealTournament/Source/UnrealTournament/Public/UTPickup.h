@@ -95,6 +95,12 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult);
 
+	/** return whether Other can pick up this item (checks for stacking limits, etc)
+	 * the default implementation checks for GameMode/Mutator overrides and returns bDefaultAllowPickup if no overrides are found
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	bool AllowPickupBy(APawn* Other, bool bDefaultAllowPickup);
+
 	UFUNCTION(BlueprintNativeEvent)
 	void ProcessTouch(APawn* TouchedBy);
 

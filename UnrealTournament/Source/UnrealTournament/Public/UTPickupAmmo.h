@@ -12,7 +12,7 @@ class AUTPickupAmmo : public AUTPickup
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	FStoredAmmo Ammo;
 
-	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
+	virtual bool AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
 
 	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override;

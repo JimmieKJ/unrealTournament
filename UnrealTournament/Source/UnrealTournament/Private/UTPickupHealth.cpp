@@ -24,16 +24,10 @@ int32 AUTPickupHealth::GetHealMax_Implementation(AUTCharacter* P)
 	}
 }
 
-void AUTPickupHealth::ProcessTouch_Implementation(APawn* TouchedBy)
+bool AUTPickupHealth::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
-	if (Role == ROLE_Authority)
-	{
-		AUTCharacter* P = Cast<AUTCharacter>(TouchedBy);
-		if (P != NULL && !P->IsRagdoll() && (bSuperHeal || P->Health < GetHealMax(P)))
-		{
-			Super::ProcessTouch_Implementation(TouchedBy);
-		}
-	}
+	AUTCharacter* P = Cast<AUTCharacter>(Other);
+	return Super::AllowPickupBy_Implementation(Other, bDefaultAllowPickup && P != NULL && !P->IsRagdoll() && (bSuperHeal || P->Health < GetHealMax(P)));
 }
 
 void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
