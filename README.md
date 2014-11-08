@@ -49,7 +49,7 @@ Setting up the project
 
 **Windows:**
  
- 1. Be sure to have [Visual Studio 2013](http://www.microsoft.com/en-us/download/details.aspx?id=40787) installed.  You can use any desktop version of Visual Studio 2013, including the free version:  [Visual Studio 2013 Express for Windows Desktop](http://www.microsoft.com/en-us/download/details.aspx?id=40787).
+ 1. Be sure to have [Visual Studio 2013](http://www.microsoft.com/en-us/download/details.aspx?id=43733) installed.  You can use any desktop version of Visual Studio 2013, including the free version:  [Visual Studio 2013 Express for Windows Desktop](http://www.microsoft.com/en-us/download/details.aspx?id=43733).
  2. right click on **UnrealTournament.uproject** to generate C++ project files.
  3. You can now open up **UnrealTournament.uproject** in the editor!
  
