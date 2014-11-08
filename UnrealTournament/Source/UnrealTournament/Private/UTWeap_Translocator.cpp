@@ -27,7 +27,7 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 	MaxAmmo = 8;
 	AmmoRechargeRate = 1.0f;
 
-	RecallFireInterval = 0.16f;
+	RecallFireInterval = 0.1f;
 
 	BaseAISelectRating = -1.0f; // AI shouldn't select this unless wanted by pathing
 }
