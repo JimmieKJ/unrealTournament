@@ -77,6 +77,14 @@ void AUTMutator::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCha
 	}
 }
 
+void AUTMutator::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->ScoreDamage(DamageAmount, Victim, Attacker);
+	}
+}
+
 bool AUTMutator::OverridePickupQuery_Implementation(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup)
 {
 	return (NextMutator != NULL && NextMutator->OverridePickupQuery(Other, ItemClass, Pickup, bAllowPickup));

@@ -1289,8 +1289,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing=UpdateWeaponAttachment, Category = "Pawn")
 	TSubclassOf<AUTWeapon> WeaponClass;
 
+public:
 	UPROPERTY(EditAnywhere, Category = "Pawn")
 	TArray< TSubclassOf<AUTInventory> > DefaultCharacterInventory;
+protected:
 
 	//================================
 	// Ambient sounds

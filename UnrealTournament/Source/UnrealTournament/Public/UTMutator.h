@@ -101,6 +101,9 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	bool OverridePickupQuery(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup);
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
+
 	/** allows preserving Actors during travel
 	 * this function does not need to invoke NextMutator; the GameMode guarantees everyone gets a shot
 	 */

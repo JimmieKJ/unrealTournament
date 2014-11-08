@@ -208,6 +208,10 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 
 		UE_LOG(UT,Verbose,TEXT("========================================="));
 	}
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+	}
 }
 
 bool AUTCTFGameMode::CheckScore(AUTPlayerState* Scorer)
@@ -552,7 +556,7 @@ void AUTCTFGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, 
 }
 
 
-void AUTCTFGameMode::ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker)
+void AUTCTFGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
 	Super::ScoreDamage(DamageAmount, Victim, Attacker);
 	
@@ -640,6 +644,10 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclas
 				}
 			}
 		}
+	}
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
 }
 

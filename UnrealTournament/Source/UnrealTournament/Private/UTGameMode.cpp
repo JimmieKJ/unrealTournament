@@ -539,8 +539,12 @@ void AUTGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUT
 {
 }
 
-void AUTGameMode::ScoreDamage(int DamageAmount, AController* Victim, AController* Attacker)
+void AUTGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ScoreDamage(DamageAmount, Victim, Attacker);
+	}
 }
 
 void AUTGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
@@ -1628,7 +1632,6 @@ TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 
 void AUTGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
-	UE_LOG(UT,Log,TEXT("ScoreObject %s by %s (%s) %s"), *GetNameSafe(GameObject), *GetNameSafe(HolderPawn), *GetNameSafe(Holder), *Reason.ToString());
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
