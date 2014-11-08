@@ -126,6 +126,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	bHeadIsUnderwater = false;
 	LastBreathTime = 0.f;
 	LastDrownTime = 0.f;
+
+	LowHealthAmbientThreshold = 40;
 }
 
 void AUTCharacter::BaseChange()
@@ -1345,6 +1347,60 @@ void AUTCharacter::LocalAmbientSoundUpdated()
 		}
 	}
 }
+
+void AUTCharacter::SetStatusAmbientSound(USoundBase* NewAmbientSound, float SoundVolume, float PitchMultiplier, bool bClear)
+{
+	if (bClear)
+	{
+		if ((NewAmbientSound != NULL) && (NewAmbientSound == StatusAmbientSound))
+		{
+			StatusAmbientSound = NULL;
+			StatusAmbientSoundUpdated();
+		}
+	}
+	else
+	{
+		StatusAmbientSound = NewAmbientSound;
+		StatusAmbientSoundUpdated();
+		if (StatusAmbientSoundComp && StatusAmbientSound)
+		{
+			StatusAmbientSoundComp->SetVolumeMultiplier(SoundVolume);
+			//StatusAmbientSoundComp->SetPitchMultiplier(PitchMultiplier);
+		}
+	}
+}
+
+void AUTCharacter::StatusAmbientSoundUpdated()
+{
+	if (StatusAmbientSound == NULL)
+	{
+		if (StatusAmbientSoundComp != NULL)
+		{
+			StatusAmbientSoundComp->Stop();
+		}
+	}
+	else
+	{
+		if (StatusAmbientSoundComp == NULL)
+		{
+			StatusAmbientSoundComp = NewObject<UAudioComponent>(this);
+			StatusAmbientSoundComp->bAutoDestroy = false;
+			StatusAmbientSoundComp->bAutoActivate = false;
+			//	StatusAmbientSoundComp->bAllowSpatialization = false;
+			StatusAmbientSoundComp->AttachTo(RootComponent);
+			StatusAmbientSoundComp->RegisterComponent();
+		}
+		if (StatusAmbientSoundComp->Sound != StatusAmbientSound)
+		{
+			StatusAmbientSoundComp->SetSound(StatusAmbientSound);
+		}
+		if (!StatusAmbientSoundComp->IsPlaying())
+		{
+			StatusAmbientSoundComp->Play();
+		}
+	}
+}
+
 void AUTCharacter::StartFire(uint8 FireModeNum)
 {
 	UE_LOG(LogUTCharacter, Verbose, TEXT("StartFire %d"), FireModeNum);
@@ -2002,6 +2058,19 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 	return false;
 }
 
+bool AUTCharacter::Roll(FVector RollDir)
+{
+	if (CanDodge())
+	{
+		if (UTCharacterMovement->IsMovingOnGround())
+		{
+			UTCharacterMovement->PerformRoll(RollDir);
+			return true;
+		}
+	}
+	return false;
+}
+
 bool AUTCharacter::CanJumpInternal_Implementation() const
 {
 	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanJump();
@@ -2639,6 +2708,15 @@ void AUTCharacter::Tick(float DeltaTime)
 	TargetEyeOffset.DiagnosticCheckNaN();
 	if (IsLocallyControlled() && CharacterMovement) // @TODO FIXME ALSO FOR SPECTATORS
 	{
+		if (Health <= LowHealthAmbientThreshold)
+		{
+			float UrgencyFactor = (LowHealthAmbientThreshold - Health) / LowHealthAmbientThreshold;
+			SetStatusAmbientSound(LowHealthAmbientSound, 0.5f + FMath::Clamp<float>(UrgencyFactor, 0.f, 1.f), 1.f, false);
+		}
+		else
+		{
+			SetStatusAmbientSound(LowHealthAmbientSound, 0.f, 1.f, true);
+		}
 		// @TODO FIXMESTEVE this should all be event driven
 		if (CharacterMovement->IsFalling() && (CharacterMovement->Velocity.Z < FallingAmbientStartSpeed))
 		{
@@ -2984,7 +3062,6 @@ void AUTCharacter::UseCarriedObject()
 	ServerUseCarriedObject();
 }
 
-
 void AUTCharacter::ServerUseCarriedObject_Implementation()
 {
 	AUTCarriedObject* Obj = GetCarriedObject();
@@ -3013,7 +3090,10 @@ void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
 	}
 	else
 	{
-		Died(NULL, FUTPointDamageEvent(1000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), DmgType.GetClass()));
+		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
+		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), DmgType.GetClass());
+		UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+		Died(NULL, FakeDamageEvent);
 	}
 }
 

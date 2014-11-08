@@ -772,6 +772,9 @@ public:
 	/** Dodge requested by controller, return whether dodge occurred. */
 	virtual bool Dodge(FVector DodgeDir, FVector DodgeCross);
 
+	/** Roll requested by controller, return whether roll occurred. */
+	virtual bool Roll(FVector RollDir);
+
 	/** Dodge just occured in dodge dir, play any sounds/effects desired.
 	 * called on server and owning client
 	 */
@@ -1314,7 +1317,23 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	UAudioComponent* LocalAmbientSoundComp;
 
+	/** Status ambient sound played only on owning client */
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+		USoundBase* StatusAmbientSound;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UAudioComponent* StatusAmbientSoundComp;
+
 public:
+
+	/** Ambient sound played while low in health*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* LowHealthAmbientSound;
+
+	/** Health threshold for low health ambient sound */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		int32 LowHealthAmbientThreshold;
+
 	/** sets replicated ambient (looping) sound on this Pawn
 	* only one ambient sound can be set at a time
 	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
@@ -1334,6 +1353,17 @@ public:
 
 	UFUNCTION()
 	void LocalAmbientSoundUpdated();
+
+
+	/** sets local (not replicated) statud ambient (looping) sound on this Pawn
+	* only one status ambient sound can be set at a time
+	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
+	*/
+	UFUNCTION(BlueprintCallable, Category = Audio)
+		virtual void SetStatusAmbientSound(USoundBase* NewAmbientSound, float SoundVolume = 0.f, float PitchMultipier = 1.f, bool bClear = false);
+
+	UFUNCTION()
+		void StatusAmbientSoundUpdated();
 
 	//================================
 protected:
