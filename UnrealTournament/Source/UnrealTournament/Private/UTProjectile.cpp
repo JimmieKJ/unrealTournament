@@ -162,6 +162,7 @@ void AUTProjectile::BeginPlay()
 			AUTProjectile* BestMatch = NULL;
 			FVector VelDir = GetVelocity().SafeNormal();
 			int32 BestMatchIndex = 0;
+			float BestDist = 0.f;
 			for (int32 i = 0; i < MyPlayer->FakeProjectiles.Num(); i++)
 			{
 				AUTProjectile* Fake = MyPlayer->FakeProjectiles[i];
@@ -172,23 +173,26 @@ void AUTProjectile::BeginPlay()
 				}
 				else if (Fake->GetClass() == GetClass())
 				{
-					if (BestMatch)
+					// must share direction unless falling! 
+					if ((ProjectileMovement->ProjectileGravityScale > 0.f) || ((Fake->GetVelocity().SafeNormal() | VelDir) > 0.95f))
 					{
-						// see if new one is better
-						// must share direction unless falling! 
-						if ((BestMatch->ProjectileMovement->ProjectileGravityScale > 0.f) || ((Fake->GetVelocity().SafeNormal() | VelDir) > 0.95f))
+						if (BestMatch)
 						{
-							if ((BestMatch->GetActorLocation() - GetActorLocation()).Size() > (Fake->GetActorLocation() - GetActorLocation()).Size())
+							// see if new one is better
+							float NewDist = (Fake->GetActorLocation() - GetActorLocation()).SizeSquared();
+							if (BestDist > NewDist)
 							{
 								BestMatch = Fake;
 								BestMatchIndex = i;
+								BestDist = NewDist;
 							}
 						}
-					}
-					else
-					{
-						BestMatch = Fake;
-						BestMatchIndex = i;
+						else
+						{
+							BestMatch = Fake;
+							BestMatchIndex = i;
+							BestDist = (BestMatch->GetActorLocation() - GetActorLocation()).SizeSquared();
+						}
 					}
 				}
 			}
@@ -197,6 +201,23 @@ void AUTProjectile::BeginPlay()
 				MyPlayer->FakeProjectiles.RemoveAt(BestMatchIndex, 1);
 				BeginFakeProjectileSynch(BestMatch);
 			}
+			else if (MyPlayer && MyPlayer->bIsDebuggingProjectiles)
+			{
+				// debug logging of failed match
+				UE_LOG(UT, Warning, TEXT("%s FAILED to find fake projectile match"), *GetName());
+				for (int32 i = 0; i < MyPlayer->FakeProjectiles.Num(); i++)
+				{
+					AUTProjectile* Fake = MyPlayer->FakeProjectiles[i];
+					if (Fake)
+					{
+						UE_LOG(UT, Warning, TEXT("     - REJECTED potential match %s DP %f"), *Fake->GetName(), (Fake->GetVelocity().SafeNormal() | VelDir));
+					}
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("%s spawned with no local player found!"), *GetName());
 		}
 	}
 }

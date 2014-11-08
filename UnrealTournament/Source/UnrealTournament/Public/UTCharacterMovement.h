@@ -315,6 +315,8 @@ public:
 	/** Dodge roll out (holding bRollSlide while dodging on ground) */
 	virtual void PerformRoll(const FVector& DodgeDir);
 
+	virtual bool IsCrouching() const override;
+
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
 	bool bPressedDodgeForward;
 	bool bPressedDodgeBack;

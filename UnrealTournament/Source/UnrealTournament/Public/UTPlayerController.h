@@ -320,6 +320,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category=Network)
 	float DesiredPredictionPing;
 
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Debug)
+		bool bIsDebuggingProjectiles;
+
 	/** Propose a desired ping to server */
 	UFUNCTION(reliable, server, WithValidation)
 	virtual void ServerNegotiatePredictionPing(float NewPredictionPing);
@@ -483,6 +486,14 @@ protected:
 
 	/** called to set the jump flag from input */
 	virtual void Jump();
+
+	/** Max held time for roll from crouch tap */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
+		float CrouchRollTapInterval;
+
+	/** Time at which crouch will engage. */
+	UPROPERTY(BlueprintReadOnly, Category = Dodging)
+		float CrouchEnableTime;
 
 	virtual void Crouch();
 	virtual void UnCrouch();

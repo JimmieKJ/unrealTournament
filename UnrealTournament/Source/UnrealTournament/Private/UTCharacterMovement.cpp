@@ -658,6 +658,11 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 	CrouchedHalfHeight = RealCrouchHeight;
 }
 
+bool UUTCharacterMovement::IsCrouching() const
+{
+	return CharacterOwner && CharacterOwner->bIsCrouched && !bIsDodgeRolling;
+}
+
 void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 {
 	if (!CharacterOwner)
