@@ -1,0 +1,15 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Content Only Test",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.4.0",
+	"Description" : "Content Only Test",
+	"Category" : "UnrealTournament.GameMode",
+	"EnabledByDefault" : true,
+	"CanContainContent" : true
+
+}
