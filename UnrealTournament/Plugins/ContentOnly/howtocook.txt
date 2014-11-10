@@ -1,0 +1,1 @@
+Engine\Build\BatchFiles>RunUAT makeUTDLC -PluginName=ContentOnly -platform=Win64
