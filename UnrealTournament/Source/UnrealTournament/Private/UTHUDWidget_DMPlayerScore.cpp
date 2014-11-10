@@ -21,7 +21,7 @@ void UUTHUDWidget_DMPlayerScore::Draw_Implementation(float DeltaTime)
 	if (UTHUDOwner->UTPlayerOwner != NULL)
 	{
 		AUTPlayerState* PS = UTHUDOwner->GetViewedPlayerState();
-		if (!PS->bOnlySpectator)
+		if (PS != NULL && !PS->bOnlySpectator)
 		{
 			float Score = int32(PS->Score);
 			float Deaths = PS->Deaths;

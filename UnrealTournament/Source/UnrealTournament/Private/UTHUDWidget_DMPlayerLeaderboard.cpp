@@ -74,7 +74,7 @@ void UUTHUDWidget_DMPlayerLeaderboard::Draw_Implementation(float DeltaTime)
 	if (UTHUDOwner->UTPlayerOwner != NULL)
 	{
 		AUTPlayerState* PS = UTHUDOwner->GetViewedPlayerState();
-		if (!PS->bOnlySpectator)
+		if (PS != NULL && !PS->bOnlySpectator)
 		{
 			int32 Standing;
 			int32 Spread;
