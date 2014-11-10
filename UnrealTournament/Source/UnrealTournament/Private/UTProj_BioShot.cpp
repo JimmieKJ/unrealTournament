@@ -353,7 +353,7 @@ bool AUTProj_BioShot::CanInteractWithBio()
 
 void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 {
-	if (!OtherBio || OtherBio->bPendingKillPending || !CanInteractWithBio() || !OtherBio->CanInteractWithBio() || (GlobStrength < 1.f))
+	if (OtherBio == NULL || bPendingKillPending || OtherBio->bPendingKillPending || !CanInteractWithBio() || !OtherBio->CanInteractWithBio() || (GlobStrength < 1.f))
 	{
 		//Let the globlings pass through so they dont explode the glob, ignore exploded bio
 		return;
