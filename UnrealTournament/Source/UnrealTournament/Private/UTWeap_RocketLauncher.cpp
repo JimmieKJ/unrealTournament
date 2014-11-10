@@ -773,7 +773,6 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 		if (IsPreparingAttack())
 		{
 			// TODO: if high skill, look around for someplace to shoot rockets that won't blow self up
-			UTOwner->StopFiring();
 		}
 		return false;
 	}
