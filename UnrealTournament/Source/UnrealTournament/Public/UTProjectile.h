@@ -198,6 +198,7 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
 
+	virtual void PreInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void TornOff() override;
 	virtual void Destroyed() override;

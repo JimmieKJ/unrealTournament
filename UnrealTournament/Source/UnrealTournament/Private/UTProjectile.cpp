@@ -80,19 +80,9 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	bHasSpawnedFully = false;
 }
 
-void AUTProjectile::BeginPlay()
+void AUTProjectile::PreInitializeComponents()
 {
-	if (IsPendingKillPending())
-	{
-		// engine bug that we need to do this
-		return;
-	}
-	Super::BeginPlay();
-
-	if (PawnOverlapSphere != NULL)
-	{
-		PawnOverlapSphere->SetSphereRadius(OverlapRadius);
-	}
+	Super::PreInitializeComponents();
 
 	if (SpawnInstigator != NULL)
 	{
@@ -103,6 +93,21 @@ void AUTProjectile::BeginPlay()
 	{
 		InstigatorController = Instigator->Controller;
 	}
+
+	if (PawnOverlapSphere != NULL)
+	{
+		PawnOverlapSphere->SetSphereRadius(OverlapRadius);
+	}
+}
+
+void AUTProjectile::BeginPlay()
+{
+	if (IsPendingKillPending())
+	{
+		// engine bug that we need to do this
+		return;
+	}
+	Super::BeginPlay();
 
 	bHasSpawnedFully = true;
 	if (Role == ROLE_Authority)
@@ -116,7 +121,7 @@ void AUTProjectile::BeginPlay()
 			InitialReplicationTick.RegisterTickFunction(GetLevel());
 		}
 
-		if (bInitiallyWarnTarget && InstigatorController != NULL)
+		if (bInitiallyWarnTarget && InstigatorController != NULL && !bExploded)
 		{
 			AUTBot* TargetBot = NULL;
 
