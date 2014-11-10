@@ -765,6 +765,7 @@ public class MakeUTDLC : BuildCommand
 {
     public bool bSingleMap;
     public string DLCName;
+    public string DLCMaps;
     public string AssetRegistry;
 
     static public ProjectParams GetParams(BuildCommand Cmd, string DLCName)
@@ -803,6 +804,12 @@ public class MakeUTDLC : BuildCommand
         else
         {
             string Parameters = "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed";
+
+            if (DLCMaps.Length > 0)
+            {
+                Parameters += " -map=" + DLCMaps;
+            }
+
             string CookDir = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Plugins", DLCName, "Content");
             RunCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2}", CookDir, SC.CookPlatform, Parameters));
         }
@@ -860,6 +867,9 @@ public class MakeUTDLC : BuildCommand
         else
         {
             DLCName = ParseParamValue("PluginName", "PeteGameMode");
+
+            // Maps should be in format -maps=DM-DLCMap1+DM-DLCMap2+DM-DLCMap3
+            DLCMaps = ParseParamValue("Maps", "");
             bSingleMap = false;
         }
 
