@@ -38,9 +38,9 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 
 	GlobStrength = 1.f;
 	MaxRestingGlobStrength = 6;
-	DamageRadiusGainFactor = 1.f;
+	DamageRadiusGain = 60.0f;
 	InitialLifeSpan = 0.f;
-	ExtraRestTimePerStrength = 5.f;
+	ExtraRestTimePerStrength = 2.f;
 
 	SplashSpread = 0.8f;
 	bSpawningGloblings = false;
@@ -53,8 +53,8 @@ AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties&
 	LandedOverlapRadius = 16.f;
 	LandedOverlapScaling = 7.f;
 	MaxSlideSpeed = 1500.f;
-	TrackingRange = 1400.f;
-	MaxTrackingSpeed = 600.f;
+	TrackingRange = 2000.f;
+	MaxTrackingSpeed = 1200.f;
 	ProjectileMovement->HomingAccelerationMagnitude = 800.f;
 	UUTProjectileMovementComponent* UTProjMovement = Cast<UUTProjectileMovementComponent>(ProjectileMovement);
 	if (UTProjMovement)
@@ -469,6 +469,12 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 
 void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	// FIXME: temporary? workaround for synchronization issues on clients where it explodes on client but not on server
+	if (GetNetMode() == NM_Client && (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL))
+	{
+		return;
+	}
+
 	if (bTriggeringWeb)
 	{
 		return;
@@ -484,7 +490,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	{
 		MergeWithGlob(OtherBio);
 	}
-	else if (Cast<AUTCharacter>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
+	else if (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
 		AUTCharacter* TargetCharacter = Cast<AUTCharacter>(OtherActor);
 		if (TargetCharacter && ((TargetCharacter != Instigator) || bCanHitInstigator))
@@ -514,10 +520,10 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 			float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
 			DamageParams = GetClass()->GetDefaultObject<AUTProjectile>()->DamageParams;
 			DamageParams.BaseDamage *= GlobStrength;
-			DamageParams.OuterRadius *= DamageRadiusGainFactor * GlobScalingSqrt;
+			DamageParams.OuterRadius += DamageRadiusGain * (GlobStrength - 1.0f);
 			Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * GlobScalingSqrt;
-			Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 		}
+		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 	}
 	else if (!bLanded)
 	{

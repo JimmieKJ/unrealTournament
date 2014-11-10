@@ -209,7 +209,7 @@ class AUTProj_BioShot : public AUTProjectile
 
 	/** add this multiplier to damage radius for every point of glob strength beyond the first */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-		float DamageRadiusGainFactor;
+	float DamageRadiusGain;
 
 	/**The Time added to RestTime when the glob lands*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
