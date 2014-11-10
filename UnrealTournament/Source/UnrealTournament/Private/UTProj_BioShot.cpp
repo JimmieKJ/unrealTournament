@@ -353,7 +353,7 @@ bool AUTProj_BioShot::CanInteractWithBio()
 
 void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 {
-	if (!OtherBio || !CanInteractWithBio() || !OtherBio->CanInteractWithBio() || (GlobStrength < 1.f))
+	if (!OtherBio || OtherBio->bPendingKillPending || !CanInteractWithBio() || !OtherBio->CanInteractWithBio() || (GlobStrength < 1.f))
 	{
 		//Let the globlings pass through so they dont explode the glob, ignore exploded bio
 		return;
@@ -372,12 +372,12 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	}
 
 	SetGlobStrength(GlobStrength + OtherBio->GlobStrength);
-	if (TrackedPawn)
+	if (TrackedPawn != NULL && !TrackedPawn->bPendingKillPending && !TrackedPawn->CapsuleComponent->IsPendingKill()) // we check in tick but it's still possible they get gibbed first
 	{
 		ProjectileMovement->bIsHomingProjectile = true;
 		ProjectileMovement->SetUpdatedComponent(CollisionComp);
 		ProjectileMovement->MaxSpeed = MaxTrackingSpeed / FMath::Sqrt(GlobStrength);
-		ProjectileMovement->HomingTargetComponent = TrackedPawn->CapsuleComponent.Get();
+		ProjectileMovement->HomingTargetComponent = TrackedPawn->CapsuleComponent.Get(); // warning: TWeakObjectPtr will return NULL if this is already pending kill!
 		ProjectileMovement->bShouldBounce = true;
 		bLanded = false;
 		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
