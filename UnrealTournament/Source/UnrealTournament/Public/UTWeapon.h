@@ -229,14 +229,6 @@ public:
 	/** Spawn a delayed projectile, delayed because client ping above max forward prediction limit. */
 	virtual void SpawnDelayedFakeProjectile();
 
-	/** Always spawn impact effect if it is within this distance of a local camera */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	float ImpactEffectAlwaysSpawnDist;
-
-	/** Cull impact effect if it is further than this from every local camera. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	float ImpactEffectCullDistance;
-
 	/** time to bring up the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float BringUpTime;
@@ -637,6 +629,9 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	bool IsPreparingAttack();
+	/** called by the AI to ask if it should avoid firing even if the weapon can currently hit its target (e.g. setting up a combo) */
+	UFUNCTION(BlueprintNativeEvent, Category = AI)
+	bool ShouldAIDelayFiring();
 
 	/** returns whether this weapon has a viable attack against Target
 	 * this function should not consider Owner's view rotation

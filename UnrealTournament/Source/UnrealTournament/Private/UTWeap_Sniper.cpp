@@ -30,8 +30,6 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
 
-	ImpactEffectAlwaysSpawnDist = 1000.f;
-	ImpactEffectCullDistance = 50000.f;
 	FiringViewKickback = -50.f;
 }
 

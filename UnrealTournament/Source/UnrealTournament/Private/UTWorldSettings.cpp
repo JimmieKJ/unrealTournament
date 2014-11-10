@@ -210,9 +210,11 @@ bool AUTWorldSettings::EffectIsRelevant(AActor* RelevantActor, const FVector& Sp
 	float CullDistSq = bIsLocallyOwnedEffect ? 2.f*FMath::Square(CullDistance) : FMath::Square(CullDistance);
 	for (ULocalPlayer* LocalPlayer : GEngine->GetGamePlayers(GetWorld()))
 	{
-		if (LocalPlayer->PlayerController)
+		if (LocalPlayer->PlayerController != NULL)
 		{
-			FVector ViewLoc = LocalPlayer->PlayerController->GetFocalLocation();
+			FVector ViewLoc;
+			FRotator ViewRot;
+			LocalPlayer->PlayerController->GetPlayerViewPoint(ViewLoc, ViewRot);
 			float DistSq = (ViewLoc - SpawnLocation).SizeSquared();
 			//UE_LOG(UT, Warning, TEXT("Effect dist %f"), (ViewLoc - SpawnLocation).Size());
 			if (DistSq < CullDistSq)
@@ -224,7 +226,7 @@ bool AUTWorldSettings::EffectIsRelevant(AActor* RelevantActor, const FVector& Sp
 					// @TODO FIXMESTEVE - do we want to differentiate between dist when in front of viewer versus behind?
 					return true;
 				}
-				if ((LocalPlayer->PlayerController->GetControlRotation().Vector() | (SpawnLocation - ViewLoc).SafeNormal()) > 0.5f)
+				if ((ViewRot.Vector() | (SpawnLocation - ViewLoc).SafeNormal()) > 0.1f)
 				{
 					bBehindAllPlayers = false;
 				}
@@ -241,7 +243,7 @@ bool AUTWorldSettings::EffectIsRelevant(AActor* RelevantActor, const FVector& Sp
 	}
 
 	// if effect is spawning near me, always spawn if being rendered
-	if (bSpawnNearSelf)
+	if (bSpawnNearSelf && RelevantActor != NULL)
 	{
 		return (GetWorld()->GetTimeSeconds() - RelevantActor->GetLastRenderTime() < 0.3f);
 	}

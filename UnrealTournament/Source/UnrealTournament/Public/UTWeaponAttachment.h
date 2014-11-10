@@ -43,14 +43,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	FVector PickupScaleOverride;
 
-	/** Always spawn impact effect if it is within this distance of a local camera */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		float ImpactEffectAlwaysSpawnDist;
-
-	/** Cull impact effect if it is further than this from every local camera. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		float ImpactEffectCullDistance;
-
 	/** particle system for firing effects (instant hit beam and such)
 	* particles will be sourced at FireOffset and a parameter HitLocation will be set for the target, if applicable
 	*/

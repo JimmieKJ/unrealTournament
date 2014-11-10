@@ -14,6 +14,9 @@ class AUTImpactEffect : public AActor
 	/** if > 0, effect is not played if beyond this distance */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	float CullDistance;
+	/** if > 0, effect always played if within this distance, even if behind all viewers, wall in the way, etc */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+	float AlwaysSpawnDistance;
 	/** if set, check that spawn location is visible to at least one local player before spawning */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	bool bCheckInView;

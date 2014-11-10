@@ -73,9 +73,6 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	MaxYawLag = 4.4f;
 	MaxPitchLag = 3.3f; 
 
-	ImpactEffectAlwaysSpawnDist = 200.f;
-	ImpactEffectCullDistance = 4000.f;
-
 	// default icon texture
 	static ConstructorHelpers::FObjectFinder<UTexture> WeaponTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseB.UI_HUD_BaseB'"));
 	HUDIcon.Texture = WeaponTexture.Object;
@@ -596,20 +593,15 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 		}
 
 		// Always spawn effects instigated by local player unless beyond cull distance
-		bool bIsLocallyOwnedEffect = (UTOwner && UTOwner->GetController() && UTOwner->GetController()->IsLocalPlayerController());
-		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-		if (WS && WS->EffectIsRelevant(UTOwner, TargetLoc, false, bIsLocallyOwnedEffect, ImpactEffectCullDistance, ImpactEffectAlwaysSpawnDist, false))
+		if ((TargetLoc - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
 		{
-			if ((TargetLoc - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
+			if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
 			{
-				if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
-				{
-					FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
-					ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
-				}
-				LastImpactEffectLocation = TargetLoc;
-				LastImpactEffectTime = GetWorld()->TimeSeconds;
+				FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
+				ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
 			}
+			LastImpactEffectLocation = TargetLoc;
+			LastImpactEffectTime = GetWorld()->TimeSeconds;
 		}
 	}
 }
@@ -1591,6 +1583,11 @@ float AUTWeapon::SuggestDefenseStyle_Implementation()
 }
 
 bool AUTWeapon::IsPreparingAttack_Implementation()
+{
+	return false;
+}
+
+bool AUTWeapon::ShouldAIDelayFiring_Implementation()
 {
 	return false;
 }

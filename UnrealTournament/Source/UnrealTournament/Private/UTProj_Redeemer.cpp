@@ -31,7 +31,6 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FPostConstructInitializePropertie
 
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
-	bExplosionAlwaysRelevant = true;
 }
 
 void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)

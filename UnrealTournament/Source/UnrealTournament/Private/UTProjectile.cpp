@@ -78,10 +78,6 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	MyFakeProjectile = NULL;
 	MasterProjectile = NULL;
 	bHasSpawnedFully = false;
-
-	ExplosionAlwaysSpawnDist = 500.f;
-	ExplosionCullDistance = 5000.f;
-	bExplosionAlwaysRelevant = false;
 }
 
 void AUTProjectile::BeginPlay()
@@ -675,10 +671,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 		// explosion effect unless I have a fake projectile doing it for me
 		if (!MyFakeProjectile)
 		{
-			bool bIsLocallyOwnedEffect = (InstigatorController && InstigatorController->IsLocalPlayerController());
-			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-			bool bExplosionRelevant = (bExplosionAlwaysRelevant || (WS && WS->EffectIsRelevant(this, GetActorLocation(), true, bIsLocallyOwnedEffect, ExplosionCullDistance, ExplosionAlwaysSpawnDist, false)));
-			if (bExplosionRelevant && (ExplosionEffects != NULL))
+			if (ExplosionEffects != NULL)
 			{
 				ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
 			}
@@ -686,7 +679,8 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			else
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-				if (bExplosionRelevant)
+				AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+				if (WS != NULL && WS->EffectIsRelevant(this, GetActorLocation(), true, (InstigatorController && InstigatorController->IsLocalPlayerController()), 20000.0f, 500.0f, false))
 				{
 					UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
 				}

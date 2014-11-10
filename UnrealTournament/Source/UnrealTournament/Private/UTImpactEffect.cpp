@@ -10,6 +10,8 @@ AUTImpactEffect::AUTImpactEffect(const FPostConstructInitializeProperties& PCIP)
 	bCheckInView = true;
 	bForceForLocalPlayer = true;
 	bRandomizeDecalRoll = true;
+	AlwaysSpawnDistance = 500.0f;
+	CullDistance = 20000.0f;
 }
 
 bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication) const
@@ -29,32 +31,10 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 		else
 		{
 			bool bSpawn = true;
-			if (!bForceForLocalPlayer || InstigatedBy == NULL || !InstigatedBy->IsLocalPlayerController())
+			if (bCheckInView)
 			{
-				if (bCheckInView)
-				{
-					if (SpawnedBy != NULL && World->TimeSeconds - SpawnedBy->GetLastRenderTime() > 1.0f)
-					{
-						bSpawn = false;
-					}
-					else
-					{
-						for (FLocalPlayerIterator It(GEngine, World); It; ++It)
-						{
-							if (It->PlayerController != NULL)
-							{
-								FVector CameraLoc = FVector::ZeroVector;
-								FRotator CameraRot = FRotator::ZeroRotator;
-								It->PlayerController->GetPlayerViewPoint(CameraLoc, CameraRot);
-								if (((InTransform.GetLocation() - CameraLoc).SafeNormal() | CameraRot.Vector()) < -0.1f)
-								{
-									bSpawn = false;
-									break;
-								}
-							}
-						}
-					}
-				}
+				AUTWorldSettings* WS = Cast<AUTWorldSettings>(World->GetWorldSettings());
+				bSpawn = (WS == NULL || WS->EffectIsRelevant(SpawnedBy, InTransform.GetLocation(), SpawnedBy != NULL, bForceForLocalPlayer && InstigatedBy != NULL && InstigatedBy->IsLocalPlayerController(), CullDistance, AlwaysSpawnDistance, false));
 			}
 			if (bSpawn)
 			{

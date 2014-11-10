@@ -306,18 +306,6 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UFUNCTION(BlueprintNativeEvent)
 	float GetMaxDamageRadius() const;
 
-	/** Always spawn explosion effect if it is within this distance of a local camera */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect Culling")
-	float ExplosionAlwaysSpawnDist;
-
-	/** Cull explosion effect if it is further than this from every local camera. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect Culling")
-	float ExplosionCullDistance;
-
-	/** Skip explosion relevancy checking. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effect Culling")
-	bool bExplosionAlwaysRelevant;
-
 protected:
 	/** workaround to Instigator not exposed in blueprint spawn at engine level
 	 * ONLY USED IN SPAWN ACTOR NODE
