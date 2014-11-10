@@ -844,8 +844,8 @@ public class MakeUTDLC : BuildCommand
         else
         {
             // Move the buried pak file to a better place, probably a nicer way to do this
-            CommandUtils.CreateDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content") });
-            CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content", DLCName + "-" + SC.CookPlatform + ".pak"));
+            CommandUtils.CreateDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content", "Paks", SC.CookPlatform) });
+            CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content", "Paks", SC.CookPlatform, DLCName + "-" + SC.CookPlatform + ".pak"));
             CommandUtils.DeleteDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content") });
         }
     }
