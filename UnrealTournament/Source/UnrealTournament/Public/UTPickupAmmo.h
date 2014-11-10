@@ -9,7 +9,7 @@ class AUTPickupAmmo : public AUTPickup
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, AssetRegistrySearchable, Category = Pickup)
 	FStoredAmmo Ammo;
 
 	virtual bool AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup) override;
