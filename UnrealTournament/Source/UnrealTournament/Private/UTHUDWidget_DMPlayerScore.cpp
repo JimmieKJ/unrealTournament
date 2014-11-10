@@ -18,18 +18,28 @@ UUTHUDWidget_DMPlayerScore::UUTHUDWidget_DMPlayerScore(const class FPostConstruc
 
 void UUTHUDWidget_DMPlayerScore::Draw_Implementation(float DeltaTime)
 {
-	if ( UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
+	if (UTHUDOwner->UTPlayerOwner != NULL)
 	{
-		float Score = int32(UTHUDOwner->UTPlayerOwner->UTPlayerState->Score);
-		float Deaths = UTHUDOwner->UTPlayerOwner->UTPlayerState->Deaths;
+		AUTPlayerState* PS = UTHUDOwner->GetViewedPlayerState();
+		if (!PS->bOnlySpectator)
+		{
+			float Score = int32(PS->Score);
+			float Deaths = PS->Deaths;
 
-		if (Score != LastScore) ScoreFlashOpacity = 1.0f;
-		LastScore = Score;
+			if (Score != LastScore)
+			{
+				ScoreFlashOpacity = 1.0f;
+			}
+			LastScore = Score;
 
-		DrawTexture(HudTexture, 0.0f,0.0f, 114.0f,43.0f, 375.0f,396.0f,114.0f,43.0f,1.0f,ApplyHUDColor(FLinearColor::White));
-		UTHUDOwner->DrawNumber(Score, RenderPosition.X + 22 * RenderScale , RenderPosition.Y + 7 * RenderScale , FLinearColor::Yellow, ScoreFlashOpacity,RenderScale * 0.5f,3.0f);
-		DrawText(FText::Format(NSLOCTEXT("UTHUD","Deaths","{0} Deaths"), FText::AsNumber(Deaths)), 114.0f, 46.0f, UTHUDOwner->GetFontFromSizeIndex(0), 1.0f, 1.0f, FLinearColor::White,  ETextHorzPos::Right);
-	
-		if (ScoreFlashOpacity > 0.0f) ScoreFlashOpacity = FMath::Max<float>(0.0f, ScoreFlashOpacity - DeltaTime * 1.25f);
+			DrawTexture(HudTexture, 0.0f, 0.0f, 114.0f, 43.0f, 375.0f, 396.0f, 114.0f, 43.0f, 1.0f, ApplyHUDColor(FLinearColor::White));
+			UTHUDOwner->DrawNumber(Score, RenderPosition.X + 22 * RenderScale, RenderPosition.Y + 7 * RenderScale, FLinearColor::Yellow, ScoreFlashOpacity, RenderScale * 0.5f, 3.0f);
+			DrawText(FText::Format(NSLOCTEXT("UTHUD", "Deaths", "{0} Deaths"), FText::AsNumber(Deaths)), 114.0f, 46.0f, UTHUDOwner->GetFontFromSizeIndex(0), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right);
+
+			if (ScoreFlashOpacity > 0.0f)
+			{
+				ScoreFlashOpacity = FMath::Max<float>(0.0f, ScoreFlashOpacity - DeltaTime * 1.25f);
+			}
+		}
 	}
 }

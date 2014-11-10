@@ -117,6 +117,17 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 	return MediumFont;
 }
 
+AUTPlayerState* AUTHUD::GetViewedPlayerState()
+{
+	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
+	APawn* PawnOwner = Cast<APawn>(UTPlayerOwner->GetViewTarget());
+	if (PawnOwner != NULL && Cast<AUTPlayerState>(PawnOwner->PlayerState) != NULL)
+	{
+		PS = (AUTPlayerState*)PawnOwner->PlayerState;
+	}
+	return PS;
+}
+
 TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceName)
 {
 	UClass* WidgetClass = LoadClass<UUTHUDWidget>(NULL, ResourceName, NULL, LOAD_None, NULL);

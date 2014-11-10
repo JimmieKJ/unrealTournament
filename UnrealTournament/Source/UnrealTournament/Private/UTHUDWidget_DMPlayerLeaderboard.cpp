@@ -22,7 +22,7 @@ void UUTHUDWidget_DMPlayerLeaderboard::CalcStanding(int32& Standing, int32& Spre
 	AUTGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GameState != NULL && UTHUDOwner->UTPlayerOwner != NULL)
 	{
-		AUTPlayerState* MyPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
+		AUTPlayerState* MyPS = UTHUDOwner->GetViewedPlayerState();
 
 		// Assume position 1.
 		Standing = 1;
@@ -71,20 +71,23 @@ FText UUTHUDWidget_DMPlayerLeaderboard::GetPlaceSuffix(int32 Standing)
 
 void UUTHUDWidget_DMPlayerLeaderboard::Draw_Implementation(float DeltaTime)
 {
-	if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
+	if (UTHUDOwner->UTPlayerOwner != NULL)
 	{
-
-		int32 Standing;
-		int32 Spread;
-
-		CalcStanding(Standing, Spread);
-
-		DrawText(FText::Format(NSLOCTEXT("UTHUD","LeaderboardPlace","{0} Place"), GetPlaceSuffix(Standing)), 0.0f,0.0f, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White);
-
-		if (Spread != 0)
+		AUTPlayerState* PS = UTHUDOwner->GetViewedPlayerState();
+		if (!PS->bOnlySpectator)
 		{
-			FString SpreadStr = Spread > 0 ? FString::Printf(TEXT("+%i"),Spread) : FString::Printf(TEXT("%i"), Spread);
-			DrawText(FText::FromString(SpreadStr), 0.0f,32.0f, UTHUDOwner->MediumFont, 0.6666f, 1.0f, FLinearColor::White);
+			int32 Standing;
+			int32 Spread;
+
+			CalcStanding(Standing, Spread);
+
+			DrawText(FText::Format(NSLOCTEXT("UTHUD", "LeaderboardPlace", "{0} Place"), GetPlaceSuffix(Standing)), 0.0f, 0.0f, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White);
+
+			if (Spread != 0)
+			{
+				FString SpreadStr = (Spread > 0) ? FString::Printf(TEXT("+%i"), Spread) : FString::Printf(TEXT("%i"), Spread);
+				DrawText(FText::FromString(SpreadStr), 0.0f, 32.0f, UTHUDOwner->MediumFont, 0.6666f, 1.0f, FLinearColor::White);
+			}
 		}
 	}
 }

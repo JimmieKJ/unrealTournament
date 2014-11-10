@@ -141,6 +141,9 @@ public:
 
 	virtual void ShowDebugInfo(float& YL, float& YPos) override;
 
+	/** get player state of PlayerOwner's viewtarget (or own if not viewing another player) */
+	virtual AUTPlayerState* GetViewedPlayerState();
+
 protected:
 
 	// The current Scoreboard
