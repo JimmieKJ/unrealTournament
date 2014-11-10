@@ -33,6 +33,10 @@ class AUTProj_ShockBall : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	TSubclassOf<AUTImpactEffect> ComboExplosionEffects;
 
+protected:
+	/** when set and InstigatorController is a bot, ask it when we should combo */
+	bool bMonitorBotCombo;
+public:
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_ComboExplosion)
 	bool bComboExplosion;
 	UFUNCTION()
@@ -53,4 +57,11 @@ class AUTProj_ShockBall : public AUTProjectile
 	{
 		return FMath::Max<float>(DamageParams.OuterRadius, ComboDamageParams.OuterRadius);
 	}
+
+	virtual void StartBotComboMonitoring();
+	virtual void ClearBotCombo();
+
+	virtual void Tick(float DeltaTime) override;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

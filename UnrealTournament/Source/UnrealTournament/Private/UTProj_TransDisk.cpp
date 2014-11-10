@@ -284,7 +284,7 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 		{
 			switch (B->ShouldTriggerTranslocation(GetActorLocation(), GetVelocity()))
 			{
-				case BTS_Translocate:
+				case BMS_Activate:
 					UTC->StartFire(1);
 					UTC->StopFire(1);
 					B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
@@ -292,7 +292,7 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 					B->MoveTimer = -1.0f;
 					B->LastTranslocTime = GetWorld()->TimeSeconds;
 					break;
-				case BTS_Abort:
+				case BMS_Abort:
 					UTC->StartFire(0);
 					UTC->StopFire(0);
 					break;

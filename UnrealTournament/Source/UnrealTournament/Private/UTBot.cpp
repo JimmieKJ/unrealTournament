@@ -1417,41 +1417,49 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 	}
 	else if (UTChar->GetWeapon() != NULL && UTChar->GetPendingWeapon() == NULL && (bFromWeapon || !UTChar->GetWeapon()->IsFiring())) // if weapon is firing, it should query bot when it's done for better responsiveness than a timer
 	{
-		AActor* TestTarget = Target;
-		if (TestTarget == NULL)
+		// TODO: reimplement old 'skip firing even though can hit target' logic
+		if (UTChar->GetWeapon()->ShouldAIDelayFiring())
 		{
-			// TODO: check time since last enemy loc update versus reaction time
-			TestTarget = Enemy;
-		}
-		// TODO: if no target, ask weapon if it should fire anyway (mine layers, traps, fortifications, etc)
-		FVector OptimalLoc;
-		// TODO: think about how to prevent Focus/Target/Enemy mismatches
-		if (TestTarget != NULL && GetFocusActor() == TestTarget && UTChar->GetWeapon()->CanAttack(TestTarget, TestTarget->GetTargetLocation(), false, true, NextFireMode, OptimalLoc) && (!NeedToTurn(OptimalLoc) || UTChar->GetWeapon()->IsChargedFireMode(NextFireMode)))
-		{
-			for (uint8 i = 0; i < UTChar->GetWeapon()->GetNumFireModes(); i++)
-			{
-				if (i == NextFireMode)
-				{
-					if (!UTChar->IsPendingFire(i))
-					{
-						UTChar->StartFire(i);
-					}
-				}
-				else if (UTChar->IsPendingFire(i))
-				{
-					UTChar->StopFire(i);
-				}
-
-				// if blew self up, abort
-				if (UTChar == NULL)
-				{
-					break;
-				}
-			}
+			UTChar->StopFiring();
 		}
 		else
 		{
-			UTChar->StopFiring();
+			AActor* TestTarget = Target;
+			if (TestTarget == NULL)
+			{
+				// TODO: check time since last enemy loc update versus reaction time
+				TestTarget = Enemy;
+			}
+			// TODO: if no target, ask weapon if it should fire anyway (mine layers, traps, fortifications, etc)
+			FVector OptimalLoc;
+			// TODO: think about how to prevent Focus/Target/Enemy mismatches
+			if (TestTarget != NULL && GetFocusActor() == TestTarget && UTChar->GetWeapon()->CanAttack(TestTarget, TestTarget->GetTargetLocation(), false, true, NextFireMode, OptimalLoc) && (!NeedToTurn(OptimalLoc) || UTChar->GetWeapon()->IsChargedFireMode(NextFireMode)))
+			{
+				for (uint8 i = 0; i < UTChar->GetWeapon()->GetNumFireModes(); i++)
+				{
+					if (i == NextFireMode)
+					{
+						if (!UTChar->IsPendingFire(i))
+						{
+							UTChar->StartFire(i);
+						}
+					}
+					else if (UTChar->IsPendingFire(i))
+					{
+						UTChar->StopFire(i);
+					}
+
+					// if blew self up, abort
+					if (UTChar == NULL)
+					{
+						break;
+					}
+				}
+			}
+			else
+			{
+				UTChar->StopFiring();
+			}
 		}
 		bPickNewFireMode = true;
 	}
@@ -2281,7 +2289,7 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 	}
 }
 
-EBotTranslocStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDest, const FVector& DestVelocity)
+EBotMonitoringStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDest, const FVector& DestVelocity)
 {
 	if (!TranslocTarget.IsZero())
 	{
@@ -2290,14 +2298,14 @@ EBotTranslocStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDest
 			IsAcceptableTranslocation(CurrentDest, TranslocTarget) )
 		{
 			// translocate!
-			return BTS_Translocate;
+			return BMS_Activate;
 		}
 		else if ((Diff.SafeNormal2D() | DestVelocity.SafeNormal2D()) <= 0.0f || (Diff.Z > 0.0f && DestVelocity.Z <= 0.0f))
 		{
 			// check if disk ended up further along bot's path even though not at desired destination
 			if ((GetMovePoint() - CurrentDest).Size() < (GetMovePoint() - GetPawn()->GetActorLocation()).Size() * 0.75f && IsAcceptableTranslocation(CurrentDest, GetMovePoint()))
 			{
-				return BTS_Translocate;
+				return BMS_Activate;
 			}
 			else
 			{
@@ -2313,7 +2321,7 @@ EBotTranslocStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDest
 						const FVector CurrentDestNoZ(CurrentDest.X, CurrentDest.Y, 0.0f);
 						if (FMath::PointDistToSegment(CurrentDestNoZ, PrevLocNoZ, TestLocNoZ) < GetPawn()->GetSimpleCollisionRadius())
 						{
-							return IsAcceptableTranslocation(CurrentDest, TestLoc) ? BTS_Translocate : BTS_Abort;
+							return IsAcceptableTranslocation(CurrentDest, TestLoc) ? BMS_Activate : BMS_Abort;
 						}
 					}
 				}
@@ -2322,26 +2330,123 @@ EBotTranslocStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDest
 					const FVector RouteLoc = RouteItem.GetLocation(GetPawn());
 					if ((RouteLoc - CurrentDest).Size2D() < GetPawn()->GetSimpleCollisionRadius() * 2.0f)
 					{
-						return IsAcceptableTranslocation(CurrentDest, RouteLoc) ? BTS_Translocate : BTS_Abort;
+						return IsAcceptableTranslocation(CurrentDest, RouteLoc) ? BMS_Activate : BMS_Abort;
 					}
 				}
-				return BTS_Abort;
+				return BMS_Abort;
 			}
 		}
 		else
 		{
-			return BTS_Monitoring;
+			return BMS_Monitoring;
 		}
 	}
 	else if (DestVelocity.IsZero())
 	{
 		// recall since unused
 		// TODO: high Tactics bots should consider leaving translocator disc in enemy base
-		return BTS_Abort;
+		return BMS_Abort;
 	}
 	else
 	{
-		return BTS_Monitoring;
+		return BMS_Monitoring;
+	}
+}
+
+bool AUTBot::MovingComboCheck()
+{
+	if (Skill < 2.0f)
+	{
+		return false;
+	}
+	else
+	{
+		bool bUsingFavoriteWeapon = UTChar != NULL && UTChar->GetWeapon() != NULL && IsFavoriteWeapon(UTChar->GetWeapon()->GetClass());
+		if (Skill >= 5.0f && bUsingFavoriteWeapon)
+		{
+			return true;
+		}
+		else if (Skill >= 7.0f)
+		{
+			return (FMath::FRand() < 0.9f);
+		}
+		else
+		{
+			return (Skill - (bUsingFavoriteWeapon ? 2.0f : 3.0f) + Personality.MovementAbility > 4.0f * FMath::FRand());
+		}
+	}
+}
+
+bool AUTBot::CanCombo()
+{
+	if (IsStopped())
+	{
+		return true;
+	}
+	else if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && FMath::FRand() < 0.1 * Skill + 0.15 * Personality.ReactionTime + 0.15 * Personality.MovementAbility)
+	{
+		return false;
+	}
+	// if directed forward movement towards target then allow while moving regardless of skill
+	else if (MoveTarget.Actor != NULL && MoveTarget.Actor == GetTarget())
+	{
+		return true;
+	}
+	else
+	{
+		return MovingComboCheck();
+	}
+}
+
+EBotMonitoringStatus AUTBot::ShouldTriggerCombo(const FVector& CurrentLoc, const FVector& ProjVelocity, const FRadialDamageParams& DamageParams)
+{
+	// high skill bots check for any enemy in range, not just focused enemy
+	bool bCheckAllEnemies = Skill + Personality.Alertness >= 5.5f;
+	bool bCheckVisibleEnemies = Skill + Personality.Tactics >= 3.5f || (UTChar != NULL && UTChar->GetWeapon() != NULL && IsFavoriteWeapon(UTChar->GetWeapon()->GetClass()));
+	
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
+
+	bool bPastAllEnemies = true;
+	bool bCloseToEnemies = false;
+	for (const FBotEnemyInfo& EnemyInfo : EnemyList)
+	{
+		if (EnemyInfo.IsValid(this) && (bCheckAllEnemies || EnemyInfo.GetPawn() == Enemy || (bCheckVisibleEnemies && EnemyInfo.IsCurrentlyVisible(GetWorld()->TimeSeconds))))
+		{
+			const FVector EnemyLoc = GetEnemyLocation(EnemyInfo.GetPawn(), true);
+			float Dist = (EnemyLoc - CurrentLoc).Size();
+			// TODO: health vs expected damage check if skilled instead of 0.5 * Radius
+			if (Dist <= 0.5f * DamageParams.OuterRadius + EnemyInfo.GetPawn()->GetSimpleCollisionRadius())
+			{
+				// close enough
+				return BMS_Activate;
+			}
+			else if (Dist <= DamageParams.OuterRadius + EnemyInfo.GetPawn()->GetSimpleCollisionRadius())
+			{
+				bCloseToEnemies = true;
+				if ((ProjVelocity | (EnemyLoc - CurrentLoc)) <= 0.0f)
+				{
+					// not going to get any better than this
+					return BMS_Activate;
+				}
+			}
+			if (FMath::PointDistToLine(EnemyLoc, ProjVelocity.SafeNormal(), CurrentLoc) < DamageParams.OuterRadius + FMath::Max<float>((EnemyInfo.GetUTChar() != NULL) ? EnemyInfo.GetUTChar()->CharacterMovement->GetMaxSpeed() : 0.0f, EnemyInfo.GetPawn()->GetVelocity().Size()))
+			{
+				bPastAllEnemies = false;
+			}
+		}
+	}
+	if (bCloseToEnemies)
+	{
+		return BMS_PrepareActivation;
+	}
+	else if (bPastAllEnemies)
+	{
+		return BMS_Abort;
+	}
+	else
+	{
+		return BMS_Monitoring;
 	}
 }
 
@@ -2742,6 +2847,11 @@ void AUTBot::PickNewEnemy()
 				if (!bLostEnemy || Squad->MustKeepEnemy(EnemyInfo.GetPawn()))
 				{
 					float Rating = RateEnemy(EnemyInfo);
+					// enemy rating may call weapon script, anything could happen
+					if (GetPawn() == NULL)
+					{
+						return;
+					}
 					new(LastPickEnemyRatings) FBotEnemyRating(EnemyInfo.GetPawn(), Rating);
 					if (Rating > BestRating)
 					{
@@ -2785,47 +2895,55 @@ float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
 
 	bool bThreatVisible = IsEnemyVisible(EnemyInfo.GetPawn()); // intentional that we use bot's personal visibility here instead of team
 	bool bThreatAttackable = CanAttack(EnemyInfo.GetPawn(), EnemyInfo.LastKnownLoc, false);
-	if (bThreatVisible)
+	// CanAttack() calls weapon script event, anything could happen
+	if (GetPawn() == NULL)
 	{
-		ThreatValue += 1.0f;
-		ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f));
+		return 0.0f;
 	}
-	else if (bThreatAttackable)
+	else
 	{
-		ThreatValue += 0.5f;
-		ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f)) * 0.5f;
-	}
-	if (Enemy != NULL && EnemyInfo.GetPawn() != Enemy)
-	{
-		if (!bThreatVisible)
+		if (bThreatVisible)
 		{
-			if (!bThreatAttackable)
+			ThreatValue += 1.0f;
+			ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f));
+		}
+		else if (bThreatAttackable)
+		{
+			ThreatValue += 0.5f;
+			ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f)) * 0.5f;
+		}
+		if (Enemy != NULL && EnemyInfo.GetPawn() != Enemy)
+		{
+			if (!bThreatVisible)
 			{
-				ThreatValue -= 5.0f;
+				if (!bThreatAttackable)
+				{
+					ThreatValue -= 5.0f;
+				}
+				else
+				{
+					ThreatValue -= 2.0f;
+				}
 			}
-			else
+			else if (GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime > 2.0f)
 			{
-				ThreatValue -= 2.0f;
+				ThreatValue += 1;
 			}
-		}
-		else if (GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime > 2.0f)
-		{
-			ThreatValue += 1;
-		}
-		if (Dist > 0.7f * (GetEnemyInfo(Enemy, true)->LastKnownLoc - GetPawn()->GetActorLocation()).Size())
-		{
-			ThreatValue -= 0.25;
-		}
-		ThreatValue -= 0.2;
+			if (Dist > 0.7f * (GetEnemyInfo(Enemy, true)->LastKnownLoc - GetPawn()->GetActorLocation()).Size())
+			{
+				ThreatValue -= 0.25;
+			}
+			ThreatValue -= 0.2;
 
-		/*if (B.IsHunting() && (NewStrength < 0.2)
-			&& (WorldInfo.TimeSeconds - FMax(B.LastSeenTime, B.AcquireTime) < 2.5))
-			ThreatValue -= 0.3;*/
+			/*if (B.IsHunting() && (NewStrength < 0.2)
+				&& (WorldInfo.TimeSeconds - FMax(B.LastSeenTime, B.AcquireTime) < 2.5))
+				ThreatValue -= 0.3;*/
+		}
+
+		// TODO: further personality adjust (hate for enemy that kills me, enemy that took powerup I was going for, etc)
+
+		return Squad->ModifyEnemyRating(ThreatValue, EnemyInfo, this);
 	}
-
-	// TODO: further personality adjust (hate for enemy that kills me, enemy that took powerup I was going for, etc)
-
-	return Squad->ModifyEnemyRating(ThreatValue, EnemyInfo, this);
 }
 
 void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)

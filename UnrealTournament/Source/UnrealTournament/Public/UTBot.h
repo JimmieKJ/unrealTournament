@@ -187,11 +187,12 @@ struct FBotEnemyRating
 };
 
 UENUM()
-enum EBotTranslocStatus
+enum EBotMonitoringStatus
 {
-	BTS_Monitoring, // still waiting for projectile to reach destination
-	BTS_Translocate, // translocate now
-	BTS_Abort, // give up current attempt (recall disk for standard translocator)
+	BMS_Monitoring, // still waiting for projectile to reach destination
+	BMS_PrepareActivation, // near activation time, do any preparation (e.g. turn to shoot combo target)
+	BMS_Activate, // activate monitored effect now
+	BMS_Abort, // give up current attempt (recall disk for translocator, stop holding fire for shock combo, etc)
 };
 
 UCLASS()
@@ -666,7 +667,19 @@ public:
 	 * @param CurrentDest - current potential teleport destination
 	 * @param DestVelocity - velocity of teleport target in the future if this function says to continue monitoring
 	 */
-	virtual EBotTranslocStatus ShouldTriggerTranslocation(const FVector& CurrentDest, const FVector& DestVelocity);
+	virtual EBotMonitoringStatus ShouldTriggerTranslocation(const FVector& CurrentDest, const FVector& DestVelocity);
+
+	/** return whether to allow the bot to attempt a moving weapon combo
+	 * this may involve a random skill check (not guaranteed to return same value for multiple calls)
+	 */
+	virtual bool MovingComboCheck();
+	/** return whether the bot can currently try to execute a weapon combo (shock combo being the prototypical example)
+	 * this function checks the bot's current state so it may redirect to MovingComboCheck()
+	 */
+	virtual bool CanCombo();
+
+	/** return how bot wants to handle monitored weapon combo (shock combo, etc) */
+	virtual EBotMonitoringStatus ShouldTriggerCombo(const FVector& CurrentLoc, const FVector& ProjVelocity, const FRadialDamageParams& DamageParams);
 
 protected:
 	/** timer to call CheckWeaponFiring() */
