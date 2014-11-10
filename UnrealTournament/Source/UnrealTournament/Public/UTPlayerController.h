@@ -305,6 +305,9 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPawn(APawn* PawnToView);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerViewPlaceholderAtLocation(FVector Location);
 	
 	//-----------------------------------------------
 	// Perceived latency reduction

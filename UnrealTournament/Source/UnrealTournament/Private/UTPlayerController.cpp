@@ -24,6 +24,7 @@
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
 #include "UTProfileSettings.h"
+#include "UTViewPlaceholder.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -1293,8 +1294,16 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	{
 		NewViewTarget = FinalViewTarget;
 	}
+
+	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 	
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
+
+	// See if we're no longer viewing a placeholder and destroy it
+	if (UTPlaceholder != nullptr && GetViewTarget() != UTPlaceholder)
+	{
+		UTPlaceholder->Destroy();
+	}
 }
 
 void AUTPlayerController::ClientHalftime_Implementation()
@@ -1827,16 +1836,30 @@ void AUTPlayerController::EndInactiveState()
 
 void AUTPlayerController::SpectateKiller()
 {
-	/* FIXME: temporarily removed due to issues, needs to be reworked
-	if (UTPlayerState->LastKillerPlayerState != nullptr)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != nullptr && GS->bViewKillerOnDeath && UTPlayerState->LastKillerPlayerState != nullptr && UTPlayerState->LastKillerPlayerState != UTPlayerState)
 	{
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
 			if (UTChar != nullptr && UTChar->PlayerState == UTPlayerState->LastKillerPlayerState)
 			{
-				ServerViewPawn(UTChar);
+				ServerViewPlaceholderAtLocation(UTChar->GetActorLocation() + FVector(0, 0, UTChar->CapsuleComponent->GetUnscaledCapsuleHalfHeight()));
 			}
 		}
-	}*/
+	}
+}
+
+void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector Location)
+{
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	Params.bNoCollisionFail = true;
+	AUTViewPlaceholder *ViewPlaceholder = GetWorld()->SpawnActor<AUTViewPlaceholder>(AUTViewPlaceholder::StaticClass(), Location, FRotator(), Params);
+	SetViewTarget(ViewPlaceholder);
+}
+
+bool AUTPlayerController::ServerViewPlaceholderAtLocation_Validate(FVector Location)
+{
+	return true;
 }

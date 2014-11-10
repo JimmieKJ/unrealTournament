@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTPlayerCameraManager.h"
 #include "UTCTFFlagBase.h"
+#include "UTViewPlaceholder.h"
 
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
@@ -41,23 +42,15 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
 
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
+	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 
-	bool bViewingKiller = false;
-	/* FIXME: temporarily removed due to issues, needs to be reworked
-	if (PCOwner != nullptr)
+	if (UTPlaceholder != nullptr)
 	{
-		AUTPlayerState* UTPSOwner = Cast<AUTPlayerState>(PCOwner->PlayerState);
-		if (UTPSOwner != nullptr && UTCharacter != nullptr && UTPSOwner->LastKillerPlayerState != nullptr)
-		{
-			if (UTCharacter->PlayerState == UTPSOwner->LastKillerPlayerState)
-			{
-				bViewingKiller = true;
-			}
-		}
-	}*/
+		return NAME_FreeCam;
+	}
 
 	// force third person if target is dead, ragdoll or emoting
-	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0 || bViewingKiller))
+	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0))
 	{
 		return NAME_FreeCam;
 	}
@@ -77,6 +70,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	CameraStyle = GetCameraStyleWithOverrides();
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
 	AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
+	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(OutVT.Target);
 
 	// smooth third person camera all the time
 	if (CameraStyle == NAME_FreeCam)
@@ -121,6 +115,16 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
 		FCollisionQueryParams BoxParams(NAME_FreeCam, false, this);
 		BoxParams.AddIgnoredActor(OutVT.Target);
+		
+		// When viewing a placeholder actor, just don't collide with any pawns
+		if (UTPlaceholder != nullptr)
+		{
+			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+			{
+				BoxParams.AddIgnoredActor(*It);
+			}
+		}
+
 		FHitResult Result;
 
 		GetWorld()->SweepSingle(Result, Loc, Pos, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
