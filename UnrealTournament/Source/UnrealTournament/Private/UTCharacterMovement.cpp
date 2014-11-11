@@ -395,6 +395,13 @@ void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted
 		float XYDelta = ResultXYSpeed - CurrentXYSpeed;
 		if (XYDelta > 0.f)
 		{
+			// reduce additive impulse further if current speed is already beyond dodge speed (implying this is 2nd or further impulse applied)
+			float AboveDodgeFactor = CurrentXYSpeed / DodgeImpulseHorizontal;
+			if (AboveDodgeFactor > 1.0f)
+			{
+				FinalImpulse = AdditiveImpulse / AboveDodgeFactor + OrthogonalImpulse;
+			}
+
 			float PctBelowRun = FMath::Clamp((MaxWalkSpeed - CurrentXYSpeed)/XYDelta, 0.f, 1.f);
 			float PctBelowDodge = FMath::Clamp((DodgeImpulseHorizontal - CurrentXYSpeed)/XYDelta, 0.f ,1.f);
 			float PctAboveDodge = FMath::Max(0.f, 1.f - PctBelowDodge);

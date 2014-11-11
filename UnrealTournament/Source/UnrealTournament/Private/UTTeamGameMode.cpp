@@ -26,7 +26,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
 	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team2Name","Gold"));
 	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team3Name","Green"));
 
-	TeamMomentumPct = 0.3f;
+	TeamMomentumPct = 0.75f;
 	bTeamGame = true;
 	bHasBroadcastDominating = false;
 }
