@@ -107,8 +107,17 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 		if (MyDamageType == ComboDamageType)
 		{
 			// special case for combo - get rid of fake projectile
-			if (MyFakeProjectile)
+			if (MyFakeProjectile != NULL)
 			{
+				// to make sure effects play consistently we need to copy over the LastRenderTime
+				float FakeLastRenderTime = MyFakeProjectile->GetLastRenderTime();
+				TArray<UPrimitiveComponent*> Components;
+				GetComponents<UPrimitiveComponent>(Components);
+				for (UPrimitiveComponent* Comp : Components)
+				{
+					Comp->LastRenderTime = FMath::Max<float>(Comp->LastRenderTime, FakeLastRenderTime);
+				}
+
 				MyFakeProjectile->Destroy();
 				MyFakeProjectile = NULL;
 			}

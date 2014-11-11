@@ -249,11 +249,11 @@ void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 
 	// @TODO FIXMESTEVE Can I move components instead of having two actors?
 	// @TODO FIXMESTEVE if not, should interp fake projectile to my location instead of teleporting?
+	SetActorHiddenInGame(true);
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
 	for (int32 i = 0; i < Components.Num(); i++)
 	{
-		Components[i]->SetHiddenInGame(true);
 		Components[i]->SetVisibility(false);
 	}
 
