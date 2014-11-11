@@ -1191,9 +1191,16 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				}
 				else
 				{
-					FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLoc, LastReachedMovePoint, MovePoint);
-					if ((ClosestPoint - MyLoc).SizeSquared() > FMath::Square(GetCharacter()->CapsuleComponent->GetUnscaledCapsuleRadius()))
+					// get XY distance from desired path
+					// note that the size of the result of ClosestPointOnSegment() with 2D vectors doesn't match that of using 3D vectors followed by Size2D()
+					FVector LastPointNoZ(LastReachedMovePoint.X, LastReachedMovePoint.Y, 0.0f);
+					FVector CurrentPointNoZ(MovePoint.X, MovePoint.Y, 0.0f);
+					FVector MyLocNoZ(MyLoc.X, MyLoc.Y, 0.0f);
+					FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLocNoZ, LastPointNoZ, CurrentPointNoZ);
+					if ((ClosestPoint - MyLoc).SizeSquared2D() > FMath::Square(GetCharacter()->CapsuleComponent->GetUnscaledCapsuleRadius()))
 					{
+						// set Z of closest point to match the XY that was previously determined
+						ClosestPoint.Z = (ClosestPoint - LastPointNoZ).Size() / (CurrentPointNoZ - LastPointNoZ).Size() * (MovePoint.Z - LastReachedMovePoint.Z) + LastReachedMovePoint.Z;
 						// try directly back to path center, then try backing up a bit towards path start
 						FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
 						if ((Side | (ClosestPoint - MyLoc).SafeNormal()) < 0.0f)
