@@ -8,6 +8,14 @@ class AUTProj_WeaponScreen : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
+	/** if set, apply momentum to pawns touched by the projectile */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
+	bool bCauseMomentumToPawns;
+
+	/** Pawns touched so far (so no repeat hits) */
+	UPROPERTY(BlueprintReadWrite, Category = WeaponScreen)
+	TArray<APawn*> HitPawns;
+
 	/** blocked projectiles are changed to this damage type so there's a more informative death message explaining the change in damage credit */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
 	TSubclassOf<UDamageType> BlockedProjDamageType;

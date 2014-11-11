@@ -57,7 +57,22 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		OtherProj->FFDamageType = BlockedProjDamageType;
 		OtherProj->Explode(OtherProj->GetActorLocation(), -HitNormal);
 	}
-
+	else if (bCauseMomentumToPawns && Cast<APawn>(OtherActor) != NULL && OtherActor != Instigator && !HitPawns.Contains((APawn*)OtherActor))
+	{
+		FCollisionQueryParams Params(FName(TEXT("WeaponScreenOverlap")), false, this);
+		Params.AddIgnoredActor(OtherActor);
+		if (!GetWorld()->LineTraceTest(HitLocation, OtherActor->GetActorLocation(), ECC_Visibility, Params))
+		{
+			HitPawns.Add((APawn*)OtherActor);
+			FVector MomentumDir = GetVelocity().SafeNormal();
+			if (MomentumDir.IsZero())
+			{
+				MomentumDir = GetActorRotation().Vector();
+			}
+			FUTPointDamageEvent DmgEvent(0.0f, FHitResult(OtherActor, OtherComp, HitLocation, HitNormal), MomentumDir, MyDamageType, MomentumDir * Momentum);
+			OtherActor->TakeDamage(0.0f, DmgEvent, InstigatorController, this);
+		}
+	}
 	// this projectile doesn't blow up from collisions
 }
 
