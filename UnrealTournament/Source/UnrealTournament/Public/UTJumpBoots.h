@@ -3,7 +3,7 @@
 
 #include "UTJumpBoots.generated.h"
 
-UCLASS()
+UCLASS(abstract)
 class AUTJumpBoots : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
