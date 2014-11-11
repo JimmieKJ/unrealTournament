@@ -1792,6 +1792,16 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			Teleporter->OnOverlapBegin(Asker);
 			return true;
 		}
+		else if (Target.IsDirectTarget())
+		{
+			// if direct location with no nav data then require pawn box to touch target point
+			FBox TestBox(0);
+			FVector Extent(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5);
+			FVector AskerLoc = Asker->GetActorLocation();
+			TestBox += AskerLoc + Extent;
+			TestBox += AskerLoc - Extent;
+			return TestBox.IsInside(Target.GetLocation(Asker));
+		}
 		else
 		{
 			NavNodeRef MyPoly = FindNearestPoly(Asker->GetNavAgentLocation(), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
