@@ -202,7 +202,7 @@ void AUTProjectile::BeginPlay()
 				MyPlayer->FakeProjectiles.RemoveAt(BestMatchIndex, 1);
 				BeginFakeProjectileSynch(BestMatch);
 			}
-			else if (MyPlayer && MyPlayer->bIsDebuggingProjectiles)
+			else if (MyPlayer != NULL && MyPlayer->bIsDebuggingProjectiles && MyPlayer->GetPredictionTime() > 0.0f)
 			{
 				// debug logging of failed match
 				UE_LOG(UT, Warning, TEXT("%s FAILED to find fake projectile match"), *GetName());
