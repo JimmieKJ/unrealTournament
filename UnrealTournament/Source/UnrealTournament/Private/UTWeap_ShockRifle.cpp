@@ -8,9 +8,6 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FPostConstructInitializeProperties&
 {
 	BaseAISelectRating = 0.65f;
 	BasePickupDesireability = 0.65f;
-
-	BaseAISelectRating = 10;
-	BasePickupDesireability = 10;
 }
 
 bool AUTWeap_ShockRifle::WaitingForCombo()
