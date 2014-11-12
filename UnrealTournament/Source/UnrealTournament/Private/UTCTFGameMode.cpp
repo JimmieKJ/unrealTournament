@@ -623,7 +623,7 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclas
 					for (int32 i = 0; i < CTFGameState->FlagBases.Num(); i++)
 					{
 						if ( CTFGameState->FlagBases[i] != NULL && CTFGameState->FlagBases[i]->MyFlag != NULL && CTFGameState->FlagBases[i]->MyFlag->HoldingPawn != NULL &&
-							CTFGameState->FlagBases[i]->MyFlag->HoldingPawn != NULL != Killer->GetPawn() && CTFGameState->FlagBases[i]->MyFlag->HoldingPawn->GetTeamNum() == KillerTeam )
+							CTFGameState->FlagBases[i]->MyFlag->HoldingPawn != Killer->GetPawn() && CTFGameState->FlagBases[i]->MyFlag->HoldingPawn->GetTeamNum() == KillerTeam )
 						{
 							bFCRescue = CTFGameState->FlagBases[i]->MyFlag->HoldingPawn->LastHitBy == Other || (Killer->GetPawn() != NULL && IsCloseToFlagCarrier(Killer->GetPawn(), FlagCombatBonusDistance, i)) || (Other->GetPawn() != NULL && IsCloseToFlagCarrier(Other->GetPawn(), FlagCombatBonusDistance, i));
 							if (bFCRescue)
