@@ -238,6 +238,18 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 }
 
+void AUTPickupInventory::Reset_Implementation()
+{
+	if (InventoryType == NULL)
+	{
+		StartSleeping();
+	}
+	else
+	{
+		Super::Reset_Implementation();
+	}
+}
+
 void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 {
 	if (Mesh != NULL)

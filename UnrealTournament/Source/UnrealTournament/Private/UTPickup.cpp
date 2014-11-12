@@ -47,12 +47,6 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 	PickupType = PC_Minor;
 }
 
-void AUTPickup::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-
-}
-
 void AUTPickup::SetupTimerSprite()
 {
 	if (GetWorld()->IsGameWorld())
