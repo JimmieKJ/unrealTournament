@@ -55,6 +55,12 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	TArray<FAssistTracker> AssistTracking;
 
+	/** list of players who have 'rescued' the flag carrier by killing an enemy that is targeting the carrier
+	 * reset on return/score
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	TArray<AController*> HolderRescuers;
+
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	AUTCharacter* HoldingPawn;

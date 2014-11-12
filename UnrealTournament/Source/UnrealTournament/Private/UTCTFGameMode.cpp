@@ -183,6 +183,14 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 				}
 			}
 
+			for (AController* Rescuer : GameObject->HolderRescuers)
+			{
+				if (Rescuer != NULL && Cast<AUTPlayerState>(Rescuer->PlayerState) != NULL && CTFGameState->OnSameTeam(Rescuer, Holder))
+				{
+					NewScoringPlay.Assists.AddUnique(FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState));
+				}
+			}
+
 			// Give out bonus points to all teammates near the flag.
 			for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 			{
@@ -514,19 +522,16 @@ bool AUTCTFGameMode::PlayerCanRestart( APlayerController* Player )
 
 bool AUTCTFGameMode::IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum)
 {
-	if (CTFGameState == NULL || CTFGameState->FlagBases.Num() < 2)
+	if (CTFGameState != NULL)
 	{
-		AUTCTFFlag* Flags[2];
-		Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
-		Flags[1] = CTFGameState->FlagBases[1]->MyFlag;
-
-		bool bCloseToRed = Flags[0]->ObjectState == CarriedObjectState::Held && (Flags[0]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
-		bool bCloseToBlue = Flags[1]->ObjectState == CarriedObjectState::Held && (Flags[1]->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared;
-
-		if ( (TeamNum == 0 && bCloseToRed) || (TeamNum == 1 && bCloseToBlue) ||
-				(TeamNum == 255 && (bCloseToRed || bCloseToBlue)) )
+		// not enough of these to worry about the minor inefficiency in the specific team case; better to keep code simple
+		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 		{
-			return true;
+			if ( Base != NULL && (TeamNum == 255 || Base->GetTeamNum() == TeamNum) &&
+				Base->MyFlag->ObjectState == CarriedObjectState::Held && (Base->MyFlag->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared )
+			{
+				return true;
+			}
 		}
 	}
 
@@ -538,9 +543,21 @@ void AUTCTFGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, 
 	if (PickedUpBy != NULL && Pickup != NULL)
 	{
 		int Points = 0;
-		if (Pickup->PickupType == PC_Minor) Points = MinorPickupScore;
-		if (Pickup->PickupType == PC_Major) Points = MajorPickupScore;
-		if (Pickup->PickupType == PC_Super) Points = SuperPickupScore;
+		switch (Pickup->PickupType)
+		{
+			case PC_Minor:
+				Points = MinorPickupScore;
+				break;
+			case PC_Major:
+				Points = MajorPickupScore;
+				break;
+			case PC_Super:
+				Points = SuperPickupScore;
+				break;
+			default:
+				Points = 0;
+				break;
+		}
 
 		if (PickedUpBy == LastPickedUpBy) 
 		{
@@ -590,9 +607,37 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclas
 		if (AttackerPS != NULL)
 		{
 			uint32 Points = BaseKillScore;
-			if (Killer->GetPawn() != NULL &&IsCloseToFlagCarrier(Killer->GetPawn(), FlagCombatBonusDistance, 255))
+			bool bGaveCombatBonus = false;
+			if (Killer->GetPawn() != NULL && IsCloseToFlagCarrier(Killer->GetPawn(), FlagCombatBonusDistance, 255))
 			{
 				Points += CombatBonusKillBonus;
+				bGaveCombatBonus = true;
+			}
+			// tracking of assists for flag carrier rescues
+			if (CTFGameState != NULL && !CTFGameState->OnSameTeam(Killer, Other) && InterfaceCast<IUTTeamInterface>(Killer) != NULL)
+			{
+				uint8 KillerTeam = InterfaceCast<IUTTeamInterface>(Killer)->GetTeamNum();
+				if (KillerTeam != 255)
+				{
+					bool bFCRescue = false;
+					for (int32 i = 0; i < CTFGameState->FlagBases.Num(); i++)
+					{
+						if ( CTFGameState->FlagBases[i] != NULL && CTFGameState->FlagBases[i]->MyFlag != NULL && CTFGameState->FlagBases[i]->MyFlag->HoldingPawn != NULL &&
+							CTFGameState->FlagBases[i]->MyFlag->HoldingPawn->GetTeamNum() == KillerTeam )
+						{
+							bFCRescue = CTFGameState->FlagBases[i]->MyFlag->HoldingPawn->LastHitBy == Other || IsCloseToFlagCarrier(Killer->GetPawn(), FlagCombatBonusDistance, i) || (Other->GetPawn() != NULL && IsCloseToFlagCarrier(Other->GetPawn(), FlagCombatBonusDistance, i));
+							if (bFCRescue)
+							{
+								CTFGameState->FlagBases[i]->MyFlag->HolderRescuers.AddUnique(Killer);
+							}
+						}
+					}
+					if (bFCRescue && !bGaveCombatBonus)
+					{
+						Points += CombatBonusKillBonus;
+						bGaveCombatBonus = true;
+					}
+				}
 			}
 
 			AttackerPS->AdjustScore(Points);

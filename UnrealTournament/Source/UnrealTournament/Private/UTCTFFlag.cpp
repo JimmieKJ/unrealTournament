@@ -42,24 +42,16 @@ void AUTCTFFlag::DefaultTimer()
 {
 	if (Holder != NULL)
 	{
-		// Look to see if the other CTF Flag is out.
-		
+		// Look to see if the holder's flag is out (thus our holder is at minimum preventing the other team from scoring)
+		uint8 HolderTeam = Holder->GetTeamNum();
 		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (CTFGameState != NULL)
+		if (CTFGameState != NULL && CTFGameState->FlagBases.IsValidIndex(HolderTeam) && CTFGameState->FlagBases[HolderTeam] != NULL && CTFGameState->FlagBases[HolderTeam]->GetCarriedObjectHolder() != NULL)
 		{
-			for (int i = 0; i < CTFGameState->FlagBases.Num(); i++)
+			AUTCTFGameMode* GM = Cast<AUTCTFGameMode>(GetWorld()->GetAuthGameMode());
+			if (GM != NULL)
 			{
-				if (CTFGameState->FlagBases[i] != NULL && CTFGameState->FlagBases[i]->GetCarriedObjectHolder() == NULL)
-				{
-					return;
-				}
+				GM->ScoreHolder(Holder);
 			}
-		}
-
-		AUTCTFGameMode* GM = Cast<AUTCTFGameMode>(GetWorld()->GetAuthGameMode());
-		if (GM != NULL)
-		{
-			GM->ScoreHolder(Holder);
 		}
 	}
 }
