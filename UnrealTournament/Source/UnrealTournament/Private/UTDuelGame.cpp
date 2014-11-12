@@ -58,6 +58,7 @@ void AUTDuelGame::InitGame(const FString& MapName, const FString& Options, FStri
 	GameSession->MaxPlayers = 2;
 	BotFillCount = FMath::Min<int32>(BotFillCount, 2);
 	bForceRespawn = true;
+	bBalanceTeams = true;
 }
 
 void AUTDuelGame::PlayEndOfMatchMessage()
