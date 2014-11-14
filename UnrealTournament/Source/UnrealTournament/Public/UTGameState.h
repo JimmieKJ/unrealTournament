@@ -64,8 +64,11 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	uint32 bViewKillerOnDeath:1;
 
 	/** How much time is remaining in this match. */
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = GameState)
 	uint32 RemainingTime;
+
+	UFUNCTION()
+	virtual void OnRep_RemainingTime();
 
 	// How long must a player wait before respawning
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)

@@ -118,6 +118,13 @@ void AUTGameState::BeginPlay()
 	}
 }
 
+void AUTGameState::OnRep_RemainingTime()
+{
+	// if we received RemainingTime, it takes precedence
+	// note that this relies on all variables being received prior to any notifies being called
+	RemainingMinute = 0;
+}
+
 void AUTGameState::DefaultTimer()
 {
 	Super::DefaultTimer();
