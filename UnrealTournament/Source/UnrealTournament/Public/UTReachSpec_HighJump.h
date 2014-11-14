@@ -18,7 +18,9 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 
 	UUTReachSpec_HighJump(const FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
-	{}
+	{
+		PathColor = FLinearColor(0.5f, 0.0f, 0.8f);
+	}
 
 	/** jump Z velocity required to reach the endpoint */
 	UPROPERTY()
@@ -124,7 +126,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 					const FVector JumpStart = NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly);
 					int32 JumpDist = FMath::TruncToInt((JumpEnd - JumpStart).Size());
 					// TODO: hardcoded numbers based on default translocator
-					if (B->AllowTranslocator() && JumpDist < 2000 * (-2150.0f / FMath::Min<float>(-1.0f, GravityVolume.IsValid() ? GravityVolume->GetGravityZ() : NavMesh->GetWorld()->GetGravityZ())))
+					if (B->AllowTranslocator() && JumpEnd.Z - JumpStart.Z < 1600.0f && JumpDist < 1900 * (-2150.0f / FMath::Min<float>(-1.0f, GravityVolume.IsValid() ? GravityVolume->GetGravityZ() : NavMesh->GetWorld()->GetGravityZ())))
 					{
 						// the higher we need to throw the disc for a lower Z change, the more time the throw will take; adjust distance for that
 						return FMath::Max<int32>(450, FMath::TruncToInt((AdjustedRequiredJumpZ - (JumpEnd.Z - JumpStart.Z)) / 1.5f)) + (DefaultCost - JumpDist) + (JumpDist / 2);

@@ -409,8 +409,7 @@ void AUTBot::Tick(float DeltaTime)
 							// since the final part of the path may require more precision
 							if (i < MoveTargetPoints.Num() - 2 || CurrentPath.ReachFlags == 0)
 							{
-								FVector HitLoc;
-								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(GetNavAgentLocation(), MoveTargetPoints[i + 1].Get() - FVector(0.0f, 0.0f, Extent.Z), HitLoc))
+								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(GetNavAgentLocation(), MoveTargetPoints[i + 1].Get() - FVector(0.0f, 0.0f, Extent.Z)))
 								{
 									LastReachedMovePoint = MoveTargetPoints[i].Get();
 									MoveTargetPoints.RemoveAt(0, i + 1);
@@ -657,7 +656,7 @@ void AUTBot::ConsiderTranslocation()
 		{
 			FVector TargetLoc = RouteCache[i].GetLocation(GetPawn());
 			float Dist = (TargetLoc - GetPawn()->GetActorLocation()).Size();
-			if (Dist > 1500.0f && Dist < 4000.0f && !GetWorld()->SweepTest(GetPawn()->GetActorLocation(), TargetLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(FName(TEXT("Transloc")), false, GetPawn())))
+			if (Dist > 1100.0f && Dist < 3500.0f && !GetWorld()->SweepTest(GetPawn()->GetActorLocation(), TargetLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(FName(TEXT("Transloc")), false, GetPawn())))
 			{
 				TranslocTarget = TargetLoc;
 				break;
@@ -669,7 +668,7 @@ void AUTBot::ConsiderTranslocation()
 			{
 				FVector TargetLoc = MoveTargetPoints[i].Get();
 				float Dist = (TargetLoc - GetPawn()->GetActorLocation()).Size();
-				if (Dist > 1500.0f && Dist < 4000.0f && !GetWorld()->SweepTest(GetPawn()->GetActorLocation(), TargetLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(FName(TEXT("Transloc")), false, GetPawn())))
+				if (Dist > 1100.0f && Dist < 3500.0f && !GetWorld()->SweepTest(GetPawn()->GetActorLocation(), TargetLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(FName(TEXT("Transloc")), false, GetPawn())))
 				{
 					TranslocTarget = TargetLoc;
 					break;
@@ -849,6 +848,12 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					const float GravityZ = ((GetCharacter() != NULL) ? GetCharacter()->CharacterMovement->GetGravityZ() : GetWorld()->GetDefaultGravityZ()) * DefaultProj->ProjectileMovement->ProjectileGravityScale;
 					const float ProjRadius = (DefaultProj->CollisionComp != NULL) ? DefaultProj->CollisionComp->GetCollisionShape().GetExtent().X : 0.0f;
 					const FVector StartLoc = GetPawn()->GetActorLocation() + (FocalPoint - GetPawn()->GetActorLocation()).Rotation().RotateVector(MyWeap->FireOffset);
+					float ProjSpeed = DefaultProj->ProjectileMovement->InitialSpeed;
+					// if firing upward, add minimum possible TossZ contribution to effective speed to improve toss prediction
+					if (DefaultProj->TossZ > 0.0f)
+					{
+						ProjSpeed += FMath::Max<float>(0.0f, (FocalPoint - StartLoc).SafeNormal().Z * DefaultProj->TossZ);
+					}
 					TArray<AActor*> IgnoreActors;
 					IgnoreActors.Add(GetPawn());
 					IgnoreActors.Add(GetTarget());
@@ -856,16 +861,17 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					FVector TossVel;
 					static FCollisionResponseContainer BlockWorldResponse = []() { FCollisionResponseContainer Result(ECR_Ignore); Result.WorldDynamic = ECR_Block; Result.WorldStatic = ECR_Block; return Result; }();
 					FCollisionResponseParams ResponseParams((DefaultProj->CollisionComp != NULL) ? DefaultProj->CollisionComp->GetCollisionResponseToChannels() : BlockWorldResponse);
-					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, FocalPoint, DefaultProj->ProjectileMovement->InitialSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, ResponseParams, IgnoreActors))
+					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, FocalPoint, ProjSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, ResponseParams, IgnoreActors))
 					{
 						TossVel.Z -= DefaultProj->TossZ;
 						TargetLoc = GetPawn()->GetActorLocation() + TossVel.SafeNormal() * 2000.0f;
 					}
+					// TODO: move this to a function called when preparing move, no need to do this repeatedly
 					else if (FocalPoint == TranslocTarget && Cast<UUTReachSpec_HighJump>(CurrentPath.Spec.Get()) != NULL)
 					{
 						// try adjusting target to edge of desired navmesh polygon
 						FVector HitLoc;
-						if (NavData->Raycast(TranslocTarget, GetPawn()->GetActorLocation(), HitLoc, NavData->GetDefaultQueryFilter()))
+						if (NavData->Raycast(TranslocTarget - FVector(0.0f, 0.0f, GetPawn()->GetSimpleCollisionHalfHeight()), GetPawn()->GetActorLocation(), HitLoc, NavData->GetDefaultQueryFilter()))
 						{
 							float ZDiff = TranslocTarget.Z - HitLoc.Z;
 							HitLoc.Z += ZDiff * 0.5f;
@@ -889,8 +895,8 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 										}
 									}
 									TestLoc.Z += GetPawn()->GetSimpleCollisionHalfHeight();
-									if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, DefaultProj->ProjectileMovement->InitialSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, ResponseParams, IgnoreActors) ||
-										UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, DefaultProj->ProjectileMovement->InitialSpeed, true, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::DoNotTrace))
+									if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, ProjSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, ResponseParams, IgnoreActors) ||
+										UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, ProjSpeed, true, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::DoNotTrace))
 									{
 										TranslocTarget = TestLoc;
 										SetFocalPoint(TestLoc, false, SCRIPTEDMOVE_FOCUS_PRIORITY);
@@ -901,7 +907,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 							}
 						}
 					}
-					else if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, FocalPoint, DefaultProj->ProjectileMovement->InitialSpeed, !TranslocTarget.IsZero(), ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::DoNotTrace))
+					else if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, FocalPoint, ProjSpeed, !TranslocTarget.IsZero(), ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::DoNotTrace))
 					{
 						// any valid arc better than a straight line, even if we think it's blocked
 						// besides better chance of hit anyway with aimerror, etc there's also a chance that the trace is a false positive because it's approximated for speed
@@ -2111,8 +2117,7 @@ void AUTBot::DoCharge()
 	}
 	else
 	{
-		FVector HitLocation;
-		if (GetTarget() == Enemy && !NavData->RaycastWithZCheck(GetPawn()->GetNavAgentLocation(), Enemy->GetNavAgentLocation(), HitLocation))
+		if (GetTarget() == Enemy && !NavData->RaycastWithZCheck(GetPawn()->GetNavAgentLocation(), Enemy->GetNavAgentLocation()))
 		{
 			SetMoveTargetDirect(FRouteCacheItem(Enemy));
 			StartNewAction(ChargeAction);
@@ -2263,8 +2268,7 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 		else
 		{
 			// see if we can get there from here via walk or jump
-			FVector UnusedHitLoc;
-			if (!NavData->RaycastWithZCheck(TeleportLoc, DesiredDest - FVector(0.0f, 0.0f, GetPawn()->GetSimpleCollisionHalfHeight()), UnusedHitLoc))
+			if (!NavData->RaycastWithZCheck(TeleportLoc, DesiredDest - FVector(0.0f, 0.0f, GetPawn()->GetSimpleCollisionHalfHeight())))
 			{
 				return true;
 			}

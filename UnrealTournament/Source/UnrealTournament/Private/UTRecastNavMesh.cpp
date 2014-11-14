@@ -221,18 +221,26 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 					CurrentLoc -= Diff.SafeNormal2D(); // avoid float precision penetration issues
 					if ((NewVelocity.X == 0.0f && NewVelocity.Y == 0.0f) || GetWorld()->SweepSingle(Hit, CurrentLoc, FVector(CurrentLoc.X, CurrentLoc.Y, NewLoc.Z), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 					{
-						if (EndPoly != INVALID_NAVNODEREF && EndPoly == FindNearestPoly(CurrentLoc, ScoutShape.GetExtent()))
+						if (NewVelocity.Z > 0.0f && Hit.Normal.Z < -0.99f)
 						{
-							// if we made it to the poly we got close enough
-							if (MaxFallSpeed != NULL)
-							{
-								*MaxFallSpeed = ZSpeed;
-							}
-							return true;
+							// bumped head on ceiling
+							ZSpeed = FMath::Min<float>(ZSpeed, 0.0f);
 						}
-						// give up, nowhere to go
-						bLastJumpBlocked = true;
-						break;
+						else
+						{
+							if (EndPoly != INVALID_NAVNODEREF && EndPoly == FindNearestPoly(CurrentLoc, ScoutShape.GetExtent()))
+							{
+								// if we made it to the poly we got close enough
+								if (MaxFallSpeed != NULL)
+								{
+									*MaxFallSpeed = ZSpeed;
+								}
+								return true;
+							}
+							// give up, nowhere to go
+							bLastJumpBlocked = true;
+							break;
+						}
 					}
 					else
 					{
@@ -1168,7 +1176,7 @@ UUTPathNode* AUTRecastNavMesh::FindNearestNode(const FVector& TestLoc, const FVe
 	return PolyToNode.FindRef(PolyRef);
 }
 
-bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation) const
+bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, FVector* HitLocation, NavNodeRef* LastPoly) const
 {
 	// partially copied from ARecastNavMesh::NavMeshRaycast() and FPImplRecastNavMesh::Raycast2D() to work around some issues
 	BeginBatchQuery();
@@ -1197,14 +1205,24 @@ bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector&
 	FinishBatchQuery();
 	if (bResult)
 	{
+		if (LastPoly != NULL)
+		{
+			*LastPoly = RayResult.CorridorPolys[RayResult.CorridorPolysCount - 1];
+		}
 		if (RayResult.HasHit())
 		{
-			HitLocation = (RayStart + (RayEnd - RayStart) * RayResult.HitTime);
+			if (HitLocation != NULL)
+			{
+				*HitLocation = (RayStart + (RayEnd - RayStart) * RayResult.HitTime);
+			}
 			return true;
 		}
 		else
 		{
-			HitLocation = RayEnd;
+			if (HitLocation != NULL)
+			{
+				*HitLocation = RayEnd;
+			}
 			// handle the Z axis issue in the recast function by making sure the end poly is the one we expect
 			NavNodeRef EndNode = INVALID_NAVNODEREF;
 			NavQueryVariable.findNearestPoly(&RecastEnd.X, Extent, QueryFilter, &EndNode, NULL);
@@ -1220,7 +1238,14 @@ bool AUTRecastNavMesh::RaycastWithZCheck(const FVector& RayStart, const FVector&
 	}
 	else
 	{
-		HitLocation = RayStart;
+		if (LastPoly != NULL)
+		{
+			*LastPoly = INVALID_NAVNODEREF;
+		}
+		if (HitLocation != NULL)
+		{
+			*HitLocation = RayStart;
+		}
 		return true;
 	}
 }
@@ -1238,6 +1263,20 @@ TArray<FLine> AUTRecastNavMesh::GetPolyWalls(NavNodeRef PolyRef) const
 		ResultLines.Add(FLine(Recast2UnrealPoint(&SegmentVerts[(i * 2) * 3]), Recast2UnrealPoint(&SegmentVerts[(i * 2 + 1) * 3])));
 	}
 	return ResultLines;
+}
+
+float AUTRecastNavMesh::GetPolyZAtLoc(NavNodeRef PolyID, const FVector2D& Loc2D) const
+{
+	FVector RecastLoc = Unreal2RecastPoint(FVector(Loc2D, 0.0f));
+	float Result = 0.0f;
+	if (dtStatusSucceed(GetRecastNavMeshImpl()->SharedNavQuery.getPolyHeight(PolyID, (float*)&RecastLoc, &Result)))
+	{
+		return Result;
+	}
+	else
+	{
+		return GetPolyCenter(PolyID).Z;
+	}
 }
 
 NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentProperties& AgentProps) const

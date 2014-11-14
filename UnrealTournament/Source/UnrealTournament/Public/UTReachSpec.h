@@ -21,7 +21,7 @@ class UUTReachSpec : public UObject
 	FLinearColor PathColor;
 
 	/** return color to draw the path in for debug/editor views */
-	virtual FLinearColor GetPathColor()
+	virtual FLinearColor GetPathColor() const
 	{
 		return PathColor;
 	}

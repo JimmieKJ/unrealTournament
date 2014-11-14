@@ -206,6 +206,12 @@ class AUTRecastNavMesh : public ARecastNavMesh
 		return Super::GetPolyCenter(PolyID, OutCenter);
 	}
 
+	/** return Z coordinate of the given polygon at the specified XY location
+	 * if the specified location is not on the polygon, returns the Z at the polygon's center
+	 * if the PolyID is invalid, returns 0.0f
+	 */
+	float GetPolyZAtLoc(NavNodeRef PolyID, const FVector2D& Loc2D) const;
+
 	/** return size for standard human traversable paths (used by special paths to set the appropriate size) */
 	virtual FCapsuleSize GetHumanPathSize() const;
 	inline FCapsuleSize GetMaxPathSize() const
@@ -239,7 +245,7 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	 * the default implementation can false negative when there is a walkable polygon directly under the trace even if in 3D the trace would hit a polygon border
 	 * this method gets around this by attempting to match the end location to an explicit poly and checks that the trace traversed it
 	 */
-	bool RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation) const;
+	bool RaycastWithZCheck(const FVector& RayStart, const FVector& RayEnd, FVector* HitLocation = NULL, NavNodeRef* LastPoly = NULL) const;
 
 	/** returns an array of walls (edges with no connection to a neighbor) for the passed in poly */
 	TArray<FLine> GetPolyWalls(NavNodeRef PolyRef) const;

@@ -322,6 +322,14 @@ public:
 			MoveTimer = 1.0f + (NewMoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
 		}
 	}
+	void SetAdjustLoc(const FVector& NewAdjustLoc)
+	{
+		if (MoveTarget.IsValid())
+		{
+			AdjustLoc = NewAdjustLoc;
+			bAdjusting = true;
+		}
+	}
 	inline void ClearMoveTarget()
 	{
 		MoveTarget.Clear();

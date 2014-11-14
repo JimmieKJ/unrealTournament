@@ -273,19 +273,55 @@ bool AUTWeap_Translocator::DoAssistedJump()
 	}
 	else
 	{
+		// TODO: merge this code with the translocation-specific checks in AUTBot::ApplyWeaponAimAdjust(), add AUTBot::PickTranslocatorTossForPath() or similiar
 		if (B->TranslocTarget.IsZero())
 		{
+			const FVector BaseMoveTarget = B->GetMoveTarget().GetLocation(UTOwner);
 			// get list of potential navmesh polys in this path to toss to, find best one we can actually hit
 			if (ProjClass.IsValidIndex(0) && ProjClass[0] != NULL && ProjClass[0].GetDefaultObject()->ProjectileMovement != NULL && ProjClass[0].GetDefaultObject()->CollisionComp != NULL)
 			{
 				const AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 				TArray<FVector> PotentialTargets;
-				PotentialTargets.Add(B->GetMovePoint());
+				PotentialTargets.Add(BaseMoveTarget);
 				for (NavNodeRef Poly : B->GetCurrentPath().AdditionalEndPolys)
 				{
 					if (Poly != B->GetMoveTarget().TargetPoly)
 					{
 						PotentialTargets.Add(NavData->GetPolyCenter(Poly) + FVector(0.0f, 0.0f, UTOwner->GetSimpleCollisionHalfHeight()));
+					}
+				}
+				bool bAddedFallbackTarget = false;
+				{
+					// find poly wall closest to shooter location and use that as a fallback throw target
+					FVector HitLoc;
+					if (NavData->Raycast(B->GetMoveTarget().GetLocation(NULL), UTOwner->GetActorLocation(), HitLoc, NavData->GetDefaultQueryFilter()))
+					{
+						float ZDiff = BaseMoveTarget.Z - HitLoc.Z;
+						HitLoc.Z += ZDiff * 0.5f;
+						FVector Extent = UTOwner->GetSimpleCollisionCylinderExtent() * FVector(2.0f, 2.0f, 1.0f);
+						Extent.Z += FMath::Abs<float>(ZDiff) * 0.5f;
+						NavNodeRef WallPoly = NavData->FindNearestPoly(HitLoc, Extent);
+						if (WallPoly != INVALID_NAVNODEREF)
+						{
+							TArray<FLine> Walls = NavData->GetPolyWalls(WallPoly);
+							if (Walls.Num() > 0)
+							{
+								FVector TestLoc = BaseMoveTarget;
+								float BestDist = FLT_MAX;
+								for (const FLine& TestWall : Walls)
+								{
+									float Dist = (TestWall.GetCenter() - UTOwner->GetActorLocation()).Size();
+									if (Dist < BestDist)
+									{
+										TestLoc = TestWall.GetCenter();
+										BestDist = Dist;
+									}
+								}
+								TestLoc.Z += UTOwner->GetSimpleCollisionHalfHeight();
+								PotentialTargets.Add(TestLoc);
+								bAddedFallbackTarget = true;
+							}
+						}
 					}
 				}
 
@@ -299,8 +335,14 @@ bool AUTWeap_Translocator::DoAssistedJump()
 				for (const FVector& TestLoc : PotentialTargets)
 				{
 					FVector StartLoc = UTOwner->GetActorLocation() + (TestLoc - UTOwner->GetActorLocation()).Rotation().RotateVector(FireOffset);
+					// if firing upward, add minimum possible TossZ contribution to effective speed to improve toss prediction
+					float EffectiveSpeed = DefaultProj->ProjectileMovement->InitialSpeed;
+					if (DefaultProj->TossZ > 0.0f)
+					{
+						EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - StartLoc).SafeNormal().Z * DefaultProj->TossZ);
+					}
 					FVector TossVel;
-					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, DefaultProj->ProjectileMovement->InitialSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
+					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, EffectiveSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
 					{
 						// TODO: assemble successful toss list, allow bot to choose best to its goal?
 						B->TranslocTarget = TestLoc;
@@ -310,14 +352,49 @@ bool AUTWeap_Translocator::DoAssistedJump()
 				}
 				if (!bFound)
 				{
-					// try default anyway
-					// TODO: mark as probable failure, tag ReachSpec if bot in fact doesn't make it
-					B->TranslocTarget = B->GetMovePoint();
+					const FVector TestLoc = bAddedFallbackTarget ? PotentialTargets.Last() : BaseMoveTarget;
+					// see if there's a better throw by strafing to the side
+					const FVector Side = 500.0f * ((TestLoc - UTOwner->GetActorLocation()).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f));
+					const FVector TestPoints[] = { UTOwner->GetNavAgentLocation() + Side, UTOwner->GetNavAgentLocation() - Side, UTOwner->GetNavAgentLocation() + (UTOwner->GetNavAgentLocation() - TestLoc).SafeNormal2D() * 500.0f };
+					DrawDebugSphere(GetWorld(), TestLoc, 32.0f, 8, FColor(255, 0, 0), false, 10.0f);
+					for (FVector NewStart : TestPoints)
+					{
+						NavNodeRef EndPoly = INVALID_NAVNODEREF;
+						FVector HitLoc;
+						if (NavData->RaycastWithZCheck(UTOwner->GetNavAgentLocation(), NewStart, &HitLoc, &EndPoly))
+						{
+							NewStart = HitLoc;
+						}
+						if (EndPoly != INVALID_NAVNODEREF)
+						{
+							NewStart.Z = NavData->GetPolyZAtLoc(EndPoly, FVector2D(NewStart)) + UTOwner->GetSimpleCollisionHalfHeight();
+							DrawDebugSphere(GetWorld(), NewStart, 32.0f, 8, FColor(255, 0, 255), false, 10.0f);
+							float EffectiveSpeed = DefaultProj->ProjectileMovement->InitialSpeed;
+							if (DefaultProj->TossZ > 0.0f)
+							{
+								EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - NewStart).SafeNormal().Z * DefaultProj->TossZ);
+							}
+							FVector TossVel;
+							if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, NewStart, TestLoc, EffectiveSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
+							{
+								B->TranslocTarget = TestLoc;
+								B->SetAdjustLoc(NewStart);
+								bFound = true;
+								break;
+							}
+						}
+					}
+					if (!bFound)
+					{
+						// try default anyway
+						// TODO: mark as probable failure, tag ReachSpec if bot in fact doesn't make it
+						B->TranslocTarget = BaseMoveTarget;
+					}
 				}
 			}
 			else
 			{
-				B->TranslocTarget = B->GetMovePoint();
+				B->TranslocTarget = BaseMoveTarget;
 			}
 		}
 		// look at target
