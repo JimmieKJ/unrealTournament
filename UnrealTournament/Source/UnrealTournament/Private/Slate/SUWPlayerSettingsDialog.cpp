@@ -38,6 +38,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	Emote2Index = Settings->GetEmoteIndex2();
 	Emote3Index = Settings->GetEmoteIndex3();
 
+	const int EmoteMax = 6;
+
 	WeaponLibrary = UObjectLibrary::CreateLibrary(AUTWeapon::StaticClass(), true, false);
 	WeaponLibrary->LoadBlueprintAssetDataFromPath(TEXT("/Game/")); // TODO: do we need to iterate through all the root paths?
 	WeaponLibrary->LoadBlueprintAssetDataFromPaths(TArray<FString>()); // HACK: library code doesn't properly handle giving it a root path
@@ -291,9 +293,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.AllowSpin(true)
 					.Delta(1)
 					.MinValue(0)
-					.MaxValue(5)
+					.MaxValue(EmoteMax)
 					.MinSliderValue(0)
-					.MaxSliderValue(5)
+					.MaxSliderValue(EmoteMax)
 					.Label()
 					[
 						SNew(STextBlock)
@@ -312,9 +314,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.AllowSpin(true)
 					.Delta(1)
 					.MinValue(0)
-					.MaxValue(5)
+					.MaxValue(EmoteMax)
 					.MinSliderValue(0)
-					.MaxSliderValue(5)
+					.MaxSliderValue(EmoteMax)
 					.Label()
 					[
 						SNew(STextBlock)
@@ -333,9 +335,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.AllowSpin(true)
 					.Delta(1)
 					.MinValue(0)
-					.MaxValue(5)
+					.MaxValue(EmoteMax)
 					.MinSliderValue(0)
-					.MaxSliderValue(5)
+					.MaxSliderValue(EmoteMax)
 					.Label()
 					[
 						SNew(STextBlock)
