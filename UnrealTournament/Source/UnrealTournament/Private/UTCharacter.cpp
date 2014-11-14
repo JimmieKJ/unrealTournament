@@ -248,6 +248,11 @@ void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 	CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
 	UTCharacterMovement->OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
+	if (bRollNextUncrouch && IsLocallyControlled())
+	{
+		Roll(GetVelocity().SafeNormal());
+		bRollNextUncrouch = false;
+	}
 }
 
 void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)

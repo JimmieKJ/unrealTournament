@@ -45,7 +45,7 @@ AUTPlayerController::AUTPlayerController(const class FPostConstructInitializePro
 	LastTapBackTime = -10.f;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
-	CrouchRollTapInterval = 0.3f;
+	CrouchRollTapInterval = 0.25f;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -779,7 +779,11 @@ void AUTPlayerController::Jump()
 
 void AUTPlayerController::Crouch()
 {
-	CrouchEnableTime = GetWorld()->GetTimeSeconds() + CrouchRollTapInterval;
+	if (GetCharacter() != NULL)
+	{
+		GetCharacter()->Crouch(false);
+	}
+	RollTapThresholdTime = GetWorld()->GetTimeSeconds() + CrouchRollTapInterval;
 }
 
 void AUTPlayerController::UnCrouch()
@@ -787,11 +791,11 @@ void AUTPlayerController::UnCrouch()
 	if (GetCharacter() != NULL)
 	{
 		GetCharacter()->UnCrouch(false);
-		if ((GetWorld()->GetTimeSeconds() < CrouchEnableTime) && UTCharacter)
+		if (GetWorld()->GetTimeSeconds() < RollTapThresholdTime && UTCharacter != NULL)
 		{
 			// tap roll
-			CrouchEnableTime = 0.f;
-			UTCharacter->Roll(UTCharacter->GetVelocity().SafeNormal());
+			RollTapThresholdTime = 0.f;
+			UTCharacter->bRollNextUncrouch = true;
 		}
 	}
 }
@@ -1412,10 +1416,6 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 				}
 			}
 		}
-	}
-	if ((GetWorld()->GetTimeSeconds() > CrouchEnableTime) && (GetWorld()->GetTimeSeconds() - DeltaTime < CrouchEnableTime) && GetCharacter())
-	{
-		GetCharacter()->Crouch(false);
 	}
 }
 

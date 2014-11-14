@@ -252,7 +252,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	/** Replicated function sent by client to server - contains client movement and view info for two moves. */
 	UFUNCTION(unreliable, server, WithValidation)
-		virtual void UTServerMoveDual(float TimeStamp0, FVector_NetQuantize InAccel0, uint8 PendingFlags, float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize100 ClientLoc, uint8 NewFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
+	virtual void UTServerMoveDual(float TimeStamp0, FVector_NetQuantize InAccel0, uint8 PendingFlags, float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize100 ClientLoc, uint8 NewFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
 
 	//====================================
 
@@ -1159,6 +1159,10 @@ public:
 	/** Max distance for same team player indicator */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float TeamPlayerIndicatorMaxDistance;
+
+	/** crouch/uncrouch is delayed so on tap roll we need to buffer */
+	UPROPERTY(BlueprintReadOnly, Category = Dodging)
+	bool bRollNextUncrouch;
 
 	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
 	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)

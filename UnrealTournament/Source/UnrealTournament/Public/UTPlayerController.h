@@ -493,11 +493,10 @@ protected:
 
 	/** Max held time for roll from crouch tap */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
-		float CrouchRollTapInterval;
-
-	/** Time at which crouch will engage. */
+	float CrouchRollTapInterval;
+	/** max world time to release crouch tap to roll, set from CrouchRollTapInterval */
 	UPROPERTY(BlueprintReadOnly, Category = Dodging)
-		float CrouchEnableTime;
+	float RollTapThresholdTime;
 
 	virtual void Crouch();
 	virtual void UnCrouch();
