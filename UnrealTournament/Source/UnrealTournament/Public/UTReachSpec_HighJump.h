@@ -32,6 +32,12 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 	UPROPERTY()
 	TWeakObjectPtr<APhysicsVolume> GravityVolume;
 
+	/** cached result for translocator toss check */
+	UPROPERTY(transient)
+	TWeakObjectPtr<const AUTProjectile> CachedTransDiscTemplate;
+	UPROPERTY(transient)
+	bool bCachedTranslocatorResult;
+
 	/** calculates JumpZ available to Asker through standard jump moves (no weapon assist)
 	 * @param RepeatableJumpZ - JumpZ that the character can achieve limitlessly
 	 * @param BestJumpZ - JumpZ that the character can achieve one or more times (jump boots, etc)
@@ -92,7 +98,47 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 		return AdjustedRequiredJumpZ * 1.05f; // little bit of leeway to avoid broken close calls
 	}
 
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const override
+	/** returns if specified projectile can reach from JumpStart to JumpEnd */
+	bool CheckTranslocatorArc(const FVector& JumpStart, const FVector& JumpEnd, const AUTProjectile* ProjTemplate, float GravityZ)
+	{
+		if (ProjTemplate == NULL || ProjTemplate->ProjectileMovement == NULL)
+		{
+			return true;
+		}
+		else if (ProjTemplate == CachedTransDiscTemplate)
+		{
+			return bCachedTranslocatorResult;
+		}
+		else
+		{
+			GravityZ *= ProjTemplate->ProjectileMovement->ProjectileGravityScale;
+			if (GravityZ >= 0.0f)
+			{
+				return true;
+			}
+			else
+			{
+				float TossSpeed = ProjTemplate->ProjectileMovement->InitialSpeed;
+				// if firing upward, add minimum possible TossZ contribution to effective speed to improve toss prediction
+				if (ProjTemplate->TossZ > 0.0f)
+				{
+					TossSpeed += FMath::Max<float>(0.0f, (JumpEnd - JumpStart).SafeNormal().Z * ProjTemplate->TossZ);
+				}
+				GravityZ = -GravityZ;
+				const FVector FlightDelta = JumpEnd - JumpStart;
+				const float DeltaXY = FlightDelta.Size2D();
+				const float DeltaZ = FlightDelta.Z;
+				const float TossSpeedSq = FMath::Square(TossSpeed);
+
+				// v^4 - g*(g*x^2 + 2*y*v^2)
+				bCachedTranslocatorResult = (FMath::Square(TossSpeedSq) - GravityZ * ((GravityZ * FMath::Square(DeltaXY)) + (2.f * DeltaZ * TossSpeedSq)) >= 0.0f);
+				CachedTransDiscTemplate = ProjTemplate;
+				return bCachedTranslocatorResult;
+			}
+		}
+	}
+
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
 		if (Asker == NULL)
 		{
@@ -102,7 +148,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 		{
 			float AdjustedRequiredJumpZ = CalcRequiredJumpZ(Asker);
 			float RepeatableJumpZ = 0.0f;
-			float BestJumpZ = CalcAvailableSimpleJumpZ(Asker, &RepeatableJumpZ);;
+			float BestJumpZ = CalcAvailableSimpleJumpZ(Asker, &RepeatableJumpZ);
 			if (BestJumpZ >= AdjustedRequiredJumpZ)
 			{
 				// extra cost if limited availability movement required
@@ -126,7 +172,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 					const FVector JumpStart = NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly);
 					int32 JumpDist = FMath::TruncToInt((JumpEnd - JumpStart).Size());
 					// TODO: hardcoded numbers based on default translocator
-					if (B->AllowTranslocator() && JumpEnd.Z - JumpStart.Z < 1600.0f && JumpDist < 1900 * (-2150.0f / FMath::Min<float>(-1.0f, GravityVolume.IsValid() ? GravityVolume->GetGravityZ() : NavMesh->GetWorld()->GetGravityZ())))
+					if (B->AllowTranslocator() && CheckTranslocatorArc(JumpStart, JumpEnd, B->TransDiscTemplate, (GravityVolume != NULL) ? GravityVolume->GetGravityZ() : Asker->GetWorld()->GetGravityZ()))
 					{
 						// the higher we need to throw the disc for a lower Z change, the more time the throw will take; adjust distance for that
 						return FMath::Max<int32>(450, FMath::TruncToInt((AdjustedRequiredJumpZ - (JumpEnd.Z - JumpStart.Z)) / 1.5f)) + (DefaultCost - JumpDist) + (JumpDist / 2);

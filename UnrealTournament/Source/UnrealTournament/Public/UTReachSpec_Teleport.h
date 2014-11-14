@@ -27,7 +27,7 @@ class UUTReachSpec_Teleport : public UUTReachSpec
 		return Teleporter;
 	}
 
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const override
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
 		// TODO: check if teleporter is active?
 		return Teleporter.IsValid() ? DefaultCost : BLOCKED_PATH_COST;

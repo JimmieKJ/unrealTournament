@@ -27,7 +27,7 @@ class UUTReachSpec_JumpPad : public UUTReachSpec
 		return JumpPad;
 	}
 
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const override
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
 		// TODO: check if pad is active?
 		return JumpPad.IsValid() ? DefaultCost : BLOCKED_PATH_COST;

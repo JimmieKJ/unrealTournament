@@ -836,7 +836,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 			}
 			else
 			{
-				LastTacticalAimUpdateTime = GetWorld()->TimeSeconds;;
+				LastTacticalAimUpdateTime = GetWorld()->TimeSeconds;
 
 				TargetLoc = FocalPoint;
 				const FVector FireStart = MyWeap->GetFireStartLoc();
@@ -914,6 +914,12 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 						// TODO: maybe take arc that gets farther before blocker is found?
 						TossVel.Z -= DefaultProj->TossZ;
 						TargetLoc = GetPawn()->GetActorLocation() + TossVel.SafeNormal() * 2000.0f;
+					}
+					else if (FocalPoint == TranslocTarget)
+					{
+						// use a generic high angle toss for translocation; disc might get close enough to be worth it
+						const FVector Dir = (TranslocTarget - GetPawn()->GetActorLocation()).SafeNormal();
+						TargetLoc = GetPawn()->GetActorLocation() + (Dir + 0.5f * (FVector(0.0f, 0.0f, 1.0f) - Dir)).SafeNormal() * 2000.0f;
 					}
 				}
 				else

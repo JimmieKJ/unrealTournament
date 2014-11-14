@@ -33,7 +33,7 @@ class UUTReachSpec : public UObject
 	}
 
 	/** return traversal cost in UU or BLOCKED_PATH_COST to prevent the pah from being used */
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh)
 	{
 		return DefaultCost;
 	}

@@ -231,6 +231,10 @@ void AUTWeap_Translocator::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	if (B != NULL)
 	{
 		B->bHasTranslocator = true;
+		if (ProjClass.IsValidIndex(0) && ProjClass[0] != NULL)
+		{
+			B->TransDiscTemplate = ProjClass[0].GetDefaultObject();
+		}
 	}
 }
 
@@ -356,7 +360,6 @@ bool AUTWeap_Translocator::DoAssistedJump()
 					// see if there's a better throw by strafing to the side
 					const FVector Side = 500.0f * ((TestLoc - UTOwner->GetActorLocation()).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f));
 					const FVector TestPoints[] = { UTOwner->GetNavAgentLocation() + Side, UTOwner->GetNavAgentLocation() - Side, UTOwner->GetNavAgentLocation() + (UTOwner->GetNavAgentLocation() - TestLoc).SafeNormal2D() * 500.0f };
-					DrawDebugSphere(GetWorld(), TestLoc, 32.0f, 8, FColor(255, 0, 0), false, 10.0f);
 					for (FVector NewStart : TestPoints)
 					{
 						NavNodeRef EndPoly = INVALID_NAVNODEREF;
@@ -368,7 +371,6 @@ bool AUTWeap_Translocator::DoAssistedJump()
 						if (EndPoly != INVALID_NAVNODEREF)
 						{
 							NewStart.Z = NavData->GetPolyZAtLoc(EndPoly, FVector2D(NewStart)) + UTOwner->GetSimpleCollisionHalfHeight();
-							DrawDebugSphere(GetWorld(), NewStart, 32.0f, 8, FColor(255, 0, 255), false, 10.0f);
 							float EffectiveSpeed = DefaultProj->ProjectileMovement->InitialSpeed;
 							if (DefaultProj->TossZ > 0.0f)
 							{

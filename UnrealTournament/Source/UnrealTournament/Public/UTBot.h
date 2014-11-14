@@ -243,6 +243,12 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** whether bot has the translocator (or weapon that serves the same purpose) */
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	bool bHasTranslocator;
+	/** template (default object) of projectile translocator uses, if any
+	 * if this is set, pathfinding will reject paths the projectile has no chance of making due to its max speed/arc
+	 * if NULL, this check is not performed and it's assumed the translocator can traverse all jump traversible paths
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = AI)
+	const class AUTProjectile* TransDiscTemplate;
 	/** minimum delay between translocation attempts - mostly skill level bound */
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	float TranslocInterval;
