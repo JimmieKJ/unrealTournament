@@ -142,7 +142,8 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientHalftime();
 
-	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
+	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
+	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
 
 	virtual FVector GetFocalLocation() const override;
 

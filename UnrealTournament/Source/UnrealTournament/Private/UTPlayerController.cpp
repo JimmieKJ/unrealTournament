@@ -686,6 +686,22 @@ void AUTPlayerController::OnStopAltFire()
 	{
 		new(DeferredFireInputs) FDeferredFireInput(1, false);
 	}
+	else if (IsInState(NAME_Spectating))
+	{
+		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) &&
+			bPlayerIsWaiting)
+		{
+			ServerRestartPlayer();
+		}
+		else
+		{
+			ServerViewSelf();
+		}
+	}
+	else
+	{
+		ServerRestartPlayer();
+	}
 }
 
 void AUTPlayerController::MoveForward(float Value)
@@ -1303,6 +1319,26 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	if (UTPlaceholder != nullptr && GetViewTarget() != UTPlaceholder)
 	{
 		UTPlaceholder->Destroy();
+	}
+}
+
+void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams)
+{
+	if (IsInState(NAME_Spectating))
+	{
+		FVector CurrentViewLoc;
+		FRotator CurrentViewRot;
+		GetPlayerViewPoint(CurrentViewLoc, CurrentViewRot);
+		AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
+		if (NewViewTarget == NULL)
+		{
+			NewViewTarget = this;
+		}
+		// move spectator pawn to current view location
+		NewViewTarget->SetActorLocationAndRotation(CurrentViewLoc, CurrentViewRot);
+		ResetCameraMode();
+		SetViewTarget(NewViewTarget, TransitionParams);
+		ClientSetViewTarget(NewViewTarget, TransitionParams);
 	}
 }
 
