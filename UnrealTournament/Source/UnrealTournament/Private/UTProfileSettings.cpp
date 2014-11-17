@@ -53,7 +53,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 	// Get all settings from the Player Controller
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
-	if (PC != NULL)
+	if (PC == NULL)
 	{
 		PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
 	}
@@ -71,6 +71,10 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 		// Get any settings from UTPlayerInput
 		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PC->PlayerInput);
+		if (UTPlayerInput == NULL)
+		{
+			UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+		}
 		if (UTPlayerInput)
 		{
 			CustomBinds.Empty();
@@ -78,11 +82,11 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 			{
 				CustomBinds.Add(UTPlayerInput->CustomBinds[i]);
 			}
-			MouseSensitivity = UTPlayerInput->GetMouseSensitivity();
+			//MouseSensitivity = UTPlayerInput->GetMouseSensitivity();
 		}
 	}
 
-	// Grab the various settigns from the InputSettings objec.
+	// Grab the various settings from the InputSettings object.
 
 	UInputSettings* DefaultInputSettingsObject = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 	if (DefaultInputSettingsObject)
@@ -127,7 +131,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 	// Get all settings from the Player Controller
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
-	if (PC != NULL)
+	if (PC == NULL)
 	{
 		PC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
 	}
@@ -145,6 +149,10 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->SaveConfig();
 		// Get any settings from UTPlayerInput
 		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PC->PlayerInput);
+		if (UTPlayerInput == NULL)
+		{
+			UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+		}
 		if (UTPlayerInput && CustomBinds.Num() > 0)
 		{
 			UTPlayerInput->CustomBinds.Empty();
@@ -152,8 +160,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 			{
 				UTPlayerInput->CustomBinds.Add(CustomBinds[i]);
 			}
-			UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
-			UTPlayerInput->UTForceRebuildingKeyMaps(true);
+			//UTPlayerInput->SetMouseSensitivity(MouseSensitivity);
 			UTPlayerInput->SaveConfig();
 		}
 
@@ -206,5 +213,21 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		DefaultInputSettingsObject->ConsoleKeys.Empty();
 		DefaultInputSettingsObject->ConsoleKeys.Add(ConsoleKey);
 		DefaultInputSettingsObject->SaveConfig();
+	}
+
+	if (ProfilePlayer->PlayerController != NULL && ProfilePlayer->PlayerController->PlayerInput != NULL)
+	{
+		// make sure default object mirrors live object
+		ProfilePlayer->PlayerController->PlayerInput->GetClass()->GetDefaultObject()->ReloadConfig();
+
+		UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(ProfilePlayer->PlayerController->PlayerInput);
+		if (UTPlayerInput != NULL)
+		{
+			UTPlayerInput->UTForceRebuildingKeyMaps(true);
+		}
+		else
+		{
+			ProfilePlayer->PlayerController->PlayerInput->ForceRebuildingKeyMaps(true);
+		}
 	}
 }
