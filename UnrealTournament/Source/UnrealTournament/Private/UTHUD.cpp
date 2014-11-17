@@ -120,7 +120,7 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 AUTPlayerState* AUTHUD::GetViewedPlayerState()
 {
 	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
-	APawn* PawnOwner = Cast<APawn>(UTPlayerOwner->GetViewTarget());
+	APawn* PawnOwner = (UTPlayerOwner->GetPawn() != NULL) ? UTPlayerOwner->GetPawn() : Cast<APawn>(UTPlayerOwner->GetViewTarget());
 	if (PawnOwner != NULL && Cast<AUTPlayerState>(PawnOwner->PlayerState) != NULL)
 	{
 		PS = (AUTPlayerState*)PawnOwner->PlayerState;
