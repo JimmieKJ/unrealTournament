@@ -1825,11 +1825,14 @@ void AUTPlayerController::SpectateKiller()
 
 void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector Location)
 {
-	FActorSpawnParameters Params;
-	Params.Owner = this;
-	Params.bNoCollisionFail = true;
-	AUTViewPlaceholder *ViewPlaceholder = GetWorld()->SpawnActor<AUTViewPlaceholder>(AUTViewPlaceholder::StaticClass(), Location, FRotator(), Params);
-	SetViewTarget(ViewPlaceholder);
+	if (GetPawn() == NULL && (IsInState(NAME_Spectating) || IsInState(NAME_Inactive)))
+	{
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		Params.bNoCollisionFail = true;
+		AUTViewPlaceholder *ViewPlaceholder = GetWorld()->SpawnActor<AUTViewPlaceholder>(AUTViewPlaceholder::StaticClass(), Location, FRotator(), Params);
+		SetViewTarget(ViewPlaceholder);
+	}
 }
 
 bool AUTPlayerController::ServerViewPlaceholderAtLocation_Validate(FVector Location)
