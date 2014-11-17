@@ -187,7 +187,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 
 			for (AController* Rescuer : GameObject->HolderRescuers)
 			{
-				if (Rescuer != NULL && Cast<AUTPlayerState>(Rescuer->PlayerState) != NULL && CTFGameState->OnSameTeam(Rescuer, Holder))
+				if (Rescuer != NULL && Rescuer->PlayerState != Holder && Cast<AUTPlayerState>(Rescuer->PlayerState) != NULL && CTFGameState->OnSameTeam(Rescuer, Holder))
 				{
 					NewScoringPlay.Assists.AddUnique(FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState));
 				}

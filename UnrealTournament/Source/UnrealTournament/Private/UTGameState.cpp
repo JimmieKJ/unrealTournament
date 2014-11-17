@@ -42,9 +42,16 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayMaterials, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, SpawnProtectionTime, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, NumTeams, COND_InitialOnly);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
+}
+
+void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
+{
+	NumTeams = Teams.Num();
+	Super::PreReplication(ChangedPropertyTracker);
 }
 
 void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay)
@@ -137,6 +144,12 @@ void AUTGameState::DefaultTimer()
 			RemainingTime = RemainingMinute;
 			RemainingMinute = 0;
 		}
+
+		// might have been deferred while waiting for teams to replicate
+		if (TeamSwapSidesOffset != PrevTeamSwapSidesOffset)
+		{
+			OnTeamSideSwap();
+		}
 	}
 
 	if (RemainingTime > 0 && !bStopGameClock && IsMatchInProgress())
@@ -221,7 +234,7 @@ void AUTGameState::ChangeTeamSides(uint8 Offset)
 
 void AUTGameState::OnTeamSideSwap()
 {
-	if (TeamSwapSidesOffset != PrevTeamSwapSidesOffset)
+	if (TeamSwapSidesOffset != PrevTeamSwapSidesOffset && Teams.Num() > 0 && (Role == ROLE_Authority || Teams.Num() == NumTeams))
 	{
 		uint8 TotalOffset;
 		if (TeamSwapSidesOffset < PrevTeamSwapSidesOffset)

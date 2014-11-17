@@ -298,6 +298,8 @@ public:
 	
 	virtual void PreInitializeComponents() override;
 
+	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
+
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 
 #if !UE_SERVER
@@ -389,8 +391,6 @@ protected:
 			return Default;
 		}
 	}
-
-	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
 
 	// Updates the MCP with the current game state.  Happens once per minute.
 	virtual void UpdateOnlineServer();

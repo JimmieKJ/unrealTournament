@@ -71,6 +71,11 @@ class AUTGameObjective : public AActor, public IUTPathBuilderInterface, public I
 				CarriedObject->Destroy();
 			}
 			CreateCarriedObject();
+			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (Game != NULL)
+			{
+				Game->GameObjectiveInitialized(this);
+			}
 		}
 	}
 protected:
