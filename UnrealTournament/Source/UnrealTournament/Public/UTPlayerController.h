@@ -166,11 +166,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Message)
 	void K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
 
-	virtual uint8 GetTeamNum() const;
-	// not applicable
-	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
-	{}
-
 	UPROPERTY(GlobalConfig, BlueprintReadOnly, Category = Weapon)
 	bool bAutoWeaponSwitch;
 

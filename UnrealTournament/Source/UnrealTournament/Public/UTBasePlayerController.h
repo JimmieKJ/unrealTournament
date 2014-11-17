@@ -43,7 +43,9 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, FName Destination);
 
 	virtual uint8 GetTeamNum() const;
-
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
 
 #if !UE_SERVER
 	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());
