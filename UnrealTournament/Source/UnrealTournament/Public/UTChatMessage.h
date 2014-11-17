@@ -9,6 +9,6 @@ class UUTChatMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 	
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
+	virtual void ClientReceiveChat(const FClientReceiveData& ClientData, FName Destination = NAME_None) const;
 };
 

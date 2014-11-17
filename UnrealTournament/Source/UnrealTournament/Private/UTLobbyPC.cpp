@@ -81,24 +81,12 @@ void AUTLobbyPC::Chat(FName Destination, FString Message)
 
 void AUTLobbyPC::ServerChat_Implementation(const FName Destination, const FString& Message)
 {
-	if (Destination == ChatDestinations::Match)
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
 	{
-		if (UTLobbyPlayerState && UTLobbyPlayerState->CurrentMatch)
-		{
-			UTLobbyPlayerState->CurrentMatch->BroadcastMatchMessage(UTLobbyPlayerState, Message);
-		}
+		LobbyGameState->BroadcastChat(UTLobbyPlayerState, Destination, Message);
+
 	}
-	else if (Destination == ChatDestinations::Global)
-	{
-		AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
-		if (LobbyGameState)
-		{
-			LobbyGameState->BroadcastMatchMessage(UTLobbyPlayerState, Message);
-
-		}
-	}
-
-
 }
 
 bool AUTLobbyPC::ServerChat_Validate(const FName Destination, const FString& Message)
@@ -119,6 +107,11 @@ void AUTLobbyPC::ServerDebugTest_Implementation(const FString& TestCommand)
 	{
 		AUTLobbyMatchInfo* Match = GS->AddMatch(UTLobbyPlayerState);	
 		Match->MatchDescription = FString(TEXT("The Big one"));
-	
 	}
+}
+
+bool AUTLobbyPC::ServerSetReady_Validate(uint32 bNewReadyToPlay) { return true; }
+void AUTLobbyPC::ServerSetReady_Implementation(uint32 bNewReadyToPlay)
+{
+	UTLobbyPlayerState->bReadyToPlay = bNewReadyToPlay;
 }

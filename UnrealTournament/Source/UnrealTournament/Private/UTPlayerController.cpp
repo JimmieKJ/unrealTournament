@@ -332,7 +332,6 @@ void AUTPlayerController::PostInitializeComponents()
 void AUTPlayerController::InitPlayerState()
 {
 	Super::InitPlayerState();
-	UTPlayerState = Cast<AUTPlayerState>(PlayerState);
 	
 	// need this until Controller::InitPlayerState() is updated
 	if (PlayerState && PlayerState->PlayerName.IsEmpty())
@@ -1472,12 +1471,6 @@ void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> 
 	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
-uint8 AUTPlayerController::GetTeamNum() const
-{
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	return (PS != NULL && PS->Team != NULL) ? PS->Team->TeamIndex : 255;
-}
-
 void AUTPlayerController::ChangeTeam(uint8 NewTeamIndex)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
@@ -1506,62 +1499,6 @@ void AUTPlayerController::ServerSuicide_Implementation()
 bool AUTPlayerController::ServerSuicide_Validate()
 {
 	return true;
-}
-
-void AUTPlayerController::Talk()
-{
-	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
-	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
-	{
-		LP->ViewportClient->ViewportConsole->StartTyping("Say ");
-	}
-}
-
-void AUTPlayerController::TeamTalk()
-{
-	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
-	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
-	{
-		LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
-	}
-}
-
-void AUTPlayerController::Say(FString Message)
-{
-	ServerSay(Message, false);
-}
-
-void AUTPlayerController::TeamSay(FString Message)
-{
-	ServerSay(Message, true);
-}
-
-bool AUTPlayerController::ServerSay_Validate(const FString& Message, bool bTeamMessage) { return true; }
-
-void AUTPlayerController::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
-{
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
-		if (UTPC != nullptr)
-		{
-			if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
-			{
-				UTPC->ClientSay(UTPlayerState, Message, bTeamMessage);
-			}
-		}
-	}
-}
-
-void AUTPlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, bool bTeamMessage)
-{
-	FClientReceiveData ClientData;
-	ClientData.LocalPC = this;
-	ClientData.MessageIndex = bTeamMessage;
-	ClientData.RelatedPlayerState_1 = Speaker;
-	ClientData.MessageString = Message;
-
-	UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceive(ClientData);
 }
 
 
@@ -1775,17 +1712,17 @@ void AUTPlayerController::ServerRconAuth_Implementation(const FString& Password)
 	{
 		if (GetDefault<UUTGameEngine>()->RconPassword == Password)
 		{
-			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), false);
+			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
 			UTPlayerState->bIsRconAdmin = true;
 		}
 		else
 		{
-			ClientSay(UTPlayerState, TEXT("Rcon password incorrect"), false);
+			ClientSay(UTPlayerState, TEXT("Rcon password incorrect"), ChatDestinations::System);
 		}
 	}
 	else
 	{
-		ClientSay(UTPlayerState, TEXT("Rcon password unset"), false);
+		ClientSay(UTPlayerState, TEXT("Rcon password unset"), ChatDestinations::System);
 	}
 }
 
@@ -1810,12 +1747,12 @@ void AUTPlayerController::ServerRconMap_Implementation(const FString& NewMap)
 		}
 		else
 		{
-			ClientSay(UTPlayerState, FString::Printf(TEXT("Rcon %s doesn't exist"), *NewMap), false);
+			ClientSay(UTPlayerState, FString::Printf(TEXT("Rcon %s doesn't exist"), *NewMap), ChatDestinations::System);
 		}
 	}
 	else
 	{
-		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), false);
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
 	}
 }
 
@@ -1840,17 +1777,17 @@ void AUTPlayerController::ServerRconNextMap_Implementation(const FString& NextMa
 			if (FPackageName::SearchForPackageOnDisk(NextMap + FPackageName::GetMapPackageExtension(), &MapFullName))
 			{
 				Game->RconNextMapName = MapFullName;
-				ClientSay(UTPlayerState, FString::Printf(TEXT("Next map set to %s"), *NextMap), false);
+				ClientSay(UTPlayerState, FString::Printf(TEXT("Next map set to %s"), *NextMap), ChatDestinations::System);
 			}
 			else
 			{
-				ClientSay(UTPlayerState, FString::Printf(TEXT("Rcon %s doesn't exist"), *NextMap), false);
+				ClientSay(UTPlayerState, FString::Printf(TEXT("Rcon %s doesn't exist"), *NextMap), ChatDestinations::System);
 			}
 		}
 	}
 	else
 	{
-		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), false);
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
 	}
 }
 

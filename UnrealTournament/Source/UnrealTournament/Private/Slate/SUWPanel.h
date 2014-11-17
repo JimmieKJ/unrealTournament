@@ -19,21 +19,35 @@ public:
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 
-	virtual void BuildPage(FVector2D CurrentViewportSize);
-	virtual void OnShowPanel();
+	virtual void ConstructPanel(FVector2D CurrentViewportSize);
+	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
 	virtual void OnHidePanel();
 
 	inline TWeakObjectPtr<class UUTLocalPlayer> GetPlayerOwner()
 	{
 		return PlayerOwner;
 	}
-	
+
+	inline TSharedPtr<SUWindowsDesktop> GetParentWindow()
+	{
+		return ParentWindow;
+	}
+
+
+	void ConsoleCommand(FString Command);
 
 
 protected:
 
+	// A TAG that can quickly describe this panel
 	FName Tag;
+
+	// The Player Owner that owns this panel
 	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;
+
+	// The Window that contains this panel.  NOTE: this will only be valid if this panel is contained within an SUWindowsDesktop.
+	TSharedPtr<SUWindowsDesktop> ParentWindow;
+
 };
 
 #endif

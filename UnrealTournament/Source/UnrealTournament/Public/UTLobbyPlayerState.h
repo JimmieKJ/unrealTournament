@@ -7,7 +7,7 @@
 class AUTLobbyMatchInfo;
 
 UCLASS(notplaceable)
-class UNREALTOURNAMENT_API AUTLobbyPlayerState : public APlayerState
+class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 {
 	GENERATED_UCLASS_BODY()
 
@@ -15,11 +15,24 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public APlayerState
 	UPROPERTY(Replicated)
 	AUTLobbyMatchInfo* CurrentMatch;
 
-	UFUNCTION(client, reliable)
-	virtual void ClientRecieveChat(FName Destination, AUTLobbyPlayerState* Sender, const FString& ChatText);
+	virtual void MatchButtonPressed();
+	
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerCreateMatch();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerDestroyOrLeaveMatch();
+
+	void JoinMatch(AUTLobbyMatchInfo* MatchToJoin);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerJoinMatch(AUTLobbyMatchInfo* MatchToJoin);
 
 	virtual void AddedToMatch(AUTLobbyMatchInfo* Match);
 	virtual void RemovedFromMatch(AUTLobbyMatchInfo* Match);
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientMatchError(const FText &MatchErrorMessage);
 
 };
 

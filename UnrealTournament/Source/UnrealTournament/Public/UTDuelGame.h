@@ -19,4 +19,7 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 	/** How long powerups last in Duel */
 	UPROPERTY()
 	float PowerupDuration;
+
+	virtual TSharedRef<SWidget> CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const;
+	virtual FString GetDefaultLobbyOptions() const;
 };

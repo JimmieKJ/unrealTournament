@@ -23,21 +23,36 @@
 
 #if !UE_SERVER
 
-void SUWindowsLobby::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+void SUWindowsLobby::BuildTopBar()
 {
-	SUWindowsMidGame::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	SUInGameMenu::BuildTopBar();
 
-	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
-	if (LobbyGameState)
+	// Add the status text
+	if (TopOverlay.IsValid())
 	{
-		FText LobbyStatus = FText::Format(NSLOCTEXT("LOBBY","MatchStatus","# Available Matches: {0}"), FText::AsNumber(LobbyGameState->AvailableMatches.Num()));
-		LeftStatusText->SetText(LobbyStatus);
+		TopOverlay->AddSlot()
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.Padding(0,3,0,0)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.HAlign(HAlign_Left)
+				.Padding(5,0,25,0)
+				[
+					SNew(STextBlock)
+					.Text(this, &SUWindowsLobby::GetMatchCount)
+					.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Status.TextStyle"))
+				]
+			]
+		];
 	}
 }
 
 TSharedRef<SWidget> SUWindowsLobby::BuildMenuBar()
 {
-	SAssignNew(MenuBar, SHorizontalBox);
 	if (MenuBar.IsValid())
 	{
 
@@ -58,7 +73,7 @@ TSharedRef<SWidget> SUWindowsLobby::BuildMenuBar()
 				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("Gerneric","NewMatch","NEW MATCH"))
+					.Text(this, &SUWindowsLobby::GetMatchButtonText) //NSLOCTEXT("Gerneric","NewMatch","NEW MATCH"))
 					.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
 				]
 			];
@@ -69,11 +84,16 @@ TSharedRef<SWidget> SUWindowsLobby::BuildMenuBar()
 	return MenuBar.ToSharedRef();
 }
 
-void SUWindowsLobby::BuildInfoPanel()
+void SUWindowsLobby::BuildDesktop()
 {
-	if (!InfoPanel.IsValid())
+	if (!DesktopPanel.IsValid())
 	{
-		SAssignNew(InfoPanel, SULobbyInfoPanel).PlayerOwner(PlayerOwner);
+		SAssignNew(DesktopPanel, SULobbyInfoPanel).PlayerOwner(PlayerOwner);
+	}
+
+	if (DesktopPanel.IsValid())
+	{
+		ActivatePanel(DesktopPanel);
 	}
 }
 
@@ -82,13 +102,42 @@ FReply SUWindowsLobby::MatchButtonClicked()
 	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
 	{
 		AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-		AUTLobbyGameState* GameState = GWorld->GetGameState<AUTLobbyGameState>();
-		if (PlayerState && GameState)
+		if (PlayerState)
 		{
-			GameState->AddMatch(PlayerState);		
+			PlayerState->MatchButtonPressed();
 		}
 	}
 	return FReply::Handled();
 }
+
+FText SUWindowsLobby::GetMatchButtonText() const
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+	{
+		AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if (LPS)
+		{
+			if (LPS->CurrentMatch)
+			{
+				return NSLOCTEXT("Gerneric","LeaveMatch","LEAVE MATCH");
+			}
+			return NSLOCTEXT("Gerneric","NewMatch","NEW MATCH");
+	
+		}
+	}
+	return FText::GetEmpty();
+}
+
+FString SUWindowsLobby::GetMatchCount() const
+{
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		return FString::Printf(TEXT("%s - There are %i matches available."), *LobbyGameState->LobbyName,LobbyGameState->AvailableMatches.Num());
+	}
+
+	return TEXT("Loading Lobby...");
+}
+
 
 #endif

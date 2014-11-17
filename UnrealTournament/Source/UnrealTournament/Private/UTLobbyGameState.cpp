@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "GameFramework/GameState.h"
+#include "UTGameState.h"
 #include "UTLobbyMatchInfo.h"
 #include "UTLobbyGameMode.h"
 #include "Net/UnrealNetwork.h"
@@ -19,17 +20,27 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 
 	DOREPLIFETIME_CONDITION(AUTLobbyGameState, LobbyName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyGameState, LobbyMOTD, COND_InitialOnly);
+
+	DOREPLIFETIME(AUTLobbyGameState, AvailableMatches);
+	DOREPLIFETIME(AUTLobbyGameState, AllowedGameModeClasses);
 }
 
 
-void AUTLobbyGameState::BroadcastMatchMessage(AUTLobbyPlayerState* SenderPS, const FString& Message)
+void AUTLobbyGameState::BroadcastChat(AUTLobbyPlayerState* SenderPS, FName Destination, const FString& Message)
 {
 	for (int32 i = 0; i < PlayerArray.Num(); i++)
 	{
 		AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[i]);
-		if (PS)	// TODO: Add some way for players to "mute" global chat
+		if (PS)	
 		{
-			PS->ClientRecieveChat(ChatDestinations::Global, SenderPS, Message);
+			AUTBasePlayerController* BasePC = Cast<AUTBasePlayerController>(PS->GetOwner());
+			if (BasePC != NULL)
+			{
+				if (Destination != ChatDestinations::Match || (SenderPS->CurrentMatch && PS->CurrentMatch == SenderPS->CurrentMatch))
+				{
+					BasePC->ClientSay(SenderPS, Message, Destination);
+				}
+			}
 		}
 	}
 }
@@ -53,7 +64,9 @@ AUTLobbyMatchInfo* AUTLobbyGameState::AddMatch(AUTLobbyPlayerState* PlayerOwner)
 
 	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
 	if (NewMatchInfo)
-	{
+	{	
+		NewMatchInfo->SetOwner(PlayerOwner->GetOwner());
+		NewMatchInfo->SetSettings(this);
 		NewMatchInfo->AddPlayer(PlayerOwner,true);
 		AvailableMatches.Add(NewMatchInfo);
 		return NewMatchInfo;
@@ -69,7 +82,13 @@ void AUTLobbyGameState::RemoveMatch(AUTLobbyPlayerState* PlayerOwner)
 	if (Match)
 	{
 		// Trigger all players being removed
-		Match->RemovePlayer(PlayerOwner);	
-		AvailableMatches.Remove(Match);
+		if (Match->RemovePlayer(PlayerOwner))
+		{
+			// Match is dead....
+			AvailableMatches.Remove(Match);
+		}
 	}
+}
+void AUTLobbyGameState::SortPRIArray()
+{
 }

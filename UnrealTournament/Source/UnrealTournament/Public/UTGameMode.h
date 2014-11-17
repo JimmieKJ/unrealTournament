@@ -1,9 +1,9 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "../Private/Slate/Panels/SULobbyGameSettingsPanel.h"
 #include "TAttributeProperty.h"
 #include "UTGameMode.generated.h"
-
 
 /** Defines the current state of the game. */
 
@@ -305,6 +305,16 @@ public:
 	 * add any such to the ConfigProps array so the menu maintains the shared pointer
 	 */
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
+
+	/**
+	 *	returns the widget that defines the lobby.
+	 **/
+	virtual TSharedRef<SWidget> CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo>) const;
+
+	/**
+	 *	returns the default game options for a given lobby.  TODO: make this config so that the server can configure what they feel the default lobby should be
+	 **/
+	virtual FString GetDefaultLobbyOptions() const;
 
 	/** returns whether the given map name is appropriate for this game type
 	 * this is just for UI and doesn't prevent the map from loading via e.g. the console

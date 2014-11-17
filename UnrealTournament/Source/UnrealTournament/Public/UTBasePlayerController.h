@@ -5,9 +5,12 @@
 #include "UTBasePlayerController.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController
+class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
+
+	UPROPERTY()
+	AUTPlayerState* UTPlayerState;
 
 	virtual void SetupInputComponent() override;
 
@@ -18,6 +21,29 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController
 
 	UFUNCTION(exec)
 	virtual void HideMenu();
+
+	void InitPlayerState();
+
+	UFUNCTION()
+	virtual void Talk();
+
+	UFUNCTION()
+	virtual void TeamTalk();
+
+	UFUNCTION(exec)
+	virtual void Say(FString Message);
+
+	UFUNCTION(exec)
+	virtual void TeamSay(FString Message);
+
+	UFUNCTION(reliable, server, WithValidation)
+	virtual void ServerSay(const FString& Message, bool bTeamMessage);
+
+	UFUNCTION(reliable, client)
+	virtual void ClientSay(class AUTPlayerState* Speaker, const FString& Message, FName Destination);
+
+	virtual uint8 GetTeamNum() const;
+
 
 #if !UE_SERVER
 	virtual void ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate());

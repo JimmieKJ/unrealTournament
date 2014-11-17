@@ -18,7 +18,7 @@ UUTChatMessage::UUTChatMessage(const class FPostConstructInitializeProperties& P
 	Lifetime = 6.0f;
 }
 
-void UUTChatMessage::ClientReceive(const FClientReceiveData& ClientData) const
+void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FName Destination) const
 {
 	if (Cast<AUTHUD>(ClientData.LocalPC->MyHUD) != NULL)
 	{
@@ -28,15 +28,16 @@ void UUTChatMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			PlayerName = ClientData.RelatedPlayerState_1->PlayerName;
 		}
 
+		FString DestinationTag;
+		if      (Destination == ChatDestinations::Global) DestinationTag = TEXT("[Global]");
+		else if (Destination == ChatDestinations::System) DestinationTag = TEXT("[System]");
+		else if (Destination == ChatDestinations::Lobby) DestinationTag = TEXT("[Lobby]");
+		else if (Destination == ChatDestinations::Local) DestinationTag = TEXT("[Chat]");
+		else if (Destination == ChatDestinations::Match) DestinationTag = TEXT("[Match]");
+		else if (Destination == ChatDestinations::Team) DestinationTag = TEXT("[Team]");
+
 		FString ChatMessage;
-		if (ClientData.MessageIndex)
-		{
-			ChatMessage = FString::Printf(TEXT("[TEAM] %s: %s"), *PlayerName, *ClientData.MessageString);
-		}
-		else
-		{
-			ChatMessage = FString::Printf(TEXT("[CHAT] %s: %s"), *PlayerName, *ClientData.MessageString);
-		}
+		ChatMessage = FString::Printf(TEXT("[%s] %s: %s"), *DestinationTag, *PlayerName, *ClientData.MessageString);
 
 		FText LocalMessageText = FText::FromString(ChatMessage);
 		Cast<AUTHUD>(ClientData.LocalPC->MyHUD)->ReceiveLocalMessage(GetClass(), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.MessageIndex, LocalMessageText, ClientData.OptionalObject);
@@ -46,7 +47,7 @@ void UUTChatMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText(LocalMessageText.ToString());
 		}
 
-		AUTPlayerController* PlayerController = Cast<AUTPlayerController>(ClientData.LocalPC);
+		AUTBasePlayerController* PlayerController = Cast<AUTBasePlayerController>(ClientData.LocalPC);
 		if (PlayerController)
 		{
 			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(ClientData.LocalPC->Player);
@@ -54,7 +55,7 @@ void UUTChatMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			{
 				FString StoredMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *ClientData.MessageString);
 				FLinearColor ChatColor = (ClientData.MessageIndex && PlayerController->UTPlayerState && PlayerController->UTPlayerState->Team) ? PlayerController->UTPlayerState->Team->TeamColor : FLinearColor::White;
-				LocalPlayer->SaveChat(ClientData.MessageIndex ? ChatDestinations::Team : ChatDestinations::Local, StoredMessage, ChatColor);
+				LocalPlayer->SaveChat(Destination, StoredMessage, ChatColor);
 			}
 		}
 	}

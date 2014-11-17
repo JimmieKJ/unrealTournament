@@ -352,7 +352,7 @@ namespace BrowserState
 
 class SUWServerBrowser : public SUWPanel
 {
-	virtual void BuildPage(FVector2D ViewportSize);	
+	virtual void ConstructPanel(FVector2D ViewportSize);	
 
 protected:
 

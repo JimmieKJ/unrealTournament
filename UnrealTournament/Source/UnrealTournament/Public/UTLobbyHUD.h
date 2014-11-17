@@ -4,11 +4,11 @@
 #include "UTLobbyHUD.generated.h"
 
 UCLASS(Config=Game)
-class UNREALTOURNAMENT_API AUTLobbyHUD : public AHUD
+class UNREALTOURNAMENT_API AUTLobbyHUD : public AUTHUD
 {
 	GENERATED_UCLASS_BODY()
 
 public:
-	
+	void PostRender();
 };
 

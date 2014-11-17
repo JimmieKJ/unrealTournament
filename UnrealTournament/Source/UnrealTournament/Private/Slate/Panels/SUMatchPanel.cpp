@@ -10,6 +10,7 @@
 #include "UTLobbyGameState.h"
 #include "UTLobbyMatchInfo.h"
 #include "SUMatchPanel.h"
+#include "UTLobbyPC.h"
 
 #if !UE_SERVER
 
@@ -26,9 +27,9 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 		SNew(SBox)						// First the overlaid box that controls everything....
 		.HeightOverride(192)
 		.WidthOverride(192)
-
 		[
 			SNew(SButton)
+			.OnClicked(this, &SUMatchPanel::ButtonClicked)
 			.ButtonStyle(SUWindowsStyle::Get(),"UWindows.Lobby.MatchButton")
 			[
 				SNew(SVerticalBox)
@@ -68,8 +69,8 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 							+SVerticalBox::Slot()
 							.HAlign(HAlign_Center)
 							[
-								SAssignNew(MatchTitle, STextBlock)
-									.Text( FString(TEXT("FIGHT ME")))
+								SAssignNew(ActionText, STextBlock)
+									.Text( this, &SUMatchPanel::GetButtonText)
 									.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.Action.TextStyle")
 							]
 						]
@@ -81,6 +82,16 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 	UpdateMatchInfo();
 }
 
+FText SUMatchPanel::GetButtonText() const
+{
+	if (MatchInfo.IsValid())
+	{
+		return MatchInfo->GetActionText();
+	}
+
+	return NSLOCTEXT("SUMatchPanel","Seutp","Initializing...");
+}
+
 void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	UpdateMatchInfo();
@@ -88,13 +99,34 @@ void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurre
 
 void SUMatchPanel::UpdateMatchInfo()
 {
-	if (MatchInfo)
+	if (MatchInfo.IsValid())
 	{
-		MatchTitle->SetText(FText::FromString(TEXT("DrSiN\nvs\nMysterial")));
-		ActionText->SetText(FText::FromString(TEXT("Click to Join")));
+		SetVisibility(EVisibility::All);
+		MatchTitle->SetText(MatchInfo->MatchDescription);
 	}
-
+	else
+	{
+		SetVisibility(EVisibility::Hidden);
+	}
 }
 
-
+FReply SUMatchPanel::ButtonClicked()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GWorld, 0));
+	if (LocalPlayer)
+	{
+		AUTLobbyPC* PC = Cast<AUTLobbyPC>(LocalPlayer->PlayerController);
+		if (PC)
+		{
+			AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PC->PlayerState);
+			{
+				if(PS)
+				{
+					PS->JoinMatch(MatchInfo.Get());
+				}
+			}
+		}
+	}
+	return FReply::Handled();
+}
 #endif

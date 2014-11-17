@@ -132,13 +132,11 @@ void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* 
 	}
 }
 
-void AUTLobbyGameMode::GenericPlayerInitialization(AController* C)
-{
-}
-
 void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 {
 	Super::PostLogin(NewPlayer);
+
+	UE_LOG(UT,Log,TEXT("POST LOGIN: %s"), *NewPlayer->PlayerState->GetName());
 
 	if (GameSession != NULL)
 	{
@@ -154,6 +152,13 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 void AUTLobbyGameMode::Logout(AController* Exiting)
 {
 	Super::Logout(Exiting);
+
+
+	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(Exiting->PlayerState);
+	if (LPS && LPS->CurrentMatch)
+	{
+		UTLobbyGameState->RemoveMatch(LPS);
+	}
 
 	if (GameSession != NULL)
 	{

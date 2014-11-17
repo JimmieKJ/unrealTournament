@@ -33,7 +33,6 @@ public:
 	virtual void RestartPlayer(AController* aPlayer);
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
-	virtual void GenericPlayerInitialization(AController* C);
 	virtual void PostLogin( APlayerController* NewPlayer );
 	virtual void Logout(AController* Exiting);
 	virtual bool PlayerCanRestart(APlayerController* Player);

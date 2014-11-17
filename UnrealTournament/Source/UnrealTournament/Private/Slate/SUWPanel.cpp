@@ -14,15 +14,26 @@ void SUWPanel::Construct(const FArguments& InArgs)
 
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
-	BuildPage(ViewportSize);
+	ConstructPanel(ViewportSize);
 }
 
-void SUWPanel::BuildPage(FVector2D ViewportSize){}
-void SUWPanel::OnShowPanel()
+void SUWPanel::ConstructPanel(FVector2D ViewportSize){}
+
+void SUWPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
+	ParentWindow = inParentWindow;
 }
 void SUWPanel::OnHidePanel()
 {
+	ParentWindow.Reset();
+}
+
+void SUWPanel::ConsoleCommand(FString Command)
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
+	{
+		PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
+	}
 }
 
 

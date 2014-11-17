@@ -68,7 +68,7 @@ struct FComparePlayersByNameDesc	{FORCEINLINE bool operator()( const TSharedPtr<
 struct FComparePlayersByScore		{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score > B->Score);	}};
 struct FComparePlayersByScoreDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score < B->Score);	}};
 
-void SUWServerBrowser::BuildPage(FVector2D ViewportSize)
+void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 {
 	Tag = FName(TEXT("ServerBrowser"));
 

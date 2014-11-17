@@ -12,3 +12,9 @@
 AUTLobbyHUD::AUTLobbyHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
 {
 }
+
+void AUTLobbyHUD::PostRender()
+{
+	AHUD::PostRender();
+	return;
+}

@@ -6,6 +6,7 @@
 #include "UTPickupWeapon.h"
 #include "UTWeap_Redeemer.h"
 #include "UTDuelGame.h"
+#include "Slate/Panels/SUDuelSettings.h"
 
 
 AUTDuelGame::AUTDuelGame(const class FPostConstructInitializeProperties& PCIP)
@@ -195,4 +196,20 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		];
 #endif
+}
+
+TSharedRef<SWidget> AUTDuelGame::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const
+{
+#if !UE_SERVER
+	// Return just an empty panel
+	return SNew(SUDuelSettings)
+		.bIsHost(inIsHost)
+		.PlayerOwner(inPlayerOwner)
+		.MatchInfo(inMatchInfo);
+#endif		
+}
+
+FString AUTDuelGame::GetDefaultLobbyOptions() const
+{
+	return TEXT("GoalScore=0?TimeLimit=15");
 }

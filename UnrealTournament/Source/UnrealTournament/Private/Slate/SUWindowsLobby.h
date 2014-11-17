@@ -5,21 +5,24 @@
 #include "Panels/SUMidGameInfoPanel.h"
 #include "Panels/SULobbyInfoPanel.h"
 #include "Slate/SlateGameResources.h"
-
+#include "SUInGameMenu.h"
 
 
 #if !UE_SERVER
-class SUWindowsLobby : public SUWindowsMidGame
+class SUWindowsLobby : public SUInGameMenu
 {
 
 protected:
 	
 	TSharedPtr<SButton> MatchButton;
-
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	virtual TSharedRef<SWidget> BuildMenuBar();
-	virtual void BuildInfoPanel();
+
+	virtual void BuildTopBar();
+	virtual void BuildDesktop();
 	
+	FText GetMatchButtonText() const;
+	FString GetMatchCount() const;
+
 	FReply MatchButtonClicked();
 };
 

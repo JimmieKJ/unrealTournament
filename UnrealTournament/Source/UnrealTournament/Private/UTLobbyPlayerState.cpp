@@ -18,13 +18,49 @@ void AUTLobbyPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(AUTLobbyPlayerState, CurrentMatch);
 }
 
-void AUTLobbyPlayerState::ClientRecieveChat_Implementation(FName Destination, AUTLobbyPlayerState* Sender, const FString& ChatText)
+void AUTLobbyPlayerState::MatchButtonPressed()
 {
-	if (Sender)
+	if (CurrentMatch == NULL)
 	{
-		UE_LOG(UT, Log, TEXT("Chat: [%s] from %s: %s"), *Destination.ToString(), *Sender->PlayerName, *ChatText);
+		ServerCreateMatch();
+	}
+	else
+	{
+		ServerDestroyOrLeaveMatch();
 	}
 }
+
+bool AUTLobbyPlayerState::ServerCreateMatch_Validate() { return true; }
+void AUTLobbyPlayerState::ServerCreateMatch_Implementation()
+{
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState)
+	{
+		GameState->AddMatch(this);
+	}
+}
+
+bool AUTLobbyPlayerState::ServerDestroyOrLeaveMatch_Validate() { return true; }
+void AUTLobbyPlayerState::ServerDestroyOrLeaveMatch_Implementation()
+{
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState)
+	{
+		GameState->RemoveMatch(this);
+	}
+}
+
+void AUTLobbyPlayerState::JoinMatch(AUTLobbyMatchInfo* MatchToJoin)
+{
+	ServerJoinMatch(MatchToJoin);
+}
+
+bool AUTLobbyPlayerState::ServerJoinMatch_Validate(AUTLobbyMatchInfo* MatchToJoin) { return true; }
+void AUTLobbyPlayerState::ServerJoinMatch_Implementation(AUTLobbyMatchInfo* MatchToJoin)
+{
+	MatchToJoin->AddPlayer(this,false);
+}
+
 
 void AUTLobbyPlayerState::AddedToMatch(AUTLobbyMatchInfo* Match)
 {
@@ -34,4 +70,13 @@ void AUTLobbyPlayerState::AddedToMatch(AUTLobbyMatchInfo* Match)
 void AUTLobbyPlayerState::RemovedFromMatch(AUTLobbyMatchInfo* Match)
 {
 	CurrentMatch = NULL;
+}
+
+void AUTLobbyPlayerState::ClientMatchError_Implementation(const FText &MatchErrorMessage)
+{
+	AUTBasePlayerController* BasePC = Cast<AUTBasePlayerController>(GetOwner());
+	if (BasePC)
+	{
+		BasePC->ShowMessage(NSLOCTEXT("LobbyMessage","MatchMessage","Match Message"), MatchErrorMessage, UTDIALOG_BUTTON_OK, NULL);	
+	}
 }

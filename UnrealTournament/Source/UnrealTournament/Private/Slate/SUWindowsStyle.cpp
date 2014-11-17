@@ -92,8 +92,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("NewSchool.AnniLogo", new IMAGE_BRUSH( "NewSchool.AnniLogo", FVector2D(1141,431), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("NewSchool.Background", new IMAGE_BRUSH( "NewSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("BadSchool.Background", new IMAGE_BRUSH( "BadSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-
+	Style.Set("UWindows.Match.ReadyImage", new IMAGE_BRUSH( "Match/UWindows.Match.ReadyImage", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestPortrait", new IMAGE_BRUSH( "Testing/Testing.TestPortrait", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 	{  // Standard Button
 
@@ -117,6 +118,53 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 	}
+
+	Style.Set("UWindows.Lobby.MatchBar.Background", new BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Normal", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+	Style.Set("UWindows.Lobby.MatchBar.Button", FButtonStyle()
+		.SetNormal(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		.SetHovered(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		.SetPressed(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+
+	Style.Set("UWindows.Lobby.MatchBar.Button.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Bold", 12))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+
+	Style.Set("UWindows.Match.PlayerButton", FButtonStyle()
+		.SetNormal ( BOX_BRUSH("Match/UWindows.Match.PlayerButton.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+		.SetHovered( BOX_BRUSH("Match/UWindows.Match.PlayerButton.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+		.SetPressed( BOX_BRUSH("Match/UWindows.Match.PlayerButton.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+		.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+	Style.Set("UWindows.Match.ReadyPlayerButton", FButtonStyle()
+		.SetNormal ( BOX_BRUSH("Match/UWindows.Match.ReadyPlayerButton.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+		.SetHovered( BOX_BRUSH("Match/UWindows.Match.ReadyPlayerButton.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+		.SetPressed( BOX_BRUSH("Match/UWindows.Match.ReadyPlayerButton.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+		.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+
+	Style.Set("UWindows.Lobby.MatchBar.Button", FButtonStyle()
+		.SetNormal(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		.SetHovered(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		.SetPressed(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
 
 
 	Style.Set("UWindows.Standard.SmallButton.TextStyle", FTextBlockStyle()
@@ -205,6 +253,27 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	Style.Set("UWindows.Standard.UpTick", new IMAGE_BRUSH("ServerBrowser/SortUpArrow", Icon8x4));
 	Style.Set("UWindows.Standard.DownTick", new IMAGE_BRUSH("ServerBrowser/SortDownArrow", Icon8x4));
+
+	Style.Set("UWindows.Standard.NormalText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 12))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UWindows.Standard.BoldText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetColorAndOpacity(FLinearColor::Yellow)
+		);
+
+	Style.Set("UWindows.Standard.SmallText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UWindows.Standard.ContentText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetColorAndOpacity(FLinearColor::Blue)
+		);
+
 
 	// Server Browser
 	{

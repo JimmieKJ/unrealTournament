@@ -16,6 +16,8 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTBot.h"
 #include "UTSquadAI.h"
+#include "Slate/Panels/SUDuelSettings.h"
+#include "Slate/Panels/SULobbyMatchSetupPanel.h"
 
 UUTResetInterface::UUTResetInterface(const FPostConstructInitializeProperties& PCIP)
 : Super(PCIP)
@@ -66,6 +68,9 @@ AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
 
 	DefaultPlayerName = FString("Malcolm");
 	MapPrefix = TEXT("DM");
+
+	//LobbySetupPanelClass = SUDuelSettings::StaticClass();
+
 }
 
 
@@ -1871,4 +1876,15 @@ void AUTGameMode::AssignDefaultSquadFor(AController* C)
 bool AUTGameMode::RestrictPlayerSpawns()
 {
 	return (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime());
+}
+
+TSharedRef<SWidget> AUTGameMode::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const
+{
+	// Return just an empty panel
+	return SNew(SCanvas);
+}
+
+FString AUTGameMode::GetDefaultLobbyOptions() const
+{
+	return TEXT("");
 }
