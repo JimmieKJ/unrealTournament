@@ -799,7 +799,7 @@ public class MakeUTDLC : BuildCommand
         if (bSingleMap)
         {
             // Cook with -newcook
-            CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, null, SC.CookPlatform, "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed");
+            CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, "", null, SC.CookPlatform, "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed");
         }
         else
         {
