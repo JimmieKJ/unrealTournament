@@ -64,6 +64,9 @@ public:
 	{
 		return (Team != NULL) ? Team->TeamIndex : 255;
 	}
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
 
 	virtual void BeginPlay() override
 	{

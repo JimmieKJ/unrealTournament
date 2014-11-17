@@ -22,6 +22,10 @@ void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 
 void AUTCTFFlagBase::CreateCarriedObject()
 {
+	if (TeamFlagTypes.IsValidIndex(TeamNum) && TeamFlagTypes[TeamNum] != NULL)
+	{
+		CarriedObjectClass = TeamFlagTypes[TeamNum];
+	}
 	Super::CreateCarriedObject();
 	MyFlag = Cast<AUTCTFFlag>(CarriedObject);
 }

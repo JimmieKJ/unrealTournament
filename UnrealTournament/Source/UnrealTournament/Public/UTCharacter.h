@@ -1024,6 +1024,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual uint8 GetTeamNum() const;
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual FLinearColor GetTeamColor() const;

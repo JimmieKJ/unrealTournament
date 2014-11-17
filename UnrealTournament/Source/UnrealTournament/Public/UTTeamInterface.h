@@ -21,6 +21,17 @@ class UNREALTOURNAMENT_API IUTTeamInterface
 		return false;
 	}
 
+	/** version of GetTeamNum() for blueprints */
+	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "GetTeamNum"))
+	uint8 ScriptGetTeamNum();
+
 	/** return team number the object is on, or 255 for no team */
 	virtual uint8 GetTeamNum() const PURE_VIRTUAL(IUTTeamInterface::GetTeamNum, return 255;);
+
+	/** called to update the object's team when swapping sides
+	 * implementing this function isn't required, but if level objects don't and side swapping is enabled then
+	 * they will probably end up incorrect
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category = Team)
+	void SetTeamForSideSwap(uint8 NewTeamNum);
 };

@@ -530,6 +530,9 @@ public:
 	static bool FindBestJumpVelocityXY(FVector& JumpVelocity, const FVector& StartLoc, const FVector& TargetLoc, float ZSpeed, float GravityZ, float PawnHeight);
 
 	virtual uint8 GetTeamNum() const;
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
 
 	// UTCharacter notifies
 	virtual void NotifyWalkingOffLedge();

@@ -9,6 +9,7 @@
 #include "UTGameMessage.h"
 #include "UTMutator.h"
 #include "UTCTFSquadAI.h"
+#include "UTWorldSettings.h"
 
 namespace MatchState
 {
@@ -151,6 +152,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 
 			// Give the team a capture.
 			Holder->Team->Score++;
+			Holder->Team->ForceNetUpdate();
 			Holder->FlagCaptures++;
 			BroadcastScoreUpdate(Holder, Holder->Team);
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -457,6 +459,13 @@ void AUTCTFGameMode::HandleExitingHalftime()
 		{
 			Pawn->Destroy();	
 		}
+	}
+
+	// swap sides, if desired
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (Settings != NULL && Settings->bAllowSideSwitching)
+	{
+		CTFGameState->ChangeTeamSides(1);
 	}
 
 	// reset everything

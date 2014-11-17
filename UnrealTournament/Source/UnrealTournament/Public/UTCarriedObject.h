@@ -116,6 +116,9 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	// Returns the team number of the team that owns this object
 	UFUNCTION()
 	virtual uint8 GetTeamNum() const;
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
 
 	/**	Changes the current state of the carried object.  NOTE: this should only be called on the server*/
 	UFUNCTION()
@@ -192,10 +195,6 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	}
 
 protected:
-	// Server Side - Holds a reference to the pawn that is holding this object
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
-	uint8 DesiredTeamNum;
-
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	AUTCharacter* LastHoldingPawn;

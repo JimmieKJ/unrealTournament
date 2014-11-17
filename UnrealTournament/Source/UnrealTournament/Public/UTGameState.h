@@ -3,6 +3,8 @@
 
 #include "UTGameState.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
+
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTGameState : public AGameState
 {
@@ -73,6 +75,25 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	// How long must a player wait before respawning
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float RespawnWaitTime;
+
+	/** offset to level placed team IDs for the purposes of swapping/rotating sides
+	 * i.e. if this value is 1 and there are 4 teams, team 0 objects become owned by team 1, team 1 objects become owned by team 2... team 3 objects become owned by team 0
+	 */
+	UPROPERTY(ReplicatedUsing = OnTeamSideSwap, BlueprintReadOnly, Category = GameState)
+	uint8 TeamSwapSidesOffset;
+	/** previous value, so we know how much we're changing by */
+	UPROPERTY()
+	uint8 PrevTeamSwapSidesOffset;
+
+	/** changes team sides; generally offset should be 1 unless it's a 3+ team game and you want to rotate more than one spot */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
+	virtual void ChangeTeamSides(uint8 Offset = 1);
+
+	UFUNCTION()
+	virtual void OnTeamSideSwap();
+
+	UPROPERTY(BlueprintAssignable)
+	FTeamSideSwapDelegate TeamSideSwapDelegate;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnWinnerReceived, Category = GameState)
 	AUTPlayerState* WinnerPlayerState;

@@ -33,6 +33,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, bTeamGame);
 	DOREPLIFETIME(AUTGameState, bOnlyTheStrongSurvive);
 	DOREPLIFETIME(AUTGameState, bViewKillerOnDeath);
+	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
@@ -209,6 +210,68 @@ bool AUTGameState::OnSameTeam(const AActor* Actor1, const AActor* Actor2)
 		{
 			return TeamNum1 == TeamNum2;
 		}
+	}
+}
+
+void AUTGameState::ChangeTeamSides(uint8 Offset)
+{
+	TeamSwapSidesOffset += Offset;
+	OnTeamSideSwap();
+}
+
+void AUTGameState::OnTeamSideSwap()
+{
+	if (TeamSwapSidesOffset != PrevTeamSwapSidesOffset)
+	{
+		uint8 TotalOffset;
+		if (TeamSwapSidesOffset < PrevTeamSwapSidesOffset)
+		{
+			// rollover
+			TotalOffset = uint8(uint32(TeamSwapSidesOffset + 255) - uint32(PrevTeamSwapSidesOffset));
+		}
+		else
+		{
+			TotalOffset = TeamSwapSidesOffset - PrevTeamSwapSidesOffset;
+		}
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			IUTTeamInterface* TeamObj = InterfaceCast<IUTTeamInterface>(*It);
+			if (TeamObj != NULL)
+			{
+				uint8 Team = TeamObj->GetTeamNum();
+				if (Team != 255)
+				{
+					TeamObj->Execute_SetTeamForSideSwap(*It, (Team + TotalOffset) % Teams.Num());
+				}
+			}
+			// check for script interface
+			else if (It->GetClass()->ImplementsInterface(UUTTeamInterface::StaticClass()))
+			{
+				// a little hackery to ignore if relevant functions haven't been implemented
+				static FName NAME_ScriptGetTeamNum(TEXT("ScriptGetTeamNum"));
+				UFunction* GetTeamNumFunc = It->GetClass()->FindFunctionByName(NAME_ScriptGetTeamNum);
+				if (GetTeamNumFunc != NULL && GetTeamNumFunc->Script.Num() > 0)
+				{
+					uint8 Team = IUTTeamInterface::Execute_ScriptGetTeamNum(*It);
+					if (Team != 255)
+					{
+						IUTTeamInterface::Execute_SetTeamForSideSwap(*It, (Team + TotalOffset) % Teams.Num());
+					}
+				}
+				else
+				{
+					static FName NAME_SetTeamForSideSwap(TEXT("SetTeamForSideSwap"));
+					UFunction* SwapFunc = It->GetClass()->FindFunctionByName(NAME_SetTeamForSideSwap);
+					if (SwapFunc != NULL && SwapFunc->Script.Num() > 0)
+					{
+						UE_LOG(UT, Warning, TEXT("Unable to execute SetTeamForSideSwap() for %s because GetTeamNum() must also be implemented"), *It->GetName());
+					}
+				}
+			}
+		}
+		TeamSideSwapDelegate.Broadcast(TotalOffset);
+
+		PrevTeamSwapSidesOffset = TeamSwapSidesOffset;
 	}
 }
 

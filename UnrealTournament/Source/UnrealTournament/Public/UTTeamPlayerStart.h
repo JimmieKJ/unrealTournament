@@ -19,4 +19,9 @@ class AUTTeamPlayerStart : public APlayerStart, public IUTTeamInterface
 	{
 		return TeamNum;
 	}
+
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum)
+	{
+		TeamNum = NewTeamNum;
+	}
 };

@@ -19,6 +19,9 @@ class AUTGameObjective : public AActor, public IUTPathBuilderInterface, public I
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	TSubclassOf<AUTCarriedObject> CarriedObjectClass;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Team)
+	uint8 TeamNum;
+
 	/**
 	 *	Called from UTGameMode - Initializes all of the GameObjectives before PostBeginPlay because
 	 *  PostBeginPlay for them would happen outside of the normal expected order
@@ -55,7 +58,20 @@ class AUTGameObjective : public AActor, public IUTPathBuilderInterface, public I
 
 	virtual uint8 GetTeamNum() const
 	{
-		return (GetCarriedObject() != NULL) ? GetCarriedObject()->GetTeamNum() : 255;
+		return TeamNum;
+	}
+
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{
+		TeamNum = NewTeamNum;
+		if (Role == ROLE_Authority)
+		{
+			if (CarriedObject != NULL)
+			{
+				CarriedObject->Destroy();
+			}
+			CreateCarriedObject();
+		}
 	}
 protected:
 

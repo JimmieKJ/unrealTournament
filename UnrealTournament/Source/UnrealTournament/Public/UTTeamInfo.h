@@ -49,6 +49,9 @@ class AUTTeamInfo : public AInfo, public IUTTeamInterface
 	{
 		return TeamIndex;
 	}
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
 
 	UFUNCTION()
 	virtual void ReceivedTeamIndex();

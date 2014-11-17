@@ -147,16 +147,11 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 		return;
 	}
 
-	const IUTTeamInterface* TeamInterface = InterfaceCast<IUTTeamInterface>(OtherActor);
-	if (TeamInterface)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL || !GS->OnSameTeam(this, OtherActor))
 	{
-		if (TeamInterface->GetTeamNum() == GetTeamNum())
-		{
-			return;
-		}
+		BlowUp();
 	}
-
-	BlowUp();
 }
 
 void AUTRemoteRedeemer::Destroyed()

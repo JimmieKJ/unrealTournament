@@ -5,27 +5,31 @@
 #include "UTCTFFlag.h"
 #include "UTCTFFlagBase.generated.h"
 
-UCLASS()
+UCLASS(HideCategories = GameObject)
 class AUTCTFFlagBase : public AUTGameObjective
 {
 	GENERATED_UCLASS_BODY()
 
 	// Holds a reference to the flag
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated, Category = GameObject)
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Flag)
 	AUTCTFFlag* MyFlag;
 
 	// The mesh that makes up this base.
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = GameObject)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Objective)
 	TSubobjectPtr<UStaticMeshComponent> Mesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Sound)
-		USoundBase* FlagScoreRewardSound;
+	USoundBase* FlagScoreRewardSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
-		USoundBase* FlagTakenSound;
+	USoundBase* FlagTakenSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
-		USoundBase* FlagReturnedSound;
+	USoundBase* FlagReturnedSound;
+
+	/** array of flag classes by team */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Flag)
+	TArray< TSubclassOf<AUTCTFFlag> > TeamFlagTypes;
 
 	virtual FName GetFlagState();
 	virtual void RecallFlag();

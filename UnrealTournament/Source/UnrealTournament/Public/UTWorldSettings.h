@@ -77,6 +77,10 @@ class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 	UPROPERTY()
 	TArray<FTimedImpactEffect> TimedEffects;
 
+	/** whether to allow side switching (swap bases in CTF, etc) if the gametype wants */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameSettings)
+	bool bAllowSideSwitching;
+
 	virtual void BeginPlay() override;
 	
 	/** add an impact effect that will be managed by the timing system */

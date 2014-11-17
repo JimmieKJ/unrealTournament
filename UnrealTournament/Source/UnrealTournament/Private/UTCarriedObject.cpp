@@ -37,6 +37,7 @@ void AUTCarriedObject::OnConstruction(const FTransform& Transform)
 void AUTCarriedObject::Init(AUTGameObjective* NewBase)
 {
 	// Look up the team for my CarriedObject
+	uint8 DesiredTeamNum = NewBase->GetTeamNum();
 	if (DesiredTeamNum < 255)
 	{
 		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();

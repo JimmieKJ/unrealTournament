@@ -54,6 +54,9 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual uint8 GetTeamNum() const;
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
 
 	void FaceRotation(FRotator NewControlRotation, float DeltaTime) override;
 	virtual void GetActorEyesViewPoint(FVector& out_Location, FRotator& out_Rotation) const override;

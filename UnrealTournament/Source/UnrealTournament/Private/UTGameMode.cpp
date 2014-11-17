@@ -711,10 +711,9 @@ void AUTGameMode::HandleMatchHasStarted()
 	// reset things, relevant for any kind of warmup mode and to make sure placed Actors like pickups are in their initial state no matter how much time has passed in pregame
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
-		IUTResetInterface* ResetActor = InterfaceCast<IUTResetInterface>(*It);
-		if (ResetActor != NULL)
+		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
 		{
-			ResetActor->Execute_Reset(*It);
+			IUTResetInterface::Execute_Reset(*It);
 		}
 	}
 

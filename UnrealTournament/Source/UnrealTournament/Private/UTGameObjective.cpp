@@ -17,6 +17,8 @@ AUTGameObjective::AUTGameObjective(const FPostConstructInitializeProperties& PCI
 	NetPriority=1.0;
 
 	LastSecondSaveDistance = 2000.f;
+
+	TeamNum = 255;
 }
 
 void AUTGameObjective::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -43,7 +45,6 @@ void AUTGameObjective::InitializeObjective()
 
 void AUTGameObjective::CreateCarriedObject()
 {
-	UE_LOG(UT,Log,TEXT("Location: %s"), *GetActorLocation().ToString());
 	if (CarriedObjectClass == NULL) return;	// Sanity
 
 	FActorSpawnParameters Params;
