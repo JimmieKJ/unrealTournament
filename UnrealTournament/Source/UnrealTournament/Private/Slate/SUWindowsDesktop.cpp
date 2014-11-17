@@ -129,7 +129,7 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 		
 		DesktopSlotIndex = Slot.ZOrder;
 		ActivePanel = PanelToActivate;
-		ActivePanel->OnShowPanel(MakeShareable(this));
+		ActivePanel->OnShowPanel(SharedThis(this));
 	}
 }
 
