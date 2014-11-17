@@ -3430,7 +3430,7 @@
     <File Name="UnrealTournament/Plugins/SampleGameMode/Binaries/Win64/UE4Editor-SampleGameMode.dll" Hash="aa384fe5689ae2d0cc7e601d4d8cdc59edb362c2" />
     <File Name="UnrealTournament/Plugins/SampleGameMode/Content/BP_SampleGameBuiltinMutator.uasset" Hash="243b04c626c97a79b104057f709fe6ec2978a209" />
     <File Name="UnrealTournament/Plugins/SampleGameMode/Content/BP_SampleGameMode.uasset" Hash="0aaf9d4bbab11758b959aacc2e7205761c1b8775" />
-    <File Name="UnrealTournament/Plugins/SampleMutator/Binaries/Win64/UE4Editor-SampleMutator.dll" Hash="0bea032115f133541411a72b5793250c37a70c75" />
+    <File Name="UnrealTournament/Plugins/SampleMutator/Binaries/Win64/UE4Editor-SampleMutator.dll" Hash="c02e945b5ab839c999d4bc57353b24768f1ac17d" />
   </Files>
   <Blobs>
     <Blob Hash="0016bef3539d1df283f6c4e707c48b7765e8cf08" Size="60002" PackHash="77f1906e2a39e686045117715e2afac83ad69bf6" PackOffset="706133" />
@@ -3589,7 +3589,6 @@
     <Blob Hash="0bca6ead393d5487470d8086ee9bfbc4b35cede8" Size="5092" PackHash="ec8db484fa2f9c8696ba4ba47c767f7901d46d56" PackOffset="1997141" />
     <Blob Hash="0bd5bb4693cadd114217b1ce58c5ecd013bd7f69" Size="5276" PackHash="39dd3da1e67eba8e6be5b9ea7f6a617dfcb7cf6a" PackOffset="180343" />
     <Blob Hash="0bdabc3e0308e1ac6f82c5836b85fc9fa714fd0f" Size="106442" PackHash="c71abce0766b121b1b1428da9798e29ebf83e1f2" PackOffset="651716" />
-    <Blob Hash="0bea032115f133541411a72b5793250c37a70c75" Size="144896" PackHash="c3438cb65113a3403f8a9e2f2a58da99412ebc38" PackOffset="1300796" />
     <Blob Hash="0bedf57726bce859b201886ef716fdb1398b0d09" Size="105408" PackHash="3e50c8a8777d883b8ae84746f28972b1d2e5473a" PackOffset="108145" />
     <Blob Hash="0bf08114a3fef5dbf9f1b4b66b6c2cd7ef6a4bb4" Size="1340441" PackHash="bbfcc3daeaa60c20f1968076ce85d47eb2f4e03b" PackOffset="91112" />
     <Blob Hash="0bf87e6eea613ce5a17dd0176c4f1169dbc3338c" Size="2073214" PackHash="10bac906ea9371140f03b9707fbdb126dd2d5041" PackOffset="8" />
@@ -6004,6 +6003,7 @@
     <Blob Hash="c013e5f0fd5497220ad7a5ea11036b4fcbfd6857" Size="92054" PackHash="90eebd9790e893773f5f04b2cc11c10321754122" PackOffset="94683" />
     <Blob Hash="c0147effb1f9e2a844a852b72f7ed6ec94ab7ac8" Size="76023" PackHash="9f31d05b846c9beb6a069eb1e3f9bd1ac19f259c" PackOffset="388950" />
     <Blob Hash="c02e7694770ffa88890b081a5f0a07b4a1ceb6e7" Size="2222" PackHash="fa1cebf079b3bca84242ad337d0a16a68751377c" PackOffset="2094684" />
+    <Blob Hash="c02e945b5ab839c999d4bc57353b24768f1ac17d" Size="146944" PackHash="86c56181ddfc11cab692874999ab5f586434129a" PackOffset="8" />
     <Blob Hash="c087408648e084df995669be7ca5303abd488892" Size="3174" PackHash="a2b4847bcc88a11b4c46d6b7eb6a23366a16ac4d" PackOffset="294200" />
     <Blob Hash="c09a582d0b2556318e7165042fa55b73796cea70" Size="61685" PackHash="77f1906e2a39e686045117715e2afac83ad69bf6" PackOffset="588347" />
     <Blob Hash="c0ad7e6177c1602c5feb7072a22fc1bc5c2693a9" Size="3049" PackHash="bb704d718123ba978a73d61362d8f110d5c3e01b" PackOffset="1646188" />
@@ -7096,6 +7096,7 @@
     <Pack Hash="8543cf3d7566afdcc56038374583f1dc5e689bec" Size="3528663" CompressedSize="3528573" RemotePath="0-70336bf32ada9ef84cdc886a1a5de3f1d6c7297c" />
     <Pack Hash="85ae0567ab9797a643d3e8f36c79fd9b8b772190" Size="667545" CompressedSize="409539" RemotePath="0-d8efb1e2e8fdf8148fdb585ca65cb039690e1895" />
     <Pack Hash="86396bb91f7d155052ffbd6f76862f81c0514681" Size="4925957" CompressedSize="4926855" RemotePath="0-bc8c86600a5d5a330807d8d6d5787db10be0140f" />
+    <Pack Hash="86c56181ddfc11cab692874999ab5f586434129a" Size="146952" CompressedSize="62517" RemotePath="0-4788bec140d13a58d2ea84a48b261e3c1a7b22bf" />
     <Pack Hash="86fb3b23c79f3ec575f1522f0046798070fe9425" Size="2096527" CompressedSize="1923905" RemotePath="0-fa51bea9d83c7887dd5dfb131569577913db5996" />
     <Pack Hash="8863a8b3b38de0a42f165a05e2bf7cdadde16023" Size="270504" CompressedSize="175256" RemotePath="0-bf521131008999e35538670303545b2e51fd9aff" />
     <Pack Hash="88ca25300b9ef4db07caf32f267556a8e126a90b" Size="929193" CompressedSize="525154" RemotePath="0-ce49af2eb650aba847235877847b808070f6ef49" />
