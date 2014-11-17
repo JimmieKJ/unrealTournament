@@ -335,7 +335,7 @@ void AUTWeapon::ClientRemoved_Implementation()
 
 	Super::ClientRemoved_Implementation();
 
-	if (OldOwner != NULL && OldOwner->GetWeapon() == this)
+	if (OldOwner != NULL && (OldOwner->GetWeapon() == this || OldOwner->GetPendingWeapon() == this))
 	{
 		OldOwner->ClientWeaponLost(this);
 	}
