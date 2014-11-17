@@ -77,6 +77,8 @@ void AUTLobbyPlayerState::ClientMatchError_Implementation(const FText &MatchErro
 	AUTBasePlayerController* BasePC = Cast<AUTBasePlayerController>(GetOwner());
 	if (BasePC)
 	{
+#if !UE_SERVER
 		BasePC->ShowMessage(NSLOCTEXT("LobbyMessage","MatchMessage","Match Message"), MatchErrorMessage, UTDIALOG_BUTTON_OK, NULL);	
+#endif
 	}
 }

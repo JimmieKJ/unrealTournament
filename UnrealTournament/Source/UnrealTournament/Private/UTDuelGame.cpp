@@ -198,16 +198,16 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 #endif
 }
 
+#if !UE_SERVER
 TSharedRef<SWidget> AUTDuelGame::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const
 {
-#if !UE_SERVER
 	// Return just an empty panel
 	return SNew(SUDuelSettings)
 		.bIsHost(inIsHost)
 		.PlayerOwner(inPlayerOwner)
 		.MatchInfo(inMatchInfo);
-#endif		
 }
+#endif		
 
 FString AUTDuelGame::GetDefaultLobbyOptions() const
 {

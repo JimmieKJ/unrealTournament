@@ -46,7 +46,10 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 		{
 			//get the reply from the execute function
 
-			OnButtonClick.IsBound() ? OnButtonClick.Execute(MouseButtonIndex) : FReply::Handled();
+			if (OnButtonClick.IsBound())
+			{
+				OnButtonClick.Execute(MouseButtonIndex);
+			}
 			return FReply::Handled();
 		}
 		else
