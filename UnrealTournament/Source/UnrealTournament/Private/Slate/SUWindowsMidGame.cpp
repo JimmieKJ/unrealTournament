@@ -24,6 +24,7 @@
 
 void SUWindowsMidGame::BuildDesktop()
 {
+	return;
 	if (!DesktopPanel.IsValid())
 	{
 		SAssignNew(DesktopPanel, SUMidGameInfoPanel)
