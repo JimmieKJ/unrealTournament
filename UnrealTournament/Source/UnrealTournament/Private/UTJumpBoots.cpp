@@ -31,6 +31,12 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->MaxMultiJumpZSpeed = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MaxMultiJumpZSpeed;
 
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
+
+			AGameMode* Game = GetWorld()->GetAuthGameMode();
+			if (Game != NULL)
+			{
+				Game->SetPlayerDefaults(GetUTOwner());
+			}
 		}
 		else
 		{
