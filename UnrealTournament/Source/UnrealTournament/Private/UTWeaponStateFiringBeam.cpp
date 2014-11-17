@@ -5,8 +5,8 @@
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateFiringBeam.h"
 
-UUTWeaponStateFiringBeam::UUTWeaponStateFiringBeam(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTWeaponStateFiringBeam::UUTWeaponStateFiringBeam(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	MinDamage = 5;
 }

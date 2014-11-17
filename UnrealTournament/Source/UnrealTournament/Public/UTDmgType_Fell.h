@@ -9,8 +9,8 @@ class UNREALTOURNAMENT_API UUTDmgType_Fell : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTDmgType_Fell(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTDmgType_Fell(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		bCausedByWorld = true;
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_Fell", "{Player1Name} knocked {Player2Name} over the edge.");

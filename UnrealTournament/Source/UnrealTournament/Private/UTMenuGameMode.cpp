@@ -6,8 +6,8 @@
 #include "UTGameMode.h"
 #include "UTDMGameMode.h"
 
-AUTMenuGameMode::AUTMenuGameMode(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	GameStateClass = AUTGameState::StaticClass();
 	PlayerStateClass = AUTPlayerState::StaticClass();

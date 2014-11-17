@@ -6,8 +6,8 @@
 #include "UTWeaponStateFiringCharged.h"
 
 
-AUTWeap_BioRifle::AUTWeap_BioRifle(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState1")))
+AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState1")))
 {
 	if (FiringState.Num() > 1)
 	{

@@ -3,8 +3,8 @@
 #include "UTWaterVolume.h"
 #include "UTPainVolume.h"
 
-AUTWaterVolume::AUTWaterVolume(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWaterVolume::AUTWaterVolume(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bWaterVolume = true;
 	FluidFriction = 0.3f;
@@ -14,8 +14,8 @@ AUTWaterVolume::AUTWaterVolume(const FPostConstructInitializeProperties& PCIP)
 
 }
 
-AUTPainVolume::AUTPainVolume(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bWaterVolume = true;
 	FluidFriction = 0.5f;

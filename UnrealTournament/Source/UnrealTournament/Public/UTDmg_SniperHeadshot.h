@@ -10,8 +10,8 @@ class UUTDmg_SniperHeadshot : public UUTDamageType
 
 	TSubclassOf<ULocalMessage> MessageClass;
 
-	UUTDmg_SniperHeadshot(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTDmg_SniperHeadshot(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		static ConstructorHelpers::FObjectFinder<UClass> MessageContentClass(TEXT("Class'/Game/RestrictedAssets/Blueprints/HeadShotMessage.HeadShotMessage_C'"));
 

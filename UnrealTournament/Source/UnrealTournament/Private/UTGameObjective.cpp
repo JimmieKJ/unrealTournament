@@ -4,10 +4,10 @@
 #include "UTGameObjective.h"
 #include "Net/UnrealNetwork.h"
 
-AUTGameObjective::AUTGameObjective(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTGameObjective::AUTGameObjective(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);;
+	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false);
 	CarriedObjectClass = NULL;
 	InitialSpawnDelay = 0.0f;
 

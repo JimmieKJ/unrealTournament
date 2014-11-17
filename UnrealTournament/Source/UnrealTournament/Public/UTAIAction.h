@@ -13,8 +13,8 @@ class UNREALTOURNAMENT_API UUTAIAction : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTAIAction(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTAIAction(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	virtual UWorld* GetWorld() const override

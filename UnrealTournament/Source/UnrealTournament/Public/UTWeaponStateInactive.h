@@ -10,8 +10,8 @@ class UUTWeaponStateInactive : public UUTWeaponState
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponStateInactive(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTWeaponStateInactive(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	virtual void BringUp(float OverflowTime)

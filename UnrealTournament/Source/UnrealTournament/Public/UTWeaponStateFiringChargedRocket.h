@@ -16,8 +16,8 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 	UPROPERTY()
 	AUTWeap_RocketLauncher* RocketLauncher;
 
-	UUTWeaponStateFiringChargedRocket(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTWeaponStateFiringChargedRocket(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	virtual void BeginState(const UUTWeaponState* PrevState) override

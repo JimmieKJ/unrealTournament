@@ -11,8 +11,8 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponStateFiringCharged(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTWeaponStateFiringCharged(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	/** looping animation played while charging */

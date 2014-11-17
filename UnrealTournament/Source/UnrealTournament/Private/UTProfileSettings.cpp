@@ -4,8 +4,8 @@
 #include "UTPlayerInput.h"
 #include "GameFramework/InputSettings.h"
 
-UUTProfileSettings::UUTProfileSettings(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	PlayerName = TEXT("Malcolm");
 }

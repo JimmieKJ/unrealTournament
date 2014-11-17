@@ -4,8 +4,8 @@
 #include "UTPickup.h"
 #include "UTPickupAmmo.h"
 
-AUTPickupAmmo::AUTPickupAmmo(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTPickupAmmo::AUTPickupAmmo(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	Ammo.Amount = 10;
 	bDisplayRespawnTimer = false;

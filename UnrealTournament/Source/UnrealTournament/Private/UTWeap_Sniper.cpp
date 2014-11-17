@@ -7,8 +7,8 @@
 #include "UTWeaponStateZooming.h"
 #include "Particles/ParticleSystemComponent.h"
 
-AUTWeap_Sniper::AUTWeap_Sniper(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateZooming>(TEXT("FiringState1")) )
+AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateZooming>(TEXT("FiringState1")) )
 {
 	BringUpTime = 0.54f;
 	PutDownTime = 0.41f;

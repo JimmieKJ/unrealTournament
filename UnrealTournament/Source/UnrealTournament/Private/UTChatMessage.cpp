@@ -8,8 +8,8 @@
 #include "UTChatMessage.h"
 #include "UTLocalPlayer.h"
 
-UUTChatMessage::UUTChatMessage(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTChatMessage::UUTChatMessage(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;

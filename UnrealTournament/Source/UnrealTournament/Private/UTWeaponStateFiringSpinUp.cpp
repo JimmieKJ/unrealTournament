@@ -4,8 +4,8 @@
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateFiringSpinUp.h"
 
-UUTWeaponStateFiringSpinUp::UUTWeaponStateFiringSpinUp(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTWeaponStateFiringSpinUp::UUTWeaponStateFiringSpinUp(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	WarmupShotIntervals.Add(0.2f);
 	WarmupShotIntervals.Add(0.18f);

@@ -4,7 +4,7 @@
 
 #include "UTScoreboard.h"
 
-UUTScoreboard::UUTScoreboard(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 }
 

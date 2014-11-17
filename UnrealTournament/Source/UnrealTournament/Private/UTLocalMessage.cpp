@@ -7,8 +7,8 @@
 #include "UTHUD.h"
 #include "UTAnnouncer.h"
 
-UUTLocalMessage::UUTLocalMessage(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	Lifetime = 2.0;
 	MessageArea = FName(TEXT("ConsoleMessage"));

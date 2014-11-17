@@ -7,8 +7,8 @@
 #include "Net/UnrealNetwork.h"
 #include "UTTimerMessage.h"
 
-AUTGameState::AUTGameState(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();

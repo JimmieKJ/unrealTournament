@@ -5,8 +5,8 @@
 #include "UTProj_FlakShell.h"
 #include "UTProj_FlakShard.h"
 
-AUTProj_FlakShell::AUTProj_FlakShell(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_FlakShell::AUTProj_FlakShell(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	// Movement
 	ProjectileMovement->InitialSpeed = 2400.f;

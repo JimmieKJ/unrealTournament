@@ -7,8 +7,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UTImpactEffect.h"
 
-AUTWeap_Enforcer::AUTWeap_Enforcer(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	Ammo = 20;
 	MaxAmmo = 40;

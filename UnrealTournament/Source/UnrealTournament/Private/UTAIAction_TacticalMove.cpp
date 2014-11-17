@@ -3,8 +3,8 @@
 #include "UTAIAction_TacticalMove.h"
 #include "UTSquadAI.h"
 
-UUTAIAction_TacticalMove::UUTAIAction_TacticalMove(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTAIAction_TacticalMove::UUTAIAction_TacticalMove(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	MinStrafeDist = 450.0f;
 }

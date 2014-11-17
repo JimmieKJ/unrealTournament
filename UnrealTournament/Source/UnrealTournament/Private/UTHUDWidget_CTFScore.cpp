@@ -3,8 +3,8 @@
 #include "UTHUDWidget_CTFScore.h"
 #include "UTCTFGameState.h"
 
-UUTHUDWidget_CTFScore::UUTHUDWidget_CTFScore(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTHUDWidget_CTFScore::UUTHUDWidget_CTFScore(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

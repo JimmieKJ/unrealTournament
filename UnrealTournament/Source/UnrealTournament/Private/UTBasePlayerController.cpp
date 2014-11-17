@@ -3,8 +3,8 @@
 #include "UTChatMessage.h"
 #include "Engine/Console.h"
 
-AUTBasePlayerController::AUTBasePlayerController(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

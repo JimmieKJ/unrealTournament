@@ -4,6 +4,8 @@
 
 #if WITH_EDITOR
 
+class UFactory;
+
 #include "EditorStyleSet.h"
 #include "BaseToolkit.h"
 #include "Toolkits/AssetEditorToolkit.h"

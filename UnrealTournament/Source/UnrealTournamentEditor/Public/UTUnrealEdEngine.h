@@ -14,8 +14,8 @@ class UUTUnrealEdEngine : public UUnrealEdEngine
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTUnrealEdEngine(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTUnrealEdEngine(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	// FIXME: workaround for engine bugs with default map prefixes

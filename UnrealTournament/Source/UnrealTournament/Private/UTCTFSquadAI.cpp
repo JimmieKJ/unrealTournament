@@ -3,8 +3,8 @@
 #include "UTCTFSquadAI.h"
 #include "UTCTFFlag.h"
 
-AUTCTFSquadAI::AUTCTFSquadAI(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTCTFSquadAI::AUTCTFSquadAI(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

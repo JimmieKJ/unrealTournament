@@ -5,8 +5,8 @@
 #include "UTPlayerState.h"
 #include "Net/UnrealNetwork.h"
 
-AUTPlayerState::AUTPlayerState(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	bWaitingPlayer = false;
 	bReadyToPlay = false;

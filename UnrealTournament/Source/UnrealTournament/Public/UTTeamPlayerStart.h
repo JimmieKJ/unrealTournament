@@ -8,8 +8,8 @@ class AUTTeamPlayerStart : public APlayerStart, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTTeamPlayerStart(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTTeamPlayerStart(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PlayerStart)

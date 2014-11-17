@@ -5,8 +5,8 @@
 #include "UTCharacterMovement.h"
 #include "UnrealNetwork.h"
 
-AUTJumpBoots::AUTJumpBoots(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	NumJumps = 3;
 	SuperJumpZ = 1500.0f;
@@ -22,13 +22,13 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 	{
 		if (bRemoveBonus)
 		{
-			Movement->MaxMultiJumpCount = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MaxMultiJumpCount;
-			Movement->MultiJumpImpulse = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MultiJumpImpulse;
-			Movement->DodgeJumpImpulse = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->DodgeJumpImpulse;
-			Movement->MultiJumpAirControl = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MultiJumpAirControl;
-			Movement->bAllowDodgeMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->bAllowDodgeMultijumps;
-			Movement->bAllowJumpMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->bAllowJumpMultijumps;
-			Movement->MaxMultiJumpZSpeed = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement.Get())->MaxMultiJumpZSpeed;
+			Movement->MaxMultiJumpCount = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->MaxMultiJumpCount;
+			Movement->MultiJumpImpulse = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->MultiJumpImpulse;
+			Movement->DodgeJumpImpulse = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->DodgeJumpImpulse;
+			Movement->MultiJumpAirControl = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->MultiJumpAirControl;
+			Movement->bAllowDodgeMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAllowDodgeMultijumps;
+			Movement->bAllowJumpMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAllowJumpMultijumps;
+			Movement->MaxMultiJumpZSpeed = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->MaxMultiJumpZSpeed;
 
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
 

@@ -3,8 +3,8 @@
 #include "UnrealTournament.h"
 #include "UTServerBeaconClient.h"
 
-AUTServerBeaconClient::AUTServerBeaconClient(const class FPostConstructInitializeProperties& PCIP) :
-Super(PCIP)
+AUTServerBeaconClient::AUTServerBeaconClient(const class FObjectInitializer& ObjectInitializer) :
+Super(ObjectInitializer)
 {
 	PingStartTime = -1;
 }

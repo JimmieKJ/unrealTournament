@@ -14,8 +14,8 @@ class AUTWeapAttachment_RocketLauncher : public AUTWeaponAttachment
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTWeapAttachment_RocketLauncher(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTWeapAttachment_RocketLauncher(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 	/**The number of rockets fired is the Replicated by FireMode. So 3 rockets is FireMode=3*/
 	virtual void PlayFiringEffects()

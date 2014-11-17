@@ -74,8 +74,8 @@ public:
 
 
 
-UUTJumpPadRenderingComponent::UUTJumpPadRenderingComponent(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTJumpPadRenderingComponent::UUTJumpPadRenderingComponent(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	// Allows updating in game, while optimizing rendering for the case that it is not modified
 	Mobility = EComponentMobility::Stationary;

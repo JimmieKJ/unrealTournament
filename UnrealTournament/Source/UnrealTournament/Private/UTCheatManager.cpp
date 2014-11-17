@@ -18,8 +18,8 @@
 #include "UTCheatManager.h"
 
 
-UUTCheatManager::UUTCheatManager(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 

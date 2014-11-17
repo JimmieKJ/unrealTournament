@@ -7,8 +7,8 @@
 #include "UTLiftExit.h"
 #include "UTDmgType_FallingCrush.h"
 
-AUTLift::AUTLift(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTLift::AUTLift(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickGroup = TG_PostPhysics;

@@ -19,8 +19,8 @@
 #include "Slate/Panels/SUDuelSettings.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
 
-UUTResetInterface::UUTResetInterface(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {}
 
 namespace MatchState
@@ -30,8 +30,8 @@ namespace MatchState
 	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
 }
 
-AUTGameMode::AUTGameMode(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	// set default pawn class to our Blueprinted character
 

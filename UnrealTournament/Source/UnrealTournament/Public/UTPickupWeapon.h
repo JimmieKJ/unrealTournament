@@ -30,8 +30,8 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTPickupWeapon(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTPickupWeapon(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		Collision->InitCapsuleSize(72.0f, 75.0f);
 	}

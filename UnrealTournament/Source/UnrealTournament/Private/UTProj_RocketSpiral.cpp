@@ -5,8 +5,8 @@
 #include "UTProjectileMovementComponent.h"
 #include "UnrealNetwork.h"
 
-AUTProj_RocketSpiral::AUTProj_RocketSpiral(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_RocketSpiral::AUTProj_RocketSpiral(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	FlockRadius = 24.0f;
 	FlockStiffness = -40.0f;

@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_WeaponInfo.h"
 
-UUTHUDWidget_WeaponInfo::UUTHUDWidget_WeaponInfo(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidget_WeaponInfo::UUTHUDWidget_WeaponInfo(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	Position=FVector2D(-5.0f, -5.0f);
 	Size=FVector2D(0.0f,0.0f);

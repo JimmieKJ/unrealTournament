@@ -12,8 +12,8 @@ namespace EUTGameUserSettingsVersion
 }
 
 
-UUTGameUserSettings::UUTGameUserSettings(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	SoundClassVolumes[EUTSoundClass::Master] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;

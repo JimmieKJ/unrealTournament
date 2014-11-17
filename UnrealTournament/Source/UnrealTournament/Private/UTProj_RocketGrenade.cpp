@@ -4,8 +4,8 @@
 #include "UTProj_RocketGrenade.h"
 #include "UnrealNetwork.h"
 
-AUTProj_RocketGrenade::AUTProj_RocketGrenade(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_RocketGrenade::AUTProj_RocketGrenade(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 

@@ -119,8 +119,8 @@ FLinearColor FUTPathLink::GetPathColor() const
 	}
 }
 
-UUTPathNode::UUTPathNode(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTPathNode::UUTPathNode(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {}
 
 int32 UUTPathNode::GetBestLinkTo(NavNodeRef StartPoly, const struct FRouteCacheItem& Target, APawn* Asker, const FNavAgentProperties& AgentProps, const AUTRecastNavMesh* NavMesh) const

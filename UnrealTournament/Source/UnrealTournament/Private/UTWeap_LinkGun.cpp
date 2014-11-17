@@ -3,8 +3,8 @@
 #include "UTWeap_LinkGun.h"
 #include "UTProj_BioShot.h"
 
-AUTWeap_LinkGun::AUTWeap_LinkGun(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	LinkedBio = NULL;
 }

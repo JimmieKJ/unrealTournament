@@ -4,7 +4,7 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidgetMessage_GameMessages.h"
 
-UUTHUDWidgetMessage_GameMessages::UUTHUDWidgetMessage_GameMessages(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidgetMessage_GameMessages::UUTHUDWidgetMessage_GameMessages(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	ManagedMessageArea = FName(TEXT("GameMessages"));
 	Position = FVector2D(0.0f, 0.0f);			

@@ -2,8 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTWeap_Redeemer.h"
 
-AUTWeap_Redeemer::AUTWeap_Redeemer(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	BringUpTime = 1.8f;
 	PutDownTime = 1.44f;

@@ -12,11 +12,11 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
-AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCIP) 
-	: Super(PCIP)
+AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer) 
+	: Super(ObjectInitializer)
 {
 	// Use a sphere as a simple collision representation
-	CollisionComp = PCIP.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
+	CollisionComp = ObjectInitializer.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
 	if (CollisionComp != NULL)
 	{
 		CollisionComp->InitSphereRadius(0.0f);
@@ -28,7 +28,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 
 	// @TODO FIXMESTEVE move to just projectiles that want this, add warning if no PawnOverlapSphere and set OverlapRadius
 	OverlapRadius = 10.f;
-	PawnOverlapSphere = PCIP.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("AssistSphereComp"));
+	PawnOverlapSphere = ObjectInitializer.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("AssistSphereComp"));
 	if (PawnOverlapSphere != NULL)
 	{
 		//PawnOverlapSphere->bHiddenInGame = false;
@@ -41,7 +41,7 @@ AUTProjectile::AUTProjectile(const class FPostConstructInitializeProperties& PCI
 	}
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
-	ProjectileMovement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
+	ProjectileMovement = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
 	ProjectileMovement->InitialSpeed = 3000.f;
 	ProjectileMovement->MaxSpeed = 3000.f;

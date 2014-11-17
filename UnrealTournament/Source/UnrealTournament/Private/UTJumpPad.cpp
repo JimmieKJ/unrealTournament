@@ -10,20 +10,20 @@
 #include "AI/NavigationOctree.h"
 #include "UTReachSpec_JumpPad.h"
 
-AUTJumpPad::AUTJumpPad(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTJumpPad::AUTJumpPad(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	SceneRoot = PCIP.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComponent"));
+	SceneRoot = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComponent"));
 	RootComponent = SceneRoot;
 	RootComponent->bShouldUpdatePhysicsVolume = true;
 
 	// Setup the mesh
-	Mesh = PCIP.CreateDefaultSubobject<UStaticMeshComponent>(this, TEXT("JumpPadMesh"));
+	Mesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, TEXT("JumpPadMesh"));
 	Mesh->AttachParent = RootComponent;
 
-	TriggerBox = PCIP.CreateDefaultSubobject<UBoxComponent>(this, TEXT("TriggerBox"));
+	TriggerBox = ObjectInitializer.CreateDefaultSubobject<UBoxComponent>(this, TEXT("TriggerBox"));
 	TriggerBox->SetCollisionProfileName(TEXT("Trigger"));
 	TriggerBox->AttachParent = RootComponent;
 	
@@ -35,7 +35,7 @@ AUTJumpPad::AUTJumpPad(const FPostConstructInitializeProperties& PCIP)
 
 	AreaClass = UNavArea_Default::StaticClass();
 #if WITH_EDITORONLY_DATA
-	JumpPadComp = PCIP.CreateDefaultSubobject<UUTJumpPadRenderingComponent>(this, TEXT("JumpPadComp"));
+	JumpPadComp = ObjectInitializer.CreateDefaultSubobject<UUTJumpPadRenderingComponent>(this, TEXT("JumpPadComp"));
 	JumpPadComp->PostPhysicsComponentTick.bCanEverTick = false;
 	JumpPadComp->AttachParent = RootComponent;
 #endif // WITH_EDITORONLY_DATA

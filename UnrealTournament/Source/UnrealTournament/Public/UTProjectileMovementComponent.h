@@ -38,10 +38,10 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 
 	virtual bool MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit);
 
-	virtual FVector CalculateVelocity(FVector OldVelocity, float DeltaTime, bool bGravityEnabled) override
+	virtual FVector ComputeVelocity(FVector InitialVelocity, float DeltaTime) const override
 	{
-		OldVelocity += OldVelocity.SafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
-		return Super::CalculateVelocity(OldVelocity, DeltaTime, bGravityEnabled);
+		InitialVelocity += InitialVelocity.SafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
+		return Super::ComputeVelocity(InitialVelocity, DeltaTime);
 	}
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -55,9 +55,9 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile, Meta = (EditCondition = "!bBounce"))
 	bool bPreventZHoming;
 
-	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime, bool bGravityEnabled) const override;
+	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const override;
 
 protected:
-	virtual FVector ComputeMoveDelta(const FVector& InVelocity, float DeltaTime, bool bApplyGravity = true) const override;
+	virtual FVector ComputeMoveDelta(const FVector& InVelocity, float DeltaTime) const override;
 	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;
 };

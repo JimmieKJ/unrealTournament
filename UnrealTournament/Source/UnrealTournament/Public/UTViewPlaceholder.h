@@ -8,12 +8,12 @@ class AUTViewPlaceholder : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTViewPlaceholder(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTViewPlaceholder(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		bReplicates = true;
 
-		TSubobjectPtr<USceneComponent> SceneComponent = PCIP.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
+		TSubobjectPtr<USceneComponent> SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
 		RootComponent = SceneComponent;
 		RootComponent->Mobility = EComponentMobility::Static;
 

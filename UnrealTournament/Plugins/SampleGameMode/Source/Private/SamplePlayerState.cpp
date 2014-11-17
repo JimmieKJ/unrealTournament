@@ -3,8 +3,8 @@
 #include "SampleGameMode.h"
 #include "SamplePlayerState.h"
 
-ASamplePlayerState::ASamplePlayerState(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+ASamplePlayerState::ASamplePlayerState(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

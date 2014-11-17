@@ -2,8 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTCustomPhysicsVolume.h"
 
-AUTCustomPhysicsVolume::AUTCustomPhysicsVolume(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTCustomPhysicsVolume::AUTCustomPhysicsVolume(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	CustomGravityScaling = 1.f;
 }

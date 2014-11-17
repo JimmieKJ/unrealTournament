@@ -18,8 +18,8 @@ class UUTFirstBloodMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FText FirstBloodRemoteText;
 
-	UUTFirstBloodMessage(const FPostConstructInitializeProperties& PCIP)
-		: Super(PCIP)
+	UUTFirstBloodMessage(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("DeathMessage"));
 

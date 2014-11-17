@@ -5,16 +5,16 @@
 #include "UTDroppedPickup.h"
 #include "UnrealNetwork.h"
 
-AUTDroppedPickup::AUTDroppedPickup(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTDroppedPickup::AUTDroppedPickup(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	Collision = PCIP.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
+	Collision = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->InitCapsuleSize(64.0f, 30.0f);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTDroppedPickup::OnOverlapBegin);
 	RootComponent = Collision;
 
-	Movement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("Movement"));
+	Movement = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("Movement"));
 	Movement->HitZStopSimulatingThreshold = 0.7f;
 	Movement->UpdatedComponent = Collision;
 	Movement->OnProjectileStop.AddDynamic(this, &AUTDroppedPickup::PhysicsStopped);

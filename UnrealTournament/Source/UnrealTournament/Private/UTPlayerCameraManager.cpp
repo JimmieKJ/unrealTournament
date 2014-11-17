@@ -5,8 +5,8 @@
 #include "UTCTFFlagBase.h"
 #include "UTViewPlaceholder.h"
 
-AUTPlayerCameraManager::AUTPlayerCameraManager(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	FreeCamOffset = FVector(-256, 0, 90);
 	EndGameFreeCamOffset = FVector(-256, 0, 45);
@@ -84,9 +84,9 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		FVector DesiredLoc = OutVT.Target->GetActorLocation();
 
 		// we must use the capsule location here as the ragdoll's root component can be rubbbing a wall
-		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->CapsuleComponent != nullptr)
+		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->GetCapsuleComponent() != nullptr)
 		{
-			DesiredLoc = UTCharacter->CapsuleComponent->GetComponentLocation();
+			DesiredLoc = UTCharacter->GetCapsuleComponent()->GetComponentLocation();
 		}
 
 		if (UTFlagBase != nullptr)

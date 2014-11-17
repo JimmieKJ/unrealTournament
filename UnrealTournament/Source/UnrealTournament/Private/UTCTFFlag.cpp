@@ -7,12 +7,12 @@
 #include "UTCTFGameMode.h"
 #include "UTLastSecondMessage.h"
 
-AUTCTFFlag::AUTCTFFlag(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> FlagMesh (TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"));
 
-	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
+	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
 	Mesh->SetSkeletalMesh(FlagMesh.Object);
 	Mesh->AlwaysLoadOnClient = true;
 	Mesh->AlwaysLoadOnServer = true;

@@ -3,12 +3,12 @@
 #include "UTCTFFlagBase.h"
 #include "Net/UnrealNetwork.h"
 
-AUTCTFFlagBase::AUTCTFFlagBase(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> FlagBaseMesh (TEXT("StaticMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_Pickups_Base_Flag.S_Pickups_Base_Flag'"));
 
-	Mesh = PCIP.CreateDefaultSubobject<UStaticMeshComponent>(this, TEXT("FlagBase"));
+	Mesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, TEXT("FlagBase"));
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Mesh->SetStaticMesh(FlagBaseMesh.Object);
 	Mesh->AttachParent = RootComponent;

@@ -13,8 +13,8 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTDmgType_AttachParticles(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTDmgType_AttachParticles(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		DamageThreshold = 35;
 		HealthThreshold = 100000;
@@ -55,7 +55,7 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 				PSC->SetTemplate(HitEffect);
 				HitPawn->GetWorldTimerManager().SetTimer(PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
 				PSC->RegisterComponent();
-				PSC->AttachTo(HitPawn->Mesh, HitPawn->Mesh->FindClosestBone(HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation), EAttachLocation::SnapToTarget);
+				PSC->AttachTo(HitPawn->GetMesh(), HitPawn->GetMesh()->FindClosestBone(HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation), EAttachLocation::SnapToTarget);
 			}
 		}
 	}

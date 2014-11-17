@@ -14,8 +14,8 @@ FString FZoomTickFunction::DiagnosticMessage()
 	return *FString::Printf(TEXT("%s::ZoomTick()"), *GetPathNameSafe(ZoomState));
 }
 
-UUTWeaponStateZooming::UUTWeaponStateZooming(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTWeaponStateZooming::UUTWeaponStateZooming(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	ZoomStartFOV = 80.0f;
 	MinFOV = 12.f;

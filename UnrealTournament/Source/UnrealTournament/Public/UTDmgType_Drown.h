@@ -9,8 +9,8 @@ class UUTDmgType_Drown : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTDmgType_Drown(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTDmgType_Drown(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		bCausedByWorld = true;
 		bBlockedByArmor = false;

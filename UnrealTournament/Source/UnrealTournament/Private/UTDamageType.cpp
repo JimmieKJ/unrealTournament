@@ -2,8 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTDamageType.h"
 
-UUTDamageType::UUTDamageType(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	// hack to allow blueprint damagetypes to have an event graph
 	// TODO: disabled at the moment as blueprints have all kinds of issues interacting with functions on default objects due to implicit variable creation

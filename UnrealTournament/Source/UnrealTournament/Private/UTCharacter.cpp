@@ -31,33 +31,33 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTCharacter, Log, All);
 
-AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
+AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
 	// Set size for collision capsule
-	CapsuleComponent->InitCapsuleSize(46.f, 92.0f);
+	GetCapsuleComponent()->InitCapsuleSize(46.f, 92.0f);
 
 	// Create a CameraComponent	
-	CharacterCameraComponent = PCIP.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
-	CharacterCameraComponent->AttachParent = CapsuleComponent;
+	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
+	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
 	DefaultBaseEyeHeight = 71.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
-	FirstPersonMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
+	FirstPersonMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CharacterMesh1P"));
 	FirstPersonMesh->SetOnlyOwnerSee(true);
 	FirstPersonMesh->AttachParent = CharacterCameraComponent;
 	FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPersonMesh->bCastDynamicShadow = false;
 	FirstPersonMesh->CastShadow = false;
 
-	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Mesh->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
-	Mesh->bReceivesDecals = false;
+	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
+	GetMesh()->bReceivesDecals = false;
 
-	UTCharacterMovement = Cast<UUTCharacterMovement>(CharacterMovement);
+	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
 
 	HealthMax = 100;
 	SuperHealthMax = 199;
@@ -110,8 +110,8 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 	NetCullDistanceSquared = 500000000.0f;
 
 	OnActorBeginOverlap.AddDynamic(this, &AUTCharacter::OnOverlapBegin);
-	Mesh->OnComponentHit.AddDynamic(this, &AUTCharacter::OnRagdollCollision);
-	Mesh->SetNotifyRigidBodyCollision(true);
+	GetMesh()->OnComponentHit.AddDynamic(this, &AUTCharacter::OnRagdollCollision);
+	GetMesh()->SetNotifyRigidBodyCollision(true);
 
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
 	PlayerIndicatorMaxDistance = 1200.f;
@@ -134,7 +134,7 @@ AUTCharacter::AUTCharacter(const class FPostConstructInitializeProperties& PCIP)
 void AUTCharacter::BaseChange()
 {
 	Super::BaseChange();
-	if (CharacterMovement && CharacterMovement->MovementMode != MOVE_None)
+	if (GetCharacterMovement() && GetCharacterMovement()->MovementMode != MOVE_None)
 	{
 		AUTLift* BaseLift = Cast<AUTLift>(GetMovementBaseActor(this));
 		if (BaseLift)
@@ -175,7 +175,7 @@ void AUTCharacter::OnWalkingOffLedge_Implementation()
 
 void AUTCharacter::BeginPlay()
 {
-	Mesh->SetOwnerNoSee(false); // compatibility with old content, we're doing this through UpdateHiddenComponents() now
+	GetMesh()->SetOwnerNoSee(false); // compatibility with old content, we're doing this through UpdateHiddenComponents() now
 
 	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
 	{
@@ -202,13 +202,13 @@ void AUTCharacter::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		BodyMI = Mesh->CreateAndSetMaterialInstanceDynamic(0);
+		BodyMI = GetMesh()->CreateAndSetMaterialInstanceDynamic(0);
 	}
 }
 
 void AUTCharacter::PositionUpdated()
 {
-	new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), CharacterMovement->Velocity, CharacterMovement->bJustTeleported, GetWorld()->GetTimeSeconds(), (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	new(SavedPositions)FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, GetWorld()->GetTimeSeconds(), (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 	
 	// maintain one position beyond MaxSavedPositionAge for interpolation
 	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < GetWorld()->GetTimeSeconds() - MaxSavedPositionAge)
@@ -247,9 +247,9 @@ void AUTCharacter::RecalculateBaseEyeHeight()
 
 void AUTCharacter::Crouch(bool bClientSimulation)
 {
-	if (CharacterMovement)
+	if (GetCharacterMovement())
 	{
-		CharacterMovement->bWantsToCrouch = true;
+		GetCharacterMovement()->bWantsToCrouch = true;
 	}
 }
 
@@ -274,7 +274,7 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, CrouchedEyeHeight),false);
 
 	// Kill any montages that might be overriding the crouch anim
-	UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance != NULL)
 	{
 		AnimInstance->Montage_Stop(0.2f);
@@ -346,13 +346,13 @@ static TAutoConsoleVariable<int32> CVarDebugHeadshots(
 FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 {
 	// force mesh update if necessary
-	if (!Mesh->ShouldTickPose())
+	if (!GetMesh()->ShouldTickPose())
 	{
-		Mesh->TickAnimation(0.0f);
-		Mesh->RefreshBoneTransforms();
-		Mesh->UpdateComponentToWorld();
+		GetMesh()->TickAnimation(0.0f);
+		GetMesh()->RefreshBoneTransforms();
+		GetMesh()->UpdateComponentToWorld();
 	}
-	FVector Result = Mesh->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
+	FVector Result = GetMesh()->GetSocketLocation(HeadBone) + FVector(0.0f, 0.0f, HeadHeight);
 	
 	// offset based on PredictionTime to previous position
 	return Result + GetRewindLocation(PredictionTime) - GetActorLocation();
@@ -405,7 +405,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	FVector Z = RotMatrix.GetScaledAxis(EAxis::Z);
 
 	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
-	if (!CharacterMovement || CharacterMovement->IsFalling() || !MyWeapon )
+	if (!GetCharacterMovement() || GetCharacterMovement()->IsFalling() || !MyWeapon)
 	{
 		// interp out weapon bob if falling
 		BobTime = 0.f;
@@ -414,13 +414,13 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	}
 	else
 	{
-		float Speed = CharacterMovement->Velocity.Size();
+		float Speed = GetCharacterMovement()->Velocity.Size();
 		float LastBobTime = BobTime;
-		float BobFactor = (WeaponBreathingBobRate + WeaponRunningBobRate*Speed / CharacterMovement->MaxWalkSpeed);
+		float BobFactor = (WeaponBreathingBobRate + WeaponRunningBobRate*Speed / GetCharacterMovement()->MaxWalkSpeed);
 		BobTime += DeltaTime * BobFactor;
 		DesiredJumpBob *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
-		FVector AccelDir = CharacterMovement->GetCurrentAcceleration().SafeNormal();
-		if ((AccelDir | CharacterMovement->Velocity) < 0.5f*CharacterMovement->MaxWalkSpeed)
+		FVector AccelDir = GetCharacterMovement()->GetCurrentAcceleration().SafeNormal();
+		if ((AccelDir | GetCharacterMovement()->Velocity) < 0.5f*GetCharacterMovement()->MaxWalkSpeed)
 		{
 			if ((AccelDir | Y) > 0.65f)
 			{
@@ -446,8 +446,8 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		}
 
 		// play footstep sounds when weapon changes bob direction if walking
-		if (CharacterMovement->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
-			&& (Mesh->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !Mesh->bRecentlyRendered)
+		if (GetCharacterMovement()->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
+			&& (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !Mesh->bRecentlyRendered)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}

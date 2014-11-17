@@ -2,7 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCarriedObjectMessage.h"
 
-UUTCarriedObjectMessage::UUTCarriedObjectMessage(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTCarriedObjectMessage::UUTCarriedObjectMessage(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }

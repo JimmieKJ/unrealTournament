@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Spectator.h"
 
-UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	Position=FVector2D(0,0);
 	Size=FVector2D(0.0f,0.0f);

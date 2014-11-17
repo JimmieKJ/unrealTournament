@@ -28,8 +28,8 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
-AUTPlayerController::AUTPlayerController(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	// set our turn rates for input
 	BaseTurnRate = 45.f;

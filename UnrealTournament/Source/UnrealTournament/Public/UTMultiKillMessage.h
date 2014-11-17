@@ -15,8 +15,8 @@ class UUTMultiKillMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	TArray<FName> AnnouncementNames;
 
-	UUTMultiKillMessage(const FPostConstructInitializeProperties& PCIP)
-		: Super(PCIP)
+	UUTMultiKillMessage(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("DeathMessage"));
 

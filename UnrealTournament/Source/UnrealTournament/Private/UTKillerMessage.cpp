@@ -5,8 +5,8 @@
 #include "UTKillerMessage.h"
 
 
-UUTKillerMessage::UUTKillerMessage(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	Lifetime=3.0;
 	bIsSpecial = true;

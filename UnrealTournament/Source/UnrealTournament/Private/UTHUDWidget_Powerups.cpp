@@ -3,8 +3,8 @@
 #include "UTHUDWidget_Powerups.h"
 #include "UTTimedPowerup.h"
 
-UUTHUDWidget_Powerups::UUTHUDWidget_Powerups(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTHUDWidget_Powerups::UUTHUDWidget_Powerups(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	Position = FVector2D(-5.0f, -5.0f);
 	Size = FVector2D(0.0f, 0.0f);

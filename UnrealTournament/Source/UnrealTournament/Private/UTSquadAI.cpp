@@ -5,8 +5,8 @@
 FName NAME_Attack(TEXT("Attack"));
 FName NAME_Defend(TEXT("Defend"));
 
-AUTSquadAI::AUTSquadAI(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTSquadAI::AUTSquadAI(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

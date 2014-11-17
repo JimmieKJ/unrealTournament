@@ -9,7 +9,7 @@
 #include "UTLobbyPC.h"
 
 
-AUTLobbyHUD::AUTLobbyHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+AUTLobbyHUD::AUTLobbyHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 }
 

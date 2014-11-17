@@ -4,8 +4,8 @@
 #include "SampleGameState.h"
 #include "SamplePlayerState.h"
 
-ASampleGameMode::ASampleGameMode(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+ASampleGameMode::ASampleGameMode(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	GameStateClass = ASampleGameState::StaticClass();
 	PlayerStateClass = ASamplePlayerState::StaticClass();

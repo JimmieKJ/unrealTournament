@@ -9,8 +9,8 @@ class UUTWeaponStateActive : public UUTWeaponState
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponStateActive(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTWeaponStateActive(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	virtual void BeginState(const UUTWeaponState* PrevState) override;

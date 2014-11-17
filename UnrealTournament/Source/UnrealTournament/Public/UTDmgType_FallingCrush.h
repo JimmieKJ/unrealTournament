@@ -9,8 +9,8 @@ class UUTDmgType_FallingCrush : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTDmgType_FallingCrush(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTDmgType_FallingCrush(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		bCausedByWorld = true;
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_FallingCrush", "{Player1Name} landed on {Player2Name}'s skull.");

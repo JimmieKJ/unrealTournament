@@ -3,10 +3,10 @@
 #include "UTGib.h"
 #include "UTWorldSettings.h"
 
-AUTGib::AUTGib(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTGib::AUTGib(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	Mesh = PCIP.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
+	Mesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
 	if (Mesh != NULL)
 	{
 		Mesh->bReceivesDecals = false;

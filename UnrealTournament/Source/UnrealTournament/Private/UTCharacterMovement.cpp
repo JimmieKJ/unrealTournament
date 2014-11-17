@@ -9,8 +9,8 @@
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
-UUTCharacterMovement::UUTCharacterMovement(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	// Reduce for testing of transitions
 	// MinTimeBetweenTimeStampResets = 5.f;
@@ -496,7 +496,7 @@ void UUTCharacterMovement::PerformWaterJump()
 	}
 
 	float PawnCapsuleRadius, PawnCapsuleHalfHeight;
-	CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
+	CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
 	FVector TraceStart = CharacterOwner->GetActorLocation();
 	TraceStart.Z = TraceStart.Z - PawnCapsuleHalfHeight + PawnCapsuleRadius;
 	FVector TraceEnd = TraceStart - FVector(0.f, 0.f, WallDodgeTraceDist);
@@ -547,7 +547,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		// if falling/swimming, check if can perform wall dodge
 		FVector TraceEnd = -1.f*DodgeDir;
 		float PawnCapsuleRadius, PawnCapsuleHalfHeight;
-		CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
+		CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnCapsuleRadius, PawnCapsuleHalfHeight);
 		float TraceBoxSize = FMath::Min(0.25f*PawnCapsuleHalfHeight, 0.7f*PawnCapsuleRadius);
 		FVector TraceStart = CharacterOwner->GetActorLocation();
 		TraceStart.Z -= 0.5f*TraceBoxSize;
@@ -860,7 +860,7 @@ const FVector& NewAccel
 	PerformMovement(DeltaTime);
 
 	// If not playing root motion, tick animations after physics. We do this here to keep events, notifies, states and transitions in sync with client updates.
-	if (!CharacterOwner->bClientUpdating && !CharacterOwner->IsPlayingRootMotion() && CharacterOwner->Mesh)
+	if (!CharacterOwner->bClientUpdating && !CharacterOwner->IsPlayingRootMotion() && CharacterOwner->GetMesh())
 	{
 		TickCharacterPose(DeltaTime);
 		// TODO: SaveBaseLocation() in case tick moves us?
@@ -1158,7 +1158,7 @@ void FSavedMove_UTCharacter::Clear()
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
 {
 	Super::SetMoveFor(Character, InDeltaTime, NewAccel, ClientData);
-	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(Character->CharacterMovement);
+	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(Character->GetCharacterMovement());
 	if (UTCharMov)
 	{
 		bPressedDodgeForward = UTCharMov->bPressedDodgeForward;
@@ -1189,7 +1189,7 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 {
 	Super::PrepMoveFor(Character);
 
-	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(Character->CharacterMovement);
+	UUTCharacterMovement* UTCharMov = Cast<UUTCharacterMovement>(Character->GetCharacterMovement());
 	if (UTCharMov)
 	{
 		if (UTCharMov->bIsSettingUpFirstReplayMove)
@@ -1294,7 +1294,7 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 	{
 		// @TODO FIXMESTEVE - make this a virtual function in super class so just change this part
 		float PawnRadius, PawnHalfHeight;
-		CharacterOwner->CapsuleComponent->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
+		CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleSize(PawnRadius, PawnHalfHeight);
 		if (Delta.Z < 0.f && (Hit.ImpactNormal.Z < MAX_STEP_SIDE_Z))
 		{
 			// We were moving downward, but a slide was going to send us upward. We want to aim
@@ -1334,7 +1334,7 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 bool UUTCharacterMovement::CanCrouchInCurrentState() const
 {
 	// @TODO FIXMESTEVE Temp hack until we can get the crouch control code split out from PerformMovement()
-	if (IsCrouching() && !bIsDodgeRolling && (CharacterOwner->CapsuleComponent->GetScaledCapsuleHalfHeight() < CrouchedHalfHeight))
+	if (IsCrouching() && !bIsDodgeRolling && (CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() < CrouchedHalfHeight))
 	{
 		return false;
 	}
@@ -1807,7 +1807,7 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 	if (ClientData && ClientData->bSmoothNetUpdates)
 	{
 		// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
-		if ((DeltaSeconds < ClientData->SmoothNetUpdateTime) && CharacterOwner->Mesh && !CharacterOwner->Mesh->IsSimulatingPhysics())
+		if ((DeltaSeconds < ClientData->SmoothNetUpdateTime) && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
 		{
 			float SmoothTime = Velocity.IsZero() ? 0.05f : ClientData->SmoothNetUpdateTime;
 			ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
@@ -1823,10 +1823,10 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 			ClientData->MeshTranslationOffset.Z = 0;
 		}
 
-		if (CharacterOwner->Mesh)
+		if (CharacterOwner->GetMesh())
 		{
 			const FVector NewRelTranslation = CharacterOwner->ActorToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset + CharacterOwner->GetBaseTranslationOffset());
-			CharacterOwner->Mesh->SetRelativeLocation(NewRelTranslation);
+			CharacterOwner->GetMesh()->SetRelativeLocation(NewRelTranslation);
 		}
 		//DrawDebugSphere(GetWorld(), CharacterOwner->GetActorLocation(), 30.f, 8, FColor::Yellow);
 	}

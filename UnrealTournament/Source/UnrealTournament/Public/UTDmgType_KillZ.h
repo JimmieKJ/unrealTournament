@@ -9,8 +9,8 @@ class UUTDmgType_KillZ : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTDmgType_KillZ(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTDmgType_KillZ(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		bCausedByWorld = true;
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_Fell", "{Player1Name} knocked {Player2Name} over the edge.");

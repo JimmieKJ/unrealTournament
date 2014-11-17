@@ -7,8 +7,8 @@
 #include "UTLobbyGameMode.h"
 #include "Net/UnrealNetwork.h"
 
-AUTLobbyGameState::AUTLobbyGameState(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	LobbyName = TEXT("My First Lobby");
 	LobbyMOTD = TEXT("Welcome!");

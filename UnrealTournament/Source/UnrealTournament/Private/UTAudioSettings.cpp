@@ -3,8 +3,8 @@
 #include "UnrealTournament.h"
 #include "UTAudioSettings.h"
 
-UUTAudioSettings::UUTAudioSettings(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTAudioSettings::UUTAudioSettings(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 
 }

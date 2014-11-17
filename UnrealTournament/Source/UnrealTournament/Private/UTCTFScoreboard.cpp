@@ -4,8 +4,8 @@
 #include "UTTeamScoreboard.h"
 #include "UTCTFGameState.h"
 
-UUTCTFScoreboard::UUTCTFScoreboard(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	ScoringPlaysHeader = NSLOCTEXT("CTF", "ScoringPlaysHeader", "SCORING SUMMARY");
 	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assists:");

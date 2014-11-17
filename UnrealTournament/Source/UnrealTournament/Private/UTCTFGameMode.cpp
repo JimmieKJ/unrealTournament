@@ -21,8 +21,8 @@ namespace MatchState
 }
 
 
-AUTCTFGameMode::AUTCTFGameMode(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	// By default, we do 2 team CTF
 	MaxNumberOfTeams = 2;

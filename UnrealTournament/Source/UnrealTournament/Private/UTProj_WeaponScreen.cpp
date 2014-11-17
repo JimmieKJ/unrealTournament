@@ -3,10 +3,10 @@
 #include "UTProj_WeaponScreen.h"
 #include "UTImpactEffect.h"
 
-AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	CollisionBox = PCIP.CreateDefaultSubobject<UBoxComponent>(this, FName(TEXT("CollisionBox")));
+	CollisionBox = ObjectInitializer.CreateDefaultSubobject<UBoxComponent>(this, FName(TEXT("CollisionBox")));
 	CollisionBox->SetBoxExtent(FVector(5.0f, 50.0f, 50.0f), false);
 	CollisionBox->SetCollisionProfileName(TEXT("ProjectileShootable"));
 	FCollisionResponseContainer Responses = CollisionBox->GetCollisionResponseToChannels();

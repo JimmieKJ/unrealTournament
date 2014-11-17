@@ -7,11 +7,11 @@
 #include "UTRemoteRedeemer.h"
 #include "UTLastSecondMessage.h"
 
-AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	// Use a sphere as a simple collision representation
-	CollisionComp = PCIP.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
+	CollisionComp = ObjectInitializer.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("SphereComp"));
 	if (CollisionComp != NULL)
 	{
 		CollisionComp->InitSphereRadius(0.0f);
@@ -23,7 +23,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FPostConstructInitializePropert
 	}
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
-	ProjectileMovement = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
+	ProjectileMovement = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
 	ProjectileMovement->InitialSpeed = 2000.f;
 	ProjectileMovement->MaxSpeed = 2000.f;

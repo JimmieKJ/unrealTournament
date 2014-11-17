@@ -15,8 +15,8 @@
 
 
 
-AUTLobbyGameMode::AUTLobbyGameMode(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	// set default pawn class to our Blueprinted character
 

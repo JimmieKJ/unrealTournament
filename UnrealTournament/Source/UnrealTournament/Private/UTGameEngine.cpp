@@ -3,8 +3,8 @@
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
 
-UUTGameEngine::UUTGameEngine(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bFirstRun = true;
 	bAllowClientNetProfile = false;
@@ -130,6 +130,8 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 			Context.TravelURL = NewURL.ToString();
 		}
 	}
+	
+	SmoothFrameRate(DeltaSeconds);
 
 	Super::Tick(DeltaSeconds, bIdleMode);
 }
@@ -294,7 +296,7 @@ static TAutoConsoleVariable<int32> CVarSmoothFrameRate(
 	TEXT("ut.SmoothFrameRate"), 1,
 	TEXT("Enable frame rate smoothing."));
 
-float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing)
+float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const
 {
 	float MaxTickRate = 0;
 
@@ -346,7 +348,7 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 
 	if (bSmoothFrameRate && bAllowFrameRateSmoothing && CVarSmoothFrameRate.GetValueOnGameThread())
 	{
-		MaxTickRate = SmoothFrameRate(DeltaTime);
+		MaxTickRate = 1.f / SmoothedDeltaTime;
 	}
 
 	// Hard cap at frame rate cap
@@ -365,7 +367,7 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	return MaxTickRate;
 }
 
-float UUTGameEngine::SmoothFrameRate(float DeltaTime)
+void UUTGameEngine::SmoothFrameRate(float DeltaTime)
 {
 	// make sure to only smooth once per frame
 	if (FApp::GetCurrentTime() != LastSmoothTime)
@@ -395,7 +397,5 @@ float UUTGameEngine::SmoothFrameRate(float DeltaTime)
 		SmoothedDeltaTime = FMath::Clamp(SmoothedDeltaTime, 0.001f, MaximumSmoothedTime);
 	}
 	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
-	// invert to get desired tick rate
-	return 1.f / SmoothedDeltaTime;
 }
 

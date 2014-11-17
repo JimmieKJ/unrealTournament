@@ -4,7 +4,7 @@
 #include "UTHUDWidget_CTFSpectator.h"
 #include "UTCTFGameState.h"
 
-UUTHUDWidget_CTFSpectator::UUTHUDWidget_CTFSpectator(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidget_CTFSpectator::UUTHUDWidget_CTFSpectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	Position=FVector2D(0,0);
 	Size=FVector2D(0.0f,0.0f);

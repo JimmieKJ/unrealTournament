@@ -3,8 +3,8 @@
 #include "UTTimedPowerup.h"
 #include "UnrealNetwork.h"
 
-AUTTimedPowerup::AUTTimedPowerup(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTTimedPowerup::AUTTimedPowerup(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	TimeRemaining = 30.0f;
 	RespawnTime = 90.0f;

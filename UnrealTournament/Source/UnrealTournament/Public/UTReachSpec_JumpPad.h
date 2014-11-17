@@ -16,8 +16,8 @@ class UUTReachSpec_JumpPad : public UUTReachSpec
 	UPROPERTY()
 	TWeakObjectPtr<AActor> JumpPad;
 
-	UUTReachSpec_JumpPad(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTReachSpec_JumpPad(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		PathColor = FLinearColor(0.0f, 0.0f, 1.0f);
 	}

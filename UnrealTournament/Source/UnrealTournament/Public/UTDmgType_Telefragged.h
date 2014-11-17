@@ -9,8 +9,8 @@ class UUTDmgType_Telefragged : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTDmgType_Telefragged(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTDmgType_Telefragged(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		bCausedByWorld = true;
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_Telefragged", "{Player2Name}'s atoms were scattered by {Player1Name}.");

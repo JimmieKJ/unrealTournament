@@ -5,8 +5,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UTGameEngine.h"
 
-AUTWorldSettings::AUTWorldSettings(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	KillZDamageType = UUTDmgType_KillZ::StaticClass();
 

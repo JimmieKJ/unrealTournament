@@ -11,8 +11,8 @@ class UUTReachSpec : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTReachSpec(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTReachSpec(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		PathColor = FLinearColor(0.0f, 1.0f, 0.0f);
 	}

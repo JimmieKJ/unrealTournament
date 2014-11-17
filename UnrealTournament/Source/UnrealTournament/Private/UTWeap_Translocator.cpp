@@ -6,8 +6,8 @@
 #include "UnrealNetwork.h"
 #include "UTReachSpec_HighJump.h"
 
-AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
+AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
 {
 	if (FiringState.Num() > 1)
 	{
@@ -106,7 +106,7 @@ void AUTWeap_Translocator::FireShot()
 				float AdjustedMomentum = 1000.0f;
 				Event.Damage = TelefragDamage;
 				Event.DamageTypeClass = TransFailDamageType;
-				Event.HitInfo = FHitResult(UTOwner, UTOwner->CapsuleComponent, UTOwner->GetActorLocation(), FVector(0.0f,0.0f,1.0f));
+				Event.HitInfo = FHitResult(UTOwner, UTOwner->GetCapsuleComponent(), UTOwner->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 				Event.ShotDirection = GetVelocity().SafeNormal();
 				Event.Momentum = Event.ShotDirection * AdjustedMomentum;
 
@@ -118,11 +118,11 @@ void AUTWeap_Translocator::FireShot()
 
 				if ((Role == ROLE_Authority) || (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()) && (Cast<AUTPlayerController>(UTOwner->GetController())->GetPredictionTime() > 0.f)))
 				{
-					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), UTOwner->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 					FVector WarpLocation = TransDisk->GetActorLocation();
 					FHitResult Hit;
 					FVector EndTrace = WarpLocation - FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
-					bool bHitFloor = GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius()), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->CapsuleComponent->GetCollisionResponseToChannels());
+					bool bHitFloor = GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius()), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->GetCapsuleComponent()->GetCollisionResponseToChannels());
 					if (bHitFloor)
 					{
 						// need to more teleport destination up
@@ -130,13 +130,13 @@ void AUTWeap_Translocator::FireShot()
 					}
 					FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
 
-					ECollisionChannel SavedObjectType = UTOwner->CapsuleComponent->GetCollisionObjectType();
-					UTOwner->CapsuleComponent->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
+					ECollisionChannel SavedObjectType = UTOwner->GetCapsuleComponent()->GetCollisionObjectType();
+					UTOwner->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 					//UE_LOG(UT, Warning, TEXT("Translocate to %f %f %f"), WarpLocation.X, WarpLocation.Y, WarpLocation.Z);
 					// test first so we don't drop the flag on an unsuccessful teleport
 					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation))
 					{
-						UTOwner->CapsuleComponent->SetCollisionObjectType(SavedObjectType);
+						UTOwner->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 						UTOwner->DropFlag();
 
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
@@ -146,7 +146,7 @@ void AUTWeap_Translocator::FireShot()
 					}
 					else
 					{
-						UTOwner->CapsuleComponent->SetCollisionObjectType(SavedObjectType);
+						UTOwner->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 					}
 				}
 				UUTGameplayStatics::UTPlaySound(GetWorld(), TeleSound, UTOwner, SRT_AllButOwner);
@@ -306,7 +306,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 
 				AUTProjectile* DefaultProj = ProjClass[0].GetDefaultObject();
 				const float ProjRadius = DefaultProj->CollisionComp->GetUnscaledSphereRadius();
-				const float GravityZ = UTOwner->CharacterMovement->GetGravityZ() * DefaultProj->ProjectileMovement->ProjectileGravityScale;
+				const float GravityZ = UTOwner->GetCharacterMovement()->GetGravityZ() * DefaultProj->ProjectileMovement->ProjectileGravityScale;
 				TArray<AActor*> IgnoreActors;
 				IgnoreActors.Add(UTOwner);
 

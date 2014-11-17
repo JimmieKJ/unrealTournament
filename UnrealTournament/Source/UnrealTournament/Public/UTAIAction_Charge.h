@@ -11,8 +11,8 @@ class UUTAIAction_Charge : public UUTAIAction_WaitForMove
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTAIAction_Charge(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTAIAction_Charge(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	virtual bool Update(float DeltaTime) override

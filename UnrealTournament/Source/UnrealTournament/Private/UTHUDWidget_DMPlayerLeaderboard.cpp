@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_DMPlayerLeaderboard.h"
 
-UUTHUDWidget_DMPlayerLeaderboard::UUTHUDWidget_DMPlayerLeaderboard(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidget_DMPlayerLeaderboard::UUTHUDWidget_DMPlayerLeaderboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	Position=FVector2D(5.0f, 5.0f);
 	Size=FVector2D(200.0f,200.0f);

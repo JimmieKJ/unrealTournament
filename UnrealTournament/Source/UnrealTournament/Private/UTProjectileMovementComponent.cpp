@@ -4,8 +4,8 @@
 #include "Net/UnrealNetwork.h"
 #include "UTProjectileMovementComponent.h"
 
-UUTProjectileMovementComponent::UUTProjectileMovementComponent(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTProjectileMovementComponent::UUTProjectileMovementComponent(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	HitZStopSimulatingThreshold = -1.1f; // default is always stop
 	bPreventZHoming = false;
@@ -161,10 +161,10 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 
 // this is a hack around UProjectileMovementComponent not passing the real TimeSlice to HandleImpact()
 static float LastTimeSlice = 0.0f;
-FVector UUTProjectileMovementComponent::ComputeMoveDelta(const FVector& InVelocity, float DeltaTime, bool bApplyGravity) const
+FVector UUTProjectileMovementComponent::ComputeMoveDelta(const FVector& InVelocity, float DeltaTime) const
 {
 	LastTimeSlice = DeltaTime;
-	return Super::ComputeMoveDelta(InVelocity, DeltaTime, bApplyGravity);
+	return Super::ComputeMoveDelta(InVelocity, DeltaTime);
 }
 void UUTProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -305,7 +305,7 @@ void UUTProjectileMovementComponent::ServerUpdateState_Implementation(FVector In
 	ReplicatedAcceleration = Acceleration;
 }
 
-FVector UUTProjectileMovementComponent::ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime, bool bGravityEnabled) const
+FVector UUTProjectileMovementComponent::ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const
 {
 	FVector HomingAcceleration = ((HomingTargetComponent->GetComponentLocation() - UpdatedComponent->GetComponentLocation()).SafeNormal() * HomingAccelerationMagnitude);
 	if (bPreventZHoming)

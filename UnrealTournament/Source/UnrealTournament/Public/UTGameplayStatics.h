@@ -18,8 +18,8 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTGameplayStatics(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTGameplayStatics(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	/** plays a sound with optional replication parameters

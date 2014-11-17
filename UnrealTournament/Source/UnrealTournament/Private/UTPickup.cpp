@@ -7,12 +7,12 @@
 
 static FName NAME_PercentComplete(TEXT("PercentComplete"));
 
-AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bCanBeDamaged = false;
 
-	Collision = PCIP.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
+	Collision = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->InitCapsuleSize(64.0f, 75.0f);
 
@@ -24,7 +24,7 @@ AUTPickup::AUTPickup(const FPostConstructInitializeProperties& PCIP)
 	RootComponent = Collision;
 
 	// can't - not exposed
-	/*TimerSprite = PCIP.CreateDefaultSubobject<UMaterialBillboardComponent>(this, TEXT("TimerSprite"));
+	/*TimerSprite = ObjectInitializer.CreateDefaultSubobject<UMaterialBillboardComponent>(this, TEXT("TimerSprite"));
 	if (TimerSprite != NULL)
 	{
 		TimerSprite->Elements.AddZeroed(1);

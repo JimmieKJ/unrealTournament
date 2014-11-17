@@ -5,8 +5,8 @@
 #include "UTBot.h"
 #include "UTSquadAI.h"
 
-AUTTeamInfo::AUTTeamInfo(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTTeamInfo::AUTTeamInfo(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	SetReplicates(true);
 	bAlwaysRelevant = true;

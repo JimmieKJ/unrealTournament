@@ -23,6 +23,9 @@ struct FUTCanvasTextItem : public FCanvasTextItem
 	{}
 
 	virtual void Draw(class FCanvas* InCanvas) override;
+
+	float CharIncrement;
+
 protected:
 	// UT version appropriately handles distance field fonts by slightly overlapping triangles to give the shadows more space
 	void UTDrawStringInternal(class FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& DrawColor);
@@ -73,7 +76,7 @@ public:
 	// The opacity of this widget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	uint32 bIgnoreHUDBaseColor:1;
-
+	
 	// Will be called as soon as the widget is created and tracked by the hud.
 	virtual void InitializeWidget(AUTHUD* Hud);
 

@@ -14,10 +14,7 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 	{
 		return;
 	}
-
-	XScale = Scale.X;
-	YScale = Scale.Y;
-
+	
 	bool bHasShadow = ShadowOffset.Size() != 0.0f;
 	if (FontRenderInfo.bEnableShadow && !bHasShadow)
 	{
@@ -83,7 +80,6 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 
 	FLinearColor DrawColor;
 	BatchedElements = NULL;
-	TextLen = Text.ToString().Len();
 	if (bOutlined && !FontRenderInfo.GlowInfo.bEnableGlow) // efficient distance field glow takes priority
 	{
 		DrawColor = OutlineColor;
@@ -153,7 +149,7 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 	}
 
 	// Draw all characters in string.
-	for (int32 i = 0; i < TextLen; i++)
+	for (int32 i = 0; i < Chars.Num() - 1; i++)
 	{
 		int32 Ch = (int32)Font->RemapChar(Chars[i]);
 
@@ -163,22 +159,22 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 			continue;
 		}
 
-		FFontCharacter& Char = Font->Characters[Ch];
+		const FFontCharacter& Char = Font->Characters[Ch];
 
 		if (DrawnSize.Y == 0)
 		{
 			// We have a valid character so initialize vertical DrawnSize
-			DrawnSize.Y = Font->GetMaxCharHeight() * YScale;
+			DrawnSize.Y = Font->GetMaxCharHeight() * Scale.Y;
 		}
 
 		if (FChar::IsLinebreak(Chars[i]))
 		{
 			// Set current character offset to the beginning of next line.
 			CurrentPos.X = 0.0f;
-			CurrentPos.Y += Font->GetMaxCharHeight() * YScale;
+			CurrentPos.Y += Font->GetMaxCharHeight() * Scale.Y;
 
 			// Increase the vertical DrawnSize
-			DrawnSize.Y += Font->GetMaxCharHeight() * YScale;
+			DrawnSize.Y += Font->GetMaxCharHeight() * Scale.Y;
 
 			// Don't draw newline character
 			continue;
@@ -204,10 +200,10 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 			}
 			LastTexture = Tex->Resource;
 
-			const float X = CurrentPos.X + DrawPos.X - ExtraXSpace * XScale;
-			const float Y = CurrentPos.Y + DrawPos.Y + (Char.VerticalOffset - ExtraYSpace) * YScale;
-			float SizeX = (Char.USize + ExtraXSpace * 2.0f) * XScale;
-			const float SizeY = (Char.VSize + ExtraYSpace * 2.0f) * YScale;
+			const float X = CurrentPos.X + DrawPos.X - ExtraXSpace * Scale.X;
+			const float Y = CurrentPos.Y + DrawPos.Y + (Char.VerticalOffset - ExtraYSpace) * Scale.Y;
+			float SizeX = (Char.USize + ExtraXSpace * 2.0f) * Scale.X;
+			const float SizeY = (Char.VSize + ExtraYSpace * 2.0f) * Scale.Y;
 			const float U = (Char.StartU - ExtraXSpace) * InvTextureSize.X;
 			const float V = (Char.StartV - ExtraYSpace) * InvTextureSize.Y;
 			const float SizeU = (Char.USize + ExtraXSpace * 2.0f) * InvTextureSize.X;
@@ -250,7 +246,7 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 			}
 
 			// Update the current rendering position
-			CurrentPos.X += SizeX - (ExtraXSpace * 2.0f) * XScale;
+			CurrentPos.X += SizeX - (ExtraXSpace * 2.0f) * Scale.X;
 
 			// Increase the Horizontal DrawnSize
 			if (CurrentPos.X > DrawnSize.X)
@@ -261,7 +257,7 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 	}
 }
 
-UUTHUDWidget::UUTHUDWidget(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	bIgnoreHUDBaseColor = false;
 

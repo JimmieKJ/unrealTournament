@@ -16,8 +16,8 @@
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
 
-AUTLobbyPC::AUTLobbyPC(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTLobbyPC::AUTLobbyPC(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 

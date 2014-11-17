@@ -11,7 +11,7 @@ class AUTWeapAttachment_Sniper : public AUTWeaponAttachment
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTWeapAttachment_Sniper(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTWeapAttachment_Sniper(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 };

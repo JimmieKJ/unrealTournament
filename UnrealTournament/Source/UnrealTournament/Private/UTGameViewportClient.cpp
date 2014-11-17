@@ -7,8 +7,8 @@
 #include "Slate/SUWInputBox.h"
 
 
-UUTGameViewportClient::UUTGameViewportClient(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 

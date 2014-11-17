@@ -6,8 +6,8 @@
 #include "Runtime/Navmesh/Public/Detour/DetourNavMesh.h"
 #include "Runtime/Engine/Public/AI/Navigation/RecastHelpers.h"
 
-UUTNavGraphRenderingComponent::UUTNavGraphRenderingComponent(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTNavGraphRenderingComponent::UUTNavGraphRenderingComponent(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	AlwaysLoadOnClient = false;

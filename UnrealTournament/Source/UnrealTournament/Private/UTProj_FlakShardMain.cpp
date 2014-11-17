@@ -4,8 +4,8 @@
 #include "UTProjectileMovementComponent.h"
 #include "UTProj_FlakShardMain.h"
 
-AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	CenteredMomentumBonus = 180000.f;
 	CenteredDamageBonus = 100.0f;

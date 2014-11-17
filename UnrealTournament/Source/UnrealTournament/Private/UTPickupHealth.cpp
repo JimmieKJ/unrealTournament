@@ -5,8 +5,8 @@
 #include "UTPickupHealth.h"
 #include "UTSquadAI.h"
 
-AUTPickupHealth::AUTPickupHealth(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTPickupHealth::AUTPickupHealth(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	HealAmount = 25;
 	BaseDesireability = 0.4f;

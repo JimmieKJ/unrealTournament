@@ -4,22 +4,22 @@
 #include "UTRecastNavMesh.h"
 #include "UTReachSpec_Teleport.h"
 
-AUTTeleporter::AUTTeleporter(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTTeleporter::AUTTeleporter(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	TriggerBox = PCIP.CreateDefaultSubobject<UBoxComponent>(this, TEXT("TriggerBox"));
+	TriggerBox = ObjectInitializer.CreateDefaultSubobject<UBoxComponent>(this, TEXT("TriggerBox"));
 	TriggerBox->SetCollisionProfileName(TEXT("Trigger"));
 	RootComponent = TriggerBox;
 
 #if WITH_EDITORONLY_DATA
-	ExitArrow = PCIP.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ExitArrow"));
+	ExitArrow = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ExitArrow"));
 	if (ExitArrow != NULL)
 	{
 		ExitArrow->AttachParent = RootComponent;
 		ExitArrow->ArrowColor = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f);
 	}
 
-	EntryArrow = PCIP.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("EntryArrow"));
+	EntryArrow = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("EntryArrow"));
 	if (EntryArrow != NULL)
 	{
 		EntryArrow->AttachParent = RootComponent;

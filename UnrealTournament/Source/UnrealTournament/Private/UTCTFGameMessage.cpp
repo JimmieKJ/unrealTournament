@@ -3,8 +3,8 @@
 #include "UTCarriedObjectMessage.h"
 #include "UTCTFGameMessage.h"
 
-UUTCTFGameMessage::UUTCTFGameMessage(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	MessageArea = FName(TEXT("GameMessages"));
 	ReturnMessage = NSLOCTEXT("CTFGameMessage","ReturnMessage","{Player1Name} returned the {OptionalTeam} Flag!");

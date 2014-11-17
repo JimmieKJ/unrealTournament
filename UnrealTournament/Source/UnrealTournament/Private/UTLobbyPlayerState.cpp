@@ -6,8 +6,8 @@
 #include "UTLobbyPlayerState.h"
 #include "Net/UnrealNetwork.h"
 
-AUTLobbyPlayerState::AUTLobbyPlayerState(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 
 }

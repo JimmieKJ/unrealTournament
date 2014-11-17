@@ -5,8 +5,8 @@
 #include "UTHUD_TeamDM.h"
 #include "UTCTFGameMessage.h"
 
-AUTTeamDMGameMode::AUTTeamDMGameMode(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bScoreSuicides = true;
 	bScoreTeamKills = true;

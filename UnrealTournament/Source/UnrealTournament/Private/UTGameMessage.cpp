@@ -5,8 +5,8 @@
 #include "GameFramework/LocalMessage.h"
 
 
-UUTGameMessage::UUTGameMessage(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	MessageArea = FName(TEXT("GameMessages"));
 

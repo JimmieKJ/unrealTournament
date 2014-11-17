@@ -6,8 +6,8 @@
 #include "UTHUDWidget_TeamScore.h"
 #include "UTHUDWidget_DMPlayerScore.h"
 
-AUTHUD_TeamDM::AUTHUD_TeamDM(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTHUD_TeamDM::AUTHUD_TeamDM(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

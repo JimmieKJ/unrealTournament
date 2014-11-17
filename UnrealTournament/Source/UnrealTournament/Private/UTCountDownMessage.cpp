@@ -6,8 +6,8 @@
 #include "GameFramework/LocalMessage.h"
 
 
-UUTCountDownMessage::UUTCountDownMessage(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	bIsUnique = true;
 	bOptionalSpoken = true;

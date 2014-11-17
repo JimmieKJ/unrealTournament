@@ -23,8 +23,8 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 
-UUTLocalPlayer::UUTLocalPlayer(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	bInitialSignInAttempt = true;
 }

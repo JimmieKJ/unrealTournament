@@ -4,7 +4,7 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 
-UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	ManagedMessageArea = FName(TEXT("ConsoleMessage"));
 	Position = FVector2D(0.0f, 0.0f);			

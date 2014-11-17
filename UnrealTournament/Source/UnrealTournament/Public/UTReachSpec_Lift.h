@@ -26,8 +26,8 @@ class UUTReachSpec_Lift : public UUTReachSpec
 	UPROPERTY()
 	bool bEntryPath;
 
-	UUTReachSpec_Lift(const FPostConstructInitializeProperties& PCIP)
-		: Super(PCIP)
+	UUTReachSpec_Lift(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
 	{
 		PathColor = FLinearColor(0.0f, 0.0f, 1.0f);
 	}
@@ -58,8 +58,8 @@ class UUTReachSpec_Lift : public UUTReachSpec
 		else
 		{
 			ACharacter* P = Cast<ACharacter>(Asker);
-			if ( !bEntryPath && P != NULL && P->CharacterMovement != NULL && P->CharacterMovement->MovementMode == MOVE_Falling &&
-				P->GetActorLocation().Z + 0.5f * P->CharacterMovement->Velocity.Z * FMath::Abs<float>(P->CharacterMovement->Velocity.Z / P->CharacterMovement->GetGravityZ()) > LiftExitLoc.Z )
+			if (!bEntryPath && P != NULL && P->GetCharacterMovement() != NULL && P->GetCharacterMovement()->MovementMode == MOVE_Falling &&
+				P->GetActorLocation().Z + 0.5f * P->GetCharacterMovement()->Velocity.Z * FMath::Abs<float>(P->GetCharacterMovement()->Velocity.Z / P->GetCharacterMovement()->GetGravityZ()) > LiftExitLoc.Z)
 			{
 				// lift jumped and on the way to target
 				return false;

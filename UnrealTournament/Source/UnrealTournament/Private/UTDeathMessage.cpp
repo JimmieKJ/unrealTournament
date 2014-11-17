@@ -9,8 +9,8 @@
 #include "UTVictimMessage.h"
 #include "UTDeathMessage.h"
 
-UUTDeathMessage::UUTDeathMessage(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTDeathMessage::UUTDeathMessage(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsSpecial = false;

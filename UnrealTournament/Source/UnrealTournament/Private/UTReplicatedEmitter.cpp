@@ -4,11 +4,11 @@
 #include "UTReplicatedEmitter.h"
 #include "Particles/ParticleSystemComponent.h"
 
-AUTReplicatedEmitter::AUTReplicatedEmitter(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTReplicatedEmitter::AUTReplicatedEmitter(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	PSC = PCIP.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("Particles"));
-	PSC->OnSystemFinished.BindDynamic(this, &AUTReplicatedEmitter::OnParticlesFinished);
+	PSC = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("Particles"));
+	PSC->OnSystemFinished.AddDynamic(this, &AUTReplicatedEmitter::OnParticlesFinished);
 	RootComponent = PSC;
 	InitialLifeSpan = 10.0f;
 	DedicatedServerLifeSpan = 0.5f;

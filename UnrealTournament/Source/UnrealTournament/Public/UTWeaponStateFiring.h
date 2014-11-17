@@ -12,8 +12,8 @@ class UUTWeaponStateFiring : public UUTWeaponState
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponStateFiring(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTWeaponStateFiring(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	// accessor for convenience

@@ -4,8 +4,8 @@
 #include "UTWeap_ShockRifle.h"
 #include "UnrealNetwork.h"
 
-AUTProj_ShockBall::AUTProj_ShockBall(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	ComboDamageParams = FRadialDamageParams(215.0f, 550.0f);
 	ComboAmmoCost = 3;

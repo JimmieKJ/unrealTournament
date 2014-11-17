@@ -19,8 +19,8 @@ namespace ELobbyMatchState
 }
 
 
-AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP
+AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer
 	.DoNotCreateDefaultSubobject(TEXT("Sprite")))
 {
 	SetRemoteRoleForBackwardsCompat(ROLE_SimulatedProxy);

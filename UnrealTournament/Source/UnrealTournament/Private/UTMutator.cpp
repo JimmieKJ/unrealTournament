@@ -2,8 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTMutator.h"
 
-AUTMutator::AUTMutator(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.DoNotCreateDefaultSubobject("Sprite"))
+AUTMutator::AUTMutator(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.DoNotCreateDefaultSubobject("Sprite"))
 {
 }
 

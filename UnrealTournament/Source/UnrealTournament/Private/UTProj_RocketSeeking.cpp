@@ -4,8 +4,8 @@
 #include "UTProj_RocketSeeking.h"
 #include "UnrealNetwork.h"
 
-AUTProj_RocketSeeking::AUTProj_RocketSeeking(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_RocketSeeking::AUTProj_RocketSeeking(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	AdjustmentSpeed = 10000.0f;

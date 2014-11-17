@@ -94,8 +94,8 @@ bool FBotEnemyInfo::IsValid(AActor* TeamHolder) const
 	}
 }
 
-AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	TacticalHeightAdvantage = 650.0f;
 
@@ -107,11 +107,11 @@ AUTBot::AUTBot(const FPostConstructInitializeProperties& PCIP)
 	LastIterativeLeadCheck = 1.0f;
 	TacticalAimUpdateInterval = 0.2f;
 
-	WaitForMoveAction = PCIP.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
-	WaitForLandingAction = PCIP.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
-	TacticalMoveAction = PCIP.CreateDefaultSubobject<UUTAIAction_TacticalMove>(this, FName(TEXT("TacticalMove")));
-	RangedAttackAction = PCIP.CreateDefaultSubobject<UUTAIAction_RangedAttack>(this, FName(TEXT("RangedAttack")));
-	ChargeAction = PCIP.CreateDefaultSubobject<UUTAIAction_Charge>(this, FName(TEXT("Charge")));
+	WaitForMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
+	WaitForLandingAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
+	TacticalMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_TacticalMove>(this, FName(TEXT("TacticalMove")));
+	RangedAttackAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_RangedAttack>(this, FName(TEXT("RangedAttack")));
+	ChargeAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_Charge>(this, FName(TEXT("Charge")));
 }
 
 float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)

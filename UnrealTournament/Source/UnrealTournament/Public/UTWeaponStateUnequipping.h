@@ -10,8 +10,8 @@ class UUTWeaponStateUnequipping : public UUTWeaponState
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponStateUnequipping(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTWeaponStateUnequipping(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	// set to amount of equip time that elapsed when exiting early, i.e. to go back up

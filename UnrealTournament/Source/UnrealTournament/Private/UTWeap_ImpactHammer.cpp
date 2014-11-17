@@ -6,8 +6,8 @@
 #include "UTLift.h"
 #include "UTReachSpec_HighJump.h"
 
-AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState0")))
+AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState0")))
 {
 	if (FiringState.Num() > 0)
 	{

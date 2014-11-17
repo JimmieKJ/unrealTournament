@@ -7,8 +7,8 @@
 #include "UTHUDWidget_GameClock.h"
 #include "UTHUDWidget_CTFPlayerScore.h"
 
-AUTHUD_CTF::AUTHUD_CTF(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTHUD_CTF::AUTHUD_CTF(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

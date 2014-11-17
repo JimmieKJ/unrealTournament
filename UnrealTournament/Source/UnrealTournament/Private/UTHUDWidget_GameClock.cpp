@@ -3,8 +3,8 @@
 #include "UTHUDWidget_GameClock.h"
 #include "UTCTFGameState.h"
 
-UUTHUDWidget_GameClock::UUTHUDWidget_GameClock(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTHUDWidget_GameClock::UUTHUDWidget_GameClock(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<UTexture> Tex(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	HudTexture = Tex.Object;

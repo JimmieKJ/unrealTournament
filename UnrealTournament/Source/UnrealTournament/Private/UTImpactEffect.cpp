@@ -4,8 +4,8 @@
 #include "UTWorldSettings.h"
 #include "Particles/ParticleSystemComponent.h"
 
-AUTImpactEffect::AUTImpactEffect(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTImpactEffect::AUTImpactEffect(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bCheckInView = true;
 	bForceForLocalPlayer = true;

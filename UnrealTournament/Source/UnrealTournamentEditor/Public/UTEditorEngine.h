@@ -11,8 +11,8 @@ class UUTEditorEngine : public UEditorEngine
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTEditorEngine(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTEditorEngine(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	UT_LOADMAP_DEFINITION()

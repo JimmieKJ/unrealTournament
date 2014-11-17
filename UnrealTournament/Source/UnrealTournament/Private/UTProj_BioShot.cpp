@@ -10,8 +10,8 @@
 
 static const float GOO_TIMER_TICK = 0.5f;
 
-AUTProj_BioShot::AUTProj_BioShot(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	ProjectileMovement->InitialSpeed = 4000.0f;
 	ProjectileMovement->MaxSpeed = 6000.0f;
@@ -372,12 +372,12 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 	}
 
 	SetGlobStrength(GlobStrength + OtherBio->GlobStrength);
-	if (TrackedPawn != NULL && !TrackedPawn->bPendingKillPending && !TrackedPawn->CapsuleComponent->IsPendingKill()) // we check in tick but it's still possible they get gibbed first
+	if (TrackedPawn != NULL && !TrackedPawn->bPendingKillPending && !TrackedPawn->GetCapsuleComponent()->IsPendingKill()) // we check in tick but it's still possible they get gibbed first
 	{
 		ProjectileMovement->bIsHomingProjectile = true;
 		ProjectileMovement->SetUpdatedComponent(CollisionComp);
 		ProjectileMovement->MaxSpeed = MaxTrackingSpeed / FMath::Sqrt(GlobStrength);
-		ProjectileMovement->HomingTargetComponent = TrackedPawn->CapsuleComponent.Get(); // warning: TWeakObjectPtr will return NULL if this is already pending kill!
+		ProjectileMovement->HomingTargetComponent = TrackedPawn->GetCapsuleComponent(); // warning: TWeakObjectPtr will return NULL if this is already pending kill!
 		ProjectileMovement->bShouldBounce = true;
 		bLanded = false;
 		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
@@ -411,13 +411,13 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 
 	ProjectileMovement->ProjectileGravityScale = 0.9f;
 	// track closest
-	if (!TrackedPawn || !ProjectileMovement->HomingTargetComponent.IsValid() || ((ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SizeSquared() > (NewTrackedPawn->CapsuleComponent->GetComponentLocation() - GetActorLocation()).SizeSquared()))
+	if (!TrackedPawn || !ProjectileMovement->HomingTargetComponent.IsValid() || ((ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SizeSquared() > (NewTrackedPawn->GetCapsuleComponent()->GetComponentLocation() - GetActorLocation()).SizeSquared()))
 	{
 		TrackedPawn = NewTrackedPawn;
 		ProjectileMovement->bIsHomingProjectile = true;
 		ProjectileMovement->SetUpdatedComponent(CollisionComp);
 		ProjectileMovement->MaxSpeed = MaxTrackingSpeed / FMath::Sqrt(GlobStrength);
-		ProjectileMovement->HomingTargetComponent = TrackedPawn->CapsuleComponent.Get();
+		ProjectileMovement->HomingTargetComponent = TrackedPawn->GetCapsuleComponent();
 		ProjectileMovement->bShouldBounce = true;
 		bLanded = false;
 		PrimaryActorTick.SetTickFunctionEnable(true);

@@ -3,8 +3,8 @@
 #include "UTWeap_ShockRifle.h"
 #include "UTProj_ShockBall.h"
 
-AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	BaseAISelectRating = 0.65f;
 	BasePickupDesireability = 0.65f;

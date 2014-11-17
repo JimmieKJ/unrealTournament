@@ -16,8 +16,8 @@ class UUTReachSpec_Teleport : public UUTReachSpec
 	UPROPERTY()
 	TWeakObjectPtr<AActor> Teleporter;
 
-	UUTReachSpec_Teleport(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTReachSpec_Teleport(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		PathColor = FLinearColor(0.0f, 0.0f, 1.0f);
 	}

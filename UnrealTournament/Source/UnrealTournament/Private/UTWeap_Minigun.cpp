@@ -5,8 +5,8 @@
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateFiringSpinUp.h"
 
-AUTWeap_Minigun::AUTWeap_Minigun(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringSpinUp>(TEXT("FiringState0")))
+AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringSpinUp>(TEXT("FiringState0")))
 {
 	if (FiringState.Num() > 0)
 	{

@@ -6,8 +6,8 @@
 #include "GameFramework/LocalMessage.h"
 
 
-UUTVictoryMessage::UUTVictoryMessage(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 
 	bIsUnique = true;

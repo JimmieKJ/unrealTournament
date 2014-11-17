@@ -16,8 +16,8 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTReachSpec_HighJump(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTReachSpec_HighJump(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		PathColor = FLinearColor(0.5f, 0.0f, 0.8f);
 	}
@@ -50,7 +50,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			// Repeatable: what we can do by default
 			if (RepeatableJumpZ != NULL)
 			{
-				*RepeatableJumpZ = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->CharacterMovement->JumpZVelocity;
+				*RepeatableJumpZ = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement()->JumpZVelocity;
 				if (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->bAllowJumpMultijumps && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount > 1)
 				{
 					*RepeatableJumpZ += UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MultiJumpImpulse * (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount - 1);
@@ -58,7 +58,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			}
 
 			// Best: what we can do now
-			float BestJumpZ = UTC->CharacterMovement->JumpZVelocity;
+			float BestJumpZ = UTC->GetCharacterMovement()->JumpZVelocity;
 			if (UTC->UTCharacterMovement->bAllowJumpMultijumps && UTC->UTCharacterMovement->MaxMultiJumpCount > 1)
 			{
 				BestJumpZ += UTC->UTCharacterMovement->MultiJumpImpulse * (UTC->UTCharacterMovement->MaxMultiJumpCount - 1);
@@ -68,7 +68,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 		else
 		{
 			ACharacter* C = Cast<ACharacter>(Asker);
-			if (C == NULL || C->CharacterMovement == NULL)
+			if (C == NULL || C->GetCharacterMovement() == NULL)
 			{
 				if (RepeatableJumpZ != NULL)
 				{
@@ -80,9 +80,9 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			{
 				if (RepeatableJumpZ != NULL)
 				{
-					*RepeatableJumpZ = C->GetClass()->GetDefaultObject<ACharacter>()->CharacterMovement->JumpZVelocity;
+					*RepeatableJumpZ = C->GetClass()->GetDefaultObject<ACharacter>()->GetCharacterMovement()->JumpZVelocity;
 				}
-				return C->CharacterMovement->JumpZVelocity;
+				return C->GetCharacterMovement()->JumpZVelocity;
 			}
 		}
 	}

@@ -6,8 +6,8 @@
 #include "GameFramework/LocalMessage.h"
 
 
-UUTLastSecondMessage::UUTLastSecondMessage(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTLastSecondMessage::UUTLastSecondMessage(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bIsUnique = true;
 	Importance = 0.8f;

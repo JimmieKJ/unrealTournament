@@ -4,8 +4,8 @@
 #include "UTArmor.h"
 #include "UnrealNetwork.h"
 
-AUTArmor::AUTArmor(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	ArmorAmount = 50;
 	AbsorptionPct = 0.333f;

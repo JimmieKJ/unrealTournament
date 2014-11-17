@@ -5,7 +5,7 @@
 #include "UTHUDWidgetMessage.h"
 
 
-UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	MessageColor = FLinearColor::White;
 	FadeTime = 0.0f;

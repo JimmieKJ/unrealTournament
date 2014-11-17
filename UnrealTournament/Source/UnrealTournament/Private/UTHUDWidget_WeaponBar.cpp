@@ -4,7 +4,7 @@
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTWeapon.h"
 
-UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	OldHudTexture = HudTexture.Object;

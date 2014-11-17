@@ -4,17 +4,17 @@
 #include "UTProjectileMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 
-AUTCarriedObject::AUTCarriedObject(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	Collision = PCIP.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
+	Collision = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->InitCapsuleSize(72.0f, 30.0f);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTCarriedObject::OnOverlapBegin);
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->SetAbsolute(false, false, true);
 	RootComponent = Collision;
 
-	MovementComponent = PCIP.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("MovementComp"));
+	MovementComponent = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("MovementComp"));
 	MovementComponent->MaxSpeed = 420;
 	MovementComponent->InitialSpeed = 360;
 	MovementComponent->SetIsReplicated(true);

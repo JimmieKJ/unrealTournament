@@ -4,8 +4,8 @@
 #include "UTCTFGameMode.h"
 #include "Net/UnrealNetwork.h"
 
-AUTCTFGameState::AUTCTFGameState(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bOldSchool = false;
 	bSecondHalf = false;

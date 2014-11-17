@@ -9,16 +9,16 @@ class AUTNavBlockingVolume : public AVolume // can't sublcass ABlockingVolume ei
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTNavBlockingVolume(const FPostConstructInitializeProperties& PCIP)
-	//: Super(PCIP.SetDefaultSubobjectClass<UUTNavBlockingBrushComponent>("BrushComponent0"))
-	: Super(PCIP)
+	AUTNavBlockingVolume(const FObjectInitializer& ObjectInitializer)
+	//: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTNavBlockingBrushComponent>("BrushComponent0"))
+	: Super(ObjectInitializer)
 	{
-		BrushComponent->bCanEverAffectNavigation = true;
-		BrushComponent->BodyInstance.bEnableCollision_DEPRECATED = true;
-		BrushComponent->SetCollisionProfileName(FName(TEXT("InvisibleWall")));
+		GetBrushComponent()->bCanEverAffectNavigation = true;
+		GetBrushComponent()->BodyInstance.bEnableCollision_DEPRECATED = true;
+		GetBrushComponent()->SetCollisionProfileName(FName(TEXT("InvisibleWall")));
 		// NOTE: this relies on no nav building during gameplay
-		BrushComponent->AlwaysLoadOnClient = false;
-		BrushComponent->AlwaysLoadOnServer = false;
+		GetBrushComponent()->AlwaysLoadOnClient = false;
+		GetBrushComponent()->AlwaysLoadOnServer = false;
 		bNotForClientOrServer = true;
 	}
 

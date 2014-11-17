@@ -9,8 +9,8 @@ class UUTWeaponState : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTWeaponState(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTWeaponState(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	// accessor for convenience

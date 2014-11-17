@@ -8,8 +8,8 @@ class UUTHUDWidget_TeamScore : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTHUDWidget_TeamScore(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTHUDWidget_TeamScore(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		ScreenPosition = FVector2D(0.5f, 0.0f);
 		static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));

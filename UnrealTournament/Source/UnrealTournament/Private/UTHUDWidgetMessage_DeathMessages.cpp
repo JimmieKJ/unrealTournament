@@ -6,7 +6,7 @@
 #include "UTHUDWidgetMessage_DeathMessages.h"
 #include "UTVictimMessage.h"
 
-UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	ManagedMessageArea = FName(TEXT("DeathMessage"));
 	Position = FVector2D(0.0f, 0.0f);			

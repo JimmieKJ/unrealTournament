@@ -4,8 +4,8 @@
 #include "UTServerBeaconHost.h"
 #include "UTServerBeaconClient.h"
 
-AUTServerBeaconHost::AUTServerBeaconHost(const FPostConstructInitializeProperties& PCIP) :
-Super(PCIP)
+AUTServerBeaconHost::AUTServerBeaconHost(const FObjectInitializer& ObjectInitializer) :
+Super(ObjectInitializer)
 {
 	BeaconTypeName = TEXT("UTServerBeacon");
 }

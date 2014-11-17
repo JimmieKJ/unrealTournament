@@ -10,8 +10,8 @@ class AUTWeapAttachment_ImpactHammer : public AUTWeaponAttachment
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTWeapAttachment_ImpactHammer(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTWeapAttachment_ImpactHammer(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	virtual void PlayFiringEffects() override

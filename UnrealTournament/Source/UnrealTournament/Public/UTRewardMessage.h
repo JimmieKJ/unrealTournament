@@ -8,8 +8,8 @@ class UUTRewardMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTRewardMessage(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTRewardMessage(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("DeathMessage"));
 		Importance = 0.8f;

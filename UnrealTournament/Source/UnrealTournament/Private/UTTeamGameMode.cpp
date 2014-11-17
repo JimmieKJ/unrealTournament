@@ -6,13 +6,13 @@
 #include "Slate.h"
 #include "UTCTFGameMessage.h"
 
-UUTTeamInterface::UUTTeamInterface(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 
-AUTTeamGameMode::AUTTeamGameMode(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	NumTeams = 2;
 	bBalanceTeams = true;

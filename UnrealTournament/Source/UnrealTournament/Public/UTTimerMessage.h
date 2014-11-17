@@ -15,8 +15,8 @@ class UUTTimerMessage : public UUTLocalMessage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Message)
 	TArray<FName> CountDownAnnouncements;
 
-	UUTTimerMessage(const FPostConstructInitializeProperties& PCIP)
-		: Super(PCIP)
+	UUTTimerMessage(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("GameMessages"));
 		StyleTag = FName(TEXT("Countdown"));

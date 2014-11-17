@@ -9,8 +9,8 @@ class AUTSpectatorPawn : public ASpectatorPawn
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTSpectatorPawn(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTSpectatorPawn(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		bAddDefaultMovementBindings = false;
 	}

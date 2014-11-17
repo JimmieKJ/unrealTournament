@@ -5,10 +5,10 @@
 #include "UTLiftExit.h"
 #include "UTReachSpec_Lift.h"
 
-AUTLiftExit::AUTLiftExit(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTLiftExit::AUTLiftExit(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	Icon = PCIP.CreateOptionalDefaultSubobject<UBillboardComponent>(this, FName(TEXT("Icon")));
+	Icon = ObjectInitializer.CreateOptionalDefaultSubobject<UBillboardComponent>(this, FName(TEXT("Icon")));
 	if (Icon != NULL)
 	{
 		Icon->bHiddenInGame = true;

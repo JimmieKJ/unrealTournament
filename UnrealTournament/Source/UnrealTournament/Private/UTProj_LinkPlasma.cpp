@@ -3,8 +3,8 @@
 #include "UnrealTournament.h"
 #include "UTProj_LinkPlasma.h"
 
-AUTProj_LinkPlasma::AUTProj_LinkPlasma(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTProj_LinkPlasma::AUTProj_LinkPlasma(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	bNetTemporary = true;
 }

@@ -2,8 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_CTFPlayerScore.h"
 
-UUTHUDWidget_CTFPlayerScore::UUTHUDWidget_CTFPlayerScore(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTHUDWidget_CTFPlayerScore::UUTHUDWidget_CTFPlayerScore(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	Size=FVector2D(181.0f,43.0f);
 	ScreenPosition=FVector2D(1.0f, 0.0f);

@@ -8,8 +8,8 @@ class AUTProj_Sniper : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
-	AUTProj_Sniper(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	AUTProj_Sniper(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{
 		HeadshotDamageMult = 2.0f;
 		HeadScaling = 1.0f;

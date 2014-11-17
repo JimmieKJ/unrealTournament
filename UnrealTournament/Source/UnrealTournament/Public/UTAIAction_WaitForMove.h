@@ -11,8 +11,8 @@ class UUTAIAction_WaitForMove : public UUTAIAction
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTAIAction_WaitForMove(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTAIAction_WaitForMove(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	float LastReevalEnemyTime;

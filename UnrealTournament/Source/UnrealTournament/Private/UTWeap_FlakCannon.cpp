@@ -6,8 +6,8 @@
 #include "UTProj_FlakShell.h"
 #include "UTProj_FlakShardMain.h"
 
-AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 { 
 	// UI
 	Group = 7;

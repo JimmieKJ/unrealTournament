@@ -2,8 +2,8 @@
 
 #include "UTPickupWeapon.h"
 
-ASampleMutator::ASampleMutator(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+ASampleMutator::ASampleMutator(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 

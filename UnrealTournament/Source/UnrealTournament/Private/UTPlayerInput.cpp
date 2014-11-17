@@ -2,8 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTPlayerInput.h"
 
-UUTPlayerInput::UUTPlayerInput(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTPlayerInput::UUTPlayerInput(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

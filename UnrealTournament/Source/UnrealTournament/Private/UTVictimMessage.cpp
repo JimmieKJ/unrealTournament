@@ -5,8 +5,8 @@
 #include "UTVictimMessage.h"
 #include "GameFramework/DamageType.h"
 
-UUTVictimMessage::UUTVictimMessage(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	bIsUnique = true;
 	Lifetime = 3.0f;

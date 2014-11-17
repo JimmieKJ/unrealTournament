@@ -4,8 +4,8 @@
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateFiringBurst.h"
 
-UUTWeaponStateFiringBurst::UUTWeaponStateFiringBurst(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTWeaponStateFiringBurst::UUTWeaponStateFiringBurst(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	BurstSize = 3;
 	BurstInterval = 0.15f;

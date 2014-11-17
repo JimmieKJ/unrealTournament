@@ -15,8 +15,8 @@ class UUTWeaponStateFiringOnce : public UUTWeaponStateFiring
 
 	bool bFinishedCooldown;
 
-UUTWeaponStateFiringOnce(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+UUTWeaponStateFiringOnce(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	bFinishedCooldown = false;
 }

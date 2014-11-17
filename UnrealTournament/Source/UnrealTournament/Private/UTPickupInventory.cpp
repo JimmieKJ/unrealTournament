@@ -4,8 +4,8 @@
 #include "UTPickupInventory.h"
 #include "UnrealNetwork.h"
 
-AUTPickupInventory::AUTPickupInventory(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	FloatHeight = 50.0f;
 }

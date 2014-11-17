@@ -6,8 +6,8 @@
 #include "UTProj_Redeemer.h"
 #include "UTLastSecondMessage.h"
 
-AUTProj_Redeemer::AUTProj_Redeemer(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	// Movement
 	ProjectileMovement->InitialSpeed = 2000.f;

@@ -16,12 +16,12 @@
 #include "EditorBuildUtils.h"
 #endif
 
-UUTPathBuilderInterface::UUTPathBuilderInterface(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTPathBuilderInterface::UUTPathBuilderInterface(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {}
 
-AUTRecastNavMesh::AUTRecastNavMesh(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 #if WITH_EDITOR
 	if (GIsEditor && !IsTemplate())
@@ -29,21 +29,16 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FPostConstructInitializeProperties& PCI
 		EditorTick = new FUTNavMeshEditorTick(this);
 	}
 #if WITH_EDITORONLY_DATA
-	NodeRenderer = PCIP.CreateEditorOnlyDefaultSubobject<UUTNavGraphRenderingComponent>(this, FName(TEXT("NodeRenderer")));
+	NodeRenderer = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UUTNavGraphRenderingComponent>(this, FName(TEXT("NodeRenderer")));
 #endif
 #endif
 
-#if WITH_NAVIGATION_GENERATOR
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
-#endif
 
 	SizeSteps.Add(FCapsuleSize(46, 92));
 	SizeSteps.Add(FCapsuleSize(46, 64));
 	JumpTestThreshold2D = 2048.0f;
 	ScoutClass = AUTCharacter::StaticClass();
-
-	MaxTileGridWidth = 512;
-	MaxTileGridHeight = 512;
 }
 
 #if WITH_EDITOR
@@ -422,7 +417,6 @@ FVector AUTRecastNavMesh::GetPOIExtent(AActor* POI) const
 	}
 }
 
-#if WITH_NAVIGATION_GENERATOR
 void AUTRecastNavMesh::BuildNodeNetwork()
 {
 	struct FQueryMarker
@@ -1015,9 +1009,7 @@ void AUTRecastNavMesh::DeletePaths()
 	PolyToNode.Empty();
 	AllReachSpecs.Empty();
 	POIToNode.Empty();
-#if WITH_NAVIGATION_GENERATOR
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
-#endif
 
 #if WITH_EDITORONLY_DATA
 	if (NodeRenderer != NULL && !HasAnyFlags(RF_BeginDestroyed))
@@ -1129,7 +1121,7 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	// it would be nice if we were just given a callback when things were done instead of having to poll...
-	bool bNewIsBuilding = NavDataGenerator.IsValid() && (NavDataGenerator->IsBuildInProgress(true) || ((FRecastNavMeshGenerator*)NavDataGenerator.Get())->HasResultsPending());
+	bool bNewIsBuilding = false; // NavDataGenerator != nullptr && (NavDataGenerator->IsBuildInProgress(true) || ((FRecastNavMeshGenerator*)NavDataGenerator.Get())->HasResultsPending());
 	if (bIsBuilding && !bNewIsBuilding)
 	{
 		// build is done, post process
@@ -1153,7 +1145,6 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 	}
 	bIsBuilding = bNewIsBuilding;
 }
-#endif
 
 bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData)
 {

@@ -8,8 +8,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealNetwork.h"
 
-AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.SetDefaultSubobjectClass<UUTWeaponStateFiringChargedRocket>(TEXT("FiringState1")))
+AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringChargedRocket>(TEXT("FiringState1")))
 {
 	if (FiringState.Num() > 1)
 	{

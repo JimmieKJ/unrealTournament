@@ -3,8 +3,8 @@
 #include "UTHUDWidget_CTFFlagStatus.h"
 #include "UTCTFGameState.h"
 
-UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	YouHaveFlagText = NSLOCTEXT("CTFScore","YouHaveFlagText","You have the flag, return to base!");
 	EnemyHasFlagText = NSLOCTEXT("CTFScore","EnemyHasFlagText","The enemy has your flag, recover it!");

@@ -4,8 +4,8 @@
 #include "UnrealNetwork.h"
 #include "UTDroppedPickup.h"
 
-AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	SetReplicates(true);
 	bOnlyRelevantToOwner = true;
@@ -13,8 +13,8 @@ AUTInventory::AUTInventory(const FPostConstructInitializeProperties& PCIP)
 
 	RespawnTime = 30.0f;
 
-	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
-	PickupMesh = PCIP.CreateDefaultSubobject<UStaticMeshComponent, UStaticMeshComponent>(this, TEXT("PickupMesh0"), false, false, false);
+	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false);
+	PickupMesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent, UStaticMeshComponent>(this, TEXT("PickupMesh0"), false);
 	if (PickupMesh != NULL)
 	{
 		PickupMesh->AttachParent = RootComponent;

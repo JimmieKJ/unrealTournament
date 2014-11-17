@@ -7,8 +7,8 @@
 #include "UTGameMode.h"
 
 
-AUTGameSession::AUTGameSession(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

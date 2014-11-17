@@ -54,8 +54,7 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(config)
 	float MaximumSmoothedTime;
 
-	/** Return desired MaxTickRate for smoothing. */
-	float SmoothFrameRate(float DeltaTime);
+	void SmoothFrameRate(float DeltaTime);
 
 	//==================================
 
@@ -78,7 +77,7 @@ class UUTGameEngine : public UGameEngine
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
-	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) override;
+	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const override;
 
 	UT_LOADMAP_DEFINITION()
 };

@@ -404,7 +404,6 @@ public:
 	~AUTRecastNavMesh();
 #endif
 
-#if WITH_NAVIGATION_GENERATOR
 private:
 	bool bIsBuilding;
 	bool bUserRequestedBuild;
@@ -426,7 +425,6 @@ public:
 		// make sure special links are done
 		BuildSpecialLinks(MAX_int32);
 	}
-#endif // WITH_NAVIGATION_GENERATOR
 };
 
 inline AUTRecastNavMesh* GetUTNavData(UWorld* World)

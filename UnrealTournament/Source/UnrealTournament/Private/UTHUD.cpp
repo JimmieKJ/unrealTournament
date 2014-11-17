@@ -17,7 +17,7 @@
 #include "DisplayDebugHelpers.h"
 
 
-AUTHUD::AUTHUD(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	WidgetOpacity = 1.0f;
 

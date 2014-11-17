@@ -11,12 +11,12 @@ class UUTAIAction_WaitForLanding : public UUTAIAction
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTAIAction_WaitForLanding(const FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+	UUTAIAction_WaitForLanding(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 	{}
 
 	virtual bool Update(float DeltaTime) override
 	{
-		return GetOuterAUTBot()->GetCharacter() == NULL || GetOuterAUTBot()->GetCharacter()->CharacterMovement->MovementMode != MOVE_Falling;
+		return GetOuterAUTBot()->GetCharacter() == NULL || GetOuterAUTBot()->GetCharacter()->GetCharacterMovement()->MovementMode != MOVE_Falling;
 	}
 };

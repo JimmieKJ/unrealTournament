@@ -5,22 +5,22 @@
 #include "UTProj_FlakShard.h"
 #include "Particles/ParticleSystemComponent.h"
 
-AUTProj_FlakShard::AUTProj_FlakShard(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	Mesh = PCIP.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
+	Mesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
 	if (Mesh != NULL)
 	{
 		Mesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
 		Mesh->AttachParent = RootComponent;
 	}
-	MeshSpinner = PCIP.CreateOptionalDefaultSubobject<URotatingMovementComponent>(this, FName(TEXT("MeshSpinner")));
+	MeshSpinner = ObjectInitializer.CreateOptionalDefaultSubobject<URotatingMovementComponent>(this, FName(TEXT("MeshSpinner")));
 	if (MeshSpinner != NULL)
 	{
 		MeshSpinner->RotationRate.Roll = 275.0f;
 		MeshSpinner->UpdatedComponent = Mesh;
 	}
-	Trail = PCIP.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("Trail")));
+	Trail = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("Trail")));
 	if (Trail != NULL)
 	{
 		Trail->AttachParent = RootComponent;

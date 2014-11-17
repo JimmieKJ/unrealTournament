@@ -5,8 +5,8 @@
 #include "UTDMGameMode.h"
 
 
-AUTDMGameMode::AUTDMGameMode(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTDMGameMode::AUTDMGameMode(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	HUDClass = AUTHUD_DM::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "DM", "Deathmatch");

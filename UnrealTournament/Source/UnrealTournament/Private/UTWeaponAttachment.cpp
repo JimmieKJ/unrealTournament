@@ -5,11 +5,11 @@
 #include "UTImpactEffect.h"
 #include "UTWorldSettings.h"
 
-AUTWeaponAttachment::AUTWeaponAttachment(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	RootComponent = PCIP.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false, false, false);
-	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
+	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false);
+	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
 	Mesh->AttachParent = RootComponent;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	AttachSocket = FName((TEXT("WeaponPoint")));

@@ -8,8 +8,8 @@
 #include "UTDamageType.h"
 #include "UTLift.h"
 
-AUTProj_TransDisk::AUTProj_TransDisk(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	bReplicateUTMovement = true;
 	TransState = TLS_InAir;

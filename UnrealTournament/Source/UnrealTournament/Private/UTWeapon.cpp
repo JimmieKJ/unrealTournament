@@ -20,8 +20,8 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
-AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP.DoNotCreateDefaultSubobject(TEXT("PickupMesh0")))
+AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer.DoNotCreateDefaultSubobject(TEXT("PickupMesh0")))
 {
 	AmmoCost.Add(1);
 	AmmoCost.Add(1);
@@ -43,21 +43,22 @@ AUTWeapon::AUTWeapon(const FPostConstructInitializeProperties& PCIP)
 	bFPFireFromCenter = true;
 	FireOffset = FVector(75.0f, 0.0f, 0.0f);
 
-	InactiveState = PCIP.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
-	ActiveState = PCIP.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
-	EquippingState = PCIP.CreateDefaultSubobject<UUTWeaponStateEquipping>(this, TEXT("StateEquipping"));
-	UnequippingState = PCIP.CreateDefaultSubobject<UUTWeaponStateUnequipping>(this, TEXT("StateUnequipping"));
+	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
+	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
+	EquippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateEquipping>(this, TEXT("StateEquipping"));
+	UnequippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateUnequipping>(this, TEXT("StateUnequipping"));
 
-	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
+	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
+	Mesh->bSelfShadowOnly = true;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPMeshOffset = FVector(0.f);
 	FirstPMeshRotation = FRotator(0.f, 0.f, 0.f);
 
 	for (int32 i = 0; i < 2; i++)
 	{
-		UUTWeaponStateFiring* NewState = PCIP.CreateDefaultSubobject<UUTWeaponStateFiring, UUTWeaponStateFiring>(this, FName(*FString::Printf(TEXT("FiringState%i"), i)), false, false, false);
+		UUTWeaponStateFiring* NewState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateFiring, UUTWeaponStateFiring>(this, FName(*FString::Printf(TEXT("FiringState%i"), i)), false);
 		if (NewState != NULL)
 		{
 			FiringState.Add(NewState);
@@ -898,7 +899,7 @@ void AUTWeapon::HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult
 			Hit.ImpactNormal = Hit.Normal;
 			Hit.Actor = BestTarget;
 			Hit.bBlockingHit = true;
-			Hit.Component = BestTarget->CapsuleComponent.Get();
+			Hit.Component = BestTarget->GetCapsuleComponent();
 			Hit.ImpactPoint = BestPoint; //FIXME
 			Hit.Time = (BestPoint - StartLocation).Size() / (EndTrace - StartLocation).Size();
 		}

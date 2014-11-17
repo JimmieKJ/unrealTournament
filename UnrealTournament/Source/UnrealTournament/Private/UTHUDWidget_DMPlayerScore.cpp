@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_DMPlayerScore.h"
 
-UUTHUDWidget_DMPlayerScore::UUTHUDWidget_DMPlayerScore(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP)
+UUTHUDWidget_DMPlayerScore::UUTHUDWidget_DMPlayerScore(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<UTexture> Tex(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	HudTexture = Tex.Object;

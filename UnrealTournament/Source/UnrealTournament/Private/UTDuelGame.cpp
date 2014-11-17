@@ -9,8 +9,8 @@
 #include "Slate/Panels/SUDuelSettings.h"
 
 
-AUTDuelGame::AUTDuelGame(const class FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 	HUDClass = AUTHUD_DM::StaticClass();
 

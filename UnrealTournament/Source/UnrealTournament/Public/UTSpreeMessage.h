@@ -26,8 +26,8 @@ class UUTSpreeMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	TArray<FName> AnnouncementNames;
 
-	UUTSpreeMessage(const FPostConstructInitializeProperties& PCIP)
-		: Super(PCIP)
+	UUTSpreeMessage(const FObjectInitializer& ObjectInitializer)
+		: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("DeathMessage"));
 		StyleTag = FName(TEXT("Spree"));

@@ -2,10 +2,10 @@
 #include "UnrealTournament.h"
 #include "UTAnnouncer.h"
 
-UUTAnnouncer::UUTAnnouncer(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	AnnouncementComp = PCIP.CreateDefaultSubobject<UAudioComponent>(this, TEXT("AnnouncementComp"));
+	AnnouncementComp = ObjectInitializer.CreateDefaultSubobject<UAudioComponent>(this, TEXT("AnnouncementComp"));
 	AnnouncementComp->OnAudioFinished.AddDynamic(this, &UUTAnnouncer::AnnouncementFinished);
 
 	Spacing = 0.5f;

@@ -3,8 +3,8 @@
 #include "UTAIAction_RangedAttack.h"
 #include "UTSquadAI.h"
 
-UUTAIAction_RangedAttack::UUTAIAction_RangedAttack(const FPostConstructInitializeProperties& PCIP)
-: Super(PCIP)
+UUTAIAction_RangedAttack::UUTAIAction_RangedAttack(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
 {
 }
 

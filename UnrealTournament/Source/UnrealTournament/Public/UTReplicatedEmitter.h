@@ -46,7 +46,7 @@ class AUTReplicatedEmitter : public AActor
 		if (GetOwner() != NULL && bAttachToOwnerMesh)
 		{
 			ACharacter* C = Cast<ACharacter>(GetOwner());
-			AttachRootComponentTo((C != NULL) ? C->Mesh : GetOwner()->GetRootComponent(), BaseSocketName, EAttachLocation::SnapToTarget);
+			AttachRootComponentTo((C != NULL) ? C->GetMesh() : GetOwner()->GetRootComponent(), BaseSocketName, EAttachLocation::SnapToTarget);
 		}
 		if (GetNetMode() != NM_DedicatedServer)
 		{
