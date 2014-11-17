@@ -193,18 +193,22 @@ void SUWControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Forward", "Move Forward")))
 		->AddMapping("MoveForward", 1.0f)
 		->AddMapping("TapForward")
+		->AddMapping("TapForwardRelease")
 		->AddDefaults(EKeys::W, EKeys::Up)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Backward", "Move Backward")))
 		->AddMapping("MoveBackward", 1.0f)
 		->AddMapping("TapBack")
+		->AddMapping("TapBackRelease")
 		->AddDefaults(EKeys::S, EKeys::Down)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Left", "Move Left")))
 		->AddMapping("MoveLeft", 1.0f)
 		->AddMapping("TapLeft")
+		->AddMapping("TapLeftRelease")
 		->AddDefaults(EKeys::A)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Right", "Move Right")))
 		->AddMapping("MoveRight", 1.0f)
 		->AddMapping("TapRight")
+		->AddMapping("TapRightRelease")
 		->AddDefaults(EKeys::D)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Turn Left", "Turn Left")))
 		->AddMapping("TurnRate", -1.0f)
