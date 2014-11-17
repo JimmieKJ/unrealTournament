@@ -24,6 +24,7 @@
 #include "UTRemoteRedeemer.h"
 #include "UTDroppedPickup.h"
 #include "UTWeaponStateFiring.h"
+#include "UTProj_TransDisk.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -139,6 +140,16 @@ void AUTCharacter::BaseChange()
 		if (BaseLift)
 		{
 			BaseLift->AddBasedCharacter(this);
+		}
+
+		if (Role == ROLE_Authority)
+		{
+			// @TODO FIXMESTEVE TEMP HACK
+			AUTProj_TransDisk* Disk = Cast<AUTProj_TransDisk>(GetMovementBaseActor(this));
+			if (Disk && (Disk->Instigator == this) && (Disk->TransState == TLS_OnGround))
+			{
+				Disk->Recall();
+			}
 		}
 	}
 }

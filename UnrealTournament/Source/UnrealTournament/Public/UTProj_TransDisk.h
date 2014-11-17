@@ -36,6 +36,7 @@ class AUTProj_TransDisk : public AUTProjectile
 	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)
 	void OnDisrupted();
 	
+	virtual void Recall();
 	virtual void ShutDown();
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category=TransDisk)

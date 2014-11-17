@@ -168,6 +168,19 @@ FVector AUTProj_TransDisk::ComputeBounceResult(const FHitResult& Hit, float Time
 	return TempVelocity;
 }
 
+void AUTProj_TransDisk::Recall()
+{
+	AUTCharacter* UTInstigator = Cast<AUTCharacter>(Instigator);
+	if (UTInstigator && MyTranslocator && UTInstigator->GetWeapon() == MyTranslocator)
+	{
+		MyTranslocator->RecallDisk();
+	}
+	else
+	{
+		ShutDown();
+	}
+}
+
 void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	if (OtherActor == Instigator)
@@ -175,7 +188,7 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 		//Pick up Disk
 		if (TransState == TLS_OnGround)
 		{
-			ShutDown();
+			Recall();
 		}
 	}
 	else if (Cast<AUTProjectile>(OtherActor))

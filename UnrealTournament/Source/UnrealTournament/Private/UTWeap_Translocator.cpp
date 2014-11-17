@@ -20,54 +20,15 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FPostConstructInitializeP
 
 	BringUpTime = 0.32f;
 	PutDownTime = 0.2f;
-
 	AmmoCost.Add(0);
 	AmmoCost.Add(1);
-	Ammo = 8;
-	MaxAmmo = 8;
-	AmmoRechargeRate = 1.0f;
 
 	RecallFireInterval = 0.1f;
-
 	BaseAISelectRating = -1.0f; // AI shouldn't select this unless wanted by pathing
-}
-
-void AUTWeap_Translocator::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
-{
-	if (Ammo < 1)
-	{
-		UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
-		FString AmmoStr = FString::Printf(TEXT("OVERHEAT"));
-		FText AmmoText = FText::FromString(AmmoStr);
-		WeaponHudWidget->DrawText(AmmoText, 0, 0, Font, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Bottom);
-	}
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
 {
-	Super::ConsumeAmmo(FireModeNum);
-
-	if ((FireModeNum == 1 || Ammo < MaxAmmo) && !GetWorldTimerManager().IsTimerActive(this, &AUTWeap_Translocator::RechargeTimer) && !bPendingKillPending)
-	{
-		GetWorldTimerManager().SetTimer(this, &AUTWeap_Translocator::RechargeTimer, AmmoRechargeRate, true);
-	}
-}
-
-void AUTWeap_Translocator::RechargeTimer()
-{
-	AddAmmo(1);
-	if (Ammo >= MaxAmmo)
-	{
-		GetWorldTimerManager().ClearTimer(this, &AUTWeap_Translocator::RechargeTimer);
-	}
-}
-void AUTWeap_Translocator::OnRep_Ammo()
-{
-	Super::OnRep_Ammo();
-	if (Ammo >= MaxAmmo)
-	{
-		GetWorldTimerManager().ClearTimer(this, &AUTWeap_Translocator::RechargeTimer);
-	}
 }
 
 void AUTWeap_Translocator::OnRep_TransDisk()
@@ -82,6 +43,24 @@ void AUTWeap_Translocator::ClearDisk()
 		TransDisk->Explode(TransDisk->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 	}
 	TransDisk = NULL;
+}
+
+void AUTWeap_Translocator::RecallDisk()
+{
+	//remove disk
+	ClearDisk();
+
+	if (Role == ROLE_Authority)
+	{
+		// server side since can be picked up by server movement as well
+		UUTGameplayStatics::UTPlaySound(GetWorld(), RecallSound, UTOwner, SRT_All);
+	}
+	// special recovery time for recall
+	typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
+	if (Cast<UUTWeaponStateFiringOnce>(CurrentState) != NULL && GetWorldTimerManager().IsTimerActive(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer))
+	{
+		GetWorldTimerManager().SetTimer(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, RecallFireInterval, false);
+	}
 }
 
 void AUTWeap_Translocator::FireShot()
@@ -107,19 +86,14 @@ void AUTWeap_Translocator::FireShot()
 
 				UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
 			}
+			else if (TransDisk->TransState == TLS_Disrupted)
+			{
+				// can't recall disrupted disk
+				UUTGameplayStatics::UTPlaySound(GetWorld(), DisruptedSound, UTOwner, SRT_AllButOwner);
+			}
 			else
 			{
-				//remove disk
-				ClearDisk();
-
-				UUTGameplayStatics::UTPlaySound(GetWorld(), RecallSound, UTOwner, SRT_AllButOwner);
-
-				// special recovery time for recall
-				typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
-				if (Cast<UUTWeaponStateFiringOnce>(CurrentState) != NULL && GetWorldTimerManager().IsTimerActive(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer))
-				{
-					GetWorldTimerManager().SetTimer(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, RecallFireInterval, false);
-				}
+				RecallDisk();
 			}
 		}
 		else if (TransDisk != NULL)
@@ -147,9 +121,13 @@ void AUTWeap_Translocator::FireShot()
 					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->CapsuleComponent->GetUnscaledCapsuleRadius(), UTOwner->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
 					FVector WarpLocation = TransDisk->GetActorLocation();
 					FHitResult Hit;
-					FVector EndTrace = WarpLocation + FVector(0.0f, 0.0f, 2.f* PlayerCapsule.GetCapsuleHalfHeight());
-					bool bHitGeometry = GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius()), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->CapsuleComponent->GetCollisionResponseToChannels());
-					WarpLocation = 0.5f * (WarpLocation + (bHitGeometry ? Hit.Location : EndTrace));
+					FVector EndTrace = WarpLocation - FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+					bool bHitFloor = GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius()), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->CapsuleComponent->GetCollisionResponseToChannels());
+					if (bHitFloor)
+					{
+						// need to more teleport destination up
+						WarpLocation = Hit.Location + FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
+					}
 					FRotator WarpRotation(0.0f, UTOwner->GetActorRotation().Yaw, 0.0f);
 
 					ECollisionChannel SavedObjectType = UTOwner->CapsuleComponent->GetCollisionObjectType();
@@ -178,10 +156,7 @@ void AUTWeap_Translocator::FireShot()
 
 		PlayFiringEffects();
 	}
-	else
-	{
-		ConsumeAmmo(CurrentFireMode);
-	}
+
 	if (GetUTOwner() != NULL)
 	{
 		static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
