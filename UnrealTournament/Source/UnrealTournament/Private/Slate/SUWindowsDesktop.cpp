@@ -37,6 +37,13 @@ void SUWindowsDesktop::OnMenuOpened()
 
 void SUWindowsDesktop::OnMenuClosed()
 {
+	// Deactivate the current panel
+
+	if (ActivePanel.IsValid())
+	{
+		DeactivatePanel(ActivePanel);
+	}
+
 	TSharedPtr<SViewport> VP = StaticCastSharedPtr<SViewport>(GameViewportWidget);
 	FSlateApplication::Get().SetKeyboardFocus(GameViewportWidget);
 }
