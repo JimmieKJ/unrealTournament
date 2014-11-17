@@ -238,9 +238,9 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 	}
 }
 
+#if !UE_SERVER
 void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-#if !UE_SERVER
 	Super::CreateConfigWidgets(MenuSpace, ConfigProps);
 
 	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams));
@@ -263,8 +263,8 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 			.Text(NSLOCTEXT("UTTeamGameMode", "BalanceTeams", "Balance Teams").ToString())
 		]
 	];
-#endif
 }
+#endif
 
 AUTPlayerState* AUTTeamGameMode::FindBestPlayerOnTeam(int TeamNumToTest)
 {

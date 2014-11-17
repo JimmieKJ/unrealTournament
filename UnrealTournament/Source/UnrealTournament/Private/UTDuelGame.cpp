@@ -68,9 +68,9 @@ void AUTDuelGame::PlayEndOfMatchMessage()
 	AUTGameMode::PlayEndOfMatchMessage();
 }
 
+#if !UE_SERVER
 void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-#if !UE_SERVER
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit));
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore));
@@ -195,8 +195,9 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 				]
 			]
 		];
-#endif
 }
+
+#endif
 
 #if !UE_SERVER
 TSharedRef<SWidget> AUTDuelGame::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const

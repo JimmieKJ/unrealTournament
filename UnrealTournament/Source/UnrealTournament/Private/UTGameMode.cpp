@@ -1652,9 +1652,9 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	}
 }
 
+#if !UE_SERVER
 void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-#if !UE_SERVER
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit));
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore));
@@ -1796,8 +1796,8 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn").ToString())
 			]
 		];
-#endif
 }
+#endif
 
 void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 {
@@ -1877,11 +1877,13 @@ bool AUTGameMode::RestrictPlayerSpawns()
 	return (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime());
 }
 
+#if !UE_SERVER
 TSharedRef<SWidget> AUTGameMode::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const
 {
 	// Return just an empty panel
 	return SNew(SCanvas);
 }
+#endif
 
 FString AUTGameMode::GetDefaultLobbyOptions() const
 {

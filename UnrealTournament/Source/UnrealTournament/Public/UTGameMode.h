@@ -300,6 +300,7 @@ public:
 
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 
+#if !UE_SERVER
 	/** called on the default object of this class by the UI to create widgets to manipulate this game type's settings
 	 * you can use TAttributeProperty<> to easily implement get/set delegates that map directly to the config property address
 	 * add any such to the ConfigProps array so the menu maintains the shared pointer
@@ -310,6 +311,7 @@ public:
 	 *	returns the widget that defines the lobby.
 	 **/
 	virtual TSharedRef<SWidget> CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo>) const;
+#endif
 
 	/**
 	 *	returns the default game options for a given lobby.  TODO: make this config so that the server can configure what they feel the default lobby should be

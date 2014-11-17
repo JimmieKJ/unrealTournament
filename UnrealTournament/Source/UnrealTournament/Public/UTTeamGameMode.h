@@ -61,7 +61,9 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	 */
 	virtual uint8 PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam);
 
+#if !UE_SERVER
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
+#endif
 
 	/**  Find the best player on a given team */
 	virtual AUTPlayerState* FindBestPlayerOnTeam(int TeamNumToTest);
