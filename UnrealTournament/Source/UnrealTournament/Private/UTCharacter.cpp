@@ -15,6 +15,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
+#include "UTDmgType_BlockedTelefrag.h"
 #include "UTReplicatedEmitter.h"
 #include "UTLift.h"
 #include "UTWorldSettings.h"
@@ -3169,6 +3170,7 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
 				if (OtherC->CanBlockTelefrags())
 				{
+					DamageEvent.DamageTypeClass = UUTDmgType_BlockedTelefrag::StaticClass();
 					TakeDamage(100000.0f, DamageEvent, Controller, this);
 				}
 				else
