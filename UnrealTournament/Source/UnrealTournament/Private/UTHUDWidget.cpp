@@ -106,6 +106,14 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 
 void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& InColour)
 {
+	// TODO: we may have to implement this if we want to use composite fonts with proper glow, distance field shadow, et al
+	// for now, just redirect to the flawed engine implementation
+	if (GetFontCacheType() == EFontCacheType::Runtime)
+	{
+		DrawStringInternal_RuntimeCache(InCanvas, DrawPos, InColour);
+		return;
+	}
+
 	DrawnSize = FVector2D(EForceInit::ForceInitToZero);
 	FVector2D CurrentPos = FVector2D(EForceInit::ForceInitToZero);
 	FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
