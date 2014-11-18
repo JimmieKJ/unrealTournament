@@ -42,6 +42,9 @@ struct FBotPersonality
 	/** modifies likelihood of bot detecting stimulus, particularly at long ranges and/or edges of vision (skill modifier) [-1, +1] */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	float Alertness;
+	/** modifies bot's awareness of map control and strategy (pickup respawn state and timers, knowledge of accumulated map data like high traffic areas, hiding spots, etc) */
+	UPROPERTY(EditAnywhere, Category = Personality)
+	float MapAwareness;
 	/** favorite weapon; bot will bias towards acquiring and using this weapon */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	FName FavoriteWeapon;
@@ -65,14 +68,17 @@ struct FBotCharacter : public FBotPersonality
 
 struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 {
+	const float RespawnPredictionTime;
+	const float MoveSpeed;
+
 	float BestWeight;
 	AActor* BestPickup;
 
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
 	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override;
 
-	FBestInventoryEval()
-		: BestWeight(0.0f), BestPickup(NULL)
+	FBestInventoryEval(float InPredictionTime, float InMoveSpeed)
+		: RespawnPredictionTime(InPredictionTime), MoveSpeed(FMath::Max<float>(InMoveSpeed, 1.0f)), BestWeight(0.0f), BestPickup(NULL)
 	{}
 };
 struct UNREALTOURNAMENT_API FRandomDestEval : public FUTNodeEvaluator
@@ -227,6 +233,12 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** if set bot will lead targets with projectile weapons */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	bool bLeadTarget;
+	/** prediction time for pickup respawns
+	 * negative values mean the bot doesn't pursue the pickup until available for that long,
+	 * positive values mean the bot pre-emptively considers pickups that will be available that long in the future
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+	float RespawnPredictionTime;
 
 	/** rotation rate towards focal point */
 	UPROPERTY(BlueprintReadOnly, Category = Skill)

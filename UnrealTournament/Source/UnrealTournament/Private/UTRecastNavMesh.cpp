@@ -1586,10 +1586,9 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				FVector NextDir = (NextLoc - StartLoc).SafeNormal();
 				float MaxDetourDist = (StartLoc - NextLoc).Size() * 1.5f;
 				// TODO: get movement speed for non-characters somehow
-				if (Cast<ACharacter>(Asker) != NULL)
-				{
-					MaxDetourDist = FMath::Max<float>(MaxDetourDist, ((ACharacter*)Asker)->GetCharacterMovement()->GetMaxSpeed() * 2.0f);
-				}
+				const float MoveSpeed = FMath::Max<float>(1.0f, (Cast<ACharacter>(Asker) != NULL) ? ((ACharacter*)Asker)->GetCharacterMovement()->GetMaxSpeed() : GetDefault<AUTCharacter>()->CharacterMovement->MaxWalkSpeed);
+				MaxDetourDist = FMath::Max<float>(MaxDetourDist, MoveSpeed * 2.0f);
+				AUTBot* B = Cast<AUTBot>(Asker->Controller);
 				AActor* BestDetour = NULL;
 				float BestDetourWeight = 0.0f;
 				for (TWeakObjectPtr<AActor> POI : NextRouteNode->Node->POIs)
@@ -1598,27 +1597,36 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					{
 						AUTPickup* Pickup = Cast<AUTPickup>(POI.Get());
 						AUTDroppedPickup* DroppedPickup = Cast<AUTDroppedPickup>(POI.Get());
-						if ((Pickup != NULL && Pickup->State.bActive) || DroppedPickup != NULL) // TODO: flag for pickup timing
+						if (Pickup != NULL || DroppedPickup != NULL)
 						{
-							// reject detours too far behind desired path
 							FVector POILoc = POI->GetActorLocation();
-							float Angle = (POILoc - StartLoc).SafeNormal() | NextDir;
-							float MaxDist = (MaxDetourDist / (2.0f - Angle));
 							float Dist = (POILoc - NextLoc).Size();
-							if (Dist < MaxDist)
+							bool bValid = (DroppedPickup != NULL);
+							if (!bValid && Pickup != NULL)
 							{
-								float NewDetourWeight;
-								if (Pickup != NULL)
+								// we assume detour relevant pickups are close enough to see that they're active so don't skip out on those even for low skill bots
+								bValid = Pickup->State.bActive || Pickup->GetRespawnTimeOffset(Asker) < FMath::Min<float>(Dist / MoveSpeed + 1.0f, B->RespawnPredictionTime);
+							}
+							if (bValid)
+							{
+								// reject detours too far behind desired path
+								float Angle = (POILoc - StartLoc).SafeNormal() | NextDir;
+								float MaxDist = (MaxDetourDist / (2.0f - Angle));
+								if (Dist < MaxDist)
 								{
-									NewDetourWeight = Pickup->DetourWeight(Asker, Dist) / FMath::Max<float>(Dist, 1.0f);
-								}
-								else
-								{
-									NewDetourWeight = DroppedPickup->DetourWeight(Asker, Dist) / FMath::Max<float>(Dist, 1.0f);
-								}
-								if (NewDetourWeight > BestDetourWeight)
-								{
-									BestDetour = POI.Get();
+									float NewDetourWeight;
+									if (Pickup != NULL)
+									{
+										NewDetourWeight = Pickup->DetourWeight(Asker, Dist) / FMath::Max<float>(Dist, 1.0f);
+									}
+									else
+									{
+										NewDetourWeight = DroppedPickup->DetourWeight(Asker, Dist) / FMath::Max<float>(Dist, 1.0f);
+									}
+									if (NewDetourWeight > BestDetourWeight)
+									{
+										BestDetour = POI.Get();
+									}
 								}
 							}
 						}

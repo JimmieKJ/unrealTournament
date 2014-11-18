@@ -124,9 +124,12 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 			AUTPickup* TestPickup = Cast<AUTPickup>(TestActor.Get());
 			if (TestPickup != NULL)
 			{
-				if (TestPickup->State.bActive) // TODO: flag for pickup timing
+				float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
+				float RespawnOffset = TestPickup->GetRespawnTimeOffset(Asker);
+				// if short distance and active, allow regardless of prediction time to make sure bots don't look excessively stupid walking by a pickup right in front of them
+				if ((TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f)) || (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) >= ((RespawnOffset <= 0.0f) ? -RespawnOffset : RespawnOffset)))
 				{
-					float NewWeight = TestPickup->BotDesireability(Asker, TotalDistance) / FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
+					float NewWeight = TestPickup->BotDesireability(Asker, TotalDistance) / PickupDist;
 					if (NewWeight > BestNodeWeight)
 					{
 						BestNodeWeight = NewWeight;
@@ -261,6 +264,16 @@ void AUTBot::Possess(APawn* InPawn)
 	
 	// set weapon timer, if not already
 	GetWorldTimerManager().SetTimer(this, &AUTBot::CheckWeaponFiringTimed, 1.2f - 0.09f * FMath::Min<float>(10.0f, Skill + Personality.ReactionTime), true);
+
+	// init respawn prediction time
+	// this is here because we want some randomness (so all bots don't converge as one when their skill is the same)
+	// but randomizing while moving around could result in bots oscillating back and forth when pickups are near the threshold
+	RespawnPredictionTime = Skill + Personality.MapAwareness - 3.0f;
+	if (FMath::Abs<float>(RespawnPredictionTime) > KINDA_SMALL_NUMBER)
+	{
+		RespawnPredictionTime = copysign((FMath::Abs<float>(RespawnPredictionTime) > 1.0f) ? FMath::Square(RespawnPredictionTime) : 1.0f, RespawnPredictionTime);
+	}
+	RespawnPredictionTime += -1.0f + 2.0f * FMath::FRand();
 }
 
 void AUTBot::PawnPendingDestroy(APawn* InPawn)
@@ -1590,7 +1603,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 		LastFindInventoryTime = GetWorld()->TimeSeconds;
 		LastFindInventoryWeight = MinWeight;
 
-		FBestInventoryEval NodeEval;
+		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->CharacterMovement->MaxWalkSpeed : GetDefault<AUTCharacter>()->CharacterMovement->MaxWalkSpeed);
 		return NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
 	}
 }

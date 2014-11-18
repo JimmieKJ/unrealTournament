@@ -37,6 +37,33 @@ bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
 	return false;
 }
 
+float AUTPickupWeapon::GetRespawnTimeOffset(APawn* Asker) const
+{
+	if (!State.bActive)
+	{
+		return Super::GetRespawnTimeOffset(Asker);
+	}
+	else
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay || (GS != NULL && !GS->bWeaponStay))
+		{
+			return Super::GetRespawnTimeOffset(Asker);
+		}
+		else
+		{
+			for (int32 i = Customers.Num() - 1; i >= 0; i--)
+			{
+				if (Customers[i].P == Asker)
+				{
+					return (Customers[i].NextPickupTime - GetWorld()->TimeSeconds);
+				}
+			}
+			return -100000.0f;
+		}
+	}
+}
+
 void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 {
 	if (State.bActive)

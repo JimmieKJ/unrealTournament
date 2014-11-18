@@ -71,11 +71,6 @@ void AUTPickup::BeginPlay()
 
 	SetupTimerSprite();
 
-	/*if (Role == ROLE_Authority && bDelayedSpawn)
-	{
-		StartSleeping();
-	}*/
-	
 	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 	if (NavData != NULL)
 	{
@@ -251,6 +246,7 @@ void AUTPickup::WakeUp_Implementation()
 		State.bRepTakenEffects = false;
 		State.ChangeCounter++;
 		ForceNetUpdate();
+		LastRespawnTime = GetWorld()->TimeSeconds;
 	}
 
 	PlayRespawnEffects();
@@ -280,6 +276,19 @@ void AUTPickup::PlayRespawnEffects()
 	{
 		UGameplayStatics::SpawnEmitterAttached(RespawnParticles, RootComponent);
 		UUTGameplayStatics::UTPlaySound(GetWorld(), RespawnSound, this, SRT_None);
+	}
+}
+
+float AUTPickup::GetRespawnTimeOffset(APawn* Asker) const
+{
+	if (State.bActive)
+	{
+		return LastRespawnTime - GetWorld()->TimeSeconds;
+	}
+	else
+	{
+		float RespawnTime = GetWorldTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer);
+		return (RespawnTime <= 0.0f) ? FLT_MAX : RespawnTime;
 	}
 }
 

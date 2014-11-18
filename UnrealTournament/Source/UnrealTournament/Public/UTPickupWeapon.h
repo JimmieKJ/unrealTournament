@@ -63,6 +63,8 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 		return (IsTaken(Asker) ? 0.0f : Super::BotDesireability_Implementation(Asker, TotalDistance));
 	}
 
+	virtual float GetRespawnTimeOffset(APawn* Asker) const override;
+
 #if WITH_EDITOR
 	virtual void CreateEditorPickupMesh() override
 	{

@@ -147,7 +147,17 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
 	float DetourWeight(APawn* Asker, float PathDistance);
 
+	/** if pickup is available, returns a negative value indicating the time since the pickup last respawned
+	 * if not available, returns a positive value indicating the time until the pickup respawns (FLT_MAX if it will never respawn)
+	 * this is used for bot pickup timing
+	 * only valid on server
+	 */
+	virtual float GetRespawnTimeOffset(APawn* Asker) const;
+
 protected:
+	/** last time pickup respawned, used by GetRespawnTimeOffset() */
+	float LastRespawnTime;
+
 	/** used to replicate remaining respawn time to newly joining clients */
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RespawnTimeRemaining)
 	float RespawnTimeRemaining;
