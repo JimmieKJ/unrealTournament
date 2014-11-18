@@ -1603,7 +1603,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 		LastFindInventoryTime = GetWorld()->TimeSeconds;
 		LastFindInventoryWeight = MinWeight;
 
-		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->CharacterMovement->MaxWalkSpeed : GetDefault<AUTCharacter>()->CharacterMovement->MaxWalkSpeed);
+		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed);
 		return NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
 	}
 }

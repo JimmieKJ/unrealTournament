@@ -1586,7 +1586,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				FVector NextDir = (NextLoc - StartLoc).SafeNormal();
 				float MaxDetourDist = (StartLoc - NextLoc).Size() * 1.5f;
 				// TODO: get movement speed for non-characters somehow
-				const float MoveSpeed = FMath::Max<float>(1.0f, (Cast<ACharacter>(Asker) != NULL) ? ((ACharacter*)Asker)->GetCharacterMovement()->GetMaxSpeed() : GetDefault<AUTCharacter>()->CharacterMovement->MaxWalkSpeed);
+				const float MoveSpeed = FMath::Max<float>(1.0f, (Cast<ACharacter>(Asker) != NULL) ? ((ACharacter*)Asker)->GetCharacterMovement()->GetMaxSpeed() : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed);
 				MaxDetourDist = FMath::Max<float>(MaxDetourDist, MoveSpeed * 2.0f);
 				AUTBot* B = Cast<AUTBot>(Asker->Controller);
 				AActor* BestDetour = NULL;
