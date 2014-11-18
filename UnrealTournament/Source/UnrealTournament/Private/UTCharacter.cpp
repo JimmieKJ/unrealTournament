@@ -2906,9 +2906,9 @@ void AUTCharacter::StartDriving(APawn* Vehicle)
 {
 	DrivenVehicle = Vehicle;
 	StopFiring();
-	if (CharacterMovement != nullptr)
+	if (GetCharacterMovement() != nullptr)
 	{
-		CharacterMovement->StopActiveMovement();
+		GetCharacterMovement()->StopActiveMovement();
 	}
 }
 
@@ -2931,9 +2931,9 @@ void AUTCharacter::OnRep_PlayerState()
 
 void AUTCharacter::OnRep_GoodMoveAckTime()
 {
-	if (CharacterMovement)
+	if (GetCharacterMovement())
 	{
-		CharacterMovement->ClientAckGoodMove_Implementation(GoodMoveAckTime);
+		GetCharacterMovement()->ClientAckGoodMove_Implementation(GoodMoveAckTime);
 	}
 }
 
@@ -3124,7 +3124,7 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 	bool bResult = Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
 	GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 	GetCapsuleComponent()->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
-	CharacterMovement->bJustTeleported = bResult && !bIsATest;
+	GetCharacterMovement()->bJustTeleported = bResult && !bIsATest;
 	if (bResult && !bIsATest && !bClientUpdating && (TeleportEffect.Num() > 0) && TeleportEffect[0])
 	{
 		TSubclassOf<AUTReplicatedEmitter> PickedEffect = TeleportEffect[0];
@@ -3353,9 +3353,9 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 			// Don't use TeleportTo(), that clears our base.
 			SetActorLocationAndRotation(FinalLocation, NewRotation, false);
 			//DrawDebugSphere(GetWorld(), FinalLocation, 30.f, 8, FColor::Red);
-			if (CharacterMovement)
+			if (GetCharacterMovement())
 			{
-				CharacterMovement->bJustTeleported = true;
+				GetCharacterMovement()->bJustTeleported = true;
 				//check(CharacterMovement->Velocity == NewVelocity);
 
 				// forward simulate this character to match estimated current position on server, based on my ping
@@ -3363,7 +3363,7 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 				float PredictionTime = PC ? PC->GetPredictionTime() : 0.f;
 				if (PredictionTime > 0.f)
 				{
-					CharacterMovement->SimulateMovement(PredictionTime);
+					GetCharacterMovement()->SimulateMovement(PredictionTime);
 				}
 			}
 		}
@@ -3439,14 +3439,14 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 		DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RepRootMotion, false);
 	}
 
-	ReplicatedMovementMode = CharacterMovement->PackNetworkMovementMode();
+	ReplicatedMovementMode = GetCharacterMovement()->PackNetworkMovementMode();
 	ReplicatedBasedMovement = BasedMovement;
 
 	// Optimization: only update and replicate these values if they are actually going to be used.
 	if (BasedMovement.HasRelativeLocation())
 	{
 		// When velocity becomes zero, force replication so the position is updated to match the server (it may have moved due to simulation on the client).
-		ReplicatedBasedMovement.bServerHasVelocity = !CharacterMovement->Velocity.IsZero();
+		ReplicatedBasedMovement.bServerHasVelocity = !GetCharacterMovement()->Velocity.IsZero();
 
 		// Make sure absolute rotations are updated in case rotation occurred after the base info was saved.
 		if (!BasedMovement.HasRelativeRotation())
