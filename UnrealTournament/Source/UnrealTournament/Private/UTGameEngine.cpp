@@ -10,7 +10,7 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	bAllowClientNetProfile = false;
 	ReadEULACaption = NSLOCTEXT("UTGameEngine", "ReadEULACaption", "READ ME FIRST");
 	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
-	GameNetworkVersion = 3008015;
+	GameNetworkVersion = 3008016;
 
 	LastSmoothTime = 0.f;
 	SmoothedDeltaTime = 0.01f;
