@@ -1129,7 +1129,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	else if (P != NULL)
 	{
 		// hide third person character model
-		HideComponentTree(P->Mesh, HiddenComponents);
+		HideComponentTree(P->GetMesh(), HiddenComponents);
 	}
 	else
 	{

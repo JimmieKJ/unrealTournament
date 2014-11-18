@@ -219,7 +219,7 @@ void AUTRemoteRedeemer::PlayExplosionEffects()
 
 uint8 AUTRemoteRedeemer::GetTeamNum() const
 {
-	const IUTTeamInterface* TeamInterface = InterfaceCast<IUTTeamInterface>(Controller);
+	const IUTTeamInterface* TeamInterface = Cast<IUTTeamInterface>(Controller);
 	if (TeamInterface != NULL)
 	{
 		return TeamInterface->GetTeamNum();

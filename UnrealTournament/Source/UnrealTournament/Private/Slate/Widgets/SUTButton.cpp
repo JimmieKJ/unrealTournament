@@ -88,7 +88,7 @@ FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 	return FReply::Unhandled().ReleaseMouseCapture();
 }
 
-FReply SUTButton::OnKeyDown( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent )
+FReply SUTButton::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
 {
 	//see if we pressed the Enter (Left Mouse) or Spacebar keys (Right Mouse) or DownArrow (Right Mouse)
 	if(InKeyboardEvent.GetKey() == EKeys::Enter || InKeyboardEvent.GetKey() == EKeys::SpaceBar || InKeyboardEvent.GetKey() == EKeys::Down)
@@ -100,7 +100,7 @@ FReply SUTButton::OnKeyDown( const FGeometry& MyGeometry, const FKeyboardEvent& 
 	return FReply::Unhandled();
 }
 
-FReply SUTButton::OnKeyUp( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent )
+FReply SUTButton::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
 {
 	//see if we pressed the Enter (Left Mouse) or Spacebar keys (Right Mouse) or DownArrow (Right Mouse)
 	if(InKeyboardEvent.GetKey() == EKeys::Enter || InKeyboardEvent.GetKey() == EKeys::SpaceBar || InKeyboardEvent.GetKey() == EKeys::Down)

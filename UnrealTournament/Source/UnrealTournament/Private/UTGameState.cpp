@@ -200,8 +200,8 @@ void AUTGameState::DefaultTimer()
 
 bool AUTGameState::OnSameTeam(const AActor* Actor1, const AActor* Actor2)
 {
-	const IUTTeamInterface* TeamInterface1 = InterfaceCast<IUTTeamInterface>(Actor1);
-	const IUTTeamInterface* TeamInterface2 = InterfaceCast<IUTTeamInterface>(Actor2);
+	const IUTTeamInterface* TeamInterface1 = Cast<IUTTeamInterface>(Actor1);
+	const IUTTeamInterface* TeamInterface2 = Cast<IUTTeamInterface>(Actor2);
 	if (TeamInterface1 == NULL || TeamInterface2 == NULL)
 	{
 		return false;

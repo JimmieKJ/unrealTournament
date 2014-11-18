@@ -208,7 +208,7 @@ bool SUWDialog::SupportsKeyboardFocus() const
 	return true;
 }
 
-FReply SUWDialog::OnKeyboardFocusReceived(const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent)
+FReply SUWDialog::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent)
 {
 	return FReply::Handled()
 		.ReleaseMouseCapture()

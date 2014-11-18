@@ -580,7 +580,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			bool bIsSelfDamage = (EventInstigator == Controller && Controller != NULL);
 			if (UTDamageTypeCDO != NULL)
 			{
-				if (UTDamageTypeCDO->bForceZMomentum && CharacterMovement->MovementMode == MOVE_Walking)
+				if (UTDamageTypeCDO->bForceZMomentum && GetCharacterMovement()->MovementMode == MOVE_Walking)
 				{
 					ResultMomentum.Z = FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size());
 				}
@@ -597,7 +597,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 			// if Z impulse is low enough and currently walking, remove Z impulse to prevent switch to falling physics, preventing lockdown effects
-			else if (CharacterMovement->MovementMode == MOVE_Walking && ResultMomentum.Z < ResultMomentum.Size() * 0.1f)
+			else if (GetCharacterMovement()->MovementMode == MOVE_Walking && ResultMomentum.Z < ResultMomentum.Size() * 0.1f)
 			{
 				ResultMomentum.Z = 0.0f;
 			}
@@ -616,7 +616,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			else
 			{
-				CharacterMovement->AddImpulse(ResultMomentum, false);
+				GetCharacterMovement()->AddImpulse(ResultMomentum, false);
 			}
 			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			SetLastTakeHitInfo(ResultDamage, ResultMomentum, HitArmor, DamageEvent);
@@ -757,7 +757,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 					PSC->SetTemplate(Blood);
 					PSC->bOverrideLODMethod = false;
 					PSC->RegisterComponentWithWorld(GetWorld());
-					PSC->AttachTo(Mesh);
+					PSC->AttachTo(GetMesh());
 					PSC->SetAbsolute(true, true, true);
 					PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
 					PSC->SetRelativeScale3D(FVector(1.f));
@@ -797,7 +797,7 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 		{
 			static FName NAME_BloodDecal(TEXT("BloodDecal"));
 			FHitResult Hit;
-			if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (CapsuleComponent->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
+			if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (GetCapsuleComponent()->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
 			{
 				UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
 				if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
@@ -962,7 +962,7 @@ void AUTCharacter::StartRagdoll()
 		GetMesh()->RefreshBoneTransforms();
 		GetMesh()->UpdateComponentToWorld();
 	}
-	CharacterMovement->ApplyAccumulatedForces(0.0f);
+	GetCharacterMovement()->ApplyAccumulatedForces(0.0f);
 	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
@@ -971,12 +971,12 @@ void AUTCharacter::StartRagdoll()
 	GetMesh()->RefreshBoneTransforms();
 	GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);
 	GetMesh()->DetachFromParent(true);
-	RootComponent = Mesh;
+	RootComponent = GetMesh();
 	GetMesh()->bGenerateOverlapEvents = true;
 	GetMesh()->bShouldUpdatePhysicsVolume = true;
-	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	CapsuleComponent->DetachFromParent(false);
-	CapsuleComponent->AttachTo(Mesh, NAME_None, EAttachLocation::KeepWorldPosition);
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetCapsuleComponent()->DetachFromParent(false);
+	GetCapsuleComponent()->AttachTo(GetMesh(), NAME_None, EAttachLocation::KeepWorldPosition);
 
 	if (bDeferredReplicatedMovement)
 	{
@@ -990,23 +990,23 @@ void AUTCharacter::StartRagdoll()
 		GetMesh()->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false); 
 	}
 
-	CharacterMovement->StopActiveMovement();
-	CharacterMovement->Velocity = FVector::ZeroVector;
+	GetCharacterMovement()->StopActiveMovement();
+	GetCharacterMovement()->Velocity = FVector::ZeroVector;
 }
 
 void AUTCharacter::StopRagdoll()
 {
-	CapsuleComponent->DetachFromParent(true);
-	FRotator FixedRotation = CapsuleComponent->RelativeRotation;
+	GetCapsuleComponent()->DetachFromParent(true);
+	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
 	FixedRotation.Pitch = FixedRotation.Roll = 0.0f;
 	if (Controller != NULL)
 	{
 		// always recover in the direction the controller is facing since turning is instant
 		FixedRotation.Yaw = Controller->GetControlRotation().Yaw;
 	}
-	CapsuleComponent->SetRelativeRotation(FixedRotation);
-	CapsuleComponent->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetCapsuleComponent()->RelativeScale3D);
-	RootComponent = CapsuleComponent;
+	GetCapsuleComponent()->SetRelativeRotation(FixedRotation);
+	GetCapsuleComponent()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetCapsuleComponent()->RelativeScale3D);
+	RootComponent = GetCapsuleComponent();
 
 	GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
 	GetMesh()->bBlendPhysics = false; // for some reason bBlendPhysics == false is the value that actually blends instead of using only physics
@@ -1014,9 +1014,9 @@ void AUTCharacter::StopRagdoll()
 	GetMesh()->bShouldUpdatePhysicsVolume = false;
 
 	// TODO: make sure cylinder is in valid position (navmesh?)
-	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 	GetWorld()->FindTeleportSpot(this, AdjustedLoc, GetActorRotation());
-	CapsuleComponent->SetWorldLocation(AdjustedLoc);
+	GetCapsuleComponent()->SetWorldLocation(AdjustedLoc);
 
 	// terminate constraints on the root bone so we can move it without interference
 	for (int32 i = 0; i < GetMesh()->Constraints.Num(); i++)
@@ -1033,7 +1033,7 @@ void AUTCharacter::StopRagdoll()
 		if (RootBody != NULL)
 		{
 			FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeLocation);
-			NewTransform *= CapsuleComponent->GetComponentTransform();
+			NewTransform *= GetCapsuleComponent()->GetComponentTransform();
 			RootBody->SetBodyTransform(NewTransform, true);
 			RootBody->SetInstanceSimulatePhysics(false, true);
 			RootBody->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
@@ -1041,7 +1041,7 @@ void AUTCharacter::StopRagdoll()
 		}
 	}
 
-	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
 	bInRagdollRecovery = true;
 }
@@ -1053,7 +1053,7 @@ void AUTCharacter::PlayDying()
 	SetAmbientSound(NULL);
 	SetLocalAmbientSound(NULL);
 
-	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
+	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
 	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
@@ -1080,7 +1080,7 @@ void AUTCharacter::PlayDying()
 	}
 	else
 	{
-		CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SetLifeSpan(0.25f);
 	}
 }
@@ -1089,7 +1089,7 @@ void AUTCharacter::GibExplosion_Implementation()
 {
 	if (GibExplosionEffect != NULL)
 	{
-		GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), Mesh, this, NULL, SRT_None);
+		GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), GetMesh(), this, NULL, SRT_None);
 	}
 	for (FName BoneName : GibExplosionBones)
 	{
@@ -1153,7 +1153,7 @@ void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
 			Gib->SetActorScale3D(Gib->GetActorScale3D() * SpawnPos.GetScale3D());
 			if (Gib->Mesh != NULL)
 			{
-				FVector Vel = (Mesh == RootComponent) ? GetMesh()->GetComponentVelocity() : CharacterMovement->Velocity;
+				FVector Vel = (GetMesh() == RootComponent) ? GetMesh()->GetComponentVelocity() : GetCharacterMovement()->Velocity;
 				Vel += (Gib->GetActorLocation() - GetActorLocation()).SafeNormal() * Vel.Size() * 0.25f;
 				Gib->Mesh->SetPhysicsLinearVelocity(Vel, false);
 			}
@@ -1179,10 +1179,10 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 	{
 		if (bFeigningDeath)
 		{
-			FVector TraceOffset = FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.5f);
+			FVector TraceOffset = FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.5f);
 			FCollisionQueryParams FeignDeathTrace(FName(TEXT("FeignDeath")), false);
 			if ( GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime &&
-				GetWorld()->SweepTest(GetActorLocation() + TraceOffset, GetActorLocation() - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleComponent->GetCollisionShape(), FeignDeathTrace))
+				GetWorld()->SweepTest(GetActorLocation() + TraceOffset, GetActorLocation() - TraceOffset, FQuat::Identity, ECC_Pawn, GetCapsuleComponent()->GetCollisionShape(), FeignDeathTrace))
 			{
 				bFeigningDeath = false;
 				PlayFeignDeath();
@@ -2176,9 +2176,9 @@ FVector AUTCharacter::GetTransformedEyeOffset() const
 {
 	FRotationMatrix ViewRotMatrix = FRotationMatrix(GetViewRotation());
 	FVector XTransform = ViewRotMatrix.GetScaledAxis(EAxis::X) * EyeOffset.X;
-	if ((XTransform.Z > KINDA_SMALL_NUMBER) && (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f))
+	if ((XTransform.Z > KINDA_SMALL_NUMBER) && (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 12.f))
 	{
-		float MaxZ = FMath::Max(0.f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
+		float MaxZ = FMath::Max(0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
 		XTransform = XTransform * MaxZ / XTransform.Z;
 	}
 	return XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z);;
@@ -2229,7 +2229,7 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 	{
 		DesiredJumpBob.Y = 0.f;
 	}
-	if (CharacterMovement && CharacterMovement->IsSwimming())
+	if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), SwimPushSound, this, SRT_AllButOwner);
 	}
@@ -2246,10 +2246,10 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		// cause crushing damage if we fell on another character
 		if (Cast<AUTCharacter>(Hit.Actor.Get()) != NULL)
 		{
-			float Damage = CrushingDamageFactor * CharacterMovement->Velocity.Z / -100.0f;
+			float Damage = CrushingDamageFactor * GetCharacterMovement()->Velocity.Z / -100.0f;
 			if (Damage >= 1.0f)
 			{
-				FUTPointDamageEvent DamageEvent(Damage, Hit, -CharacterMovement->Velocity.SafeNormal(), UUTDmgType_FallingCrush::StaticClass());
+				FUTPointDamageEvent DamageEvent(Damage, Hit, -GetCharacterMovement()->Velocity.SafeNormal(), UUTDmgType_FallingCrush::StaticClass());
 				Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
 			}
 		}
@@ -2257,21 +2257,21 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		bCanPlayWallHitSound = true;
 		if (Role == ROLE_Authority)
 		{
-			MakeNoise(FMath::Clamp<float>(CharacterMovement->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
+			MakeNoise(FMath::Clamp<float>(GetCharacterMovement()->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
 		}
 		DesiredJumpBob = FVector(0.f);
 
 		// bob weapon and viewpoint on landing
-		if (CharacterMovement->Velocity.Z < WeaponLandBobThreshold)
+		if (GetCharacterMovement()->Velocity.Z < WeaponLandBobThreshold)
 		{
-			DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - WeaponLandBobThreshold) / FullWeaponLandBobVelZ);
+			DesiredJumpBob = WeaponLandBob* FMath::Min(1.f, (-1.f*GetCharacterMovement()->Velocity.Z - WeaponLandBobThreshold) / FullWeaponLandBobVelZ);
 		}
-		if (CharacterMovement->Velocity.Z <= EyeOffsetLandBobThreshold)
+		if (GetCharacterMovement()->Velocity.Z <= EyeOffsetLandBobThreshold)
 		{
-			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*CharacterMovement->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
+			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*GetCharacterMovement()->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
 		}
 
-		TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
+		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
 	}
 	UTCharacterMovement->OldZ = GetActorLocation().Z;
 
@@ -2312,11 +2312,11 @@ void AUTCharacter::MoveBlockedBy(const FHitResult& Impact)
 	{
 		B->NotifyMoveBlocked(Impact);
 	}
-	if (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - LastWallHitNotifyTime > 0.5f))
+	if (GetCharacterMovement() && (GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - LastWallHitNotifyTime > 0.5f))
 	{
 		if (Impact.ImpactNormal.Z > 0.4f)
 		{
-			TakeFallingDamage(Impact, CharacterMovement->Velocity.Z);
+			TakeFallingDamage(Impact, GetCharacterMovement()->Velocity.Z);
 		}
 		LastWallHitNotifyTime = GetWorld()->GetTimeSeconds();
 	}
@@ -2338,7 +2338,7 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 				FallingDamage -= UTCharacterMovement->FallingDamageReduction(FallingDamage, Hit);
 				if (FallingDamage >= 1.0f)
 				{
-					FUTPointDamageEvent DamageEvent(FallingDamage, Hit, CharacterMovement->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
+					FUTPointDamageEvent DamageEvent(FallingDamage, Hit, GetCharacterMovement()->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
 					TakeDamage(DamageEvent.Damage, DamageEvent, Controller, this);
 				}
 			}
@@ -2366,10 +2366,10 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 		MeshVelocity.Z *= 2.0f;
 		if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
 		{
-			FVector SavedVelocity = CharacterMovement->Velocity;
-			CharacterMovement->Velocity = MeshVelocity;
-			TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
-			CharacterMovement->Velocity = SavedVelocity;
+			FVector SavedVelocity = GetCharacterMovement()->Velocity;
+			GetCharacterMovement()->Velocity = MeshVelocity;
+			TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
+			GetCharacterMovement()->Velocity = SavedVelocity;
 			// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
 			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
 			{
@@ -2461,19 +2461,19 @@ void AUTCharacter::UpdateCharOverlays()
 		{
 			if (OverlayMesh == NULL)
 			{
-				OverlayMesh = DuplicateObject<USkeletalMeshComponent>(Mesh, this);
+				OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
 				OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
 				{
 					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
 					OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
 					OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
 				}
-				OverlayMesh->SetMasterPoseComponent(Mesh);
+				OverlayMesh->SetMasterPoseComponent(GetMesh());
 			}
 			if (!OverlayMesh->IsRegistered())
 			{
 				OverlayMesh->RegisterComponent();
-				OverlayMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTarget);
+				OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
 				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			}
 			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
@@ -2579,11 +2579,11 @@ void AUTCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	if (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !GetMesh()->bRecentlyRendered && !IsLocallyControlled() 
-		&& CharacterMovement->MovementMode == MOVE_Walking && !bFeigningDeath && !IsDead())
+		&& GetCharacterMovement()->MovementMode == MOVE_Walking && !bFeigningDeath && !IsDead())
 	{
 		// TODO: currently using an arbitrary made up interval and scale factor
-		float Speed = CharacterMovement->Velocity.Size();
-		if (Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.35f * CharacterMovement->MaxWalkSpeed / Speed)
+		float Speed = GetCharacterMovement()->Velocity.Size();
+		if (Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.35f * GetCharacterMovement()->MaxWalkSpeed / Speed)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}
@@ -2647,7 +2647,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			// disable physics and make sure mesh is in the proper position
 			GetMesh()->SetSimulatePhysics(false);
 			GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			GetMesh()->AttachTo(CapsuleComponent, NAME_None, EAttachLocation::SnapToTarget);
+			GetMesh()->AttachTo(GetCapsuleComponent(), NAME_None, EAttachLocation::SnapToTarget);
 			GetMesh()->SetRelativeLocation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeLocation);
 			GetMesh()->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation);
 			GetMesh()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D);
@@ -2657,10 +2657,10 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 
 	// update eyeoffset 
-	if (CharacterMovement->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativeLocation(BasedMovement.MovementBase))
+	if (GetCharacterMovement()->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativeLocation(BasedMovement.MovementBase))
 	{
 		// smooth up/down stairs
-		if (CharacterMovement->bJustTeleported && (FMath::Abs(UTCharacterMovement->OldZ - GetActorLocation().Z) > CharacterMovement->MaxStepHeight))
+		if (GetCharacterMovement()->bJustTeleported && (FMath::Abs(UTCharacterMovement->OldZ - GetActorLocation().Z) > GetCharacterMovement()->MaxStepHeight))
 		{
 			EyeOffset.Z = 0.f;
 		}
@@ -2670,12 +2670,12 @@ void AUTCharacter::Tick(float DeltaTime)
 		}
 
 		// avoid clipping
-		if (CrouchEyeOffset.Z + EyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight - 12.f)
+		if (CrouchEyeOffset.Z + EyeOffset.Z > GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight - 12.f)
 		{
 			if (!IsLocallyControlled())
 			{
 				CrouchEyeOffset.Z = 0.f;
-				EyeOffset.Z = FMath::Min(EyeOffset.Z, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight); // @TODO FIXMESTEVE CONSIDER CLIP PLANE -12.f);
+				EyeOffset.Z = FMath::Min(EyeOffset.Z, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight); // @TODO FIXMESTEVE CONSIDER CLIP PLANE -12.f);
 			}
 			else
 			{
@@ -2691,15 +2691,15 @@ void AUTCharacter::Tick(float DeltaTime)
 		}
 		else
 		{
-			EyeOffset.Z = FMath::Max(EyeOffset.Z, 12.f - BaseEyeHeight - CapsuleComponent->GetUnscaledCapsuleHalfHeight() - CrouchEyeOffset.Z);
+			EyeOffset.Z = FMath::Max(EyeOffset.Z, 12.f - BaseEyeHeight - GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - CrouchEyeOffset.Z);
 		}
 	}
 	// clamp transformed offset z contribution
 	FRotationMatrix ViewRotMatrix = FRotationMatrix(GetViewRotation());
 	FVector XTransform = ViewRotMatrix.GetScaledAxis(EAxis::X) * EyeOffset.X;
-	if ((XTransform.Z > 0.f) && (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f))
+	if ((XTransform.Z > 0.f) && (XTransform.Z + EyeOffset.Z + BaseEyeHeight + CrouchEyeOffset.Z > GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 12.f))
 	{
-		float MaxZ = FMath::Max(0.f, CapsuleComponent->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
+		float MaxZ = FMath::Max(0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
 		EyeOffset.X *= MaxZ / XTransform.Z;
 	}
 
@@ -2722,7 +2722,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	TargetEyeOffset.Y *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Y*DeltaTime));
 	TargetEyeOffset.Z *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Z*DeltaTime));
 	TargetEyeOffset.DiagnosticCheckNaN();
-	if (IsLocallyControlled() && CharacterMovement) // @TODO FIXME ALSO FOR SPECTATORS
+	if (IsLocallyControlled() && GetCharacterMovement()) // @TODO FIXME ALSO FOR SPECTATORS
 	{
 		if (Health <= LowHealthAmbientThreshold)
 		{
@@ -2734,16 +2734,16 @@ void AUTCharacter::Tick(float DeltaTime)
 			SetStatusAmbientSound(LowHealthAmbientSound, 0.f, 1.f, true);
 		}
 		// @TODO FIXMESTEVE this should all be event driven
-		if (CharacterMovement->IsFalling() && (CharacterMovement->Velocity.Z < FallingAmbientStartSpeed))
+		if (GetCharacterMovement()->IsFalling() && (GetCharacterMovement()->Velocity.Z < FallingAmbientStartSpeed))
 		{
-			SetLocalAmbientSound(FallingAmbientSound, FMath::Clamp((FallingAmbientStartSpeed - CharacterMovement->Velocity.Z) / (1.5f*MaxSafeFallSpeed+FallingAmbientStartSpeed), 0.f, 1.5f), false);
+			SetLocalAmbientSound(FallingAmbientSound, FMath::Clamp((FallingAmbientStartSpeed - GetCharacterMovement()->Velocity.Z) / (1.5f*MaxSafeFallSpeed + FallingAmbientStartSpeed), 0.f, 1.5f), false);
 		}
 		else
 		{
 			SetLocalAmbientSound(FallingAmbientSound, 0.f, true);
-			if (CharacterMovement->IsMovingOnGround() && (CharacterMovement->Velocity.Size2D() > SprintAmbientStartSpeed))
+			if (GetCharacterMovement()->IsMovingOnGround() && (GetCharacterMovement()->Velocity.Size2D() > SprintAmbientStartSpeed))
 			{
-				float NewLocalAmbientVolume = FMath::Min(1.f, (CharacterMovement->Velocity.Size2D() - SprintAmbientStartSpeed) / (UTCharacterMovement->SprintSpeed - SprintAmbientStartSpeed));
+				float NewLocalAmbientVolume = FMath::Min(1.f, (GetCharacterMovement()->Velocity.Size2D() - SprintAmbientStartSpeed) / (UTCharacterMovement->SprintSpeed - SprintAmbientStartSpeed));
 				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime) + NewLocalAmbientVolume*DeltaTime;
 				SetLocalAmbientSound(SprintAmbientSound, LocalAmbientVolume, false);
 			}
@@ -2759,7 +2759,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		}
 	}
 
-	if ((Role == ROLE_Authority) && CharacterMovement && CharacterMovement->IsInWater())
+	if ((Role == ROLE_Authority) && GetCharacterMovement() && GetCharacterMovement()->IsInWater())
 	{
 		bool bHeadWasUnderwater = bHeadIsUnderwater;
 		bHeadIsUnderwater = HeadIsUnderWater();
@@ -2804,7 +2804,7 @@ bool AUTCharacter::HeadIsUnderWater() const
 
 bool AUTCharacter::FeetAreInWater() const
 {
-	FVector FootLocation = GetActorLocation() - FVector(0.f, 0.f, CapsuleComponent->GetScaledCapsuleHalfHeight());
+	FVector FootLocation = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
 	return PositionIsInWater(FootLocation);
 }
 
@@ -2815,7 +2815,7 @@ bool AUTCharacter::PositionIsInWater(const FVector& Position) const
 	TArray<FOverlapResult> Hits;
 	static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
 	FComponentQueryParams Params(NAME_PhysicsVolumeTrace, GetOwner());
-	GetWorld()->OverlapMulti(Hits, Position, FQuat::Identity, CapsuleComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
+	GetWorld()->OverlapMulti(Hits, Position, FQuat::Identity, GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
 
 	for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
 	{
@@ -2831,7 +2831,7 @@ bool AUTCharacter::PositionIsInWater(const FVector& Position) const
 
 void AUTCharacter::TakeDrowningDamage()
 {
-	FUTPointDamageEvent DamageEvent(DrowningDamagePerSecond, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Drown::StaticClass());
+	FUTPointDamageEvent DamageEvent(DrowningDamagePerSecond, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Drown::StaticClass());
 	TakeDamage(DrowningDamagePerSecond, DamageEvent, Controller, this);
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DrowningSound, this, SRT_None);
 }
@@ -3119,11 +3119,11 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 	// however, EncroachingBlockingGeometry() doesn't handle reflexivity correctly so we can't get anywhere changing our collision responses
 	// instead, we must change our object type to adjust the query
 	FVector TeleportStart = GetActorLocation();
-	ECollisionChannel SavedObjectType = CapsuleComponent->GetCollisionObjectType();
-	CapsuleComponent->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
+	ECollisionChannel SavedObjectType = GetCapsuleComponent()->GetCollisionObjectType();
+	GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 	bool bResult = Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
-	CapsuleComponent->SetCollisionObjectType(SavedObjectType);
-	CapsuleComponent->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
+	GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
+	GetCapsuleComponent()->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
 	CharacterMovement->bJustTeleported = bResult && !bIsATest;
 	if (bResult && !bIsATest && !bClientUpdating && (TeleportEffect.Num() > 0) && TeleportEffect[0])
 	{
@@ -3158,7 +3158,7 @@ bool AUTCharacter::CanBlockTelefrags()
 // @TODO FIXMESTEVE - why isn't this just an implementation of ReceiveActorBeginOverlap()
 void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 {
-	if (Role == ROLE_Authority && OtherActor != this && CapsuleComponent->GetCollisionObjectType() == COLLISION_TELEPORTING_OBJECT) // need to make sure this ISN'T reflexive, only teleporting Pawn should be checking for telefrags
+	if (Role == ROLE_Authority && OtherActor != this && GetCapsuleComponent()->GetCollisionObjectType() == COLLISION_TELEPORTING_OBJECT) // need to make sure this ISN'T reflexive, only teleporting Pawn should be checking for telefrags
 	{
 		AUTCharacter* OtherC = Cast<AUTCharacter>(OtherActor);
 		if (OtherC != NULL)
@@ -3166,7 +3166,7 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 			AUTTeamGameMode* TeamGame = GetWorld()->GetAuthGameMode<AUTTeamGameMode>();
 			if (TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this))
 			{
-				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, CapsuleComponent, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
+				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
 				if (OtherC->CanBlockTelefrags())
 				{
 					TakeDamage(100000.0f, DamageEvent, Controller, this);
@@ -3198,7 +3198,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL,Scale,Scale);
 
-			FVector ScreenPosition = Canvas->Project(GetActorLocation() + (CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 1.25f) * FVector(0,0,1));
+			FVector ScreenPosition = Canvas->Project(GetActorLocation() + (GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f) * FVector(0, 0, 1));
 			float XPos = ScreenPosition.X - (XL * 0.5);
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{

@@ -471,7 +471,7 @@ void AUTCTFGameMode::HandleExitingHalftime()
 	// reset everything
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
-		IUTResetInterface* ResetActor = InterfaceCast<IUTResetInterface>(*It);
+		IUTResetInterface* ResetActor = Cast<IUTResetInterface>(*It);
 		if (ResetActor != NULL)
 		{
 			ResetActor->Execute_Reset(*It);
@@ -623,9 +623,9 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclas
 				bGaveCombatBonus = true;
 			}
 			// tracking of assists for flag carrier rescues
-			if (CTFGameState != NULL && !CTFGameState->OnSameTeam(Killer, Other) && InterfaceCast<IUTTeamInterface>(Killer) != NULL)
+			if (CTFGameState != NULL && !CTFGameState->OnSameTeam(Killer, Other) && Cast<IUTTeamInterface>(Killer) != NULL)
 			{
-				uint8 KillerTeam = InterfaceCast<IUTTeamInterface>(Killer)->GetTeamNum();
+				uint8 KillerTeam = Cast<IUTTeamInterface>(Killer)->GetTeamNum();
 				if (KillerTeam != 255)
 				{
 					bool bFCRescue = false;
