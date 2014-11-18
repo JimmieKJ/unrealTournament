@@ -8,7 +8,7 @@
 #include "../SUWPanel.h"
 #include "../SUWindowsStyle.h"
 #include "SUMidGameInfoPanel.h"
-#include "SULobbyMAtchSetupPanel.h"
+#include "SULobbyMatchSetupPanel.h"
 #include "SULobbyInfoPanel.h"
 #include "UTLobbyPC.h"
 
