@@ -5,7 +5,7 @@
 #include "UTPickupAmmo.generated.h"
 
 UCLASS(Blueprintable)
-class AUTPickupAmmo : public AUTPickup
+class UNREALTOURNAMENT_API AUTPickupAmmo : public AUTPickup
 {
 	GENERATED_UCLASS_BODY()
 
