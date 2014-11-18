@@ -19,6 +19,8 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	ProjectileMovement->Buoyancy = 0.5f;
 	MaxSpeedUnderWater = 1300.f;
+	DisruptDestroyTime = 30.f;
+	RemainingHealth = 10;
 }
 
 void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
@@ -42,15 +44,23 @@ void AUTProj_TransDisk::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 
 float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
-	if (Role == ROLE_Authority && EventInstigator != NULL && TransState != TLS_Disrupted)
+	if (Role == ROLE_Authority && EventInstigator != NULL && TransState != TLS_Disrupted && (DamageAmount > 0))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(EventInstigator, Instigator))
 		{
-			TransState = TLS_Disrupted;
-			DisruptedController = EventInstigator;
-			//Play and deactivate effects
-			OnDisrupted();
+			RemainingHealth -= DamageAmount;
+			if (RemainingHealth <= 0)
+			{
+				TransState = TLS_Disrupted;
+				DisruptedController = EventInstigator;
+				if (Role == ROLE_Authority)
+				{
+					GetWorldTimerManager().SetTimer(this, &AUTProj_TransDisk::ShutDown, DisruptDestroyTime, false);
+				}
+				//Play and deactivate effects
+				OnDisrupted();
+			}
 		}
 	}
 	FVector DamageImpulse = 0.01f * UTGetDamageMomentum(DamageEvent, this, EventInstigator);

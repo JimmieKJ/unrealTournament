@@ -59,7 +59,15 @@ class AUTProj_TransDisk : public AUTProjectile
 	/** Max speed while underwater */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
 	float MaxSpeedUnderWater;
-	
+
+	/** How long after disrupted to destroy this disk */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
+	float DisruptDestroyTime;
+
+	/** Health remaining before disk gets disrupted/ */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
+	int32 RemainingHealth;
+
 	FVector ComputeBounceResult(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
