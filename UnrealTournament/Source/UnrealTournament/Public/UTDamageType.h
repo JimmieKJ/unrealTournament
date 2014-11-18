@@ -140,6 +140,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText FemaleSuicideMessage;
 
+	/** Reward announcement when kill with this damagetype. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+	TSubclassOf<class UUTRewardMessage> RewardAnnouncementClass;
+
 	/** this is the name that will be used for the {WeaponName} message option*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText AssociatedWeaponName;

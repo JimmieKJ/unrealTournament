@@ -14,6 +14,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	StyleTag = FName(TEXT("Default"));
 	bOptionalSpoken = false;
+	AnnouncementDelay = 0.f;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const

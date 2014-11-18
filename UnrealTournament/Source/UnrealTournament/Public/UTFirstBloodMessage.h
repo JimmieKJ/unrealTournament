@@ -33,6 +33,7 @@ class UUTFirstBloodMessage : public UUTLocalMessage
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 4.0f;
+		AnnouncementDelay = 0.5f;
 	}
 
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override

@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTDamageType.h"
+#include "UTRewardMessage.h"
 
 UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -17,6 +18,7 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	GibDamageThreshold = 99;
 	bCausesBlood = true;
 	bBlockedByArmor = true;
+	RewardAnnouncementClass = NULL;
 
 	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> DefaultFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/RedHitFlash.RedHitFlash'"));
 	BodyDamageColor = DefaultFlash.Object;
@@ -85,6 +87,11 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 
 void UUTDamageType::ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const
 {
+	AUTPlayerController* PC = Cast<AUTPlayerController>(KillerState->GetOwner());
+	if (PC && RewardAnnouncementClass)
+	{
+		PC->ClientReceiveLocalizedMessage(RewardAnnouncementClass);
+	}
 }
 
 bool UUTDamageType::ShouldGib_Implementation(AUTCharacter* Victim) const

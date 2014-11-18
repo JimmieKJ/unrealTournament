@@ -54,6 +54,10 @@ class UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    
 
+	// how long to delay playing this announcement
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+	float AnnouncementDelay;
+
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
 
 	UFUNCTION(BlueprintImplementableEvent)

@@ -39,9 +39,20 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 				QueuedAnnouncements.Add(NewAnnouncement);
 
 				// play now if nothing in progress
-				if (CurrentAnnouncement.MessageClass == NULL)
+				if (!GetWorld()->GetTimerManager().IsTimerActive(this, &UUTAnnouncer::PlayNextAnnouncement))
 				{
-					PlayNextAnnouncement();
+					if (CurrentAnnouncement.MessageClass == NULL)
+					{
+						float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->AnnouncementDelay;
+						if (Delay > 0.f)
+						{
+							GetWorld()->GetTimerManager().SetTimer(this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
+						}
+						else
+						{
+							PlayNextAnnouncement();
+						}
+					}
 				}
 			}
 		}
