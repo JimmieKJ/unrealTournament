@@ -1121,7 +1121,7 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	// it would be nice if we were just given a callback when things were done instead of having to poll...
-	bool bNewIsBuilding = false; // NavDataGenerator != nullptr && (NavDataGenerator->IsBuildInProgress(true) || ((FRecastNavMeshGenerator*)NavDataGenerator.Get())->HasResultsPending());
+	bool bNewIsBuilding = NavDataGenerator != NULL && NavDataGenerator->IsBuildInProgress(true);
 	if (bIsBuilding && !bNewIsBuilding)
 	{
 		// build is done, post process

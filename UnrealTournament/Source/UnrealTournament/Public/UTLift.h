@@ -67,6 +67,17 @@ class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuild
 
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
 
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override
+	{
+		Super::PostEditChangeProperty(PropertyChangedEvent);
+
+		if (PropertyChangedEvent.Property == NULL || PropertyChangedEvent.Property->GetFName() == FName(TEXT("NavmeshScale")))
+		{
+			UNavigationSystem::UpdateNavOctreeBounds(this);
+			UNavigationSystem::UpdateNavOctreeAll(this);
+		}
+	}
+
 protected:
 	/** Component to test for encroachment */
 	UPROPERTY(BlueprintReadOnly, Category = "Lift")
