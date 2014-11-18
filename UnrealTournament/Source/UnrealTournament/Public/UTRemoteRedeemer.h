@@ -11,11 +11,11 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	/** Sphere collision component */
 	UPROPERTY(VisibleDefaultsOnly, Category = Projectile)
-	TSubobjectPtr<USphereComponent> CollisionComp;
+	USphereComponent* CollisionComp;
 
 	/** Projectile movement component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement)
-	TSubobjectPtr<class UUTProjectileMovementComponent> ProjectileMovement;
+	class UUTProjectileMovementComponent* ProjectileMovement;
 	
 	/** Used to get damage values */
 	UPROPERTY(EditDefaultsOnly, Category = Projectile)

@@ -59,7 +59,7 @@ FReply SUWindowsDesktop::OnKeyboardFocusReceived( const FGeometry& MyGeometry, c
 
 }
 
-FReply SUWindowsDesktop::OnKeyUp( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent )
+FReply SUWindowsDesktop::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
 {
 	if (InKeyboardEvent.GetKey() == EKeys::Escape)
 	{
@@ -80,7 +80,7 @@ void SUWindowsDesktop::CloseMenus()
 }
 
 
-FReply SUWindowsDesktop::OnKeyDown( const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent )
+FReply SUWindowsDesktop::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent)
 {
 	return FReply::Handled();
 }

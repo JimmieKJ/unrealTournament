@@ -242,7 +242,7 @@ void UUTLocalPlayer::HideMenu()
 			PlayerController->SetPause(false);
 		}
 
-		FSlateApplication::Get().SetFocusToGameViewport();
+		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
 
 	}
 #endif

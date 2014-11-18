@@ -53,7 +53,7 @@ protected:
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
-	TSubobjectPtr<class UUTJumpPadRenderingComponent> JumpPadComp;
+	class UUTJumpPadRenderingComponent* JumpPadComp;
 #endif
 
 #if WITH_EDITOR

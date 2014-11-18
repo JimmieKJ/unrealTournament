@@ -14,7 +14,7 @@ class AUTLiftExit : public AActor, public IUTPathBuilderInterface
 
 	/** editor icon */
 	UPROPERTY(VisibleAnywhere, Category = Sprite)
-	TSubobjectPtr<UBillboardComponent> Icon;
+	UBillboardComponent* Icon;
 
 	/** the lift that will take the bot places */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lift)

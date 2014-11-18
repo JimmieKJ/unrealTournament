@@ -96,7 +96,7 @@ UMeshComponent* AUTWeapon::GetPickupMeshTemplate_Implementation(FVector& Overrid
 	if (AttachmentType != NULL)
 	{
 		OverrideScale = AttachmentType.GetDefaultObject()->PickupScaleOverride;
-		return AttachmentType.GetDefaultObject()->Mesh.Get();
+		return AttachmentType.GetDefaultObject()->Mesh;
 	}
 	else
 	{

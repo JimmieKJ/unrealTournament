@@ -13,7 +13,7 @@ class AUTViewPlaceholder : public AActor
 	{
 		bReplicates = true;
 
-		TSubobjectPtr<USceneComponent> SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
+		USceneComponent* SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
 		RootComponent = SceneComponent;
 		RootComponent->Mobility = EComponentMobility::Static;
 

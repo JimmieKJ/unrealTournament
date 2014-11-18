@@ -356,7 +356,7 @@ private:
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
-	TSubobjectPtr<class UUTNavGraphRenderingComponent> NodeRenderer;
+	class UUTNavGraphRenderingComponent* NodeRenderer;
 #endif
 
 public:

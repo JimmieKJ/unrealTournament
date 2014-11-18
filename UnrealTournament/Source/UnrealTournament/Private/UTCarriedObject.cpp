@@ -205,7 +205,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	HomeBase->ObjectWasPickedUp(NewHolder, bWasHome);
 
 	HoldingPawn = NewHolder;
-	AttachTo(HoldingPawn->Mesh);
+	AttachTo(HoldingPawn->GetMesh());
 	Holder = Cast<AUTPlayerState>(HoldingPawn->PlayerState);
 
 	// If we have authority, immediately notify of the holder change, otherwise replication will handle it
@@ -260,7 +260,7 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	// Have the holding pawn drop the object
 	if (HoldingPawn != NULL)
 	{
-		DetachFrom(HoldingPawn->Mesh);
+		DetachFrom(HoldingPawn->GetMesh());
 	}
 
 	if (Holder != NULL)

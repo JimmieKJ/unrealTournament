@@ -35,5 +35,5 @@ class AUTProj_WeaponScreen : public AUTProjectile
 
 protected:
 	UPROPERTY(VisibleAnywhere, Category = Collision)
-	TSubobjectPtr<UBoxComponent> CollisionBox;
+	UBoxComponent* CollisionBox;
 };

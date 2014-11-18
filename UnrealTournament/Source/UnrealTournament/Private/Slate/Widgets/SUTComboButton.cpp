@@ -176,7 +176,7 @@ void SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
 
 			if (WidgetToFocus.IsValid())
 			{
-				ButtonClickedReply.SetKeyboardFocus(WidgetToFocus.ToSharedRef(), EKeyboardFocusCause::SetDirectly);
+				ButtonClickedReply.SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly);
 			}
 		}
 	}

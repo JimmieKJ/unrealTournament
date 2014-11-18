@@ -444,7 +444,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
-		IUTPathBuilderInterface* Builder = InterfaceCast<IUTPathBuilderInterface>(*It);
+		IUTPathBuilderInterface* Builder = Cast<IUTPathBuilderInterface>(*It);
 		if (Builder != NULL)
 		{
 			if (!Builder->IsPOI())
@@ -730,7 +730,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	{
 		for (TWeakObjectPtr<AActor> POI : Node->POIs)
 		{
-			IUTPathBuilderInterface* Builder = InterfaceCast<IUTPathBuilderInterface>(POI.Get());
+			IUTPathBuilderInterface* Builder = Cast<IUTPathBuilderInterface>(POI.Get());
 			if (Builder != NULL)
 			{
 				Builder->AddSpecialPaths(Node, this);
@@ -1376,10 +1376,10 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 	{
 		// currently in a water volume the polys are at the bottom of the water area
 		APhysicsVolume* Volume = FindPhysicsVolume(GetWorld(), StartLoc, FCollisionShape::MakeCapsule(AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-		if (Volume->bWaterVolume && Volume->BrushComponent != NULL)
+		if (Volume->bWaterVolume && Volume->GetBrushComponent() != NULL)
 		{
 			FHitResult Hit;
-			if (Volume->BrushComponent->LineTraceComponent(Hit, StartLoc - FVector(0.0f, 0.0f, 100000.0f), StartLoc, FCollisionQueryParams()))
+			if (Volume->GetBrushComponent()->LineTraceComponent(Hit, StartLoc - FVector(0.0f, 0.0f, 100000.0f), StartLoc, FCollisionQueryParams()))
 			{
 				StartPoly = FindNearestPoly(Hit.Location + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
 			}
@@ -1703,7 +1703,7 @@ bool AUTRecastNavMesh::DoStringPulling(const FVector& OrigStartLoc, const TArray
 		Corridor.init(PolyRoute.Num());
 		Corridor.reset(PolyRoute[0], RecastStart);
 		Corridor.optimizePathTopology(&GetRecastNavMeshImpl()->SharedNavQuery, GetDefaultDetourFilter()); // could probably skip this if perf is a concern
-		Corridor.setCorridor(RecastEnd, PolyRoute.GetTypedData(), PolyRoute.Num());
+		Corridor.setCorridor(RecastEnd, PolyRoute.GetData(), PolyRoute.Num());
 		int32 ReturnedPoints = Corridor.findCorners(ResultPoints, ResultFlags, ResultPolys, NumResultPoints, &GetRecastNavMeshImpl()->SharedNavQuery, GetDefaultDetourFilter(), AgentProps.AgentRadius);
 
 		if (ReturnedPoints <= 0)

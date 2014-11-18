@@ -16,16 +16,16 @@ class AUTTeleporter : public AActor, public IUTPathBuilderInterface
 
 	/** The player will teleport when overlapping this box */
 	UPROPERTY(VisibleAnywhere, Category = Teleporter)
-	TSubobjectPtr<class UBoxComponent> TriggerBox;
+	class UBoxComponent* TriggerBox;
 
 #if WITH_EDITORONLY_DATA
 	/** arrow component to show exit direction defined in TeleportTarget if bSetRotation is true */
 	UPROPERTY(VisibleAnywhere, Category = Teleporter)
-	TSubobjectPtr<class UArrowComponent> ExitArrow;
+	class UArrowComponent* ExitArrow;
 
 	/** arrow component to show entry direction defined in TeleportTarget if bSetRotation is true */
 	UPROPERTY(VisibleAnywhere, Category = Teleporter)
-	TSubobjectPtr<class UArrowComponent> EntryArrow;
+	class UArrowComponent* EntryArrow;
 
 	/** if set then lock the TeleportTarget when moving/rotating the teleporter */
 	UPROPERTY(EditAnywhere, Category = Editor)

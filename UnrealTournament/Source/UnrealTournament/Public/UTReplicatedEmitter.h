@@ -16,7 +16,7 @@ class AUTReplicatedEmitter : public AActor
 	GENERATED_UCLASS_BODY()
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Emitter)
-	TSubobjectPtr<UParticleSystemComponent> PSC;
+	UParticleSystemComponent* PSC;
 	/** lifespan when in dedicated server mode - basically how long it's worthwhile to consider sending the effect to clients before it's obsolete */
 	UPROPERTY(EditDefaultsOnly, Category = Emitter)
 	float DedicatedServerLifeSpan;

@@ -17,16 +17,16 @@ class AUTProj_FlakShard : public AUTProjectile
 
 	/** projectile mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
-	TSubobjectPtr<class UMeshComponent> Mesh;
+	class UMeshComponent* Mesh;
 	/** spins the mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
-	TSubobjectPtr<class URotatingMovementComponent> MeshSpinner;
+	class URotatingMovementComponent* MeshSpinner;
 	/** material instance to apply heat amount to mesh */
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	UMaterialInstanceDynamic* MeshMI;
 	/** particle component for trail */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
-	TSubobjectPtr<class UParticleSystemComponent> Trail;
+	class UParticleSystemComponent* Trail;
 
 	/** Limit number of bounces */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")

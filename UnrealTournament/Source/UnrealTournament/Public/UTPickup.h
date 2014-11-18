@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	TSubobjectPtr<UCapsuleComponent> Collision;
+	UCapsuleComponent* Collision;
 	// hack: UMaterialBillboardComponent isn't exposed, can't use native subobject
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	UMaterialBillboardComponent* TimerSprite;

@@ -476,15 +476,15 @@ protected:
 
 	/** AI actions */
 	UPROPERTY()
-	TSubobjectPtr<UUTAIAction> WaitForMoveAction;
+	UUTAIAction* WaitForMoveAction;
 	UPROPERTY()
-	TSubobjectPtr<UUTAIAction> WaitForLandingAction;
+	UUTAIAction* WaitForLandingAction;
 	UPROPERTY()
-	TSubobjectPtr<UUTAIAction> RangedAttackAction;
+	UUTAIAction* RangedAttackAction;
 	UPROPERTY()
-	TSubobjectPtr<UUTAIAction> TacticalMoveAction;
+	UUTAIAction* TacticalMoveAction;
 	UPROPERTY()
-	TSubobjectPtr<UUTAIAction> ChargeAction;
+	UUTAIAction* ChargeAction;
 
 public:
 	inline AUTCharacter* GetUTChar() const

@@ -76,11 +76,11 @@ public:
 			}
 		}
 protected:
-	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent) override
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
 	{
 		if (bWaitingForKey)
 		{
-			SetKey(InKeyboardEvent.GetKey());
+			SetKey(InKeyEvent.GetKey());
 			return FReply::Handled();
 		}
 		return FReply::Unhandled();
@@ -118,28 +118,7 @@ protected:
 		}
 		return FReply::Unhandled();
 	}
-	virtual FReply OnControllerButtonPressed(const FGeometry& MyGeometry, const FControllerEvent& ControllerEvent) override
-	{
-		//TODO: Get this working
-		if (bWaitingForKey)
-		{
-			SetKey(ControllerEvent.GetEffectingButton());
-			return FReply::Handled();
-		}
-		return FReply::Unhandled();
-	}
-
-	virtual FReply OnControllerAnalogValueChanged(const FGeometry& MyGeometry, const FControllerEvent& ControllerEvent) override
-	{
-		//TODO: Get this working
-		if (bWaitingForKey)
-		{
-			SetKey(ControllerEvent.GetEffectingButton());
-			return FReply::Handled();
-		}
-		return FReply::Unhandled();
-	}
-
+	
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override
 	{
 		//Make sure the mouse pointer doesnt leave the button

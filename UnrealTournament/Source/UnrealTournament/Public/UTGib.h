@@ -13,7 +13,7 @@ class AUTGib : public AActor
 
 	/** gib mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gib)
-	TSubobjectPtr<UStaticMeshComponent> Mesh;
+	UStaticMeshComponent* Mesh;
 	/** list of alternate meshes to randomly apply to Mesh instead of the default */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Gib)
 	TArray<class UStaticMesh*> MeshChoices;

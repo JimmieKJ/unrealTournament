@@ -81,7 +81,7 @@ class UUTAnnouncer : public UObject
 
 	/** component used to control the audio */
 	UPROPERTY()
-	TSubobjectPtr<UAudioComponent> AnnouncementComp;
+	UAudioComponent* AnnouncementComp;
 
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 	{

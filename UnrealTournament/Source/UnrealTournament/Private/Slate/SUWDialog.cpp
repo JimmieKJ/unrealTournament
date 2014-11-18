@@ -216,9 +216,9 @@ FReply SUWDialog::OnKeyboardFocusReceived(const FGeometry& MyGeometry, const FKe
 
 }
 
-FReply SUWDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent)
+FReply SUWDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
-	if (InKeyboardEvent.GetKey() == EKeys::Escape)
+	if (InKeyEvent.GetKey() == EKeys::Escape)
 	{
 		OnButtonClick(UTDIALOG_BUTTON_CANCEL);
 	}
@@ -253,11 +253,11 @@ TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InIt
 		];
 }
 
-FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyboardEvent& InKeyboardEvent)
+FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
-	if (InKeyboardEvent.GetKey() == EKeys::Tab)
+	if (InKeyEvent.GetKey() == EKeys::Tab)
 	{
-		int32 NewStop = (InKeyboardEvent.IsLeftShiftDown() || InKeyboardEvent.IsRightShiftDown()) ? -1 : 1;
+		int32 NewStop = (InKeyEvent.IsLeftShiftDown() || InKeyEvent.IsRightShiftDown()) ? -1 : 1;
 		if (TabStop + NewStop < 0)
 		{
 			TabStop = TabTable.Num() - 1;

@@ -33,7 +33,7 @@ public:
 
 	/** third person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	TSubobjectPtr<USkeletalMeshComponent> Mesh;
+	USkeletalMeshComponent* Mesh;
 	/** third person mesh attach point */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FName AttachSocket;
