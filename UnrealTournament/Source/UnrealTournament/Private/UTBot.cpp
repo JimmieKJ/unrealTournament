@@ -127,7 +127,7 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
 				float RespawnOffset = TestPickup->GetRespawnTimeOffset(Asker);
 				// if short distance and active, allow regardless of prediction time to make sure bots don't look excessively stupid walking by a pickup right in front of them
-				if ((TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f)) || (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) >= ((RespawnOffset <= 0.0f) ? -RespawnOffset : RespawnOffset)))
+				if ((TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f)) || ((RespawnOffset <= 0.0f) ? (RespawnPredictionTime > RespawnOffset) : (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) > RespawnOffset)))
 				{
 					float NewWeight = TestPickup->BotDesireability(Asker, TotalDistance) / PickupDist;
 					if (NewWeight > BestNodeWeight)
