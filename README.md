@@ -14,7 +14,7 @@ Check out the [Unreal Tournament wiki](https://wiki.unrealengine.com/Unreal_Tour
 How to get started
 -------------------
 
-The current Unreal Tournament project is based on Unreal Engine version 4.5.1.  You can always get this version of the engine using the [Unreal Engine Launcher](https://www.unrealengine.com/dashboard), or you can grab the [full engine source](https://github.com/EpicGames/UnrealEngine/releases/tag/4.5.1-release) from GitHub and compile it yourself.
+The current Unreal Tournament project is based on Unreal Engine version 4.6.  You can NOT currently get this verison of the engine using the [Unreal Engine Launcher](https://www.unrealengine.com/dashboard), or you can ONLY use the [full engine source](https://github.com/EpicGames/UnrealEngine/tree/4.6) from GitHub and compile it yourself.
 
 **Downloading the Unreal Tournament project:**
 
