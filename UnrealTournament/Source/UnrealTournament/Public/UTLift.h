@@ -66,7 +66,7 @@ class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuild
 	}
 
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
-
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override
 	{
 		Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -77,6 +77,7 @@ class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuild
 			UNavigationSystem::UpdateNavOctreeAll(this);
 		}
 	}
+#endif
 
 protected:
 	/** Component to test for encroachment */
