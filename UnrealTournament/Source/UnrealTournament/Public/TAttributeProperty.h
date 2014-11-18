@@ -8,7 +8,7 @@
 
 #if PLATFORM_MAC || PLATFORM_LINUX
 // Mac compiler doesn't support forward enum declarations...
-#include "Slate.h"
+#include "SlateBasics.h"
 #else
 namespace ESlateCheckBoxState
 {

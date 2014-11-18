@@ -14,7 +14,7 @@ DEFINE_LOG_CATEGORY(UT);
 // init editor hooks
 #if WITH_EDITOR
 
-#include "Slate.h"
+#include "SlateBasics.h"
 #include "UTDetailsCustomization.h"
 
 void FUTModule::StartupModule()

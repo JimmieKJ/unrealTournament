@@ -3,6 +3,7 @@
 #include "../Public/UnrealTournament.h"
 #include "SUWPlayerSettingsDialog.h"
 #include "SUWindowsStyle.h"
+#include "SNumericEntryBox.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"

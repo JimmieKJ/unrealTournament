@@ -1,7 +1,8 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Slate.h"
+#include "SlateBasics.h"
+#include "SWidgetSwitcher.h"
 #include "SUWDialog.h"
 #include "UTPlayerInput.h"
 #include "SKeyBind.h"

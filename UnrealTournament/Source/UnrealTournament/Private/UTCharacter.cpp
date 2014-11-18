@@ -2839,14 +2839,14 @@ void AUTCharacter::TakeDrowningDamage()
 
 uint8 AUTCharacter::GetTeamNum() const
 {
-	const IUTTeamInterface* TeamInterface = InterfaceCast<IUTTeamInterface>(Controller);
+	const IUTTeamInterface* TeamInterface = Cast<IUTTeamInterface>(Controller);
 	if (TeamInterface != NULL)
 	{
 		return TeamInterface->GetTeamNum();
 	}
 	else if (DrivenVehicle != nullptr)
 	{
-		const IUTTeamInterface* VehicleTeamInterface = InterfaceCast<IUTTeamInterface>(DrivenVehicle->Controller);
+		const IUTTeamInterface* VehicleTeamInterface = Cast<IUTTeamInterface>(DrivenVehicle->Controller);
 		if (VehicleTeamInterface != nullptr)
 		{
 			return VehicleTeamInterface->GetTeamNum();
@@ -3386,7 +3386,7 @@ void AUTCharacter::PostNetReceiveLocationAndRotation()
 			const FVector OldLocation = GetActorLocation();
 			UTUpdateSimulatedPosition(ReplicatedMovement.Location, ReplicatedMovement.Rotation, ReplicatedMovement.LinearVelocity);
 
-			INetworkPredictionInterface* PredictionInterface = InterfaceCast<INetworkPredictionInterface>(GetMovementComponent());
+			INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 			if (PredictionInterface)
 			{
 				PredictionInterface->SmoothCorrection(OldLocation);

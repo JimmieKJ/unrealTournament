@@ -10,7 +10,7 @@
 #include "UTFirstBloodMessage.h"
 #include "UTMutator.h"
 #include "UTScoreboard.h"
-#include "Slate.h"
+#include "SlateBasics.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"

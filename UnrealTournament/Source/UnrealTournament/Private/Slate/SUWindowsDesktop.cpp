@@ -2,7 +2,7 @@
 
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
-#include "Slate.h"
+#include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
@@ -53,7 +53,7 @@ bool SUWindowsDesktop::SupportsKeyboardFocus() const
 	return true;
 }
 
-FReply SUWindowsDesktop::OnKeyboardFocusReceived( const FGeometry& MyGeometry, const FKeyboardFocusEvent& InKeyboardFocusEvent )
+FReply SUWindowsDesktop::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent )
 {
 	return FReply::Handled().ReleaseMouseCapture();
 

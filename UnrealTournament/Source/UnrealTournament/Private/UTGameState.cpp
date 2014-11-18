@@ -248,7 +248,7 @@ void AUTGameState::OnTeamSideSwap()
 		}
 		for (FActorIterator It(GetWorld()); It; ++It)
 		{
-			IUTTeamInterface* TeamObj = InterfaceCast<IUTTeamInterface>(*It);
+			IUTTeamInterface* TeamObj = Cast<IUTTeamInterface>(*It);
 			if (TeamObj != NULL)
 			{
 				uint8 Team = TeamObj->GetTeamNum();

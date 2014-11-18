@@ -3,7 +3,7 @@
 #include "UTTeamGameMode.h"
 #include "UTTeamInfo.h"
 #include "UTTeamPlayerStart.h"
-#include "Slate.h"
+#include "SlateBasics.h"
 #include "UTCTFGameMessage.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)

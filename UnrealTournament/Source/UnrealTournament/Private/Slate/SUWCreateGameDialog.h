@@ -2,7 +2,7 @@
 #pragma once
 
 #include "TAttributeProperty.h"
-#include "Slate.h"
+#include "SlateBasics.h"
 #include "SUWDialog.h"
 
 #if !UE_SERVER

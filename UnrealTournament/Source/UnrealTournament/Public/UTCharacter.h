@@ -622,7 +622,7 @@ protected:
 public:
 	inline bool IsRagdoll() const
 	{
-		return bFeigningDeath || bInRagdollRecovery || (RootComponent == Mesh && GetMesh()->IsSimulatingPhysics());
+		return bFeigningDeath || bInRagdollRecovery || (RootComponent == GetMesh() && GetMesh()->IsSimulatingPhysics());
 	}
 
 	virtual void BeginPlay() override;
@@ -1225,7 +1225,7 @@ public:
 	virtual FVector GetNavAgentLocation() const override
 	{
 		// push down a little to make sure we intersect with the navmesh but not so much that we get stuff on a lower level that requires a jump
-		return GetActorLocation() - FVector(0.f, 0.f, FMath::Max<float>(25.0f, CharacterMovement->MaxStepHeight));
+		return GetActorLocation() - FVector(0.f, 0.f, FMath::Max<float>(25.0f, GetCharacterMovement()->MaxStepHeight));
 	}
 
 protected:
