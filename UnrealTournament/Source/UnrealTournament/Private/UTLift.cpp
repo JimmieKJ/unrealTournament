@@ -43,7 +43,7 @@ void AUTLift::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp,
 			AUTCharacter* UTChar = Cast<AUTCharacter>(OtherActor);
 			if (UTChar && UTChar->IsRagdoll())
 			{
-				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->CapsuleComponent, UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
+				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
 				UTChar->TakeDamage(100000.0f, DamageEvent, UTChar->GetController(), UTChar);
 			}
 			else
@@ -231,7 +231,7 @@ void AUTLift::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh*
 						!GetWorld()->SweepTest(NextStop + FVector(0.0f, 0.0f, ZOffset + NavData->AgentHeight * 0.5f), AdjustedLoc + FVector(0.0f, 0.0f, NavData->AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(NavData->AgentRadius, NavData->AgentHeight * 0.25f), FCollisionQueryParams()) )
 					{
 						// make sure to account for differences in Z between test capsule and nav height that it's expecting for poly finding
-						ExitLoc = AdjustedLoc - FVector(0.0f, 0.0f, ScoutType.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight() - NavData->AgentHeight * 0.5f);
+						ExitLoc = AdjustedLoc - FVector(0.0f, 0.0f, ScoutType.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - NavData->AgentHeight * 0.5f);
 						// if the LD placed an exit nearby then don't place another
 						bool bManualExit = false;
 						for (TActorIterator<AUTLiftExit> It(GetWorld()); It; ++It)

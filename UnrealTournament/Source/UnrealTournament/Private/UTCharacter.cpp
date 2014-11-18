@@ -447,7 +447,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 
 		// play footstep sounds when weapon changes bob direction if walking
 		if (GetCharacterMovement()->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
-			&& (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !Mesh->bRecentlyRendered)
+			&& (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !GetMesh()->bRecentlyRendered)
 		{
 			PlayFootstep((LastFoot + 1) & 1);
 		}
@@ -604,7 +604,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			if (IsRagdoll())
 			{
 				// intentionally always apply to root because that replicates better
-				Mesh->AddImpulseAtLocation(ResultMomentum, Mesh->GetComponentLocation());
+				GetMesh()->AddImpulseAtLocation(ResultMomentum, GetMesh()->GetComponentLocation());
 			}
 			else if (UTCharacterMovement != NULL)
 			{
@@ -627,7 +627,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 		}
 		else if (IsRagdoll())
 		{
-			FVector HitLocation = Mesh->GetComponentLocation();
+			FVector HitLocation = GetMesh()->GetComponentLocation();
 			if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 			{
 				HitLocation = ((const FPointDamageEvent&)DamageEvent).HitInfo.Location;
@@ -640,7 +640,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					HitLocation = RadialEvent.ComponentHits[0].Location;
 				}
 			}
-			Mesh->AddImpulseAtLocation(ResultMomentum, HitLocation);
+			GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
 			if (GetNetMode() != NM_DedicatedServer)
 			{
 				Health -= int32(Damage);
@@ -956,24 +956,24 @@ void AUTCharacter::StartRagdoll()
 	DisallowWeaponFiring(true);
 	bInRagdollRecovery = false;
 	
-	if (!Mesh->ShouldTickPose())
+	if (!GetMesh()->ShouldTickPose())
 	{
-		Mesh->TickAnimation(0.0f);
-		Mesh->RefreshBoneTransforms();
-		Mesh->UpdateComponentToWorld();
+		GetMesh()->TickAnimation(0.0f);
+		GetMesh()->RefreshBoneTransforms();
+		GetMesh()->UpdateComponentToWorld();
 	}
 	CharacterMovement->ApplyAccumulatedForces(0.0f);
-	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	Mesh->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
-	Mesh->UpdateKinematicBonesToPhysics(true, true);
-	Mesh->SetSimulatePhysics(true);
-	Mesh->RefreshBoneTransforms();
-	Mesh->SetAllBodiesPhysicsBlendWeight(1.0f);
-	Mesh->DetachFromParent(true);
+	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
+	GetMesh()->UpdateKinematicBonesToPhysics(true, true);
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->RefreshBoneTransforms();
+	GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);
+	GetMesh()->DetachFromParent(true);
 	RootComponent = Mesh;
-	Mesh->bGenerateOverlapEvents = true;
-	Mesh->bShouldUpdatePhysicsVolume = true;
+	GetMesh()->bGenerateOverlapEvents = true;
+	GetMesh()->bShouldUpdatePhysicsVolume = true;
 	CapsuleComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CapsuleComponent->DetachFromParent(false);
 	CapsuleComponent->AttachTo(Mesh, NAME_None, EAttachLocation::KeepWorldPosition);
@@ -982,12 +982,12 @@ void AUTCharacter::StartRagdoll()
 	{
 		OnRep_ReplicatedMovement();
 		// OnRep_ReplicatedMovement() will only apply to the root body but in this case we want to apply to all bodies
-		Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance()->GetUnrealWorldVelocity());
+		GetMesh()->SetAllPhysicsLinearVelocity(GetMesh()->GetBodyInstance()->GetUnrealWorldVelocity());
 		bDeferredReplicatedMovement = false;
 	}
 	else
 	{
-		Mesh->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false); 
+		GetMesh()->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false); 
 	}
 
 	CharacterMovement->StopActiveMovement();
@@ -1005,13 +1005,13 @@ void AUTCharacter::StopRagdoll()
 		FixedRotation.Yaw = Controller->GetControlRotation().Yaw;
 	}
 	CapsuleComponent->SetRelativeRotation(FixedRotation);
-	CapsuleComponent->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->CapsuleComponent->RelativeScale3D);
+	CapsuleComponent->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetCapsuleComponent()->RelativeScale3D);
 	RootComponent = CapsuleComponent;
 
-	Mesh->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->MeshComponentUpdateFlag;
-	Mesh->bBlendPhysics = false; // for some reason bBlendPhysics == false is the value that actually blends instead of using only physics
-	Mesh->bGenerateOverlapEvents = false;
-	Mesh->bShouldUpdatePhysicsVolume = false;
+	GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
+	GetMesh()->bBlendPhysics = false; // for some reason bBlendPhysics == false is the value that actually blends instead of using only physics
+	GetMesh()->bGenerateOverlapEvents = false;
+	GetMesh()->bShouldUpdatePhysicsVolume = false;
 
 	// TODO: make sure cylinder is in valid position (navmesh?)
 	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, CapsuleComponent->GetUnscaledCapsuleHalfHeight());
@@ -1019,25 +1019,25 @@ void AUTCharacter::StopRagdoll()
 	CapsuleComponent->SetWorldLocation(AdjustedLoc);
 
 	// terminate constraints on the root bone so we can move it without interference
-	for (int32 i = 0; i < Mesh->Constraints.Num(); i++)
+	for (int32 i = 0; i < GetMesh()->Constraints.Num(); i++)
 	{
-		if (Mesh->Constraints[i] != NULL && (Mesh->GetBoneIndex(Mesh->Constraints[i]->ConstraintBone1) == 0 || Mesh->GetBoneIndex(Mesh->Constraints[i]->ConstraintBone2) == 0))
+		if (GetMesh()->Constraints[i] != NULL && (GetMesh()->GetBoneIndex(GetMesh()->Constraints[i]->ConstraintBone1) == 0 || GetMesh()->GetBoneIndex(GetMesh()->Constraints[i]->ConstraintBone2) == 0))
 		{
-			Mesh->Constraints[i]->TermConstraint();
+			GetMesh()->Constraints[i]->TermConstraint();
 		}
 	}
 	// move the root bone to where we put the capsule, then disable further physics
-	if (Mesh->Bodies.Num() > 0)
+	if (GetMesh()->Bodies.Num() > 0)
 	{
-		FBodyInstance* RootBody = Mesh->GetBodyInstance();
+		FBodyInstance* RootBody = GetMesh()->GetBodyInstance();
 		if (RootBody != NULL)
 		{
-			FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
+			FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeLocation);
 			NewTransform *= CapsuleComponent->GetComponentTransform();
 			RootBody->SetBodyTransform(NewTransform, true);
 			RootBody->SetInstanceSimulatePhysics(false, true);
 			RootBody->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
-			Mesh->SyncComponentToRBPhysics();
+			GetMesh()->SyncComponentToRBPhysics();
 		}
 	}
 
@@ -1108,8 +1108,8 @@ void AUTCharacter::GibExplosion_Implementation()
 		{
 			StopRagdoll();
 			bInRagdollRecovery = false;
-			Mesh->SetSimulatePhysics(false);
-			Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			GetMesh()->SetSimulatePhysics(false);
+			GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
 		SetActorHiddenInGame(true);
 		SetActorEnableCollision(false);
@@ -1140,7 +1140,7 @@ void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
 {
 	if (GibClass != NULL)
 	{
-		FTransform SpawnPos = Mesh->GetSocketTransform(BoneName);
+		FTransform SpawnPos = GetMesh()->GetSocketTransform(BoneName);
 		FActorSpawnParameters Params;
 		Params.bNoCollisionFail = true;
 		Params.Instigator = this;
@@ -1153,7 +1153,7 @@ void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
 			Gib->SetActorScale3D(Gib->GetActorScale3D() * SpawnPos.GetScale3D());
 			if (Gib->Mesh != NULL)
 			{
-				FVector Vel = (Mesh == RootComponent) ? Mesh->GetComponentVelocity() : CharacterMovement->Velocity;
+				FVector Vel = (Mesh == RootComponent) ? GetMesh()->GetComponentVelocity() : CharacterMovement->Velocity;
 				Vel += (Gib->GetActorLocation() - GetActorLocation()).SafeNormal() * Vel.Size() * 0.25f;
 				Gib->Mesh->SetPhysicsLinearVelocity(Vel, false);
 			}
@@ -1188,7 +1188,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 				PlayFeignDeath();
 			}
 		}
-		else if (Mesh->Bodies.Num() == 0 || Mesh->Bodies[0]->PhysicsBlendWeight <= 0.0f)
+		else if (GetMesh()->Bodies.Num() == 0 || GetMesh()->Bodies[0]->PhysicsBlendWeight <= 0.0f)
 		{
 			bFeigningDeath = true;
 			FeignDeathRecoverStartTime = GetWorld()->TimeSeconds + 1.0f;
@@ -1514,7 +1514,7 @@ void AUTCharacter::FiringInfoReplicated()
 void AUTCharacter::FiringInfoUpdated()
 {
 	// Kill any montages that might be overriding the crouch anim
-	UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance != NULL)
 	{
 		AnimInstance->Montage_Stop(0.2f);
@@ -2360,7 +2360,7 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 	// cause falling damage on Z axis collisions
 	else if (!bInRagdollRecovery && FMath::Abs<float>(Hit.Normal.Z) > 0.5f)
 	{
-		FVector MeshVelocity = Mesh->GetComponentVelocity();
+		FVector MeshVelocity = GetMesh()->GetComponentVelocity();
 		// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
 		// besides, faceplanting ought to hurt more than landing on your feet, right? :)
 		MeshVelocity.Z *= 2.0f;
@@ -2371,11 +2371,11 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 			TakeFallingDamage(Hit, CharacterMovement->Velocity.Z);
 			CharacterMovement->Velocity = SavedVelocity;
 			// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
-			for (int32 i = 0; i < Mesh->Bodies.Num(); i++)
+			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
 			{
-				FVector Vel = Mesh->Bodies[i]->GetUnrealWorldVelocity();
+				FVector Vel = GetMesh()->Bodies[i]->GetUnrealWorldVelocity();
 				Vel.Z = 0.0f;
-				Mesh->Bodies[i]->SetLinearVelocity(Vel, false);
+				GetMesh()->Bodies[i]->SetLinearVelocity(Vel, false);
 			}
 		}
 	}
@@ -2523,16 +2523,16 @@ void AUTCharacter::UpdateSkin()
 {
 	if (ReplicatedBodyMaterial != NULL)
 	{
-		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
 		{
-			Mesh->SetMaterial(i, ReplicatedBodyMaterial);
+			GetMesh()->SetMaterial(i, ReplicatedBodyMaterial);
 		}
 	}
 	else
 	{
-		for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
 		{
-			Mesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->GetMaterial(i));
+			GetMesh()->SetMaterial(i, GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->GetMaterial(i));
 		}
 	}
 	if (Weapon != NULL)
@@ -2578,7 +2578,7 @@ void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (Mesh->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !Mesh->bRecentlyRendered && !IsLocallyControlled() 
+	if (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !GetMesh()->bRecentlyRendered && !IsLocallyControlled() 
 		&& CharacterMovement->MovementMode == MOVE_Walking && !bFeigningDeath && !IsDead())
 	{
 		// TODO: currently using an arbitrary made up interval and scale factor
@@ -2630,14 +2630,14 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (!bFeigningDeath && bInRagdollRecovery)
 	{
 		// TODO: anim check?
-		if (Mesh->Bodies.Num() == 0)
+		if (GetMesh()->Bodies.Num() == 0)
 		{
 			bInRagdollRecovery = false;
 		}
 		else
 		{
-			Mesh->SetAllBodiesPhysicsBlendWeight(FMath::Max(0.0f, Mesh->Bodies[0]->PhysicsBlendWeight - (1.0f / FMath::Max(0.01f, RagdollBlendOutTime)) * DeltaTime));
-			if (Mesh->Bodies[0]->PhysicsBlendWeight == 0.0f)
+			GetMesh()->SetAllBodiesPhysicsBlendWeight(FMath::Max(0.0f, GetMesh()->Bodies[0]->PhysicsBlendWeight - (1.0f / FMath::Max(0.01f, RagdollBlendOutTime)) * DeltaTime));
+			if (GetMesh()->Bodies[0]->PhysicsBlendWeight == 0.0f)
 			{
 				bInRagdollRecovery = false;
 			}
@@ -2645,12 +2645,12 @@ void AUTCharacter::Tick(float DeltaTime)
 		if (!bInRagdollRecovery)
 		{
 			// disable physics and make sure mesh is in the proper position
-			Mesh->SetSimulatePhysics(false);
-			Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			Mesh->AttachTo(CapsuleComponent, NAME_None, EAttachLocation::SnapToTarget);
-			Mesh->SetRelativeLocation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeLocation);
-			Mesh->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeRotation);
-			Mesh->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->Mesh->RelativeScale3D);
+			GetMesh()->SetSimulatePhysics(false);
+			GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			GetMesh()->AttachTo(CapsuleComponent, NAME_None, EAttachLocation::SnapToTarget);
+			GetMesh()->SetRelativeLocation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeLocation);
+			GetMesh()->SetRelativeRotation(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation);
+			GetMesh()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D);
 
 			DisallowWeaponFiring(GetClass()->GetDefaultObject<AUTCharacter>()->bDisallowWeaponFiring);
 		}
@@ -3258,7 +3258,7 @@ void AUTCharacter::OnRepEmoteSpeed()
 {
 	if (CurrentEmote)
 	{
-		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
 			AnimInstance->Montage_SetPlayRate(CurrentEmote, EmoteSpeed);
@@ -3282,8 +3282,8 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 
 	if (EmoteAnimations.IsValidIndex(EmoteIndex) && EmoteAnimations[EmoteIndex] != nullptr && !bFeigningDeath)
 	{
-		Mesh->bPauseAnims = false;
-		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+		GetMesh()->bPauseAnims = false;
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
 			if (AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], EmoteSpeed))
@@ -3524,10 +3524,10 @@ void AUTCharacter::OnRep_ReplicatedMovement()
 	else
 	{
 		Super::OnRep_ReplicatedMovement();
-		if (bFeigningDeath && Mesh->IsSimulatingPhysics())
+		if (bFeigningDeath && GetMesh()->IsSimulatingPhysics())
 		{
 			// making the velocity apply to all bodies is more likely to be correct
-			Mesh->SetAllPhysicsLinearVelocity(Mesh->GetBodyInstance()->GetUnrealWorldVelocity());
+			GetMesh()->SetAllPhysicsLinearVelocity(GetMesh()->GetBodyInstance()->GetUnrealWorldVelocity());
 		}
 	}
 }

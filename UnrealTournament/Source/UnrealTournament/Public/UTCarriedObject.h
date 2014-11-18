@@ -163,10 +163,10 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = GameObject)
-	TSubobjectPtr<UCapsuleComponent> Collision;
+	UCapsuleComponent* Collision;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = GameObject)
-	TSubobjectPtr<class UProjectileMovementComponent> MovementComponent;
+	class UProjectileMovementComponent* MovementComponent;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 

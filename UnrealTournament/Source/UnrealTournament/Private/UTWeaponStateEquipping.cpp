@@ -21,7 +21,7 @@ void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateUnequipping::PutDownFinished, UnequipTime);
 		if (GetOuterAUTWeapon()->PutDownAnim != NULL)
 		{
-			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->Mesh->GetAnimInstance();
+			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
 			if (AnimInstance != NULL)
 			{
 				AnimInstance->Montage_Play(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnim->SequenceLength / UnequipTime);
@@ -53,7 +53,7 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateEquipping::BringUpFinished, EquipTime);
 		if (GetOuterAUTWeapon()->BringUpAnim != NULL)
 		{
-			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->Mesh->GetAnimInstance();
+			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
 			if (AnimInstance != NULL)
 			{
 				AnimInstance->Montage_Play(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnim->SequenceLength / EquipTime);

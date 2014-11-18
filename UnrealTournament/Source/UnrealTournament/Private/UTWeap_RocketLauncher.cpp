@@ -60,7 +60,7 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 	//Play the load animation. Speed of anim based on GetLoadTime()
 	if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL)
 	{
-		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets) && LoadingAnimation[NumLoadedRockets] != NULL)
 		{
 			AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets], LoadingAnimation[NumLoadedRockets]->SequenceLength / GetLoadTime());
@@ -295,7 +295,7 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 		// try and play a firing animation if specified
 		if (FiringAnimation.IsValidIndex(NumLoadedRockets - 1) && FiringAnimation[NumLoadedRockets - 1] != NULL)
 		{
-			UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 			if (AnimInstance != NULL)
 			{
 				AnimInstance->Montage_Play(FiringAnimation[NumLoadedRockets - 1], 1.f);

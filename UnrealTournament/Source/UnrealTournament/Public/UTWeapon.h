@@ -188,7 +188,9 @@ public:
 
 	/** first person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	TSubobjectPtr<USkeletalMeshComponent> Mesh;
+	USkeletalMeshComponent* Mesh;
+
+	USkeletalMeshComponent* GetMesh() const { return Mesh; }
 
 	/** causes weapons fire to originate from the center of the player's view when in first person mode (and human controlled)
 	 * in other cases the fire start point defaults to the weapon's world position
@@ -671,15 +673,15 @@ protected:
 	uint8 CurrentFireMode;
 
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
-	TSubobjectPtr<UUTWeaponState> ActiveState;
+	UUTWeaponState* ActiveState;
 
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
-	TSubobjectPtr<class UUTWeaponStateEquipping> EquippingState;
+	class UUTWeaponStateEquipping* EquippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly,  Category = "States")
-	TSubobjectPtr<UUTWeaponState> UnequippingState;
+	UUTWeaponState* UnequippingState;
 
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
-	TSubobjectPtr<UUTWeaponState> InactiveState;
+	UUTWeaponState* InactiveState;
 
 	void GotoEquippingState(float OverflowTime);
 

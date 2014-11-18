@@ -23,7 +23,7 @@ void UUTAIAction_TacticalMove::PickDestination()
 {
 	bForcedDirection = false;
 
-	if ( GetCharacter() != NULL && GetCharacter()->CharacterMovement->GetPhysicsVolume() != NULL && GetCharacter()->CharacterMovement->GetPhysicsVolume()->bWaterVolume &&
+	if ( GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->GetPhysicsVolume() != NULL && GetCharacter()->GetCharacterMovement()->GetPhysicsVolume()->bWaterVolume &&
 		/*!Pawn.bCanSwim && */ GetPawn()->GetNavAgentProperties()->bCanFly )
 	{
 		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + 75.0f * (FMath::VRand() + FVector(0.0f, 0.0f, 1.0f)) + FVector(0.0f, 0.0f, 100.0f)));
@@ -33,7 +33,7 @@ void UUTAIAction_TacticalMove::PickDestination()
 		FVector EnemyDir = (GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true) - GetPawn()->GetActorLocation()).SafeNormal();
 		FVector Y = (EnemyDir ^ FVector(0.0f, 0.0f, 1.0f));
 
-		if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
+		if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 		{
 			Y.Z = 0;
 			EnemyDir.Z = 0;
@@ -104,7 +104,7 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 		}
 		else
 		{
-			if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
+			if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 			{
 				Extent.X = FMath::Min<float>(30.0f, 0.5f * GetPawn()->GetSimpleCollisionRadius());
 				Extent.Y = Extent.X;
@@ -131,9 +131,9 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 				//bPlannedJump = true;
 				//DodgeLandZ = Pawn.Location.Z;
 				//bInDodgeMove = true;
-				GetCharacter()->CharacterMovement->Velocity = (MinDest - GetPawn()->GetActorLocation()).ClampMaxSize2D(GetCharacter()->CharacterMovement->GetMaxSpeed());
-				GetCharacter()->CharacterMovement->Velocity.Z = 0.0f;
-				GetCharacter()->CharacterMovement->DoJump(false);
+				GetCharacter()->GetCharacterMovement()->Velocity = (MinDest - GetPawn()->GetActorLocation()).ClampMaxSize2D(GetCharacter()->GetCharacterMovement()->GetMaxSpeed());
+				GetCharacter()->GetCharacterMovement()->Velocity.Z = 0.0f;
+				GetCharacter()->GetCharacterMovement()->DoJump(false);
 				if ( (GetOuterAUTBot()->Personality.Jumpiness > 0.0f && FMath::FRand() < GetOuterAUTBot()->Personality.Jumpiness * 0.5f) ||
 					 GetOuterAUTBot()->Skill + 2.0f * GetOuterAUTBot()->Personality.Jumpiness > 3.0f + 3.0f * FMath::FRand() )
 				{
@@ -265,7 +265,7 @@ bool UUTAIAction_TacticalMove::NotifyMoveBlocked(const FHitResult& Impact)
 		}
 		return false;
 	}
-	else */if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling)
+	else */if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 	{
 		return false;
 	}

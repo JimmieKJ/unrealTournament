@@ -27,7 +27,7 @@ void UUTWeaponStateFiringSpinUp::BeginState(const UUTWeaponState* PrevState)
 	}
 	if (WarmupAnim != NULL)
 	{
-		UAnimInstance* AnimInstance = GetOuterAUTWeapon()->Mesh->GetAnimInstance();
+		UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
 			AnimInstance->Montage_Play(WarmupAnim, 1.f);
@@ -88,7 +88,7 @@ void UUTWeaponStateFiringSpinUp::RefireCheckTimer()
 		{
 			if (CooldownAnim != NULL)
 			{
-				UAnimInstance* AnimInstance = GetOuterAUTWeapon()->Mesh->GetAnimInstance();
+				UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
 				if (AnimInstance != NULL)
 				{
 					AnimInstance->Montage_Play(CooldownAnim, 1.f / (WarmupTimeUsed / TotalWarmupTime));
@@ -104,7 +104,7 @@ void UUTWeaponStateFiringSpinUp::RefireCheckTimer()
 		IncrementShotTimer();
 		if (CurrentShot == WarmupShotIntervals.Num() && FiringLoopAnim != NULL)
 		{
-			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->Mesh->GetAnimInstance();
+			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
 			if (AnimInstance != NULL)
 			{
 				AnimInstance->Montage_Play(FiringLoopAnim, 1.f);

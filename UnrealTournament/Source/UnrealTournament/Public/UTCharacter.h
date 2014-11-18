@@ -258,11 +258,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	/** Pawn mesh: 1st person view (arms; seen only by self) */
 	UPROPERTY(VisibleDefaultsOnly, Category=Mesh)
-	TSubobjectPtr<class USkeletalMeshComponent> FirstPersonMesh;
+	class USkeletalMeshComponent* FirstPersonMesh;
 
 	/** First person camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
-	TSubobjectPtr<class UCameraComponent> CharacterCameraComponent;
+	class UCameraComponent* CharacterCameraComponent;
 
 	/** Cached UTCharacterMovement casted CharacterMovement */
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly)
@@ -622,7 +622,7 @@ protected:
 public:
 	inline bool IsRagdoll() const
 	{
-		return bFeigningDeath || bInRagdollRecovery || (RootComponent == Mesh && Mesh->IsSimulatingPhysics());
+		return bFeigningDeath || bInRagdollRecovery || (RootComponent == Mesh && GetMesh()->IsSimulatingPhysics());
 	}
 
 	virtual void BeginPlay() override;

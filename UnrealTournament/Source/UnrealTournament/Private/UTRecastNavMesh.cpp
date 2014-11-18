@@ -257,7 +257,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, float MaxJumpZ, float* RequiredJumpZ, float* MaxFallSpeed) const
 {
 	ACharacter* Char = Cast<ACharacter>(Scout);
-	if (Char == NULL || Char->CharacterMovement == NULL || Char->CapsuleComponent == NULL)
+	if (Char == NULL || Char->GetCharacterMovement() == NULL || Char->GetCapsuleComponent() == NULL)
 	{
 		// TODO: what about jumping vehicles?
 		return false;
@@ -269,7 +269,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 	}
 	else
 	{
-		FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(Char->CapsuleComponent->GetUnscaledCapsuleRadius(), Char->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+		FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(Char->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), Char->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 		float GravityZ = GetWorld()->GetDefaultGravityZ(); // FIXME: query physics volumes (always, or just at start?)
 
 		if (StartPoly == INVALID_NAVNODEREF)
@@ -315,7 +315,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 			}
 		}
 
-		return JumpTraceTest(Start, End, StartPoly, EndPoly, ScoutShape, Char->CharacterMovement->MaxWalkSpeed, GravityZ, (DefaultEffectiveJumpZ != 0.0f) ? DefaultEffectiveJumpZ : (Char->CharacterMovement->JumpZVelocity * 0.95f), MaxJumpZ, RequiredJumpZ, MaxFallSpeed);
+		return JumpTraceTest(Start, End, StartPoly, EndPoly, ScoutShape, Char->GetCharacterMovement()->MaxWalkSpeed, GravityZ, (DefaultEffectiveJumpZ != 0.0f) ? DefaultEffectiveJumpZ : (Char->GetCharacterMovement()->JumpZVelocity * 0.95f), MaxJumpZ, RequiredJumpZ, MaxFallSpeed);
 	}
 }
 
@@ -376,7 +376,7 @@ FCapsuleSize AUTRecastNavMesh::GetHumanPathSize() const
 {
 	if (ScoutClass != NULL)
 	{
-		FCapsuleSize ActualSize(FMath::TruncToInt(ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleRadius()), FMath::TruncToInt(ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight()));
+		FCapsuleSize ActualSize(FMath::TruncToInt(ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), FMath::TruncToInt(ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
 
 		FCapsuleSize SteppedSize(0, 0);
 		for (int32 i = 0; i < SizeSteps.Num(); i++)
@@ -774,7 +774,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 {
 	if (SpecialLinkBuildNodeIndex >= 0)
 	{
-		if (ScoutClass == NULL || ScoutClass.GetDefaultObject()->CharacterMovement == NULL)
+		if (ScoutClass == NULL || ScoutClass.GetDefaultObject()->GetCharacterMovement() == NULL)
 		{
 			// can't build if no scout to figure out jumps
 			SpecialLinkBuildNodeIndex = INDEX_NONE;
@@ -787,12 +787,12 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 			SpawnParams.bNoCollisionFail = true;
 			ACharacter* DefaultScout = ScoutClass.GetDefaultObject();
 			float BaseJumpZ = DefaultEffectiveJumpZ;
-			if (BaseJumpZ == 0.0 && DefaultScout->CharacterMovement != NULL)
+			if (BaseJumpZ == 0.0 && DefaultScout->GetCharacterMovement() != NULL)
 			{
-				BaseJumpZ = DefaultScout->CharacterMovement->JumpZVelocity * 0.95; // slightly less so we can be more confident in the jumps
+				BaseJumpZ = DefaultScout->GetCharacterMovement()->JumpZVelocity * 0.95; // slightly less so we can be more confident in the jumps
 			}
 
-			float MoveSpeed = ScoutClass.GetDefaultObject()->CharacterMovement->MaxWalkSpeed;
+			float MoveSpeed = ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxWalkSpeed;
 			FVector HeightAdjust(0.0f, 0.0f, AgentHeight * 0.5f);
 
 			FCapsuleSize PathSize = GetHumanPathSize();
@@ -1588,7 +1588,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				// TODO: get movement speed for non-characters somehow
 				if (Cast<ACharacter>(Asker) != NULL)
 				{
-					MaxDetourDist = FMath::Max<float>(MaxDetourDist, ((ACharacter*)Asker)->CharacterMovement->GetMaxSpeed() * 2.0f);
+					MaxDetourDist = FMath::Max<float>(MaxDetourDist, ((ACharacter*)Asker)->GetCharacterMovement()->GetMaxSpeed() * 2.0f);
 				}
 				AActor* BestDetour = NULL;
 				float BestDetourWeight = 0.0f;

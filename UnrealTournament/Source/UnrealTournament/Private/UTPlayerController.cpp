@@ -1817,7 +1817,7 @@ void AUTPlayerController::SpectateKiller()
 			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
 			if (UTChar != nullptr && UTChar->PlayerState == UTPlayerState->LastKillerPlayerState)
 			{
-				ServerViewPlaceholderAtLocation(UTChar->GetActorLocation() + FVector(0, 0, UTChar->CapsuleComponent->GetUnscaledCapsuleHalfHeight()));
+				ServerViewPlaceholderAtLocation(UTChar->GetActorLocation() + FVector(0, 0, UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
 			}
 		}
 	}

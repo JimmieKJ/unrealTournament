@@ -1166,8 +1166,8 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 			if ( OtherCharacter && OtherCharacter->PlayerState )
 			{
-				if ( FMath::Abs(StartLoc.Z - OtherCharacter->GetActorLocation().Z) < P->CapsuleComponent->GetScaledCapsuleHalfHeight() + OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()
-					&& (StartLoc - OtherCharacter->GetActorLocation()).Size2D() < P->CapsuleComponent->GetScaledCapsuleRadius() + OtherCharacter->CapsuleComponent->GetScaledCapsuleRadius() )
+				if (FMath::Abs(StartLoc.Z - OtherCharacter->GetActorLocation().Z) < P->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + OtherCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()
+					&& (StartLoc - OtherCharacter->GetActorLocation()).Size2D() < P->GetCapsuleComponent()->GetScaledCapsuleRadius() + OtherCharacter->GetCapsuleComponent()->GetScaledCapsuleRadius())
 				{
 					// overlapping - would telefrag
 					return -10.f;
@@ -1179,7 +1179,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 				if (((NextDist < 8000.0f) || bTwoPlayerGame) && !UTGameState->OnSameTeam(Player, OtherController))
 				{
-					if (!GetWorld()->LineTraceTest(StartLoc, OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->CapsuleComponent->GetScaledCapsuleHalfHeight()), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)))
+					if (!GetWorld()->LineTraceTest(StartLoc, OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)))
 					{
 						// Avoid the last person that killed me
 						if (bIsLastKiller)

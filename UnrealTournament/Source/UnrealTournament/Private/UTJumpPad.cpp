@@ -121,9 +121,9 @@ FVector AUTJumpPad::CalculateJumpVelocity(AActor* JumpActor)
 
 	// Scale the velocity if Character has gravity scaled
 	ACharacter* Char = Cast<ACharacter>(JumpActor);
-	if (Char != NULL && Char->CharacterMovement != NULL && Char->CharacterMovement->GravityScale != 1.0f)
+	if (Char != NULL && Char->GetCharacterMovement() != NULL && Char->GetCharacterMovement()->GravityScale != 1.0f)
 	{
-		Velocity *= FMath::Sqrt(Char->CharacterMovement->GravityScale);
+		Velocity *= FMath::Sqrt(Char->GetCharacterMovement()->GravityScale);
 	}
 	return Velocity;
 }
@@ -152,13 +152,13 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 		}
 
 		// if we support air control, look for additional jump targets that could be reached by air controlling against the jump pad's standard velocity
-		if (NavData->ScoutClass != NULL && NavData->ScoutClass.GetDefaultObject()->CharacterMovement->AirControl > 0.0f)
+		if (NavData->ScoutClass != NULL && NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->AirControl > 0.0f)
 		{
 			// intentionally place start loc high up to avoid clipping the edges of any irrelevant geometry
-			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight() * 3.0f;
+			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 3.0f;
 
-			const float AirControlPct = NavData->ScoutClass.GetDefaultObject()->CharacterMovement->AirControl;
-			const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(NavData->ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleRadius(), NavData->ScoutClass.GetDefaultObject()->CapsuleComponent->GetUnscaledCapsuleHalfHeight());
+			const float AirControlPct = NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->AirControl;
+			const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 			const FVector JumpVel = CalculateJumpVelocity(this);
 			const float XYSpeed = JumpVel.Size2D();
 			const float JumpZ = JumpVel.Z;
@@ -227,9 +227,9 @@ void AUTJumpPad::CheckForErrors()
 		GameClass = LoadClass<AGameMode>(NULL, *GameClassPath, NULL, 0, NULL);
 	}
 	const ACharacter* DefaultChar = (GameClass != NULL) ? Cast<ACharacter>(GameClass.GetDefaultObject()->DefaultPawnClass.GetDefaultObject()) : GetDefault<AUTCharacter>();
-	if (DefaultChar != NULL && DefaultChar->CharacterMovement != NULL)
+	if (DefaultChar != NULL && DefaultChar->GetCharacterMovement() != NULL)
 	{
-		JumpVelocity *= FMath::Sqrt(DefaultChar->CharacterMovement->GravityScale);
+		JumpVelocity *= FMath::Sqrt(DefaultChar->GetCharacterMovement()->GravityScale);
 	}
 	// check if velocity is faster than physics will allow
 	APhysicsVolume* PhysVolume = (RootComponent != NULL) ? RootComponent->GetPhysicsVolume() : GetWorld()->GetDefaultPhysicsVolume();

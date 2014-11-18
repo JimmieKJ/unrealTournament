@@ -325,7 +325,7 @@ public:
 		SetMoveTarget(NewMoveTarget, NewMovePoints);
 		if (GetCharacter() != NULL)
 		{
-			MoveTimer = 1.0f + (NewMoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
+			MoveTimer = 1.0f + (NewMoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed;
 		}
 	}
 	void SetAdjustLoc(const FVector& NewAdjustLoc)
@@ -659,7 +659,7 @@ public:
 	/** return if bot is stopped and isn't planning on moving, used for some decisions and for certain skill/accuracy checks */
 	bool IsStopped() const
 	{
-		return !MoveTarget.IsValid() && GetPawn() != NULL && GetPawn()->GetVelocity().IsZero() && (GetCharacter() == NULL || GetCharacter()->CharacterMovement->GetCurrentAcceleration().IsZero());
+		return !MoveTarget.IsValid() && GetPawn() != NULL && GetPawn()->GetVelocity().IsZero() && (GetCharacter() == NULL || GetCharacter()->GetCharacterMovement()->GetCurrentAcceleration().IsZero());
 	}
 
 	/** return if bot is currently charging (moving towards in an attack pose) its current target */

@@ -9,9 +9,14 @@ class AUTCTFFlag : public AUTCarriedObject
 {
 	GENERATED_UCLASS_BODY()
 
-	// The mesh for hte flag
+	// The mesh for the flag
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = GameObject)
-	TSubobjectPtr<USkeletalMeshComponent> Mesh;
+	USkeletalMeshComponent* Mesh;
+
+	USkeletalMeshComponent* GetMesh() const
+	{
+		return Mesh;
+	}
 
 	virtual bool CanBePickedUpBy(AUTCharacter* Character);
 	virtual void Destroyed() override;

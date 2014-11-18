@@ -35,12 +35,12 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 
 float AUTWeap_Sniper::GetHeadshotScale() const
 {
-	if ( GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->CharacterMovement->MaxWalkSpeedCrouched + 1.0f &&
-		(GetUTOwner()->bIsCrouched || GetUTOwner()->CharacterMovement == NULL || GetUTOwner()->CharacterMovement->GetCurrentAcceleration().Size() < GetUTOwner()->CharacterMovement->MaxWalkSpeedCrouched + 1.0f) )
+	if ( GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->GetCharacterMovement()->MaxWalkSpeedCrouched + 1.0f &&
+		(GetUTOwner()->bIsCrouched || GetUTOwner()->GetCharacterMovement() == NULL || GetUTOwner()->GetCharacterMovement()->GetCurrentAcceleration().Size() < GetUTOwner()->GetCharacterMovement()->MaxWalkSpeedCrouched + 1.0f) )
 	{
 		return SlowHeadshotScale;
 	}
-	else if (GetUTOwner()->CharacterMovement->GetCurrentAcceleration().IsZero())
+	else if (GetUTOwner()->GetCharacterMovement()->GetCurrentAcceleration().IsZero())
 	{
 		return AimedHeadshotScale;
 	}
@@ -81,7 +81,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(GetUTOwner()->Controller, SpawnLocation, FireDir, 0.98f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
 		if (AltTarget != NULL && AltTarget->IsHeadShot(SpawnLocation, FireDir, GetHeadshotScale(), false, PredictionTime))
 		{
-			Hit = FHitResult(AltTarget, AltTarget->CapsuleComponent, SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->CapsuleComponent->GetUnscaledCapsuleRadius()), -FireDir);
+			Hit = FHitResult(AltTarget, AltTarget->GetCapsuleComponent(), SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), -FireDir);
 		}
 	}
 

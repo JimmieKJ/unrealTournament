@@ -185,7 +185,7 @@ float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float Path
 		if (LifeSpan > 0.0)
 		{
 			ACharacter* C = Cast<ACharacter>(Asker);
-			return (C == NULL || PathDistance / C->CharacterMovement->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
+			return (C == NULL || PathDistance / C->GetCharacterMovement()->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
 		}
 		else
 		{
@@ -206,7 +206,7 @@ float AUTDroppedPickup::DetourWeight_Implementation(APawn* Asker, float PathDist
 		if (LifeSpan > 0.0)
 		{
 			ACharacter* C = Cast<ACharacter>(Asker);
-			return (C == NULL || PathDistance / C->CharacterMovement->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->DetourWeight(Asker, this, PathDistance);
+			return (C == NULL || PathDistance / C->GetCharacterMovement()->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->DetourWeight(Asker, this, PathDistance);
 		}
 		else
 		{

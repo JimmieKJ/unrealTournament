@@ -15,15 +15,15 @@ class AUTJumpPad : public AActor, public IUTPathBuilderInterface
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpPad)
-	TSubobjectPtr<USceneComponent> SceneRoot;
+	USceneComponent* SceneRoot;
 
 	/** Static mesh for the Jump Pad */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpPad)
-	TSubobjectPtr<class UStaticMeshComponent> Mesh;
+	class UStaticMeshComponent* Mesh;
 
 	/** The Player will Jump when overlapping this box */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = JumpPad)
-	TSubobjectPtr<class UBoxComponent> TriggerBox;
+	class UBoxComponent* TriggerBox;
 
 	/** Sound to play when we jump*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpPad)

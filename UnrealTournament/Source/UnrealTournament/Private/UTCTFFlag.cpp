@@ -13,11 +13,11 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> FlagMesh (TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"));
 
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
-	Mesh->SetSkeletalMesh(FlagMesh.Object);
-	Mesh->AlwaysLoadOnClient = true;
-	Mesh->AlwaysLoadOnServer = true;
-	Mesh->AttachParent = RootComponent;
-	Mesh->SetAbsolute(false, false, true);
+	GetMesh()->SetSkeletalMesh(FlagMesh.Object);
+	GetMesh()->AlwaysLoadOnClient = true;
+	GetMesh()->AlwaysLoadOnServer = true;
+	GetMesh()->AttachParent = RootComponent;
+	GetMesh()->SetAbsolute(false, false, true);
 
 	MovementComponent->ProjectileGravityScale=1.3f;
 	MessageClass = UUTCTFGameMessage::StaticClass();
@@ -29,8 +29,8 @@ void AUTCTFFlag::OnConstruction(const FTransform& Transform)
 	Super::OnConstruction(Transform);
 
 	// backwards compatibility; force values on existing instances
-	Mesh->SetAbsolute(false, false, true);
-	Mesh->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+	GetMesh()->SetAbsolute(false, false, true);
+	GetMesh()->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
 
 	if (Role == ROLE_Authority)
 	{
@@ -66,8 +66,8 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 			if (CarriedFlag->GetTeamNum() != GetTeamNum())
 			{
 				CarriedFlag->Score(FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);
-				CarriedFlag->Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
-				CarriedFlag->Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
+				CarriedFlag->GetMesh()->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
+				CarriedFlag->GetMesh()->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 				return false;
 			}
 		}
@@ -86,7 +86,7 @@ void AUTCTFFlag::OnHolderChanged()
 	Super::OnHolderChanged();
 
 	APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
-	Mesh->SetHiddenInGame(PC != NULL && Holder != NULL && PC->PlayerState == Holder);
+	GetMesh()->SetHiddenInGame(PC != NULL && Holder != NULL && PC->PlayerState == Holder);
 }
 
 void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
@@ -94,9 +94,9 @@ void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 	Super::DetachFrom(AttachToMesh);
 	if (AttachToMesh != NULL && Mesh != NULL)
 	{
-		Mesh->SetAbsolute(false, false, true);
-		Mesh->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
-		Mesh->SetWorldScale3D(FVector(1.0f,1.0f,1.0f));
+		GetMesh()->SetAbsolute(false, false, true);
+		GetMesh()->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
+		GetMesh()->SetWorldScale3D(FVector(1.0f,1.0f,1.0f));
 	}
 }
 
@@ -125,8 +125,8 @@ void AUTCTFFlag::SendHomeWithNotify()
 
 void AUTCTFFlag::SendHome()
 {
-	Mesh->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
-	Mesh->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
+	GetMesh()->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
+	GetMesh()->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 	Super::SendHome();
 }
 

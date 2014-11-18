@@ -88,11 +88,11 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	/** Sphere collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
-	TSubobjectPtr<USphereComponent> CollisionComp;
+	USphereComponent* CollisionComp;
 
 	/** Projectile movement component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Projectile)
-	TSubobjectPtr<class UProjectileMovementComponent> ProjectileMovement;
+	class UProjectileMovementComponent* ProjectileMovement;
 
 	/** additional Z axis speed added to projectile on spawn - NOTE: blueprint changes only work in defaults or construction script as value is applied to velocity on spawn */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Projectile)
@@ -293,7 +293,7 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	/** Overlap sphere for hitting pawns */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Projectile)
-	TSubobjectPtr<USphereComponent> PawnOverlapSphere;
+	USphereComponent* PawnOverlapSphere;
 
 	/** get time to target from current location */
 	virtual float GetTimeToLocation(const FVector& TargetLoc) const;

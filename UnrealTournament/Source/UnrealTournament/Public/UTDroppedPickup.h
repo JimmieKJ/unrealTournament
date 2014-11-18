@@ -33,9 +33,9 @@ public:
 		return InventoryType;
 	}
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	TSubobjectPtr<UCapsuleComponent> Collision;
+	UCapsuleComponent* Collision;
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	TSubobjectPtr<UUTProjectileMovementComponent> Movement;
+	UUTProjectileMovementComponent* Movement;
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

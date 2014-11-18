@@ -33,10 +33,10 @@ void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
 		if (P)
 		{
 			P->PlayWaterSound(EntrySound ? EntrySound : P->WaterEntrySound);
-			if (P->CharacterMovement)
+			if (P->GetCharacterMovement())
 			{
-				P->CharacterMovement->Velocity.Z *= PawnEntryVelZScaling;
-				P->CharacterMovement->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
+				P->GetCharacterMovement()->Velocity.Z *= PawnEntryVelZScaling;
+				P->GetCharacterMovement()->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
 			}
 		}
 		else if (EntrySound)
@@ -72,10 +72,10 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		if (P)
 		{
 			P->PlayWaterSound(EntrySound ? EntrySound : P->WaterEntrySound);
-			if (P->CharacterMovement)
+			if (P->GetCharacterMovement())
 			{
-				P->CharacterMovement->Velocity.Z *= PawnEntryVelZScaling;
-				P->CharacterMovement->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
+				P->GetCharacterMovement()->Velocity.Z *= PawnEntryVelZScaling;
+				P->GetCharacterMovement()->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
 			}
 		}
 		else if (EntrySound)

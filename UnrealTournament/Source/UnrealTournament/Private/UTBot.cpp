@@ -373,7 +373,7 @@ void AUTBot::Tick(float DeltaTime)
 			else
 			{
 				MoveTimer -= DeltaTime;
-				if (MoveTimer < 0.0f && (GetCharacter() == NULL || GetCharacter()->CharacterMovement == NULL || GetCharacter()->CharacterMovement->MovementMode != MOVE_Falling))
+				if (MoveTimer < 0.0f && (GetCharacter() == NULL || GetCharacter()->GetCharacterMovement() == NULL || GetCharacter()->GetCharacterMovement()->MovementMode != MOVE_Falling))
 				{
 					// timed out
 					ClearMoveTarget();
@@ -459,7 +459,7 @@ void AUTBot::Tick(float DeltaTime)
 						{
 							if (GetCharacter() != NULL)
 							{
-								if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
+								if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 								{
 									// failed - directly above or below target
 									ClearMoveTarget();
@@ -588,17 +588,17 @@ void AUTBot::Tick(float DeltaTime)
 				FVector TargetLoc = GetMovePoint();
 				if (GetCharacter() != NULL)
 				{
-					GetCharacter()->CharacterMovement->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP)) && (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
+					GetCharacter()->GetCharacterMovement()->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP)) && (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
 				}
-				if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && GetCharacter()->CharacterMovement->AirControl > 0.0f && GetCharacter()->CharacterMovement->MaxWalkSpeed > 0.0f)
+				if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && GetCharacter()->GetCharacterMovement()->AirControl > 0.0f && GetCharacter()->GetCharacterMovement()->MaxWalkSpeed > 0.0f)
 				{
 					// figure out desired 2D velocity and set air control to achieve that
 					FVector DesiredVel2D;
-					if (FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, GetCharacter()->CharacterMovement->Velocity.Z, GetCharacter()->CharacterMovement->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight()))
+					if (FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, GetCharacter()->GetCharacterMovement()->Velocity.Z, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight()))
 					{
-						FVector NewAccel = (DesiredVel2D - GetCharacter()->CharacterMovement->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->CharacterMovement->AirControl;
+						FVector NewAccel = (DesiredVel2D - GetCharacter()->GetCharacterMovement()->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->GetCharacterMovement()->AirControl;
 						NewAccel.Z = 0.0f;
-						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.SafeNormal() * (NewAccel.Size() / GetCharacter()->CharacterMovement->MaxWalkSpeed));
+						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.SafeNormal() * (NewAccel.Size() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed));
 					}
 					else
 					{
@@ -609,11 +609,11 @@ void AUTBot::Tick(float DeltaTime)
 				// do nothing if path says we need to wait
 				else if (CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(GetPawn()))
 				{
-					if (GetCharacter() != NULL && (GetCharacter()->CharacterMovement->MovementMode == MOVE_Flying || GetCharacter()->CharacterMovement->MovementMode == MOVE_Swimming))
+					if (GetCharacter() != NULL && (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Flying || GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming))
 					{
 						const FVector Dir = (TargetLoc - MyPawn->GetActorLocation()).SafeNormal();
 						MyPawn->GetMovementComponent()->AddInputVector(Dir);
-						if (Dir.Z > 0.25f && GetCharacter()->CharacterMovement->MovementMode == MOVE_Swimming && UTChar != NULL)
+						if (Dir.Z > 0.25f && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming && UTChar != NULL)
 						{
 							UTChar->UTCharacterMovement->PerformWaterJump();
 						}
@@ -769,10 +769,10 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 						bInstantHit = false;
 
 						ACharacter* EnemyChar = Cast<ACharacter>(GetTarget());
-						if (EnemyChar != NULL && EnemyChar->CharacterMovement->MovementMode == MOVE_Falling)
+						if (EnemyChar != NULL && EnemyChar->GetCharacterMovement()->MovementMode == MOVE_Falling)
 						{
 							// take gravity and landing into account
-							TrackedVelocity.Z = TrackedVelocity.Z + 0.5f * TravelTime * EnemyChar->CharacterMovement->GetGravityZ();
+							TrackedVelocity.Z = TrackedVelocity.Z + 0.5f * TravelTime * EnemyChar->GetCharacterMovement()->GetGravityZ();
 						}
 						// TODO: if target is walking on slope that needs to be taken into account
 						FocalPoint += TrackedVelocity * TravelTime;
@@ -845,7 +845,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 				if (DefaultProj != NULL && DefaultProj->ProjectileMovement != NULL && DefaultProj->ProjectileMovement->ProjectileGravityScale > 0.0f)
 				{
 					// TODO: calculate toss direction, set FocalPoint to toss dir
-					const float GravityZ = ((GetCharacter() != NULL) ? GetCharacter()->CharacterMovement->GetGravityZ() : GetWorld()->GetDefaultGravityZ()) * DefaultProj->ProjectileMovement->ProjectileGravityScale;
+					const float GravityZ = ((GetCharacter() != NULL) ? GetCharacter()->GetCharacterMovement()->GetGravityZ() : GetWorld()->GetDefaultGravityZ()) * DefaultProj->ProjectileMovement->ProjectileGravityScale;
 					const float ProjRadius = (DefaultProj->CollisionComp != NULL) ? DefaultProj->CollisionComp->GetCollisionShape().GetExtent().X : 0.0f;
 					const FVector StartLoc = GetPawn()->GetActorLocation() + (FocalPoint - GetPawn()->GetActorLocation()).Rotation().RotateVector(MyWeap->FireOffset);
 					float ProjSpeed = DefaultProj->ProjectileMovement->InitialSpeed;
@@ -936,7 +936,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					bool bClean = false; // so will fail first check unless shooting at feet
 
 					if ( MyWeap->bRecommendSplashDamage && EnemyChar != NULL && (Skill >= 4.0f + FMath::Max<float>(0.0f, Personality.Accuracy + Personality.Tactics) || bDefendMelee)
-						&& ( (EnemyChar->CharacterMovement->MovementMode == MOVE_Falling && (GetPawn()->GetActorLocation().Z + 180.0f >= FocalPoint.Z))
+						&& ( (EnemyChar->GetCharacterMovement()->MovementMode == MOVE_Falling && (GetPawn()->GetActorLocation().Z + 180.0f >= FocalPoint.Z))
 							|| (GetPawn()->GetActorLocation().Z + 40.0f >= FocalPoint.Z && (bDefendMelee || Skill > 6.5f * FMath::FRand() - 0.5f)) ) )
 					{
 						FHitResult Hit;
@@ -948,7 +948,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 						}
 						else
 						{
-							bClean = (EnemyChar->CharacterMovement->MovementMode == MOVE_Falling && !GetWorld()->LineTraceTest(FireStart, TargetLoc, Params, ResultParams));
+							bClean = (EnemyChar->GetCharacterMovement()->MovementMode == MOVE_Falling && !GetWorld()->LineTraceTest(FireStart, TargetLoc, Params, ResultParams));
 						}
 					}
 					bool bCheckedHead = false;
@@ -1115,17 +1115,17 @@ void AUTBot::NotifyWalkingOffLedge()
 	if (GetCharacter() != NULL && MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?
 	{
 		FVector Diff = GetMovePoint() - GetCharacter()->GetActorLocation();
-		float XYTime = Diff.Size2D() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
-		float DesiredJumpZ = Diff.Z / XYTime - 0.5f * GetCharacter()->CharacterMovement->GetGravityZ() * XYTime;
+		float XYTime = Diff.Size2D() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed;
+		float DesiredJumpZ = Diff.Z / XYTime - 0.5f * GetCharacter()->GetCharacterMovement()->GetGravityZ() * XYTime;
 		// TODO: if high skill also check if path is walkable from simple fall location to dest via navmesh raytrace to minimize in air time
 		if (DesiredJumpZ > 0.0f)
 		{
 			// try forward dodge instead if target is a little too far but is below and path is clear
 			bool bDodged = false;
-			if (DesiredJumpZ > GetCharacter()->CharacterMovement->JumpZVelocity && GetUTChar() != NULL && GetUTChar()->UTCharacterMovement->CanDodge())
+			if (DesiredJumpZ > GetCharacter()->GetCharacterMovement()->JumpZVelocity && GetUTChar() != NULL && GetUTChar()->UTCharacterMovement->CanDodge())
 			{
 				float DodgeXYTime = Diff.Size2D() / GetUTChar()->UTCharacterMovement->DodgeImpulseHorizontal;
-				float DodgeDesiredJumpZ = Diff.Z / DodgeXYTime - 0.5f * GetCharacter()->CharacterMovement->GetGravityZ() * DodgeXYTime;
+				float DodgeDesiredJumpZ = Diff.Z / DodgeXYTime - 0.5f * GetCharacter()->GetCharacterMovement()->GetGravityZ() * DodgeXYTime;
 				// TODO: need FRouteCacheItem function that conditionally Z adjusts
 				FCollisionQueryParams TraceParams(FName(TEXT("Dodge")), false, GetPawn());
 				if (DodgeDesiredJumpZ <= GetUTChar()->UTCharacterMovement->DodgeImpulseVertical && !GetWorld()->LineTraceTest(GetCharacter()->GetActorLocation(), GetMovePoint() + FVector(0.0f, 0.0f, 60.0f), ECC_Pawn, TraceParams))
@@ -1146,20 +1146,20 @@ void AUTBot::NotifyWalkingOffLedge()
 				// if need super jump and would hit head going straight there, don't move XY until we get some height first
 				if (Cast<UUTReachSpec_HighJump>(CurrentPath.Spec.Get()) != NULL && GetWorld()->LineTraceTest(GetPawn()->GetActorLocation(), GetMovePoint(), ECC_Pawn, FCollisionQueryParams(FName(TEXT("JumpCeiling")), false, GetPawn())))
 				{
-					GetCharacter()->CharacterMovement->Velocity = FVector::ZeroVector;
+					GetCharacter()->GetCharacterMovement()->Velocity = FVector::ZeroVector;
 				}
 				else
 				{
-					GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * (GetCharacter()->CharacterMovement->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f)));
+					GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
 				}
-				GetCharacter()->CharacterMovement->DoJump(false);
+				GetCharacter()->GetCharacterMovement()->DoJump(false);
 			}
 		}
 		else
 		{
 			// clamp initial XY speed if target is directly below
-			float ZTime = FMath::Sqrt(Diff.Z / (0.5f * GetCharacter()->CharacterMovement->GetGravityZ()));
-			GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * FMath::Min<float>(GetCharacter()->CharacterMovement->MaxWalkSpeed, Diff.Size2D() / ZTime);
+			float ZTime = FMath::Sqrt(Diff.Z / (0.5f * GetCharacter()->GetCharacterMovement()->GetGravityZ()));
+			GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * FMath::Min<float>(GetCharacter()->GetCharacterMovement()->MaxWalkSpeed, Diff.Size2D() / ZTime);
 		}
 	}
 }
@@ -1168,7 +1168,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 {
 	if ((CurrentAction == NULL || !CurrentAction->NotifyMoveBlocked(Impact)) && GetCharacter() != NULL)
 	{
-		if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking)
+		if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 		{
 			const FVector MovePoint = GetMovePoint();
 			const FVector MyLoc = GetCharacter()->GetActorLocation();
@@ -1181,8 +1181,8 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				{
 					// path requires adjustment or jump from the start
 					// check if jump would be valid
-					float JumpApexTime = GetCharacter()->CharacterMovement->JumpZVelocity / -GetCharacter()->CharacterMovement->GetGravityZ();
-					float JumpHeight = GetCharacter()->CharacterMovement->JumpZVelocity * JumpApexTime + 0.5 * GetCharacter()->CharacterMovement->GetGravityZ() * FMath::Square(JumpApexTime);
+					float JumpApexTime = GetCharacter()->GetCharacterMovement()->JumpZVelocity / -GetCharacter()->GetCharacterMovement()->GetGravityZ();
+					float JumpHeight = GetCharacter()->GetCharacterMovement()->JumpZVelocity * JumpApexTime + 0.5 * GetCharacter()->GetCharacterMovement()->GetGravityZ() * FMath::Square(JumpApexTime);
 					if (!GetCharacter()->CanJump() || GetWorld()->LineTraceTest(LastReachedMovePoint + FVector(0.0f, 0.0f, JumpHeight), MovePoint, ECC_Pawn, Params))
 					{
 						// test opposite hit direction, then sides of movement dir
@@ -1209,7 +1209,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 					FVector CurrentPointNoZ(MovePoint.X, MovePoint.Y, 0.0f);
 					FVector MyLocNoZ(MyLoc.X, MyLoc.Y, 0.0f);
 					FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLocNoZ, LastPointNoZ, CurrentPointNoZ);
-					if ((ClosestPoint - MyLoc).SizeSquared2D() > FMath::Square(GetCharacter()->CapsuleComponent->GetUnscaledCapsuleRadius()))
+					if ((ClosestPoint - MyLoc).SizeSquared2D() > FMath::Square(GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius()))
 					{
 						// set Z of closest point to match the XY that was previously determined
 						ClosestPoint.Z = (ClosestPoint - LastPointNoZ).Size() / (CurrentPointNoZ - LastPointNoZ).Size() * (MovePoint.Z - LastReachedMovePoint.Z) + LastReachedMovePoint.Z;
@@ -1219,7 +1219,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 						{
 							Side *= -1.0f;
 						}
-						FVector TestLocs[] = { ClosestPoint, ClosestPoint + (LastReachedMovePoint - ClosestPoint).SafeNormal() * GetCharacter()->CapsuleComponent->GetUnscaledCapsuleRadius() * 2.0f,
+						FVector TestLocs[] = { ClosestPoint, ClosestPoint + (LastReachedMovePoint - ClosestPoint).SafeNormal() * GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f,
 												MyLoc + Side * (ClosestPoint - MyLoc).Size() };
 						for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
 						{
@@ -1242,13 +1242,13 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 					// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
 					if (((Impact.Normal * -1.0f) | Diff.SafeNormal()) > 0.0f)
 					{
-						float XYTime = Diff.Size2D() / GetCharacter()->CharacterMovement->MaxWalkSpeed;
-						float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->CharacterMovement->GetGravityZ() * XYTime;
+						float XYTime = Diff.Size2D() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed;
+						float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->GetCharacterMovement()->GetGravityZ() * XYTime;
 						if (DesiredJumpZ > 0.0f)
 						{
-							GetCharacter()->CharacterMovement->Velocity = Diff.SafeNormal2D() * (GetCharacter()->CharacterMovement->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->CharacterMovement->JumpZVelocity, 1.0f)));
+							GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
 						}
-						GetCharacter()->CharacterMovement->DoJump(false);
+						GetCharacter()->GetCharacterMovement()->DoJump(false);
 					}
 				}
 				else if (Impact.Time <= 0.0f)
@@ -1257,7 +1257,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				}
 			}
 		}
-		else if (GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling)
+		else if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 		{
 			if (UTChar != NULL && UTChar->CanDodge())
 			{
@@ -1287,20 +1287,20 @@ void AUTBot::NotifyJumpApex()
 	if (UTChar != NULL && UTChar->CanJump())
 	{
 		UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(CurrentPath.Spec.Get());
-		if (JumpSpec != NULL && JumpSpec->RequiredJumpZ > UTChar->CharacterMovement->JumpZVelocity)
+		if (JumpSpec != NULL && JumpSpec->RequiredJumpZ > UTChar->GetCharacterMovement()->JumpZVelocity)
 		{
-			UTChar->CharacterMovement->DoJump(false);
+			UTChar->GetCharacterMovement()->DoJump(false);
 		}
 		// check if missed a jump that should have been doable with normal jumpZ
 		// if bot is skilled enough, let it use multi-jump to get there anyway
 		else if ((CurrentPath.ReachFlags & R_JUMP) && (Skill > 4.0f || Personality.MovementAbility >= 0.5f))
 		{
 			FVector Diff = GetMovePoint() - UTChar->GetActorLocation();
-			float XYTime = Diff.Size2D() / UTChar->CharacterMovement->MaxWalkSpeed;
-			float DesiredJumpZ = Diff.Z / XYTime - 0.5f * UTChar->CharacterMovement->GetGravityZ() * XYTime;
+			float XYTime = Diff.Size2D() / UTChar->GetCharacterMovement()->MaxWalkSpeed;
+			float DesiredJumpZ = Diff.Z / XYTime - 0.5f * UTChar->GetCharacterMovement()->GetGravityZ() * XYTime;
 			if (DesiredJumpZ > 0.0f)
 			{
-				UTChar->CharacterMovement->DoJump(false);
+				UTChar->GetCharacterMovement()->DoJump(false);
 			}
 		}
 		// maybe multi-jump for evasiveness
@@ -1310,7 +1310,7 @@ void AUTBot::NotifyJumpApex()
 			float MultiJumpZ = UTChar->UTCharacterMovement->bIsDodging ? UTChar->UTCharacterMovement->DodgeJumpImpulse : UTChar->UTCharacterMovement->MultiJumpImpulse;
 			if (!GetWorld()->LineTraceTest(UTChar->GetActorLocation(), UTChar->GetActorLocation() + FVector(0.0f, 0.0f, MultiJumpZ * 0.5f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("Jump")), false, UTChar)))
 			{
-				UTChar->CharacterMovement->DoJump(false);
+				UTChar->GetCharacterMovement()->DoJump(false);
 				// TODO: pick more appropriate landing spot for air control
 			}
 		}
@@ -1543,9 +1543,9 @@ bool AUTBot::CheckFutureSight(float DeltaTime)
 	FVector FutureLoc = GetPawn()->GetActorLocation();
 	if (GetCharacter() != NULL)
 	{
-		if (!GetCharacter()->CharacterMovement->GetCurrentAcceleration().IsZero())
+		if (!GetCharacter()->GetCharacterMovement()->GetCurrentAcceleration().IsZero())
 		{
-			FutureLoc += GetCharacter()->CharacterMovement->GetMaxSpeed() * DeltaTime * GetCharacter()->CharacterMovement->GetCurrentAcceleration().SafeNormal();
+			FutureLoc += GetCharacter()->GetCharacterMovement()->GetMaxSpeed() * DeltaTime * GetCharacter()->GetCharacterMovement()->GetCurrentAcceleration().SafeNormal();
 		}
 
 		if (GetCharacter()->GetMovementBase() != NULL)
@@ -1557,7 +1557,7 @@ bool AUTBot::CheckFutureSight(float DeltaTime)
 	FCollisionObjectQueryParams ResultParams(ECC_WorldStatic);
 	ResultParams.AddObjectTypesToQuery(ECC_WorldDynamic);
 	//make sure won't run into something
-	if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode != MOVE_Walking && GetWorld()->LineTraceTest(GetPawn()->GetActorLocation(), FutureLoc, Params, ResultParams))
+	if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode != MOVE_Walking && GetWorld()->LineTraceTest(GetPawn()->GetActorLocation(), FutureLoc, Params, ResultParams))
 	{
 		return false;
 	}
@@ -1744,7 +1744,7 @@ void AUTBot::ExecuteWhatToDoNext()
 
 	SwitchToBestWeapon();
 
-	if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling)
+	if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 	{
 		StartNewAction(WaitForLandingAction);
 	}
@@ -1967,7 +1967,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 		//if (enemyDist > MAXSTAKEOUTDIST)
 		//	Aggression += 0.5;
 		Squad->ModifyAggression(this, CurrentAggression);
-		if (GetCharacter() != NULL && GetCharacter()->CharacterMovement != NULL && (GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking || GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling))
+		if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement() != NULL && (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking || GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling))
 		{
 			float ZDiff = GetPawn()->GetActorLocation().Z - EnemyLoc.Z;
 			if (ZDiff > TacticalHeightAdvantage)
@@ -2400,7 +2400,7 @@ bool AUTBot::CanCombo()
 	{
 		return true;
 	}
-	else if (GetCharacter() != NULL && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && FMath::FRand() < 0.1 * Skill + 0.15 * Personality.ReactionTime + 0.15 * Personality.MovementAbility)
+	else if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && FMath::FRand() < 0.1 * Skill + 0.15 * Personality.ReactionTime + 0.15 * Personality.MovementAbility)
 	{
 		return false;
 	}
@@ -2447,7 +2447,7 @@ EBotMonitoringStatus AUTBot::ShouldTriggerCombo(const FVector& CurrentLoc, const
 					return BMS_Activate;
 				}
 			}
-			if (FMath::PointDistToLine(EnemyLoc, ProjVelocity.SafeNormal(), CurrentLoc) < DamageParams.OuterRadius + FMath::Max<float>((EnemyInfo.GetUTChar() != NULL) ? EnemyInfo.GetUTChar()->CharacterMovement->GetMaxSpeed() : 0.0f, EnemyInfo.GetPawn()->GetVelocity().Size()))
+			if (FMath::PointDistToLine(EnemyLoc, ProjVelocity.SafeNormal(), CurrentLoc) < DamageParams.OuterRadius + FMath::Max<float>((EnemyInfo.GetUTChar() != NULL) ? EnemyInfo.GetUTChar()->GetCharacterMovement()->GetMaxSpeed() : 0.0f, EnemyInfo.GetPawn()->GetVelocity().Size()))
 			{
 				bPastAllEnemies = false;
 			}
@@ -2745,7 +2745,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 	{
 		return false;
 	}
-	else  if (GetCharacter()->bIsCrouched || GetCharacter()->CharacterMovement->bWantsToCrouch)
+	else  if (GetCharacter()->bIsCrouched || GetCharacter()->GetCharacterMovement()->bWantsToCrouch)
 	{
 		return false;
 	}
@@ -2753,7 +2753,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 	{
 		DuckDir.Z = 0;
 		DuckDir *= 700.0f;
-		FCollisionShape PawnShape = GetCharacter()->CapsuleComponent->GetCollisionShape();
+		FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
 		FVector Start = GetPawn()->GetActorLocation();
 		Start.Z += 50.0f;
 		FCollisionQueryParams Params(FName(TEXT("TryEvasiveAction")), false, GetPawn());
@@ -2772,7 +2772,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 			{
 				Hit.Location = Start + DuckDir;
 			}
-			bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->CharacterMovement->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
+			bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
 			bSuccess = (bHit && Hit.Normal.Z >= 0.7);
 		}
 		else
@@ -2794,7 +2794,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 					Hit.Location = Start + DuckDir;
 				}
 
-				bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->CharacterMovement->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
+				bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
 				bSuccess = (bHit && Hit.Normal.Z >= 0.7);
 			}
 		}
@@ -2805,18 +2805,18 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 			return false;
 		}
 
-		if (bWallHit && GetCharacter()->CharacterMovement->MovementMode == MOVE_Falling && Skill + 2.0f * Personality.Jumpiness > 3.0f + 3.0f * FMath::FRand())
+		if (bWallHit && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && Skill + 2.0f * Personality.Jumpiness > 3.0f + 3.0f * FMath::FRand())
 		{
 			bPlannedWallDodge = true;
 			return true;
 		}
-		else if ( bWallHit && Personality.Jumpiness > 0.0f && GetCharacter()->CanJump() && GetCharacter()->CharacterMovement->MovementMode == MOVE_Walking &&
-				(GetCharacter()->CharacterMovement->Velocity.Size() < 0.1f * GetCharacter()->CharacterMovement->MaxWalkSpeed || (GetCharacter()->CharacterMovement->Velocity.SafeNormal2D() | (WallHitLoc - Start).SafeNormal2D()) >= 0.0f) &&
+		else if ( bWallHit && Personality.Jumpiness > 0.0f && GetCharacter()->CanJump() && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking &&
+				(GetCharacter()->GetCharacterMovement()->Velocity.Size() < 0.1f * GetCharacter()->GetCharacterMovement()->MaxWalkSpeed || (GetCharacter()->GetCharacterMovement()->Velocity.SafeNormal2D() | (WallHitLoc - Start).SafeNormal2D()) >= 0.0f) &&
 				FMath::FRand() < Personality.Jumpiness * 0.5f )
 		{
 			// jump towards wall for wall dodge
-			GetCharacter()->CharacterMovement->Velocity = (GetCharacter()->CharacterMovement->Velocity + (WallHitLoc - Start)).ClampMaxSize(GetCharacter()->CharacterMovement->MaxWalkSpeed);
-			GetCharacter()->CharacterMovement->DoJump(false);
+			GetCharacter()->GetCharacterMovement()->Velocity = (GetCharacter()->GetCharacterMovement()->Velocity + (WallHitLoc - Start)).ClampMaxSize(GetCharacter()->GetCharacterMovement()->MaxWalkSpeed);
+			GetCharacter()->GetCharacterMovement()->DoJump(false);
 			MoveTargetPoints.Insert(FComponentBasedPosition(WallHitLoc), 0);
 			bPlannedWallDodge = true;
 			return true;

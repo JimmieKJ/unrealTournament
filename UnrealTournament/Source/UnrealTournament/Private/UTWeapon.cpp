@@ -774,7 +774,7 @@ FVector AUTWeapon::GetFireStartLoc()
 			}
 			{
 				FHitResult Hit;
-				if (UTOwner->CapsuleComponent->SweepComponent(Hit, FinalLoc, BaseLoc, Collider, false))
+				if (UTOwner->GetCapsuleComponent()->SweepComponent(Hit, FinalLoc, BaseLoc, Collider, false))
 				{
 					BaseLoc = Hit.Location;
 				}
@@ -873,8 +873,8 @@ void AUTWeapon::HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult
 
 				// now see if trace would hit the capsule
 				// @TODO FIXMESTEVE actually make this a check against a capsule, not a cylinder
-				float CollisionRadius = Target->CapsuleComponent->GetScaledCapsuleRadius();
-				float CollisionHeight = Target->CapsuleComponent->GetScaledCapsuleHalfHeight();
+				float CollisionRadius = Target->GetCapsuleComponent()->GetScaledCapsuleRadius();
+				float CollisionHeight = Target->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 				FVector ClosestPoint = FMath::ClosestPointOnSegment(TargetLocation, StartLocation, Hit.Location);
 				// if ClosestPoint is end of segment, then almost certainly something else was hit first
 				if (!(ClosestPoint - Hit.Location).IsNearlyZero()

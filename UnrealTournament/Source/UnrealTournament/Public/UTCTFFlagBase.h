@@ -16,7 +16,7 @@ class AUTCTFFlagBase : public AUTGameObjective
 
 	// The mesh that makes up this base.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Objective)
-	TSubobjectPtr<UStaticMeshComponent> Mesh;
+	UStaticMeshComponent* Mesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Sound)
 	USoundBase* FlagScoreRewardSound;

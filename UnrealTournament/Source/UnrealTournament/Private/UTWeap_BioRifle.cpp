@@ -107,7 +107,7 @@ void AUTWeap_BioRifle::StartCharge()
 	//Play the charge animation
 	if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL)
 	{
-		UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL && ChargeAnimation != NULL)
 		{
 			AnimInstance->Montage_Play(ChargeAnimation, 1.f);

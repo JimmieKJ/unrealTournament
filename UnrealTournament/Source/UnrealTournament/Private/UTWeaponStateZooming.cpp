@@ -127,7 +127,7 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 				for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 				{
 					AUTCharacter* EnemyChar = Cast<AUTCharacter>(*It);
-					if (EnemyChar != NULL && !EnemyChar->IsDead() && !EnemyChar->IsFeigningDeath() && EnemyChar->Mesh->LastRenderTime > WorldTime - 0.25f && EnemyChar != GetUTOwner() && (GS == NULL || !GS->OnSameTeam(EnemyChar, GetUTOwner())))
+					if (EnemyChar != NULL && !EnemyChar->IsDead() && !EnemyChar->IsFeigningDeath() && EnemyChar->GetMesh()->LastRenderTime > WorldTime - 0.25f && EnemyChar != GetUTOwner() && (GS == NULL || !GS->OnSameTeam(EnemyChar, GetUTOwner())))
 					{
 						FVector HeadLoc = EnemyChar->GetHeadLocation();
 						static FName NAME_SniperZoom(TEXT("SniperZoom"));

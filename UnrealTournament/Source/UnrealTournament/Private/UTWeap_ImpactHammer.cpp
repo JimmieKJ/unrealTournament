@@ -127,11 +127,11 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				// Special case of fixed damage and momentum
 				bool bIsFullImpactImpulse = (ChargedMode->ChargeTime > FullChargeTime * FullImpactChargePct);
 				float FinalDamage = bIsFullImpactImpulse ? UTOwner->UTCharacterMovement->FullImpactDamage : UTOwner->UTCharacterMovement->EasyImpactDamage;
-				if (UTOwner->CharacterMovement->Velocity.Z <= -1.f * UTOwner->MaxSafeFallSpeed)
+				if (UTOwner->GetCharacterMovement()->Velocity.Z <= -1.f * UTOwner->MaxSafeFallSpeed)
 				{
 					// take falling damage, but give credit for it against impact damage
 					float OldHealth = UTOwner->Health;
-					UTOwner->TakeFallingDamage(Hit, UTOwner->CharacterMovement->Velocity.Z);
+					UTOwner->TakeFallingDamage(Hit, UTOwner->GetCharacterMovement()->Velocity.Z);
 					// damage might kill them
 					if (UTOwner != NULL)
 					{
@@ -231,7 +231,7 @@ void AUTWeap_ImpactHammer::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	AUTBot* B = Cast<AUTBot>(NewOwner->Controller);
 	if (B != NULL)
 	{
-		B->ImpactJumpZ = FMath::Max<float>(B->ImpactJumpZ, UTOwner->UTCharacterMovement->FullImpactImpulse - UTOwner->CharacterMovement->JumpZVelocity);
+		B->ImpactJumpZ = FMath::Max<float>(B->ImpactJumpZ, UTOwner->UTCharacterMovement->FullImpactImpulse - UTOwner->GetCharacterMovement()->JumpZVelocity);
 	}
 }
 
