@@ -663,7 +663,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 				{
 					IgnoreActors.Add(ImpactedActor);
 				}
-				UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
+				UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation + HitNormal, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 					MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType);
 			}
 			if (Role == ROLE_Authority)

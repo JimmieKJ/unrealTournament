@@ -88,7 +88,7 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		
 		if (Role == ROLE_Authority)
 		{
-			ExplodeHitLocation = HitLocation + FVector(0, 0, 400);
+			ExplodeHitLocation = HitLocation + HitNormal + FVector(0, 0, 400);
 			ExplodeMomentum = Momentum;
 			ExplodeStage1();
 		}

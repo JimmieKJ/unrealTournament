@@ -87,10 +87,13 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 
 void UUTDamageType::ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const
 {
-	AUTPlayerController* PC = Cast<AUTPlayerController>(KillerState->GetOwner());
-	if (PC && RewardAnnouncementClass)
+	if (KillerState != NULL)
 	{
-		PC->ClientReceiveLocalizedMessage(RewardAnnouncementClass);
+		AUTPlayerController* PC = Cast<AUTPlayerController>(KillerState->GetOwner());
+		if (PC != NULL && RewardAnnouncementClass)
+		{
+			PC->ClientReceiveLocalizedMessage(RewardAnnouncementClass);
+		}
 	}
 }
 
