@@ -14,7 +14,7 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	RespawnTime = 30.0f;
 
 	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false);
-	PickupMesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent, UStaticMeshComponent>(this, TEXT("PickupMesh0"), false);
+	PickupMesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("PickupMesh0"), false);
 	if (PickupMesh != NULL)
 	{
 		PickupMesh->AttachParent = RootComponent;

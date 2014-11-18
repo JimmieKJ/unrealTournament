@@ -25,11 +25,7 @@ class UUTGameEngine : public UGameEngine
 
 	//==================================
 	// Frame Rate Smoothing
-
-	/** Used to prevent smoothing more than once per frame. */
-	UPROPERTY()
-	float LastSmoothTime;
-
+	
 	/** Current smoothed delta time. */
 	UPROPERTY()
 	float SmoothedDeltaTime;
@@ -53,9 +49,7 @@ class UUTGameEngine : public UGameEngine
 	/** Never return a smoothed time larger than this. */
 	UPROPERTY(config)
 	float MaximumSmoothedTime;
-
-	void SmoothFrameRate(float DeltaTime);
-
+	
 	//==================================
 
 	/* Set true to allow clients to toggle netprofiling using the NP console command. @TODO FIXMESTEVE temp until we have adminlogin/admin server console command executing */
@@ -78,6 +72,7 @@ class UUTGameEngine : public UGameEngine
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const override;
+	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true) override;
 
 	UT_LOADMAP_DEFINITION()
 };

@@ -12,7 +12,6 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
 	GameNetworkVersion = 3008016;
 
-	LastSmoothTime = 0.f;
 	SmoothedDeltaTime = 0.01f;
 
 	HitchTimeThreshold = 0.05f;
@@ -131,8 +130,6 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 		}
 	}
 	
-	SmoothFrameRate(DeltaSeconds);
-
 	Super::Tick(DeltaSeconds, bIdleMode);
 }
 
@@ -367,35 +364,31 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	return MaxTickRate;
 }
 
-void UUTGameEngine::SmoothFrameRate(float DeltaTime)
+void UUTGameEngine::UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing)
 {
-	// make sure to only smooth once per frame
-	if (FApp::GetCurrentTime() != LastSmoothTime)
+	if (DeltaTime > SmoothedDeltaTime)
 	{
-		LastSmoothTime = FApp::GetCurrentTime();
-
-		if (DeltaTime > SmoothedDeltaTime)
-		{
-			// can't slow down drop
-			SmoothedDeltaTime = DeltaTime;
-			// return 0.f; // @TODO FIXMESTEVE - not doing this so unsteady FPS is valid
-		}
-		else if (SmoothedDeltaTime > FMath::Max(HitchTimeThreshold, HitchScaleThreshold * DeltaTime))
-		{
-			// fast return from hitch - smoothing them makes game crappy a long time
-			HitchSmoothingRate = FMath::Clamp(HitchSmoothingRate, 0.f, 1.f);
-			SmoothedDeltaTime = (1.f - HitchSmoothingRate)*SmoothedDeltaTime + HitchSmoothingRate*DeltaTime;
-		}
-		else
-		{
-			// simply smooth the trajectory back up to limit mouse input variations because of difference in sampling frame time and this frame time
-			NormalSmoothingRate = FMath::Clamp(NormalSmoothingRate, 0.f, 1.f);
-			SmoothedDeltaTime = (1.f - NormalSmoothingRate)*SmoothedDeltaTime + NormalSmoothingRate*DeltaTime;
-		}
-
-		// Make sure that we don't try to smooth below a certain minimum
-		SmoothedDeltaTime = FMath::Clamp(SmoothedDeltaTime, 0.001f, MaximumSmoothedTime);
+		// can't slow down drop
+		SmoothedDeltaTime = DeltaTime;
+		// return 0.f; // @TODO FIXMESTEVE - not doing this so unsteady FPS is valid
 	}
+	else if (SmoothedDeltaTime > FMath::Max(HitchTimeThreshold, HitchScaleThreshold * DeltaTime))
+	{
+		// fast return from hitch - smoothing them makes game crappy a long time
+		HitchSmoothingRate = FMath::Clamp(HitchSmoothingRate, 0.f, 1.f);
+		SmoothedDeltaTime = (1.f - HitchSmoothingRate)*SmoothedDeltaTime + HitchSmoothingRate*DeltaTime;
+	}
+	else
+	{
+		// simply smooth the trajectory back up to limit mouse input variations because of difference in sampling frame time and this frame time
+		NormalSmoothingRate = FMath::Clamp(NormalSmoothingRate, 0.f, 1.f);
+
+		SmoothedDeltaTime = (1.f - NormalSmoothingRate)*SmoothedDeltaTime + NormalSmoothingRate*DeltaTime;
+	}
+
+	// Make sure that we don't try to smooth below a certain minimum
+	SmoothedDeltaTime = FMath::Clamp(SmoothedDeltaTime, 0.001f, MaximumSmoothedTime);
+
 	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
 }
 
