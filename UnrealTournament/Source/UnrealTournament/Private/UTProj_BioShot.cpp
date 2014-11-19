@@ -64,6 +64,14 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	GlobRadiusScaling = 4.f;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.SetTickFunctionEnable(false);
+
+	BlobPulseTime = 0.f;
+	InitialBlobPulseRate = 3.f;
+	MaxBlobPulseRate = 8.f;
+	BlobOverCharge = 0.f;
+	BlobWebThreshold = 100.f;
+	BlobPulseTime = 0.f;
+	BlobPulseScaling = 0.1f;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -264,9 +272,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 						FHitResult Hit;
 						static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
 
-						// @TODO FIXMESTEVE - temp while surface starting points return blocking
-						FVector TraceStart = GetActorLocation() + 3.f*(Linker->LinkedBio->GetActorLocation() - GetActorLocation()).SafeNormal();
-						bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, TraceStart, Linker->LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+						bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, Linker->LinkedBio->GetActorLocation() + 2.f*Linker->LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
 						if (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()))
 						{
 							if (WebConnected(Linker->LinkedBio))
@@ -297,6 +303,18 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 							// spider web trap springing
 						}
 					}
+					if (GlobStrength >= MaxRestingGlobStrength)
+					{
+						BlobOverCharge += DamageAmount;
+						if (BlobOverCharge >= BlobWebThreshold)
+						{
+							FVector ShotDirection = (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID))
+								? ((const FUTPointDamageEvent&)DamageEvent).ShotDirection
+								: FVector(0.f, 0.f, 1.f);
+							BlobToWeb(ShotDirection);
+							return DamageAmount;
+						}
+					}
 					Linker->LinkedBio = this;
 				}
 			}
@@ -308,6 +326,34 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 		}
 	}
 	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+}
+
+void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
+{
+	FActorSpawnParameters Params;
+	Params.Instigator = Instigator;
+	Params.Owner = Instigator;
+
+	//Spawn globlings for as many globs above 1, and weblink them
+	bSpawningGloblings = true;
+	//Adjust a bit so globlings don't spawn in the floor
+	FVector FloorOffset = GetActorLocation() + (SurfaceNormal * 10.0f);
+	int32 NumGloblings = int32(GlobStrength);
+	for (int32 i = 0; i<NumGloblings; i++)
+	{
+		// 2d splash in plane with link beam as normal
+		FVector Dir = FMath::VRand() * SplashSpread;
+		Dir = Dir - (Dir | NormalDir) + SurfaceNormal; // FIXME - regular spread using cross product
+		AUTProj_BioShot* Globling = GetWorld()->SpawnActor<AUTProj_BioShot>(GetClass(), FloorOffset, Dir.Rotation(), Params);
+		if (Globling)
+		{
+			Globling->bSpawningGloblings = true; // FIXME CLEAR, and also do this for other version
+			Globling->ProjectileMovement->InitialSpeed *= 0.4f;
+			Globling->ProjectileMovement->Velocity *= 0.4f;
+		}
+	}
+	bSpawningGloblings = false;
+	SetGlobStrength(1.f);
 }
 
 void AUTProj_BioShot::BioStabilityTimer()
@@ -490,8 +536,22 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 		}
 
 	}
+
+	if ((GlobStrength >= MaxRestingGlobStrength) || ProjectileMovement->bIsHomingProjectile)
+	{
+		float PulseRate = InitialBlobPulseRate + BlobOverCharge * (MaxBlobPulseRate - InitialBlobPulseRate)/BlobWebThreshold;
+		BlobPulseTime += DeltaTime * PulseRate;
+
+		float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
+		FVector GlobScaling(GlobScalingSqrt);
+		GlobScaling.X *= (1.f + BlobPulseScaling*FMath::Square(FMath::Cos(BlobPulseTime)));
+		GlobScaling.Y = GlobScaling.X;
+		GlobScaling.Z *= (1.f + BlobPulseScaling*FMath::Square(FMath::Sin(BlobPulseTime)));
+		GetRootComponent()->SetRelativeScale3D(GlobScaling);
+	}
 	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 }
+
 
 void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
@@ -564,7 +624,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 			SurfaceType = HIT_Wall;
 		}
 
-		SetActorLocation(HitLocation);
+		SetActorLocation(HitLocation + HitNormal);
 		Landed(OtherComp, HitLocation);
 
 		AUTLift* Lift = Cast<AUTLift>(OtherActor);

@@ -78,6 +78,32 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		float MaxLinkDistance;
 
+	/** Initial full blob pulse rate */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		float InitialBlobPulseRate;
+
+	/** Max full blob pulse rate (right before web trigger threshold) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		float MaxBlobPulseRate;
+
+	/** How much to scale when pulsing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		float BlobPulseScaling;
+
+	/** Current charge of full blob being overcharged to web */
+	UPROPERTY()
+	float BlobOverCharge;
+
+	/** updated to pulse blob sinusoidally */
+	UPROPERTY()
+		float BlobPulseTime;
+
+	/** Web triggering overcharge level */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+	float BlobWebThreshold;
+
+	virtual void BlobToWeb(const FVector& NormalDir);
+
 	/** Linking effect between webbed bio goo */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		UParticleSystem* WebLinkEffect;
