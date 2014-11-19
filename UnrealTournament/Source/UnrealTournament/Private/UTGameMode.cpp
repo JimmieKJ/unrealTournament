@@ -70,9 +70,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MapPrefix = TEXT("DM");
 
 	//LobbySetupPanelClass = SUDuelSettings::StaticClass();
-
 }
-
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 {
@@ -268,7 +266,6 @@ bool AUTGameMode::AllowMutator(TSubclassOf<AUTMutator> MutClass)
 			}
 		}
 	}
-
 	return true;
 }
 
@@ -915,17 +912,20 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 
 void AUTGameMode::PlayEndOfMatchMessage()
 {
-	int32 IsFlawlessVictory = 1;
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	bool bIsFlawlessVictory = (UTGameState->WinnerPlayerState->Deaths == 0);
+/*	if (bIsFlawlessVictory)
 	{
-		AController* Controller = *Iterator;
-		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator && (Controller->PlayerState->Score > 0.f) & (Controller->PlayerState != UTGameState->WinnerPlayerState))
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
-			IsFlawlessVictory = 0;
-			break;
+			AController* Controller = *Iterator;
+			if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator && (Controller->PlayerState->Score > 0.f) & (Controller->PlayerState != UTGameState->WinnerPlayerState))
+			{
+				bIsFlawlessVictory = false;
+				break;
+			}
 		}
-	}
-
+	}*/
+	uint32 FlawlessOffset = bIsFlawlessVictory ? 2 : 0;
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* Controller = *Iterator;
@@ -934,7 +934,7 @@ void AUTGameMode::PlayEndOfMatchMessage()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 			if ((PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
 			{
-				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
+				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, FlawlessOffset + ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
 			}
 		}
 	}
