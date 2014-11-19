@@ -351,7 +351,8 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	virtual int32 GetAmmoAmount(TSubclassOf<AUTWeapon> Type) const;
 
 	// Cheat, only works if called server side
-	void AllAmmo();
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual	void AllAmmo();
 
 	// Cheat, only works if called server side
 	void UnlimitedAmmo();
