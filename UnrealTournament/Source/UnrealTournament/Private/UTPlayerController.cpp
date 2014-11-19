@@ -755,11 +755,7 @@ void AUTPlayerController::MoveUp(float Value)
 void AUTPlayerController::TurnAtRate(float Rate)
 {
 	// calculate delta for this frame from the rate information
-	if (Rate != 0.f) 
-	{
-		UE_LOG(UT, Warning, TEXT("TURNATRATE %f"), Rate);
-	}
-		AddYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
+	AddYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 }
 
 void AUTPlayerController::LookUpAtRate(float Rate)
