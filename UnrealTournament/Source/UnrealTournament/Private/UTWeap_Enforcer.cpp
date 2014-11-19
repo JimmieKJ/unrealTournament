@@ -285,19 +285,16 @@ void AUTWeap_Enforcer::BecomeDual()
 {
 	bBecomeDual = true;
 
-
 	// pick up the second enforcer
+	AttachLeftMesh();
 
-	
-		AttachLeftMesh();
+	// the UneqippingState needs to be updated so that both guns are lowered during weapon switch
+	UnequippingState = EnforcerUnequippingState;
 
-		// the UneqippingState needs to be updated so that both guns are lowered during weapon switch
-		UnequippingState = EnforcerUnequippingState;
+	//Setup a timer to fire once the equip animation finishes
 
-		//Setup a timer to fire once the equip animation finishes
-
-		GetWorldTimerManager().SetTimer(this, &AUTWeap_Enforcer::DualEquipFinished, EnforcerEquippingState->EquipTime);
-		MaxAmmo *= 2;
+	GetWorldTimerManager().SetTimer(this, &AUTWeap_Enforcer::DualEquipFinished, EnforcerEquippingState->EquipTime);
+	MaxAmmo *= 2;
 	
 }
 
@@ -315,21 +312,20 @@ void AUTWeap_Enforcer::DualEquipFinished()
 		FireInterval = FireIntervalDualWield;
 
 		//Reset the FireRate timer
-		if (Cast<UUTWeaponStateFiring_Enforcer>(FiringState[CurrentFireMode]))
+		if (Cast<UUTWeaponStateFiring_Enforcer>(CurrentState) != NULL)
 		{
-			Cast<UUTWeaponStateFiring_Enforcer>(FiringState[CurrentFireMode])->ResetTiming();
+			((UUTWeaponStateFiring_Enforcer*)CurrentState)->ResetTiming();
 		}
-
-		if (Cast<UUTWeaponStateFiringBurstEnforcer>(FiringState[CurrentFireMode]))
+		else if (Cast<UUTWeaponStateFiringBurstEnforcer>(CurrentState) != NULL)
 		{
-			Cast<UUTWeaponStateFiringBurstEnforcer>(FiringState[CurrentFireMode])->ResetTiming();
+			((UUTWeaponStateFiringBurstEnforcer*)CurrentState)->ResetTiming();
 		}
 
 		//Update the animation since the stance has changed
 		//Change the weapon attachement
 		AttachmentType = DualWieldAttachmentType;
 
-		if (UTOwner)
+		if (UTOwner != NULL && UTOwner->GetWeapon() == this)
 		{
 			GetUTOwner()->SetWeaponAttachmentClass(AttachmentType);
 		}
@@ -357,7 +353,6 @@ void AUTWeap_Enforcer::BringUp(float OverflowTime)
 
 void AUTWeap_Enforcer::GotoEquippingState(float OverflowTime)
 {
-
 	GotoState(EnforcerEquippingState);
 	if (CurrentState == EnforcerEquippingState)
 	{
@@ -421,7 +416,7 @@ void AUTWeap_Enforcer::AttachToOwnerNative()
 	{
 		AttachmentType = DualWieldAttachmentType;
 
-		if (UTOwner)
+		if (UTOwner != NULL)
 		{
 			GetUTOwner()->SetWeaponAttachmentClass(AttachmentType);
 		}
