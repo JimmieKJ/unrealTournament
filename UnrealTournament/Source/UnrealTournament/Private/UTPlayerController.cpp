@@ -1809,6 +1809,7 @@ void AUTPlayerController::EndInactiveState()
 
 void AUTPlayerController::SpectateKiller()
 {
+	/*
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS != nullptr && GS->bViewKillerOnDeath && UTPlayerState->LastKillerPlayerState != nullptr && UTPlayerState->LastKillerPlayerState != UTPlayerState)
 	{
@@ -1821,6 +1822,7 @@ void AUTPlayerController::SpectateKiller()
 			}
 		}
 	}
+	*/
 }
 
 void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector Location)
