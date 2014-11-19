@@ -310,7 +310,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 						{
 							FVector ShotDirection = (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID))
 								? ((const FUTPointDamageEvent&)DamageEvent).ShotDirection
-								: FVector(0.f, 0.f, 1.f);
+								: FVector_NetQuantizeNormal(0.f, 0.f, 1.f);
 							BlobToWeb(ShotDirection);
 							return DamageAmount;
 						}
