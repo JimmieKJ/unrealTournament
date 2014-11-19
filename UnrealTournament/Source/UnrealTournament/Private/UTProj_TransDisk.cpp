@@ -212,7 +212,7 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 		{
 			ProjectileMovement->MaxSpeed = MaxSpeedUnderWater;
 		}
-		else if (Cast<AVolume>(OtherActor) == NULL)
+		else if (Cast<APawn>(OtherActor) != NULL || (OtherComp != NULL && CollisionComp->GetCollisionResponseToChannel(OtherComp->GetCollisionObjectType()) == ECR_Block && OtherComp->GetCollisionResponseToChannel(CollisionComp->GetCollisionObjectType()) == ECR_Block))
 		{
 			FHitResult Hit(OtherActor, OtherComp, HitLocation, HitNormal);
 			ProjectileMovement->Velocity = ComputeBounceResult(Hit, 0.0f, FVector::ZeroVector);
