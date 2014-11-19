@@ -65,7 +65,7 @@ void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubc
 				if (KillerState->Team->Score >= BestScore + 20)
 				{
 					bHasBroadcastDominating = true;
-					BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 9, KillerState, NULL, KillerState->Team);
+					BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 10, KillerState, NULL, KillerState->Team);
 				}
 			}
 		}
