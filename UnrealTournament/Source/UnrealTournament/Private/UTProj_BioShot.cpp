@@ -173,12 +173,12 @@ void AUTProj_BioShot::OnRep_WebLinkTwo()
 	}
 }
 
-void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
+bool AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 {
 	if (bAddingWebLink || !LinkedBio)
 	{
 		// no re-entry
-		return;
+		return false;
 	}
 	static FName NAME_HitLocation(TEXT("HitLocation"));
 	static FName NAME_LocalHitLocation(TEXT("LocalHitLocation"));
@@ -189,7 +189,7 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 	{
 		if (WebLinks[i].LinkedBio == LinkedBio)
 		{
-			return;
+			return false;
 		}
 	}
 
@@ -207,7 +207,7 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 	if (!LinkedBio->bAddingWebLink)
 	{
 		float Dist2D = (GetActorLocation() - LinkedBio->GetActorLocation()).Size2D();
-		FVector Sag = (Dist2D > 200.f) ? FVector(0.f, 0.f, 0.25*Dist2D) : FVector(0.f);
+		FVector Sag = /*(Dist2D > 200.f) ? FVector(0.f, 0.f, 0.25*Dist2D) :*/ FVector(0.f);
 		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), EAttachLocation::KeepWorldPosition, false);
 		if (NewWebLinkEffect)
 		{
@@ -242,6 +242,7 @@ void AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect);
 	LinkedBio->WebConnected(this);
 	bAddingWebLink = false;
+	return true;
 }
 
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
@@ -262,10 +263,35 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 						// verify line of sight
 						FHitResult Hit;
 						static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-						bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation(), Linker->LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+
+						// @TODO FIXMESTEVE - temp while surface starting points return blocking
+						FVector TraceStart = GetActorLocation() + 3.f*(Linker->LinkedBio->GetActorLocation() - GetActorLocation()).SafeNormal();
+						bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, TraceStart, Linker->LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
 						if (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()))
 						{
-							WebConnected(Linker->LinkedBio);
+							if (WebConnected(Linker->LinkedBio))
+							{
+								if (Linker->LinkedBio->WebLinkOne && (Linker->LinkedBio->WebLinkOne != this))
+								{
+									WebConnected(Linker->LinkedBio->WebLinkOne);
+								}
+								else if (Linker->LinkedBio->WebLinkTwo && (Linker->LinkedBio->WebLinkTwo != this))
+								{
+									WebConnected(Linker->LinkedBio->WebLinkTwo);
+								}
+								else
+								{
+									for (int32 i = 0; i<Linker->LinkedBio->WebLinks.Num(); i++)
+									{
+										if ((Linker->LinkedBio->WebLinks[i].LinkedBio != this) && (Linker->LinkedBio->WebLinks[i].LinkedBio != NULL))
+										{
+											WebConnected(Linker->LinkedBio->WebLinks[i].LinkedBio);
+											break;
+										}
+									}
+								}
+							}
+
 							// this costs ammo!
 							// flash line when low, allow recharge
 							// spider web trap springing

@@ -87,7 +87,7 @@ class AUTProj_BioShot : public AUTProjectile
 		USoundBase* WebLinkSound;
 
 	/** Make a connection between this goo and LinkedBio */
-	virtual void WebConnected(AUTProj_BioShot* LinkedBio);
+	virtual bool WebConnected(AUTProj_BioShot* LinkedBio);
 
 	/** Remove connection between this goo and LinkedBio */
 	virtual void RemoveWebLink(AUTProj_BioShot* LinkedBio);
