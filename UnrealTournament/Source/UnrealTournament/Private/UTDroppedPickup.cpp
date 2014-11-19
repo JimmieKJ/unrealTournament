@@ -148,7 +148,7 @@ void AUTDroppedPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 
 void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 {
-	if (Inventory != NULL)
+	if (Inventory != NULL && !Inventory->bPendingKillPending)
 	{
 		AUTCharacter* C = Cast<AUTCharacter>(Target);
 		if (C != NULL)
@@ -157,6 +157,11 @@ void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 			if (Duplicate == NULL || !Duplicate->StackPickup(Inventory))
 			{
 				C->AddInventory(Inventory, true);
+				Inventory = NULL;
+			}
+			else
+			{
+				Inventory->Destroy();
 			}
 		}
 	}
