@@ -282,7 +282,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 
 void AUTWeap_RocketLauncher::PlayFiringEffects()
 {
-	if (CurrentFireMode == 1 && GetNetMode() != NM_DedicatedServer && UTOwner != NULL)
+	if (CurrentFireMode == 1 && UTOwner != NULL)
 	{
 		UTOwner->TargetEyeOffset.X = FiringViewKickback;
 
@@ -292,27 +292,30 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), RocketFireModes[CurrentRocketFireMode].FireSound, UTOwner, SRT_AllButOwner);
 		}
 
-		// try and play a firing animation if specified
-		if (FiringAnimation.IsValidIndex(NumLoadedRockets - 1) && FiringAnimation[NumLoadedRockets - 1] != NULL)
+		if (ShouldPlay1PVisuals())
 		{
-			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-			if (AnimInstance != NULL)
+			// try and play a firing animation if specified
+			if (FiringAnimation.IsValidIndex(NumLoadedRockets - 1) && FiringAnimation[NumLoadedRockets - 1] != NULL)
 			{
-				AnimInstance->Montage_Play(FiringAnimation[NumLoadedRockets - 1], 1.f);
-			}
-		}
-
-		//muzzle flash for each loaded rocket
-		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash)
-		{
-			for (int32 i = 0; i < NumLoadedRockets; i++)
-			{
-				if (MuzzleFlash.IsValidIndex(i) && MuzzleFlash[i] != NULL && MuzzleFlash[i]->Template != NULL)
+				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+				if (AnimInstance != NULL)
 				{
-					if (!MuzzleFlash[i]->bIsActive || MuzzleFlash[i]->Template->Emitters[0] == NULL ||
-						IsLoopingParticleSystem(MuzzleFlash[i]->Template))
+					AnimInstance->Montage_Play(FiringAnimation[NumLoadedRockets - 1], 1.f);
+				}
+			}
+
+			//muzzle flash for each loaded rocket
+			if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash)
+			{
+				for (int32 i = 0; i < NumLoadedRockets; i++)
+				{
+					if (MuzzleFlash.IsValidIndex(i) && MuzzleFlash[i] != NULL && MuzzleFlash[i]->Template != NULL)
 					{
-						MuzzleFlash[i]->ActivateSystem();
+						if (!MuzzleFlash[i]->bIsActive || MuzzleFlash[i]->Template->Emitters[0] == NULL ||
+							IsLoopingParticleSystem(MuzzleFlash[i]->Template))
+						{
+							MuzzleFlash[i]->ActivateSystem();
+						}
 					}
 				}
 			}

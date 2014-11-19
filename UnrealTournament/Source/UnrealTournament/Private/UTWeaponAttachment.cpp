@@ -67,6 +67,13 @@ void AUTWeaponAttachment::RegisterAllComponents()
 
 void AUTWeaponAttachment::AttachToOwner_Implementation()
 {
+
+	AttachToOwnerNative();
+}
+
+void AUTWeaponAttachment::AttachToOwnerNative()
+{
+
 	Mesh->AttachTo(UTOwner->GetMesh(), AttachSocket);
 	Mesh->SetRelativeLocation(AttachOffset);
 	Mesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;

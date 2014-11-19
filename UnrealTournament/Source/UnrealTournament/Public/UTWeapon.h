@@ -79,11 +79,15 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	friend class UUTWeaponStateEquipping;
 	friend class UUTWeaponStateUnequipping;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_AttachmentType, Category = "Weapon")
 	TSubclassOf<class AUTWeaponAttachment> AttachmentType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_Ammo, Category = "Weapon")
 	int32 Ammo;
+
+	UFUNCTION()
+	virtual void OnRep_AttachmentType();
+
 	/** handles weapon switch when out of ammo, etc
 	 * NOTE: called on server if owner is locally controlled, on client only when owner is remote
 	 */
@@ -222,6 +226,11 @@ public:
 	UPROPERTY()
 	FDelayedHitScanInfo DelayedHitScan;
 
+	/** return whether to play first person visual effects
+	 * not as trivial as it sounds as we need to appropriately handle bots (never actually 1P), first person spectating (can be 1P even though it's a remote client), hidden weapons setting (should draw even though weapon mesh is hidden), etc
+	 */
+	bool ShouldPlay1PVisuals() const;
+
 	/** Play impact effects client-side for predicted hitscan shot - decides whether to delay because of high client ping. */
 	virtual void PlayPredictedImpactEffects(FVector ImpactLoc);
 
@@ -307,7 +316,7 @@ public:
 
 	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const override;
 
-	void GotoState(class UUTWeaponState* NewState);
+	virtual void GotoState(class UUTWeaponState* NewState);
 	/** notification of state change (CurrentState is new state)
 	 * if a state change triggers another state change (i.e. within BeginState()/EndState()) this function will only be called once, when CurrentState is the final state
 	 */
@@ -367,9 +376,14 @@ public:
 	/** attach the visuals to Owner's first person view */
 	UFUNCTION(BlueprintNativeEvent)
 	void AttachToOwner();
+	
+	virtual void AttachToOwnerNative();
+
 	/** detach the visuals from the Owner's first person view */
 	UFUNCTION(BlueprintNativeEvent)
 	void DetachFromOwner();
+	
+	virtual void DetachFromOwnerNative();
 
 	/** return number of fire modes */
 	virtual uint8 GetNumFireModes()
@@ -603,6 +617,9 @@ public:
 	/** Begin unequipping this weapon */
 	virtual void UnEquip();
 
+
+	virtual void GotoEquippingState(float OverflowTime);
+	
 	/** informational function that returns the damage radius that a given fire mode has (used by e.g. bots) */
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	float GetDamageRadius(uint8 TestMode) const;
@@ -678,12 +695,13 @@ protected:
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	class UUTWeaponStateEquipping* EquippingState;
 	UPROPERTY(Instanced, BlueprintReadOnly,  Category = "States")
+	UUTWeaponState* UnequippingStateDefault;
+
+	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	UUTWeaponState* UnequippingState;
 
 	UPROPERTY(Instanced, BlueprintReadOnly, Category = "States")
 	UUTWeaponState* InactiveState;
-
-	void GotoEquippingState(float OverflowTime);
 
 	/** overlay mesh for overlay effects */
 	UPROPERTY()

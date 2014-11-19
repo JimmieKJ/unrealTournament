@@ -1719,6 +1719,7 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 			else
 			{
 				WeaponClass = NULL;
+				WeaponAttachmentClass = NULL;
 				UpdateWeaponAttachment();
 			}
 			if (!bTearOff)
@@ -1886,10 +1887,11 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 	{
 		checkSlow(IsInInventory(PendingWeapon));
 		Weapon = PendingWeapon;
-		WeaponClass = Weapon->GetClass();
-		UpdateWeaponAttachment();
 		PendingWeapon = NULL;
 		Weapon->BringUp(OverflowTime);
+		WeaponClass = Weapon->GetClass();
+		WeaponAttachmentClass = Weapon->AttachmentType;
+		UpdateWeaponAttachment();
 	}
 	else if (Weapon != NULL)
 	{
@@ -1952,7 +1954,11 @@ void AUTCharacter::UpdateWeaponAttachment()
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		TSubclassOf<AUTWeaponAttachment> NewAttachmentClass = (WeaponClass != NULL) ? WeaponClass.GetDefaultObject()->AttachmentType : NULL;
+		TSubclassOf<AUTWeaponAttachment> NewAttachmentClass = WeaponAttachmentClass;
+		if (NewAttachmentClass == NULL)
+		{
+			NewAttachmentClass = (WeaponClass != NULL) ? WeaponClass.GetDefaultObject()->AttachmentType : NULL;
+		}
 		if (WeaponAttachment != NULL && (NewAttachmentClass == NULL || (WeaponAttachment != NULL && WeaponAttachment->GetClass() != NewAttachmentClass)))
 		{
 			WeaponAttachment->Destroy();
@@ -2003,6 +2009,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponAttachmentClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DamageScaling, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireRateMultiplier, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSound, COND_None);
@@ -2445,6 +2452,14 @@ void AUTCharacter::SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnable
 	}
 }
 
+void AUTCharacter::SetWeaponAttachmentClass(TSubclassOf<AUTWeaponAttachment> NewWeaponAttachmentClass)
+{
+	if (Role == ROLE_Authority && NewWeaponAttachmentClass != NULL && WeaponAttachmentClass != NewWeaponAttachmentClass)
+	{
+		WeaponAttachmentClass = NewWeaponAttachmentClass;
+	}
+}
+
 void AUTCharacter::UpdateCharOverlays()
 {
 	if (CharOverlayFlags == 0)
@@ -2793,8 +2808,9 @@ void AUTCharacter::Tick(float DeltaTime)
 	/*
 	if (CharacterMovement && ((CharacterMovement->GetCurrentAcceleration() | CharacterMovement->Velocity) < 0.f))
 	{
-		UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
+	UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
+
 }
 
 bool AUTCharacter::HeadIsUnderWater() const

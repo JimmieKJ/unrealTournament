@@ -46,7 +46,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
 	EquippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateEquipping>(this, TEXT("StateEquipping"));
-	UnequippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateUnequipping>(this, TEXT("StateUnequipping"));
+	UnequippingStateDefault = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateUnequipping>(this, TEXT("StateUnequipping"));
+	UnequippingState = UnequippingStateDefault;
 
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
 	Mesh->SetOnlyOwnerSee(true);
@@ -436,10 +437,16 @@ bool AUTWeapon::PutDown()
 
 void AUTWeapon::UnEquip()
 {
+
 	GotoState(UnequippingState);
 }
 
 void AUTWeapon::AttachToOwner_Implementation()
+{
+	AttachToOwnerNative();
+}
+
+void AUTWeapon::AttachToOwnerNative()
 {
 	if (UTOwner == NULL)
 	{
@@ -476,6 +483,11 @@ void AUTWeapon::AttachToOwner_Implementation()
 
 void AUTWeapon::DetachFromOwner_Implementation()
 {
+	DetachFromOwnerNative();
+}
+
+void AUTWeapon::DetachFromOwnerNative()
+{
 	for (int32 i = 0; i < FiringState.Num(); i++)
 	{
 		FiringState[i]->WeaponBecameInactive();
@@ -507,6 +519,28 @@ bool AUTWeapon::IsChargedFireMode(uint8 TestMode) const
 	return FiringState.IsValidIndex(TestMode) && Cast<UUTWeaponStateFiringCharged>(FiringState[TestMode]) != NULL;
 }
 
+bool AUTWeapon::ShouldPlay1PVisuals() const
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return false;
+	}
+	else
+	{
+		// note we can't check Mesh->LastRenderTime here because of the hidden weapon setting!
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+			if (PC != NULL && PC->GetViewTarget() == UTOwner && !PC->IsBehindView())
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
 void AUTWeapon::PlayFiringEffects()
 {
 	if (UTOwner != NULL)
@@ -517,10 +551,9 @@ void AUTWeapon::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[CurrentFireMode], UTOwner, SRT_AllButOwner);
 		}
 
-		if (GetNetMode() != NM_DedicatedServer)
+		if (ShouldPlay1PVisuals())
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
-			// @TODO FIXMESTEVE is this causing first person muzzle flash for bots in standalone?
 			// try and play a firing animation if specified
 			if (FireAnimation.IsValidIndex(CurrentFireMode) && FireAnimation[CurrentFireMode] != NULL)
 			{
@@ -622,6 +655,7 @@ void AUTWeapon::FireShot()
 
 	if (!FireShotOverride() && GetUTOwner() != NULL) // script event may kill user
 	{
+		PlayFiringEffects();
 		if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 		{
 			FireProjectile();
@@ -630,7 +664,6 @@ void AUTWeapon::FireShot()
 		{
 			FireInstantHit();
 		}
-		PlayFiringEffects();
 	}
 	if (GetUTOwner() != NULL)
 	{
@@ -679,8 +712,21 @@ void AUTWeapon::OnRep_Ammo()
 	}
 }
 
+void AUTWeapon::OnRep_AttachmentType()
+{
+	if (UTOwner)
+	{
+		GetUTOwner()->UpdateWeaponAttachment();
+	}
+	else
+	{	
+		AttachmentType = NULL;
+	}
+}
+
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
+	
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// cheat
 	if (UTOwner && UTOwner->bUnlimitedAmmo)
@@ -1300,6 +1346,7 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTWeapon, Ammo, COND_None);
 	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
+	DOREPLIFETIME(AUTWeapon, AttachmentType);
 }
 
 FLinearColor AUTWeapon::GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const

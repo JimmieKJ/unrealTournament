@@ -980,6 +980,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetWeaponAttachmentClass(TSubclassOf<class AUTWeaponAttachment> NewWeaponAttachmentClass);
+
 	/** uses WeaponOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
 	UFUNCTION()
 	virtual void UpdateWeaponOverlays();
@@ -1223,6 +1226,10 @@ public:
 		return false;
 	}
 
+	/** spawn/destroy/replace the current weapon attachment to represent the equipped weapon (through WeaponClass) */
+	UFUNCTION()
+		virtual void UpdateWeaponAttachment();
+
 	virtual FVector GetNavAgentLocation() const override
 	{
 		// push down a little to make sure we intersect with the navmesh but not so much that we get stuff on a lower level that requires a jump
@@ -1247,6 +1254,7 @@ public:
 	/** sets walking movement reduction */
 	UFUNCTION(BlueprintCallable, Category = Movement)
 	virtual void SetWalkMovementReduction(float InPct, float InDuration);
+
 
 protected:
 
@@ -1278,9 +1286,7 @@ protected:
 	/** utility to redirect to SwitchToBestWeapon() to the character's Controller (human or AI) */
 	void SwitchToBestWeapon();
 
-	/** spawn/destroy/replace the current weapon attachment to represent the equipped weapon (through WeaponClass) */
-	UFUNCTION()
-	virtual void UpdateWeaponAttachment();
+	
 
 	// firemodes with input currently being held down (pending or actually firing)
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
@@ -1298,7 +1304,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	class AUTWeaponAttachment* WeaponAttachment;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing=UpdateWeaponAttachment, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = UpdateWeaponAttachment, Category = "Pawn")
+	TSubclassOf<AUTWeaponAttachment> WeaponAttachmentClass;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = UpdateWeaponAttachment, Category = "Pawn")
 	TSubclassOf<AUTWeapon> WeaponClass;
 
 public:

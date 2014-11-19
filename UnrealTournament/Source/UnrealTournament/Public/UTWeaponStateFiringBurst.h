@@ -13,7 +13,7 @@ class UUTWeaponStateFiringBurst : public UUTWeaponStateFiring
 
 	/** Number of shots in a burst */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Burst)
-	float BurstSize;
+	int32 BurstSize;
 
 	/** Interval between shots in a burst */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Burst)

@@ -86,6 +86,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StopFiringEffects(bool bIgnoreCurrentMode = false);
 
+	virtual void AttachToOwnerNative();
+
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();
 
