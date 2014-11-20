@@ -17,6 +17,9 @@ class AUTProj_StingerShard : public AUTProjectile
 
 	virtual void Destroyed() override;
 
+	/** Called when UTCharacter jumps off me. */
+	virtual void JumpedOffBy(AUTCharacter* BasedCharacter);
+
 	/** Normal of wall this shard impacted on. */
 	UPROPERTY()
 		FVector ImpactNormal;

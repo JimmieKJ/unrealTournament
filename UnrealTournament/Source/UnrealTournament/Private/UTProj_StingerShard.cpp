@@ -27,6 +27,19 @@ void AUTProj_StingerShard::Destroyed()
 	Super::Destroyed();
 }
 
+void AUTProj_StingerShard::JumpedOffBy(AUTCharacter* BasedCharacter)
+{
+	Explode(GetActorLocation(), ImpactNormal, CollisionComp);
+
+	FUTPointDamageEvent Event;
+	float AdjustedMomentum = 0.f;
+	Event.Damage = 0.5f * GetDamageParams(BasedCharacter, GetActorLocation(), AdjustedMomentum).BaseDamage;
+	Event.DamageTypeClass = MyDamageType;
+	Event.HitInfo = FHitResult(BasedCharacter, BasedCharacter->GetCapsuleComponent(), GetActorLocation(), FVector(0.f, 0.f, 1.f));
+	Event.ShotDirection = FVector(0.f, 0.f, 1.f);
+	Event.Momentum = FVector(0.f);
+	BasedCharacter->TakeDamage(Event.Damage, Event, BasedCharacter->GetController(), this);
+}
 
 /**Overridden to do the landing*/
 void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)

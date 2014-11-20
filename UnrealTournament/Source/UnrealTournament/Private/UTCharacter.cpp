@@ -26,6 +26,7 @@
 #include "UTDroppedPickup.h"
 #include "UTWeaponStateFiring.h"
 #include "UTProj_TransDisk.h"
+#include "UTProj_StingerShard.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -130,6 +131,18 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	LastDrownTime = 0.f;
 
 	LowHealthAmbientThreshold = 40;
+}
+
+// @TODO FIXMESTEVE - temp hack until get proper UT basing system set up
+void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
+{
+	// on base change, stinger shards explode and damage you
+	AUTProj_StingerShard* BaseShard = Cast<AUTProj_StingerShard>(GetMovementBaseActor(this));
+	if (BaseShard && (!NewBaseComponent || (NewBaseComponent != BaseShard->ShardMesh)))
+	{
+		BaseShard->JumpedOffBy(this);
+	}
+	Super::SetBase(NewBaseComponent, BoneName, bNotifyPawn);
 }
 
 void AUTCharacter::BaseChange()

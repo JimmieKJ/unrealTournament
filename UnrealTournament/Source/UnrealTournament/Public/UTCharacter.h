@@ -207,6 +207,8 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	friend void UUTCharacterMovement::PerformMovement(float DeltaSeconds);
 
+	virtual void SetBase(UPrimitiveComponent* NewBase, const FName BoneName = NAME_None, bool bNotifyActor = true) override;
+
 	//====================================
 	// Networking
 
