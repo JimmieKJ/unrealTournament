@@ -237,6 +237,7 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			NewWebLinkEffect->ActivateSystem();
 			NewWebLinkEffect->SetVectorParameter(NAME_HitLocation, LinkedBio->GetActorLocation());
 			NewWebLinkEffect->SetVectorParameter(NAME_LocalHitLocation, NewWebLinkEffect->ComponentToWorld.InverseTransformPositionNoScale(LinkedBio->GetActorLocation()));
+			NewWebLinkEffect->SetWorldRotation((LinkedBio->GetActorLocation() - GetActorLocation()).Rotation());
 		}
 		// replication support (temp)
 		if ((Role == ROLE_Authority) && (this != LinkedBio->WebMaster) && (WebMaster != LinkedBio))
