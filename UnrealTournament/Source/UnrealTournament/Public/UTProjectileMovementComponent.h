@@ -58,6 +58,5 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const override;
 
 protected:
-	virtual FVector ComputeMoveDelta(const FVector& InVelocity, float DeltaTime) const override;
 	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;
 };

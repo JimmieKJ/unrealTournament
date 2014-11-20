@@ -159,35 +159,18 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 	}
 }
 
-// this is a hack around UProjectileMovementComponent not passing the real TimeSlice to HandleImpact()
-static float LastTimeSlice = 0.0f;
-FVector UUTProjectileMovementComponent::ComputeMoveDelta(const FVector& InVelocity, float DeltaTime) const
-{
-	LastTimeSlice = DeltaTime;
-	return Super::ComputeMoveDelta(InVelocity, DeltaTime);
-}
 void UUTProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	LastTimeSlice = 0.0f;
 	UpdateState(DeltaTime);
 }
 void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
 {
-	if (!bShouldBounce && Hit.Normal.Z < HitZStopSimulatingThreshold && UpdatedComponent != NULL && UpdatedComponent->GetOwner() != NULL && (TimeSlice > 0.0f || LastTimeSlice > 0.0f))
+	if (!bShouldBounce && Hit.Normal.Z < HitZStopSimulatingThreshold && UpdatedComponent != NULL && UpdatedComponent->GetOwner() != NULL && TimeSlice > 0.0f)
 	{
 		AActor* ActorOwner = UpdatedComponent->GetOwner();
 		FVector OldLocation = UpdatedComponent->GetComponentLocation();
 
-		// restore time and velocity that got clobbered by UProjectileMovementComponent::TickComponent()'s hit handling
-		if (TimeSlice == 0.0f)
-		{
-			TimeSlice = LastTimeSlice;
-		}
-		else
-		{
-			TimeSlice /= Hit.Time;
-		}
 		Velocity = MoveDelta / TimeSlice;
 
 		FVector OldHitNormal = Hit.Normal;
