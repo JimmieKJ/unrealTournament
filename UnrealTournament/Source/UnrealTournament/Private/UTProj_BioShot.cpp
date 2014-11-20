@@ -83,6 +83,7 @@ void AUTProj_BioShot::BeginPlay()
 
 		// failsafe if never land
 		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
+		bSpawningGloblings = false;
 	}
 }
 
@@ -104,6 +105,8 @@ void AUTProj_BioShot::Destroyed()
 	{
 		RemoveWebLink(WebLinks[0].LinkedBio);
 	}
+
+	// @TODO FIXMESTEVE - fix up WebChild list?
 }
 
 void AUTProj_BioShot::ShutDown()
@@ -227,7 +230,7 @@ bool AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 			NewWebLinkEffect->SetVectorParameter(NAME_LocalHitLocation, NewWebLinkEffect->ComponentToWorld.InverseTransformPositionNoScale(LinkedBio->GetActorLocation()));
 		}
 		// replication support (temp)
-		if (Role == ROLE_Authority)
+		if ((Role == ROLE_Authority) && (this != LinkedBio->WebMaster) && (WebMaster != LinkedBio))
 		{
 			if (!WebLinkOne)
 			{
@@ -253,6 +256,20 @@ bool AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 	return true;
 }
 
+bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
+{
+	if (LinkedBio && !LinkedBio->IsPendingKillPending() && (GetActorLocation() - LinkedBio->GetActorLocation()).Size() < MaxLinkDistance)
+	{
+		// verify line of sight
+		FHitResult Hit;
+		static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
+
+		bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+		return (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()));
+	}
+	return false;
+}
+
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
 	if (Role == ROLE_Authority)
@@ -266,42 +283,34 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 				{
 					// ignore link damage from teammates and start linking process
 					AUTWeap_LinkGun *Linker = Cast<AUTWeap_LinkGun>(DamageCauser);
-					if (Linker->LinkedBio && !Linker->LinkedBio->IsPendingKillPending() && (GetActorLocation() - Linker->LinkedBio->GetActorLocation()).Size() < MaxLinkDistance)
+					if (Linker->LinkedBio && CanWebLinkTo(Linker->LinkedBio))
 					{
-						// verify line of sight
-						FHitResult Hit;
-						static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-
-						bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, Linker->LinkedBio->GetActorLocation() + 2.f*Linker->LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
-						if (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()))
+						if (WebConnected(Linker->LinkedBio))
 						{
-							if (WebConnected(Linker->LinkedBio))
+							if (Linker->LinkedBio->WebLinkOne && (Linker->LinkedBio->WebLinkOne != this))
 							{
-								if (Linker->LinkedBio->WebLinkOne && (Linker->LinkedBio->WebLinkOne != this))
+								WebConnected(Linker->LinkedBio->WebLinkOne);
+							}
+							else if (Linker->LinkedBio->WebLinkTwo && (Linker->LinkedBio->WebLinkTwo != this))
+							{
+								WebConnected(Linker->LinkedBio->WebLinkTwo);
+							}
+							else
+							{
+								for (int32 i = 0; i<Linker->LinkedBio->WebLinks.Num(); i++)
 								{
-									WebConnected(Linker->LinkedBio->WebLinkOne);
-								}
-								else if (Linker->LinkedBio->WebLinkTwo && (Linker->LinkedBio->WebLinkTwo != this))
-								{
-									WebConnected(Linker->LinkedBio->WebLinkTwo);
-								}
-								else
-								{
-									for (int32 i = 0; i<Linker->LinkedBio->WebLinks.Num(); i++)
+									if ((Linker->LinkedBio->WebLinks[i].LinkedBio != this) && (Linker->LinkedBio->WebLinks[i].LinkedBio != NULL))
 									{
-										if ((Linker->LinkedBio->WebLinks[i].LinkedBio != this) && (Linker->LinkedBio->WebLinks[i].LinkedBio != NULL))
-										{
-											WebConnected(Linker->LinkedBio->WebLinks[i].LinkedBio);
-											break;
-										}
+										WebConnected(Linker->LinkedBio->WebLinks[i].LinkedBio);
+										break;
 									}
 								}
 							}
-
-							// this costs ammo!
-							// flash line when low, allow recharge
-							// spider web trap springing
 						}
+
+						// this costs ammo!
+						// flash line when low, allow recharge
+						// spider web trap springing
 					}
 					if (GlobStrength >= MaxRestingGlobStrength)
 					{
@@ -339,17 +348,20 @@ void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
 	//Adjust a bit so globlings don't spawn in the floor
 	FVector FloorOffset = GetActorLocation() + (SurfaceNormal * 10.0f);
 	int32 NumGloblings = int32(GlobStrength);
+	FVector CrossVector = (NormalDir ^ SurfaceNormal).SafeNormal();
+
 	for (int32 i = 0; i<NumGloblings; i++)
 	{
-		// 2d splash in plane with link beam as normal
-		FVector Dir = FMath::VRand() * SplashSpread;
-		Dir = Dir - (Dir | NormalDir) + SurfaceNormal; // FIXME - regular spread using cross product
+		// 2d splash in plane with link beam as normal 
+		float Offset = -0.3f + 1.5f*float(NumGloblings - 2.f*i) / float(NumGloblings);
+		FVector Dir = SurfaceNormal * FMath::Cos(Offset) + CrossVector * FMath::Sin(Offset);
 		AUTProj_BioShot* Globling = GetWorld()->SpawnActor<AUTProj_BioShot>(GetClass(), FloorOffset, Dir.Rotation(), Params);
 		if (Globling)
 		{
-			Globling->bSpawningGloblings = true; // FIXME CLEAR, and also do this for other version
+			Globling->bSpawningGloblings = true; 
 			Globling->ProjectileMovement->InitialSpeed *= 0.4f;
 			Globling->ProjectileMovement->Velocity *= 0.4f;
+			Globling->WebMaster = this;
 		}
 	}
 	bSpawningGloblings = false;
@@ -398,16 +410,52 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		{
 			BioStabilityTimer();
 		}
-		else if (!bPendingKillPending && (Role == ROLE_Authority))
+		else if (!bPendingKillPending)
 		{
 			//Stop the projectile
 			ProjectileMovement->ProjectileGravityScale = 0.0f;
 			ProjectileMovement->Velocity = FVector::ZeroVector;
 
-			bReplicateUTMovement = true;
-			float MyRestTime = (GlobStrength > 1.f) ? ChargedRestTime : RestTime;
-			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, MyRestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
-			SetGlobStrength(GlobStrength);
+			if (Role == ROLE_Authority)
+			{
+				bReplicateUTMovement = true;
+				float MyRestTime = (GlobStrength > 1.f) ? ChargedRestTime : RestTime;
+				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, MyRestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
+				SetGlobStrength(GlobStrength);
+			}
+
+			if (WebMaster && CanWebLinkTo(WebMaster))
+			{
+				WebConnected(WebMaster);
+
+				if (Role == ROLE_Authority)
+				{
+					WebChild = WebMaster->WebChild;
+					WebMaster->WebChild = this;
+
+					// connect to furthest with no weblink yet
+					AUTProj_BioShot* FurthestBio = NULL;
+					float FurthestDist = 0.f;
+					AUTProj_BioShot* NextBio = WebChild;
+					while (NextBio)
+					{
+						if (!WebChild->IsPendingKillPending())
+						{
+							float Dist = (WebChild->GetActorLocation() - GetActorLocation()).SizeSquared();
+							if (!FurthestBio || (Dist > FurthestDist))
+							{
+								FurthestBio = WebChild;
+								FurthestDist = Dist;
+							}
+						}
+						NextBio = NextBio->WebChild;
+					}
+					if (FurthestBio)
+					{
+						WebConnected(FurthestBio);
+					}
+				}
+			}
 		}
 	}
 	// uncomment to easily test tracking (also remove instigator checks in Track())
@@ -704,9 +752,10 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 			for (int32 i = 0; i<NumGloblings; i++)
 			{
 				FVector Dir = SurfaceNormal + FMath::VRand() * SplashSpread;
-				AUTProjectile* Globling = GetWorld()->SpawnActor<AUTProjectile>(GetClass(), FloorOffset, Dir.Rotation(), Params);
+				AUTProj_BioShot* Globling = GetWorld()->SpawnActor<AUTProj_BioShot>(GetClass(), FloorOffset, Dir.Rotation(), Params);
 				if (Globling)
 				{
+					Globling->bSpawningGloblings = true;
 					Globling->ProjectileMovement->InitialSpeed *= 0.2f;
 					Globling->ProjectileMovement->Velocity *= 0.2f;
 				}
@@ -739,4 +788,5 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_None);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkOne, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkTwo, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebMaster, COND_SkipOwner);
 }

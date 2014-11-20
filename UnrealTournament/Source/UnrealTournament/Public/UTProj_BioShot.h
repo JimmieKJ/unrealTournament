@@ -159,6 +159,17 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Bio)
 		float GlobRadiusScaling;
 
+	/** Glob which was overcharged to create a linked web. */
+	UPROPERTY(ReplicatedUsing = OnRep_BioLanded, BlueprintReadOnly, Category = Bio)
+		AUTProj_BioShot* WebMaster;
+
+	/** Linked list of globs in overcharge web. */
+	UPROPERTY(BlueprintReadOnly, Category = Bio)
+		AUTProj_BioShot* WebChild;
+
+	/** Return true if can web link to LinkedBio */
+	virtual bool CanWebLinkTo(AUTProj_BioShot* LinkedBio);
+
 	/** Move toward TrackedPawn */
 	virtual void Track(AUTCharacter* NewTracked);
 
