@@ -114,6 +114,21 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		USoundBase* WebLinkSound;
 
+	/** Glob which was overcharged to create a linked web. */
+	UPROPERTY(ReplicatedUsing = OnRep_WebMaster, BlueprintReadOnly, Category = Bio)
+		AUTProj_BioShot* WebMaster;
+
+	UFUNCTION()
+		virtual void OnRep_WebMaster();
+
+	/** Linked list of globs in overcharge web. */
+	UPROPERTY(BlueprintReadOnly, Category = Bio)
+		AUTProj_BioShot* WebChild;
+
+	/** Return true if can web link to LinkedBio */
+	UFUNCTION(BlueprintCallable, Category = Bio)
+		virtual bool CanWebLinkTo(AUTProj_BioShot* LinkedBio);
+
 	/** Make a connection between this goo and LinkedBio.  Return true if link was added. */
 	UFUNCTION(BlueprintCallable, Category = Bio)
 	virtual bool AddWebLink(AUTProj_BioShot* LinkedBio);
@@ -162,18 +177,6 @@ class AUTProj_BioShot : public AUTProjectile
 	/** Radius scaling for large globs in the air*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Bio)
 		float GlobRadiusScaling;
-
-	/** Glob which was overcharged to create a linked web. */
-	UPROPERTY(ReplicatedUsing = OnRep_BioLanded, BlueprintReadOnly, Category = Bio)
-		AUTProj_BioShot* WebMaster;
-
-	/** Linked list of globs in overcharge web. */
-	UPROPERTY(BlueprintReadOnly, Category = Bio)
-		AUTProj_BioShot* WebChild;
-
-	/** Return true if can web link to LinkedBio */
-	UFUNCTION(BlueprintCallable, Category = Bio)
-	virtual bool CanWebLinkTo(AUTProj_BioShot* LinkedBio);
 
 	/** Move toward TrackedPawn */
 	virtual void Track(AUTCharacter* NewTracked);

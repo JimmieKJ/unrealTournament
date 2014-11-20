@@ -184,6 +184,14 @@ void AUTProj_BioShot::OnRep_WebLinkTwo()
 	}
 }
 
+void AUTProj_BioShot::OnRep_WebMaster()
+{
+	if (WebMaster && !WebMaster->IsPendingKillPending() && !WebMaster->bExploded)
+	{
+		AddWebLink(WebMaster);
+	}
+}
+
 bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 {
 	if (bAddingWebLink || !LinkedBio)
@@ -786,7 +794,7 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, GlobStrength, COND_None);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkOne, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkTwo, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebMaster, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkOne, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkTwo, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebMaster, COND_None);
 }
