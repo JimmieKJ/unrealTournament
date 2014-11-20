@@ -20,6 +20,10 @@ class AUTProj_StingerShard : public AUTProjectile
 	/** Called when UTCharacter jumps off me. */
 	virtual void JumpedOffBy(AUTCharacter* BasedCharacter);
 
+	/** Damage taken by player jumping off impacted shard. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Shard)
+	int32 JumpOffDamage;
+
 	/** Normal of wall this shard impacted on. */
 	UPROPERTY()
 		FVector ImpactNormal;

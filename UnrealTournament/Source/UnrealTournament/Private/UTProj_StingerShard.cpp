@@ -19,6 +19,7 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 		ShardMesh->AttachParent = RootComponent;
 	}
 	InitialLifeSpan = 8.f;
+	JumpOffDamage = 12;
 }
 
 void AUTProj_StingerShard::Destroyed()
@@ -33,7 +34,7 @@ void AUTProj_StingerShard::JumpedOffBy(AUTCharacter* BasedCharacter)
 
 	FUTPointDamageEvent Event;
 	float AdjustedMomentum = 0.f;
-	Event.Damage = 0.5f * GetDamageParams(BasedCharacter, GetActorLocation(), AdjustedMomentum).BaseDamage;
+	Event.Damage = JumpOffDamage;
 	Event.DamageTypeClass = MyDamageType;
 	Event.HitInfo = FHitResult(BasedCharacter, BasedCharacter->GetCapsuleComponent(), GetActorLocation(), FVector(0.f, 0.f, 1.f));
 	Event.ShotDirection = FVector(0.f, 0.f, 1.f);
