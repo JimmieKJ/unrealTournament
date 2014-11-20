@@ -40,6 +40,7 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 	if (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
 		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+		return;
 	}
 
 	//Stop the projectile and give it collision
