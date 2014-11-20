@@ -78,29 +78,16 @@ void AUTWeap_Enforcer::Tick(float DeltaTime)
 	if (CurrentState != InactiveState)
 	{
 		// if weapon is up in first person, view bob with movement
-		if (LeftMesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled())
+		if (LeftMesh != NULL && LeftMesh->AttachParent != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled())
 		{
 			if (FirstPLeftMeshOffset.IsZero())
 			{
 				FirstPLeftMeshOffset = LeftMesh->GetRelativeTransform().GetLocation();
-				FirstPMeshRotation = LeftMesh->GetRelativeTransform().Rotator();
 			}
 			LeftMesh->SetRelativeLocation(FirstPLeftMeshOffset);
-			LeftMesh->SetWorldLocation(LeftMesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(DeltaTime, this));
+			LeftMesh->SetWorldLocation(LeftMesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(0.0f, this));
 
-			//Todo, theres no need to recompute this, just use the same value as the right hand mesh
-			FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f, 0.f, 0.f);
-			FRotator FinalRotation = NewRotation;
-
-			// Add some rotation leading
-			if (UTOwner && UTOwner->Controller)
-			{
-				FinalRotation.Yaw = LagWeaponRotation(NewRotation.Yaw, LastRotation.Yaw, DeltaTime, MaxYawLag, 0);
-				FinalRotation.Pitch = LagWeaponRotation(NewRotation.Pitch, LastRotation.Pitch, DeltaTime, MaxPitchLag, 1);
-				FinalRotation.Roll = NewRotation.Roll;
-			}
-			LastRotation = NewRotation;
-			LeftMesh->SetRelativeRotation(FinalRotation + FirstPMeshRotation);
+			LeftMesh->SetRelativeRotation(Mesh->RelativeRotation);
 		}
 	}
 }
