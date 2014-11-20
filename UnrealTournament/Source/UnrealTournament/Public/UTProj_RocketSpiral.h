@@ -2,17 +2,13 @@
 
 #pragma once
 
-#include "UTProjectile.h"
+#include "UTProj_Rocket.h"
 #include "UTProj_RocketSpiral.generated.h"
 
-/**
- * 
- */
 UCLASS()
-class AUTProj_RocketSpiral : public AUTProjectile
+class AUTProj_RocketSpiral : public AUTProj_Rocket
 {
 	GENERATED_UCLASS_BODY()
-
 
 	/** flocking/spiral parameters */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Rocket)

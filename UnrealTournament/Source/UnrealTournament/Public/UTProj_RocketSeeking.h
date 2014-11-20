@@ -2,14 +2,11 @@
 
 #pragma once
 
-#include "UTProjectile.h"
+#include "UTProj_Rocket.h"
 #include "UTProj_RocketSeeking.generated.h"
 
-/**
- * 
- */
 UCLASS()
-class AUTProj_RocketSeeking : public AUTProjectile
+class AUTProj_RocketSeeking : public AUTProj_Rocket
 {
 	GENERATED_UCLASS_BODY()
 
