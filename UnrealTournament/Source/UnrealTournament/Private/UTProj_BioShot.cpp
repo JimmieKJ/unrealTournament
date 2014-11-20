@@ -172,7 +172,7 @@ void AUTProj_BioShot::OnRep_WebLinkOne()
 {
 	if (WebLinkOne && !WebLinkOne->IsPendingKillPending() && !WebLinkOne->bExploded)
 	{
-		WebConnected(WebLinkOne);
+		AddWebLink(WebLinkOne);
 	}
 }
 
@@ -180,11 +180,11 @@ void AUTProj_BioShot::OnRep_WebLinkTwo()
 {
 	if (WebLinkTwo && !WebLinkTwo->IsPendingKillPending() && !WebLinkTwo->bExploded)
 	{
-		WebConnected(WebLinkTwo);
+		AddWebLink(WebLinkTwo);
 	}
 }
 
-bool AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
+bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 {
 	if (bAddingWebLink || !LinkedBio)
 	{
@@ -251,7 +251,7 @@ bool AUTProj_BioShot::WebConnected(AUTProj_BioShot* LinkedBio)
 		}
 	}
 	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect);
-	LinkedBio->WebConnected(this);
+	LinkedBio->AddWebLink(this);
 	bAddingWebLink = false;
 	return true;
 }
@@ -285,15 +285,15 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 					AUTWeap_LinkGun *Linker = Cast<AUTWeap_LinkGun>(DamageCauser);
 					if (Linker->LinkedBio && CanWebLinkTo(Linker->LinkedBio))
 					{
-						if (WebConnected(Linker->LinkedBio))
+						if (AddWebLink(Linker->LinkedBio))
 						{
 							if (Linker->LinkedBio->WebLinkOne && (Linker->LinkedBio->WebLinkOne != this))
 							{
-								WebConnected(Linker->LinkedBio->WebLinkOne);
+								AddWebLink(Linker->LinkedBio->WebLinkOne);
 							}
 							else if (Linker->LinkedBio->WebLinkTwo && (Linker->LinkedBio->WebLinkTwo != this))
 							{
-								WebConnected(Linker->LinkedBio->WebLinkTwo);
+								AddWebLink(Linker->LinkedBio->WebLinkTwo);
 							}
 							else
 							{
@@ -301,7 +301,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 								{
 									if ((Linker->LinkedBio->WebLinks[i].LinkedBio != this) && (Linker->LinkedBio->WebLinks[i].LinkedBio != NULL))
 									{
-										WebConnected(Linker->LinkedBio->WebLinks[i].LinkedBio);
+										AddWebLink(Linker->LinkedBio->WebLinks[i].LinkedBio);
 										break;
 									}
 								}
@@ -426,7 +426,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 
 			if (WebMaster && CanWebLinkTo(WebMaster))
 			{
-				WebConnected(WebMaster);
+				AddWebLink(WebMaster);
 
 				if (Role == ROLE_Authority)
 				{
@@ -452,7 +452,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 					}
 					if (FurthestBio)
 					{
-						WebConnected(FurthestBio);
+						AddWebLink(FurthestBio);
 					}
 				}
 			}

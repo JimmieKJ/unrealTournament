@@ -102,6 +102,8 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 	float BlobWebThreshold;
 
+	/** Overcharged blob disperses smaller blobs to create web trap */
+	UFUNCTION(BlueprintCallable, Category = Bio)
 	virtual void BlobToWeb(const FVector& NormalDir);
 
 	/** Linking effect between webbed bio goo */
@@ -112,10 +114,12 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		USoundBase* WebLinkSound;
 
-	/** Make a connection between this goo and LinkedBio */
-	virtual bool WebConnected(AUTProj_BioShot* LinkedBio);
+	/** Make a connection between this goo and LinkedBio.  Return true if link was added. */
+	UFUNCTION(BlueprintCallable, Category = Bio)
+	virtual bool AddWebLink(AUTProj_BioShot* LinkedBio);
 
 	/** Remove connection between this goo and LinkedBio */
+	UFUNCTION(BlueprintCallable, Category = Bio)
 	virtual void RemoveWebLink(AUTProj_BioShot* LinkedBio);
 
 	virtual void Destroyed() override;
@@ -168,6 +172,7 @@ class AUTProj_BioShot : public AUTProjectile
 		AUTProj_BioShot* WebChild;
 
 	/** Return true if can web link to LinkedBio */
+	UFUNCTION(BlueprintCallable, Category = Bio)
 	virtual bool CanWebLinkTo(AUTProj_BioShot* LinkedBio);
 
 	/** Move toward TrackedPawn */
