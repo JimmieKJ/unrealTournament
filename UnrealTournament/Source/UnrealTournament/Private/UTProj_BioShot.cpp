@@ -47,7 +47,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	bLanded = false;
 	bHasMerged = false;
 	bCanTrack = false;
-	WebLifeBoost = 120.f; // @TODO FIXMESTEVE reduce once have link recharging
+	WebLifeBoost = 20.f; // @TODO FIXMESTEVE reduce once have link recharging
 	MaxLinkDistance = 1000.f;
 
 	LandedOverlapRadius = 16.f;
