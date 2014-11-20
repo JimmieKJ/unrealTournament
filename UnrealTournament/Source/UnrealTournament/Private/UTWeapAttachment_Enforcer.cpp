@@ -6,10 +6,10 @@
 #include "UTWeapAttachment_Enforcer.h"
 
 
-AUTWeapAttachment_Enforcer::AUTWeapAttachment_Enforcer(const class FPostConstructInitializeProperties& PCIP)
-	: Super(PCIP)
+AUTWeapAttachment_Enforcer::AUTWeapAttachment_Enforcer(const FObjectInitializer& OI)
+: Super(OI)
 {
-	LeftMesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P_Left"));
+	LeftMesh = OI.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P_Left"));
 
 	LeftMesh->AttachParent = RootComponent;
 	LeftMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
@@ -38,11 +38,11 @@ void AUTWeapAttachment_Enforcer::BeginPlay()
 void AUTWeapAttachment_Enforcer::AttachToOwnerNative()
 {
 
-	LeftMesh->AttachTo(UTOwner->Mesh, LeftAttachSocket);
+	LeftMesh->AttachTo(UTOwner->GetMesh(), LeftAttachSocket);
 
 	LeftMesh->SetRelativeLocation(LeftAttachOffset);
-	LeftMesh->bRecentlyRendered = UTOwner->Mesh->bRecentlyRendered;
-	LeftMesh->LastRenderTime = UTOwner->Mesh->LastRenderTime;
+	LeftMesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;
+	LeftMesh->LastRenderTime = UTOwner->GetMesh()->LastRenderTime;
 	UpdateOverlays();
 	SetSkin(UTOwner->GetSkin());
 
