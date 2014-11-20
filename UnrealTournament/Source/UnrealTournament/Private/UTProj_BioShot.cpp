@@ -84,6 +84,7 @@ void AUTProj_BioShot::BeginPlay()
 		// failsafe if never land
 		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
 		bSpawningGloblings = false;
+		SurfaceNormal = GetActorRotation().Vector();
 	}
 }
 
