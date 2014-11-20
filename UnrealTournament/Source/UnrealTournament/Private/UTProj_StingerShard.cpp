@@ -21,6 +21,13 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	InitialLifeSpan = 8.f;
 }
 
+void AUTProj_StingerShard::Destroyed()
+{
+	Explode(GetActorLocation(), ImpactNormal, CollisionComp);
+	Super::Destroyed();
+}
+
+
 /**Overridden to do the landing*/
 void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
