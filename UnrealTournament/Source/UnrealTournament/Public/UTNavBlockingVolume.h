@@ -28,7 +28,7 @@ class AUTNavBlockingVolume : public AVolume // can't sublcass ABlockingVolume ei
 		// should not be in game
 		if (GetWorld()->IsGameWorld())
 		{
-			Destroy();
+			GetWorld()->DestroyActor(this, true);
 		}
 		else
 		{
