@@ -136,8 +136,11 @@ void AUTWeap_Enforcer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 void AUTWeap_Enforcer::StateChanged()
 {
-	FireCount = 0;
-	ImpactCount = 0;
+	if (!FiringState.Contains(Cast<UUTWeaponStateFiring>(CurrentState)))
+	{
+		FireCount = 0;
+		ImpactCount = 0;
+	}
 
 	Super::StateChanged();
 }
