@@ -2753,7 +2753,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	TargetEyeOffset.DiagnosticCheckNaN();
 	if (IsLocallyControlled() && GetCharacterMovement()) // @TODO FIXME ALSO FOR SPECTATORS
 	{
-		if (Health <= LowHealthAmbientThreshold)
+		if ((Health <= LowHealthAmbientThreshold) && (Health > 0))
 		{
 			float UrgencyFactor = (LowHealthAmbientThreshold - Health) / LowHealthAmbientThreshold;
 			SetStatusAmbientSound(LowHealthAmbientSound, 0.5f + FMath::Clamp<float>(UrgencyFactor, 0.f, 1.f), 1.f, false);
