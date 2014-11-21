@@ -32,9 +32,6 @@ public:
 	void Construct(const FArguments& InArgs);
 protected:
 
-	/** library of weapon classes pulled from asset registry */
-	UObjectLibrary* WeaponLibrary;
-
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
 	TArray<UClass*> WeaponList;
@@ -70,7 +67,7 @@ protected:
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
-		Collector.AddReferencedObject(WeaponLibrary);
+		Collector.AddReferencedObjects(WeaponList);
 	}
 };
 #endif

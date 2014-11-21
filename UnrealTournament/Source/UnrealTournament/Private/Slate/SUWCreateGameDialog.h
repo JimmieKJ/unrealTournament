@@ -34,8 +34,6 @@ protected:
 	TSharedPtr< SComboBox<UClass*> > GameList;
 	TSharedPtr<STextBlock> SelectedGameName;
 	TSubclassOf<AUTGameMode> SelectedGameClass;
-	/** library of all gametypes pulled from asset registry */
-	UObjectLibrary* GametypeLibrary;
 
 	// container for pointers to TAttributeProperty objects linked directly to setting properties
 	TArray< TSharedPtr<TAttributePropertyBase> > PropertyLinks;
@@ -53,7 +51,7 @@ protected:
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
-		Collector.AddReferencedObject(GametypeLibrary);
+		Collector.AddReferencedObjects(AllGametypes);
 	}
 };
 

@@ -19,12 +19,9 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			AllGametypes.Add(*It);
 		}
 	}
-	GametypeLibrary = UObjectLibrary::CreateLibrary(AUTGameMode::StaticClass(), true, false);
-	GametypeLibrary->LoadBlueprintAssetDataFromPath(TEXT("/Game/")); // TODO: do we need to iterate through all the root paths?
-	GametypeLibrary->LoadBlueprintAssetDataFromPaths(TArray<FString>()); // HACK: library code doesn't properly handle giving it a root path
 	{
 		TArray<FAssetData> AssetList;
-		GametypeLibrary->GetAssetDataList(AssetList);
+		GetAllBlueprintAssetData(AUTGameMode::StaticClass(), AssetList);
 		for (const FAssetData& Asset : AssetList)
 		{
 			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
