@@ -763,11 +763,12 @@ float UUTCharacterMovement::GetMaxSpeed() const
 	// ignore standard movement while character is a ragdoll
 	if (Cast<AUTCharacter>(CharacterOwner) != NULL && ((AUTCharacter*)CharacterOwner)->IsRagdoll())
 	{
-		return 0.0f;
+		// small non-zero number used to avoid divide by zero issues
+		return 0.01f;
 	}
 	else if (bIsEmoting)
 	{
-		return 0.0f;
+		return 0.01f;
 	}
 	else if (bIsDodgeRolling)
 	{
