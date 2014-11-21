@@ -218,7 +218,45 @@ void AUTGameMode::AddMutator(const FString& MutatorPath)
 			}
 		}
 	}
-	AddMutatorClass(LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, 0, NULL));
+	TSubclassOf<AUTMutator> MutClass = LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, 0, NULL);
+	if (MutClass == NULL && !MutatorPath.Contains(TEXT(".")))
+	{
+		// use asset registry to try to find shorthand name
+		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+		if (MutatorAssets.Num() == 0)
+		{
+			GetAllBlueprintAssetData(AUTMutator::StaticClass(), MutatorAssets);
+
+			// create fake asset entries for native classes
+			for (TObjectIterator<UClass> It; It; ++It)
+			{
+				if (It->IsChildOf(AUTMutator::StaticClass()) && It->HasAnyClassFlags(CLASS_Native) && !It->HasAnyClassFlags(CLASS_Abstract))
+				{
+					FAssetData NewData;
+					NewData.AssetName = It->GetFName();
+					NewData.TagsAndValues.Add(NAME_GeneratedClass, It->GetPathName());
+					MutatorAssets.Add(NewData);
+				}
+			}
+		}
+			
+		for (const FAssetData& Asset : MutatorAssets)
+		{
+			if (Asset.AssetName == FName(*MutatorPath) || Asset.AssetName == FName(*FString(TEXT("Mutator_") + MutatorPath)) || Asset.AssetName == FName(*FString(TEXT("UTMutator_") + MutatorPath)))
+			{
+				const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+				if (ClassPath != NULL)
+				{
+					MutClass = LoadObject<UClass>(NULL, **ClassPath);
+					if (MutClass != NULL)
+					{
+						break;
+					}
+				}
+			}
+		}
+	}
+	AddMutatorClass(MutClass);
 }
 
 void AUTGameMode::AddMutatorClass(TSubclassOf<AUTMutator> MutClass)

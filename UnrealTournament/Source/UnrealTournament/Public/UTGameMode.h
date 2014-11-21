@@ -179,6 +179,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = AI)
 	int32 MaxSquadSize;
 
+	/** cached list of mutator assets from the asset registry and native classes, used to allow shorthand names for mutators instead of full paths all the time */
+	TArray<FAssetData> MutatorAssets;
+
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
 	 */

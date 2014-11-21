@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "AssetRegistryModule.h"
 
 class FUTModule : public FDefaultGameModuleImpl
 {
@@ -96,4 +97,109 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	}
 
 	return NewVolume;
+}
+
+void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	TArray<FString> RootPaths;
+	FPackageName::QueryRootContentPaths(RootPaths);
+
+#if WITH_EDITOR
+	// Cooked data has the asset data already set up
+	AssetRegistry.ScanPathsSynchronous(RootPaths);
+#endif
+
+	FARFilter ARFilter;
+	ARFilter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
+
+	/*for (int PathIndex = 0; PathIndex < RootPaths.Num(); PathIndex++)
+	{
+		ARFilter.PackagePaths.Add(FName(*RootPaths[PathIndex]));
+	}*/
+
+	ARFilter.bRecursivePaths = true;
+	ARFilter.bIncludeOnlyOnDiskAssets = true;
+
+	if (BaseClass == NULL)
+	{
+		AssetRegistry.GetAssets(ARFilter, AssetList);
+	}
+	else
+	{
+		// TODO: the below filtering is torturous because the asset registry does not contain full inheritance information for blueprints
+		// nor does it return full class paths when you request a class tree
+
+		TArray<FAssetData> LocalAssetList;
+		AssetRegistry.GetAssets(ARFilter, LocalAssetList);
+
+		TSet<FString> UnloadedBaseClassPaths;
+		// first pass: determine the inheritance that we can trivially verify are the correct class because their parent is in memory
+		for (int32 i = 0; i < LocalAssetList.Num(); i++)
+		{
+			const FString* LoadedParentClass = LocalAssetList[i].TagsAndValues.Find("ParentClass");
+			if (LoadedParentClass != NULL && !LoadedParentClass->IsEmpty())
+			{
+				UClass* Class = FindObject<UClass>(ANY_PACKAGE, **LoadedParentClass);
+				if (Class == NULL)
+				{
+					// apparently you have to 'load' native classes once for FindObject() to reach them
+					// figure out if this parent is such a class and if so, allow LoadObject()
+					FString ParentPackage = *LoadedParentClass;
+					ConstructorHelpers::StripObjectClass(ParentPackage);
+					if (ParentPackage.StartsWith(TEXT("/Script/")))
+					{
+						ParentPackage = ParentPackage.LeftChop(ParentPackage.Len() - ParentPackage.Find(TEXT(".")));
+						if (FindObject<UPackage>(NULL, *ParentPackage) != NULL)
+						{
+							Class = LoadObject<UClass>(NULL, **LoadedParentClass, NULL, LOAD_NoWarn | LOAD_Quiet);
+						}
+					}
+				}
+				if (Class != NULL)
+				{
+					if (Class->IsChildOf(BaseClass))
+					{
+						AssetList.Add(LocalAssetList[i]);
+						const FString* GenClassPath = LocalAssetList[i].TagsAndValues.Find("GeneratedClass");
+						if (GenClassPath != NULL)
+						{
+							UnloadedBaseClassPaths.Add(*GenClassPath);
+						}
+					}
+					LocalAssetList.RemoveAt(i);
+					i--;
+				}
+			}
+			else
+			{
+				// asset info is missing; fail
+				LocalAssetList.RemoveAt(i);
+				i--;
+			}
+		}
+		// now go through the remainder and match blueprints against an unloaded parent
+		// if we find no new matching assets, the rest must be the wrong super
+		bool bFoundAny = false;
+		do 
+		{
+			for (int32 i = 0; i < LocalAssetList.Num(); i++)
+			{
+				if (UnloadedBaseClassPaths.Find(*LocalAssetList[i].TagsAndValues.Find("ParentClass")))
+				{
+					AssetList.Add(LocalAssetList[i]);
+					const FString* GenClassPath = LocalAssetList[i].TagsAndValues.Find("GeneratedClass");
+					if (GenClassPath != NULL)
+					{
+						UnloadedBaseClassPaths.Add(*GenClassPath);
+					}
+					LocalAssetList.RemoveAt(i);
+					i--;
+					bFoundAny = true;
+				}
+			}
+		} while (bFoundAny && LocalAssetList.Num() > 0);
+	}
 }

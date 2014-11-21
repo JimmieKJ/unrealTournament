@@ -68,4 +68,10 @@ FORCEINLINE FCanvasIcon MakeCanvasIcon(UTexture* Tex, float InU, float InV, floa
 	return Result;
 }
 
+/** returns asset data for all blueprints of the specified base class in the asset registry
+ * this does not actually load assets, so it's fast in a cooked build, although the first time it is run
+ * in an uncooked build it will hitch while scanning the asset registry
+ */
+extern void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList);
+
 #endif
