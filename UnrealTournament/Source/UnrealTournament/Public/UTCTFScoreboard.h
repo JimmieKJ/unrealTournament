@@ -16,6 +16,12 @@ class UUTCTFScoreboard : public UUTTeamScoreboard
 	FText AssistedByText;
 	UPROPERTY()
 	FText UnassistedText;
+	UPROPERTY()
+	FText CaptureText;
+	UPROPERTY()
+	FText ScoreText;
+	UPROPERTY()
+	FText NoScoringText;
 
 	virtual void DrawScoreboard(float RenderDelta);
 

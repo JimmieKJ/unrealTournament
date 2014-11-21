@@ -107,9 +107,6 @@ class AUTCTFGameState: public AUTGameState
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
-	uint32 bOldSchool : 1;
-	
-	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint32 bSecondHalf : 1;
 
 	UPROPERTY(BlueprintReadOnly,Replicated,ReplicatedUsing=OnHalftimeChanged, Category = CTF)
@@ -117,9 +114,6 @@ class AUTCTFGameState: public AUTGameState
 
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint32 bAllowSuddenDeath : 1;
-
-	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
-	uint8 MaxNumberOfTeams;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
 	TArray<AUTCTFFlagBase*> FlagBases;

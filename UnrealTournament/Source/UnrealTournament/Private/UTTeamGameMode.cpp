@@ -65,6 +65,8 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 		checkSlow(Teams[i] == NewTeam);
 	}
 
+	MercyScore = FMath::Max(0, GetIntOption(Options, TEXT("MercyScore"), MercyScore));
+
 	// TDM never kills off players going in to overtime
 	bOnlyTheStrongSurvive = false;
 }
@@ -213,8 +215,28 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 {
 	AUTTeamInfo* WinningTeam = NULL;
 
+	if (MercyScore > 0)
+	{
+		int32 Spread = Scorer->Team->Score;
+		for (AUTTeamInfo* OtherTeam : Teams)
+		{
+			if (OtherTeam != Scorer->Team)
+			{
+				Spread = FMath::Min<int32>(Spread, Scorer->Team->Score - OtherTeam->Score);
+			}
+		}
+		if (Spread >= MercyScore)
+		{
+			EndGame(Scorer, FName(TEXT("MercyScore")));
+			return true;
+		}
+	}
+
 	// Unlimited play
-	if (GoalScore <= 0) return false;
+	if (GoalScore <= 0)
+	{
+		return false;
+	}
 
 	for (int32 i = 0; i < Teams.Num(); i++)
 	{
@@ -295,13 +317,14 @@ void AUTTeamGameMode::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 	{
 		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);
 	}
-	else if (!bHasBroadcastDominating && ScoringTeam->Score >= BestScore + 4)
+	else if (ScoringTeam->Score >= ((MercyScore > 0) ? (BestScore + MercyScore - 1) : (BestScore + 4)))
 	{
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), bHasBroadcastDominating ? 2 : 9, ScoringPlayer, NULL, ScoringTeam);
 		bHasBroadcastDominating = true;
-		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 9, ScoringPlayer, NULL, ScoringTeam);
 	}
 	else
 	{
+		bHasBroadcastDominating = false; // since other team scored, need new reminder if mercy rule might be hit again
 		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
 	}
 }

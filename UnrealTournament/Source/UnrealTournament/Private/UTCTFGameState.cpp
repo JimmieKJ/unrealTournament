@@ -7,7 +7,6 @@
 AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	bOldSchool = false;
 	bSecondHalf = false;
 	bHalftime = false;
 }
@@ -16,7 +15,6 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AUTCTFGameState, bOldSchool);
 	DOREPLIFETIME(AUTCTFGameState, bSecondHalf);
 	DOREPLIFETIME(AUTCTFGameState, bHalftime);
 	DOREPLIFETIME(AUTCTFGameState, FlagBases);
@@ -27,8 +25,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 
 void AUTCTFGameState::SetMaxNumberOfTeams(int TeamCount)
 {
-	MaxNumberOfTeams = TeamCount;
-	for (int TeamIdx=0; TeamIdx < MaxNumberOfTeams; TeamIdx++)
+	for (int32 TeamIdx = 0; TeamIdx < TeamCount; TeamIdx++)
 	{
 		FlagBases.Add(NULL);
 	}

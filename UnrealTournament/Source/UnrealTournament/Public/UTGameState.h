@@ -69,6 +69,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = GameState)
 	uint32 RemainingTime;
 
+	/** local world time that game ended (i.e. relative to World->TimeSeconds) */
+	UPROPERTY(BlueprintReadOnly, Category = GameState)
+	float MatchEndTime;
+
 	UFUNCTION()
 	virtual void OnRep_RemainingTime();
 
@@ -202,6 +206,11 @@ protected:
 	 */
 	UPROPERTY(Replicated)
 	UMaterialInterface* OverlayMaterials[16];
+
+	virtual void HandleMatchHasEnded() override
+	{
+		MatchEndTime = GetWorld()->TimeSeconds;
+	}
 };
 
 

@@ -25,15 +25,15 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	// By default, we do 2 team CTF
-	MaxNumberOfTeams = 2;
+	NumTeams = 2;
 	HalftimeDuration = 20;	// 20 second half-time by default...
 	HUDClass = AUTHUD_CTF::StaticClass();
 	GameStateClass = AUTCTFGameState::StaticClass();
 	bAllowOvertime = true;
-	bOldSchool = false;
 	OvertimeDuration = 5;
 	bUseTeamStarts = true;
 	bSuddenDeath = true;
+	MercyScore = 5;
 	GoalScore = 0;
 	TimeLimit = 14;
 	MapPrefix = TEXT("CTF");
@@ -52,14 +52,10 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	FString InOpt = ParseOption(Options, TEXT("OldSchool"));
-	bOldSchool = EvalBoolOptions(InOpt, bOldSchool);
-
-	InOpt = ParseOption(Options, TEXT("SuddenDeath"));
-	bSuddenDeath = EvalBoolOptions(InOpt, bSuddenDeath);
+	bSuddenDeath = EvalBoolOptions(ParseOption(Options, TEXT("SuddenDeath")), bSuddenDeath);
 
 	// HalftimeDuration is in seconds and used in seconds,
-	HalftimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
+	HalftimeDuration = FMath::Max(0, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
 
 	// OvertimeDuration is in minutes
 	OvertimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("OvertimeDuration"), OvertimeDuration));
@@ -76,9 +72,8 @@ void AUTCTFGameMode::InitGameState()
 	Super::InitGameState();
 	// Store a cached reference to the GameState
 	CTFGameState = Cast<AUTCTFGameState>(GameState);
-	CTFGameState->SetMaxNumberOfTeams(MaxNumberOfTeams);
+	CTFGameState->SetMaxNumberOfTeams(NumTeams);
 }
-
 
 void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
@@ -214,6 +209,10 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			{
 				EndGame(Holder, FName(TEXT("GoldenCap")));	
 			}
+			else
+			{
+				CheckScore(Holder);
+			}
 		}
 
 		UE_LOG(UT,Verbose,TEXT("========================================="));
@@ -226,27 +225,40 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 
 bool AUTCTFGameMode::CheckScore(AUTPlayerState* Scorer)
 {
-	if (bOldSchool)
+	if (Scorer->Team != NULL)
 	{
-		if ( Scorer->Team != NULL && GoalScore > 0 && Scorer->Team->Score >= GoalScore)
+		if (GoalScore > 0 && Scorer->Team->Score >= GoalScore)
 		{
-			EndGame(Scorer,FName(TEXT("scorelimit")));
+			EndGame(Scorer, FName(TEXT("scorelimit")));
+		}
+		else if (MercyScore > 0)
+		{
+			int32 Spread = Scorer->Team->Score;
+			for (AUTTeamInfo* OtherTeam : Teams)
+			{
+				if (OtherTeam != Scorer->Team)
+				{
+					Spread = FMath::Min<int32>(Spread, Scorer->Team->Score - OtherTeam->Score);
+				}
+			}
+			if (Spread >= MercyScore)
+			{
+				EndGame(Scorer, FName(TEXT("MercyScore")));
+			}
 		}
 	}
 
 	return true;
 }
 
-
 void AUTCTFGameMode::CheckGameTime()
 {
-	if (bOldSchool || TimeLimit == 0)
+	if (HalftimeDuration <= 0 || TimeLimit == 0)
 	{
 		Super::CheckGameTime();
 	}
 	else if ( CTFGameState->IsMatchInProgress() )
 	{
-
 		// First look to see if we are in halftime. 
 		if (CTFGameState->IsMatchAtHalftime())		
 		{
@@ -853,14 +865,17 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 	OutRules += FString::Printf(TEXT("TimeLimit\t%i\t"), TimeLimit);
 	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
 
-	if (bOldSchool)
+	if (TimeLimit > 0)
 	{
-		OutRules += FString::Printf(TEXT("Old School\tTrue\t"));
-	}
-	else
-	{
-		OutRules += FString::Printf(TEXT("Halftime\tTrue\t"));
-		OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);
+		if (HalftimeDuration <= 0)
+		{
+			OutRules += FString::Printf(TEXT("No Halftime\tTrue\t"));
+		}
+		else
+		{
+			OutRules += FString::Printf(TEXT("Halftime\tTrue\t"));
+			OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);
+		}
 	}
 
 	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));

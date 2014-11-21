@@ -46,6 +46,10 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	float TeamMomentumPct;
 
+	/** if greater than 0 and any team leads by this many or more, the game ends */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
+	int32 MercyScore;
+
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState() override;
 	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
