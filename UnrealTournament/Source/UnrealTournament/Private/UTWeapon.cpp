@@ -375,7 +375,7 @@ bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
 void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, true);
-	if (FiringState.IsValidIndex(FireModeNum))
+	if (FiringState.IsValidIndex(FireModeNum) && CurrentState != EquippingState && CurrentState != UnequippingState)
 	{
 		FiringState[FireModeNum]->PendingFireStarted();
 	}
@@ -408,7 +408,7 @@ bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum)
 void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, false);
-	if (FiringState.IsValidIndex(FireModeNum))
+	if (FiringState.IsValidIndex(FireModeNum) && CurrentState != EquippingState && CurrentState != UnequippingState)
 	{
 		FiringState[FireModeNum]->PendingFireStopped();
 	}
