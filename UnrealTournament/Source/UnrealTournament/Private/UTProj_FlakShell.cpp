@@ -18,7 +18,7 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FObjectInitializer& ObjectIniti
 	TossZ = 430.0f;
 
 	DamageParams.BaseDamage = 100.0f;
-	DamageParams.OuterRadius = 440.0f;
+	DamageParams.OuterRadius = 410.0f;
 
 	Momentum = 150000.0f;
 
