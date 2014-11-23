@@ -154,9 +154,9 @@ void AUTProjectile::BeginPlay()
 		{
 			// Move projectile to match where it is on server now (to make up for replication time)
 			float CatchupTickDelta = MyPlayer->GetPredictionTime();
-			if ((CatchupTickDelta > 0.f) && ProjectileMovement)
+			if (CatchupTickDelta > 0.f)
 			{
-				ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
+				CatchupTick(CatchupTickDelta);
 			}
 
 			// look for associated fake client projectile
@@ -220,6 +220,14 @@ void AUTProjectile::BeginPlay()
 		{
 			UE_LOG(UT, Warning, TEXT("%s spawned with no local player found!"), *GetName());
 		}
+	}
+}
+
+void AUTProjectile::CatchupTick(float CatchupTickDelta)
+{
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
 	}
 }
 

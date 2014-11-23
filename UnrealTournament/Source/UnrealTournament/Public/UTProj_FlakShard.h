@@ -46,6 +46,9 @@ class AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
 	float DamageAttenuationDelay;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
+		float FullGravityDelay;
+
 	/** amount of time for the hot effects to fade */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	float HeatFadeTime;
@@ -63,4 +66,5 @@ class AUTProj_FlakShard : public AUTProjectile
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
 
 	virtual void Tick(float DeltaTime) override;
+	virtual void CatchupTick(float CatchupTickDelta) override;
 };

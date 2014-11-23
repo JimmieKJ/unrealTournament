@@ -195,6 +195,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** Synchronize replicated projectile with the associated client-side fake projectile */
 	virtual void BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile);
 
+	/** Server catchup ticking for client's projectile */
+	virtual void CatchupTick(float CatchupTickDelta);
+
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
 

@@ -48,11 +48,21 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	InitialLifeSpan = 2.f;
 	BounceFinalLifeSpanIncrement = 0.5f;
 	BouncesRemaining = 2;
+	FullGravityDelay = 0.5f;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	bNetTemporary = true;
 }
+
+
+void AUTProj_FlakShard::CatchupTick(float CatchupTickDelta)
+{
+	Super::CatchupTick(CatchupTickDelta);
+	FullGravityDelay -= CatchupTickDelta;
+	// @TODO FIXMESTEVE - not synchronizing this correctly on other clients unless we replicate it.  Needed?
+}
+
 
 void AUTProj_FlakShard::PostInitializeComponents()
 {
@@ -110,7 +120,7 @@ void AUTProj_FlakShard::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (GetLifeSpan() < 1.0f)
+	if (InitialLifeSpan - GetLifeSpan() > FullGravityDelay)
 	{
 		ProjectileMovement->ProjectileGravityScale = 1.f;
 	}
