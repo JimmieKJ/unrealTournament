@@ -11,7 +11,7 @@ AUTWaterVolume::AUTWaterVolume(const FObjectInitializer& ObjectInitializer)
 	PawnEntryVelZScaling = 0.4f;
 	BrakingDecelerationSwimming = 300.f;
 	TerminalVelocity = 3000.f;
-
+	WaterCurrentVelocity = FVector(0.f);
 }
 
 AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
@@ -23,6 +23,7 @@ AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
 	BrakingDecelerationSwimming = 2000.f;
 	TerminalVelocity = 3000.f;
 	bEntryPain = false;
+
 }
 
 void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
@@ -62,6 +63,11 @@ void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 		}
 		Super::ActorLeavingVolume(Other);
 	}
+}
+
+FVector AUTWaterVolume::GetCurrentFor_Implementation(AActor* Actor) const
+{
+	return WaterCurrentVelocity;
 }
 
 void AUTPainVolume::ActorEnteredVolume(class AActor* Other)

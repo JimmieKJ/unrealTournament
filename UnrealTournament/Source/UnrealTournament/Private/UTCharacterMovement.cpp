@@ -5,6 +5,7 @@
 #include "GameFramework/GameNetworkManager.h"
 #include "UTLift.h"
 #include "UTReachSpec_Lift.h"
+#include "UTWaterVolume.h"
 #include "UTBot.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
@@ -1418,6 +1419,15 @@ void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 		{
 			Acceleration = Acceleration - (VelDir | Acceleration)*VelDir; 
 		}
+	}
+
+	AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(GetPhysicsVolume());
+	FVector WaterCurrent = WaterVolume ? WaterVolume->GetCurrentFor(CharacterOwner) : FVector(0.f);
+	if (!WaterCurrent.IsNearlyZero())
+	{
+		// current force is not added to velocity (velocity is relative to current, not limited by it)
+		FHitResult Hit(1.f);
+		Swim(WaterCurrent*deltaTime, Hit);
 	}
 	Super::PhysSwimming(deltaTime, Iterations);
 }

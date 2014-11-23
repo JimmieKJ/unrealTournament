@@ -31,4 +31,13 @@ class AUTWaterVolume : public APhysicsVolume
 	/** Pawn braking ability in this fluid */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
 	float BrakingDecelerationSwimming;
+
+	/** Current velocity (if GetCurrentFor() is not implemented */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
+	FVector WaterCurrentVelocity;
+
+	/** allows blueprint to provide custom current velocity for an actor. */
+	UFUNCTION(BlueprintNativeEvent, Category=WaterVolume)
+	FVector GetCurrentFor(AActor* Actor) const;
 };
+
