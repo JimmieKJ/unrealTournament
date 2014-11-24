@@ -118,7 +118,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MaxUndampedImpulse = 2000.f;
 
 	OutofWaterZ = 700.f;
-	JumpOutOfWaterPitch = 0.f;
+	JumpOutOfWaterPitch = -90.f;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
