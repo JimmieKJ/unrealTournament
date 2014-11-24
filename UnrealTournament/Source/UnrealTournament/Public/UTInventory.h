@@ -71,6 +71,9 @@ public:
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity);
 	virtual void Destroyed() override;
 
+	/** Initialized dropped pickup holding this inventory item. */
+	virtual void InitializeDroppedPickup(class AUTDroppedPickup* Pickup);
+
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)
 	UMeshComponent* GetPickupMeshTemplate(FVector& OverrideScale) const;

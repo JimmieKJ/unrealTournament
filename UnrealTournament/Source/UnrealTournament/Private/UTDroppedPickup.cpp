@@ -86,7 +86,7 @@ void AUTDroppedPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		NavData->RemoveFromNavigation(this);
 	}
-	if (Inventory != NULL)
+	if (Inventory != NULL && !Inventory->IsPendingKillPending())
 	{
 		Inventory->Destroy();
 	}

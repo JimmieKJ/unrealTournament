@@ -228,7 +228,7 @@ void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVel
 			if (Pickup != NULL)
 			{
 				Pickup->Movement->Velocity = TossVelocity;
-				Pickup->SetInventory(this);
+				InitializeDroppedPickup(Pickup);
 			}
 			else
 			{
@@ -240,6 +240,11 @@ void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVel
 			Destroy();
 		}
 	}
+}
+
+void AUTInventory::InitializeDroppedPickup(AUTDroppedPickup* Pickup)
+{
+	Pickup->SetInventory(this);
 }
 
 bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)

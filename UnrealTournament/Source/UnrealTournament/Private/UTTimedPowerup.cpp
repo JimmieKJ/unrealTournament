@@ -1,12 +1,14 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTTimedPowerup.h"
+#include "UTDroppedPickup.h"
 #include "UnrealNetwork.h"
 
 AUTTimedPowerup::AUTTimedPowerup(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TimeRemaining = 30.0f;
+	DroppedTickRate = 0.4f;
 	RespawnTime = 90.0f;
 	bAlwaysDropOnDeath = true;
 	BasePickupDesireability = 2.0f;
@@ -27,6 +29,7 @@ void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	}
 	GetWorld()->GetTimerManager().SetTimer(this, &AUTTimedPowerup::PlayFadingSound, FMath::Max<float>(0.1f, TimeRemaining - 3.0f), false);
 }
+
 void AUTTimedPowerup::Removed()
 {
 	if (OverlayMaterial != NULL)
@@ -40,7 +43,7 @@ void AUTTimedPowerup::Removed()
 void AUTTimedPowerup::PlayFadingSound()
 {
 	// reset timer if time got added
-	if (TimeRemaining > 3.0)
+	if (TimeRemaining > 3.f)
 	{
 		GetWorld()->GetTimerManager().SetTimer(this, &AUTTimedPowerup::PlayFadingSound, TimeRemaining - 3.0f, false);
 	}
@@ -59,9 +62,24 @@ void AUTTimedPowerup::TimeExpired_Implementation()
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupOverSound, GetUTOwner());
 		}
-
 		Destroy();
 	}
+}
+
+void AUTTimedPowerup::Destroyed()
+{
+	if (MyPickup && !MyPickup->IsPendingKillPending())
+	{
+		MyPickup->Destroy();
+	}
+	Super::Destroyed();
+}
+
+void AUTTimedPowerup::InitializeDroppedPickup(AUTDroppedPickup* Pickup)
+{
+	Super::InitializeDroppedPickup(Pickup);
+	Pickup->SetLifeSpan(5.f + TimeRemaining/FMath::Max(DroppedTickRate, 0.001f));
+	MyPickup = Pickup;
 }
 
 bool AUTTimedPowerup::StackPickup_Implementation(AUTInventory* ContainedInv)
@@ -82,9 +100,10 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (GetUTOwner() != NULL && TimeRemaining > 0.0f)
+	if (TimeRemaining > 0.0f)
 	{
-		TimeRemaining -= DeltaTime;
+		float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
+		TimeRemaining -= (DeltaTime * TickMultiplier);
 		if (TimeRemaining <= 0.0f)
 		{
 			TimeExpired();
