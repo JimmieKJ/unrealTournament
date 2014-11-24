@@ -22,6 +22,17 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 		RootComponent = CollisionComp;
 	}
 
+	CapsuleComp = ObjectInitializer.CreateOptionalDefaultSubobject<UCapsuleComponent>(this, TEXT("CapsuleComp"));
+	if (CapsuleComp != NULL)
+	{
+		CapsuleComp->BodyInstance.SetCollisionProfileName("ProjectileShootable");			// Collision profiles are defined in DefaultEngine.ini
+		CapsuleComp->OnComponentBeginOverlap.AddDynamic(this, &AUTRemoteRedeemer::OnOverlapBegin);
+		CapsuleComp->bTraceComplexOnMove = true;
+		CapsuleComp->InitCapsuleSize(16.f, 70.0f);
+		CapsuleComp->SetRelativeRotation(FRotator(90.f, 90.f, 90.f));
+		CapsuleComp->AttachParent = RootComponent;
+	}
+
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;

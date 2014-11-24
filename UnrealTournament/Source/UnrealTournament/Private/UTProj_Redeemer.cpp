@@ -10,6 +10,17 @@
 AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	CapsuleComp = ObjectInitializer.CreateOptionalDefaultSubobject<UCapsuleComponent>(this, TEXT("CapsuleComp"));
+	if (CapsuleComp != NULL)
+	{
+		CapsuleComp->BodyInstance.SetCollisionProfileName("ProjectileShootable");			// Collision profiles are defined in DefaultEngine.ini
+		CapsuleComp->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
+		CapsuleComp->bTraceComplexOnMove = true;
+		CapsuleComp->InitCapsuleSize(16.f, 70.0f);
+		CapsuleComp->SetRelativeRotation(FRotator(90.f, 90.f, 90.f));
+		CapsuleComp->AttachParent = RootComponent;
+	}
+
 	// Movement
 	ProjectileMovement->InitialSpeed = 2000.f;
 	ProjectileMovement->MaxSpeed = 2000.f;

@@ -16,7 +16,11 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	/** Projectile movement component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement)
 	class UUTProjectileMovementComponent* ProjectileMovement;
-	
+
+	/** Capsule collision component */
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
+		UCapsuleComponent* CapsuleComp;
+
 	/** Used to get damage values */
 	UPROPERTY(EditDefaultsOnly, Category = Projectile)
 	TSubclassOf<class AUTProj_Redeemer> RedeemerProjectileClass;

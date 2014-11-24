@@ -25,6 +25,10 @@ class AUTProj_Redeemer : public AUTProjectile
 
 	virtual void RedeemerDenied(AController* InstigatedBy);
 
+	/** Capsule collision component */
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
+		UCapsuleComponent* CapsuleComp;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
 		TSubclassOf<class AUTImpactEffect> DetonateEffects;
 
