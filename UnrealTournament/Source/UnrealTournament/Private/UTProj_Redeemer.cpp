@@ -56,7 +56,6 @@ void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* D
 	{
 		Detonate(InstigatedBy);
 		RedeemerDenied(InstigatedBy);
-
 	}
 	else if ((Role != ROLE_Authority) && bUsingClientSideHits)
 	{
@@ -97,6 +96,7 @@ void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
 					DetonateDamageType, IgnoreActors, this, InstigatedBy, nullptr, nullptr, 0.f);
 			}
 		}
+		ShutDown();
 	}
 }
 
