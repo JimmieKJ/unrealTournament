@@ -186,9 +186,80 @@ void AUTRemoteRedeemer::BlowUp()
 	}
 }
 
+void AUTRemoteRedeemer::Detonate()
+{
+	if (!bExploded)
+	{
+		bExploded = true;
+
+		GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
+		DriverLeave(true);
+
+		ProjectileMovement->SetActive(false);
+
+		TArray<USceneComponent*> Components;
+		GetComponents<USceneComponent>(Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			Components[i]->SetHiddenInGame(true);
+		}
+
+		PlayDetonateEffects();
+
+		AUTProj_Redeemer *DefaultRedeemer = RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>();
+		if (DefaultRedeemer)
+		{
+			FRadialDamageParams DetonateDamageParams = DefaultRedeemer->DetonateDamageParams;
+			if (DetonateDamageParams.OuterRadius > 0.0f)
+			{
+				TArray<AActor*> IgnoreActors;
+				FVector ExplosionCenter = GetActorLocation();
+
+				UUTGameplayStatics::UTHurtRadius(this, DetonateDamageParams.BaseDamage, DetonateDamageParams.MinimumDamage, DefaultRedeemer->DetonateMomentum, ExplosionCenter, DetonateDamageParams.InnerRadius, DetonateDamageParams.OuterRadius, DetonateDamageParams.DamageFalloff,
+					DefaultRedeemer->DetonateDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, 0.f);
+			}
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("UTRemoteRedeemer does not have a proper reference to UTProj_Redeemer"));
+		}
+	}
+}
+
+void AUTRemoteRedeemer::OnRep_PlayDetonateEffects()
+{
+	PlayDetonateEffects();
+}
+
 void AUTRemoteRedeemer::OnRep_PlayExplosionEffects()
 {
 	PlayExplosionEffects();
+}
+
+void AUTRemoteRedeemer::PlayDetonateEffects()
+{
+	bPlayDetonateEffects = true;
+
+	// stop any looping audio
+	TArray<USceneComponent*> Components;
+	GetComponents<USceneComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
+		if (Audio != NULL)
+		{
+			// only stop looping (ambient) sounds - note that the just played explosion sound may be encountered here
+			if (Audio->Sound != NULL && Audio->Sound->GetDuration() >= INDEFINITELY_LOOPING_DURATION)
+			{
+				Audio->Stop();
+			}
+		}
+	}
+
+	if (DetonateEffects != NULL)
+	{
+		DetonateEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), nullptr, this, DamageInstigator);
+	}
 }
 
 void AUTRemoteRedeemer::PlayExplosionEffects()
@@ -368,6 +439,7 @@ void AUTRemoteRedeemer::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTRemoteRedeemer, bPlayExplosionEffects, COND_None);
+	DOREPLIFETIME_CONDITION(AUTRemoteRedeemer, bPlayDetonateEffects, COND_None);
 }
 
 void AUTRemoteRedeemer::Tick(float DeltaSeconds)
@@ -454,7 +526,9 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 				{
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
 				}
-				BlowUp();
+				
+				// small explosion when damaged
+				Detonate();
 			}
 		}
 		return float(ResultDamage);

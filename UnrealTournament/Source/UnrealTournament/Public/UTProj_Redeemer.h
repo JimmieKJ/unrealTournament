@@ -25,6 +25,24 @@ class AUTProj_Redeemer : public AUTProjectile
 
 	virtual void RedeemerDenied(AController* InstigatedBy);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
+		TSubclassOf<class AUTImpactEffect> DetonateEffects;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
+		FRadialDamageParams DetonateDamageParams;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
+		TSubclassOf<UDamageType> DetonateDamageType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
+		float DetonateMomentum;
+
+	/** Replicate to client to play detonate effects client-side. */
+	UPROPERTY(Replicated)
+	bool bDetonated;
+
+	virtual void Detonate(class AController* InstigatedBy);
+
 	UFUNCTION()
 	void ExplodeStage1();
 	UFUNCTION()

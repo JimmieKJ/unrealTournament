@@ -33,12 +33,18 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	UPROPERTY(BlueprintReadOnly, Category = Vehicle)
 	APawn* Driver;
+
 	/** Controller that gets credit for damage, since main Controller will be lost due to driver leaving when we blow up */
 	UPROPERTY(BlueprintReadOnly, Category = Projectile)
 	AController* DamageInstigator;
 
+	/** Effects for full nuclear blast. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
+
+	/** Effect when detonated by enemy fire. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		TSubclassOf<class AUTImpactEffect> DetonateEffects;
 
 	UFUNCTION()
 	virtual bool TryToDrive(APawn* NewDriver);
@@ -105,13 +111,27 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	void ExplodeStage(float RangeMultiplier);
 
+	/** Replicate to client to play explosion effects client-side. */
 	UPROPERTY(ReplicatedUsing=OnRep_PlayExplosionEffects)
 	bool bPlayExplosionEffects;
+
+	/** Replicate to client to play detonate effects client-side. */
+	UPROPERTY(ReplicatedUsing = OnRep_PlayDetonateEffects)
+		bool bPlayDetonateEffects;
 
 	UFUNCTION()
 	void OnRep_PlayExplosionEffects();
 
-	void PlayExplosionEffects();
+	UFUNCTION()
+	void OnRep_PlayDetonateEffects();
+
+	/** Create effects for full nuclear blast. */
+	virtual void PlayExplosionEffects();
+
+	/** Create effects for small explosion when destroyed by enemy fire. */
+	virtual void PlayDetonateEffects();
+
+	virtual void Detonate();
 
 	UFUNCTION()
 	void ExplodeStage1();

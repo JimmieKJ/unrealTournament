@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UnrealNetwork.h"
 #include "UTProjectileMovementComponent.h"
 #include "UTImpactEffect.h"
 #include "UTProj_Redeemer.h"
@@ -53,7 +54,7 @@ void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* D
 	bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
 	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 	{
-		Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CollisionComp);
+		Detonate(InstigatedBy);
 		RedeemerDenied(InstigatedBy);
 
 	}
@@ -65,14 +66,49 @@ void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* D
 
 void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
 {
-	Explode(GetActorLocation(), FVector(0.f, 0.f, 1.f), CollisionComp);
+	Detonate(InstigatedBy);
 	RedeemerDenied(InstigatedBy);
+}
+
+void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
+{
+	bDetonated = true;
+	if (!bExploded)
+	{
+		bExploded = true;
+
+		if (Role == ROLE_Authority)
+		{
+			bTearOff = true;
+			bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
+		}
+
+		if (DetonateEffects != NULL)
+		{
+			DetonateEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), CollisionComp, this, InstigatorController);
+		}
+
+		if (Role == ROLE_Authority)
+		{
+			if (DetonateDamageParams.OuterRadius > 0.0f)
+			{
+				TArray<AActor*> IgnoreActors;
+				UUTGameplayStatics::UTHurtRadius(this, DetonateDamageParams.BaseDamage, DetonateDamageParams.MinimumDamage, DetonateMomentum, GetActorLocation(), DetonateDamageParams.InnerRadius, DetonateDamageParams.OuterRadius, DetonateDamageParams.DamageFalloff,
+					DetonateDamageType, IgnoreActors, this, InstigatedBy, nullptr, nullptr, 0.f);
+			}
+		}
+	}
 }
 
 void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
 	if (!bExploded)
 	{
+		if (bDetonated)
+		{
+			Detonate(NULL);
+			return;
+		}
 		bExploded = true;
 		
 		if (Role == ROLE_Authority)
@@ -142,3 +178,11 @@ void AUTProj_Redeemer::ExplodeStage6()
 	ExplodeStage(ExplosionRadii[5]);
 	ShutDown();
 }
+
+void AUTProj_Redeemer::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(AUTProj_Redeemer, bDetonated, COND_None);
+}
+
