@@ -19,8 +19,8 @@ AUTGib::AUTGib(const FObjectInitializer& ObjectInitializer)
 	}
 	RootComponent = Mesh;
 
-	InvisibleLifeSpan = 10.0f;
-	InitialLifeSpan = 15.0f;
+	InvisibleLifeSpan = 7.f;
+	InitialLifeSpan = 10.0f;
 }
 
 void AUTGib::PreInitializeComponents()
@@ -35,6 +35,24 @@ void AUTGib::PreInitializeComponents()
 		Mesh->SetStaticMesh(MeshChoices[FMath::RandHelper(MeshChoices.Num())]);
 	}
 	Super::PreInitializeComponents();
+}
+
+void AUTGib::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (!IsPendingKillPending())
+	{
+		GetWorldTimerManager().SetTimer(this, &AUTGib::CheckGibVisibility, 7.f, false);
+	}
+}
+
+void AUTGib::CheckGibVisibility()
+{
+	if (GetWorld()->GetTimeSeconds() - GetLastRenderTime() > 1.f)
+	{
+		Destroy();
+	}
 }
 
 void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)

@@ -14,15 +14,19 @@ class AUTGib : public AActor
 	/** gib mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gib)
 	UStaticMeshComponent* Mesh;
+
 	/** list of alternate meshes to randomly apply to Mesh instead of the default */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Gib)
 	TArray<class UStaticMesh*> MeshChoices;
+
 	/** destroy after this much time alive if out of view (InitialLifeSpan indicates visible lifespan) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gib)
 	float InvisibleLifeSpan;
+
 	/** blood effects mirrored from owning Pawn */
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	TArray<UParticleSystem*> BloodEffects;
+
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	TArray<FBloodDecalInfo> BloodDecals;
 
@@ -31,6 +35,11 @@ class AUTGib : public AActor
 	float LastBloodTime;
 
 	virtual void PreInitializeComponents() override;
+
+	virtual void BeginPlay() override;
+
+	/** Destroy gib if not still visible - called after InvisibleLifeSpan seconds. */
+	virtual void CheckGibVisibility();
 
 	UFUNCTION()
 	virtual void OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
