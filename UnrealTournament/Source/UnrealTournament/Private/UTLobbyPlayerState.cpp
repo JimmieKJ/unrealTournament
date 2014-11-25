@@ -36,7 +36,7 @@ void AUTLobbyPlayerState::ServerCreateMatch_Implementation()
 	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GameState)
 	{
-		GameState->AddMatch(this);
+		GameState->AddNewMatch(this);
 	}
 }
 
@@ -46,7 +46,7 @@ void AUTLobbyPlayerState::ServerDestroyOrLeaveMatch_Implementation()
 	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GameState)
 	{
-		GameState->RemoveMatch(this);
+		GameState->RemoveFromAMatch(this);
 	}
 }
 
@@ -58,7 +58,11 @@ void AUTLobbyPlayerState::JoinMatch(AUTLobbyMatchInfo* MatchToJoin)
 bool AUTLobbyPlayerState::ServerJoinMatch_Validate(AUTLobbyMatchInfo* MatchToJoin) { return true; }
 void AUTLobbyPlayerState::ServerJoinMatch_Implementation(AUTLobbyMatchInfo* MatchToJoin)
 {
-	MatchToJoin->AddPlayer(this,false);
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState)
+	{
+		GameState->JoinMatch(MatchToJoin, this);
+	}
 }
 
 
@@ -81,4 +85,29 @@ void AUTLobbyPlayerState::ClientMatchError_Implementation(const FText &MatchErro
 		BasePC->ShowMessage(NSLOCTEXT("LobbyMessage","MatchMessage","Match Message"), MatchErrorMessage, UTDIALOG_BUTTON_OK, NULL);	
 #endif
 	}
+}
+
+void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& GameInstanceGUIDString, const FString& LobbyGUIDString)
+{
+	AUTBasePlayerController* BPC = Cast<AUTBasePlayerController>(GetOwner());
+	if (BPC)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(BPC->Player);
+		if (LocalPlayer)
+		{
+			LocalPlayer->LastLobbyServerGUID = LobbyGUIDString;
+		}
+
+		BPC->ConnectToServerViaGUID(GameInstanceGUIDString);
+	}
+}
+
+void AUTLobbyPlayerState::OnRep_CurrentMatch()
+{
+#if !UE_SERVER
+	if (CurrentMatchChangedDelegate.IsBound())
+	{
+		CurrentMatchChangedDelegate.Execute(this);
+	}
+#endif
 }

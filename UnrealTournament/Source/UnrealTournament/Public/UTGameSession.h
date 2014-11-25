@@ -18,7 +18,7 @@ public:
 	FString ApproveLogin(const FString& Options);
 
 	// Cached reference to the Game Mode
-	AUTGameMode* UTGameMode;
+	AUTBaseGameMode* UTGameMode;
 	
 public:		// Online Subsystem stuff
 

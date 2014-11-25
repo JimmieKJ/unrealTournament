@@ -2,13 +2,48 @@
 #pragma once
 
 #include "UTLobbyPlayerState.h"
-
+#include "UTServerBeaconLobbyHostListener.h"
+#include "UTServerBeaconLobbyHostObject.h"
 #include "UTLobbyGameState.generated.h"
+
+USTRUCT()
+struct FGameInstanceData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The match info this insance is there for
+	UPROPERTY() 
+	AUTLobbyMatchInfo* MatchInfo;
+
+	// The port that this game instance is running on
+	UPROPERTY()
+	int32 InstancePort;
+
+	// The connection string to travel clients to.  NOTE: It includes the port in the format xxx.xxx.xxx.xxx:yyyy
+	UPROPERTY()
+	FString ConnectionString;
+
+	FGameInstanceData()
+		: MatchInfo(NULL)
+		, InstancePort(0)
+		, ConnectionString(TEXT(""))
+	{};
+
+	FGameInstanceData(AUTLobbyMatchInfo* inMatchInfo, int32 inInstancePort, FString inConnectionString)
+		: MatchInfo(inMatchInfo)
+		, InstancePort(inInstancePort)
+		, ConnectionString(inConnectionString)
+	{};
+
+};
 
 UCLASS(notplaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 {
 	GENERATED_UCLASS_BODY()
+
+	// Holds a list of running Game Instances.
+	TArray<FGameInstanceData> GameInstances;
 
 	/** Holds a list of GameMode classes that can be configured for this lobby.  In BeginPlay() these classes will be loaded and  */
 	UPROPERTY(Replicated, Config)
@@ -30,10 +65,65 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	TArray<FString> AllowedMaps;
 
 	virtual void BroadcastChat(AUTLobbyPlayerState* SenderPS, FName Destination, const FString& Message);
-	virtual AUTLobbyMatchInfo* AddMatch(AUTLobbyPlayerState* PlayerOwner);
-	virtual void RemoveMatch(AUTLobbyPlayerState* PlayerOwner);
+
+
+	/**
+	 *	Creates a new match and sets it's host.
+	 **/
+	virtual AUTLobbyMatchInfo* AddNewMatch(AUTLobbyPlayerState* HostOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
+
+	/**
+	 *	Sets someone as the host of a match and replicates all of the relevant match information to them
+	 **/
+	virtual void HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
+
+	/**
+	 *	Joins an existing match.
+	 **/
+	virtual void JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer);
+
+	/**
+	 *	Removes a player from a match.
+	 **/
+	virtual void RemoveFromAMatch(AUTLobbyPlayerState* PlayerOwner);
+
+	/**
+	 *	Removes a match from the available matches array. 
+	 **/
+	virtual void RemoveMatch(AUTLobbyMatchInfo* MatchToRemove);
 
 	virtual void SortPRIArray();
+
+	/**
+	 *	Sets up the BeaconLister and HostObjects needed to listen for updates from the 
+	 **/
+	void SetupLobbyBeacons();
+
+	/**
+	 *	Launches an instance of a game that was created via the lobby interface.  MatchOwner is the MI of the match that is being created and ServerURLOptions is a string
+	 *  that contains the game options.  
+	 **/
+	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString ServerURLOptions);
+
+	/**
+	 *	Terminate an existing game instance
+	 **/
+	void TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner);
+
+	void GameInstanceReady(uint32 GameInstanceID, FGuid GameInstanceGUID);
+
+	void CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer);
+
+	bool IsMatchStillValid(AUTLobbyMatchInfo* TestMatch);
+
+protected:
+
+	// The instance ID of the game running in this lobby.  This ID will be used to identify any incoming data from the game server instance.  It's incremented each time a 
+	// game server instance is launched.  NOTE: this id should never be 0.
+	uint32 GameInstanceID;
+
+	AUTServerBeaconLobbyHostListener* LobbyBeacon_Listener;
+	AUTServerBeaconLobbyHostObject* LobbyBeacon_Object;
 
 };
 

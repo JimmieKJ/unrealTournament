@@ -4,7 +4,7 @@
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
 #include "UTOnlineGameSettingsBase.h"
-#include "UTGameMode.h"
+#include "UTBaseGameMode.h"
 
 
 AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
@@ -23,28 +23,26 @@ void AUTGameSession::InitOptions( const FString& Options )
 	Super::InitOptions(Options);
 
 	// Cache the GameMode for later.
-	UTGameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	UTGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 }
 
 
 
 FString AUTGameSession::ApproveLogin(const FString& Options)
 {
-	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
-
-	if (GameMode)
+	if (UTGameMode)
 	{
 		UE_LOG(UT, Log, TEXT("ApproveLogin: %s"), *Options);
 
-		if (!GameMode->HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
+		if (!UTGameMode->HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 		{
 			UE_LOG(UT, Warning, TEXT("********************************YOU MUST UPDATE TO A NEW VERSION %s"), *Options);
 			return TEXT("You must update to a the latest version.  For more information, go to forums.unrealtournament.com");
 		}
-		if (GameMode->bRequirePassword && !GameMode->ServerPassword.IsEmpty())
+		if (UTGameMode->bRequirePassword && !UTGameMode->ServerPassword.IsEmpty())
 		{
-			FString Password = GameMode->ParseOption(Options, TEXT("Password"));
-			if (Password.IsEmpty() || Password != GameMode->ServerPassword)
+			FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
+			if (Password.IsEmpty() || Password != UTGameMode->ServerPassword)
 			{
 				return TEXT("NEEDPASS");
 			}
@@ -202,6 +200,16 @@ void AUTGameSession::OnStartSessionComplete(FName SessionName, bool bWasSuccessf
 	{
 		UE_LOG(UT,Log,TEXT("Failed to start the session '%s' so this match will not be visible.  See the logs!"), *SessionName.ToString());
 	}
+	else
+	{
+		// Our session has started, if we are a lobby instance, tell the lobby to go.  NOTE: We don't use the cached version of UTGameMode here
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GM && GM->IsGameInstanceServer())
+		{
+			GM->NotifyLobbyGameIsReady();
+		}
+	
+	}
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
@@ -255,7 +263,7 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 void AUTGameSession::UpdateGameState()
 {
 	const auto OnlineSub = IOnlineSubsystem::Get();
-	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
+	if (UTGameMode && OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
@@ -263,11 +271,10 @@ void AUTGameSession::UpdateGameState()
 			EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
 			if (State != EOnlineSessionState::Creating && State != EOnlineSessionState::Ended && State != EOnlineSessionState::Ending && State != EOnlineSessionState::Destroying && State != EOnlineSessionState::NoSession )
 			{
-				AUTGameMode* CurrentGame = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 				FUTOnlineGameSettingsBase* OGS = (FUTOnlineGameSettingsBase*)SessionInterface->GetSessionSettings(GameSessionName);
 
-				OGS->Set(SETTING_PLAYERSONLINE, CurrentGame->NumPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_SPECTATORSONLINE, CurrentGame->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_PLAYERSONLINE, UTGameMode->NumPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_SPECTATORSONLINE, UTGameMode->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 				SessionInterface->UpdateSession(SessionName, *OGS, true);
 			}

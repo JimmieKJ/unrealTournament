@@ -68,6 +68,11 @@ public:
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog);
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
+
+	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
+	{
+		return DesktopSlateWidget;
+	}
 #endif
 
 	// Holds all of the chat this client has recieved.
@@ -92,7 +97,6 @@ protected:
 
 
 public:
-
 	FProcHandle DedicatedServerProcessHandle;
 
 	// Last text entered in Connect To IP
@@ -212,6 +216,10 @@ protected:
 
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
+
+public:
+	FString LastLobbyServerGUID;
+
 };
 
 

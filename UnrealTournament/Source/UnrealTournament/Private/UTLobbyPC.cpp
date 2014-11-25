@@ -45,6 +45,24 @@ void AUTLobbyPC::OnRep_PlayerState()
 	UTLobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState);
 }
 
+void AUTLobbyPC::PlayerTick( float DeltaTime )
+{
+	Super::PlayerTick(DeltaTime);
+
+	if (!bInitialReplicationCompleted)
+	{
+		if (UTLobbyPlayerState && GetWorld()->GetGameState())
+		{
+			bInitialReplicationCompleted = true;
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+			if (LP)
+			{
+				LP->ShowMenu();
+			}
+		}
+	}
+}
+
 void AUTLobbyPC::SetName(const FString& S)
 {
 }
@@ -101,13 +119,6 @@ void AUTLobbyPC::ReceivedPlayer()
 
 void AUTLobbyPC::ServerDebugTest_Implementation(const FString& TestCommand)
 {
-
-	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GS)
-	{
-		AUTLobbyMatchInfo* Match = GS->AddMatch(UTLobbyPlayerState);	
-		Match->MatchDescription = FString(TEXT("The Big one"));
-	}
 }
 
 bool AUTLobbyPC::ServerSetReady_Validate(uint32 bNewReadyToPlay) { return true; }

@@ -7,9 +7,9 @@
 #include "UTLobbyPlayerState.h"
 #include "../Private/Slate/SUWindowsLobby.h"
 #include "UTBaseGameMode.h"
+#include "UTServerBeaconLobbyHostListener.h"
+#include "UTServerBeaconLobbyHostObject.h"
 #include "UTLobbyGameMode.generated.h"
-
-
 
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTLobbyGameMode : public AUTBaseGameMode
@@ -23,6 +23,12 @@ public:
 
 	UPROPERTY(GlobalConfig)
 	FString LobbyPassword;
+
+	UPROPERTY(GlobalConfig)
+	int32 StartingInstancePort;
+
+	UPROPERTY(GlobalConfig)
+	int32 InstancePortStep;
 
 	UPROPERTY()
 	TSubclassOf<class UUTLocalMessage>  GameMessageClass;
@@ -39,6 +45,9 @@ public:
 	virtual TSubclassOf<AGameSession> GetGameSessionClass() const;
 	virtual void OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState);
 
+	virtual bool IsLobbyServer() { return true; }
+
+
 #if !UE_SERVER
 
 	/**
@@ -53,6 +62,7 @@ public:
 
 
 protected:
+
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
 	 **/

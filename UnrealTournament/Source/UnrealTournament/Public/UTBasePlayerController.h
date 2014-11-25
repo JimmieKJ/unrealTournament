@@ -59,4 +59,24 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 	virtual void ServerDebugTest(const FString& TestCommand);
 
 
+public:
+	/**
+	 *	User a GUID to find a server via the MCP and connect to it.
+	 **/
+	virtual void ConnectToServerViaGUID(FString ServerGUID, bool bSpectate=false);
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientReturnToLobby();
+
+protected:
+	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
+	TSharedPtr<class FUTOnlineGameSearchBase> GUIDSessionSearchSettings;
+
+	FString GUIDJoin_CurrentGUID;
+	bool GUIDJoinWantsToSpectate;
+	int GUIDJoinAttemptCount;
+
+	void AttemptGUIDJoin();
+	void OnFindSessionsComplete(bool bWasSuccessful);
+
 };

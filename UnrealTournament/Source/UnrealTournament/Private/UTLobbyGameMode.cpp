@@ -53,6 +53,8 @@ void AUTLobbyGameMode::InitGameState()
 	UTLobbyGameState = Cast<AUTLobbyGameState>(GameState);
 	if (UTLobbyGameState != NULL)
 	{
+		// Setupo the beacons to listen for updates from Game Server Instances
+		UTLobbyGameState->SetupLobbyBeacons();
 	}
 	else
 	{
@@ -64,6 +66,8 @@ void AUTLobbyGameMode::InitGameState()
 	{
 		GameSession->RegisterServer();
 	}
+
+
 }
 
 void AUTLobbyGameMode::StartMatch()
@@ -146,6 +150,13 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 			UTGameSession->UpdateGameState();
 		}
 	}
+
+	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(NewPlayer->PlayerState);
+	if (LPS)
+	{
+		UTLobbyGameState->CheckForExistingMatch(LPS);
+	}
+
 }
 
 
@@ -153,11 +164,10 @@ void AUTLobbyGameMode::Logout(AController* Exiting)
 {
 	Super::Logout(Exiting);
 
-
 	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(Exiting->PlayerState);
 	if (LPS && LPS->CurrentMatch)
 	{
-		UTLobbyGameState->RemoveMatch(LPS);
+		UTLobbyGameState->RemoveFromAMatch(LPS);
 	}
 
 	if (GameSession != NULL)
@@ -194,3 +204,4 @@ void AUTLobbyGameMode::Destroyed()
 	
 	Super::Destroyed();
 }
+

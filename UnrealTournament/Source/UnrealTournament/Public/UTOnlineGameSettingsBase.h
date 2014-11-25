@@ -11,8 +11,8 @@
 #define SETTING_PLAYERSONLINE FName(TEXT("UT_PLAYERONLINE"))
 #define SETTING_SPECTATORSONLINE FName(TEXT("UT_SPECTATORSONLINE"))
 #define SETTING_SERVERFLAGS FName(TEXT("UT_SERVERFLAGS"))
-
-
+#define SETTING_SERVERINSTANCEGUID FName(TEXT("UT_SERVERINSTANCEGUID"))
+#define SETTING_GAMEINSTANCE FName(TEXT("UT_GAMEINSTANCE"))
 #define SERVERFLAG_RequiresPassword 0x00000001;
 
 class FUTOnlineGameSettingsBase : public FOnlineSessionSettings
@@ -21,5 +21,5 @@ public:
 	FUTOnlineGameSettingsBase(bool bIsLanGame = false, bool bIsPresense = false, int32 MaxNumberPlayers = 32);
 	virtual ~FUTOnlineGameSettingsBase(){}
 
-	virtual void ApplyGameSettings(AUTGameMode* CurrentGame);
+	virtual void ApplyGameSettings(AUTBaseGameMode* CurrentGame);
 };

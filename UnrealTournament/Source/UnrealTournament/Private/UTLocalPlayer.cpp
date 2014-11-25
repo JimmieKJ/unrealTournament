@@ -193,6 +193,7 @@ void UUTLocalPlayer::ShowMenu()
 					DesktopSlateWidget = UTGameMode->GetGameMenu(this);
 				}
 			}
+
 		}
 		if (DesktopSlateWidget.IsValid())
 		{
@@ -312,6 +313,19 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 {
 	if (!IsLoggedIn() && OnlineIdentityInterface.IsValid())
 	{
+
+		FString Override;
+		if ( FParse::Value(FCommandLine::Get(),TEXT("-id="),Override))
+		{
+			EpicID = Override;
+		}
+
+		if ( FParse::Value(FCommandLine::Get(),TEXT("-pass="),Override))
+		{
+			Auth=Override;
+			bIsRememberToken=false;
+		}
+
 		if (EpicID == TEXT(""))
 		{
 			EpicID = LastEpicIDLogin;

@@ -69,6 +69,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	DefaultPlayerName = FString("Malcolm");
 	MapPrefix = TEXT("DM");
 
+	LobbyInstanceID = 0;
+
 	//LobbySetupPanelClass = SUDuelSettings::StaticClass();
 }
 
@@ -92,6 +94,7 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 // Parse options for this game...
 void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
+
 	// HACK: workaround to inject CheckRelevance() into the BeginPlay sequence
 	UFunction* Func = AActor::GetClass()->FindFunctionByName(FName(TEXT("ReceiveBeginPlay")));
 	Func->FunctionFlags |= FUNC_Native;
@@ -109,6 +112,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	UE_LOG(UT,Log,TEXT("==============="));
 	UE_LOG(UT,Log,TEXT("  Init Game"));
 	UE_LOG(UT,Log,TEXT("==============="));
+	UE_LOG(UT,Log,TEXT(" Option: %s"), *Options);
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
@@ -142,12 +146,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		BotFillCount = GetIntOption(Options, TEXT("BotFill"), BotFillCount);
 	}
-
-	ServerPassword = TEXT("");
-	ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
-	bRequirePassword = !ServerPassword.IsEmpty();
-
-	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
 
 	for (int32 i = 0; i < BuiltInMutators.Num(); i++)
 	{
@@ -331,6 +329,28 @@ void AUTGameMode::InitGameState()
 		GameSession->RegisterServer();
 		GetWorldTimerManager().SetTimer(this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
 	}
+
+	UE_LOG(UT,Log,TEXT("#########################"));
+	UE_LOG(UT,Log,TEXT("LobbyInstanceID: %i"),LobbyInstanceID);
+	UE_LOG(UT,Log,TEXT("#########################"));
+
+	// If we are a lobby instance, establish a communication beacon with the lobby.  For right now, this beacon is created on the local host
+	// but in time, the lobby's address will have to be passed
+	if (LobbyInstanceID > 0)
+	{
+		LobbyBeacon = GetWorld()->SpawnActor<AUTServerBeaconLobbyClient>(AUTServerBeaconLobbyClient::StaticClass());
+		if (LobbyBeacon)
+		{
+			FString BeaconNetDriverName = FString::Printf(TEXT("LobbyBeaconDriver%i"), LobbyInstanceID);
+			FURL LobbyURL(nullptr, TEXT("127.0.0.1"),TRAVEL_Absolute);
+			LobbyURL.Port = 15001;
+
+			LobbyBeacon->SetBeaconNetDriverName(BeaconNetDriverName);
+			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID);
+			UE_LOG(UT,Log,TEXT("..... Connecting back to lobby!"));
+		}
+	}
+
 }
 
 void AUTGameMode::UpdateOnlineServer()
@@ -881,35 +901,51 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
  **/
 void AUTGameMode::TravelToNextMap()
 {
-	if (!RconNextMapName.IsEmpty())
-	{
-		GetWorld()->ServerTravel(RconNextMapName, false);
-		return;
-	}
 
-	FString CurrentMapName = GetWorld()->GetMapName();
-
-	int32 MapIndex = -1;
-	for (int i=0;i<MapRotation.Num();i++)
+	if (IsGameInstanceServer())
 	{
-		if (MapRotation[i].EndsWith(CurrentMapName))
+		// Game Instance Servers just tell everyone to just return to the lobby.
+		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 		{
-			MapIndex = i;
-			break;
+			AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
+			if (Controller)
+			{
+				Controller->ClientReturnToLobby();
+			}
 		}
 	}
-
-	if (MapRotation.Num() > 0)
+	else
 	{
-		MapIndex = (MapIndex + 1) % MapRotation.Num();
-		if (MapIndex >=0 && MapIndex < MapRotation.Num())
+		if (!RconNextMapName.IsEmpty())
 		{
-			GetWorld()->ServerTravel(MapRotation[MapIndex],false);
+			GetWorld()->ServerTravel(RconNextMapName, false);
 			return;
 		}
-	}
 
-	RestartGame();	
+		FString CurrentMapName = GetWorld()->GetMapName();
+
+		int32 MapIndex = -1;
+		for (int i=0;i<MapRotation.Num();i++)
+		{
+			if (MapRotation[i].EndsWith(CurrentMapName))
+			{
+				MapIndex = i;
+				break;
+			}
+		}
+
+		if (MapRotation.Num() > 0)
+		{
+			MapIndex = (MapIndex + 1) % MapRotation.Num();
+			if (MapIndex >=0 && MapIndex < MapRotation.Num())
+			{
+				GetWorld()->ServerTravel(MapRotation[MapIndex],false);
+				return;
+			}
+		}
+
+		RestartGame();	
+	}
 }
 
 void AUTGameMode::ShowFinalScoreboard()
@@ -1942,4 +1978,9 @@ TSharedRef<SWidget> AUTGameMode::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<
 FString AUTGameMode::GetDefaultLobbyOptions() const
 {
 	return TEXT("");
+}
+
+void AUTGameMode::NotifyLobbyGameIsReady()
+{
+	LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
 }

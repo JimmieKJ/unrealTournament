@@ -3,6 +3,7 @@
 
 #include "../Private/Slate/Panels/SULobbyGameSettingsPanel.h"
 #include "TAttributeProperty.h"
+#include "UTServerBeaconLobbyClient.h"
 #include "UTGameMode.generated.h"
 
 /** Defines the current state of the game. */
@@ -162,11 +163,6 @@ public:
 			DisplayName = FText::FromName(GetClass()->GetFName());
 		}
 	}
-	UPROPERTY(GlobalConfig)
-	FString ServerPassword;
-
-	UPROPERTY(GlobalConfig)
-	uint32 bRequirePassword:1;
 
 	/** list of bot characters that may be added */
 	UPROPERTY(GlobalConfig)
@@ -403,6 +399,17 @@ protected:
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
+
+public:
+	/**
+	 *	Tells an assoicated lobby that this game is ready for joins.
+	 **/
+	void NotifyLobbyGameIsReady();
+
+protected:
+	// A Beacon for communicating back to the lobby
+	AUTServerBeaconLobbyClient* LobbyBeacon;
+
 };
 
 
