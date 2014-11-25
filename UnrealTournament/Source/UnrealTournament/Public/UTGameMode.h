@@ -398,6 +398,8 @@ protected:
 	// Updates the MCP with the current game state.  Happens once per minute.
 	virtual void UpdateOnlineServer();
 
+	virtual void SendEndOfGameStats(FName Reason);
+
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);

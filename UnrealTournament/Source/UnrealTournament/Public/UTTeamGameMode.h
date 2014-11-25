@@ -78,4 +78,8 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 
 	/** Broadcast a message when team scores */
 	virtual void BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam);
+
+protected:
+	virtual void SendEndOfGameStats(FName Reason);
+
 };

@@ -4,6 +4,9 @@
 #include "UTTeamInfo.h"
 #include "UTTeamPlayerStart.h"
 #include "SlateBasics.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTCTFGameMessage.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
@@ -351,6 +354,25 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 			{
 				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
 			}
+		}
+	}
+}
+
+void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		if (GetWorld()->GetNetMode() != NM_Standalone)
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Reason"), Reason.ToString()));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TeamCount"), UTGameState->Teams.Num()));
+			for (int i=0;i<UTGameState->Teams.Num();i++)
+			{
+				FString TeamName = FString::Printf(TEXT("TeamScore%i"), i);
+				ParamArray.Add(FAnalyticsEventAttribute(TeamName, UTGameState->Teams[i]->Score));
+			}
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("EndTeamMatch"), ParamArray);
 		}
 	}
 }

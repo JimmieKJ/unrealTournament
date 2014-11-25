@@ -820,6 +820,20 @@ void AUTGameMode::EndMatch()
 
 }
 
+void AUTGameMode::SendEndOfGameStats(FName Reason)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		if (GetWorld()->GetNetMode() != NM_Standalone)
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("WinnerName"), UTGameState->WinnerPlayerState ? UTGameState->WinnerPlayerState->PlayerName : TEXT("None")));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Reason"), *Reason.ToString()));
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("EndFFAMatch"), ParamArray);
+		}
+	}
+}
+
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 {
 	// Dont ever end the game in PIE
@@ -855,6 +869,8 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	EndTime = GetWorld()->TimeSeconds;
 	GetWorldTimerManager().SetTimer(this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
+
+	SendEndOfGameStats(Reason);
 
 	EndMatch();
 }
