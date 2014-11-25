@@ -1037,7 +1037,7 @@ void AUTPlayerController::OnTapRight()
 void AUTPlayerController::OnTapForwardRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
+	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || MyCharMovement->bExplicitJump))
 	{
 		CheckDodge(LastTapForwardTime, MaxDodgeTapTime, true, false, false, false);
 	}
@@ -1046,7 +1046,7 @@ void AUTPlayerController::OnTapForwardRelease()
 void AUTPlayerController::OnTapBackRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
+	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || MyCharMovement->bExplicitJump))
 	{
 		CheckDodge(LastTapBackTime, MaxDodgeTapTime, false, true, false, false);
 	}
@@ -1055,7 +1055,7 @@ void AUTPlayerController::OnTapBackRelease()
 void AUTPlayerController::OnTapLeftRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
+	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || MyCharMovement->bExplicitJump))
 	{
 		CheckDodge(LastTapLeftTime, MaxDodgeTapTime, false, false, true, false);
 	}
@@ -1064,7 +1064,7 @@ void AUTPlayerController::OnTapLeftRelease()
 void AUTPlayerController::OnTapRightRelease()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || (MyCharMovement->CurrentMultiJumpCount + MyCharMovement->CurrentWallDodgeCount > 0)))
+	if (MyCharMovement && bSingleTapWallDodge && !MyCharMovement->IsMovingOnGround() && (!bSingleTapAfterJump || MyCharMovement->bExplicitJump))
 	{
 		CheckDodge(LastTapRightTime, MaxDodgeTapTime, false, false, false, true);
 	}

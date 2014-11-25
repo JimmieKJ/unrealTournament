@@ -23,10 +23,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeTraceDist = 50.f;
 	MinAdditiveDodgeFallSpeed = -5000.f;  
 	MaxAdditiveDodgeJumpSpeed = 700.f;  
-	MaxMultiJumpCount = 1;
+	MaxMultiJumpCount = 0;
 	bAllowDodgeMultijumps = false;
 	bAllowJumpMultijumps = true;
-	bCountWallDodgeMultijumps = true;
 	MultiJumpImpulse = 600.f;
 	DodgeJumpImpulse = 600.f;
 	DodgeLandingSpeedFactor = 0.19f;
@@ -100,7 +99,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bIsDodgeRolling = false;				
 	DodgeRollTapTime = 0.f;					
 	DodgeRollEndTime = 0.f;					
-	CurrentMultiJumpCount = 0;				
+	CurrentMultiJumpCount = 0;	
+	bExplicitJump = false;
 	CurrentWallDodgeCount = 0;				
 	bWantsSlideRoll = false;				
 	bApplyWallSlide = false;			
@@ -597,7 +597,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	if (IsMovingOnGround())
 	{
 		Velocity.Z = DodgeImpulseVertical;
-		CurrentMultiJumpCount++;
 	}
 	else if (!IsSwimming() && (VelocityZ < MaxAdditiveDodgeJumpSpeed) && (VelocityZ > MinAdditiveDodgeFallSpeed))
 	{
@@ -621,20 +620,13 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			VelocityZ = 0.f;
 		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);
-		if (bCountWallDodgeMultijumps)
-		{
-			CurrentMultiJumpCount++;
-		}
 		//UE_LOG(UT, Warning, TEXT("Wall dodge at %f velZ %f"), CharacterOwner->GetWorld()->GetTimeSeconds(), Velocity.Z);
 	}
 	else
 	{
 		Velocity.Z = VelocityZ;
-		if (bCountWallDodgeMultijumps)
-		{
-			CurrentMultiJumpCount++;
-		}
 	}
+	bExplicitJump = true;
 	bIsDodging = true;
 	bNotifyApex = true;
 	bJustDodged = true;
@@ -906,20 +898,21 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging)
 			{
-				DodgeResetTime = DodgeRollEndTime + ((CurrentMultiJumpCount > 1) ? DodgeJumpResetInterval : DodgeResetInterval);
+				DodgeResetTime = DodgeRollEndTime + ((CurrentMultiJumpCount > 0) ? DodgeJumpResetInterval : DodgeResetInterval);
 				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
 		}
 		else if (bIsDodging)
 		{
-			Velocity *= ((CurrentMultiJumpCount > 1) ? DodgeJumpLandingSpeedFactor : DodgeLandingSpeedFactor);
-			DodgeResetTime = GetCurrentMovementTime() + ((CurrentMultiJumpCount > 1) ? DodgeJumpResetInterval : DodgeResetInterval);
+			Velocity *= ((CurrentMultiJumpCount > 0) ? DodgeJumpLandingSpeedFactor : DodgeLandingSpeedFactor);
+			DodgeResetTime = GetCurrentMovementTime() + ((CurrentMultiJumpCount > 0) ? DodgeJumpResetInterval : DodgeResetInterval);
 		}
 		bIsDodging = false;
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	}
 	bJumpAssisted = false;
 	bApplyWallSlide = false;
+	bExplicitJump = false;
 	CurrentMultiJumpCount = 0;
 	CurrentWallDodgeCount = 0;
 	if (IsFalling())
@@ -968,7 +961,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 			((AUTCharacter*)CharacterOwner)->PlayJump();
 		}
 		bNotifyApex = true;
-		CurrentMultiJumpCount++;
+		bExplicitJump = true;
 		return true;
 	}
 
@@ -993,7 +986,7 @@ bool UUTCharacterMovement::DoMultiJump()
 
 bool UUTCharacterMovement::CanMultiJump()
 {
-	return ((MaxMultiJumpCount > 1) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (bIsDodging || bAllowJumpMultijumps) && (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed));
+	return ((MaxMultiJumpCount > 0) && (CurrentMultiJumpCount < MaxMultiJumpCount) && (!bIsDodging || bAllowDodgeMultijumps) && (bIsDodging || bAllowJumpMultijumps) && (FMath::Abs(Velocity.Z) < MaxMultiJumpZSpeed));
 }
 
 void UUTCharacterMovement::ClearDodgeInput()
@@ -1346,7 +1339,7 @@ bool UUTCharacterMovement::CanCrouchInCurrentState() const
 void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 {
 	bApplyWallSlide = false;
-	if ((bWantsSlideRoll || bAutoSlide) && (Velocity.Z < 0.f) && (CurrentMultiJumpCount > 0) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.SafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
+	if ((bWantsSlideRoll || bAutoSlide) && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.SafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
 	{
 		FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 		bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
@@ -1461,7 +1454,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	if (!HasRootMotion())
 	{
 	// test for slope to avoid using air control to climb walls 
-		float TickAirControl = (CurrentMultiJumpCount - CurrentWallDodgeCount  < 2) ? AirControl : MultiJumpAirControl;
+		float TickAirControl = (CurrentMultiJumpCount < 1) ? AirControl : MultiJumpAirControl;
 		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
 		{
 			const float TestWalkTime = FMath::Max(deltaTime, 0.05f);

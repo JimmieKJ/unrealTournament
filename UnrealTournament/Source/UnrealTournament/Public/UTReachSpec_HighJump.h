@@ -51,17 +51,17 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			if (RepeatableJumpZ != NULL)
 			{
 				*RepeatableJumpZ = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement()->JumpZVelocity;
-				if (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->bAllowJumpMultijumps && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount > 1)
+				if (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->bAllowJumpMultijumps && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount > 0)
 				{
-					*RepeatableJumpZ += UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MultiJumpImpulse * (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount - 1);
+					*RepeatableJumpZ += UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MultiJumpImpulse * (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount);
 				}
 			}
 
 			// Best: what we can do now
 			float BestJumpZ = UTC->GetCharacterMovement()->JumpZVelocity;
-			if (UTC->UTCharacterMovement->bAllowJumpMultijumps && UTC->UTCharacterMovement->MaxMultiJumpCount > 1)
+			if (UTC->UTCharacterMovement->bAllowJumpMultijumps && UTC->UTCharacterMovement->MaxMultiJumpCount > 0)
 			{
-				BestJumpZ += UTC->UTCharacterMovement->MultiJumpImpulse * (UTC->UTCharacterMovement->MaxMultiJumpCount - 1);
+				BestJumpZ += UTC->UTCharacterMovement->MultiJumpImpulse * (UTC->UTCharacterMovement->MaxMultiJumpCount);
 			}
 			return BestJumpZ;
 		}

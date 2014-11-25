@@ -45,9 +45,9 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->MultiJumpAirControl = MultiJumpAirControl;
 			Movement->MaxMultiJumpZSpeed = SuperJumpZ;
 
-			if (Movement->MaxMultiJumpCount <= 1)
+			if (Movement->MaxMultiJumpCount < 1)
 			{
-				Movement->MaxMultiJumpCount = 2;
+				Movement->MaxMultiJumpCount = 1;
 				Movement->MultiJumpImpulse = SuperJumpZ;
 				Movement->DodgeJumpImpulse = SuperJumpZ;
 			}

@@ -349,6 +349,10 @@ public:
 	UPROPERTY(Category = "Multijump", BlueprintReadWrite, meta = (DisplayName = "Current Multijump Count"))
 	int32 CurrentMultiJumpCount;
 
+	/** True if player is falling because of a jump or dodge. */
+	UPROPERTY(Category = "Multijump", BlueprintReadWrite)
+		bool bExplicitJump;
+
 	/** Whether to allow multijumps during a dodge. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
 	bool bAllowDodgeMultijumps;
@@ -372,10 +376,6 @@ public:
 	/** Air control during multijump . */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multijump)
 	float MultiJumpAirControl;
-
-	/** Whether to count wall dodges as part of multijumps. */
-	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
-		bool bCountWallDodgeMultijumps;
 
 	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) override;
 
