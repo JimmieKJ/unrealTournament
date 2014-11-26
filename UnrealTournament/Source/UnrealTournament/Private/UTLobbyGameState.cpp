@@ -231,25 +231,58 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 
 		MatchOwner->GameInstanceProcessHandle.Reset();
 		MatchOwner->GameInstanceID = 0;
-		MatchOwner->SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
 	}
 }
 
-void AUTLobbyGameState::GameInstanceReady(uint32 GameInstanceID, FGuid GameInstanceGUID)
+void AUTLobbyGameState::GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID)
 {
-
-	UE_LOG(UT,Log,TEXT("GAMEINSTANCEREADY: %i"), GameInstanceID);
-	UE_LOG(UT,Log,TEXT("GAMEINSTANCEREADY: %i"), GameInstanceID);
-	UE_LOG(UT,Log,TEXT("GAMEINSTANCEREADY: %i"), GameInstanceID);
-	UE_LOG(UT,Log,TEXT("GAMEINSTANCEREADY: %i"), GameInstanceID);
-	UE_LOG(UT,Log,TEXT("GAMEINSTANCEREADY: %i"), GameInstanceID);
-
 	for (int32 i=0; i < GameInstances.Num(); i++)
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
 		{
 			UE_LOG(UT,Log,TEXT("TELLING MATCH"));
 			GameInstances[i].MatchInfo->GameInstanceReady(GameInstanceGUID);
+			break;
+		}
+	}
+}
+
+void AUTLobbyGameState::GameInstance_DescriptionUpdate(uint32 GameInstanceID, const FString& NewDescription)
+{
+	for (int32 i = 0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			GameInstances[i].MatchInfo->MatchDescription = NewDescription;
+			break;
+		}
+	}
+}
+
+void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FString& FinalDescription)
+{
+	for (int32 i = 0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			GameInstances[i].MatchInfo->MatchDescription = FinalDescription;
+			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Completed);
+			break;
+		}
+	}
+}
+
+void AUTLobbyGameState::GameInstance_Empty(uint32 GameInstanceID)
+{
+	for (int32 i = 0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			// Set the match info's state to recycling so all returning players will be directed properly.
+			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
+
+			// Terminate the game instance
+			TerminateGameInstance(GameInstances[i].MatchInfo);
 			break;
 		}
 	}

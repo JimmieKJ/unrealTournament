@@ -121,7 +121,7 @@ void SUWindowsMainMenu::CreateDesktop()
 							.bMaintainAspectRatio(true)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("NewSchool.AnniLogo"))
+								.Image(SUWindowsStyle::Get().GetBrush("UT15.Logo.Overlay"))
 							]
 								
 						]

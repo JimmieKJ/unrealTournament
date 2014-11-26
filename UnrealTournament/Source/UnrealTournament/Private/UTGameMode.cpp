@@ -495,18 +495,30 @@ void AUTGameMode::DefaultTimer()
 		AddBot();
 	}
 
-	// Look to see if we should restart the game due to server inactivity
-	if (GetNumPlayers() <= 0 && NumSpectators <= 0 && HasMatchStarted())
+	int32 NumPlayers = GetNumPlayers();
+
+	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		EmptyServerTime++;
-		if (EmptyServerTime >= AutoRestartTime)
+		if (HasMatchStarted() && NumPlayers <= 0)
 		{
-			TravelToNextMap();
+			LobbyBeacon->Empty();
 		}
 	}
 	else
 	{
-		EmptyServerTime = 0;
+		// Look to see if we should restart the game due to server inactivity
+		if (GetNumPlayers() <= 0 && NumSpectators <= 0 && HasMatchStarted())
+		{
+			EmptyServerTime++;
+			if (EmptyServerTime >= AutoRestartTime)
+			{
+				TravelToNextMap();
+			}
+		}
+		else
+		{
+			EmptyServerTime = 0;
+		}
 	}
 }
 
@@ -875,6 +887,11 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	UTGameState->SetWinner(Winner);
 	EndTime = GetWorld()->TimeSeconds;
+
+	if (IsGameInstanceServer() && LobbyBeacon)
+	{
+		LobbyBeacon->EndGame(Winner ? Winner->PlayerName : TEXT(""));
+	}
 
 	SetEndGameFocus(Winner);
 

@@ -459,6 +459,7 @@ bool AUTLobbyMatchInfo::ServerAbortMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 {
 	LobbyGameState->TerminateGameInstance(this);
+	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
 	AUTLobbyPlayerState* OwnerPS = GetOwnerPlayerState();
 	if (OwnerPS) OwnerPS->bReadyToPlay = false;
 }

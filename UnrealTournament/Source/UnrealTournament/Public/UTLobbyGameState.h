@@ -110,7 +110,26 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 **/
 	void TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner);
 
-	void GameInstanceReady(uint32 GameInstanceID, FGuid GameInstanceGUID);
+	/**
+	 *	Called when a Game Instance is up and ready for players to join.
+	 **/
+	void GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID);
+
+	/**
+	 *	Called when an instance needs to update it's description on the panel
+	 **/
+	void GameInstance_DescriptionUpdate(uint32 GameInstanceID, const FString& NewDescription);
+
+	/**
+	 *	Called when an instance's game is over.  It this called via GameEnded and doesn't mean any of the
+	 *  players have started to transition back.  But the Panel should no longer allow spectators to join
+	 **/
+	void GameInstance_EndGame(uint32 GameInstanceID, const FString& FinalDescription);
+
+	/**
+	 *	Called when the instance server is ready.  When it is called, the Lobby will kill the server instance.
+	 **/
+	void GameInstance_Empty(uint32 GameInstanceID);
 
 	void CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer);
 
