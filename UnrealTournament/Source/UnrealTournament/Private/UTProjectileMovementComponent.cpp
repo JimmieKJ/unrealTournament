@@ -99,7 +99,7 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 				bGotHit = true;
 			}
 			// restore RelativeLocation and RelativeRotation after moving
-			AddlUpdatedComponents[i]->SetRelativeLocationAndRotation(DeferredUpdates[i]->RelativeLocation, DeferredUpdates[i]->RelativeRotation, false);
+			DeferredUpdates[i]->RevertMove();
 		}
 		// if we got a blocking hit, we need to revert and move everything using the shortest delta
 		if (bGotHit)
@@ -122,8 +122,6 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 			}
 			else
 			{
-				bRecursing = true;
-
 				// revert moves
 				for (int32 i = DeferredUpdates.Num() - 1; i >= 0; i--)
 				{
@@ -132,8 +130,12 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 				}
 				RootDeferredUpdate->RevertMove();
 				delete RootDeferredUpdate;
+
 				// recurse
+				bRecursing = true;
 				bResult = MoveUpdatedComponent(Delta.SafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit);
+				bRecursing = false;
+
 				if (OutHit != NULL)
 				{
 					(*OutHit) = EarliestHit;
