@@ -99,7 +99,7 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 				bGotHit = true;
 			}
 			// restore RelativeLocation and RelativeRotation after moving
-			DeferredUpdates[i]->RevertMove();
+			AddlUpdatedComponents[i]->SetRelativeLocationAndRotation(DeferredUpdates[i]->RelativeLocation, DeferredUpdates[i]->RelativeRotation, false);
 		}
 		// if we got a blocking hit, we need to revert and move everything using the shortest delta
 		if (bGotHit)
