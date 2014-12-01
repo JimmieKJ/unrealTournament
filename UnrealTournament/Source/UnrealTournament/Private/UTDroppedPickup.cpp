@@ -61,7 +61,7 @@ void AUTDroppedPickup::SetInventory(AUTInventory* NewInventory)
 
 void AUTDroppedPickup::InventoryTypeUpdated_Implementation()
 {
-	AUTPickupInventory::CreatePickupMesh(this, Mesh, InventoryType, 0.0f);
+	AUTPickupInventory::CreatePickupMesh(this, Mesh, InventoryType, 0.0f, FRotator::ZeroRotator, false);
 }
 
 void AUTDroppedPickup::PhysicsStopped(const FHitResult& ImpactResult)

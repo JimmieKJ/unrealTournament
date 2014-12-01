@@ -8,6 +8,7 @@ AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializ
 : Super(ObjectInitializer)
 {
 	FloatHeight = 50.0f;
+	bAllowRotatingPickup = true;
 }
 
 void AUTPickupInventory::BeginPlay()
@@ -30,7 +31,7 @@ void AUTPickupInventory::CreateEditorPickupMesh()
 {
 	if (GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
 	{
-		CreatePickupMesh(this, EditorMesh, InventoryType, FloatHeight);
+		CreatePickupMesh(this, EditorMesh, InventoryType, FloatHeight, RotationOffset, false);
 		if (EditorMesh != NULL)
 		{
 			EditorMesh->SetHiddenInGame(true);
@@ -138,7 +139,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 	}
 }
 
-void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& PickupMesh, TSubclassOf<AUTInventory> PickupInventoryType, float MeshFloatHeight)
+void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& PickupMesh, TSubclassOf<AUTInventory> PickupInventoryType, float MeshFloatHeight, const FRotator& RotationOffset, bool bAllowRotating)
 {
 	if (PickupInventoryType == NULL)
 	{
@@ -191,8 +192,9 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				PickupMesh->AttachTo(Pickup->GetRootComponent());
 				FVector Offset = Pickup->GetRootComponent()->ComponentToWorld.InverseTransformVectorNoScale(PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation());
 				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - Offset);
+				PickupMesh->SetRelativeRotation(PickupMesh->RelativeRotation + RotationOffset);
 				// if there's a rotation component, set it up to rotate the pickup mesh
-				if (Pickup->GetWorld()->WorldType != EWorldType::Editor) // not if editor preview, because that will cause the preview component to exist in game and we want it to be editor only
+				if (bAllowRotating && Pickup->GetWorld()->WorldType != EWorldType::Editor) // not if editor preview, because that will cause the preview component to exist in game and we want it to be editor only
 				{
 					TArray<URotatingMovementComponent*> RotationComps;
 					Pickup->GetComponents<URotatingMovementComponent>(RotationComps);
@@ -233,7 +235,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 
 void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 {
-	CreatePickupMesh(this, Mesh, InventoryType, FloatHeight);
+	CreatePickupMesh(this, Mesh, InventoryType, FloatHeight, RotationOffset, bAllowRotatingPickup);
 
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 }

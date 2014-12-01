@@ -70,7 +70,7 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 	{
 		if (GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
 		{
-			CreatePickupMesh(this, EditorMesh, WeaponType, FloatHeight);
+			CreatePickupMesh(this, EditorMesh, WeaponType, FloatHeight, RotationOffset, false);
 			if (EditorMesh != NULL)
 			{
 				EditorMesh->SetHiddenInGame(true);

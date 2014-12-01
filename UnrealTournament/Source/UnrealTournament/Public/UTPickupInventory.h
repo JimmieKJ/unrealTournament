@@ -27,11 +27,17 @@ public:
 	}
 
 	/** contains code shared between placed and dropped pickups for initializing Mesh given an InventoryType */
-	static void CreatePickupMesh(AActor* Pickup, UMeshComponent*& PickupMesh, TSubclassOf<AUTInventory> PickupInventoryType, float MeshFloatHeight);
+	static void CreatePickupMesh(AActor* Pickup, UMeshComponent*& PickupMesh, TSubclassOf<AUTInventory> PickupInventoryType, float MeshFloatHeight, const FRotator& RotationOffset, bool bAllowRotating);
 
 	/** how high the pickup floats (additional Z axis translation applied to pickup mesh) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
 	float FloatHeight;
+	/** added to pickup mesh's RelativeRotation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+	FRotator RotationOffset;
+	/** whether the pickup mesh is allowed to rotate (requires blueprint to have RotatingMovementComponent) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PickupDisplay)
+	bool bAllowRotatingPickup;
 
 	virtual void BeginPlay() override;
 #if WITH_EDITOR
@@ -45,7 +51,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType);
-	inline TSubclassOf<AUTInventory> GetInventoryType()
+	inline TSubclassOf<AUTInventory> GetInventoryType() const
 	{
 		return InventoryType;
 	}
