@@ -3,11 +3,11 @@
 #pragma once
 
 #include "UTPathBuilderInterface.h"
-
+#include "UTMovementBaseInterface.h"
 #include "UTLift.generated.h"
 
 UCLASS(BlueprintType, Blueprintable)
-class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuilderInterface
+class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuilderInterface, public IUTMovementBaseInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -29,6 +29,22 @@ class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuild
 
 	virtual void ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit) override;
 
+	// UTMovementBaseInterface
+	virtual void AddBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) {};
+	virtual	void RemoveBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) {};
+
+	/** List of characters based on this lift - may include dead or destroyed characters. */
+	UPROPERTY()
+	TArray<AUTCharacter*> BasedCharacters;
+
+	/** Added BasedCharacter to the BasedCharacters array. */
+	UFUNCTION(BlueprintCallable, Category = "Lift")
+	virtual void UpdateCurrentlyBasedCharacters(class AUTCharacter* BasedCharacter);
+
+	/** Returns true if this lift has based characters (that are alive). */
+	UFUNCTION(BlueprintCallable, Category = "Lift")
+	virtual bool HasBasedCharacters();
+
 	/** Move the colliding lift mesh component */
 	UFUNCTION(BlueprintCallable, Category = "Lift")
 	virtual void MoveLiftTo(FVector NewLocation, FRotator NewRotation);
@@ -46,10 +62,6 @@ class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuild
 	float NavmeshScale;
 
 	virtual FVector GetVelocity() const override;
-
-	/** Event when a player starts standing on me */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = "Lift")
-	virtual void AddBasedCharacter(APawn* NewBasedPawn);
 
 	virtual void Tick(float DeltaTime) override;
 

@@ -178,6 +178,19 @@ FVector AUTProj_TransDisk::ComputeBounceResult(const FHitResult& Hit, float Time
 	return TempVelocity;
 }
 
+void AUTProj_TransDisk::AddBasedCharacter_Implementation(class AUTCharacter* BasedCharacter)
+{
+	AddBasedCharacterNative(BasedCharacter);
+};
+
+void AUTProj_TransDisk::AddBasedCharacterNative(AUTCharacter* BasedCharacter)
+{
+	if ((Role == ROLE_Authority) && (Instigator == BasedCharacter) && (TransState == TLS_OnGround))
+	{
+		Recall();
+	}
+}
+
 void AUTProj_TransDisk::Recall()
 {
 	AUTCharacter* UTInstigator = Cast<AUTCharacter>(Instigator);

@@ -3,10 +3,11 @@
 #pragma once
 
 #include "UTProjectile.h"
+#include "UTMovementBaseInterface.h"
 #include "UTProj_StingerShard.generated.h"
 
 UCLASS()
-class AUTProj_StingerShard : public AUTProjectile
+class AUTProj_StingerShard : public AUTProjectile, public IUTMovementBaseInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -17,8 +18,12 @@ class AUTProj_StingerShard : public AUTProjectile
 
 	virtual void Destroyed() override;
 
+	// UTMovementBaseInterface
+	virtual void AddBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) {};
+	virtual void RemoveBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) override;
+
 	/** Called when UTCharacter jumps off me. */
-	virtual void JumpedOffBy(AUTCharacter* BasedCharacter);
+	virtual void RemoveBasedCharacterNative(class AUTCharacter* UTChar);
 
 	/** Damage taken by player jumping off impacted shard. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Shard)

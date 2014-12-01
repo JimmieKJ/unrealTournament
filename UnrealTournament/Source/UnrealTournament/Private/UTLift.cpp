@@ -139,6 +139,36 @@ FVector AUTLift::GetVelocity() const
 	return LiftVelocity;
 }
 
+void AUTLift::UpdateCurrentlyBasedCharacters(AUTCharacter* BasedCharacter)
+{
+	if (BasedCharacter && !BasedCharacter->IsDead() && !BasedCharacter->IsPendingKillPending())
+	{
+		BasedCharacters.AddUnique(BasedCharacter);
+	}
+}
+
+bool AUTLift::HasBasedCharacters()
+{
+	if (BasedCharacters.Num() == 0)
+	{
+		return false;
+	}
+
+	// verify BasedCharacters entries are valid
+	for (int32 i = 0; i<BasedCharacters.Num(); i++)
+	{
+		AUTCharacter* Next = BasedCharacters[i];
+		if ((Next == NULL) || Next->IsPendingKillPending() || Next->IsDead())
+		{
+			BasedCharacters.RemoveAt(i, 1);
+			i--;
+		}
+	}
+
+	return (BasedCharacters.Num() > 0);
+}
+
+
 void AUTLift::GetNavigationData(struct FNavigationRelevantData& Data) const
 {
 	UNavigationSystem* NavSys = GetWorld()->GetNavigationSystem();

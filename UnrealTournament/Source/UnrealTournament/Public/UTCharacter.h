@@ -593,7 +593,6 @@ public:
 	void StartDriving(APawn* Vehicle);
 	void StopDriving(APawn* Vehicle);
 
-	virtual void BaseChange() override;
 	virtual APhysicsVolume* GetPawnPhysicsVolume() const override
 	{
 		if (IsRagdoll() && RootComponent != NULL)

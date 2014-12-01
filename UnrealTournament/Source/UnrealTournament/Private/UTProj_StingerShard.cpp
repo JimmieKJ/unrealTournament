@@ -22,14 +22,15 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	JumpOffDamage = 12;
 }
 
-void AUTProj_StingerShard::Destroyed()
+// IUTMovementBaseInterface
+void AUTProj_StingerShard::RemoveBasedCharacter_Implementation(class AUTCharacter* BasedCharacter)
 {
-	Explode(GetActorLocation(), ImpactNormal, CollisionComp);
-	Super::Destroyed();
-}
+	RemoveBasedCharacterNative(BasedCharacter);
+};
 
-void AUTProj_StingerShard::JumpedOffBy(AUTCharacter* BasedCharacter)
+void AUTProj_StingerShard::RemoveBasedCharacterNative(AUTCharacter* BasedCharacter)
 {
+	// on base change, stinger shards explode and damage you
 	Explode(GetActorLocation(), ImpactNormal, CollisionComp);
 
 	FUTPointDamageEvent Event;
@@ -40,6 +41,12 @@ void AUTProj_StingerShard::JumpedOffBy(AUTCharacter* BasedCharacter)
 	Event.ShotDirection = FVector(0.f, 0.f, 1.f);
 	Event.Momentum = FVector(0.f);
 	BasedCharacter->TakeDamage(Event.Damage, Event, BasedCharacter->GetController(), this);
+}
+
+void AUTProj_StingerShard::Destroyed()
+{
+	Explode(GetActorLocation(), ImpactNormal, CollisionComp);
+	Super::Destroyed();
 }
 
 /**Overridden to do the landing*/

@@ -3,21 +3,17 @@
 #include "UnrealTournament.h"
 #include "UTCharacter.h"
 #include "UTCharacterMovement.h"
-#include "UTProjectile.h"
 #include "UTWeaponAttachment.h"
 #include "UnrealNetwork.h"
 #include "UTDmgType_Suicide.h"
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_Drown.h"
 #include "UTDmgType_FallingCrush.h"
-#include "UTJumpBoots.h"
-#include "UTCTFFlag.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
 #include "UTDmgType_BlockedTelefrag.h"
 #include "UTReplicatedEmitter.h"
-#include "UTLift.h"
 #include "UTWorldSettings.h"
 #include "UTArmor.h"
 #include "UTImpactEffect.h"
@@ -25,8 +21,11 @@
 #include "UTRemoteRedeemer.h"
 #include "UTDroppedPickup.h"
 #include "UTWeaponStateFiring.h"
-#include "UTProj_TransDisk.h"
-#include "UTProj_StingerShard.h"
+#include "UTMovementBaseInterface.h"
+
+UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
+{}
 
 //////////////////////////////////////////////////////////////////////////
 // AUTCharacter
@@ -133,36 +132,26 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	LowHealthAmbientThreshold = 40;
 }
 
-// @TODO FIXMESTEVE - temp hack until get proper UT basing system set up
 void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
 {
-	// on base change, stinger shards explode and damage you
-	AUTProj_StingerShard* BaseShard = Cast<AUTProj_StingerShard>(GetMovementBaseActor(this));
-	if (BaseShard && (!NewBaseComponent || (NewBaseComponent != BaseShard->ShardMesh)))
-	{
-		BaseShard->JumpedOffBy(this);
-	}
+	// @TODO FIXMESTEVE - BaseChange() would be useful for this if it passed the old base as well
+	AActor* OldMovementBase = GetMovementBaseActor(this);
 	Super::SetBase(NewBaseComponent, BoneName, bNotifyPawn);
-}
-
-void AUTCharacter::BaseChange()
-{
-	Super::BaseChange();
 	if (GetCharacterMovement() && GetCharacterMovement()->MovementMode != MOVE_None)
 	{
-		AUTLift* BaseLift = Cast<AUTLift>(GetMovementBaseActor(this));
-		if (BaseLift)
+		AActor* NewMovementBase = GetMovementBaseActor(this);
+		if (NewMovementBase != OldMovementBase)
 		{
-			BaseLift->AddBasedCharacter(this);
-		}
-
-		if (Role == ROLE_Authority)
-		{
-			// @TODO FIXMESTEVE TEMP HACK
-			AUTProj_TransDisk* Disk = Cast<AUTProj_TransDisk>(GetMovementBaseActor(this));
-			if (Disk && (Disk->Instigator == this) && (Disk->TransState == TLS_OnGround))
+			if (OldMovementBase && OldMovementBase->GetClass()->ImplementsInterface(UUTMovementBaseInterface::StaticClass()))
 			{
-				Disk->Recall();
+				UE_LOG(UT, Warning, TEXT("REMOVE BASED CHARACTER FROM %s"), *OldMovementBase->GetName());
+				IUTMovementBaseInterface::Execute_RemoveBasedCharacter(OldMovementBase, this);
+			}
+
+			if (NewMovementBase && NewMovementBase->GetClass()->ImplementsInterface(UUTMovementBaseInterface::StaticClass()))
+			{
+				UE_LOG(UT, Warning, TEXT("ADD BASED CHARACTER TO %s"), *NewMovementBase->GetName());
+				IUTMovementBaseInterface::Execute_AddBasedCharacter(NewMovementBase, this);
 			}
 		}
 	}

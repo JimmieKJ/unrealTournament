@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UTProjectile.h"
+#include "UTMovementBaseInterface.h"
 #include "UTProj_TransDisk.generated.h"
 
 UENUM()
@@ -15,7 +16,7 @@ enum ETLState
 class AUTWeap_Translocator;
 
 UCLASS()
-class AUTProj_TransDisk : public AUTProjectile
+class AUTProj_TransDisk : public AUTProjectile, public IUTMovementBaseInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -27,6 +28,13 @@ class AUTProj_TransDisk : public AUTProjectile
 	virtual void BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile) override;
 
 	virtual void InitFakeProjectile(AUTPlayerController* OwningPlayer) override;
+
+	// UTMovementBaseInterface
+	virtual	void RemoveBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) {};
+	virtual void AddBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) override;
+
+	// IUTMovementBaseInterface
+	virtual void AddBasedCharacterNative(class AUTCharacter* BasedCharacter);
 
 	/** hook to spawn effects when the glob lands*/
 	UFUNCTION(BlueprintNativeEvent, Category=TransDisk)

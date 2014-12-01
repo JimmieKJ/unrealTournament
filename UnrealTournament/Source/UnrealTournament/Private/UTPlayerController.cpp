@@ -952,7 +952,6 @@ void AUTPlayerController::PerformSingleTapDodge()
 		MyCharMovement->bPressedDodgeLeft = false;
 		MyCharMovement->bPressedDodgeRight = false;
 
-		// @TODO FIXMESTEVE need to check pressed move dir, otherwise fast turn will cause wrong dir dodge
 		if (MovementStrafeAxis > 0.5f)
 		{
 			MyCharMovement->bPressedDodgeRight = true;
