@@ -525,7 +525,7 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 
 void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 {
-	if (IsPendingKillPending() || !bCanTrack || NewTrackedPawn->bPendingKillPending || ((NewTrackedPawn->GetActorLocation() - GetActorLocation()).SizeSquared() > FMath::Square(TrackingRange)) || (NewTrackedPawn == Instigator))
+	if (IsPendingKillPending() || !bCanTrack || !NewTrackedPawn || NewTrackedPawn->bPendingKillPending || ((NewTrackedPawn->GetActorLocation() - GetActorLocation()).SizeSquared() > FMath::Square(TrackingRange)) || (NewTrackedPawn == Instigator) || !ProjectileMovement)
 	{
 		return;
 	}
