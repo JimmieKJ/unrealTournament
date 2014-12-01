@@ -158,7 +158,7 @@ bool AUTLift::HasBasedCharacters()
 	for (int32 i = 0; i<BasedCharacters.Num(); i++)
 	{
 		AUTCharacter* Next = BasedCharacters[i];
-		if ((Next == NULL) || Next->IsPendingKillPending() || Next->IsDead())
+		if ((Next == NULL) || Next->IsPendingKillPending() || Next->IsDead() || (Next->GetMovementBaseActor(Next) != this))
 		{
 			BasedCharacters.RemoveAt(i, 1);
 			i--;
