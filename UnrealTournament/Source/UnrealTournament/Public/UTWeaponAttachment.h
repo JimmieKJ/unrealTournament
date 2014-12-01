@@ -43,6 +43,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	FVector PickupScaleOverride;
 
+	/** third person mesh attach point */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+		FName HolsterSocket;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+		FVector HolsterOffset;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+		FRotator HolsterRotation;
+
 	/** particle system for firing effects (instant hit beam and such)
 	* particles will be sourced at FireOffset and a parameter HitLocation will be set for the target, if applicable
 	*/
@@ -76,6 +84,9 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void DetachFromOwner();
 
+	UFUNCTION(BlueprintNativeEvent)
+		void HolsterToOwner();
+
 	/** play firing effects (both muzzle flash and any tracers/beams/impact effects)
 	 * use UTOwner's FlashLocation and FireMode to determine firing data
 	 * don't play sounds as those are played/replicated from UTWeapon by the server as the Pawn/WeaponAttachment may not be relevant
@@ -87,6 +98,8 @@ public:
 	virtual void StopFiringEffects(bool bIgnoreCurrentMode = false);
 
 	virtual void AttachToOwnerNative();
+
+	virtual void HolsterToOwnerNative();
 
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();

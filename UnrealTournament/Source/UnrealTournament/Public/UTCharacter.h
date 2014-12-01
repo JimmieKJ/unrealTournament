@@ -985,6 +985,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetWeaponAttachmentClass(TSubclassOf<class AUTWeaponAttachment> NewWeaponAttachmentClass);
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+		virtual void SetHolsteredWeaponAttachmentClass(TSubclassOf<class AUTWeaponAttachment> NewWeaponAttachmentClass);
+
 	/** uses WeaponOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
 	UFUNCTION()
 	virtual void UpdateWeaponOverlays();
@@ -1232,6 +1235,11 @@ public:
 	UFUNCTION()
 		virtual void UpdateWeaponAttachment();
 
+	/** spawn/destroy/replace the current holstered weapon attachment to represent the equipped weapon (through WeaponClass) */
+	UFUNCTION()
+		virtual void UpdateHolsteredWeaponAttachment();
+
+
 	virtual FVector GetNavAgentLocation() const override
 	{
 		// push down a little to make sure we intersect with the navmesh but not so much that we get stuff on a lower level that requires a jump
@@ -1311,6 +1319,12 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = UpdateWeaponAttachment, Category = "Pawn")
 	TSubclassOf<AUTWeapon> WeaponClass;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	class AUTWeaponAttachment* HolsteredWeaponAttachment;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing=UpdateHolsteredWeaponAttachment, Category = "Pawn")
+		TSubclassOf<AUTWeaponAttachment> HolsteredWeaponAttachmentClass;
 
 public:
 	UPROPERTY(EditAnywhere, Category = "Pawn")

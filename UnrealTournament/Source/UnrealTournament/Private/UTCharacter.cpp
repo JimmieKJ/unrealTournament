@@ -1259,6 +1259,12 @@ void AUTCharacter::Destroyed()
 		WeaponAttachment = NULL;
 	}
 
+	if (HolsteredWeaponAttachment != NULL)
+	{
+		HolsteredWeaponAttachment->Destroy();
+		HolsteredWeaponAttachment = NULL;
+	}
+
 	if (GetWorld()->GetNetMode() != NM_DedicatedServer && GEngine->GetWorldContextFromWorld(GetWorld()) != NULL) // might not be able to get world context when exiting PIE
 	{
 		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
@@ -1987,6 +1993,34 @@ void AUTCharacter::UpdateWeaponAttachment()
 	}
 }
 
+void AUTCharacter::SetHolsteredWeaponAttachmentClass(TSubclassOf<AUTWeaponAttachment> NewWeaponAttachmentClass)
+{
+	if (Role == ROLE_Authority &&  HolsteredWeaponAttachmentClass != NewWeaponAttachmentClass)
+	{
+		HolsteredWeaponAttachmentClass = NewWeaponAttachmentClass;
+	}
+}
+
+void AUTCharacter::UpdateHolsteredWeaponAttachment()
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		TSubclassOf<AUTWeaponAttachment> NewAttachmentClass = HolsteredWeaponAttachmentClass;
+		if (HolsteredWeaponAttachment != NULL && (NewAttachmentClass == NULL || (HolsteredWeaponAttachment != NULL && HolsteredWeaponAttachment->GetClass() != NewAttachmentClass)))
+		{
+			HolsteredWeaponAttachment->Destroy();
+			HolsteredWeaponAttachment = NULL;
+		}
+		if (HolsteredWeaponAttachment == NULL && NewAttachmentClass != NULL)
+		{
+			FActorSpawnParameters Params;
+			Params.Instigator = this;
+			Params.Owner = this;
+			HolsteredWeaponAttachment = GetWorld()->SpawnActor<AUTWeaponAttachment>(NewAttachmentClass, Params);
+			HolsteredWeaponAttachment->HolsterToOwner();
+		}
+	}
+}
 float AUTCharacter::GetFireRateMultiplier()
 {
 	return FMath::Max<float>(FireRateMultiplier, 0.1f);
@@ -2023,6 +2057,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponAttachmentClass, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HolsteredWeaponAttachmentClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DamageScaling, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireRateMultiplier, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, AmbientSound, COND_None);
@@ -2571,6 +2606,10 @@ void AUTCharacter::UpdateSkin()
 	if (WeaponAttachment != NULL)
 	{
 		WeaponAttachment->SetSkin(ReplicatedBodyMaterial);
+	}
+	if (HolsteredWeaponAttachment != NULL)
+	{
+		HolsteredWeaponAttachment->SetSkin(ReplicatedBodyMaterial);
 	}
 }
 

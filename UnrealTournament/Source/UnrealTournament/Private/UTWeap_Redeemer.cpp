@@ -10,6 +10,7 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	Ammo = 1;
 	MaxAmmo = 1;
 	FiringViewKickback = -50.f;
+	bMustBeHolstered = true;
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()

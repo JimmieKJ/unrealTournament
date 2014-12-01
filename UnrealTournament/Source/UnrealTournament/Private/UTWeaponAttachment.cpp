@@ -13,7 +13,9 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitial
 	Mesh->AttachParent = RootComponent;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	AttachSocket = FName((TEXT("WeaponPoint")));
-
+	HolsterSocket = FName((TEXT("b_Spine2")));
+	HolsterOffset = FVector(0.f, 16.f, 0.f);
+	HolsterRotation = FRotator(0.f, 60.f, 75.f);
 	PickupScaleOverride = FVector(2.0f, 2.0f, 2.0f);
 	WeaponStance = 0;
 
@@ -67,15 +69,29 @@ void AUTWeaponAttachment::RegisterAllComponents()
 
 void AUTWeaponAttachment::AttachToOwner_Implementation()
 {
-
 	AttachToOwnerNative();
 }
 
 void AUTWeaponAttachment::AttachToOwnerNative()
 {
-
 	Mesh->AttachTo(UTOwner->GetMesh(), AttachSocket);
 	Mesh->SetRelativeLocation(AttachOffset);
+	Mesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;
+	Mesh->LastRenderTime = UTOwner->GetMesh()->LastRenderTime;
+	UpdateOverlays();
+	SetSkin(UTOwner->GetSkin());
+}
+
+void AUTWeaponAttachment::HolsterToOwner_Implementation()
+{
+	HolsterToOwnerNative();
+}
+
+void AUTWeaponAttachment::HolsterToOwnerNative()
+{
+	Mesh->AttachTo(UTOwner->GetMesh(), HolsterSocket);
+	Mesh->SetRelativeLocation(HolsterOffset);
+	Mesh->SetRelativeRotation(HolsterRotation);
 	Mesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;
 	Mesh->LastRenderTime = UTOwner->GetMesh()->LastRenderTime;
 	UpdateOverlays();

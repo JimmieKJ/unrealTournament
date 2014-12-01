@@ -286,6 +286,11 @@ void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 {
+	if (bMustBeHolstered && UTOwner && HasAnyAmmo())
+	{
+		AttachToHolster(UTOwner->GetMesh());
+	}
+
 	// make sure we initialized our state; this can be triggered if the weapon is spawned at game startup, since BeginPlay() will be deferred
 	if (CurrentState == NULL)
 	{
@@ -313,6 +318,23 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	if (bAutoActivate && UTPC != NULL)
 	{
 		UTPC->CheckAutoWeaponSwitch(this);
+	}
+}
+
+void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
+{
+	if (UTOwner && bMustBeHolstered)
+	{
+		DetachFromHolster(UTOwner->GetMesh());
+	}
+
+	if (!HasAnyAmmo())
+	{
+		Destroy();
+	}
+	else
+	{
+		Super::DropFrom(StartLocation, TossVelocity);
 	}
 }
 
@@ -441,6 +463,18 @@ void AUTWeapon::UnEquip()
 	GotoState(UnequippingState);
 }
 
+void AUTWeapon::AttachToHolster(USkeletalMeshComponent* AttachToMesh)
+{
+	UTOwner->SetHolsteredWeaponAttachmentClass(AttachmentType);
+	UTOwner->UpdateHolsteredWeaponAttachment();
+}
+
+void AUTWeapon::DetachFromHolster(USkeletalMeshComponent* AttachToMesh)
+{
+	UTOwner->SetHolsteredWeaponAttachmentClass(NULL);
+	UTOwner->UpdateHolsteredWeaponAttachment();
+}
+
 void AUTWeapon::AttachToOwner_Implementation()
 {
 	AttachToOwnerNative();
@@ -451,6 +485,12 @@ void AUTWeapon::AttachToOwnerNative()
 	if (UTOwner == NULL)
 	{
 		return;
+	}
+
+	if (bMustBeHolstered)
+	{
+		// detach from holster if becoming held
+		DetachFromHolster(UTOwner->GetMesh());
 	}
 
 	// sanity check some settings
@@ -512,6 +552,11 @@ void AUTWeapon::DetachFromOwnerNative()
 	}
 	// unregister components so they go away
 	UnregisterAllComponents();
+
+	if (bMustBeHolstered && HasAnyAmmo() && UTOwner && !UTOwner->IsDead() && !IsPendingKillPending())
+	{
+		AttachToHolster(UTOwner->GetMesh());
+	}
 }
 
 bool AUTWeapon::IsChargedFireMode(uint8 TestMode) const

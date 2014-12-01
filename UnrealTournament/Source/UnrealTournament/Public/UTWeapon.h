@@ -190,7 +190,19 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
 	float LastImpactEffectTime;
 
-	/** first person mesh */
+	/** If true, weapon is visibly holstered when not active.  There can only be one holstered weapon in inventory at a time. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+		bool bMustBeHolstered;
+
+	UFUNCTION()
+	virtual void AttachToHolster(USkeletalMeshComponent* AttachToMesh);
+
+	UFUNCTION()
+	virtual void DetachFromHolster(USkeletalMeshComponent* AttachToMesh);
+
+	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
+
+		/** first person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	USkeletalMeshComponent* Mesh;
 
@@ -502,18 +514,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void Destroyed() override;
-
-	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override
-	{
-		if (!HasAnyAmmo())
-		{
-			Destroy();
-		}
-		else
-		{
-			Super::DropFrom(StartLocation, TossVelocity);
-		}
-	}
 
 	/** we added an editor tool to allow the user to set the MuzzleFlash entries to a component created in the blueprint components view,
 	 * but the resulting instances won't be automatically set...
