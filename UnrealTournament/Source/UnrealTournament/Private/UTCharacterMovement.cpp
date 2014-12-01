@@ -973,6 +973,7 @@ bool UUTCharacterMovement::DoMultiJump()
 	if (CharacterOwner)
 	{
 		Velocity.Z = bIsDodging ? DodgeJumpImpulse : MultiJumpImpulse;
+		CurrentMultiJumpCount++;
 		if (CharacterOwner->IsA(AUTCharacter::StaticClass()))
 		{
 			static FName NAME_MultiJump(TEXT("MultiJump"));
