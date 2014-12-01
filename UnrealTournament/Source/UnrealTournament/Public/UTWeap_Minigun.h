@@ -11,4 +11,8 @@ class AUTWeap_Minigun : public AUTWeapon
 
 	virtual float GetAISelectRating_Implementation() override;
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
+
+	/** Allow firing shard even if not enough ammo left */
+	virtual bool HasAmmo(uint8 FireModeNum) override;
+
 };

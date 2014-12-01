@@ -51,8 +51,22 @@ float AUTWeap_Minigun::GetAISelectRating_Implementation()
 		return BaseAISelectRating * FMath::Min<float>(UTOwner->DamageScaling * UTOwner->GetFireRateMultiplier(), 1.5f);
 	}
 }
+
 bool AUTWeap_Minigun::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
 {
 	// prefer to keep current fire mode as there is a spindown cost associated with switching
 	return Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode || (IsFiring() && FMath::FRand() < 0.9f), BestFireMode, OptimalTargetLoc);
+}
+
+bool AUTWeap_Minigun::HasAmmo(uint8 FireModeNum)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	// cheat
+	if (UTOwner && UTOwner->bUnlimitedAmmo)
+	{
+		return true;
+	}
+#endif
+
+	return (Ammo >= 1);
 }
