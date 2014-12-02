@@ -144,13 +144,11 @@ void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName Bo
 		{
 			if (OldMovementBase && OldMovementBase->GetClass()->ImplementsInterface(UUTMovementBaseInterface::StaticClass()))
 			{
-				UE_LOG(UT, Warning, TEXT("REMOVE BASED CHARACTER FROM %s"), *OldMovementBase->GetName());
 				IUTMovementBaseInterface::Execute_RemoveBasedCharacter(OldMovementBase, this);
 			}
 
 			if (NewMovementBase && NewMovementBase->GetClass()->ImplementsInterface(UUTMovementBaseInterface::StaticClass()))
 			{
-				UE_LOG(UT, Warning, TEXT("ADD BASED CHARACTER TO %s"), *NewMovementBase->GetName());
 				IUTMovementBaseInterface::Execute_AddBasedCharacter(NewMovementBase, this);
 			}
 		}
@@ -211,12 +209,24 @@ void AUTCharacter::PostInitializeComponents()
 
 void AUTCharacter::PositionUpdated()
 {
-	new(SavedPositions)FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, GetWorld()->GetTimeSeconds(), (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
-	
-	// maintain one position beyond MaxSavedPositionAge for interpolation
-	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < GetWorld()->GetTimeSeconds() - MaxSavedPositionAge)
+	const float WorldTime = GetWorld()->TimeSeconds;
+	// if a SavedPosition at the current time already exists, replace it
+	// this prevents divide by zero issues when comparing saved positions for prediction
+	// this most commonly happens with remotely-owned human players due to receiving multiple ServerMove() calls in a single server frame
+	// NOTE: this is clobbering the synch timestamp of the first move; currently doesn't seem to be a problem
+	if (SavedPositions.Num() > 0 && SavedPositions.Last().Time == WorldTime)
 	{
-		SavedPositions.RemoveAt(0);
+		SavedPositions.Last() = FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	}
+	else
+	{
+		new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+
+		// maintain one position beyond MaxSavedPositionAge for interpolation
+		if (SavedPositions.Num() > 1 && SavedPositions[1].Time < WorldTime - MaxSavedPositionAge)
+		{
+			SavedPositions.RemoveAt(0);
+		}
 	}
 }
 
