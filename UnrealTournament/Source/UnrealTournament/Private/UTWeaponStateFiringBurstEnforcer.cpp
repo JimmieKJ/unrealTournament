@@ -116,17 +116,20 @@ void UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer()
 
 			FireShot();
 			LastFiredTime = GetOuterAUTWeapon()->GetWorld()->GetTimeSeconds();
-			CurrentShot++;
-			if (GetOuterAUTWeapon()->Spread.IsValidIndex(CurrentFireMode))
+			if (GetUTOwner() != NULL) // shot might have resulted in owner dying!
 			{
-				GetOuterAUTWeapon()->Spread[CurrentFireMode] += SpreadIncrease;
-			}
-			IncrementShotTimer();
+				CurrentShot++;
+				if (GetOuterAUTWeapon()->Spread.IsValidIndex(CurrentFireMode))
+				{
+					GetOuterAUTWeapon()->Spread[CurrentFireMode] += SpreadIncrease;
+				}
+				IncrementShotTimer();
 
-			if ((bDualMode && bSecondVolleyComplete) || (!bDualMode && bFirstVolleyComplete))
-			{
-				bFirstVolleyComplete = false;
-				bSecondVolleyComplete = false;
+				if ((bDualMode && bSecondVolleyComplete) || (!bDualMode && bFirstVolleyComplete))
+				{
+					bFirstVolleyComplete = false;
+					bSecondVolleyComplete = false;
+				}
 			}
 		}
 		else if (!GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(CurrentFireMode))
