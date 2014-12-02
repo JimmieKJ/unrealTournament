@@ -34,6 +34,9 @@ protected:
 	TSharedPtr< SComboBox<UClass*> > GameList;
 	TSharedPtr<STextBlock> SelectedGameName;
 	TSubclassOf<AUTGameMode> SelectedGameClass;
+	TSharedPtr<STextBlock> MapAuthor;
+	TSharedPtr<STextBlock> MapRecommendedPlayers;
+	TSharedPtr<STextBlock> MapDesc;
 
 	// container for pointers to TAttributeProperty objects linked directly to setting properties
 	TArray< TSharedPtr<TAttributePropertyBase> > PropertyLinks;

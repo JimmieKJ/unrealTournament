@@ -77,9 +77,20 @@ class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 	UPROPERTY()
 	TArray<FTimedImpactEffect> TimedEffects;
 
+protected:
+	/** level summary for UI details */
+	UPROPERTY(VisibleAnywhere, Instanced, Category = LevelSummary)
+	class UUTLevelSummary* LevelSummary;
+	
+	virtual void CreateLevelSummary();
+public:
+
 	/** whether to allow side switching (swap bases in CTF, etc) if the gametype wants */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameSettings)
 	bool bAllowSideSwitching;
+
+	virtual void PostLoad() override;
+	virtual void PostInitProperties() override;
 
 	virtual void BeginPlay() override;
 	

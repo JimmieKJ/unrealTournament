@@ -4,6 +4,7 @@
 #include "UTDmgType_KillZ.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTGameEngine.h"
+#include "UTLevelSummary.h"
 
 AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -21,6 +22,36 @@ AUTWorldSettings* AUTWorldSettings::GetWorldSettings(UObject* WorldContextObject
 {
 	UWorld* World = (WorldContextObject != NULL) ? WorldContextObject->GetWorld() : NULL;
 	return (World != NULL) ? Cast<AUTWorldSettings>(World->GetWorldSettings()) : NULL;
+}
+
+void AUTWorldSettings::PostLoad()
+{
+	Super::PostLoad();
+	CreateLevelSummary();
+}
+void AUTWorldSettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_NeedLoad))
+	{
+		CreateLevelSummary();
+	}
+}
+
+void AUTWorldSettings::CreateLevelSummary()
+{
+	if (!IsTemplate())
+	{
+		static FName NAME_LevelSummary(TEXT("LevelSummary"));
+		if (LevelSummary == NULL)
+		{
+			LevelSummary = FindObject<UUTLevelSummary>(UUTLevelSummary::StaticClass(), *NAME_LevelSummary.ToString());
+			if (LevelSummary == NULL)
+			{
+				LevelSummary = ConstructObject<UUTLevelSummary>(UUTLevelSummary::StaticClass(), GetOutermost(), NAME_LevelSummary, RF_Standalone);
+			}
+		}
+	}
 }
 
 void AUTWorldSettings::BeginPlay()
