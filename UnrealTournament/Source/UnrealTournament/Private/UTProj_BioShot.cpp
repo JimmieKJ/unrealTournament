@@ -33,7 +33,6 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	SurfaceWallThreshold = 0.3f;
 
 	RestTime = 10.f;
-	ChargedRestTime = 16.f;
 	bAlwaysShootable = true;
 
 	GlobStrength = 1.f;
@@ -429,8 +428,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 			if (Role == ROLE_Authority)
 			{
 				bReplicateUTMovement = true;
-				float MyRestTime = (GlobStrength > 1.f) ? ChargedRestTime : RestTime;
-				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, MyRestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
+				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
 				SetGlobStrength(GlobStrength);
 			}
 
