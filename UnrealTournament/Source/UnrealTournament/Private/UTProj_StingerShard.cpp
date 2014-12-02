@@ -19,28 +19,8 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 		ShardMesh->AttachParent = RootComponent;
 	}
 	InitialLifeSpan = 8.f;
-	JumpOffDamage = 12;
-}
-
-// IUTMovementBaseInterface
-void AUTProj_StingerShard::RemoveBasedCharacter_Implementation(class AUTCharacter* BasedCharacter)
-{
-	RemoveBasedCharacterNative(BasedCharacter);
-};
-
-void AUTProj_StingerShard::RemoveBasedCharacterNative(AUTCharacter* BasedCharacter)
-{
-	// on base change, stinger shards explode and damage you
-	Explode(GetActorLocation(), ImpactNormal, CollisionComp);
-
-	FUTPointDamageEvent Event;
-	float AdjustedMomentum = 0.f;
-	Event.Damage = JumpOffDamage;
-	Event.DamageTypeClass = MyDamageType;
-	Event.HitInfo = FHitResult(BasedCharacter, BasedCharacter->GetCapsuleComponent(), GetActorLocation(), FVector(0.f, 0.f, 1.f));
-	Event.ShotDirection = FVector(0.f, 0.f, 1.f);
-	Event.Momentum = FVector(0.f);
-	BasedCharacter->TakeDamage(Event.Damage, Event, BasedCharacter->GetController(), this);
+	ImpactedShardDamage = 12;
+	ImpactedShardMomentum = 100000.f;
 }
 
 void AUTProj_StingerShard::Destroyed()
@@ -49,7 +29,6 @@ void AUTProj_StingerShard::Destroyed()
 	Super::Destroyed();
 }
 
-/**Overridden to do the landing*/
 void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	// FIXME: temporary? workaround for synchronization issues on clients where it explodes on client but not on server
@@ -58,8 +37,41 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		return;
 	}
 
-	if (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
+	APawn* HitPawn = Cast<APawn>(OtherActor);
+	if (HitPawn || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
+		if (HitPawn && ProjectileMovement->Velocity.IsZero())
+		{
+			// only provide momentum along plane
+			FVector MomentumDir = OtherActor->GetActorLocation() - GetActorLocation();
+			MomentumDir = (MomentumDir - (ImpactNormal | MomentumDir) * ImpactNormal).SafeNormal();
+			MomentumDir.Z = 1.f;
+			ProjectileMovement->Velocity = MomentumDir.SafeNormal();
+
+			// clamp player z vel
+			AUTCharacter* HitChar = Cast<AUTCharacter>(HitPawn);
+			if (HitChar)
+			{
+				float CurrentVelZ = HitChar->GetCharacterMovement()->Velocity.Z;
+				if (CurrentVelZ > -1.f * HitChar->GetCharacterMovement()->JumpZVelocity)
+				{
+					CurrentVelZ = 0.f;
+				}
+				HitChar->GetCharacterMovement()->Velocity.Z = CurrentVelZ;
+			}
+			
+			Explode(GetActorLocation(), ImpactNormal, OtherComp);
+
+			FUTPointDamageEvent Event;
+			float AdjustedMomentum = ImpactedShardMomentum;
+			Event.Damage = ImpactedShardDamage;
+			Event.DamageTypeClass = MyDamageType;
+			Event.HitInfo = FHitResult(HitPawn, OtherComp, HitLocation, HitNormal);
+			Event.ShotDirection = ProjectileMovement->Velocity;
+			Event.Momentum = Event.ShotDirection * AdjustedMomentum;
+			HitPawn->TakeDamage(Event.Damage, Event, InstigatorController, this);
+			return;
+		}
 		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 		return;
 	}
@@ -67,7 +79,8 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 	//Stop the projectile and give it collision
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
 	ProjectileMovement->Velocity = FVector::ZeroVector;
-	ShardMesh->SetCollisionProfileName(UCollisionProfile::BlockAllDynamic_ProfileName);
+	ShardMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	bCanHitInstigator = true;
 
 	if (Role == ROLE_Authority)
 	{

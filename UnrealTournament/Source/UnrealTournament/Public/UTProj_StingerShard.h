@@ -7,7 +7,7 @@
 #include "UTProj_StingerShard.generated.h"
 
 UCLASS()
-class AUTProj_StingerShard : public AUTProjectile, public IUTMovementBaseInterface
+class AUTProj_StingerShard : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
@@ -18,16 +18,13 @@ class AUTProj_StingerShard : public AUTProjectile, public IUTMovementBaseInterfa
 
 	virtual void Destroyed() override;
 
-	// UTMovementBaseInterface
-	virtual void AddBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) {};
-	virtual void RemoveBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) override;
-
-	/** Called when UTCharacter jumps off me. */
-	virtual void RemoveBasedCharacterNative(class AUTCharacter* UTChar);
+	/** Damage taken by player jumping off impacted shard. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Shard)
+		int32 ImpactedShardDamage;
 
 	/** Damage taken by player jumping off impacted shard. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Shard)
-	int32 JumpOffDamage;
+		float ImpactedShardMomentum;
 
 	/** Normal of wall this shard impacted on. */
 	UPROPERTY()
