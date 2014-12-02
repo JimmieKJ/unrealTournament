@@ -147,10 +147,6 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 	float RestTime;
 
-	/**Base time a charged glob will remain on the ground before exploding*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
-	float ChargedRestTime;
-
 	/** Biostability expiring = explosion. */
 	UFUNCTION()
 	virtual void BioStabilityTimer();
