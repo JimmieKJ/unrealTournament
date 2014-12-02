@@ -807,7 +807,10 @@ void AUTCTFGameMode::ScoreHolder(AUTPlayerState* Holder)
 uint8 AUTCTFGameMode::TeamWithAdvantage()
 {
 	AUTCTFFlag* Flags[2];
-	if (CTFGameState == NULL || CTFGameState->FlagBases.Num() < 2) return false;	// Fix for crash when CTF transitions to a map without flags.
+	if (CTFGameState == NULL || CTFGameState->FlagBases.Num() < 2 || CTFGameState->FlagBases[0] == NULL || CTFGameState->FlagBases[1] == NULL)
+	{
+		return false;	// Fix for crash when CTF transitions to a map without flags.
+	}
 
 	Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
 	Flags[1] = CTFGameState->FlagBases[1]->MyFlag;
