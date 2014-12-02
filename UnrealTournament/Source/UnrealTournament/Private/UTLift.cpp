@@ -17,6 +17,7 @@ AUTLift::AUTLift(const FObjectInitializer& ObjectInitializer)
 	LiftVelocity = FVector(0.f);
 	TickLocation = EncroachComponent ? EncroachComponent->GetComponentLocation() : GetActorLocation();
 	NavmeshScale = 0.75f;
+	NetPriority = 2.7f;
 }
 
 void AUTLift::SetEncroachComponent(class UPrimitiveComponent* NewEncroachComponent)
