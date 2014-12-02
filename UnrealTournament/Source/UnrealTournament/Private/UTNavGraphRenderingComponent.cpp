@@ -52,7 +52,10 @@ FUTPathNodeRenderProxy::FUTPathNodeRenderProxy(const UUTPathNode* RealNode, cons
 	}
 	for (TWeakObjectPtr<AActor> POI : RealNode->POIs)
 	{
-		POILocations.Add(POI->GetActorLocation());
+		if (POI.IsValid())
+		{
+			POILocations.Add(POI->GetActorLocation());
+		}
 	}
 	for (const FUTPathLink& Link : RealNode->Paths)
 	{
