@@ -316,7 +316,7 @@ public:
 
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 
-	virtual FString GetRedirectURL(const FString& MapName) const override;
+	virtual FString GetRedirectURL(const FString& MapName) const;
 
 #if !UE_SERVER
 	/** called on the default object of this class by the UI to create widgets to manipulate this game type's settings
