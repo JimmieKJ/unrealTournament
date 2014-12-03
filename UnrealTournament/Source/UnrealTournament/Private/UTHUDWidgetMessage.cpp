@@ -197,7 +197,6 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 		}
 	}
 
-	UE_LOG(UT, Warning, TEXT("%d MessageCount %d"), QueueIndex, MessageCount);
 	AddMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
