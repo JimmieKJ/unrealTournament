@@ -83,7 +83,7 @@ void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpa
 
 bool AUTImpactEffect::ShouldCreateComponent_Implementation(const USceneComponent* TestComp, FName CompTemplateName, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy) const
 {
-	if (HitComp != NULL && !HitComp->bReceivesDecals && TestComp->IsA(UDecalComponent::StaticClass()))
+	if (HitComp != NULL && TestComp->IsA(UDecalComponent::StaticClass()) && (!HitComp->bReceivesDecals || !HitComp->ShouldRender()) && !HitComp->IsA(UBrushComponent::StaticClass())) // special case to attach to blocking volumes to project on world geo behind it
 	{
 		return false;
 	}
