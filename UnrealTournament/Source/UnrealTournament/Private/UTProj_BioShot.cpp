@@ -32,14 +32,14 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	SurfaceType = EHitType::HIT_None;
 	SurfaceWallThreshold = 0.3f;
 
-	RestTime = 10.f;
+	RestTime = 7.f;
 	bAlwaysShootable = true;
 
 	GlobStrength = 1.f;
 	MaxRestingGlobStrength = 6;
 	DamageRadiusGain = 60.0f;
 	InitialLifeSpan = 0.f;
-	ExtraRestTimePerStrength = 2.f;
+	ExtraRestTimePerStrength = 1.5f;
 
 	SplashSpread = 0.8f;
 	bSpawningGloblings = false;
