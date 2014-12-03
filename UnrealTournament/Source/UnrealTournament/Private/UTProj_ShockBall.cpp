@@ -13,6 +13,7 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectIniti
 	ComboMomentum = 330000.0f;
 	bIsEnergyProjectile = true;
 	PrimaryActorTick.bCanEverTick = true;
+	ComboVortexType = AUTPhysicsVortex::StaticClass();
 }
 
 void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
@@ -98,7 +99,13 @@ void AUTProj_ShockBall::OnRep_ComboExplosion()
 	Momentum = ComboMomentum;
 }
 
-void AUTProj_ShockBall::OnComboExplode_Implementation(){}
+void AUTProj_ShockBall::OnComboExplode_Implementation()
+{
+	if (ComboVortexType != NULL)
+	{
+		GetWorld()->SpawnActor<AUTPhysicsVortex>(ComboVortexType, GetActorLocation(), GetActorRotation());
+	}
+}
 
 void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
