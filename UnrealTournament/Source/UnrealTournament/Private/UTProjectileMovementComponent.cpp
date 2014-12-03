@@ -76,10 +76,14 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 		FHitResult EarliestHit;
 		// move root
 		bool bResult = Super::MoveUpdatedComponent(Delta, NewRotation, bSweep, &EarliestHit);
+		
 		float InitialMoveSize = Delta.Size() * EarliestHit.Time;
-		// move children
 		float ShortestMoveSize = InitialMoveSize;
 		bool bGotHit = EarliestHit.bBlockingHit;
+		bool bPenetrating = EarliestHit.bStartPenetrating;
+		float PenetrationDepth = (bPenetrating ? EarliestHit.PenetrationDepth : 0.f);
+
+		// move children
 		for (int32 i = 0; i < AddlUpdatedComponents.Num(); i++)
 		{
 			// hack so InternalSetWorldLocationAndRotation() counts the component as moved (which will also clobber this hacked value)
@@ -90,12 +94,27 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 			AddlUpdatedComponents[i]->MoveComponent(Delta, AddlUpdatedComponents[i]->ComponentToWorld.GetRotation().Rotator() + RotChange, bSweep, &NewHit, MoveComponentFlags);
 			if (NewHit.bBlockingHit)
 			{
-				float MoveSize = Delta.Size() * NewHit.Time;
-				if (!bGotHit || MoveSize < ShortestMoveSize - KINDA_SMALL_NUMBER)
+				if (NewHit.bStartPenetrating)
 				{
-					ShortestMoveSize = MoveSize;
-					EarliestHit = NewHit;
+					// Take the penetration that was deepest, so we move out far enough to retry the move.
+					bPenetrating = true;
+					if (NewHit.PenetrationDepth > PenetrationDepth)
+					{
+						ShortestMoveSize = 0.f;
+						PenetrationDepth = NewHit.PenetrationDepth;
+						EarliestHit = NewHit;
+					}
 				}
+				else if (!bPenetrating)
+				{
+					float MoveSize = Delta.Size() * NewHit.Time;
+					if (!bGotHit || MoveSize < ShortestMoveSize - KINDA_SMALL_NUMBER)
+					{
+						ShortestMoveSize = MoveSize;
+						EarliestHit = NewHit;
+					}
+				}
+				
 				bGotHit = true;
 			}
 			// restore RelativeLocation and RelativeRotation after moving
@@ -131,10 +150,15 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 				RootDeferredUpdate->RevertMove();
 				delete RootDeferredUpdate;
 
-				// recurse
-				bRecursing = true;
-				bResult = MoveUpdatedComponent(Delta.SafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit);
-				bRecursing = false;
+				// If we are penetrating we just want to return the penetrated result, so that there can be a fixup outside of this function.
+				// Otherwise let's recurse and try to move every component the shorter distance to closest impact.
+				if (!bPenetrating)
+				{
+					// recurse
+					bRecursing = true;
+					bResult = MoveUpdatedComponent(Delta.SafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit);
+					bRecursing = false;
+				}				
 
 				if (OutHit != NULL)
 				{
