@@ -17,6 +17,7 @@
 #include "UTImpactEffect.h"
 #include "UTCharacterMovement.h"
 #include "UTWorldSettings.h"
+#include "UTHUD.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -80,6 +81,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	HUDIcon.Texture = WeaponTexture.Object;
 
 	BaseAISelectRating = 0.55f;
+	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
 }
 
 void AUTWeapon::PostInitProperties()
@@ -1441,6 +1443,26 @@ bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState 
 	return bDrawFriendlyIndicator;
 }
 
+float AUTWeapon::GetCrosshairScale(AUTHUD* HUD)
+{
+	// Apply pickup scaling
+	float PickupScale = 1.f;
+	const float LastPickupTime = HUD->LastPickupTime;
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	if (LastPickupTime > WorldTime - 0.3f)
+	{
+		if (LastPickupTime > WorldTime - 0.15f)
+		{
+			PickupScale = (1.f + 5.f * (WorldTime - LastPickupTime));
+		}
+		else
+		{
+			PickupScale = (1.f + 5.f * (LastPickupTime + 0.3f - WorldTime));
+		}
+	}
+	return PickupScale;
+}
+
 void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
 	bool bDrawCrosshair = true;
@@ -1456,16 +1478,17 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 		{
 			float W = CrosshairTexture->GetSurfaceWidth();
 			float H = CrosshairTexture->GetSurfaceHeight();
-		
+			float CrosshairScale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
+
 			// draw a different indicator if there is a friendly where the camera is pointing
 			AUTPlayerState* PS;
 			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
 			{
-				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * 2.0f, H  * 2.0f, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * 2.0f * CrosshairScale, H  * 2.0f * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
 			}
 			else
 			{
-				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W , H , 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
 				UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 			}
 		}

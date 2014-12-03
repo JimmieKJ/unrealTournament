@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTWeapon.h"
+#include "UTHUDWidgetMessage.h"
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -57,12 +58,18 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			CurrentSelectedWeaponDisplayTime = SelectedWeaponDisplayTime;
 		}
 
-
-		if (SelectedWeaponDisplayTime > 0.0)
+		if (CurrentSelectedWeaponDisplayTime > 0.f)
 		{
 			float Alpha = CurrentSelectedWeaponDisplayTime > (SelectedWeaponDisplayTime * 0.5) ? 1.0 : CurrentSelectedWeaponDisplayTime / (SelectedWeaponDisplayTime * 0.5);
-			DrawText(SelectedWeaponDisplayName, 0, -150, UTHUDOwner->MediumFont, true, FVector2D(0,-1), FLinearColor::Black, false, FLinearColor::Black, 1.0, Alpha, FLinearColor::Yellow, ETextHorzPos::Center);
+			DrawText(SelectedWeaponDisplayName, 0, -100, UTHUDOwner->MediumFont, true, FVector2D(0,-1), FLinearColor::Black, false, FLinearColor::Black, 1.0, Alpha, FLinearColor::Yellow, ETextHorzPos::Center);
 			CurrentSelectedWeaponDisplayTime-=DeltaTime;
+
+			// clear pickup messages
+			UUTHUDWidgetMessage* DestinationWidget = (UTHUDOwner->HudMessageWidgets.FindRef(FName(TEXT("PickupMessage"))));
+			if (DestinationWidget && PendingWeapon)
+			{
+				DestinationWidget->ClearMessages();
+			}
 		}
 
 		// Get the weapon list.

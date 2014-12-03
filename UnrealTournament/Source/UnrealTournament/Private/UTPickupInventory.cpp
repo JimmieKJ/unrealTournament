@@ -3,6 +3,7 @@
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
 #include "UnrealNetwork.h"
+#include "UTPickupMessage.h"
 
 AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -306,6 +307,10 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 			Params.bNoCollisionFail = true;
 			Params.Instigator = P;
 			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+			if (Cast<APlayerController>(Target->GetController()))
+			{
+				Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, InventoryType);
+			}
 		}
 	}
 }

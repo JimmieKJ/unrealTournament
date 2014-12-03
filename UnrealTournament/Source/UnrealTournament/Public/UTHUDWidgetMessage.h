@@ -134,7 +134,10 @@ public:
 	// This function is called each frame and is used to age out messages in the queue. 
 	UFUNCTION(BlueprintNativeEvent)
 	void AgeMessages(float DeltaTime);
-	
+
+	/** Clear all messages from this widget */
+	virtual void ClearMessages();
+
 	virtual void DrawMessages(float DeltaTime);
 
 	// MessageWidgets need to be able to receive local messages from the HUD.  They will be responsible for managing their own messages.

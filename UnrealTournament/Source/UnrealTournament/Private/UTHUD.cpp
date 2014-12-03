@@ -49,6 +49,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
 	LastConfirmedHitTime = -100.0f;
+	LastPickupTime = -100.f;
 
 	bShowOverlays = true;
 }

@@ -121,6 +121,10 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UFUNCTION(BlueprintCallable, Category = Pickup)
 	virtual void SetPickupHidden(bool bNowHidden);
 
+	/** Pickup message to display on player HUD. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+	FText PickupMessageString;
+
 	virtual void Reset_Implementation() override;
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);

@@ -623,8 +623,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		UTexture2D* Tex = LoadCrosshairTextures[NumLoadedRockets];
 		float W = Tex->GetSurfaceWidth();
 		float H = Tex->GetSurfaceHeight();
-
-		float Scale = WeaponHudWidget->GetRenderScale() * CrosshairScale;
+		float Scale = WeaponHudWidget->GetRenderScale() * CrosshairScale * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 
 		float DegreesPerRocket = 360.0f / MaxLoadedRockets;
 		float CrosshairRot = DegreesPerRocket * ((NumLoadedRockets > 1) ? NumLoadedRockets : 0);

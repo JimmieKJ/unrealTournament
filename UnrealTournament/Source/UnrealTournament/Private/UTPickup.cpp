@@ -4,6 +4,7 @@
 #include "UTPickup.h"
 #include "UnrealNetwork.h"
 #include "UTRecastNavMesh.h"
+#include "UTPickupMessage.h"
 
 static FName NAME_PercentComplete(TEXT("PercentComplete"));
 
@@ -45,6 +46,8 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 
 	PickupType = PC_Minor;
+
+	PickupMessageString = NSLOCTEXT("PickupMessage", "ItemPickedUp", "Item snagged.");
 }
 
 void AUTPickup::SetupTimerSprite()
@@ -162,7 +165,12 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 }
 
 void AUTPickup::GiveTo_Implementation(APawn* Target)
-{}
+{
+	if (Cast<APlayerController>(Target->GetController()))
+	{
+		Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, GetClass());
+	}
+}
 
 void AUTPickup::SetPickupHidden(bool bNowHidden)
 {

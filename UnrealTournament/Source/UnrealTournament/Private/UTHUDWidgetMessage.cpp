@@ -40,6 +40,17 @@ void UUTHUDWidgetMessage::Draw_Implementation(float DeltaTime)
 	DrawMessages(DeltaTime);
 }
 
+void UUTHUDWidgetMessage::ClearMessages()
+{
+	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
+	{
+		if (MessageQueue[QueueIndex].MessageClass != NULL)
+		{
+			ClearMessage(MessageQueue[QueueIndex]);
+		}
+	}
+}
+
 void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 {
 	// Pass 1 - Precache anything that's needed and age out messages.
@@ -88,7 +99,6 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 {
 	// Pass 2 - Render the message
-
 	Canvas->Reset();
 
 	float Y = 0;
@@ -118,9 +128,12 @@ void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 	// Fade the Message...
 
 	float Alpha = MessageQueue[QueueIndex].LifeLeft <= FadeTime ? MessageQueue[QueueIndex].LifeLeft / FadeTime : 1.0;
-	DrawText(MessageQueue[QueueIndex].Text, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), Alpha, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
-
-
+	FText MessageText = MessageQueue[QueueIndex].Text;
+	if (MessageQueue[QueueIndex].MessageCount > 1)
+	{
+		MessageText = FText::FromString(MessageText.ToString() + " (" + TTypeToString<int32>::ToString(MessageQueue[QueueIndex].MessageCount) + ")");
+	}
+	DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), Alpha, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
 }
 
 void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
@@ -134,7 +147,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 {
 	if (MessageClass == NULL || LocalMessageText.IsEmpty()) return;
 
-	
+
 	int32 QueueIndex = MessageQueue.Num();
 	int32 MessageCount = 0;
 	if (GetDefault<UUTLocalMessage>(MessageClass)->bIsUnique)
@@ -184,6 +197,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 		}
 	}
 
+	UE_LOG(UT, Warning, TEXT("%d MessageCount %d"), QueueIndex, MessageCount);
 	AddMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 

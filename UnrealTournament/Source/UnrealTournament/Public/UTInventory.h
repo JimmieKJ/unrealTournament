@@ -81,6 +81,10 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void AddOverlayMaterials(AUTGameState* GS) const;
 
+	/** Human readable localized name for the item. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup")
+		FText DisplayName;
+
 	/** respawn time for level placed pickups of this type */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	float RespawnTime;

@@ -551,7 +551,11 @@ public:
 
 	/** returns whether we should draw the friendly fire indicator on the crosshair */
 	UFUNCTION(BlueprintCallable, Category = Weapon)
-	bool ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState *& HitPlayerState ) const;
+	virtual bool ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState *& HitPlayerState ) const;
+
+	/** Returns desired crosshair scale (affected by recent pickups */
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		virtual float GetCrosshairScale(class AUTHUD* HUD);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
@@ -572,10 +576,6 @@ public:
 	/** HUD icon for e.g. weapon bar */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icon")
 	FCanvasIcon HUDIcon;
-
-	/** human readable localized name for the weapon */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	FText DisplayName;
 
 	//*********
 	// Rotation Lag/Lead

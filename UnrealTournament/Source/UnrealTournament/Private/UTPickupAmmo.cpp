@@ -10,6 +10,7 @@ AUTPickupAmmo::AUTPickupAmmo(const FObjectInitializer& ObjectInitializer)
 	Ammo.Amount = 10;
 	bDisplayRespawnTimer = false;
 	BaseDesireability = 0.2f;
+	PickupMessageString = NSLOCTEXT("PickupMessage", "AmmoPickedUp", "Ammo");
 }
 
 bool AUTPickupAmmo::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
@@ -23,6 +24,7 @@ void AUTPickupAmmo::GiveTo_Implementation(APawn* Target)
 	if (P != NULL)
 	{
 		P->AddAmmo(Ammo);
+		AUTPickup::GiveTo_Implementation(Target);
 	}
 }
 

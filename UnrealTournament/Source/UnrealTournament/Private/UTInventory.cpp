@@ -22,8 +22,8 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	}
 
 	DroppedPickupClass = AUTDroppedPickup::StaticClass();
-
 	BasePickupDesireability = 0.5f;
+	DisplayName = NSLOCTEXT("PickupMessage", "InventoryPickedUp", "Item");
 }
 
 void AUTInventory::PostInitProperties()

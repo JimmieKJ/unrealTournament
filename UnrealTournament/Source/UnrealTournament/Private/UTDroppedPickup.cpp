@@ -4,6 +4,7 @@
 #include "UTPickupInventory.h"
 #include "UTDroppedPickup.h"
 #include "UnrealNetwork.h"
+#include "UTPickupMessage.h"
 
 AUTDroppedPickup::AUTDroppedPickup(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -154,6 +155,10 @@ void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 		if (C != NULL)
 		{
 			AUTInventory* Duplicate = C->FindInventoryType<AUTInventory>(Inventory->GetClass(), true);
+			if (Cast<APlayerController>(Target->GetController()))
+			{
+				Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
+			}
 			if (Duplicate == NULL || !Duplicate->StackPickup(Inventory))
 			{
 				C->AddInventory(Inventory, true);

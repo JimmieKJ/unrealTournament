@@ -10,6 +10,7 @@ AUTPickupHealth::AUTPickupHealth(const FObjectInitializer& ObjectInitializer)
 {
 	HealAmount = 25;
 	BaseDesireability = 0.4f;
+	PickupMessageString = NSLOCTEXT("PickupMessage", "HealthPickedUp", "Health");
 }
 
 int32 AUTPickupHealth::GetHealMax_Implementation(AUTCharacter* P)
@@ -35,6 +36,7 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 	AUTCharacter* P = Cast<AUTCharacter>(Target);
 	if (P != NULL)
 	{
+		AUTPickup::GiveTo_Implementation(Target);
 		P->Health = FMath::Max<int32>(P->Health, FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)));
 	}
 }

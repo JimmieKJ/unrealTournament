@@ -76,6 +76,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
 
+	// The Global Opacity for Hud Widgets
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+	float LastPickupTime;
+
 	/** Crosshair asset pointer */
 	UTexture2D* DefaultCrosshairTex;
 
