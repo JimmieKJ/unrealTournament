@@ -5,11 +5,52 @@
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWInputBox.h"
+#include "Slate/SUWRedirectDialog.h"
 
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString)
+{
+	Super::PeekTravelFailureMessages(World, FailureType, ErrorString);
+#if !UE_SERVER
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+
+	if (FailureType == ETravelFailure::PackageMissing && !ErrorString.IsEmpty())
+	{
+		if (FPaths::GetExtension(ErrorString) == FString(TEXT("pak")))
+		{
+			LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
+
+			FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+				.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::RedirectResult))
+				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
+				.RedirectToURL(ErrorString)
+				.PlayerOwner(FirstPlayer)
+				);
+
+			return;
+		}
+	}
+
+	FText NetworkErrorMessage;
+
+	switch (FailureType)
+	{
+		case ETravelFailure::PackageMissing: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient", "TravelErrors_PackageMissing", "Package Missing"); break;
+
+		default: NetworkErrorMessage = FText::FromString(ErrorString);
+	}
+
+	if (!ReconnectDialog.IsValid())
+	{
+		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "NetworkErrorDialogTitle", "Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+	}
+
+#endif
 }
 
 void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
@@ -91,6 +132,21 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 				FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
 				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 			}
+		}
+	}
+#endif
+}
+
+void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+#if !UE_SERVER
+	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
+	{
+		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+		if (FirstPlayer != nullptr)
+		{
+			FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
+			FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 		}
 	}
 #endif

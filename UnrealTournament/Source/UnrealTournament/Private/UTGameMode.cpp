@@ -2001,3 +2001,16 @@ void AUTGameMode::NotifyLobbyGameIsReady()
 {
 	LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
 }
+
+FString AUTGameMode::GetRedirectURL(const FString& MapName) const
+{
+	for (int32 i = 0; i < RedirectReferences.Num(); i++)
+	{
+		if (RedirectReferences[i].MapName == MapName)
+		{
+			return RedirectReferences[i].MapURL;
+		}
+	}
+
+	return FString(TEXT(""));
+}

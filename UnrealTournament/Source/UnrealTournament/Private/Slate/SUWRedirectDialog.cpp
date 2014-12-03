@@ -1,0 +1,194 @@
+// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+
+#include "../Public/UnrealTournament.h"
+#include "SUWRedirectDialog.h"
+#include "SUWindowsStyle.h"
+#include "AssetData.h"
+
+#if !UE_SERVER
+
+void SUWRedirectDialog::Construct(const FArguments& InArgs)
+{
+	SUWDialog::Construct(SUWDialog::FArguments()
+		.PlayerOwner(InArgs._PlayerOwner)
+		.DialogTitle(InArgs._DialogTitle)
+		.DialogSize(InArgs._DialogSize)
+		.bDialogSizeIsRelative(InArgs._bDialogSizeIsRelative)
+		.DialogPosition(InArgs._DialogPosition)
+		.DialogAnchorPoint(InArgs._DialogAnchorPoint)
+		.ContentPadding(InArgs._ContentPadding)
+		.ButtonMask(InArgs._ButtonMask)
+		.OnDialogResult(InArgs._OnDialogResult)
+		);
+
+	bDownloadCanceled = false;
+	RedirectToURL = InArgs._RedirectToURL;
+
+	FVector2D ViewportSize;
+	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
+
+	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	
+	if (DialogContent.IsValid())
+	{
+		const float MessageTextPaddingX = 10.0f;
+		TSharedPtr<STextBlock> MessageTextBlock;
+		DialogContent->AddSlot()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Left)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(STextBlock).Text(NSLOCTEXT("SUWRedirectDialog", "Downloading", "Downloading "))
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(20, 0, 0, 0)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(this, &SUWRedirectDialog::GetFileName)
+				]
+			]
+			+ SVerticalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			//.AutoHeight()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+				[
+					SNew(SProgressBar)
+					.Percent(this, &SUWRedirectDialog::GetProgressFile)
+				]
+			]
+		];
+
+	}
+
+	DownloadFile(RedirectToURL);
+}
+
+FReply SUWRedirectDialog::OnButtonClick(uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
+	{
+		CancelDownload();
+	}
+	return FReply::Handled();
+}
+
+void SUWRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	if (!RedirectToURL.IsEmpty())
+	{
+		if (HttpRequest.IsValid() && HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
+		{
+			HttpRequest->Tick(InDeltaTime);
+		}
+		else if (HttpRequest->GetStatus() == EHttpRequestStatus::Failed)
+		{
+			CancelDownload();
+		}
+		else
+		{
+			OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+			GetPlayerOwner()->CloseDialog(SharedThis(this));
+		}
+	}
+	else
+	{
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
+	}
+
+	return SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+}
+
+
+void SUWRedirectDialog::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes)
+{
+	if (HttpRequest.IsValid())
+	{
+		AssetsTotalSize = HttpRequest->GetResponse()->GetContentLength();
+		AssetsDownloadedAmount = NumBytes;
+	}
+}
+
+void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	//If the download was successful save it to disk
+	if (bSucceeded && HttpResponse.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
+	{
+		if (HttpResponse->GetContentLength())
+		{
+			FString Path = FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks"), *FPaths::GetCleanFilename(RedirectToURL));
+			bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *Path);
+
+			if (FCoreDelegates::OnMountPak.IsBound())
+			{
+				FCoreDelegates::OnMountPak.Execute(Path, 0);
+			}
+		}
+	}
+	else
+	{
+		if (HttpResponse.IsValid())
+		{
+			UE_LOG(UT, Warning, TEXT("HTTP Error: %s"), HttpResponse->GetResponseCode());
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("HTTP Error"));
+		}
+
+		CancelDownload();
+	}
+}
+
+
+bool SUWRedirectDialog::DownloadFile(FString URL)
+{
+	HttpRequest = FHttpModule::Get().CreateRequest();
+
+	if (HttpRequest.IsValid())
+	{
+		HttpRequest->SetURL(URL);
+		HttpRequest->OnProcessRequestComplete().BindRaw(this, &SUWRedirectDialog::HttpRequestComplete);
+		HttpRequest->OnRequestProgress().BindRaw(this, &SUWRedirectDialog::HttpRequestProgress);
+
+		HttpRequest->SetVerb("GET");
+		return HttpRequest->ProcessRequest();
+	}
+	return false;
+}
+
+void SUWRedirectDialog::CancelDownload()
+{
+	if (!bDownloadCanceled)
+	{
+		bDownloadCanceled = true;
+		if (HttpRequest.IsValid() && HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
+		{
+			HttpRequest->CancelRequest();
+		}
+
+		if (GetPlayerOwner() != nullptr)
+		{
+			GetPlayerOwner()->CloseDialog(SharedThis(this));
+		}
+	}
+}
+
+#endif

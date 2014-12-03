@@ -15,6 +15,18 @@ namespace MatchState
 	extern const FName MatchIsInOvertime;				// The game is in overtime
 }
 
+USTRUCT()
+struct FRedirectReference
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString MapName;
+
+	UPROPERTY()
+	FString MapURL;
+};
+
 UCLASS(Config = Game, Abstract)
 class UNREALTOURNAMENT_API AUTGameMode : public AUTBaseGameMode
 {
@@ -178,6 +190,9 @@ public:
 	/** cached list of mutator assets from the asset registry and native classes, used to allow shorthand names for mutators instead of full paths all the time */
 	TArray<FAssetData> MutatorAssets;
 
+	UPROPERTY(Config)
+	TArray<FRedirectReference> RedirectReferences;
+
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
 	 */
@@ -300,6 +315,8 @@ public:
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
 
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
+
+	virtual FString GetRedirectURL(const FString& MapName) const override;
 
 #if !UE_SERVER
 	/** called on the default object of this class by the UI to create widgets to manipulate this game type's settings
