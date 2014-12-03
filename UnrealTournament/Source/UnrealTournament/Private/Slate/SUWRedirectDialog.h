@@ -51,6 +51,16 @@ protected:
 	{
 		return FText::FromString(RedirectToURL);
 	}
+	
+	FText GetProgressFileText() const
+	{
+		if (AssetsTotalSize == 0)
+		{
+			return FText::FromString(TEXT("Connecting..."));
+		}
+
+		return FText::FromString(FString::FromInt(AssetsDownloadedAmount) + TEXT(" bytes / ") + FString::FromInt(AssetsTotalSize) + TEXT(" bytes"));
+	}
 
 	bool DownloadFile(FString URL);
 	void CancelDownload();

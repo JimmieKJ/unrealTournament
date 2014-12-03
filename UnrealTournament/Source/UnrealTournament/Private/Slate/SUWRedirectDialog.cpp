@@ -74,6 +74,22 @@ void SUWRedirectDialog::Construct(const FArguments& InArgs)
 					.Percent(this, &SUWRedirectDialog::GetProgressFile)
 				]
 			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(20, 0, 0, 0)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(this, &SUWRedirectDialog::GetProgressFileText)
+				]
+			]
 		];
 
 	}
@@ -133,12 +149,19 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 	{
 		if (HttpResponse->GetContentLength())
 		{
-			FString Path = FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks"), *FPaths::GetCleanFilename(RedirectToURL));
-			bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *Path);
+			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+		
+			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"));
+			if (!PlatformFile.DirectoryExists(*Path))
+			{
+				PlatformFile.CreateDirectoryTree(*Path);
+			}
+			FString FullFilePath = FPaths::Combine(*Path, *FPaths::GetCleanFilename(RedirectToURL));
+			bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilePath);
 
 			if (FCoreDelegates::OnMountPak.IsBound())
 			{
-				FCoreDelegates::OnMountPak.Execute(Path, 0);
+				FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
 			}
 		}
 	}

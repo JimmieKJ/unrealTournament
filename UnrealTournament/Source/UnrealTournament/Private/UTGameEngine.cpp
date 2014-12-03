@@ -10,7 +10,7 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	bAllowClientNetProfile = false;
 	ReadEULACaption = NSLOCTEXT("UTGameEngine", "ReadEULACaption", "READ ME FIRST");
 	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
-	GameNetworkVersion = 3008016;
+	GameNetworkVersion = 3008017;
 
 	SmoothedDeltaTime = 0.01f;
 
@@ -52,6 +52,8 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 		SaveConfig();
 		GConfig->Flush(false);
 	}
+
+	LoadDownloadedPakFiles();
 
 	FUTAnalytics::Initialize();
 	Super::Init(InEngineLoop);
@@ -392,3 +394,44 @@ void UUTGameEngine::UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFr
 	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
 }
 
+void UUTGameEngine::LoadDownloadedPakFiles()
+{
+	// Helper class to find all pak files.
+	class FPakFileSearchVisitor : public IPlatformFile::FDirectoryVisitor
+	{
+		TArray<FString>& FoundFiles;
+	public:
+		FPakFileSearchVisitor(TArray<FString>& InFoundFiles)
+			: FoundFiles(InFoundFiles)
+		{}
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+		{
+			if (bIsDirectory == false)
+			{
+				FString Filename(FilenameOrDirectory);
+				if (Filename.MatchesWildcard(TEXT("*.pak")))
+				{
+					FoundFiles.Add(Filename);
+				}
+			}
+			return true;
+		}
+	};
+
+	// Search for pak files that were downloaded through redirects
+	TArray<FString>	FoundPaks;
+	FPakFileSearchVisitor PakVisitor(FoundPaks);
+	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+	if (FPlatformProperties::RequiresCookedData())
+	{
+		FoundPaks.Reset();
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks")), PakVisitor);
+		for (const auto& PakPath : FoundPaks)
+		{
+			if (FCoreDelegates::OnMountPak.IsBound())
+			{
+				FCoreDelegates::OnMountPak.Execute(PakPath, 0);
+			}
+		}
+	}
+}
