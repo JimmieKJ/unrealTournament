@@ -419,9 +419,13 @@ private:
 
 public:
 	/**
-	 *	Tells an assoicated lobby that this game is ready for joins.
+	 *	Tells an associated lobby that this game is ready for joins.
 	 **/
 	void NotifyLobbyGameIsReady();
+
+	// How long before a lobby instance times out waiting for players to join and the match to begin.  This is to keep lobby instance servers from sitting around forever.
+	UPROPERTY(Config)
+	float LobbyInitialTimeoutTime;
 
 protected:
 	// A Beacon for communicating back to the lobby

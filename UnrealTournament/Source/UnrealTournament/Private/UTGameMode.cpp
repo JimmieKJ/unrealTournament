@@ -457,6 +457,7 @@ AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
  **/
 void AUTGameMode::DefaultTimer()
 {	
+
 	// Let the game see if it's time to end the match
 	CheckGameTime();
 
@@ -499,7 +500,15 @@ void AUTGameMode::DefaultTimer()
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		if (HasMatchStarted() && NumPlayers <= 0)
+		// Look to see if we should time out this instance servers
+		if (!HasMatchStarted())
+		{
+			if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime)
+			{
+				LobbyBeacon->Empty();			
+			}
+		}
+		else if (NumPlayers <= 0)
 		{
 			LobbyBeacon->Empty();
 		}
