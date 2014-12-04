@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTGameplayStatics.h"
+#include "Runtime/Engine/Classes/Engine/DemoNetDriver.h"
 
 void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI)
 {
@@ -72,6 +73,17 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 							PC->HearSound(TheSound, SourceActor, SourceLoc, bStopWhenOwnerDestroyed, AmpedListener == PC);
 						}
 					}
+				}
+			}
+			// write into demo if there is one
+			if (TheWorld->DemoNetDriver != NULL && TheWorld->DemoNetDriver->ServerConnection == NULL && RepType != SRT_None && RepType != SRT_IfSourceNotReplicated)
+			{
+				// TODO: engine doesn't set this on record for some reason
+				//AUTPlayerController* PC = Cast<AUTPlayerController>(TheWorld->DemoNetDriver->SpectatorController);
+				AUTPlayerController* PC = (TheWorld->DemoNetDriver->ClientConnections.Num() > 0) ? Cast<AUTPlayerController>(TheWorld->DemoNetDriver->ClientConnections[0]->PlayerController) : NULL;
+				if (PC != NULL)
+				{
+					PC->ClientHearSound(TheSound, SourceActor, (SourceActor != NULL && SourceActor->GetActorLocation() == SourceLoc) ? FVector::ZeroVector : SourceLoc, bStopWhenOwnerDestroyed, false, false);
 				}
 			}
 

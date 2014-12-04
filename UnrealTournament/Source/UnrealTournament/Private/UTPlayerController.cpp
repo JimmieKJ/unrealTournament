@@ -1552,11 +1552,11 @@ void AUTPlayerController::ReceivedPlayer()
 
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	
-	if (LP != NULL && LP->GetWorld()->GetNetMode() != NM_Standalone)
+	if (LP != NULL && GetWorld()->GetNetMode() != NM_Standalone)
 	{
-		if (FUTAnalytics::IsAvailable())
+		if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
 		{
-			FString ServerInfo = (LP->GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
+			FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
 		}
 	}
