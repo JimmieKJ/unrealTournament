@@ -3,6 +3,7 @@
 #include "UTLift.h"
 #include "UTCharacterMovement.h"
 #include "UTGib.h"
+#include "UTDroppedPickup.h"
 #include "NavigationOctree.h"
 #include "UTLiftExit.h"
 #include "UTDmgType_FallingCrush.h"
@@ -84,9 +85,13 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				bMoveWasBlocked = true;
 				return;
 			}
-			if (Cast<AUTGib>(Other))
+			if (Cast<AUTGib>(Other) || Cast<AUTDroppedPickup>(Other))
 			{
-				Other->Destroy();
+				if (bMoveWasBlocked)
+				{
+					Other->Destroy();
+				}
+				bMoveWasBlocked = true;
 				return;
 			}
 			if (Cast<AUTCarriedObject>(Other))

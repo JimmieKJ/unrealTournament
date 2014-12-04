@@ -58,6 +58,12 @@ void AUTGib::CheckGibVisibility()
 void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 #if !UE_SERVER
+	// if we landed on a mover, attach to it
+	if (OtherComp != NULL && OtherComp->Mobility == EComponentMobility::Movable && (Hit.Normal.Z > 0.7f))
+	{
+		RootComponent->AttachTo(Hit.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+	}
+
 	// maybe spawn blood as we smack into things
 	if (OtherComp != NULL && Cast<AUTGib>(OtherActor) == NULL && GetWorld()->TimeSeconds - LastBloodTime > 0.5f && GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f)
 	{
