@@ -371,6 +371,11 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	}
 }
 
+void UUTCharacterMovement::ClearPendingImpulse()
+{
+	PendingImpulseToApply = FVector(0.f);
+}
+
 void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted)
 {
 	if (HasValidData() && !Impulse.IsZero())

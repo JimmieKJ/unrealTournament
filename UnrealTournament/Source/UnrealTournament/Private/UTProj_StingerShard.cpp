@@ -52,12 +52,17 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 			AUTCharacter* HitChar = Cast<AUTCharacter>(HitPawn);
 			if (HitChar)
 			{
-				float CurrentVelZ = HitChar->GetCharacterMovement()->Velocity.Z;
-				if (CurrentVelZ > -1.f * HitChar->GetCharacterMovement()->JumpZVelocity)
+				UUTCharacterMovement* UTMove = Cast<UUTCharacterMovement>(HitChar->GetCharacterMovement());
+				if (UTMove)
 				{
-					CurrentVelZ = 0.f;
+					float CurrentVelZ = UTMove->Velocity.Z;
+					if (CurrentVelZ > -1.5f * UTMove->JumpZVelocity)
+					{
+						CurrentVelZ = FMath::Min(0.f, 3.f * (CurrentVelZ + UTMove->JumpZVelocity));
+					}
+					UTMove->Velocity.Z = CurrentVelZ;
+					UTMove->ClearPendingImpulse();
 				}
-				HitChar->GetCharacterMovement()->Velocity.Z = CurrentVelZ;
 			}
 			
 			Explode(GetActorLocation(), ImpactNormal, OtherComp);

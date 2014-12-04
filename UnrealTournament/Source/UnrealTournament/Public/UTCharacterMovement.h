@@ -123,6 +123,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Impulse")
 	virtual void AddDampedImpulse(FVector Impulse, bool bSelfInflicted);
 
+	/** Clear pending impulse. */
+	virtual void ClearPendingImpulse();
+
 	//=========================================
 	// DODGING
 	/** Dodge impulse in XY plane */
