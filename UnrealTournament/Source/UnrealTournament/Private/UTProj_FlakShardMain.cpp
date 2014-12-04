@@ -32,6 +32,14 @@ void AUTProj_FlakShardMain::DamageImpactedActor_Implementation(AActor* OtherActo
 	}
 }
 
+void AUTProj_FlakShardMain::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
+{
+	Super::OnBounce(ImpactResult, ImpactVelocity);
+
+	// no damage/momentum bonus after bounce
+	MaxBonusTime = 0.f;
+}
+
 /**
 * Increase damage to UTPawns based on how centered this shard is on target.  If it is within the time MaxBonusTime time period.
 * e.g. point blank shot with the flak cannon you will do mega damage.  Once MaxBonusTime passes then this shard becomes a normal shard.
