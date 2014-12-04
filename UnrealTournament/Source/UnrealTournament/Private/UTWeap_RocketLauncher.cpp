@@ -439,7 +439,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				if (SpawnedProjectile != nullptr)
 				{
 					//Spread the TossZ
-					SpawnedProjectile->ProjectileMovement->Velocity.Z += i * GetSpread(2);
+					SpawnedProjectile->ProjectileMovement->Velocity.Z += (i%2) * GetSpread(2);
 				}
 
 				if (i == 0)
