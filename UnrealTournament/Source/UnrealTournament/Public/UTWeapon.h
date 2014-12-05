@@ -23,7 +23,7 @@ struct FInstantHitDamageInfo
 	float TraceRange;
 
 	FInstantHitDamageInfo()
-		: Damage(10), TraceRange(10000.0f)
+		: Damage(10), TraceRange(25000.0f)
 	{}
 };
 
