@@ -3642,6 +3642,13 @@ void AUTCharacter::DisallowWeaponFiring(bool bDisallowed)
 void AUTCharacter::TurnOff()
 {
 	DisallowWeaponFiring(true);
+
+	if (GetMesh())
+	{
+		GetMesh()->TickAnimation(1.0f);
+		GetMesh()->RefreshBoneTransforms();
+	}
+
 	Super::TurnOff();
 }
 
