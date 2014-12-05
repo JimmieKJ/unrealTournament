@@ -1890,6 +1890,38 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 	}
 }
 
+void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, bool bOnlyWalkable, TArray<NavNodeRef>& Polys) const
+{
+	Polys.Empty();
+	UUTPathNode* Node = PolyToNode.FindRef(StartPoly);
+	if (Node != NULL)
+	{
+		const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
+		// find adjacent navmesh polys in same pathnode
+		const dtPoly* PolyData = NULL;
+		const dtMeshTile* TileData = NULL;
+		InternalMesh->getTileAndPolyByRef(StartPoly, &TileData, &PolyData);
+		uint32 i = PolyData->firstLink;
+		while (i != DT_NULL_LINK)
+		{
+			const dtLink& Link = InternalMesh->getLink(TileData, i);
+			i = Link.next;
+			if (Node->Polys.Contains(Link.ref))
+			{
+				Polys.Add(Link.ref);
+			}
+		}
+		// add polys in adjacent pathnodes
+		for (const FUTPathLink& Link : Node->Paths)
+		{
+			if (!bOnlyWalkable || Link.ReachFlags == 0)
+			{
+				Polys.AddUnique(Link.EndPoly);
+			}
+		}
+	}
+}
+
 void AUTRecastNavMesh::PreInitializeComponents()
 {
 	// set initial POI map based on what was saved in the nodes

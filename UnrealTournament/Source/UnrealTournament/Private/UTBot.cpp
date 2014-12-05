@@ -46,6 +46,11 @@ void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerL
 			break;
 		case EUT_HeardApprox:
 			// TODO: set a "general area" sphere?
+			if (LastKnownLoc.IsZero())
+			{
+				// temp so there's some valid location
+				LastKnownLoc = Pawn->GetActorLocation();
+			}
 			break;
 		case EUT_TookDamage:
 			LastHitByTime = Pawn->GetWorld()->TimeSeconds;
@@ -248,9 +253,19 @@ void AUTBot::SetPeripheralVision()
 
 void AUTBot::SetPawn(APawn* InPawn)
 {
+	if (GetPawn() != NULL)
+	{
+		GetPawn()->OnActorHit.RemoveDynamic(this, &AUTBot::NotifyBump);
+	}
+
 	Super::SetPawn(InPawn);
 
 	UTChar = Cast<AUTCharacter>(GetPawn());
+
+	if (GetPawn() != NULL)
+	{
+		GetPawn()->OnActorHit.AddDynamic(this, &AUTBot::NotifyBump);
+	}
 
 	SetPeripheralVision();
 }
@@ -1177,6 +1192,21 @@ void AUTBot::NotifyWalkingOffLedge()
 	}
 }
 
+void AUTBot::NotifyBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit)
+{
+	checkSlow(SelfActor == GetPawn());
+	// update locational info for enemies we bump into, since we might be looking the other way (strafing)
+	APawn* P = Cast<APawn>(OtherActor);
+	if (P != NULL && P->Controller != NULL)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(P, this))
+		{
+			UpdateEnemyInfo(P, EUT_Seen);
+		}
+	}
+}
+
 void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 {
 	if ((CurrentAction == NULL || !CurrentAction->NotifyMoveBlocked(Impact)) && GetCharacter() != NULL)
@@ -1754,6 +1784,10 @@ void AUTBot::ExecuteWhatToDoNext()
 {
 	Target = NULL;
 	TranslocTarget = FVector::ZeroVector;
+	if (GetCharacter() != NULL)
+	{
+		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = false;
+	}
 
 	SwitchToBestWeapon();
 
@@ -2589,6 +2623,7 @@ void AUTBot::ReceiveProjWarning(AUTProjectile* Incoming)
 			}
 			if (bShouldDodge)
 			{
+				UpdateEnemyInfo(Incoming->Instigator, EUT_TookDamage);
 				SetWarningTimer(Incoming, NULL, ProjTime);
 			}
 		}
@@ -2615,6 +2650,8 @@ void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir
 				//if (WorldInfo.TimeSeconds - LastWarningTime < 0.5)
 				//	return;
 				//LastWarningTime = WorldInfo.TimeSeconds;
+
+				UpdateEnemyInfo(Shooter, EUT_TookDamage);
 
 				const float DodgeTime = Shooter->GetWeapon()->GetRefireTime(Shooter->GetWeapon()->GetCurrentFireMode()) - 0.15 - 0.1 * FMath::FRand(); // TODO: based on collision size 
 				if (DodgeTime > 0.0)

@@ -17,6 +17,7 @@ class UUTAIAction_RangedAttack : public UUTAIAction
 	virtual bool FindStrafeDest();
 
 	virtual void Started() override;
+	virtual void Ended(bool bAborted) override;
 	virtual bool Update(float DeltaTime) override;
 
 	virtual void FirstShotTimer();

@@ -166,10 +166,10 @@ public:
 	}
 
 	FBotEnemyInfo()
-		: Pawn(NULL), UTChar(NULL), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
+		: Pawn(NULL), UTChar(NULL), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastKnownLoc(FVector::ZeroVector), LastSeenLoc(FVector::ZeroVector), LastSeeingLoc(FVector::ZeroVector), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
 	{}
 	FBotEnemyInfo(APawn* InPawn, EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc = FVector::ZeroVector)
-		: Pawn(InPawn), UTChar(Cast<AUTCharacter>(InPawn)), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
+		: Pawn(InPawn), UTChar(Cast<AUTCharacter>(InPawn)), EffectiveHealthPct(1.0f), LastKnownLoc(FVector::ZeroVector), LastSeenLoc(FVector::ZeroVector), LastSeeingLoc(FVector::ZeroVector), bHasExactHealth(false), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
 	{
 		Update(UpdateType, ViewerLoc);
 	}
@@ -548,6 +548,8 @@ public:
 
 	// UTCharacter notifies
 	virtual void NotifyWalkingOffLedge();
+	UFUNCTION()
+	virtual void NotifyBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit);
 	virtual void NotifyMoveBlocked(const FHitResult& Impact);
 	virtual void NotifyLanded(const FHitResult& Hit);
 	virtual void NotifyJumpApex();

@@ -301,6 +301,11 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	* hopefully will become unnecessary in a future engine version
 	*/
 	NavNodeRef FindLiftPoly(APawn* Asker, const FNavAgentProperties& AgentProps) const;
+
+	/** returns a list of polys adjacent to that of the passed in location
+	 * if bOnlyWalkable is false, includes the far side of edges that require additional movement (jump, teleport, special move, etc)
+	 */
+	virtual void FindAdjacentPolys(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, bool bOnlyWalkable, TArray<NavNodeRef>& Polys) const;
 protected:
 	/** graph of path nodes overlaying the mesh */
 	UPROPERTY()
