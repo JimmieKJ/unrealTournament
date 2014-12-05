@@ -797,4 +797,5 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkOne, COND_None);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkTwo, COND_None);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebMaster, COND_None);
+	DOREPLIFETIME(AUTProj_BioShot, bLanded);
 }
