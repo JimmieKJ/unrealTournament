@@ -83,9 +83,7 @@ bool AUTGameSession::ProcessAutoLogin()
 
 void AUTGameSession::RegisterServer()
 {
-
-	UE_LOG(UT,Log,TEXT("--------------[REGISTER SERVER] ----------------"));
-	UE_LOG(UT,Log,TEXT("--------------[REGISTER SERVER] ----------------"));
+	UE_LOG(UT,Verbose,TEXT("--------------[REGISTER SERVER] ----------------"));
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
@@ -112,8 +110,6 @@ void AUTGameSession::RegisterServer()
 void AUTGameSession::UnRegisterServer()
 {
 	UE_LOG(UT,Log,TEXT("--------------[UNREGISTER SERVER] ----------------"));
-	UE_LOG(UT,Log,TEXT("--------------[UNREGISTER SERVER] ----------------"));
-
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)

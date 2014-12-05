@@ -46,10 +46,10 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	bNetTemporary = false;
 	bReplicateInstigator = true;
 
-	AccelRate = 4000.0;
+	AccelRate = 4000.f;
 	RedeemerMouseSensitivity = 700.0f;
 	AccelerationBlend = 5.0f;
-	MaximumRoll = 20.0f;
+	MaximumRoll = 25.0f;
 	RollMultiplier = 0.01f;
 	RollSmoothingMultiplier = 5.0f;
 	MaxPitch = 75.0f;
@@ -68,7 +68,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	ExplosionRadii[4] = 0.825f;
 	ExplosionRadii[5] = 1.0f;
 
-	CollisionFreeRadius = 1200;
+	CollisionFreeRadius = 1200.f;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -341,7 +341,13 @@ void AUTRemoteRedeemer::FaceRotation(FRotator NewControlRotation, float DeltaTim
 		}
 		
 		ProjectileMovement->Acceleration = ProjectileMovement->Acceleration.SafeNormal() * AccelRate;
-	}
+/*
+		if (Controller->GetPawn() == this)
+		{
+			NewControlRotation.Roll = Rotation.Roll;
+			Controller->SetControlRotation(NewControlRotation);
+		}
+*/	}
 }
 
 void AUTRemoteRedeemer::GetActorEyesViewPoint(FVector& out_Location, FRotator& out_Rotation) const
@@ -463,7 +469,6 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 		FVector X, Y, Z;
 		FRotationMatrix R(Rotation);
 		R.GetScaledAxes(X, Y, Z);
-
 		// Roll the camera when there's yaw acceleration
 		FRotator RolledRotation = ProjectileMovement->Velocity.Rotation();
 		float YawMag = ProjectileMovement->Acceleration | Y;

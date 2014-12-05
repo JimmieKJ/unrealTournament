@@ -2948,7 +2948,7 @@ void AUTCharacter::PossessedBy(AController* NewController)
 
 	Super::PossessedBy(NewController);
 	NotifyTeamChanged();
-
+	NewController->ClientSetRotation(GetActorRotation());
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->ResetTimers();

@@ -59,8 +59,6 @@ void AUTGameObjective::CreateCarriedObject()
 	{
 		UE_LOG(UT,Warning,TEXT("%s Could not create an object of type %s"), *GetNameSafe(this), *GetNameSafe(CarriedObjectClass));
 	}
-
-	UE_LOG(UT,Log,TEXT("Base: %s   Flag: %s"), *GetActorLocation().ToString(), *CarriedObject->GetActorLocation().ToString());	
 }
 
 AUTCarriedObject* AUTGameObjective::GetCarriedObject() const
