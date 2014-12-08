@@ -43,7 +43,7 @@ void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 				}
 			}
 
-			NavNodeRef LiftPoly = NavData->FindNearestPoly(BestStop + LiftCenterOffset, NavExtent);
+			NavNodeRef LiftPoly = NavData->FindNearestPoly(BestStop + LiftCenterOffset, NavExtent * FVector(1.0f, 1.0f, 1.5f));
 			UUTPathNode* LiftNode = NavData->GetNodeFromPoly(LiftPoly);
 			if (MyPoly != INVALID_NAVNODEREF && LiftPoly != INVALID_NAVNODEREF && LiftNode != NULL)
 			{
