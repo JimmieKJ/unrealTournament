@@ -116,9 +116,14 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	void GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID);
 
 	/**
-	 *	Called when an instance needs to update it's description on the panel
+	 *	Called when an instance needs to update it's match information
 	 **/
-	void GameInstance_DescriptionUpdate(uint32 GameInstanceID, const FString& NewDescription);
+	void GameInstance_MatchUpdate(uint32 GameInstanceID, const FString& NewDescription);
+
+	/**
+	 *	Called when an instance needs to update a player in a match's info
+	 **/
+	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore);
 
 	/**
 	 *	Called when an instance's game is over.  It this called via GameEnded and doesn't mean any of the

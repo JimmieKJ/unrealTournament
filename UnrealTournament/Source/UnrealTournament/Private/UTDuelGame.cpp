@@ -215,3 +215,25 @@ FString AUTDuelGame::GetDefaultLobbyOptions() const
 {
 	return TEXT("GoalScore=0?TimeLimit=15");
 }
+
+void AUTDuelGame::UpdateLobbyMatchStats()
+{
+	if (LobbyBeacon)
+	{
+		FString MatchStats = FString::Printf(TEXT("ElpasedTime=%i"), GetWorld()->GetGameState()->ElapsedTime);
+		LobbyBeacon->UpdateMatch(MatchStats);
+
+		// Update the players
+
+		for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS && !PS->bIsSpectator)
+			{
+				int32 Score = int(PS->Score);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
+			}
+		}
+
+	}
+}

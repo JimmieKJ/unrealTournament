@@ -47,7 +47,7 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 	 *  should cache this off and use it to return later.
 	 **/
 	UFUNCTION(Client, Reliable)
-	virtual void ClientConnectToInstance(const FString& GameInstanceGUIDString, const FString& LobbyGUIDString);
+	virtual void ClientConnectToInstance(const FString& GameInstanceGUIDString, const FString& LobbyGUIDString, bool bAsSpectator);
 
 	FCurrentMatchChangedDelegate CurrentMatchChangedDelegate;
 

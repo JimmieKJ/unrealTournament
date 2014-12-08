@@ -17,8 +17,6 @@ class SUDuelSettings : public SULobbyGameSettingsPanel
 public:
 	virtual TSharedRef<SWidget> ConstructContents();
 
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
-
 	/**
 	 *	Called when this widget needs to refresh it's options.  This is only called on clients that are not the match owner.
 	 **/

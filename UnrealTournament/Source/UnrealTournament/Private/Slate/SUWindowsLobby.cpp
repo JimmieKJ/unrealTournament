@@ -133,7 +133,15 @@ FString SUWindowsLobby::GetMatchCount() const
 	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		return FString::Printf(TEXT("%s - There are %i matches available."), *LobbyGameState->LobbyName,LobbyGameState->AvailableMatches.Num());
+		int32 NoActiveMatches = 0;
+		for (int32 i=0;i<LobbyGameState->AvailableMatches.Num();i++)
+		{
+			if (LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers || LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching )
+			{
+				NoActiveMatches++;
+			}
+		}
+		return FString::Printf(TEXT("%s - There are %i matches available."), *LobbyGameState->LobbyName,NoActiveMatches);
 	}
 
 	return TEXT("Loading Lobby...");

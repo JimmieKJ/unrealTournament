@@ -25,7 +25,7 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	DefaultPawnClass = NULL;
 
 	// use our custom HUD class
-	HUDClass = AUTHUD::StaticClass();
+	HUDClass = AUTLobbyHUD::StaticClass();
 
 	GameStateClass = AUTLobbyGameState::StaticClass();
 	PlayerStateClass = AUTLobbyPlayerState::StaticClass();
@@ -66,8 +66,6 @@ void AUTLobbyGameMode::InitGameState()
 	{
 		GameSession->RegisterServer();
 	}
-
-
 }
 
 void AUTLobbyGameMode::StartMatch()

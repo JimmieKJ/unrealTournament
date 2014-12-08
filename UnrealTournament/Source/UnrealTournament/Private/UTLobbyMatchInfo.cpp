@@ -46,12 +46,13 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, OwnerId);
 	DOREPLIFETIME(AUTLobbyMatchInfo, CurrentState);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bPrivateMatch);
-	DOREPLIFETIME(AUTLobbyMatchInfo, MatchDescription);
+	DOREPLIFETIME(AUTLobbyMatchInfo, MatchStats);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchGameMode);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchMap);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchOptions);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MaxPlayers);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Players);
+	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -60,6 +61,7 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
 	LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	MinPlayers = 2; // TODO: This should be pulled from the game type at some point
 }
 
 void AUTLobbyMatchInfo::OnRep_MatchOptions()
@@ -85,7 +87,7 @@ void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 		CurrentState = NewMatchState;
 		if (CurrentState == ELobbyMatchState::Recycling)
 		{
-			GetWorldTimerManager().SetTimer(this, &AUTLobbyMatchInfo::RecycleMatchInfo, 60.0, false);
+			GetWorldTimerManager().SetTimer(this, &AUTLobbyMatchInfo::RecycleMatchInfo, 120.0, false);
 		}
 	}
 }
@@ -127,10 +129,6 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 	
 	Players.Add(PlayerToAdd);
 	PlayerToAdd->AddedToMatch(this);
-
-	// Remove him from the players in Match array.
-	int32 idx = PlayersInMatch.Find(PlayerToAdd->UniqueId.ToString());
-	if (idx>=0) PlayersInMatch.RemoveAt(idx);
 }
 
 bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
@@ -174,7 +172,7 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 	else if (CurrentState == ELobbyMatchState::Setup)
 	{
-		return NSLOCTEXT("SUMatchPanel","Seutp","Initializing...");
+		return NSLOCTEXT("SUMatchPanel","Setup","Initializing...");
 	}
 	else if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
@@ -186,6 +184,26 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
+		int32 Seconds;
+		if ( FParse::Value(*MatchStats,TEXT("ElpasedTime="),Seconds) )
+		{
+			int32 Hours = Seconds / 3600;
+			Seconds -= Hours * 3600;
+			int32 Mins = Seconds / 60;
+			Seconds -= Mins * 60;
+
+			FFormatNamedArguments Args;
+			FNumberFormattingOptions Options;
+
+			Options.MinimumIntegralDigits = 2;
+			Options.MaximumIntegralDigits = 2;
+
+			Args.Add(TEXT("Hours"), FText::AsNumber(Hours, &Options));
+			Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
+			Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
+
+			return FText::Format( NSLOCTEXT("SUWindowsMidGame","ClockFormat", "{Hours}:{Minutes}:{Seconds}"),Args);
+		}
 		return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
 	}
 	else if (CurrentState == ELobbyMatchState::Returning)
@@ -194,7 +212,6 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 
 	return FText::GetEmpty();
-
 }
 
 void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy)
@@ -209,10 +226,10 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchI
 			HostMatchData.Add(MatchToCopy->HostMatchData[i]);
 		}
 
-		MatchDescription = MatchToCopy->MatchDescription;
-		MatchGameMode = MatchToCopy->MatchGameMode;
-		MatchOptions = MatchToCopy->MatchOptions;
-		MatchMap = MatchToCopy->MatchMap;
+		// Set this for later.  When the client is done replicating all of the match data, it will call
+		// ServerSetDefaults.  Since this is a returning match we can assume this info is already valid on the 
+		// client-host so we will be able to copy the default settings.
+		PriorMatchToCopy = MatchToCopy;
 	}
 	else
 	{
@@ -402,24 +419,20 @@ void AUTLobbyMatchInfo::ServerMatchOptionsChanged_Implementation(const FString& 
 bool AUTLobbyMatchInfo::ServerSetDefaults_Validate(const FString& NewMatchGameMode, const FString& NewMatchOptions, const FString& NewMatchMap) { return true; }
 void AUTLobbyMatchInfo::ServerSetDefaults_Implementation(const FString& NewMatchGameMode, const FString& NewMatchOptions, const FString& NewMatchMap)
 {
-	MatchGameMode = NewMatchGameMode;
-	MatchOptions = NewMatchOptions;
-	MatchMap = NewMatchMap;
-}
-
-void AUTLobbyMatchInfo::SetMatchDescription(const FString NewDescription)
-{
-	if (MatchDescription != NewDescription)
+	// If we are the settings from a prior match then copy them instead of using the client's defaults.
+	if (PriorMatchToCopy)
 	{
-		MatchDescription = NewDescription;
-		ServerMatchDescriptionChanged(MatchDescription);
+		MatchGameMode = PriorMatchToCopy->MatchGameMode;
+		MatchOptions = PriorMatchToCopy->MatchOptions;
+		MatchMap = PriorMatchToCopy->MatchMap;
+		PriorMatchToCopy = NULL;
 	}
-}
-
-bool AUTLobbyMatchInfo::ServerMatchDescriptionChanged_Validate(const FString& NewMatchDescription) { return true; }
-void AUTLobbyMatchInfo::ServerMatchDescriptionChanged_Implementation(const FString& NewMatchDescription)
-{
-	MatchDescription = NewMatchDescription;
+	else
+	{
+		MatchGameMode = NewMatchGameMode;
+		MatchOptions = NewMatchOptions;
+		MatchMap = NewMatchMap;
+	}
 }
 
 bool AUTLobbyMatchInfo::ServerManageUser_Validate(int32 CommandID, AUTLobbyPlayerState* Target){ return true; }
@@ -444,6 +457,13 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
+
+	if (Players.Num() < MinPlayers)
+	{
+		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+		return;
+	}
+
 	if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
 		for (int32 i=0;i<Players.Num();i++)
@@ -464,25 +484,48 @@ void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 	if (OwnerPS) OwnerPS->bReadyToPlay = false;
 }
 
-void AUTLobbyMatchInfo::GameInstanceReady(FGuid GameInstanceGUID)
+void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 {
+	GameInstanceGUID = inGameInstanceGUID.ToString();
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	if (GM)
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
 			// Add this player to the players in Match
-			PlayersInMatch.Add(Players[i]->UniqueId.ToString());
-			Players[i]->ClientConnectToInstance(GameInstanceGUID.ToString(), GM->ServerInstanceGUID.ToString());
+			PlayersInMatchInstance.Add(FPlayerListInfo(Players[i]));
+
+			// Tell the client to connect to the instance
+			Players[i]->ClientConnectToInstance(GameInstanceGUID, GM->ServerInstanceGUID.ToString(),false);
 		}
 	}
 	SetLobbyMatchState(ELobbyMatchState::InProgress);
 }
 
-bool AUTLobbyMatchInfo::BelongsInMatch(AUTLobbyPlayerState* PlayerState)
+bool AUTLobbyMatchInfo::WasInMatchInstance(AUTLobbyPlayerState* PlayerState)
 {
-	return (PlayersInMatch.Find(PlayerState->UniqueId.ToString()) >= 0);
+	for (int32 i=0; i<PlayersInMatchInstance.Num();i++)
+	{
+		if (PlayersInMatchInstance[i].PlayerID == PlayerState->UniqueId)
+		{
+			return true;
+		}
+	}
+	return false;
 }
+
+void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState)
+{
+	for (int32 i=0; i<PlayersInMatchInstance.Num();i++)
+	{
+		if (PlayersInMatchInstance[i].PlayerID == PlayerState->UniqueId)
+		{
+			PlayersInMatchInstance.RemoveAt(i);
+			break;
+		}
+	}
+}
+
 
 bool AUTLobbyMatchInfo::IsInProgress()
 {

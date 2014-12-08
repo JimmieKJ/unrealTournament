@@ -25,4 +25,7 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 #endif
 
 	virtual FString GetDefaultLobbyOptions() const;
+
+protected:
+	virtual void UpdateLobbyMatchStats();
 };

@@ -387,17 +387,5 @@ TSharedRef<ITableRow> SUDuelSettings::GenerateMapListWidget(TSharedPtr<FAllowedM
 		];
 }
 
-void SUDuelSettings::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	SULobbyGameSettingsPanel::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-	if (MatchInfo.IsValid())
-	{
-		if (MatchInfo->Players.Num() > 0 && MatchInfo->Players[0])
-		{
-			MatchInfo->SetMatchDescription(FString::Printf(TEXT("%s\n-vs-\n%s"), *MatchInfo->Players[0]->PlayerName,(MatchInfo->Players.Num()>1) ? *MatchInfo->Players[1]->PlayerName : TEXT("???")));
-		}
-	}
-}
-
 
 #endif

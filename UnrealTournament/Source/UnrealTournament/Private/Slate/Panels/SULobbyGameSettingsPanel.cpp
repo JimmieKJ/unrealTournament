@@ -147,99 +147,104 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 {
 	if (PlayerListBox.IsValid() && MatchInfo.IsValid())
 	{
-
 		FString MenuOptions = bIsHost ? TEXT("Kick,Ban") : TEXT("");
 
 		// Find any players who are no longer in the match list.
 		for (int32 i=0; i < PlayerData.Num(); i++)
 		{
-			int32 Idx = MatchInfo->Players.Find( PlayerData[i]->PlayerState.Get() );
-			if (Idx == INDEX_NONE )
+			if (PlayerData[i].IsValid() && PlayerData[i]->PlayerState.IsValid() )
 			{
-				// Not found, remove this one.
-				PlayerListBox->RemoveSlot(PlayerData[i]->Button.ToSharedRef());
-				PlayerData.RemoveAt(i);
-				i--;
+				int32 Idx = MatchInfo->Players.Find( PlayerData[i]->PlayerState.Get() );
+				if (Idx == INDEX_NONE )
+				{
+					// Not found, remove this one.
+					PlayerListBox->RemoveSlot(PlayerData[i]->Button.ToSharedRef());
+					PlayerData.RemoveAt(i);
+					i--;
+				}
 			}
 		}
 
 		// Find any players who are no longer in the match list.
 		for (int32 i=0; i < MatchInfo->Players.Num(); i++)
 		{
-			bool bFound = false;
-			for (int32 j=0; j<PlayerData.Num(); j++)
+			if (MatchInfo->Players[i])
 			{
-				if (MatchInfo->Players[i] == PlayerData[j]->PlayerState.Get())
+				bool bFound = false;
+				for (int32 j=0; j<PlayerData.Num(); j++)
 				{
-					bFound = true;
-					break;
+					if (MatchInfo->Players[i] == PlayerData[j]->PlayerState.Get())
+					{
+						bFound = true;
+						break;
+					}
 				}
-			}
 
-			if (!bFound)
-			{
-				TSharedPtr<SWidget> Button;
-				TSharedPtr<SUTComboButton> ComboButton;
-				TSharedPtr<SImage> ReadyImage;
-				PlayerListBox->AddSlot()
-				[
-					SAssignNew(Button, SBox)
-					.WidthOverride(125)
-					.HeightOverride(160)
+				if (!bFound)
+				{
+					TSharedPtr<SWidget> Button;
+					TSharedPtr<SUTComboButton> ComboButton;
+					TSharedPtr<SImage> ReadyImage;
+					PlayerListBox->AddSlot()
 					[
-						SAssignNew(ComboButton, SUTComboButton)
-						.ButtonStyle(SUWindowsStyle::Get(),"UWindows.Lobby.MatchBar.Button")
-						.MenuButtonStyle(SUWindowsStyle::Get(),"UWindows.Standard.MenuList")
-						.MenuButtonTextStyle(SUWindowsStyle::Get(),"UWindows.Standard.ContentText")
-						.HasDownArrow(false)
-						.OnButtonSubMenuSelect(this, &SULobbyGameSettingsPanel::OnSubMenuSelect)
-						.bRightClickOpensMenu(true)
-						.MenuPlacement(MenuPlacement_MenuRight)
-						.Method(SMenuAnchor::UseCurrentWindow)
-						.DefaultMenuItems(MenuOptions)
-						.ButtonContent()
+						SAssignNew(Button, SBox)
+						.WidthOverride(125)
+						.HeightOverride(160)
 						[
-							SNew(SVerticalBox)
-
-							// The player's Image - TODO: We need a way to download the portrait of a given player 
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(0.0,5.0,0.0,0.0)
-							.HAlign(HAlign_Center)
+							SAssignNew(ComboButton, SUTComboButton)
+							.ButtonStyle(SUWindowsStyle::Get(),"UWindows.Lobby.MatchBar.Button")
+							.MenuButtonStyle(SUWindowsStyle::Get(),"UWindows.Standard.MenuList")
+							.MenuButtonTextStyle(SUWindowsStyle::Get(),"UWindows.Standard.ContentText")
+							.HasDownArrow(false)
+							.OnButtonSubMenuSelect(this, &SULobbyGameSettingsPanel::OnSubMenuSelect)
+							.bRightClickOpensMenu(true)
+							.MenuPlacement(MenuPlacement_MenuRight)
+							.Method(SMenuAnchor::UseCurrentWindow)
+							.DefaultMenuItems(MenuOptions)
+							.ButtonContent()
 							[
-								SNew(SBox)
-								.WidthOverride(102)
-								.HeightOverride(128)							
+								SNew(SVerticalBox)
+
+								// The player's Image - TODO: We need a way to download the portrait of a given player 
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								.Padding(0.0,5.0,0.0,0.0)
+								.HAlign(HAlign_Center)
 								[
-									SNew(SOverlay)
-									+SOverlay::Slot()
+									SNew(SBox)
+									.WidthOverride(102)
+									.HeightOverride(128)							
 									[
-										SNew(SImage)
-										.Image(SUWindowsStyle::Get().GetBrush("Testing.TestPortrait"))
-									]
-									+SOverlay::Slot()
-									[
-										SAssignNew(ReadyImage, SImage)
-										.Image(SUWindowsStyle::Get().GetBrush("UWindows.Match.ReadyImage"))
-										.Visibility(EVisibility::Hidden)
+										SNew(SOverlay)
+										+SOverlay::Slot()
+										[
+											SNew(SImage)
+											.Image(SUWindowsStyle::Get().GetBrush("Testing.TestPortrait"))
+										]
+										+SOverlay::Slot()
+										[
+											SAssignNew(ReadyImage, SImage)
+											.Image(SUWindowsStyle::Get().GetBrush("UWindows.Match.ReadyImage"))
+											.Visibility(EVisibility::Hidden)
+										]
 									]
 								]
-							]
-							+SVerticalBox::Slot()
-							.Padding(0.0,0.0,0.0,5.0)
-							.AutoHeight()
-							.HAlign(HAlign_Center)
-							[
-								SNew(STextBlock)
-								.Text(MatchInfo->Players[i]->PlayerName)
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.SmallButton.TextStyle")
-							]
+								+SVerticalBox::Slot()
+								.Padding(0.0,0.0,0.0,5.0)
+								.AutoHeight()
+								.HAlign(HAlign_Center)
+								[
+									SNew(STextBlock)
+									.Text(MatchInfo->Players[i]->PlayerName)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.SmallButton.TextStyle")
+								]
 
+							]
 						]
-					]
-				];
+					];
 
-				PlayerData.Add( FMatchPlayerData::Make(MatchInfo->Players[i],Button, ComboButton, ReadyImage));
+					PlayerData.Add( FMatchPlayerData::Make(MatchInfo->Players[i],Button, ComboButton, ReadyImage));
+				}
 			}
 		}
 	}

@@ -197,9 +197,13 @@ void SULobbyInfoPanel::TickNonChatPanel(float DeltaTime)
 			// Look for any matches not in the dock
 			for (int32 i=0;i<LobbyGameState->AvailableMatches.Num();i++)
 			{
-				if (!AlreadyTrackingMatch(LobbyGameState->AvailableMatches[i]))
+				AUTLobbyMatchInfo* Match = LobbyGameState->AvailableMatches[i];
+				if (Match->CurrentState != ELobbyMatchState::Dead && Match->CurrentState != ELobbyMatchState::Recycling)
 				{
-					bDockRequiresUpdate = true;
+					if (!AlreadyTrackingMatch(LobbyGameState->AvailableMatches[i]))
+					{
+						bDockRequiresUpdate = true;
+					}
 				}
 			}
 
@@ -212,7 +216,7 @@ void SULobbyInfoPanel::TickNonChatPanel(float DeltaTime)
 				{
 					for (int32 i=0;i<LobbyGameState->AvailableMatches.Num();i++)
 					{
-						if (LobbyGameState->AvailableMatches[i]->ShouldShowInDock())
+						if (LobbyGameState->AvailableMatches[i] && LobbyGameState->AvailableMatches[i]->ShouldShowInDock())
 						{
 							TSharedPtr<SUMatchPanel> MP;
 							TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo = LobbyGameState->AvailableMatches[i];

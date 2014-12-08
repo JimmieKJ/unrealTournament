@@ -64,6 +64,42 @@ DECLARE_DELEGATE(FOnMatchInfoGameModeChanged);
 DECLARE_DELEGATE(FOnMatchInfoMapChanged);
 DECLARE_DELEGATE(FOnMatchInfoOptionsChanged);
 
+USTRUCT()
+struct FPlayerListInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The unique ID of this player.  This will be used to associate any incoming updates for a player
+	UPROPERTY()
+	FUniqueNetIdRepl PlayerID;
+
+	// If this player is in the match and in this lobby server, then LocalPlayerState will be valid
+	UPROPERTY()
+	AUTLobbyPlayerState* LocalPlayerState;
+
+	// The current name of this player
+	UPROPERTY()
+	FString PlayerName;
+
+	// The current score for this player
+	UPROPERTY()
+	float PlayerScore;
+
+	FPlayerListInfo() {};
+
+	FPlayerListInfo(AUTLobbyPlayerState* inPlayerState)
+	{
+		if (inPlayerState)
+		{
+			PlayerID = inPlayerState->UniqueId;
+			LocalPlayerState = inPlayerState;
+			PlayerName = inPlayerState->PlayerName;
+			PlayerScore = 0;
+		}
+	}
+
+};
+
 UCLASS(notplaceable)
 class UNREALTOURNAMENT_API AUTLobbyMatchInfo : public AInfo
 {
@@ -86,9 +122,12 @@ public:
 	UPROPERTY(Replicated)
 	uint32 bSpectatable:1;
 
-	// The name of this lobby.
+	// Holds data about the match.  In matches that are not started yet, it holds the description of the match.  In matches in progress, it's 
+	// replicated data from the instance about the state of the match.  NOTE: Player information is not replicated from the instance to the server here
+	// it's replicated in the PlayersInMatchInstance array.
+
 	UPROPERTY(Replicated)
-	FString MatchDescription;
+	FString MatchStats;
 
 	// The options for this match
 	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchGameMode)
@@ -101,6 +140,10 @@ public:
  	// The options for this match
 	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchMap)
 	FString MatchMap;
+
+	// The minimum number of players needed to start the match
+	UPROPERTY(Replicated)
+	int32 MinPlayers;
 
 	// Number of players in this Match Lobby
 	UPROPERTY(Replicated)
@@ -116,6 +159,9 @@ public:
 	// This is the lobby server generated instance id
 	uint32 GameInstanceID;
 
+	// The GUID for this game instance for spectating and join in progress
+	FString GameInstanceGUID;
+
 	// Holds a list of all Game modes available to both the server and the host.  This list
 	// is only replicated to the host.  Clients receive just MatchGameMode string
 	TArray<TSharedPtr<FAllowedGameModeData>> HostAvailbleGameModes;
@@ -125,7 +171,8 @@ public:
 	TArray<TSharedPtr<FAllowedMapData>> HostAvailableMaps;
 
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
-	TArray<FString> PlayersInMatch;
+	UPROPERTY(Replicated)
+	TArray<FPlayerListInfo> PlayersInMatchInstance;
 
 	/**
 	 *	Start sending the allowed list of maps to the client/host
@@ -142,13 +189,9 @@ public:
 	// The GameState needs to tell this MatchInfo what settings should be made available
 	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy = NULL);
 
-	virtual void SetMatchDescription(const FString NewDescription);
 	virtual void SetMatchGameMode(const FString NewGameMode);
 	virtual void SetMatchOptions(const FString NewMatchOptions);
 	virtual void SetMatchMap(const FString NewMatchMap);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerMatchDescriptionChanged(const FString& NewMatchGameMode);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchGameModeChanged(const FString& NewMatchGameMode);
@@ -180,13 +223,19 @@ public:
 	virtual void ServerSetLobbyMatchState(FName NewMatchState);
 
 	virtual void SetLobbyMatchState(FName NewMatchState);
-	virtual void GameInstanceReady(FGuid GameInstanceGUID);
+	virtual void GameInstanceReady(FGuid inGameInstanceGUID);
 
 	/**
 	 *	returns true if this player belongs in this match.  When a player joins a lobby server,
 	 *  the server will see if that player belongs in any of the active matches.
 	 **/
-	bool BelongsInMatch(AUTLobbyPlayerState* PlayerState);
+	bool WasInMatchInstance(AUTLobbyPlayerState* PlayerState);
+
+	/**
+	 *	Removes the player from 
+	 **/
+	void RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState);
+
 
 	/**
 	 *	returns true if this match is in progress already.
@@ -266,6 +315,10 @@ protected:
 
 	// Will be true if the host is waiting for the owner id to replicate before switching to waiting for players.
 	bool bWaitingForOwnerId;
+
+	// Holds a link to MatchSettings that should be used instead of the defaults.  This will be filled out
+	// when the users return from a match.
+	AUTLobbyMatchInfo* PriorMatchToCopy;
 
 };
 

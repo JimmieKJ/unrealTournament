@@ -50,8 +50,11 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 	for (int32 i=0;i<AvailableMatches.Num();i++)
 	{
 		// Check to see if this player belongs in the match
-		if (AvailableMatches[i]->BelongsInMatch(NewPlayer))
+		if (AvailableMatches[i]->WasInMatchInstance(NewPlayer))
 		{
+			// Remove the player.
+			AvailableMatches[i]->RemoveFromMatchInstance(NewPlayer);
+
 			// Look to see if he is the owner of the match.
 			if (AvailableMatches[i]->OwnerId == NewPlayer->UniqueId)
 			{
@@ -81,7 +84,7 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 					{
 						if (AvailableMatches[i] != AvailableMatches[j] && AvailableMatches[i]->OwnerId == AvailableMatches[j]->OwnerId)					
 						{
-							JoinMatch(AvailableMatches[i], NewPlayer);
+							JoinMatch(AvailableMatches[j], NewPlayer);
 							break;
 						}
 					}
@@ -120,6 +123,20 @@ void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 
 void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer)
 {
+	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
+	{
+		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStarting","The match you are trying to join is starting.  Please wait for it to begin before trying to spectate it."));	
+		return;
+	}
+	else if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+	{
+		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+		if (GM)
+		{
+			NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), true);
+			return;
+		}
+	}
 	MatchInfo->AddPlayer(NewPlayer);
 }
 
@@ -240,32 +257,57 @@ void AUTLobbyGameState::GameInstance_Ready(uint32 GameInstanceID, FGuid GameInst
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
 		{
-			UE_LOG(UT,Log,TEXT("TELLING MATCH"));
 			GameInstances[i].MatchInfo->GameInstanceReady(GameInstanceGUID);
 			break;
 		}
 	}
 }
 
-void AUTLobbyGameState::GameInstance_DescriptionUpdate(uint32 GameInstanceID, const FString& NewDescription)
+void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 GameInstanceID, const FString& Update)
 {
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
 		{
-			GameInstances[i].MatchInfo->MatchDescription = NewDescription;
+			GameInstances[i].MatchInfo->MatchStats = Update;
 			break;
 		}
 	}
 }
 
-void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FString& FinalDescription)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+{
+	// Find the match
+	for (int32 i = 0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			// Look through the players in the match
+			AUTLobbyMatchInfo* Match = GameInstances[i].MatchInfo;
+			if (Match)
+			{
+				for (int32 j=0; j < Match->PlayersInMatchInstance.Num(); j++)
+				{
+					if (Match->PlayersInMatchInstance[j].PlayerID == PlayerID)
+					{
+						Match->PlayersInMatchInstance[j].PlayerName = PlayerName;
+						Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
+
+void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FString& FinalUpdate)
 {
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
 		{
-			GameInstances[i].MatchInfo->MatchDescription = FinalDescription;
+			GameInstances[i].MatchInfo->MatchStats= FinalUpdate;
 			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Completed);
 			break;
 		}

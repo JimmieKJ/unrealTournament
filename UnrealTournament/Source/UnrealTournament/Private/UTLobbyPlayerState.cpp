@@ -87,7 +87,7 @@ void AUTLobbyPlayerState::ClientMatchError_Implementation(const FText &MatchErro
 	}
 }
 
-void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& GameInstanceGUIDString, const FString& LobbyGUIDString)
+void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& GameInstanceGUIDString, const FString& LobbyGUIDString, bool bAsSpectator)
 {
 	AUTBasePlayerController* BPC = Cast<AUTBasePlayerController>(GetOwner());
 	if (BPC)
@@ -98,7 +98,7 @@ void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& 
 			LocalPlayer->LastLobbyServerGUID = LobbyGUIDString;
 		}
 
-		BPC->ConnectToServerViaGUID(GameInstanceGUIDString);
+		BPC->ConnectToServerViaGUID(GameInstanceGUIDString, bAsSpectator);
 	}
 }
 

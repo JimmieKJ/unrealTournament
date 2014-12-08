@@ -23,14 +23,19 @@ void AUTServerBeaconLobbyClient::OnFailure()
 }
 
 
-void AUTServerBeaconLobbyClient::UpdateDescription(FString NewDescription)
+void AUTServerBeaconLobbyClient::UpdateMatch(FString Update)
 {
-	Lobby_UpdateDescription(GameInstanceID, NewDescription);
+	Lobby_UpdateMatch(GameInstanceID, Update);
 }
 
-void AUTServerBeaconLobbyClient::EndGame(FString FinalDescription)
+void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
 {
-	Lobby_EndGame(GameInstanceID, FinalDescription);
+	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore);
+}
+
+void AUTServerBeaconLobbyClient::EndGame(FString FinalUpdate)
+{
+	Lobby_EndGame(GameInstanceID, FinalUpdate);
 }
 
 void AUTServerBeaconLobbyClient::Empty()
@@ -59,15 +64,28 @@ void AUTServerBeaconLobbyClient::SetBeaconNetDriverName(FString InBeaconName)
 	NetDriverName = BeaconNetDriverName;
 }
 
-bool AUTServerBeaconLobbyClient::Lobby_UpdateDescription_Validate(uint32 InstanceID, const FString& NewDescription) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_UpdateDescription_Implementation(uint32 InstanceID, const FString& NewDescription)
+bool AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Validate(uint32 InstanceID, const FString& Update) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 InstanceID, const FString& Update)
 {
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_DescriptionUpdate(InstanceID, NewDescription);
+		LobbyGameState->GameInstance_MatchUpdate(InstanceID, Update);
 	}
 }
+
+
+bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+{
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore);
+	}
+}
+
+
 
 bool AUTServerBeaconLobbyClient::Lobby_EndGame_Validate(uint32 InstanceID, const FString& FinalDescription) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_EndGame_Implementation(uint32 InstanceID, const FString& FinalDescription)

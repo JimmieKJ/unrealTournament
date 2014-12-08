@@ -2,7 +2,7 @@
 
 #pragma once
 #include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconClient.h"
-#include "UTSErverBeaconClient.h"
+#include "UTServerBeaconClient.h"
 #include "UTServerBeaconLobbyClient.generated.h"
 
 
@@ -22,8 +22,9 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 
 	virtual void SetBeaconNetDriverName(FString InBeaconName);
 
-	virtual void UpdateDescription(FString NewDescription);
-	virtual void EndGame(FString FinalDescription);
+	virtual void UpdateMatch(FString Update);
+	virtual void UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore);
+	virtual void EndGame(FString FinalUpdate);
 	virtual void Empty();
 
 	/**
@@ -36,7 +37,13 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	 * Tells the Lobby to update it's description on the panel
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_UpdateDescription(uint32 InstanceID, const FString& NewDescription);
+	virtual void Lobby_UpdateMatch(uint32 InstanceID, const FString& Update);
+
+	/**
+	 *	Allows the instance to update the lobby regarding a given player.
+	 **/
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void Lobby_UpdatePlayer(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore);
 
 	/**
 	 *	Tells the Lobby that this instance is at Game Over

@@ -32,6 +32,8 @@ protected:
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo;
 
+	TSharedPtr<SVerticalBox> ButtonSurface;
+
 	FText GetButtonText() const;
 
 	bool bIsFeatured;
@@ -44,6 +46,9 @@ protected:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	virtual void UpdateMatchInfo();
 	FReply ButtonClicked();
+
+	FText GetPlayerOneText() const;
+	FText GetPlayerTwoText() const;
 };
 
 #endif

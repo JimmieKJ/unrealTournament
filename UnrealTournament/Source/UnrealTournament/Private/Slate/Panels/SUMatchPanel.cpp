@@ -34,19 +34,10 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 			[
 				SNew(SVerticalBox)
 				+SVerticalBox::Slot()
-				.VAlign(VAlign_Fill)
+				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Fill)
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SAssignNew(MatchTitle, STextBlock)
-							.Text( FString(TEXT("SOMETHING\nis\nWRONG")))
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
-					]
-
+					SAssignNew(ButtonSurface, SVerticalBox)
 				]
 				+SVerticalBox::Slot()
 				.VAlign(VAlign_Bottom)
@@ -92,6 +83,50 @@ FText SUMatchPanel::GetButtonText() const
 	return NSLOCTEXT("SUMatchPanel","Seutp","Initializing...");
 }
 
+FText SUMatchPanel::GetPlayerOneText() const
+{
+	if (MatchInfo.IsValid())
+	{
+		if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+		{
+			if (MatchInfo->PlayersInMatchInstance.Num() > 0)
+			{
+				return FText::FromString(MatchInfo->PlayersInMatchInstance[0].PlayerName);
+			}
+		}
+		else if ( MatchInfo->Players.Num() > 0 && MatchInfo->Players[0] )
+		{
+			return FText::FromString(MatchInfo->Players[0]->PlayerName);	
+		}
+
+	}
+
+	return NSLOCTEXT("Generic","Unknown","???");
+}
+
+FText SUMatchPanel::GetPlayerTwoText() const
+{
+	if (MatchInfo.IsValid())
+	{
+		if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+		{
+			if (MatchInfo->PlayersInMatchInstance.Num() > 1)
+			{
+				return FText::FromString(MatchInfo->PlayersInMatchInstance[1].PlayerName);
+			}
+		}
+		else if ( MatchInfo->Players.Num() > 1 && MatchInfo->Players[1] )
+		{
+			return FText::FromString(MatchInfo->Players[0]->PlayerName);	
+		}
+	}
+
+	return NSLOCTEXT("Generic","Unknown","???");
+}
+
+
+
+
 void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	UpdateMatchInfo();
@@ -102,12 +137,101 @@ void SUMatchPanel::UpdateMatchInfo()
 	if (MatchInfo.IsValid())
 	{
 		SetVisibility(EVisibility::All);
-		MatchTitle->SetText(MatchInfo->MatchDescription);
+
+		// Build the match panel.
+
+		ButtonSurface->ClearChildren();
+
+		if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+		{
+			FText PlayerOneText = GetPlayerOneText();
+			FText PlayerTwoText = GetPlayerTwoText();
+
+			FText PlayerOneScore = (MatchInfo->PlayersInMatchInstance.Num() > 0) ? FText::AsNumber(MatchInfo->PlayersInMatchInstance[0].PlayerScore) : FText::AsNumber(0);
+			FText PlayerTwoScore = (MatchInfo->PlayersInMatchInstance.Num() > 1) ? FText::AsNumber(MatchInfo->PlayersInMatchInstance[1].PlayerScore) : FText::GetEmpty();
+
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( PlayerOneText )
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( PlayerOneScore )
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( NSLOCTEXT("Genmeric","VS","-VS-"))
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( PlayerTwoText )
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( PlayerTwoScore )
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+		
+		}
+		else if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers || MatchInfo->CurrentState == ELobbyMatchState::Launching)
+		{
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( GetPlayerOneText() )
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+
+
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( NSLOCTEXT("Genmeric","VS","-VS-"))
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+
+			ButtonSurface->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( GetPlayerTwoText() )
+					.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.TextStyle")
+				];
+		}
 	}
 	else
 	{
 		SetVisibility(EVisibility::Hidden);
 	}
+
 }
 
 FReply SUMatchPanel::ButtonClicked()

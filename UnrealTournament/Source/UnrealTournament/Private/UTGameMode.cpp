@@ -495,17 +495,26 @@ void AUTGameMode::DefaultTimer()
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
+		UpdateLobbyMatchStats();
+
 		// Look to see if we should time out this instance servers
 		if (!HasMatchStarted())
 		{
 			if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime)
 			{
+				// Catch all...
+				SendEveryoneBackToLobby();
 				LobbyBeacon->Empty();			
 			}
 		}
-		else if (NumPlayers <= 0)
+		else 
 		{
-			LobbyBeacon->Empty();
+			if (NumPlayers <= 0)
+			{
+				// Catch all...
+				SendEveryoneBackToLobby();
+				LobbyBeacon->Empty();
+			}
 		}
 	}
 	else
@@ -887,7 +896,8 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		LobbyBeacon->EndGame(Winner ? Winner->PlayerName : TEXT(""));
+		FString MatchStats = FString::Printf(TEXT("%i"), GetWorld()->GetGameState()->ElapsedTime);
+		LobbyBeacon->EndGame(MatchStats);
 	}
 
 	SetEndGameFocus(Winner);
@@ -918,15 +928,7 @@ void AUTGameMode::TravelToNextMap()
 
 	if (IsGameInstanceServer())
 	{
-		// Game Instance Servers just tell everyone to just return to the lobby.
-		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-		{
-			AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
-			if (Controller)
-			{
-				Controller->ClientReturnToLobby();
-			}
-		}
+		SendEveryoneBackToLobby();
 	}
 	else
 	{
@@ -2010,4 +2012,21 @@ FString AUTGameMode::GetRedirectURL(const FString& MapName) const
 	}
 
 	return FString(TEXT(""));
+}
+
+void AUTGameMode::UpdateLobbyMatchStats()
+{
+}
+
+void AUTGameMode::SendEveryoneBackToLobby()
+{
+	// Game Instance Servers just tell everyone to just return to the lobby.
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
+		if (Controller)
+		{
+			Controller->ClientReturnToLobby();
+		}
+	}
 }
