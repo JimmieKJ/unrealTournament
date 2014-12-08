@@ -7,6 +7,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
@@ -32,6 +33,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
 	TeamMomentumPct = 0.75f;
 	bTeamGame = true;
 	bHasBroadcastDominating = false;
+	bAnnounceTeam = true;
 }
 
 void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -78,6 +80,27 @@ void AUTTeamGameMode::InitGameState()
 {
 	Super::InitGameState();
 	Cast<AUTGameState>(GameState)->Teams = Teams;
+}
+
+void AUTTeamGameMode::AnnounceMatchStart()
+{
+	if (bAnnounceTeam)
+	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* NextPlayer = Cast<AUTPlayerController>(*Iterator);
+			AUTTeamInfo* Team = (NextPlayer && Cast<AUTPlayerState>(NextPlayer->PlayerState)) ? Cast<AUTPlayerState>(NextPlayer->PlayerState)->Team : NULL;
+			if (Team)
+			{
+				int32 Switch = (Team->TeamIndex == 0) ? 9 : 10;
+				NextPlayer->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), Switch, NextPlayer->PlayerState, NULL, NULL);
+			}
+		}
+	}
+	else
+	{
+		Super::AnnounceMatchStart();
+	}
 }
 
 APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)

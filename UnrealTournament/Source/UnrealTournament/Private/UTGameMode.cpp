@@ -789,23 +789,19 @@ void AUTGameMode::HandleMatchHasStarted()
 	}
 
 	UTGameState->SetTimeLimit(TimeLimit);
-
 	bFirstBloodOccurred = false;
-	BroadcastLocalized( this, UUTGameMessage::StaticClass(), 0, NULL, NULL, NULL);
+	AnnounceMatchStart();
+}
+
+void AUTGameMode::AnnounceMatchStart()
+{
+	BroadcastLocalized(this, UUTGameMessage::StaticClass(), 0, NULL, NULL, NULL);
 }
 
 void AUTGameMode::BeginGame()
 {
-	UE_LOG(UT,Log,TEXT("--------------------------"));
-	UE_LOG(UT,Log,TEXT("Game Has Begun "));
-	UE_LOG(UT,Log,TEXT("--------------------------"));
-
-	UE_LOG(UT,Log,TEXT("GameType: %s"), *GetNameSafe(this));
-	UE_LOG(UT,Log,TEXT("Difficulty: %i"), GameDifficulty);
-	UE_LOG(UT,Log,TEXT("GoalScore: %i"), GoalScore);
-	UE_LOG(UT,Log,TEXT("TimeLimit: %i"), TimeLimit);
-	UE_LOG(UT,Log,TEXT("Min # of Players: %i"), MinPlayersToStart);
-	UE_LOG(UT,Log,TEXT("End Delays %f / %f"), EndTimeDelay, EndScoreboardDelay);
+	UE_LOG(UT,Log,TEXT("BEGIN GAME GameType: %s"), *GetNameSafe(this));
+	UE_LOG(UT,Log,TEXT("Difficulty: %i GoalScore: %i TimeLimit: %i"), GameDifficulty, GoalScore, TimeLimit);
 
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
@@ -817,16 +813,13 @@ void AUTGameMode::BeginGame()
 			Cast<APlayerState>(TestActor)->StartTime = 0;
 		}
 	}
-
 	GameState->ElapsedTime = 0;
 
 	//Let the game session override the StartMatch function, in case it wants to wait for arbitration
-
 	if (GameSession->HandleStartMatchRequest())
 	{
 		return;
 	}
-
 	SetMatchState(MatchState::InProgress);
 }
 

@@ -19,6 +19,8 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	NoNameChange = NSLOCTEXT("UTGameMessage","NoNameChange","You can not change your name.");
 	BecameSpectator = NSLOCTEXT("UTGameMessage","BecameSpectator","You are now a spectator.");
 	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","!! You didn't make the cut !!");
+	YouAreOnBlue = NSLOCTEXT("UTGameMessage", "YouAreOnBlue", "You are on BLUE.");
+	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on BLUE.");
 }
 
 FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const
@@ -51,6 +53,12 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			break;
 		case 8:
 			return GetDefault<UUTGameMessage>(GetClass())->DidntMakeTheCut;
+			break;
+		case 9:
+			return GetDefault<UUTGameMessage>(GetClass())->YouAreOnRed;
+			break;
+		case 10:
+			return GetDefault<UUTGameMessage>(GetClass())->YouAreOnBlue;
 			break;
 		default:
 			return FText::GetEmpty();

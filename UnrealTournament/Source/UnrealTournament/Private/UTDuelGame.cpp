@@ -21,6 +21,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	TimeLimit = 15.f;
 	bPlayersMustBeReady = true;
 	bForceRespawn = true;
+	bAnnounceTeam = false;
 }
 
 void AUTDuelGame::InitGameState()

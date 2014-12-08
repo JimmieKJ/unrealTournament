@@ -34,6 +34,10 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	bool bBalanceTeams;
 
+	/** whether we should announce your team */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+		bool bAnnounceTeam;
+
 	/** whether players should be spawned only on UTTeamPlayerStarts with the appropriate team number */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	bool bUseTeamStarts;
@@ -57,6 +61,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 	virtual bool CheckScore(AUTPlayerState* Scorer) override;
 	virtual void PlayEndOfMatchMessage() override;
+	virtual void AnnounceMatchStart() override;
 
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
 

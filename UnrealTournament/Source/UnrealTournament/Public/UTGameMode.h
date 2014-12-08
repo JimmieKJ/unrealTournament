@@ -258,6 +258,7 @@ public:
 	virtual void CheckCountDown();
 
 	virtual void HandleMatchHasStarted();
+	virtual void AnnounceMatchStart();
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime();
 
