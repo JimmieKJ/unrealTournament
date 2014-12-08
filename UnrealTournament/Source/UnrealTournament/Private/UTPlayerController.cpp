@@ -1126,7 +1126,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);
 	}
-	else
+	else if (GetViewTarget() != NULL)
 	{
 		// for others we can't just hide everything because we don't know where the camera component is and we don't want to hide its attachments
 		// so just hide root
