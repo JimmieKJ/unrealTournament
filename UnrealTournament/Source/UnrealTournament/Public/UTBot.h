@@ -169,7 +169,7 @@ public:
 		: Pawn(NULL), UTChar(NULL), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastKnownLoc(FVector::ZeroVector), LastSeenLoc(FVector::ZeroVector), LastSeeingLoc(FVector::ZeroVector), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
 	{}
 	FBotEnemyInfo(APawn* InPawn, EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc = FVector::ZeroVector)
-		: Pawn(InPawn), UTChar(Cast<AUTCharacter>(InPawn)), EffectiveHealthPct(1.0f), LastKnownLoc(FVector::ZeroVector), LastSeenLoc(FVector::ZeroVector), LastSeeingLoc(FVector::ZeroVector), bHasExactHealth(false), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
+		: Pawn(InPawn), UTChar(Cast<AUTCharacter>(InPawn)), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastKnownLoc(FVector::ZeroVector), LastSeenLoc(FVector::ZeroVector), LastSeeingLoc(FVector::ZeroVector), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
 	{
 		Update(UpdateType, ViewerLoc);
 	}
