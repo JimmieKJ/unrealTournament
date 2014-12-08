@@ -413,20 +413,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		}
 	}	
 
-
-	// Freeze all of the pawns and detach their controllers
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		// Detach all controllers from their pawns
-		if ((*Iterator)->GetPawn() != NULL)
-		{
-			(*Iterator)->GetPawn()->TurnOff();
-			(*Iterator)->UnPossess();
-		}
-	}
-
 	// Tell the controllers to look at their flags
-
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -454,6 +441,15 @@ void AUTCTFGameMode::HalftimeIsOver()
 
 void AUTCTFGameMode::HandleExitingHalftime()
 {
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		// Detach all controllers from their pawns
+		if ((*Iterator)->GetPawn() != NULL)
+		{
+			(*Iterator)->UnPossess();
+		}
+	}
+
 	TArray<APawn*> PawnsToDestroy;
 
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)

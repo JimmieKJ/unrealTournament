@@ -1342,8 +1342,15 @@ void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionPar
 
 void AUTPlayerController::ClientHalftime_Implementation()
 {
+	// Freeze all of the pawns
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It)
+		{
+			(*It)->TurnOff();
+		}
+	}
 }
-
 
 void AUTPlayerController::TestResult(uint16 ButtonID)
 {
