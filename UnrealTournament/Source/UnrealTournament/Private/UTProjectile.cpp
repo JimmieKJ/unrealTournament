@@ -9,6 +9,7 @@
 #include "UTImpactEffect.h"
 #include "UTTeleporter.h"
 #include "UTWorldSettings.h"
+#include "UTWeaponRedirector.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
@@ -561,11 +562,12 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 	UE_LOG(UT, Verbose, TEXT("%s::ProcessHit fake %d has master %d has fake %d OtherActor:%s"), *GetName(), bFakeClientProjectile, (MasterProjectile != NULL), (MyFakeProjectile != NULL), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
 
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
-	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || bHasSpawnedFully)
+	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || bHasSpawnedFully)
 		// don't blow up on non-blocking volumes
 		// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
 		&& ((Cast<AUTTeleporter>(OtherActor) == NULL && Cast<AVolume>(OtherActor) == NULL) || GetVelocity().IsZero())
-		&& (Cast<AUTProjectile>(OtherActor) == NULL || InteractsWithProj(Cast<AUTProjectile>(OtherActor))) )
+		&& (Cast<AUTProjectile>(OtherActor) == NULL || InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
+		&& (Cast<AUTWeaponRedirector>(OtherActor) == NULL || !((AUTWeaponRedirector*)OtherActor)->bWeaponPortal) )
 	{
 		if (MyFakeProjectile && !MyFakeProjectile->IsPendingKillPending())
 		{

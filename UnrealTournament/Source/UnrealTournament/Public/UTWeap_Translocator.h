@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UTWeapon.h"
+#include "UTWeaponRedirector.h"
 #include "UTWeap_Translocator.generated.h"
 
 class AUTProj_TransDisk;
@@ -36,7 +37,7 @@ class AUTWeap_Translocator : public AUTWeapon
 	USoundBase* TeleSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
-		USoundBase* DisruptedSound;
+	USoundBase* DisruptedSound;
 
 	/** alternate (usually shorter) refire delay on the disk recall */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
@@ -50,6 +51,10 @@ class AUTWeap_Translocator : public AUTWeapon
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Telefrag)
 	TSubclassOf<UDamageType> TransFailDamageType;	
+
+	/** optional class spawned at source location after translocating that continues to receive damage (and possible teleport weapons fire with the player) for a short duration */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<AUTWeaponRedirector> AfterImageType;
 
 	virtual void ConsumeAmmo(uint8 FireModeNum) override;
 	virtual bool HasAmmo(uint8 FireModeNum) override

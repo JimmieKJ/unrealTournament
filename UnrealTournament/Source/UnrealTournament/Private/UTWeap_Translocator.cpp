@@ -5,6 +5,7 @@
 #include "UTWeaponStateFiringOnce.h"
 #include "UnrealNetwork.h"
 #include "UTReachSpec_HighJump.h"
+#include "UTWeaponRedirector.h"
 
 AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
@@ -25,6 +26,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 
 	RecallFireInterval = 0.1f;
 	BaseAISelectRating = -1.0f; // AI shouldn't select this unless wanted by pathing
+
+	AfterImageType = AUTWeaponRedirector::StaticClass();
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
@@ -118,6 +121,8 @@ void AUTWeap_Translocator::FireShot()
 
 				if ((Role == ROLE_Authority) || (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()) && (Cast<AUTPlayerController>(UTOwner->GetController())->GetPredictionTime() > 0.f)))
 				{
+					UPrimitiveComponent* SavedPlayerBase = UTOwner->GetMovementBase();
+					FTransform SavedPlayerTransform = UTOwner->GetTransform();
 					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(UTOwner->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), UTOwner->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 					FVector WarpLocation = TransDisk->GetActorLocation();
 					FHitResult Hit;
@@ -142,6 +147,18 @@ void AUTWeap_Translocator::FireShot()
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
 						{
 							ConsumeAmmo(CurrentFireMode);
+							if (AfterImageType != NULL)
+							{
+								FActorSpawnParameters SpawnParams;
+								SpawnParams.Instigator = UTOwner;
+								SpawnParams.bNoCollisionFail = true;
+								SpawnParams.Owner = UTOwner;
+								AUTWeaponRedirector* AfterImage = GetWorld()->SpawnActor<AUTWeaponRedirector>(AfterImageType, SavedPlayerTransform.GetLocation(), SavedPlayerTransform.GetRotation().Rotator(), SpawnParams);
+								if (AfterImage != NULL)
+								{
+									AfterImage->InitFor(UTOwner, FRepCollisionShape(PlayerCapsule), SavedPlayerBase, UTOwner->GetTransform());
+								}
+							}
 						}
 					}
 					else
