@@ -132,6 +132,15 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+	
+	// Where should any chat go.  NOTE: some commands like Say and TeamSay ignore this value
+	UPROPERTY(replicated)
+	FName ChatDestination;
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerNextChatDestination();
+
+
 };
 
 
