@@ -109,9 +109,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bHasCheckedAgainstWall = false;			
 	bIsSettingUpFirstReplayMove = false;
 
-	EasyImpactImpulse = 1050.f;
+	EasyImpactImpulse = 1100.f;
 	EasyImpactDamage = 25;
-	FullImpactImpulse = 1500.f;
+	FullImpactImpulse = 1600.f;
 	FullImpactDamage = 40;
 	ImpactMaxHorizontalVelocity = 1500.f;
 	ImpactMaxVerticalFactor = 1.f;
