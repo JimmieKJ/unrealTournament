@@ -36,6 +36,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, Assists);
 	DOREPLIFETIME(AUTPlayerState, LastKillerPlayerState);
 	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
+	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 }
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()
@@ -247,4 +248,14 @@ void AUTPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
 	ServerRecieveStatsID(FPlatformMisc::GetUniqueDeviceId());
+}
+
+bool AUTPlayerState::ServerNextChatDestination_Validate() { return true; }
+void AUTPlayerState::ServerNextChatDestination_Implementation()
+{
+	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GameMode)
+	{
+		ChatDestination = GameMode->GetNextChatDestination(this, ChatDestination);
+	}
 }

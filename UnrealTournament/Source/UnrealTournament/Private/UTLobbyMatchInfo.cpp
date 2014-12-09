@@ -102,7 +102,6 @@ void AUTLobbyMatchInfo::RecycleMatchInfo()
 
 void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner)
 {
-	UE_LOG(UT,Log,TEXT("AddPlayer %s %i [%s]"), *PlayerToAdd->PlayerName, bIsOwner, PlayerToAdd->UniqueId.IsValid() ? TEXT("Valid") : TEXT("Not Valid"));
 	if (bIsOwner)
 	{
 		OwnerId = PlayerToAdd->UniqueId;
@@ -129,6 +128,9 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 	
 	Players.Add(PlayerToAdd);
 	PlayerToAdd->AddedToMatch(this);
+
+	PlayerToAdd->ChatDestination = ChatDestinations::Match;
+
 }
 
 bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
@@ -287,10 +289,9 @@ void AUTLobbyMatchInfo::ClientReceivedAllData_Implementation()
 
 	// Ok, we have all of the default data set now.  Tell the server.
 
-	ServerSetDefaults(MatchGameMode, MatchOptions, MatchMap);
 	if (OwnerId.IsValid())
 	{
-		ServerSetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
+		ServerSetDefaults(MatchGameMode, MatchOptions, MatchMap);
 	}
 	else
 	{
@@ -302,7 +303,7 @@ void AUTLobbyMatchInfo::OnRep_OwnerId()
 {
 	if (bWaitingForOwnerId && OwnerId.IsValid())
 	{
-		ServerSetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
+		ServerSetDefaults(MatchGameMode, MatchOptions, MatchMap);
 	}
 }
 
@@ -333,7 +334,6 @@ AUTGameMode* AUTLobbyMatchInfo::GetGameModeDefaultObject(FString ClassName)
 void AUTLobbyMatchInfo::ClientReceiveMatchData_Implementation(uint8 BulkSendCount, uint16 BulkSendID, const FString& MatchData)
 {
 	// Look to see if this is a new block.
-
 	if (BulkSendID != CurrentBulkID)
 	{
 		if (CurrentBlockCount != ExpectedBlockCount)
@@ -419,6 +419,7 @@ void AUTLobbyMatchInfo::ServerMatchOptionsChanged_Implementation(const FString& 
 bool AUTLobbyMatchInfo::ServerSetDefaults_Validate(const FString& NewMatchGameMode, const FString& NewMatchOptions, const FString& NewMatchMap) { return true; }
 void AUTLobbyMatchInfo::ServerSetDefaults_Implementation(const FString& NewMatchGameMode, const FString& NewMatchOptions, const FString& NewMatchMap)
 {
+
 	// If we are the settings from a prior match then copy them instead of using the client's defaults.
 	if (PriorMatchToCopy)
 	{
@@ -433,6 +434,8 @@ void AUTLobbyMatchInfo::ServerSetDefaults_Implementation(const FString& NewMatch
 		MatchOptions = NewMatchOptions;
 		MatchMap = NewMatchMap;
 	}
+
+	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
 }
 
 bool AUTLobbyMatchInfo::ServerManageUser_Validate(int32 CommandID, AUTLobbyPlayerState* Target){ return true; }

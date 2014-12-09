@@ -16,16 +16,6 @@
 
 #if !UE_SERVER
 
-AUTLobbyPlayerState* SULobbyInfoPanel::GetOwnerPlayerState()
-{
-	AUTLobbyPC* PC = Cast<AUTLobbyPC>(PlayerOwner->PlayerController);
-	if (PC) 
-	{
-		return PC->UTLobbyPlayerState;
-	}
-	return NULL;
-}
-
 void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 {
 	SUChatPanel::ConstructPanel(ViewportSize);
@@ -33,7 +23,7 @@ void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 
 	LastMatchState = ELobbyMatchState::Setup;
 
-	AUTLobbyPlayerState* PlayerState = GetOwnerPlayerState();
+	AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
 	PlayerState->CurrentMatchChangedDelegate.BindSP(this, &SULobbyInfoPanel::OwnerCurrentMatchChanged);
 	bShowingMatchDock = PlayerState->CurrentMatch == NULL;
 	BuildNonChatPanel();
@@ -44,7 +34,7 @@ void SULobbyInfoPanel::BuildNonChatPanel()
 	// Clear out any existing panels
 	NonChatPanel->ClearChildren();
 
-	AUTLobbyPlayerState* PlayerState = GetOwnerPlayerState();
+	AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
 	if (NonChatPanel.IsValid() && PlayerState)
 	{
 		if (bShowingMatchDock)
@@ -240,7 +230,7 @@ void SULobbyInfoPanel::TickNonChatPanel(float DeltaTime)
 	}
 	else
 	{
-		AUTLobbyPlayerState* PlayerState = GetOwnerPlayerState();
+		AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
 		if (PlayerState && PlayerState->CurrentMatch->CurrentState != LastMatchState)
 		{
 			BuildNonChatPanel();

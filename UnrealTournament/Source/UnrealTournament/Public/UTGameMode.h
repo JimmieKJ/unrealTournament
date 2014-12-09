@@ -428,6 +428,7 @@ public:
 	UPROPERTY(Config)
 	float LobbyInitialTimeoutTime;
 
+
 protected:
 	// A Beacon for communicating back to the lobby
 	AUTServerBeaconLobbyClient* LobbyBeacon;

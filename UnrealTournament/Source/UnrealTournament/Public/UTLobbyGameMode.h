@@ -59,7 +59,7 @@ public:
 	}
 
 #endif
-
+	virtual FName GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination);
 
 protected:
 
@@ -94,10 +94,10 @@ protected:
 		}
 	}
 
-	virtual void Destroyed();
+public:
+	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
+
 };
-
-
 
 
 

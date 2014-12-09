@@ -16,6 +16,17 @@
 
 #if !UE_SERVER
 
+AUTPlayerState* SUChatPanel::GetOwnerPlayerState()
+{
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+	if (PC) 
+	{
+		return Cast<AUTPlayerState>(PC->PlayerState);
+	}
+	return NULL;
+}
+
+
 struct FCompareUsers
 {
 	FORCEINLINE bool operator()	( const TSharedPtr< FSimpleListData > A, const TSharedPtr< FSimpleListData > B ) const 
@@ -43,7 +54,6 @@ void SUChatPanel::ConstructPanel(FVector2D ViewportSize)
 
 	bIsLobbyGame =  PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL;
 	bUserListVisible = true;
-	ChatDestination = bIsLobbyGame ? ChatDestinations::Global : ChatDestinations::Local;
 
 	ChildSlot
 		.VAlign(VAlign_Fill)
@@ -357,6 +367,13 @@ void SUChatPanel::Tick( const FGeometry& AllottedGeometry, const double InCurren
 
 	TickNonChatPanel(InDeltaTime);
 
+	FName CurrentChatDestination = GetOwnerPlayerState()->ChatDestination;
+	if (LastChatDestination != CurrentChatDestination)
+	{
+		LastChatDestination = CurrentChatDestination;
+		ChatDestinationButton->SetContent( SNew(STextBlock).Text(GetChatButtonText()).TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle")));
+	}
+
 }
 
 TSharedRef<ITableRow> SUChatPanel::OnGenerateWidgetForList( TSharedPtr<FSimpleListData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
@@ -388,53 +405,7 @@ FText SUChatPanel::GetChatDestinationTag(FName Destination)
 
 FReply SUChatPanel::ChatDestinationChanged()
 {
-	if (bIsLobbyGame)
-	{
-		if (ChatDestination == ChatDestinations::Global) 
-		{
-			ChatDestination = ChatDestinations::Match;
-		}
-		else if (ChatDestination == ChatDestinations::Match)
-		{
-			ChatDestination = ChatDestinations::Friends;
-		}
-		else if (ChatDestination == ChatDestinations::Friends)
-		{
-			ChatDestination = ChatDestinations::Global;
-		}
-	}
-	else
-	{
-
-		if (bIsTeamGame)
-		{
-			ChatDestination = ChatDestination == ChatDestinations::Local ? ChatDestinations::Team : ChatDestinations::Local;
-		}
-
-/*
-	
-		// When friends chat is implemented, reenable this block.  For now, only switch if it's a team game
-		if (ChatDestination == ChatDestinations::Local) 
-		{
-			ChatDestination = (bIsTeamGame) ? ChatDestinations::Team : ChatDestinations::Friends;
-		}
-
-		else if (ChatDestination == ChatDestinations::Team)
-		{
-			ChatDestination = ChatDestinations::Friends;
-		}
-
-		// Add code to see we are on a game server instance and allow you to chat to the lobby
-
-		else if (ChatDestination == ChatDestinations::Friends)
-		{
-			ChatDestination = ChatDestinations::Local;
-		}
-*/		
-	}
-
-	ChatDestinationButton->SetContent( SNew(STextBlock).Text(GetChatButtonText()).TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle")));
-
+	GetOwnerPlayerState()->ServerNextChatDestination();
 	return FReply::Handled();
 }	
 
@@ -444,6 +415,8 @@ void SUChatPanel::ChatTextChanged(const FText& NewText)
 
 void SUChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
 {
+	FName ChatDestination = GetOwnerPlayerState()->ChatDestination;
+
 	if (CommitType == ETextCommit::OnEnter)
 	{
 		FString FianlText = NewText.ToString();
@@ -464,12 +437,20 @@ void SUChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type Commi
 
 FText SUChatPanel::GetChatButtonText() const
 {
-	if (ChatDestination == ChatDestinations::Match)			return NSLOCTEXT("Chat", "Match", "Match Chat");
-	else if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "Friends", "Friends Only");
-	else if (ChatDestination == ChatDestinations::Local)	return NSLOCTEXT("Chat", "Local", "Local Chat");
-	else if (ChatDestination == ChatDestinations::Lobby)	return NSLOCTEXT("Chat", "Lobby", "Lobby Chat");
-	else if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "Team", "Team Chat");
-	else													return NSLOCTEXT("Chat", "GlobalChat", "Global Chat");
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+	if (PC) 
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+		FName ChatDestination = PS->ChatDestination;
+
+		if		(ChatDestination == ChatDestinations::Match)	return NSLOCTEXT("Chat", "Match", "Match Chat");
+		else if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "Friends", "Friends Only");
+		else if (ChatDestination == ChatDestinations::Local)	return NSLOCTEXT("Chat", "Local", "Local Chat");
+		else if (ChatDestination == ChatDestinations::Lobby)	return NSLOCTEXT("Chat", "Lobby", "Lobby Chat");
+		else if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "Team", "Team Chat");
+		
+	}
+	return NSLOCTEXT("Chat", "GlobalChat", "Global Chat");
 }
 
 FReply SUChatPanel::UserListToggle()

@@ -44,6 +44,7 @@ public:
 	virtual bool IsGameInstanceServer() { return LobbyInstanceID > 0; }
 	virtual bool IsLobbyServer() { return false; }
 
+	virtual FName GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination);
 
 
 };

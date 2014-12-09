@@ -189,17 +189,31 @@ TSubclassOf<AGameSession> AUTLobbyGameMode::GetGameSessionClass() const
 	return AUTGameSession::StaticClass();
 }
 
-void AUTLobbyGameMode::Destroyed()
+FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)
 {
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	UE_LOG(UT,Log,TEXT("DESTROYED"));
-	
-	Super::Destroyed();
+	if (CurrentChatDestination == ChatDestinations::Global)
+	{
+		AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerState);
+		if (PS && PS->CurrentMatch)
+		{
+			return ChatDestinations::Match;
+		}
+
+		return ChatDestinations::Friends;
+	}
+
+	if (CurrentChatDestination == ChatDestinations::Match) return ChatDestinations::Friends;
+
+	return ChatDestinations::Global;
 }
 
+void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+{
+	if (!UniqueId.IsValid())
+	{
+		ErrorMessage=TEXT("NOTLOGGEDIN");
+		return;
+	}
+
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+}

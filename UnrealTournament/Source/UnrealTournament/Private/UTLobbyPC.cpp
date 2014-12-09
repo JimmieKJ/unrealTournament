@@ -37,6 +37,7 @@ void AUTLobbyPC::InitPlayerState()
 {
 	Super::InitPlayerState();
 	UTLobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState);
+	UTLobbyPlayerState->ChatDestination = ChatDestinations::Global;
 }
 
 void AUTLobbyPC::OnRep_PlayerState()

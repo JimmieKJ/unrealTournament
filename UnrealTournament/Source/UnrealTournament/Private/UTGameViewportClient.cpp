@@ -68,23 +68,40 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 
 	FText NetworkErrorMessage;
 
-	if (FailureType == ENetworkFailure::PendingConnectionFailure && ErrorString == "NEEDPASS")
+	if (FailureType == ENetworkFailure::PendingConnectionFailure)
 	{
 
-		UE_LOG(UT,Log,TEXT("%s %s"), *NetDriver->LowLevelGetNetworkNumber(), *GetNameSafe(GetWorld()));
-		if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
+		if (ErrorString == TEXT("NEEDPASS"))
 		{
-			LastAttemptedURL = NetDriver->ServerConnection->URL;
 
-			FirstPlayer->OpenDialog(SNew(SUWInputBox)
-									.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
-									.PlayerOwner(FirstPlayer)
-									.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
-									.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
-									);
+			UE_LOG(UT,Log,TEXT("%s %s"), *NetDriver->LowLevelGetNetworkNumber(), *GetNameSafe(GetWorld()));
+			if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
+			{
+				LastAttemptedURL = NetDriver->ServerConnection->URL;
 
-
-
+				FirstPlayer->OpenDialog(SNew(SUWInputBox)
+										.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
+										.PlayerOwner(FirstPlayer)
+										.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
+										.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
+										);
+			}
+		}
+		else if (ErrorString == TEXT("NOTLOGGEDIN"))
+		{
+			// NOTE: It's possible that the player logged in during the connect sequence but after Prelogin was called on the client.  If this is the case, just reconnect.
+			if (FirstPlayer->IsLoggedIn())
+			{
+				FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
+				return;
+			}
+			
+			// If we already have a reconnect message, then don't handle this
+			if (!ReconnectDialog.IsValid())
+			{
+				ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","LoginRequiredTitle","Login Required"), 
+														   NSLOCTEXT("UTGameViewportClient","LoginRequiredMessage","You need to login to your Epic account before you can play on this server."), UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::LoginFailureDialogResult));
+			}
 		}
 		return;
 	}
@@ -104,6 +121,27 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","NetworkErrorDialogTitle","Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 	}
 #endif
+}
+
+void UUTGameViewportClient::LoginFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		if (FirstPlayer->IsLoggedIn())
+		{
+			// We are already Logged in.. Reconnect;
+			FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
+		}
+		else
+		{
+			FirstPlayer->LoginOnline(TEXT(""),TEXT(""),false, false);
+		}
+	}
+	else
+	{
+		FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
+	}
 }
 
 void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)

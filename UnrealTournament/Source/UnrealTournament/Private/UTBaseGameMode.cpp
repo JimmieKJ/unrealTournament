@@ -25,3 +25,17 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	// Grab the InstanceID if it's there.
 	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
 }
+
+FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)
+{
+	if (CurrentChatDestination == ChatDestinations::Local) return ChatDestinations::Team;
+	if (CurrentChatDestination == ChatDestinations::Team)
+	{
+		if (IsGameInstanceServer())
+		{
+			return ChatDestinations::Lobby;
+		}
+	}
+
+	return ChatDestinations::Local;
+}

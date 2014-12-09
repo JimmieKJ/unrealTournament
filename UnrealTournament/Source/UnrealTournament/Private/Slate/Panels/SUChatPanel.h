@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../SUWPanel.h"
 #include "../SUWindowsStyle.h"
+#include "UTPlayerState.h"
 
 #if !UE_SERVER
 
@@ -32,6 +33,7 @@ public:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
 
+	AUTPlayerState* GetOwnerPlayerState();
 
 protected:
 
@@ -40,9 +42,8 @@ protected:
 	
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FSimpleListData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 
-	// The Chat destination
+	// The Chat destination text description
 	virtual FText GetChatDestinationTag(FName Destination);
-	FName ChatDestination;
 
 	// Make sure to set this to true if this info panel is used in a lobby game
 	bool bIsLobbyGame;
@@ -75,6 +76,10 @@ protected:
 
 	virtual void BuildNonChatPanel();
 	virtual void TickNonChatPanel(float DeltaTime);
+
+protected:
+	FName LastChatDestination;
+
 };
 
 #endif

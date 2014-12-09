@@ -32,7 +32,6 @@ public:
 class SULobbyInfoPanel : public SUChatPanel
 {
 	virtual void ConstructPanel(FVector2D ViewportSize);
-	AUTLobbyPlayerState* GetOwnerPlayerState();
 
 protected:
 
