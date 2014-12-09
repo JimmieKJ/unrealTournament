@@ -97,6 +97,11 @@ protected:
 
 	FText GetMatchMessage() const;
 
+	float BlinkyTimer;
+	int Dots;
+
+	TSharedPtr<STextBlock> StatusText;
+
 };
 
 #endif

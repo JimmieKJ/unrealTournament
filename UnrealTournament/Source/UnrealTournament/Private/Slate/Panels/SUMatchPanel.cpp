@@ -117,7 +117,7 @@ FText SUMatchPanel::GetPlayerTwoText() const
 		}
 		else if ( MatchInfo->Players.Num() > 1 && MatchInfo->Players[1] )
 		{
-			return FText::FromString(MatchInfo->Players[0]->PlayerName);	
+			return FText::FromString(MatchInfo->Players[1]->PlayerName);	
 		}
 	}
 

@@ -21,6 +21,9 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 	MatchInfo = InArgs._MatchInfo;
 	PlayerOwner = InArgs._PlayerOwner;
 
+	BlinkyTimer = 0.0f;
+	Dots=0;
+
 	OnMatchOptionsChangedDelegate.BindSP(this, &SULobbyGameSettingsPanel::RefreshOptions);
 	MatchInfo->OnMatchOptionsChanged = OnMatchOptionsChangedDelegate;
 
@@ -102,7 +105,7 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 					+SHorizontalBox::Slot()
 					.Padding(5.0,0.0,5.0,0.0)
 					[
-						SNew(STextBlock)
+						SAssignNew(StatusText,STextBlock)
 						.Text(this, &SULobbyGameSettingsPanel::GetMatchMessage )
 						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.SmallButton.TextStyle")
 					]
@@ -141,6 +144,18 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 void SULobbyGameSettingsPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	BuildPlayerList(InDeltaTime);
+
+	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
+	{
+		BlinkyTimer += InDeltaTime;
+		if (BlinkyTimer > 0.25)
+		{
+			Dots++;
+			if (Dots > 5) Dots = 0;
+			BlinkyTimer = 0.0f;
+		}
+	}
+
 }
 
 void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
@@ -152,10 +167,11 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 		// Find any players who are no longer in the match list.
 		for (int32 i=0; i < PlayerData.Num(); i++)
 		{
-			if (PlayerData[i].IsValid() && PlayerData[i]->PlayerState.IsValid() )
+			if (PlayerData[i].IsValid())
 			{
-				int32 Idx = MatchInfo->Players.Find( PlayerData[i]->PlayerState.Get() );
+				int32 Idx = (PlayerData[i]->PlayerState.IsValid()) ? MatchInfo->Players.Find( PlayerData[i]->PlayerState.Get() ) : INDEX_NONE;
 				if (Idx == INDEX_NONE )
+				
 				{
 					// Not found, remove this one.
 					PlayerListBox->RemoveSlot(PlayerData[i]->Button.ToSharedRef());
@@ -353,7 +369,13 @@ FText SULobbyGameSettingsPanel::GetMatchMessage() const
 	}
 	else if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
-		return NSLOCTEXT("LobbyMessages","Launching","Launching Match, please wait...");
+		FString Text = TEXT("");
+		for (int32 i=0;i<Dots;i++)
+		{
+			Text = Text + TEXT(".");
+		}
+
+		return FText::Format(NSLOCTEXT("LobbyMessages","Launching","Launching Match, please wait..{0}"), FText::FromString(Text));
 	}
 	else if (MatchInfo->CurrentState == ELobbyMatchState::Aborting)
 	{
