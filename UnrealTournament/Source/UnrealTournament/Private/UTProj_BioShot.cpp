@@ -590,7 +590,6 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 				}
 			}
 		}
-
 	}
 
 	if ((GlobStrength >= MaxRestingGlobStrength) || ProjectileMovement->bIsHomingProjectile)
