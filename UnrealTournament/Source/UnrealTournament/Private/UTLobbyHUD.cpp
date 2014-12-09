@@ -16,7 +16,7 @@ AUTLobbyHUD::AUTLobbyHUD(const class FObjectInitializer& ObjectInitializer) : Su
 void AUTLobbyHUD::PostRender()
 {
 	AHUD::PostRender();
-
+/*
 	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GS)
 	{
@@ -37,6 +37,6 @@ void AUTLobbyHUD::PostRender()
 			}
 		}
 	}
-
+*/
 	return;
 }
