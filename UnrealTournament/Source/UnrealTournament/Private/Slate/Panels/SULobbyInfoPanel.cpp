@@ -188,7 +188,7 @@ void SULobbyInfoPanel::TickNonChatPanel(float DeltaTime)
 			for (int32 i=0;i<LobbyGameState->AvailableMatches.Num();i++)
 			{
 				AUTLobbyMatchInfo* Match = LobbyGameState->AvailableMatches[i];
-				if (Match->CurrentState != ELobbyMatchState::Dead && Match->CurrentState != ELobbyMatchState::Recycling)
+				if (Match && Match->CurrentState != ELobbyMatchState::Dead && Match->CurrentState != ELobbyMatchState::Recycling)
 				{
 					if (!AlreadyTrackingMatch(LobbyGameState->AvailableMatches[i]))
 					{
