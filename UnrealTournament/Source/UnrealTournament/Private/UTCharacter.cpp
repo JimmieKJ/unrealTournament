@@ -1195,11 +1195,15 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 		{
 			FVector TraceOffset = FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.5f);
 			FCollisionQueryParams FeignDeathTrace(FName(TEXT("FeignDeath")), false);
-			if ( GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime &&
-				GetWorld()->SweepTest(GetActorLocation() + TraceOffset, GetActorLocation() - TraceOffset, FQuat::Identity, ECC_Pawn, GetCapsuleComponent()->GetCollisionShape(), FeignDeathTrace))
+			if (GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime)
 			{
-				bFeigningDeath = false;
-				PlayFeignDeath();
+				FVector ActorLocation = GetCapsuleComponent()->GetComponentLocation();
+				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 0.75f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());				
+				if (GetWorld()->SweepTest(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
+				{
+					bFeigningDeath = false;
+					PlayFeignDeath();
+				}
 			}
 		}
 		else if (GetMesh()->Bodies.Num() == 0 || GetMesh()->Bodies[0]->PhysicsBlendWeight <= 0.0f)
