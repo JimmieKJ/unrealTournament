@@ -966,6 +966,9 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 
 void AUTCharacter::StartRagdoll()
 {
+	// APawn::TurnOff disables collision at the end of match, undo that.
+	SetActorEnableCollision(true);
+
 	StopFiring();
 	DisallowWeaponFiring(true);
 	bInRagdollRecovery = false;
