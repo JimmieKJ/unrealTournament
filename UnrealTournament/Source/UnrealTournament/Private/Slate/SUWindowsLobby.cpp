@@ -136,9 +136,12 @@ FString SUWindowsLobby::GetMatchCount() const
 		int32 NoActiveMatches = 0;
 		for (int32 i=0;i<LobbyGameState->AvailableMatches.Num();i++)
 		{
-			if (LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers || LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching )
+			if (LobbyGameState->AvailableMatches[i])
 			{
-				NoActiveMatches++;
+				if (LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers || LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || LobbyGameState->AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching )
+				{
+					NoActiveMatches++;
+				}
 			}
 		}
 		return FString::Printf(TEXT("%s - There are %i matches available."), *LobbyGameState->LobbyName,NoActiveMatches);
