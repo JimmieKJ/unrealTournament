@@ -2797,7 +2797,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	TargetEyeOffset.Y *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Y*DeltaTime));
 	TargetEyeOffset.Z *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Z*DeltaTime));
 	TargetEyeOffset.DiagnosticCheckNaN();
-	if (IsLocallyControlled() && GetCharacterMovement()) // @TODO FIXME ALSO FOR SPECTATORS
+	if (IsLocallyControlled() && Cast<APlayerController>(Controller) != NULL && GetCharacterMovement()) // @TODO FIXME ALSO FOR SPECTATORS
 	{
 		if ((Health <= LowHealthAmbientThreshold) && (Health > 0))
 		{
@@ -2832,6 +2832,10 @@ void AUTCharacter::Tick(float DeltaTime)
 				SetLocalAmbientSound(SprintAmbientSound, 0.f, true);
 			}
 		}
+	}
+	else
+	{
+		SetStatusAmbientSound(LowHealthAmbientSound, 0.f, 1.f, true);
 	}
 
 	if ((Role == ROLE_Authority) && GetCharacterMovement() && GetCharacterMovement()->IsInWater())
