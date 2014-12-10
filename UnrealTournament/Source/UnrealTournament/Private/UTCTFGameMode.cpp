@@ -658,7 +658,7 @@ void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclas
 			}
 
 			AttackerPS->AdjustScore(Points);
-			AttackerPS->IncrementKills(true);
+			AttackerPS->IncrementKills(DamageType, true);
 			FindAndMarkHighScorer();
 
 			UE_LOG(UT,Verbose,TEXT("========================================="));

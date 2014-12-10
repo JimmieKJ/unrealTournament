@@ -3,13 +3,21 @@
 #pragma once
 
 #include "UTTeamInterface.h"
-
+#include "Stat.h"
 #include "UTPlayerState.generated.h"
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
+
+private:
+
+	/** Instance of a stat manager that tracks gameplay/reward stats for this Player Controller */
+	UPROPERTY()
+	class UStatManager *StatManager;
+
+public:
 
 	/** player's team if we're playing a team game */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
@@ -101,9 +109,9 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
-	virtual void IncrementKills(bool bEnemyKill);
+	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
-	virtual void IncrementDeaths(AUTPlayerState* KillerPlayerState);
+	virtual void IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void AdjustScore(int32 ScoreAdjustment);
 
@@ -132,6 +140,9 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+
+	virtual	bool ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModType);
+
 	
 	// Where should any chat go.  NOTE: some commands like Say and TeamSay ignore this value
 	UPROPERTY(replicated)
@@ -139,8 +150,6 @@ class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamI
 
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void ServerNextChatDestination();
-
-
 };
 
 

@@ -584,7 +584,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		{
 			KilledPlayerState->LastKillerPlayerState = KillerPlayerState;
 
-			KilledPlayerState->IncrementDeaths(KillerPlayerState);
+			KilledPlayerState->IncrementDeaths(DamageType, KillerPlayerState);
 			TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 			if (UTDamage != NULL)
 			{
@@ -649,7 +649,7 @@ void AUTGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf
 		if ( KillerPlayerState != NULL )
 		{
 			KillerPlayerState->AdjustScore(+1);
-			KillerPlayerState->IncrementKills(true);
+			KillerPlayerState->IncrementKills(DamageType, true);
 			FindAndMarkHighScorer();
 			CheckScore(KillerPlayerState);
 		}

@@ -18,6 +18,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
 
+	StatManager = nullptr;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -58,7 +59,7 @@ void AUTPlayerState::SetWaitingPlayer(bool B)
 	ForceNetUpdate();
 }
 
-void AUTPlayerState::IncrementKills(bool bEnemyKill)
+void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill)
 {
 	if (bEnemyKill)
 	{
@@ -88,12 +89,27 @@ void AUTPlayerState::IncrementKills(bool bEnemyKill)
 		}
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
+
+		ModifyStat(FName(TEXT("Kills")), 1, EStatMod::Delta);
+		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+		if (UTDamage && !UTDamage.GetDefaultObject()->StatsName.IsEmpty())
+		{
+			ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1, EStatMod::Delta);
+		}
 	}
 }
 
-void AUTPlayerState::IncrementDeaths(AUTPlayerState* KillerPlayerState)
+void AUTPlayerState::IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState)
 {
 	Deaths += 1;
+
+	ModifyStat(FName(TEXT("Deaths")), 1, EStatMod::Delta);
+	TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+	if (UTDamage && !UTDamage.GetDefaultObject()->StatsName.IsEmpty())
+	{
+		ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Deaths"))), 1, EStatMod::Delta);
+	}
+
 	// spree has ended
 	if (Spree >= 5 && GetWorld()->GetAuthGameMode() != NULL)
 	{
@@ -248,6 +264,23 @@ void AUTPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
 	ServerRecieveStatsID(FPlatformMisc::GetUniqueDeviceId());
+	
+	if (Role == ROLE_Authority)
+	{
+		//Make me a statmanager
+		StatManager = ConstructObject<UStatManager>(UStatManager::StaticClass(), this);
+		StatManager->InitializeManager(this);
+	}
+}
+
+bool AUTPlayerState::ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModType)
+{
+	if (StatManager != nullptr)
+	{
+		return StatManager->ModifyStat(StatName, Amount, ModType);
+	}
+
+	return false;
 }
 
 bool AUTPlayerState::ServerNextChatDestination_Validate() { return true; }
@@ -259,3 +292,4 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 		ChatDestination = GameMode->GetNextChatDestination(this, ChatDestination);
 	}
 }
+

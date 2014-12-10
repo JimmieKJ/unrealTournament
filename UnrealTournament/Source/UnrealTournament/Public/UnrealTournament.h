@@ -43,6 +43,8 @@ DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
 #include "UTCarriedObject.h"
 #include "UTGameMode.h"
 #include "UTTeamGameMode.h"
+#include "Stat.h"
+#include "StatManager.h"
 
 /** handy response params for world-only checks */
 extern FCollisionResponseParams WorldResponseParams;
