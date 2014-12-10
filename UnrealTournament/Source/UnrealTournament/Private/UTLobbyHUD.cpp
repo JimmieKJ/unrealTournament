@@ -29,10 +29,12 @@ void AUTLobbyHUD::PostRender()
 				Y+= 20;
 				for (int32 j=0; j < GS->AvailableMatches[i]->Players.Num(); j++)
 				{
-					FText Name = GS->AvailableMatches[i]->Players[i] ? FText::FromString(GS->AvailableMatches[i]->Players[j]->PlayerName) : NSLOCTEXT("Generic","None","None");
-					DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD","LobbyDebugB","Player {0} - {1}"), FText::AsNumber(j), Name), 40,Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
-
-					Y+= 20;
+					if (GS->AvailableMatches[i]->Players[j])
+					{
+						FText Name = GS->AvailableMatches[i]->Players[i] ? FText::FromString(GS->AvailableMatches[i]->Players[j]->PlayerName) : NSLOCTEXT("Generic","None","None");
+						DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD","LobbyDebugB","Player {0} - {1}"), FText::AsNumber(j), Name), 40,Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+						Y+= 20;
+					}
 				}
 			}
 		}

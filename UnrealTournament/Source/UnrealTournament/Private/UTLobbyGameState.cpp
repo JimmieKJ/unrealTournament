@@ -22,7 +22,6 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME_CONDITION(AUTLobbyGameState, LobbyMOTD, COND_InitialOnly);
 
 	DOREPLIFETIME(AUTLobbyGameState, AvailableMatches);
-	DOREPLIFETIME(AUTLobbyGameState, AllowedGameModeClasses);
 }
 
 
@@ -50,7 +49,7 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 	for (int32 i=0;i<AvailableMatches.Num();i++)
 	{
 		// Check to see if this player belongs in the match
-		if (AvailableMatches[i]->WasInMatchInstance(NewPlayer))
+		if (AvailableMatches[i] && AvailableMatches[i]->WasInMatchInstance(NewPlayer))
 		{
 			// Remove the player.
 			AvailableMatches[i]->RemoveFromMatchInstance(NewPlayer);
@@ -82,7 +81,7 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 					// The host has a new match.  See if we can find it.
 					for (int32 j=0; j<AvailableMatches.Num(); j++)
 					{
-						if (AvailableMatches[i] != AvailableMatches[j] && AvailableMatches[i]->OwnerId == AvailableMatches[j]->OwnerId)					
+						if (AvailableMatches[j] && AvailableMatches[i] != AvailableMatches[j] && AvailableMatches[i]->OwnerId == AvailableMatches[j]->OwnerId)					
 						{
 							JoinMatch(AvailableMatches[j], NewPlayer);
 							break;
@@ -334,7 +333,7 @@ bool AUTLobbyGameState::IsMatchStillValid(AUTLobbyMatchInfo* TestMatch)
 {
 	for (int32 i=0;i<AvailableMatches.Num();i++)
 	{
-		if (AvailableMatches[i] == TestMatch) return true;
+		if (AvailableMatches[i] && AvailableMatches[i] == TestMatch) return true;
 	}
 
 	return false;

@@ -46,7 +46,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	TArray<FGameInstanceData> GameInstances;
 
 	/** Holds a list of GameMode classes that can be configured for this lobby.  In BeginPlay() these classes will be loaded and  */
-	UPROPERTY(Replicated, Config)
+	UPROPERTY(Config)
 	TArray<FString> AllowedGameModeClasses;
 
 	/** server settings */

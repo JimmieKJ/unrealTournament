@@ -301,7 +301,7 @@ protected:
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			if (Players[i]->UniqueId == OwnerId)
+			if (Players[i] && Players[i]->UniqueId == OwnerId)
 			{
 				return Players[i];
 			}
