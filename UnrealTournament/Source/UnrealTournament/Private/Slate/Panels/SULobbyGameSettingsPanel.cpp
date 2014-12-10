@@ -303,6 +303,31 @@ FReply SULobbyGameSettingsPanel::Ready()
 			{
 				if (bIsHost)
 				{
+
+					// Look to see if everyone is ready....
+					bool bAllReady = true;
+					if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+					{
+						AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+						if (PS)
+						{
+							for (int32 i=0; i < MatchInfo->Players.Num(); i++)
+							{
+								if (MatchInfo->Players[i] && MatchInfo->Players[i] != PS && !MatchInfo->Players[i]->bReadyToPlay)
+								{
+									bAllReady = false;
+									break;
+								}
+							}
+						}
+					}
+
+					if (!bAllReady)
+					{
+						PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","NotEveryoneReadyCaption","Not Ready"),NSLOCTEXT("LobbyMessages","NotEveryoneReadyMsg","Everone isn't ready to play.  Please wait for everyone before starting the match!"), UTDIALOG_BUTTON_OK);
+						return FReply::Handled();
+					}
+
 					if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 					{
 						MatchInfo->ServerStartMatch();	
