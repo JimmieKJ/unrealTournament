@@ -590,7 +590,7 @@ FReply SUWCreateGameDialog::CancelClick()
 
 TSharedRef<ITableRow> SUWCreateGameDialog::GenerateMutatorListRow(UClass* MutatorType, const TSharedRef<STableViewBase>& OwningList)
 {
-	checkSlow(WeaponType->IsChildOf(AUTMutator::StaticClass()));
+	checkSlow(MutatorType->IsChildOf(AUTMutator::StaticClass()));
 
 	FString MutatorName = MutatorType->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty() ? MutatorType->GetName() : MutatorType->GetDefaultObject<AUTMutator>()->DisplayName.ToString();
 	return SNew(STableRow<UClass*>, OwningList)
