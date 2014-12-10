@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTGameMode.h"
 #include "UTPlayerState.h"
+#include "Engine/LocalPlayer.h"
 #include "Net/UnrealNetwork.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
@@ -159,12 +160,12 @@ void AUTPlayerState::Tick(float DeltaTime)
 
 /** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have 
     have a proper ID available.  */
-void AUTPlayerState::ServerRecieveStatsID_Implementation(const FString& NewStatsID)
+void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
 {
 	StatsID = NewStatsID;
 }
 
-bool AUTPlayerState::ServerRecieveStatsID_Validate(const FString& NewStatsID)
+bool AUTPlayerState::ServerReceiveStatsID_Validate(const FString& NewStatsID)
 {
 	return true;
 }
@@ -263,8 +264,28 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 void AUTPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
-	ServerRecieveStatsID(FPlatformMisc::GetUniqueDeviceId());
-	
+
+	bool bFoundStatsId = false;
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		APlayerController* PC = Cast<APlayerController>(GetOwner());
+		if (OnlineIdentityInterface.IsValid() && PC != nullptr)
+		{
+			ULocalPlayer* LP = Cast<ULocalPlayer>(PC->Player);
+			if (LP != nullptr)
+			{
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->ControllerId);
+				if (UserId.IsValid())
+				{
+					ServerReceiveStatsID(UserId->ToString());
+					bFoundStatsId = true;
+				}
+			}
+		}
+	}
+		
 	if (Role == ROLE_Authority)
 	{
 		//Make me a statmanager

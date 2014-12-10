@@ -126,7 +126,7 @@ public:
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerRecieveStatsID(const FString& NewStatsID);
+	virtual void ServerReceiveStatsID(const FString& NewStatsID);
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;
