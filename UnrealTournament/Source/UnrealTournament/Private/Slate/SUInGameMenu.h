@@ -63,6 +63,7 @@ protected:
 	virtual void BuildOnlineBar();
 
 	FReply OnLogin();
+	FReply ReturnToLobby(TSharedPtr<SComboButton> MenuButton);
 	FReply Disconnect(TSharedPtr<SComboButton> MenuButton);
 	FReply Reconnect(TSharedPtr<SComboButton> MenuButton);
 

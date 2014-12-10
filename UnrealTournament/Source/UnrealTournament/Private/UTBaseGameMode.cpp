@@ -10,6 +10,9 @@ AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
+	// Grab the InstanceID if it's there.
+	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
+
 	// Create a server instance id for this server
 	ServerInstanceGUID = FGuid::NewGuid();
 
@@ -20,10 +23,6 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	bRequirePassword = !ServerPassword.IsEmpty();
 
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
-
-
-	// Grab the InstanceID if it's there.
-	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
 }
 
 FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)

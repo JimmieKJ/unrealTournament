@@ -211,6 +211,12 @@ protected:
 	{
 		MatchEndTime = GetWorld()->TimeSeconds;
 	}
+
+public:
+	// Will be true if this is an instanced server from a lobby.
+	UPROPERTY(Replicated)
+	bool bIsInstanceServer;
+
 };
 
 

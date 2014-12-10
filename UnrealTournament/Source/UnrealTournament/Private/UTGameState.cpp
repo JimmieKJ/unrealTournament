@@ -34,6 +34,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, bOnlyTheStrongSurvive);
 	DOREPLIFETIME(AUTGameState, bViewKillerOnDeath);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
+	DOREPLIFETIME(AUTGameState, bIsInstanceServer);
 	
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);

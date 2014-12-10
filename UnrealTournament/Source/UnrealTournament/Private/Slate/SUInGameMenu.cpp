@@ -512,6 +512,7 @@ void SUInGameMenu::BuildOptionsSubMenu()
 }
 void SUInGameMenu::BuildExitMatchSubMenu()
 {
+	AUTGameState* UTGameState = GWorld->GetGameState<AUTGameState>();
 	if (GWorld->GetNetMode() == NM_Standalone)
 	{
 		MenuBar->AddSlot()
@@ -522,7 +523,7 @@ void SUInGameMenu::BuildExitMatchSubMenu()
 			[
 				SNew(SButton)
 				.VAlign(VAlign_Center)
-				.OnClicked(this, &SUWindowsMidGame::ExitMatch)
+				.OnClicked(this, &SUInGameMenu::ExitMatch)
 				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 				[
 					SNew(STextBlock)
@@ -531,6 +532,56 @@ void SUInGameMenu::BuildExitMatchSubMenu()
 				]
 
 			];
+	}
+	else if (UTGameState && UTGameState->bIsInstanceServer)
+	{
+		TSharedPtr<SComboButton> DropDownButton = NULL;
+
+		SAssignNew(DropDownButton, SComboButton)
+			.HasDownArrow(false)
+			.MenuPlacement(MenuPlacement_AboveAnchor)
+			.Method(SMenuAnchor::UseCurrentWindow)
+			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
+			.ButtonContent()
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ExitMatch", "EXIT MATCH"))
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
+			];
+
+		DropDownButton->SetMenuContent
+			(
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Disconnect", "Exit to Main Menu"))
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
+				.OnClicked(this, &SUInGameMenu::Disconnect, DropDownButton)
+			]
+		+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ReturnToLobby", "Return to the Lobby"))
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
+				.OnClicked(this, &SUInGameMenu::ReturnToLobby, DropDownButton)
+			] 
+		);
+
+		MenuBar->AddSlot()
+			.AutoWidth()
+			.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+			.HAlign(HAlign_Right)
+			[
+				DropDownButton.ToSharedRef()
+			];
+
 	}
 	else
 	{
@@ -559,7 +610,7 @@ void SUInGameMenu::BuildExitMatchSubMenu()
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Disconnect", "Exit to Main Menu"))
 				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-				.OnClicked(this, &SUWindowsMidGame::Disconnect, DropDownButton)
+				.OnClicked(this, &SUInGameMenu::Disconnect, DropDownButton)
 			]
 		+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -569,7 +620,7 @@ void SUInGameMenu::BuildExitMatchSubMenu()
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Reconnect", "Reconnect to last Server"))
 				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-				.OnClicked(this, &SUWindowsMidGame::Reconnect, DropDownButton)
+				.OnClicked(this, &SUInGameMenu::Reconnect, DropDownButton)
 			] 
 		);
 
@@ -711,6 +762,26 @@ FReply SUInGameMenu::ExitMatch()
 	ConsoleCommand(TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"));
 	CloseMenus();
 	return FReply::Handled();
+}
+
+FReply SUInGameMenu::ReturnToLobby(TSharedPtr<SComboButton> MenuButton)
+{
+	// Look to see if we have a server to return to.
+
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
+	{
+		// Connect to that GUID
+		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+		if (PC)
+		{
+			PC->ConnectToServerViaGUID(PlayerOwner->LastLobbyServerGUID, false);
+			CloseMenus();
+			return FReply::Handled();
+		}
+	}
+	return ExitMatch();
 }
 
 FReply SUInGameMenu::OnChangeTeam(int32 NewTeamIndex,TSharedPtr<SComboButton> MenuButton)

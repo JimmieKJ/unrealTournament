@@ -314,6 +314,8 @@ void AUTGameMode::InitGameState()
 		UTGameState->bPlayerMustBeReady = bPlayersMustBeReady;
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bWeaponStay = bWeaponStayActive;
+
+		UTGameState->bIsInstanceServer = IsGameInstanceServer();
 	}
 	else
 	{
