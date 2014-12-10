@@ -16,9 +16,15 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Mutator)
 	TArray<FName> GroupNames;
 
-	/** menu display name */
+	/** menu display name
+	 * if this is empty the mutator is not shown in menus (assumed meant for internal use only)
+	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Mutator)
 	FText DisplayName;
+
+	/** UMG menu for configuring the mutator (optional) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = UI)
+	TSubclassOf<class UUserWidget> ConfigMenu;
 
 	/** adds a mutator to the end of the linked list */
 	virtual void AddMutator(AUTMutator* OtherMutator)

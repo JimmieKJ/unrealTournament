@@ -80,4 +80,11 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	/** returns PlayerController at the specified player index */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Player", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
 	APlayerController* GetLocalPlayerController(UObject* WorldContextObject, int32 PlayerIndex = 0);
+
+	/** saves the config properties to the .ini file
+	 * if you pass a Class, saves the values in its default object
+	 * if you pass anything else, the instance's values are saved as its class's new defaults
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Config")
+	static void SaveConfig(UObject* Obj);
 };

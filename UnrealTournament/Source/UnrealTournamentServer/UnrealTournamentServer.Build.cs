@@ -13,7 +13,8 @@ public class UnrealTournamentServer : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"UnrealTournamentGame"
+				"UnrealTournamentGame",
+                "Json",
 			}
 		);
 

@@ -387,3 +387,17 @@ APlayerController* UUTGameplayStatics::GetLocalPlayerController(UObject* WorldCo
 		return NULL;
 	}
 }
+
+void UUTGameplayStatics::SaveConfig(UObject* Obj)
+{
+	UClass* Cls = Cast<UClass>(Obj);
+	if (Cls != NULL)
+	{
+		Cls->GetDefaultObject()->SaveConfig();
+	}
+	else
+	{
+		Obj->SaveConfig();
+	}
+	GConfig->Flush(false);
+}

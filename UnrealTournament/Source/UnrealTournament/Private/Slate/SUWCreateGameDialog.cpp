@@ -6,8 +6,11 @@
 #include "UTDMGameMode.h"
 #include "AssetData.h"
 #include "UTLevelSummary.h"
+#include "UTMutator.h"
 
 #if !UE_SERVER
+
+#include "UserWidget.h"
 
 void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 {
@@ -15,9 +18,16 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
-		if (It->IsChildOf(AUTGameMode::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract))
+		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown))
 		{
-			AllGametypes.Add(*It);
+			if (It->IsChildOf(AUTGameMode::StaticClass()))
+			{
+				AllGametypes.Add(*It);
+			}
+			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+			{
+				MutatorListAvailable.Add(*It);
+			}
 		}
 	}
 	{
@@ -33,6 +43,23 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()))
 				{
 					AllGametypes.AddUnique(TestClass);
+				}
+			}
+		}
+	}
+	{
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTMutator::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTMutator::StaticClass()) && !TestClass->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+				{
+					MutatorListAvailable.Add(TestClass);
 				}
 			}
 		}
@@ -226,6 +253,99 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		SAssignNew(GameConfigPanel, SVerticalBox)
 	];
 	MainBox->AddSlot()
+	.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+	.HAlign(HAlign_Center)
+	.AutoHeight()
+	[
+		SNew(STextBlock)
+		.ColorAndOpacity(FLinearColor::Black)
+		.Text(NSLOCTEXT("SUWCreateGameDialog", "Mutators", "Mutators:"))
+	];
+	MainBox->AddSlot()
+	.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+	.HAlign(HAlign_Center)
+	.AutoHeight()
+	[
+		SNew(SGridPanel)
+		+ SGridPanel::Slot(0, 0)
+		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+		[
+			SNew(SBox)
+			.WidthOverride(200.0f)
+			.HeightOverride(300.0f)
+			[
+				SNew(SBorder)
+				.Content()
+				[
+					SAssignNew(AvailableMutators, SListView<UClass*>)
+					.SelectionMode(ESelectionMode::Single)
+					.ListItemsSource(&MutatorListAvailable)
+					.OnGenerateRow(this, &SUWCreateGameDialog::GenerateMutatorListRow)
+				]
+			]
+		]
+		+ SGridPanel::Slot(1, 0)
+		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+		[
+			SNew(SBox)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+				.HAlign(HAlign_Center)
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWCreateGameDialog", "MutatorAdd", "-->").ToString())
+					.OnClicked(this, &SUWCreateGameDialog::AddMutator)
+				]
+				+ SVerticalBox::Slot()
+				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+				.HAlign(HAlign_Center)
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWCreateGameDialog", "MutatorRemove", "<--").ToString())
+					.OnClicked(this, &SUWCreateGameDialog::RemoveMutator)
+				]
+			]
+		]
+		+ SGridPanel::Slot(2, 0)
+		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+		[
+			SNew(SBox)
+			.WidthOverride(200.0f)
+			.HeightOverride(300.0f)
+			[
+				SNew(SBorder)
+				.Content()
+				[
+					SAssignNew(EnabledMutators, SListView<UClass*>)
+					.SelectionMode(ESelectionMode::Single)
+					.ListItemsSource(&MutatorListEnabled)
+					.OnGenerateRow(this, &SUWCreateGameDialog::GenerateMutatorListRow)
+				]
+			]
+		]
+		+ SGridPanel::Slot(2, 1)
+		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+		[
+			SNew(SButton)
+			.HAlign(HAlign_Center)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWCreateGameDialog", "ConfigureMutator", "Configure Mutator").ToString())
+			.OnClicked(this, &SUWCreateGameDialog::ConfigureMutator)
+		]
+	];
+	MainBox->AddSlot()
 	.AutoHeight()
 	.VAlign(VAlign_Bottom)
 	.HAlign(HAlign_Right)
@@ -414,6 +534,15 @@ FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 	AUTGameState::StaticClass()->GetDefaultObject()->SaveConfig();
 
 	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMap->GetText().ToString(), *SelectedGameClass->GetPathName());
+	if (MutatorListEnabled.Num() > 0)
+	{
+		NewURL += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
+		for (int32 i = 1; i < MutatorListEnabled.Num(); i++)
+		{
+			NewURL += TEXT(",");
+			NewURL += MutatorListEnabled[i]->GetPathName();
+		}
+	}
 
 	if (Mode == SERVER_Dedicated)
 	{
@@ -456,6 +585,63 @@ FReply SUWCreateGameDialog::CancelClick()
 	AUTGameState::StaticClass()->GetDefaultObject()->ReloadConfig();
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
+	return FReply::Handled();
+}
+
+TSharedRef<ITableRow> SUWCreateGameDialog::GenerateMutatorListRow(UClass* MutatorType, const TSharedRef<STableViewBase>& OwningList)
+{
+	checkSlow(WeaponType->IsChildOf(AUTMutator::StaticClass()));
+
+	FString MutatorName = MutatorType->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty() ? MutatorType->GetName() : MutatorType->GetDefaultObject<AUTMutator>()->DisplayName.ToString();
+	return SNew(STableRow<UClass*>, OwningList)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::Black)
+			.Text(MutatorName)
+		]; 
+}
+
+FReply SUWCreateGameDialog::AddMutator()
+{
+	TArray<UClass*> Selection = AvailableMutators->GetSelectedItems();
+	if (Selection.Num() > 0 && Selection[0] != NULL)
+	{
+		MutatorListEnabled.Add(Selection[0]);
+		MutatorListAvailable.Remove(Selection[0]);
+		AvailableMutators->RequestListRefresh();
+		EnabledMutators->RequestListRefresh();
+	}
+	return FReply::Handled();
+}
+FReply SUWCreateGameDialog::RemoveMutator()
+{
+	TArray<UClass*> Selection = EnabledMutators->GetSelectedItems();
+	if (Selection.Num() > 0 && Selection[0] != NULL)
+	{
+		MutatorListAvailable.Add(Selection[0]);
+		MutatorListEnabled.Remove(Selection[0]);
+		AvailableMutators->RequestListRefresh();
+		EnabledMutators->RequestListRefresh();
+	}
+	return FReply::Handled();
+}
+FReply SUWCreateGameDialog::ConfigureMutator()
+{
+	TArray<UClass*> Selection = EnabledMutators->GetSelectedItems();
+	if (Selection.Num() > 0 && Selection[0] != NULL)
+	{
+		checkSlow(Selection[0]->IsChildOf(AUTMutator::StaticClass()));
+		AUTMutator* Mut = Selection[0]->GetDefaultObject<AUTMutator>();
+		if (Mut->ConfigMenu != NULL)
+		{
+			UUserWidget* Widget = CreateWidget<UUserWidget>(GetPlayerOwner()->GetWorld(), Mut->ConfigMenu);
+			if (Widget != NULL)
+			{
+				Widget->AddToViewport();
+			}
+		}
+	}
 	return FReply::Handled();
 }
 

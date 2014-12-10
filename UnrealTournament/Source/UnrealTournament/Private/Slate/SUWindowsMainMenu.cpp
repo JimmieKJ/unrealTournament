@@ -579,7 +579,7 @@ FReply SUWindowsMainMenu::OnCreateGame(bool bOnline,TSharedPtr<SComboButton> Men
 							SNew(SUWCreateGameDialog)
 							.PlayerOwner(PlayerOwner)
 							.IsOnline(bOnline)
-							);
+							, 0);
 	return FReply::Handled();
 }
 

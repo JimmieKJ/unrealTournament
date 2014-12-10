@@ -279,9 +279,9 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 	return NewDialog;
 }
 
-void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog)
+void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog, int32 ZOrder)
 {
-	GEngine->GameViewport->AddViewportWidgetContent(Dialog,255);
+	GEngine->GameViewport->AddViewportWidgetContent(Dialog, ZOrder);
 	Dialog->OnDialogOpened();
 }
 

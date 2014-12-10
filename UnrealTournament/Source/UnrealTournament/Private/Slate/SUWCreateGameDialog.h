@@ -37,6 +37,9 @@ protected:
 	TSharedPtr<STextBlock> MapAuthor;
 	TSharedPtr<STextBlock> MapRecommendedPlayers;
 	TSharedPtr<STextBlock> MapDesc;
+	TArray<UClass*> MutatorListAvailable, MutatorListEnabled;
+	TSharedPtr< SListView<UClass*> > AvailableMutators;
+	TSharedPtr< SListView<UClass*> > EnabledMutators;
 
 	// container for pointers to TAttributeProperty objects linked directly to setting properties
 	TArray< TSharedPtr<TAttributePropertyBase> > PropertyLinks;
@@ -51,6 +54,10 @@ protected:
 	FReply StartListenClick();
 	FReply StartDedicatedClick();
 	FReply CancelClick();
+	TSharedRef<ITableRow> GenerateMutatorListRow(UClass* MutatorType, const TSharedRef<STableViewBase>& OwningList);
+	FReply AddMutator();
+	FReply RemoveMutator();
+	FReply ConfigureMutator();
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
