@@ -4,6 +4,8 @@
 
 #include "UTTeamInterface.h"
 #include "Stat.h"
+#include "Online.h"
+#include "OnlineSubsystemTypes.h"
 #include "UTPlayerState.generated.h"
 
 UCLASS()
@@ -150,6 +152,20 @@ public:
 
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void ServerNextChatDestination();
+
+public:
+	void WriteStatsToCloud();
+
+private:
+	bool bWroteStatsToCloud;
+	IOnlineIdentityPtr OnlineIdentityInterface;
+	IOnlineUserCloudPtr OnlineUserCloudInterface;
+	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
+	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
+	FString GetStatsFilename();
+	void ReadStatsFromCloud();
+	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
+	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 };
 
 

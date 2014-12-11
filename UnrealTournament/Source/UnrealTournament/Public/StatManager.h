@@ -71,6 +71,9 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	virtual void PostLoad() override;
 	// End UObject interface
 
+	void PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject);
+	void InsertDataFromJsonObject(const TSharedPtr<FJsonObject> JsonObject);
+
 private:
 	/**
 	 * Called during load to populate the StatLookup map. This is used to look up stat objects quickly.

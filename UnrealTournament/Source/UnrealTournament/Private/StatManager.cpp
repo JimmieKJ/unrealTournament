@@ -216,3 +216,29 @@ void UStatManager::PopulateStatLookup()
 		}
 	}
 }
+
+void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
+{
+	for (auto* Stat : Stats)
+	{
+		if (Stat)
+		{
+			JsonObject->SetNumberField(Stat->StatName.ToString(), GetStatValue(Stat, EStatRecordingPeriod::Persistent));
+		}
+	}
+}
+
+void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
+{
+	for (auto* Stat : Stats)
+	{
+		if (Stat)
+		{
+			int32 StatInput = 0;
+			if (JsonObject->TryGetNumberField(Stat->StatName.ToString(), StatInput))
+			{
+				Stat->ModifyStat(StatInput, EStatMod::Set);
+			}
+		}
+	}
+}

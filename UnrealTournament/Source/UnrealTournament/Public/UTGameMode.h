@@ -438,6 +438,8 @@ protected:
 
 	virtual void SendEveryoneBackToLobby();
 
+	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
+
 };
 
 

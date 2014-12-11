@@ -20,6 +20,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	PrimaryActorTick.bCanEverTick = true;
 
 	StatManager = nullptr;
+	bWroteStatsToCloud = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -129,7 +130,6 @@ void AUTPlayerState::IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPla
 		// Trigger it locally
 		OnDeathsReceived();
 	}
-
 }
 
 void AUTPlayerState::AdjustScore(int32 ScoreAdjustment)
@@ -163,6 +163,17 @@ void AUTPlayerState::Tick(float DeltaTime)
 void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
 {
 	StatsID = NewStatsID;
+
+	ReadStatsFromCloud();	
+}
+
+void AUTPlayerState::ReadStatsFromCloud()
+{
+	// Don't read stats from cloud if we've already written them, consider memory to be a valid representation of the stats
+	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator)
+	{
+		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
+	}
 }
 
 bool AUTPlayerState::ServerReceiveStatsID_Validate(const FString& NewStatsID)
@@ -207,6 +218,11 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 	if (PS != NULL)
 	{
 		PS->Team = Team;
+		PS->bWroteStatsToCloud = bWroteStatsToCloud;
+		PS->StatsID = StatsID;
+		PS->Kills = Kills;
+		PS->Deaths = Deaths;
+		PS->Assists = Assists;
 	}
 }
 void AUTPlayerState::OverrideWith(APlayerState* PlayerState)
@@ -269,12 +285,23 @@ void AUTPlayerState::BeginPlay()
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
 	{
-		IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+		OnlineUserCloudInterface = OnlineSubsystem->GetUserCloudInterface();
+
+		if (Role == ROLE_Authority && OnlineUserCloudInterface.IsValid())
+		{
+			OnReadUserFileCompleteDelegate = FOnReadUserFileCompleteDelegate::CreateUObject(this, &AUTPlayerState::OnReadUserFileComplete);
+			OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate(OnReadUserFileCompleteDelegate);
+
+			OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &AUTPlayerState::OnWriteUserFileComplete);
+			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate(OnWriteUserFileCompleteDelegate);
+		}
+
 		APlayerController* PC = Cast<APlayerController>(GetOwner());
 		if (OnlineIdentityInterface.IsValid() && PC != nullptr)
 		{
 			ULocalPlayer* LP = Cast<ULocalPlayer>(PC->Player);
-			if (LP != nullptr)
+			if (LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->ControllerId))
 			{
 				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->ControllerId);
 				if (UserId.IsValid())
@@ -314,3 +341,79 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 	}
 }
 
+void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
+{
+	// this notification is for us
+	if (InUserId.ToString() == StatsID)
+	{
+		UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
+
+		TArray<uint8> FileContents;
+		if (OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents))
+		{
+			FString JsonString;
+			{
+				FMemoryReader MemoryReader(FileContents);
+				MemoryReader << JsonString;
+			}
+
+			TSharedPtr<FJsonObject> StatsJson;
+			TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
+			if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.IsValid())
+			{
+				FString JsonStatsID;
+				if (StatsJson->TryGetStringField(TEXT("StatsID"), JsonStatsID) && JsonStatsID == StatsID)
+				{
+					UE_LOG(LogGameStats, Log, TEXT("Stats ID matched, adding stats from the cloud to current stats"));
+				}
+				else
+				{
+					UE_LOG(LogGameStats, Warning, TEXT("Failed to find matching StatsID in valid stats read."));
+				}
+
+				StatManager->InsertDataFromJsonObject(StatsJson);
+			}
+		}
+	}
+}
+
+void AUTPlayerState::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
+{
+	// this notification is for us
+	if (InUserId.ToString() == StatsID)
+	{
+		UE_LOG(LogGameStats, Log, TEXT("OnWriteUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
+		bWroteStatsToCloud = true;
+	}
+}
+
+FString AUTPlayerState::GetStatsFilename()
+{
+	if (!StatsID.IsEmpty())
+	{
+		FString ProfileFilename = FString::Printf(TEXT("%s.user.stats"), *StatsID);
+		return ProfileFilename;
+	}
+
+	return TEXT("local.user.stats");
+}
+
+void AUTPlayerState::WriteStatsToCloud()
+{
+	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && StatManager != nullptr && !bOnlySpectator)
+	{
+		TArray<uint8> FileContents;
+		TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
+		StatsJson->SetStringField(TEXT("StatsID"), StatsID);
+		StatManager->PopulateJsonObject(StatsJson);
+
+		FString OutputJsonString;
+		TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+		FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+		{
+			FMemoryWriter MemoryWriter(FileContents);
+			MemoryWriter << OutputJsonString;
+		}
+		OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents);
+	}
+}

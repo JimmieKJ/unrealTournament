@@ -857,7 +857,14 @@ void AUTGameMode::EndMatch()
 			UTGameSession->EndMatch();
 		}
 	}
-
+	for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
+		if (PS != nullptr)
+		{
+			PS->WriteStatsToCloud();
+		}
+	}
 }
 
 void AUTGameMode::SendEndOfGameStats(FName Reason)
@@ -2029,6 +2036,23 @@ void AUTGameMode::SendEveryoneBackToLobby()
 		if (Controller)
 		{
 			Controller->ClientReturnToLobby();
+		}
+	}
+}
+
+void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
+{
+	FString SavedNetworkAddress = PlayerState->SavedNetworkAddress;
+
+	Super::AddInactivePlayer(PlayerState, PC);
+
+	if (InactivePlayerArray.Num() > 0)
+	{
+		// Check that incoming playerstate was actually put into the inactive array
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(InactivePlayerArray[InactivePlayerArray.Num() - 1]);
+		if (SavedNetworkAddress == UTPS->SavedNetworkAddress)
+		{
+			UTPS->WriteStatsToCloud();
 		}
 	}
 }
