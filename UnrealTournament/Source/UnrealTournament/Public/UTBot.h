@@ -554,6 +554,9 @@ public:
 	virtual void NotifyLanded(const FHitResult& Hit);
 	virtual void NotifyJumpApex();
 
+	UFUNCTION()
+	virtual void ApplyCrouch();
+
 	// causes the bot decision logic to be run within one frame
 	virtual void WhatToDoNext();
 

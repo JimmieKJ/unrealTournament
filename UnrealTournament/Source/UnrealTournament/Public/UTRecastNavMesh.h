@@ -321,7 +321,7 @@ protected:
 	/** get size of poly edge link clamped to one of the SizeSteps
 	 * inputs are all assumed valid
 	 */
-	FCapsuleSize GetSteppedEdgeSize(const struct dtPoly* PolyData, const struct dtMeshTile* TileData, const struct dtLink& Link) const;
+	FCapsuleSize GetSteppedEdgeSize(NavNodeRef PolyRef, const struct dtPoly* PolyData, const struct dtMeshTile* TileData, const struct dtLink& Link) const;
 
 	/** set min edge/poly sizes for the given path node, generally matching the navmesh poly data with one of the values in SizeSteps */
 	virtual void SetNodeSize(UUTPathNode* Node);

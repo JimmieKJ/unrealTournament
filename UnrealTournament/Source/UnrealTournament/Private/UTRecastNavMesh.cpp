@@ -56,7 +56,7 @@ const dtQueryFilter* AUTRecastNavMesh::GetDefaultDetourFilter() const
 	return ((const FRecastQueryFilter*)GetDefaultQueryFilterImpl())->GetAsDetourQueryFilter();
 }
 
-FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(const struct dtPoly* PolyData, const struct dtMeshTile* TileData, const struct dtLink& Link) const
+FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(NavNodeRef PolyRef, const struct dtPoly* PolyData, const struct dtMeshTile* TileData, const struct dtLink& Link) const
 {
 	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
@@ -70,16 +70,56 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(const struct dtPoly* PolyData,
 	// the navmesh pushes out the edges by AgentRadius, so that amount should be guaranteed walkable
 	// we then subtract 1 for float imprecision and because it doesn't hurt to be conservative when it comes to reachability
 	ActualSize.Radius = FMath::TruncToInt((UnrealVert1 - UnrealVert2).Size() * 0.5f + AgentRadius - 1.0f);
-	float Height = 0.0f;
-	InternalQuery.getPolyHeight(Link.ref, Vert1, &Height);
-	// TODO: recast is giving us negative poly heights sometimes. Is Abs() the right answer?
-	ActualSize.Height = FMath::Abs<int32>(FMath::TruncToInt(Height * 0.5f));
-
-	InternalQuery.getPolyHeight(Link.ref, Vert2, &Height);
-	ActualSize.Height = FMath::Min<int32>(FMath::Abs<int32>(FMath::TruncToInt(Height * 0.5f)), ActualSize.Height);
-
-	// we get some really low heights... maybe it doesn't account for AgentHeight?
-	ActualSize.Height += FMath::TruncToInt(AgentHeight);
+	// recast does NOT calculate walkable height for polys; it expects you to use entirely separate navmeshes for different agent sizes
+	// so we will need to calculate height manually
+	float AgentHalfHeight = AgentHeight * 0.5f;
+	ActualSize.Height = FMath::TruncToInt(AgentHalfHeight);
+	// spot test a capsule at the center of both linked polys
+	// this is not ideal but a simple sweep generates too many false hits and we have neither the functionality nor performance for a walking simulation
+	// TODO: an alternative possibility if this isn't good enough is to extrude the polys upwards by the test height and overlap check that
+	int32 FailedHeight = MAX_int32;
+	for (const FCapsuleSize TestSize : SizeSteps)
+	{
+		if (TestSize.Height > ActualSize.Height && TestSize.Height < FailedHeight)
+		{
+			bool bFailed = false;
+			for (int32 i = 0; i < 2; i++)
+			{
+				FVector PolyCenter = (i == 0) ? GetPolyCenter(PolyRef) : GetPolyCenter(Link.ref);
+				// note: poly center is not necessarily a valid surface height
+				float PolyHeight = PolyCenter.Z;
+				{
+					FVector RecastCenter = Unreal2RecastPoint(PolyCenter);
+					if (dtStatusSucceed(InternalQuery.getPolyHeight((i == 0) ? PolyRef : Link.ref, (float*)&RecastCenter, &PolyHeight)))
+					{
+						PolyCenter.Z = PolyHeight;
+					}
+				}
+				// find floor
+				FHitResult Hit;
+				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(AgentRadius, 1.0f);
+				if (GetWorld()->SweepSingle(Hit, PolyCenter + FVector(0.0f, 0.0f, AgentHalfHeight * 0.75f), PolyCenter - FVector(0.0f, 0.0f, AgentHalfHeight), FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
+				{
+					TestCapsule.Capsule.HalfHeight = TestSize.Height;
+					// make sure capsule fits here
+					FVector StartLoc = Hit.Location + FVector(0.0f, 0.0f, TestSize.Height + 1.0f);
+					if (GetWorld()->OverlapTest(StartLoc, FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
+					{
+						bFailed = true;
+						break;
+					}
+				}
+			}
+			if (bFailed)
+			{
+				FailedHeight = FMath::Min<int32>(FailedHeight, TestSize.Height);
+			}
+			else
+			{
+				ActualSize.Height = TestSize.Height;
+			}
+		}
+	}
 
 	FCapsuleSize SteppedSize(0, 0);
 	for (int32 i = 0; i < SizeSteps.Num(); i++)
@@ -117,7 +157,7 @@ void AUTRecastNavMesh::SetNodeSize(UUTPathNode* Node)
 				i = Link.next;
 				if (InternalMesh->isValidPolyRef(Link.ref) && !bOffMeshLink)
 				{
-					FCapsuleSize NewSize = GetSteppedEdgeSize(PolyData, TileData, Link);
+					FCapsuleSize NewSize = GetSteppedEdgeSize(PolyRef, PolyData, TileData, Link);
 					if (bFirstEdge)
 					{
 						Node->MinPolyEdgeSize = NewSize;
@@ -504,7 +544,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 							i = Link.next;
 							if (InternalMesh->isValidPolyRef(Link.ref))
 							{
-								FCapsuleSize OtherSize = GetSteppedEdgeSize(PolyData, TileData, Link);
+								FCapsuleSize OtherSize = GetSteppedEdgeSize(PolyRef, PolyData, TileData, Link);
 								// TODO: any other checks needed?
 								// TODO: max distance between nodes? Maybe based on pct of mesh size?
 								if (!bOffMeshLink && OtherSize == Node->MinPolyEdgeSize && /*TileData->header->walkableClimb == DestTile->header->walkableClimb &&*/ !PolyToNode.Contains(Link.ref))
@@ -1349,8 +1389,12 @@ void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& 
 
 	if (AgentProps.bCanCrouch)
 	{
-		// Radius = CrouchRadius;
-		// Height = CrouchHeight;
+		// unfortunate that this isn't in FNavAgentProperties...
+		ACharacter* C = Cast<ACharacter>(Asker);
+		if (C != NULL && C->GetCharacterMovement() != NULL)
+		{
+			Height = FMath::Min<int32>(Height, FMath::TruncToInt(C->GetCharacterMovement()->CrouchedHalfHeight));
+		}
 	}
 
 	if (Asker != NULL)

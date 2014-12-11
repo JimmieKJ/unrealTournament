@@ -1207,96 +1207,126 @@ void AUTBot::NotifyBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImp
 	}
 }
 
+void AUTBot::ApplyCrouch()
+{
+	if (GetCharacter() != NULL)
+	{
+		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = true;
+	}
+}
+
 void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 {
 	if ((CurrentAction == NULL || !CurrentAction->NotifyMoveBlocked(Impact)) && GetCharacter() != NULL)
 	{
 		if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 		{
-			const FVector MovePoint = GetMovePoint();
-			const FVector MyLoc = GetCharacter()->GetActorLocation();
-			// get as close as possible to path
-			bool bGotAdjustLoc = false;
-			if (!bAdjusting && CurrentPath.EndPoly != INVALID_NAVNODEREF)
+			// crouch if path says we should
+			// FIXME: what if going for detour in the middle of crouch path? (dropped pickup, etc)
+			if (CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight()))
 			{
-				FCollisionQueryParams Params(FName(TEXT("MoveBlocked")), false, GetPawn());
-				if (!GetWorld()->LineTraceTest(LastReachedMovePoint, MovePoint, ECC_Pawn, Params))
+				if (CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetCharacterMovement()->CrouchedHalfHeight))
 				{
-					// path requires adjustment or jump from the start
-					// check if jump would be valid
-					float JumpApexTime = GetCharacter()->GetCharacterMovement()->JumpZVelocity / -GetCharacter()->GetCharacterMovement()->GetGravityZ();
-					float JumpHeight = GetCharacter()->GetCharacterMovement()->JumpZVelocity * JumpApexTime + 0.5 * GetCharacter()->GetCharacterMovement()->GetGravityZ() * FMath::Square(JumpApexTime);
-					if (!GetCharacter()->CanJump() || GetWorld()->LineTraceTest(LastReachedMovePoint + FVector(0.0f, 0.0f, JumpHeight), MovePoint, ECC_Pawn, Params))
-					{
-						// test opposite hit direction, then sides of movement dir
-						const FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
-						const float AdjustDist = GetPawn()->GetSimpleCollisionRadius() * 1.5f;
-						FVector TestLocs[] = { MyLoc + Impact.Normal * AdjustDist, MyLoc + Side * AdjustDist, MyLoc - Side * AdjustDist };
-						for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
-						{
-							if (!GetWorld()->LineTraceTest(MyLoc, TestLocs[i], ECC_Pawn, Params))
-							{
-								AdjustLoc = TestLocs[i];
-								bAdjusting = true;
-								bGotAdjustLoc = true;
-								break;
-							}
-						}
-					}
+					// capabilities changed since path was found
+					MoveTimer = -1.0f;
 				}
 				else
 				{
-					// get XY distance from desired path
-					// note that the size of the result of ClosestPointOnSegment() with 2D vectors doesn't match that of using 3D vectors followed by Size2D()
-					FVector LastPointNoZ(LastReachedMovePoint.X, LastReachedMovePoint.Y, 0.0f);
-					FVector CurrentPointNoZ(MovePoint.X, MovePoint.Y, 0.0f);
-					FVector MyLocNoZ(MyLoc.X, MyLoc.Y, 0.0f);
-					FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLocNoZ, LastPointNoZ, CurrentPointNoZ);
-					if ((ClosestPoint - MyLoc).SizeSquared2D() > FMath::Square(GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius()))
+					// we're in the middle of the movement code and setting crouch here will get clobbered
+					// (see UUTCharacterMovement::PerformMovement())
+					if (!GetWorldTimerManager().IsTimerActive(this, &AUTBot::ApplyCrouch))
 					{
-						// set Z of closest point to match the XY that was previously determined
-						ClosestPoint.Z = (ClosestPoint - LastPointNoZ).Size() / (CurrentPointNoZ - LastPointNoZ).Size() * (MovePoint.Z - LastReachedMovePoint.Z) + LastReachedMovePoint.Z;
-						// try directly back to path center, then try backing up a bit towards path start
-						FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
-						if ((Side | (ClosestPoint - MyLoc).SafeNormal()) < 0.0f)
+						GetWorldTimerManager().SetTimerForNextTick(this, &AUTBot::ApplyCrouch);
+					}
+				}
+			}
+			else
+			{
+				const FVector MovePoint = GetMovePoint();
+				const FVector MyLoc = GetCharacter()->GetActorLocation();
+				// get as close as possible to path
+				bool bGotAdjustLoc = false;
+				if (!bAdjusting && CurrentPath.EndPoly != INVALID_NAVNODEREF)
+				{
+					FCollisionQueryParams Params(FName(TEXT("MoveBlocked")), false, GetPawn());
+					if (!GetWorld()->LineTraceTest(LastReachedMovePoint, MovePoint, ECC_Pawn, Params))
+					{
+						// path requires adjustment or jump from the start
+						// check if jump would be valid
+						float JumpApexTime = GetCharacter()->GetCharacterMovement()->JumpZVelocity / -GetCharacter()->GetCharacterMovement()->GetGravityZ();
+						float JumpHeight = GetCharacter()->GetCharacterMovement()->JumpZVelocity * JumpApexTime + 0.5 * GetCharacter()->GetCharacterMovement()->GetGravityZ() * FMath::Square(JumpApexTime);
+						if (!GetCharacter()->CanJump() || GetWorld()->LineTraceTest(LastReachedMovePoint + FVector(0.0f, 0.0f, JumpHeight), MovePoint, ECC_Pawn, Params))
 						{
-							Side *= -1.0f;
-						}
-						FVector TestLocs[] = { ClosestPoint, ClosestPoint + (LastReachedMovePoint - ClosestPoint).SafeNormal() * GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f,
-												MyLoc + Side * (ClosestPoint - MyLoc).Size() };
-						for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
-						{
-							if (!GetWorld()->LineTraceTest(MyLoc, TestLocs[i], ECC_Pawn, Params))
+							// test opposite hit direction, then sides of movement dir
+							const FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+							const float AdjustDist = GetPawn()->GetSimpleCollisionRadius() * 1.5f;
+							FVector TestLocs[] = { MyLoc + Impact.Normal * AdjustDist, MyLoc + Side * AdjustDist, MyLoc - Side * AdjustDist };
+							for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
 							{
-								AdjustLoc = TestLocs[i];
-								bAdjusting = true;
-								bGotAdjustLoc = true;
-								break;
+								if (!GetWorld()->LineTraceTest(MyLoc, TestLocs[i], ECC_Pawn, Params))
+								{
+									AdjustLoc = TestLocs[i];
+									bAdjusting = true;
+									bGotAdjustLoc = true;
+									break;
+								}
+							}
+						}
+					}
+					else
+					{
+						// get XY distance from desired path
+						// note that the size of the result of ClosestPointOnSegment() with 2D vectors doesn't match that of using 3D vectors followed by Size2D()
+						FVector LastPointNoZ(LastReachedMovePoint.X, LastReachedMovePoint.Y, 0.0f);
+						FVector CurrentPointNoZ(MovePoint.X, MovePoint.Y, 0.0f);
+						FVector MyLocNoZ(MyLoc.X, MyLoc.Y, 0.0f);
+						FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLocNoZ, LastPointNoZ, CurrentPointNoZ);
+						if ((ClosestPoint - MyLoc).SizeSquared2D() > FMath::Square(GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius()))
+						{
+							// set Z of closest point to match the XY that was previously determined
+							ClosestPoint.Z = (ClosestPoint - LastPointNoZ).Size() / (CurrentPointNoZ - LastPointNoZ).Size() * (MovePoint.Z - LastReachedMovePoint.Z) + LastReachedMovePoint.Z;
+							// try directly back to path center, then try backing up a bit towards path start
+							FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+							if ((Side | (ClosestPoint - MyLoc).SafeNormal()) < 0.0f)
+							{
+								Side *= -1.0f;
+							}
+							FVector TestLocs[] = { ClosestPoint, ClosestPoint + (LastReachedMovePoint - ClosestPoint).SafeNormal() * GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f,
+								MyLoc + Side * (ClosestPoint - MyLoc).Size() };
+							for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
+							{
+								if (!GetWorld()->LineTraceTest(MyLoc, TestLocs[i], ECC_Pawn, Params))
+								{
+									AdjustLoc = TestLocs[i];
+									bAdjusting = true;
+									bGotAdjustLoc = true;
+									break;
+								}
 							}
 						}
 					}
 				}
-			}
-			if (!bGotAdjustLoc)
-			{
-				if (MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?)
+				if (!bGotAdjustLoc)
 				{
-					FVector Diff = MovePoint - MyLoc;
-					// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
-					if (((Impact.Normal * -1.0f) | Diff.SafeNormal()) > 0.0f)
+					if (MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?)
 					{
-						float XYTime = Diff.Size2D() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed;
-						float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->GetCharacterMovement()->GetGravityZ() * XYTime;
-						if (DesiredJumpZ > 0.0f)
+						FVector Diff = MovePoint - MyLoc;
+						// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
+						if (((Impact.Normal * -1.0f) | Diff.SafeNormal()) > 0.0f)
 						{
-							GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
+							float XYTime = Diff.Size2D() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed;
+							float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->GetCharacterMovement()->GetGravityZ() * XYTime;
+							if (DesiredJumpZ > 0.0f)
+							{
+								GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
+							}
+							GetCharacter()->GetCharacterMovement()->DoJump(false);
 						}
-						GetCharacter()->GetCharacterMovement()->DoJump(false);
 					}
-				}
-				else if (Impact.Time <= 0.0f)
-				{
-					ClearMoveTarget();
+					else if (Impact.Time <= 0.0f)
+					{
+						ClearMoveTarget();
+					}
 				}
 			}
 		}
