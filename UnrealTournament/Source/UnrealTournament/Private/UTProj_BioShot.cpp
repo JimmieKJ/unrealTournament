@@ -46,7 +46,8 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	bLanded = false;
 	bHasMerged = false;
 	bCanTrack = false;
-	WebLifeBoost = 20.f; // @TODO FIXMESTEVE reduce once have link recharging
+	WebLifeBoost = 10.f; 
+	WebLifeLowThreshold = 4.f;
 	MaxLinkDistance = 1000.f;
 
 	LandedOverlapRadius = 16.f;
@@ -54,7 +55,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	MaxSlideSpeed = 1500.f;
 	TrackingRange = 2000.f;
 	MaxTrackingSpeed = 1200.f;
-	ProjectileMovement->HomingAccelerationMagnitude = 800.f;
+	ProjectileMovement->HomingAccelerationMagnitude = 1200.f;
 	UUTProjectileMovementComponent* UTProjMovement = Cast<UUTProjectileMovementComponent>(ProjectileMovement);
 	if (UTProjMovement)
 	{
@@ -62,7 +63,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	}
 	GlobRadiusScaling = 4.f;
 	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.SetTickFunctionEnable(false);
+	PrimaryActorTick.bStartWithTickEnabled = true;
 
 	BlobPulseTime = 0.f;
 	InitialBlobPulseRate = 3.f;
@@ -71,6 +72,10 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	BlobWebThreshold = 100.f;
 	BlobPulseTime = 0.f;
 	BlobPulseScaling = 0.1f;
+
+	BaseBeamColor = FLinearColor(0.2f, 0.33f, 0.07f, 1.f);
+	LowLifeBeamColor = FLinearColor(0.1f, 0.5f, 0.f, 0.01f);
+	ChargingBeamColor = FLinearColor(100.f, 500.f, 100.f, 1.f);
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -81,7 +86,7 @@ void AUTProj_BioShot::BeginPlay()
 		SetGlobStrength(GlobStrength);
 
 		// failsafe if never land
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime, false);
+		RemainingLife = RestTime;
 		bSpawningGloblings = false;
 		SurfaceNormal = GetActorRotation().Vector();
 	}
@@ -214,12 +219,10 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 
 	bCanTrack = false;
 	bAddingWebLink = true;
-	PrimaryActorTick.SetTickFunctionEnable(true);
 	if (WebLinks.Num() == 0)
 	{
 		// lifespan boost for being connected to web
-		float RemainingRestTime = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTProj_BioShot::BioStabilityTimer) + WebLifeBoost;
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RemainingRestTime, false);
+		RemainingLife += WebLifeBoost;
 	}
 	UParticleSystemComponent* NewWebLinkEffect = NULL;
 	UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
@@ -237,6 +240,9 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			NewWebLinkEffect->SetVectorParameter(NAME_HitLocation, LinkedBio->GetActorLocation());
 			NewWebLinkEffect->SetVectorParameter(NAME_LocalHitLocation, NewWebLinkEffect->ComponentToWorld.InverseTransformPositionNoScale(LinkedBio->GetActorLocation()));
 			NewWebLinkEffect->SetWorldRotation((LinkedBio->GetActorLocation() - GetActorLocation()).Rotation());
+			static FName NAME_BeamColor("BeamColor");
+			CurrentBeamColor = BaseBeamColor;
+			NewWebLinkEffect->SetColorParameter(NAME_BeamColor, CurrentBeamColor);
 		}
 		// replication support (temp)
 		if ((Role == ROLE_Authority) && (this != LinkedBio->WebMaster) && (WebMaster != LinkedBio))
@@ -267,7 +273,7 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 
 bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
 {
-	if (LinkedBio && !LinkedBio->IsPendingKillPending() && (GetActorLocation() - LinkedBio->GetActorLocation()).Size() < MaxLinkDistance)
+	if (LinkedBio && (LinkedBio != this) && !LinkedBio->IsPendingKillPending() && (GetActorLocation() - LinkedBio->GetActorLocation()).Size() < MaxLinkDistance)
 	{
 		// verify line of sight
 		FHitResult Hit;
@@ -316,16 +322,13 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 								}
 							}
 						}
-
-						// this costs ammo!
-						// flash line when low, allow recharge
-						// spider web trap springing
 					}
 					if (GlobStrength >= MaxRestingGlobStrength)
 					{
 						BlobOverCharge += DamageAmount;
 						if (BlobOverCharge >= BlobWebThreshold)
 						{
+							BlobOverCharge = 0.f;
 							FVector ShotDirection = (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID))
 								? ((const FUTPointDamageEvent&)DamageEvent).ShotDirection
 								: FVector_NetQuantizeNormal(0.f, 0.f, 1.f);
@@ -333,6 +336,11 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 							return DamageAmount;
 						}
 					}
+					else if (Linker && (WebLinks.Num() > 0))
+					{
+						PropagateCharge(WebLifeBoost * DamageAmount * 0.01f);
+					}
+
 					Linker->LinkedBio = this;
 				}
 			}
@@ -344,6 +352,30 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 		}
 	}
 	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+}
+
+void AUTProj_BioShot::PropagateCharge(float ChargeAmount)
+{
+	if (GetWorld()->GetTimeSeconds() == LastWebChargeTime)
+	{
+		return;
+	}
+	LastWebChargeTime = GetWorld()->GetTimeSeconds();
+
+	// link charging
+	if (RemainingLife < WebLifeBoost + RestTime)
+	{
+		bIsLinkCharging = true;
+		LinkChargeEndTime = GetWorld()->GetTimeSeconds() + 0.3f;
+		RemainingLife = FMath::Min(WebLifeBoost + RestTime, RemainingLife + ChargeAmount);
+	}
+	for (int32 i = 0; i < WebLinks.Num(); i++)
+	{
+		if (WebLinks[i].LinkedBio && !WebLinks[i].LinkedBio->IsPendingKillPending() && (WebLinks[i].LinkedBio->RemainingLife < WebLifeBoost + RestTime))
+		{
+			WebLinks[i].LinkedBio->PropagateCharge(ChargeAmount);
+		}
+	}
 }
 
 void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
@@ -375,6 +407,7 @@ void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
 	}
 	bSpawningGloblings = false;
 	SetGlobStrength(1.f);
+	RemainingLife = RestTime + WebLifeBoost;
 }
 
 void AUTProj_BioShot::BioStabilityTimer()
@@ -428,7 +461,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 			if (Role == ROLE_Authority)
 			{
 				bReplicateUTMovement = true;
-				GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength, false);
+				RemainingLife = RestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength;
 				SetGlobStrength(GlobStrength);
 			}
 
@@ -548,7 +581,6 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 		ProjectileMovement->HomingTargetComponent = TrackedPawn->GetCapsuleComponent();
 		ProjectileMovement->bShouldBounce = true;
 		bLanded = false;
-		PrimaryActorTick.SetTickFunctionEnable(true);
 
 		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
 		{
@@ -557,8 +589,18 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 	}
 }
 
+// @TODO FIXMESTEVE some links stay charge looking
 void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
+	if (Role == ROLE_Authority)
+	{
+		RemainingLife -= DeltaTime;
+		if (RemainingLife <= 0.f)
+		{
+			BioStabilityTimer();
+			return;
+		}
+	}
 	if (ProjectileMovement->bIsHomingProjectile)
 	{
 		if (!ProjectileMovement->HomingTargetComponent.IsValid() || ((ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SizeSquared() > FMath::Square(1.5f * TrackingRange)))
@@ -567,14 +609,19 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			ProjectileMovement->bIsHomingProjectile = false;
 			TrackedPawn = NULL;
 			bLanded = true;
-			PrimaryActorTick.SetTickFunctionEnable(false);
 		}
 	}
 	else
 	{
+		bWebLifeLow = (RemainingLife < WebLifeLowThreshold);
+		bIsLinkCharging = bIsLinkCharging && ((Role != ROLE_Authority) || (LinkChargeEndTime > GetWorld()->GetTimeSeconds()));
+		static FName NAME_BeamColor("BeamColor");
+		float PulseMag = FMath::Sin(GetWorld()->GetTimeSeconds()*8.f);
 		for (int32 i = 0; i<WebLinks.Num(); i++)
 		{
-			if (WebLinks[i].LinkedBio) // && WebLinks[i].WebLink) @TODO FIXMESTEVE WHY NOT SET PROPERLY
+			bool bOtherWebLifeLow = false;
+			bool bOtherWebLinkCharging = false;
+			if (WebLinks[i].LinkedBio && !WebLinks[i].LinkedBio->IsPendingKillPending()) 
 			{
 				FHitResult Hit;
 				static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
@@ -587,6 +634,29 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 						return;
 					}
 					break;
+				}
+
+				if (WebLinks[i].WebLink)
+				{
+					bOtherWebLifeLow = WebLinks[i].LinkedBio->bWebLifeLow;
+					bOtherWebLinkCharging = WebLinks[i].LinkedBio->bIsLinkCharging;
+					if (bIsLinkCharging || bOtherWebLinkCharging)
+					{
+						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : ChargingBeamColor;
+					}
+					else if (bWebLifeLow || bOtherWebLifeLow) 
+					{
+						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : LowLifeBeamColor;
+					}
+					else
+					{
+						CurrentBeamColor = BaseBeamColor;
+					}
+					if (CurrentBeamColor != WebLinks[i].SetBeamColor)
+					{ 
+						WebLinks[i].WebLink->SetColorParameter(NAME_BeamColor, CurrentBeamColor);
+						WebLinks[i].SetBeamColor = CurrentBeamColor;
+					}
 				}
 			}
 		}
@@ -723,9 +793,7 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 	{
 		if (Role == ROLE_Authority)
 		{
-			float RemainingRestTime = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTProj_BioShot::BioStabilityTimer) + (GlobStrength - OldStrength) * ExtraRestTimePerStrength;
-			GetWorld()->GetTimerManager().SetTimer(this, &AUTProj_BioShot::BioStabilityTimer, RemainingRestTime, false);
-
+			RemainingLife = RemainingLife + (GlobStrength - OldStrength) * ExtraRestTimePerStrength;
 		}
 		// Glob merge effects
 		UUTGameplayStatics::UTPlaySound(GetWorld(), MergeSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
@@ -796,5 +864,7 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkOne, COND_None);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebLinkTwo, COND_None);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebMaster, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bIsLinkCharging, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bWebLifeLow, COND_None);
 	DOREPLIFETIME(AUTProj_BioShot, bLanded);
 }

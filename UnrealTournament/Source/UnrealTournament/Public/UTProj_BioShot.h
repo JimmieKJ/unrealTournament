@@ -25,6 +25,10 @@ struct FBioWebLink
 	UPROPERTY()
 	UParticleSystemComponent* WebLink;
 
+	/** Currently Set Beam Color */
+	UPROPERTY(BlueprintReadWrite, Category = Web)
+		FLinearColor SetBeamColor;
+
 	FBioWebLink()
 		: LinkedBio(NULL)
 		, WebLink(NULL)
@@ -48,9 +52,27 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(ReplicatedUsing = OnRep_WebLinkOne)
 		AUTProj_BioShot* WebLinkOne;
 
-	/** @TODO FIXMESTEVE  figure out best way to replicate web once past prototype stage. */
 	UPROPERTY(ReplicatedUsing = OnRep_WebLinkTwo)
 		AUTProj_BioShot* WebLinkTwo;
+
+	/** Should be playing web link charging effect. */
+	UPROPERTY(Replicated)
+		bool bIsLinkCharging;
+
+	/** Should be playing web low life remaining effect. */
+	UPROPERTY(Replicated)
+		bool bWebLifeLow;
+
+	/** Time to end web charging effect. */
+	UPROPERTY()
+		float LinkChargeEndTime;
+
+	/** Used to avoid web charging propagation loops */
+	UPROPERTY()
+		float LastWebChargeTime;
+
+	/** Propagate link charging in progress to web neighbors. */
+	virtual void PropagateCharge(float ChargeAmount);
 
 	UFUNCTION()
 		virtual void OnRep_WebLinkOne();
@@ -61,6 +83,26 @@ class AUTProj_BioShot : public AUTProjectile
 	/** How much life to add to goo when added to web. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		float WebLifeBoost;
+
+	/** Pulse web links when less than this life left */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		float WebLifeLowThreshold;
+
+	/** Current desired Beam Color */
+	UPROPERTY(BlueprintReadWrite, Category = Web)
+		FLinearColor CurrentBeamColor;
+
+	/** Current Beam Color */
+	UPROPERTY(BlueprintReadWrite, Category = Web)
+		FLinearColor BaseBeamColor;
+
+	/** Beam Color when web is being charged. */
+	UPROPERTY(BlueprintReadWrite, Category = Web)
+		FLinearColor ChargingBeamColor;
+
+	/** Low Life Beam Color */
+	UPROPERTY(BlueprintReadWrite, Category = Web)
+		FLinearColor LowLifeBeamColor;
 
 	/** Prevent re-entrancy of TriggerWeb(). */
 	UPROPERTY()
@@ -179,7 +221,7 @@ class AUTProj_BioShot : public AUTProjectile
 
 	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 
-	/**The noraml of the wall we are stuck to*/
+	/** The target pawn being tracked */
 	UPROPERTY(BlueprintReadWrite, Category = Bio)
 	AUTCharacter* TrackedPawn;
 
@@ -255,6 +297,10 @@ class AUTProj_BioShot : public AUTProjectile
 	/**The Time added to RestTime when the glob lands*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 		float ExtraRestTimePerStrength;
+
+	/**Remaining life time for this blob*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float RemainingLife;
 
 	/**Sets the strength of the glob*/
 	UFUNCTION(BlueprintCallable, Category = Bio)
