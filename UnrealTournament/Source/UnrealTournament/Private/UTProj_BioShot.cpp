@@ -72,6 +72,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	BlobWebThreshold = 100.f;
 	BlobPulseTime = 0.f;
 	BlobPulseScaling = 0.1f;
+	bFoundWebLink = false;
 
 	BaseBeamColor = FLinearColor(0.2f, 0.33f, 0.07f, 1.f);
 	LowLifeBeamColor = FLinearColor(0.1f, 0.5f, 0.f, 0.01f);
@@ -89,6 +90,15 @@ void AUTProj_BioShot::BeginPlay()
 		RemainingLife = RestTime;
 		bSpawningGloblings = false;
 		SurfaceNormal = GetActorRotation().Vector();
+/*
+		if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+		{
+			APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+			if (PC != NULL && PC->MyHUD != NULL)
+			{
+				PC->MyHUD->AddPostRenderedActor(this);
+			}
+		}*/
 	}
 }
 
@@ -111,7 +121,38 @@ void AUTProj_BioShot::Destroyed()
 		RemoveWebLink(WebLinks[0].LinkedBio);
 	}
 
+/*
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer && GEngine->GetWorldContextFromWorld(GetWorld()) != NULL) // might not be able to get world context when exiting PIE
+	{
+		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		if (PC != NULL && PC->MyHUD != NULL)
+		{
+			PC->MyHUD->RemovePostRenderedActor(this);
+		}
+	}*/
+
 	// @TODO FIXMESTEVE - fix up WebChild list?
+}
+
+void AUTProj_BioShot::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
+{
+	float XL, YL;
+
+	float Scale = Canvas->ClipX / 1920;
+
+	UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
+	Canvas->TextSize(TinyFont, *GetName(), XL, YL, Scale, Scale);
+
+	FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0, 0, 15.f));
+	float XPos = ScreenPosition.X - (XL * 0.5);
+	if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
+	{
+		FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + ScreenPosition.Y - YL)), FText::FromString(GetName()), TinyFont, FLinearColor::White);
+		TextItem.Scale = FVector2D(Scale, Scale);
+		TextItem.BlendMode = SE_BLEND_Translucent;
+		TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+		Canvas->DrawItem(TextItem);
+	}
 }
 
 void AUTProj_BioShot::ShutDown()
@@ -473,27 +514,12 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 				{
 					WebChild = WebMaster->WebChild;
 					WebMaster->WebChild = this;
+					FindWebLink();
 
-					// connect to furthest with no weblink yet
-					AUTProj_BioShot* FurthestBio = NULL;
-					float FurthestDist = 0.f;
-					AUTProj_BioShot* NextBio = WebChild;
-					while (NextBio)
+					if (!bFoundWebLink)
 					{
-						if (!WebChild->IsPendingKillPending())
-						{
-							float Dist = (WebChild->GetActorLocation() - GetActorLocation()).SizeSquared();
-							if (!FurthestBio || (Dist > FurthestDist))
-							{
-								FurthestBio = WebChild;
-								FurthestDist = Dist;
-							}
-						}
-						NextBio = NextBio->WebChild;
-					}
-					if (FurthestBio)
-					{
-						AddWebLink(FurthestBio);
+						// try later
+						GetWorldTimerManager().SetTimer(this, &AUTProj_BioShot::FindWebLink, 1.f, false);
 					}
 				}
 			}
@@ -501,6 +527,32 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 	}
 	// uncomment to easily test tracking (also remove instigator checks in Track())
 	//Track(Cast<AUTCharacter>(Instigator));
+}
+
+void AUTProj_BioShot::FindWebLink()
+{
+	// connect to furthest with no weblink yet - skip if on same surface
+	AUTProj_BioShot* FurthestBio = NULL;
+	float FurthestDist = 0.f;
+	AUTProj_BioShot* NextBio = WebChild;
+	while (NextBio)
+	{
+		if (!NextBio->IsPendingKillPending() && ((NextBio->SurfaceNormal | SurfaceNormal) < 0.98f))
+		{
+			float Dist = (NextBio->GetActorLocation() - GetActorLocation()).SizeSquared();
+			if (!FurthestBio || (Dist > FurthestDist) && CanWebLinkTo(NextBio))
+			{
+				FurthestBio = NextBio;
+				FurthestDist = Dist;
+			}
+		}
+		NextBio = NextBio->WebChild;
+	}
+	if (FurthestBio)
+	{
+		AddWebLink(FurthestBio);
+		bFoundWebLink = true;
+	}
 }
 
 void AUTProj_BioShot::OnLanded_Implementation()

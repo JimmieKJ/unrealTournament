@@ -80,6 +80,14 @@ class AUTProj_BioShot : public AUTProjectile
 	UFUNCTION()
 		virtual void OnRep_WebLinkTwo();
 
+	UPROPERTY()
+		bool bFoundWebLink;
+
+	virtual void FindWebLink();
+
+	// for debugging
+	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir);
+
 	/** How much life to add to goo when added to web. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
 		float WebLifeBoost;
