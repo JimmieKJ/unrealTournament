@@ -223,6 +223,11 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->Kills = Kills;
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;
+		PS->StatManager = StatManager;
+		if (PS->StatManager)
+		{
+			PS->StatManager->InitializeManager(PS);
+		}
 	}
 }
 void AUTPlayerState::OverrideWith(APlayerState* PlayerState)
@@ -313,7 +318,7 @@ void AUTPlayerState::BeginPlay()
 		}
 	}
 		
-	if (Role == ROLE_Authority)
+	if (Role == ROLE_Authority && StatManager == nullptr)
 	{
 		//Make me a statmanager
 		StatManager = ConstructObject<UStatManager>(UStatManager::StaticClass(), this);
