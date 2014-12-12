@@ -2066,7 +2066,7 @@ void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController
 
 	Super::AddInactivePlayer(PlayerState, PC);
 
-	if (InactivePlayerArray.Num() > 0)
+	if (InactivePlayerArray.Num() > 0 && !bDisableCloudStats)
 	{
 		// Check that incoming playerstate was actually put into the inactive array
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(InactivePlayerArray[InactivePlayerArray.Num() - 1]);
