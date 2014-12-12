@@ -185,6 +185,7 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList)
 		bool bFoundAny = false;
 		do 
 		{
+			bFoundAny = false;
 			for (int32 i = 0; i < LocalAssetList.Num(); i++)
 			{
 				if (UnloadedBaseClassPaths.Find(*LocalAssetList[i].TagsAndValues.Find("ParentClass")))
