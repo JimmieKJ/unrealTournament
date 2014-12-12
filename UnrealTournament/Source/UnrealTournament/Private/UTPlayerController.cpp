@@ -423,6 +423,7 @@ void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
 
 		FRotator AdjustedCameraRot = GetControlRotation();
 		AdjustedCameraRot.Pitch = -45.0f;
+		AdjustedCameraRot.Roll = 0.f;
 		SetControlRotation(AdjustedCameraRot);
 
 		ChangeState(NAME_Inactive);
