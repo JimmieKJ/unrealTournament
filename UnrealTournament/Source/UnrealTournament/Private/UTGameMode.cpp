@@ -138,7 +138,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	// alias for testing convenience
 	if (HasOption(Options, TEXT("Bots")))
 	{
-		BotFillCount = GetIntOption(Options, TEXT("BotFill"), BotFillCount) + 1;
+		BotFillCount = GetIntOption(Options, TEXT("Bots"), BotFillCount) + 1;
 	}
 	else
 	{
@@ -1967,6 +1967,18 @@ void AUTGameMode::BlueprintBroadcastLocalized( AActor* Sender, TSubclassOf<ULoca
 void AUTGameMode::BlueprintSendLocalized( AActor* Sender, AUTPlayerController* Receiver, TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
 	Receiver->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
+
+void AUTGameMode::PrecacheAnnouncements(UUTAnnouncer* Announcer) const
+{
+	// slow but fairly reliable base implementation that looks up all local messages
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		if (It->IsChildOf(UUTLocalMessage::StaticClass()))
+		{
+			It->GetDefaultObject<UUTLocalMessage>()->PrecacheAnnouncements(Announcer);
+		}
+	}
 }
 
 void AUTGameMode::AssignDefaultSquadFor(AController* C)

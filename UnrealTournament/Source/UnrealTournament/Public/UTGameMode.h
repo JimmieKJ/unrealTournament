@@ -356,6 +356,11 @@ public:
 	// Returns true if the game wants to restrict all player spawns
 	virtual bool RestrictPlayerSpawns();
 
+	/** called on the default object of the game class being played to precache announcer sounds
+	 * needed because announcers are dynamically loaded for convenience of user announcer packs, so we need to load up the audio we think we'll use at game time
+	 */
+	virtual void PrecacheAnnouncements(class UUTAnnouncer* Announcer) const;
+
 	/** OverridePickupQuery()
 	* when pawn wants to pickup something, mutators are given a chance to modify it. If this function
 	* returns true, bAllowPickup will determine if the object can be picked up.

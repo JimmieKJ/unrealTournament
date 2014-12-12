@@ -78,6 +78,10 @@ class UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent)
 	void OnAnnouncementPlayed(int32 Switch, const UObject* OptionalObject) const;
 
+	/** called to precache announcer sounds at startup, since they're dynamically loaded to enable custom announcer packs */
+	UFUNCTION(BlueprintNativeEvent)
+	void PrecacheAnnouncements(class UUTAnnouncer* Announcer) const;
+
 	virtual void GetArgs(FFormatNamedArguments& Args, int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;

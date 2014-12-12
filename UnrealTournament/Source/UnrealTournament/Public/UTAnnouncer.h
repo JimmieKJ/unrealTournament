@@ -83,6 +83,8 @@ class UUTAnnouncer : public UObject
 	UPROPERTY()
 	UAudioComponent* AnnouncementComp;
 
+	virtual void PostInitProperties() override;
+
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 	{
 		Super::AddReferencedObjects(InThis, Collector);
@@ -111,6 +113,10 @@ class UUTAnnouncer : public UObject
 	 */
 	UFUNCTION(BlueprintCallable, Category = Announcement)
 	virtual void PlayNextAnnouncement();
+
+	/** load and cache reference to announcement sound (if it exists) without playing it */
+	UFUNCTION(BlueprintCallable, Category = Announcement)
+	virtual void PrecacheAnnouncement(FName SoundName);
 
 protected:
 	/** called when announcement audio ends (set to AudioComponent delegate) */

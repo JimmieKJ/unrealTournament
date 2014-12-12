@@ -11,6 +11,24 @@ UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
 	Spacing = 0.5f;
 }
 
+void UUTAnnouncer::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	if (!IsTemplate())
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			TSubclassOf<AUTGameMode> UTGameClass(*GS->GameModeClass);
+			if (UTGameClass != NULL)
+			{
+				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(this);
+			}
+		}
+	}
+}
+
 void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const UObject* OptionalObject)
 {
 	if (MessageClass != NULL)
@@ -130,5 +148,36 @@ void UUTAnnouncer::PlayNextAnnouncement()
 				}
 			}
 		}
+	}
+}
+
+void UUTAnnouncer::PrecacheAnnouncement(FName SoundName)
+{
+	if (SoundName != NAME_None && CachedAudio.Find(SoundName) == NULL)
+	{
+		USoundBase* Audio = NULL;
+		for (int32 i = 0; i < AudioList.Num(); i++)
+		{
+			if (AudioList[i].SoundName == SoundName)
+			{
+				Audio = AudioList[i].Sound;
+				break;
+			}
+		}
+		if (Audio == NULL)
+		{
+			// make sure path ends with trailing slash
+			if (!AudioPath.EndsWith(TEXT("/")))
+			{
+				AudioPath += TEXT("/");
+			}
+			// manually check that the file exists to avoid spurious log warnings (the loading code seems to be ignoring LOAD_NoWarn | LOAD_Quiet)
+			FString PackageName = AudioPath + AudioNamePrefix + SoundName.ToString();
+			if (FPackageName::DoesPackageExist(PackageName))
+			{
+				Audio = LoadObject<USoundBase>(NULL, *(PackageName + TEXT(".") + AudioNamePrefix + SoundName.ToString()), NULL, LOAD_NoWarn | LOAD_Quiet);
+			}
+		}
+		CachedAudio.Add(SoundName, Audio);
 	}
 }

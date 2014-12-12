@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCarriedObjectMessage.h"
 #include "UTCTFGameMessage.h"
+#include "UTAnnouncer.h"
 
 UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -40,27 +41,38 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 	return FText::GetEmpty();
 }
 
-FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
-	uint8 TeamNum = 0;
-
-	const AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
-	if (TeamInfo != NULL)
+	for (int32 i = 0; i <= 10; i++)
 	{
-		TeamNum = TeamInfo->GetTeamNum();
+		for (uint8 j = 0; j < 2; j++)
+		{
+			Announcer->PrecacheAnnouncement(GetTeamAnnouncement(i, j));
+		}
 	}
+}
 
+FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
+{
 	switch (Switch)
 	{
-	case 0: return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
-	case 1: return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
-	case 2: return TeamNum == 0 ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
-	case 3: return TeamNum == 0 ? TEXT("RedFlagDropped") : TEXT("BlueFlagDropped"); break;
-	case 4: return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
-	case 8: return TeamNum == 0 ? TEXT("RedIncreasesLead") : TEXT("BlueIncreasesLead"); break;
-	case 9: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
-	case 10: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
+		case 0: return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
+		case 1: return TeamNum == 0 ? TEXT("RedFlagReturned") : TEXT("BlueFlagReturned"); break;
+		case 2: return TeamNum == 0 ? TEXT("RedTeamScores") : TEXT("BlueTeamScores"); break;
+		case 3: return TeamNum == 0 ? TEXT("RedFlagDropped") : TEXT("BlueFlagDropped"); break;
+		case 4: return TeamNum == 0 ? TEXT("RedFlagTaken") : TEXT("BlueFlagTaken"); break;
+		case 8: return TeamNum == 0 ? TEXT("RedIncreasesLead") : TEXT("BlueIncreasesLead"); break;
+		case 9: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
+		case 10: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
 	}
 
 	return NAME_None;
+}
+
+FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	const AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
+	uint8 TeamNum = (TeamInfo != NULL) ? TeamInfo->GetTeamNum() : 0;
+
+	return GetTeamAnnouncement(Switch, TeamNum);
 }

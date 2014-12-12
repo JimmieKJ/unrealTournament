@@ -427,3 +427,29 @@ FText AUTGameState::ServerRules()
 		return FText();
 	}
 }
+
+void AUTGameState::ReceivedGameModeClass()
+{
+	Super::ReceivedGameModeClass();
+
+	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
+	if (UTGameClass != NULL)
+	{
+		// precache announcements
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+			if (UTPC != NULL)
+			{
+				if (UTPC->RewardAnnouncer != NULL)
+				{
+					UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->RewardAnnouncer);
+				}
+				if (UTPC->StatusAnnouncer != NULL)
+				{
+					UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->StatusAnnouncer);
+				}
+			}
+		}
+	}
+}

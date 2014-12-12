@@ -46,6 +46,23 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 }
 
+void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
+{
+	// naive default implementation just keeps querying until we get a fail
+	for (int32 i = 0; i < 50; i++)
+	{
+		FName SoundName = GetAnnouncementName(i, NULL);
+		if (SoundName != NAME_None)
+		{
+			Announcer->PrecacheAnnouncement(SoundName);
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
 FText UUTLocalMessage::ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	FFormatNamedArguments Args;

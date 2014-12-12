@@ -29,3 +29,11 @@ FText UUTCountDownMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 =
 {
 	return GetDefault<UUTCountDownMessage>(GetClass())->CountDownText;
 }
+
+void UUTCountDownMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
+{
+	for (int32 i = 0; i <= 10; i++)
+	{
+		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL));
+	}
+}
