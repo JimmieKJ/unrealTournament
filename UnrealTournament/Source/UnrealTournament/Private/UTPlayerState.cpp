@@ -339,7 +339,7 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 void AUTPlayerState::ReadStatsFromCloud()
 {
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GameMode->bDisableCloudStats)
+	if (GameMode == nullptr || GameMode->bDisableCloudStats)
 	{
 		return;
 	}
