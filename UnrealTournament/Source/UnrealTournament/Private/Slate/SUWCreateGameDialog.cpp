@@ -18,7 +18,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
-		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown))
+		// non-native classes are detected by asset search even if they're loaded for consistency
+		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && It->HasAnyClassFlags(CLASS_Native))
 		{
 			if (It->IsChildOf(AUTGameMode::StaticClass()))
 			{
@@ -59,7 +60,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTMutator::StaticClass()) && !TestClass->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
 				{
-					MutatorListAvailable.Add(TestClass);
+					MutatorListAvailable.AddUnique(TestClass);
 				}
 			}
 		}
@@ -272,7 +273,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		[
 			SNew(SBox)
 			.WidthOverride(200.0f)
-			.HeightOverride(300.0f)
+			.HeightOverride(200.0f)
 			[
 				SNew(SBorder)
 				.Content()
@@ -322,7 +323,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		[
 			SNew(SBox)
 			.WidthOverride(200.0f)
-			.HeightOverride(300.0f)
+			.HeightOverride(200.0f)
 			[
 				SNew(SBorder)
 				.Content()
