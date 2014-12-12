@@ -11,7 +11,8 @@ AUTWaterVolume::AUTWaterVolume(const FObjectInitializer& ObjectInitializer)
 	PawnEntryVelZScaling = 0.4f;
 	BrakingDecelerationSwimming = 300.f;
 	TerminalVelocity = 3000.f;
-	WaterCurrentVelocity = FVector(0.f);
+	WaterCurrentDirection = FVector(0.f);
+	WaterCurrentSpeed = 0.f;
 }
 
 AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
@@ -66,7 +67,7 @@ void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 
 FVector AUTWaterVolume::GetCurrentFor_Implementation(AActor* Actor) const
 {
-	return WaterCurrentVelocity;
+	return WaterCurrentDirection.SafeNormal() * WaterCurrentSpeed;
 }
 
 void AUTPainVolume::ActorEnteredVolume(class AActor* Other)

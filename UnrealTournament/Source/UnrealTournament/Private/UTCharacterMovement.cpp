@@ -1411,6 +1411,7 @@ float UUTCharacterMovement::GetGravityZ() const
 	return Super::GetGravityZ() * (bApplyWallSlide ? SlideGravityScaling : 1.f);
 }
 
+
 void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 {
 	if (Velocity.Size() > MaxWaterSpeed)
@@ -1422,13 +1423,73 @@ void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 		}
 	}
 
+	// check for water current
 	AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(GetPhysicsVolume());
 	FVector WaterCurrent = WaterVolume ? WaterVolume->GetCurrentFor(CharacterOwner) : FVector(0.f);
 	if (!WaterCurrent.IsNearlyZero())
 	{
+		FVector OldLocation = CharacterOwner->GetActorLocation();
+
 		// current force is not added to velocity (velocity is relative to current, not limited by it)
+		FVector Adjusted = WaterCurrent*deltaTime;
 		FHitResult Hit(1.f);
-		Swim(WaterCurrent*deltaTime, Hit);
+		float remainingTime = deltaTime * Swim(Adjusted, Hit);
+
+		//may have left water - if so, script might have set new physics mode
+		if (!IsSwimming())
+		{
+			SafeMoveUpdatedComponent(remainingTime*Adjusted, CharacterOwner->GetActorRotation(), true, Hit);
+			StartNewPhysics(remainingTime, Iterations);
+			return;
+		}
+
+		if (Hit.Time < 1.f && CharacterOwner)
+		{
+			const FVector GravDir = FVector(0.f, 0.f, -1.f);
+			const FVector VelDir = Velocity.SafeNormal();
+			const float UpDown = GravDir | VelDir;
+
+			bool bSteppedUp = false;
+			if ((FMath::Abs(Hit.ImpactNormal.Z) < 0.2f) && (UpDown < 0.5f) && (UpDown > -0.2f) && CanStepUp(Hit))
+			{
+				float stepZ = CharacterOwner->GetActorLocation().Z;
+				const FVector RealVelocity = Velocity;
+				Velocity.Z = 1.f;	// HACK: since will be moving up, in case pawn leaves the water
+				bSteppedUp = StepUp(GravDir, Adjusted * (1.f - Hit.Time), Hit);
+				if (bSteppedUp)
+				{
+					//may have left water - if so, script might have set new physics mode
+					if (!IsSwimming())
+					{
+						StartNewPhysics(remainingTime, Iterations);
+						return;
+					}
+					OldLocation.Z = CharacterOwner->GetActorLocation().Z + (OldLocation.Z - stepZ);
+				}
+				Velocity = RealVelocity;
+			}
+
+			if (!bSteppedUp)
+			{
+				//adjust and try again
+				HandleImpact(Hit, deltaTime, Adjusted);
+				SlideAlongSurface(Adjusted, (1.f - Hit.Time), Hit.Normal, Hit, true);
+			}
+		}
+
+		if (!GetPhysicsVolume()->bWaterVolume && IsSwimming())
+		{
+			SetMovementMode(MOVE_Falling); //in case script didn't change it (w/ zone change)
+		}
+
+		//may have left water - if so, script might have set new physics mode
+		if (!IsSwimming())
+		{
+			// include water current velocity if leave water (different frame of reference)
+			Velocity = (CharacterOwner->GetActorLocation() - OldLocation) / (deltaTime - remainingTime);
+			StartNewPhysics(remainingTime, Iterations);
+			return;
+		}
 	}
 	Super::PhysSwimming(deltaTime, Iterations);
 }
