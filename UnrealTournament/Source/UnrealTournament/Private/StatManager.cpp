@@ -238,6 +238,8 @@ void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 		{
 			TSharedPtr<FJsonObject> PlayerNameJson = MakeShareable(new FJsonObject);
 			PlayerNameJson->SetStringField(TEXT("Name"), PreviousPlayerNames[PlayerNameIdx]);
+
+			PreviousPlayerNamesJson[PlayerNameIdx] = MakeShareable(new FJsonValueObject(PlayerNameJson));
 		}
 
 		JsonObject->SetArrayField(TEXT("Aliases"), PreviousPlayerNamesJson);

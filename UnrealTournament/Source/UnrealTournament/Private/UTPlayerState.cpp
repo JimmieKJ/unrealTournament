@@ -354,18 +354,20 @@ void AUTPlayerState::ReadStatsFromCloud()
 void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	// this notification is for us
-	if (InUserId.ToString() == StatsID && FileName == GetStatsFilename())
+	if (bWasSuccessful && InUserId.ToString() == StatsID && FileName == GetStatsFilename())
 	{
 		UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
 
 		TArray<uint8> FileContents;
 		if (OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents))
 		{
-			FString JsonString;
+			if (FileContents.GetData()[FileContents.Num() - 1] != 0)
 			{
-				FMemoryReader MemoryReader(FileContents);
-				MemoryReader << JsonString;
+				UE_LOG(LogGameStats, Warning, TEXT("Failed to get proper stats json"));
+				return;
 			}
+
+			FString JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
 
 			TSharedPtr<FJsonObject> StatsJson;
 			TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
@@ -430,7 +432,7 @@ void AUTPlayerState::WriteStatsToCloud()
 		FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
 		{
 			FMemoryWriter MemoryWriter(FileContents);
-			MemoryWriter << OutputJsonString;
+			MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
 		}
 
 		//UE_LOG(LogGameStats, Log, TEXT("%s"), *OutputJsonString);
