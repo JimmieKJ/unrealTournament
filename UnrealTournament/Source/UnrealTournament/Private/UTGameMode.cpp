@@ -857,14 +857,6 @@ void AUTGameMode::EndMatch()
 			UTGameSession->EndMatch();
 		}
 	}
-	for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
-		if (PS != nullptr)
-		{
-			PS->WriteStatsToCloud();
-		}
-	}
 }
 
 void AUTGameMode::SendEndOfGameStats(FName Reason)
@@ -878,6 +870,22 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Reason"), *Reason.ToString()));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("EndFFAMatch"), ParamArray);
 		}
+	}
+
+	if (!bDisableCloudStats)
+	{
+		const double CloudStatsStartTime = FPlatformTime::Seconds();
+		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
+			PS->AddMatchToStats(nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+			if (PS != nullptr)
+			{
+				PS->WriteStatsToCloud();
+			}
+		}
+		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
+		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
 }
 
@@ -2052,6 +2060,7 @@ void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(InactivePlayerArray[InactivePlayerArray.Num() - 1]);
 		if (SavedNetworkAddress == UTPS->SavedNetworkAddress)
 		{
+			// Someone quit, write their partial stats to the cloud
 			UTPS->WriteStatsToCloud();
 		}
 	}

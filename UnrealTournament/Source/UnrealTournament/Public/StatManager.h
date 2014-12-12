@@ -13,19 +13,7 @@ UCLASS()
 class UNREALTOURNAMENT_API UStatManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
-
-	/** Array of stats tracked */
-	UPROPERTY()
-	TArray<UStat*> Stats;
 	
-	// Prefix prepended to all stat names when constructing stat objects
-	UPROPERTY()
-	FString StatPrefix;
-
-	/** Reference to the PS that controls this StatManager */
-	UPROPERTY()
-	AUTPlayerState *UTPS;
-
 	/** Helper function that makes a stat object */
 	UStat* MakeStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod);
 
@@ -71,10 +59,18 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	virtual void PostLoad() override;
 	// End UObject interface
 
-	void PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject);
-	void InsertDataFromJsonObject(const TSharedPtr<FJsonObject> JsonObject);
+	AUTPlayerState* GetPlayerState() { return UTPS; }
 
+	virtual void PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject);
+	virtual void InsertDataFromJsonObject(const TSharedPtr<FJsonObject> JsonObject);
+
+	virtual void AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
+
+	int NumPreviousPlayerNamesToKeep;
+	TArray<FString> PreviousPlayerNames;
 private:
+	int32 NumMatchesToKeep;
+
 	/**
 	 * Called during load to populate the StatLookup map. This is used to look up stat objects quickly.
 	 * This is called during PostLoad to populate the map with stats that were previously saved.
@@ -84,4 +80,18 @@ private:
 
 	/** Map to look up stats by name quickly */
 	TMap<FName, UStat*> StatLookup;
+
+	/** Array of stats tracked */
+	UPROPERTY()
+	TArray<UStat*> Stats;
+
+	// Prefix prepended to all stat names when constructing stat objects
+	UPROPERTY()
+	FString StatPrefix;
+
+	/** Reference to the PS that controls this StatManager */
+	UPROPERTY()
+	AUTPlayerState *UTPS;
+
+	TArray<FMatchStats> MatchStats;
 };

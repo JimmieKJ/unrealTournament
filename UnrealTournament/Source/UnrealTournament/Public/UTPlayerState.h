@@ -155,6 +155,7 @@ public:
 
 public:
 	void WriteStatsToCloud();
+	virtual void AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 private:
 	bool bWroteStatsToCloud;

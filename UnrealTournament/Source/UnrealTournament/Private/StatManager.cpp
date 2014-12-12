@@ -50,6 +50,9 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(FName(TEXT("SniperHeadshotDeaths")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("RedeemerDeaths")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("InstagibDeaths")), EStatRecordingPeriod::Persistent));
+	
+	NumMatchesToKeep = 5;
+	NumPreviousPlayerNamesToKeep = 5;
 }
 
 UStat* UStatManager::MakeStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod)
@@ -226,6 +229,73 @@ void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 			JsonObject->SetNumberField(Stat->StatName.ToString(), GetStatValue(Stat, EStatRecordingPeriod::Persistent));
 		}
 	}
+
+	if (PreviousPlayerNames.Num() > 0)
+	{
+		TArray< TSharedPtr<FJsonValue> > PreviousPlayerNamesJson;
+		PreviousPlayerNamesJson.AddZeroed(PreviousPlayerNames.Num());
+		for (int32 PlayerNameIdx = 0; PlayerNameIdx < PreviousPlayerNames.Num(); PlayerNameIdx++)
+		{
+			TSharedPtr<FJsonObject> PlayerNameJson = MakeShareable(new FJsonObject);
+			PlayerNameJson->SetStringField(TEXT("Name"), PreviousPlayerNames[PlayerNameIdx]);
+		}
+
+		JsonObject->SetArrayField(TEXT("Aliases"), PreviousPlayerNamesJson);
+	}
+
+	if (MatchStats.Num() > 0)
+	{
+		TArray< TSharedPtr<FJsonValue> > MatchStatsJson;
+		MatchStatsJson.AddZeroed(MatchStats.Num());
+
+		for (int32 MatchIdx = 0; MatchIdx < MatchStats.Num(); MatchIdx++)
+		{
+			TSharedPtr<FJsonObject> MatchStatJson = MakeShareable(new FJsonObject);
+			if (MatchStats[MatchIdx].Teams.Num() > 0)
+			{
+				TArray< TSharedPtr<FJsonValue> > TeamStatsJson;
+				TeamStatsJson.AddZeroed(MatchStats[MatchIdx].Teams.Num());
+
+				for (int32 TeamIdx = 0; TeamIdx < MatchStats[MatchIdx].Teams.Num(); TeamIdx++)
+				{
+					TSharedPtr<FJsonObject> TeamJson = MakeShareable(new FJsonObject);
+
+					TeamJson->SetNumberField(TEXT("Score"), MatchStats[MatchIdx].Teams[TeamIdx]);
+
+					TeamStatsJson[TeamIdx] = MakeShareable(new FJsonValueObject(TeamJson));
+				}
+
+				MatchStatJson->SetArrayField(TEXT("Teams"), TeamStatsJson);
+			}
+
+			if (MatchStats[MatchIdx].Players.Num() > 0)
+			{
+				TArray< TSharedPtr<FJsonValue> > PlayerStatsJson;
+				PlayerStatsJson.AddZeroed(MatchStats[MatchIdx].Players.Num());
+
+				for (int32 PlayerIdx = 0; PlayerIdx < MatchStats[MatchIdx].Players.Num(); PlayerIdx++)
+				{
+					TSharedPtr<FJsonObject> PlayerJson = MakeShareable(new FJsonObject);
+					const FMatchStatsPlayer& Player = MatchStats[MatchIdx].Players[PlayerIdx];
+
+					PlayerJson->SetStringField(TEXT("PlayerName"), Player.PlayerName);
+					PlayerJson->SetStringField(TEXT("StatsID"), Player.StatsID);
+					PlayerJson->SetNumberField(TEXT("Score"), Player.Score);
+					PlayerJson->SetNumberField(TEXT("Kills"), Player.Kills);
+					PlayerJson->SetNumberField(TEXT("Deaths"), Player.Deaths);
+					PlayerJson->SetNumberField(TEXT("FlagCaptures"), Player.FlagCaptures);
+					PlayerJson->SetNumberField(TEXT("FlagReturns"), Player.FlagReturns);
+
+					PlayerStatsJson[PlayerIdx] = MakeShareable(new FJsonValueObject(PlayerJson));
+				}
+
+				MatchStatJson->SetArrayField(TEXT("Players"), PlayerStatsJson);
+			}
+
+			MatchStatsJson[MatchIdx] = MakeShareable(new FJsonValueObject(MatchStatJson));
+		}
+		JsonObject->SetArrayField(TEXT("Matches"), MatchStatsJson);
+	}
 }
 
 void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
@@ -241,4 +311,122 @@ void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
 			}
 		}
 	}
+	
+	const TArray<TSharedPtr<FJsonValue>>* Aliases;
+	if (JsonObject->TryGetArrayField(TEXT("Aliases"), Aliases))
+	{
+		PreviousPlayerNames.Empty();
+		PreviousPlayerNames.AddZeroed(Aliases->Num());
+
+		for (int PlayerIdx = 0; PlayerIdx < Aliases->Num(); PlayerIdx++)
+		{
+			const TSharedPtr<FJsonValue>& AliasJsonValue = (*Aliases)[PlayerIdx];
+			PreviousPlayerNames[PlayerIdx] = AliasJsonValue->AsObject()->GetStringField(TEXT("Name"));
+		}
+	}
+
+	// It would most likely be a performance win to leave matches in JsonValue form so we have less parsing after a user's json is downloaded
+	// We don't do anything with MatchStats from previous matches during game time anyway
+	const TArray<TSharedPtr<FJsonValue>>* Matches;
+	if (JsonObject->TryGetArrayField(TEXT("Matches"), Matches))
+	{
+		MatchStats.Empty();
+		MatchStats.AddZeroed(Matches->Num());
+
+		for (int MatchIdx = 0; MatchIdx < Matches->Num(); MatchIdx++)
+		{
+			const TSharedPtr<FJsonValue>& MatchJsonValue = (*Matches)[MatchIdx];
+
+			const TArray<TSharedPtr<FJsonValue>>* Teams;
+			if (MatchJsonValue->AsObject()->TryGetArrayField(TEXT("Teams"), Teams))
+			{
+				MatchStats[MatchIdx].Teams.AddZeroed(Teams->Num());
+				for (int32 TeamIdx = 0; TeamIdx < Teams->Num(); TeamIdx++)
+				{
+					const TSharedPtr<FJsonValue>& TeamJsonValue = (*Teams)[TeamIdx];
+					MatchStats[MatchIdx].Teams[TeamIdx] = TeamJsonValue->AsObject()->GetNumberField(TEXT("Score"));
+				}
+			}
+			
+			const TArray<TSharedPtr<FJsonValue>>* Players;
+			if (MatchJsonValue->AsObject()->TryGetArrayField(TEXT("Players"), Players))
+			{
+				MatchStats[MatchIdx].Players.AddZeroed(Players->Num());
+				for (int32 PlayerIdx = 0; PlayerIdx < Players->Num(); PlayerIdx++)
+				{
+					const TSharedPtr<FJsonObject> PlayerJsonObject = (*Players)[PlayerIdx]->AsObject();
+					FMatchStatsPlayer& Player = MatchStats[MatchIdx].Players[PlayerIdx];
+
+					Player.PlayerName = PlayerJsonObject->GetStringField(TEXT("PlayerName"));
+					Player.StatsID = PlayerJsonObject->GetStringField(TEXT("StatsID"));
+					Player.Score = PlayerJsonObject->GetNumberField(TEXT("Score"));
+					Player.Kills = PlayerJsonObject->GetNumberField(TEXT("Kills"));
+					Player.Deaths = PlayerJsonObject->GetNumberField(TEXT("Deaths"));
+					Player.FlagCaptures = PlayerJsonObject->GetNumberField(TEXT("FlagCaptures"));
+					Player.FlagReturns = PlayerJsonObject->GetNumberField(TEXT("FlagReturns"));
+				}
+			}
+		}
+	}
+}
+
+void UStatManager::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
+{
+	// Keep match stats at 5
+	if (MatchStats.Num() >= NumMatchesToKeep)
+	{
+		MatchStats.RemoveAt(0, MatchStats.Num() - NumMatchesToKeep + 1);
+	}
+
+	FMatchStats NewMatchStats;
+
+	// Teams is optional
+	if (Teams != nullptr)
+	{
+		for (int32 i = 0; i < Teams->Num(); i++)
+		{
+			if ((*Teams)[i] != nullptr)
+			{
+				NewMatchStats.Teams.Add((*Teams)[i]->Score);
+			}
+		}
+	}
+
+	for (int32 i = 0; i < ActivePlayerStates->Num(); i++)
+	{
+		int32 NewIndex = NewMatchStats.Players.AddZeroed();
+		FMatchStatsPlayer& MatchPlayer = NewMatchStats.Players[NewIndex];
+		if (Cast<AUTPlayerState>((*ActivePlayerStates)[i]) != nullptr)
+		{
+			const AUTPlayerState& PlayerState = *(Cast<AUTPlayerState>((*ActivePlayerStates)[i]));
+			MatchPlayer.PlayerName = PlayerState.PlayerName;
+			MatchPlayer.StatsID = PlayerState.StatsID;
+			MatchPlayer.Score = PlayerState.Score;
+			MatchPlayer.Kills = PlayerState.Kills;
+			MatchPlayer.Deaths = PlayerState.Deaths;
+			MatchPlayer.Score = PlayerState.Score;
+			MatchPlayer.FlagCaptures = PlayerState.FlagCaptures;
+			MatchPlayer.FlagReturns = PlayerState.FlagReturns;
+		}
+	}
+
+	for (int32 i = 0; i < InactivePlayerStates->Num(); i++)
+	{
+		int32 NewIndex = NewMatchStats.Players.AddZeroed();
+		FMatchStatsPlayer& MatchPlayer = NewMatchStats.Players[NewIndex];
+		if (Cast<AUTPlayerState>((*InactivePlayerStates)[i]) != nullptr)
+		{
+			const AUTPlayerState& PlayerState = *(Cast<AUTPlayerState>((*InactivePlayerStates)[i]));
+			MatchPlayer.PlayerName = PlayerState.PlayerName;
+			MatchPlayer.StatsID = PlayerState.StatsID;
+			MatchPlayer.Score = PlayerState.Score;
+			MatchPlayer.Kills = PlayerState.Kills;
+			MatchPlayer.Deaths = PlayerState.Deaths;
+			MatchPlayer.Score = PlayerState.Score;
+			MatchPlayer.FlagCaptures = PlayerState.FlagCaptures;
+			MatchPlayer.FlagReturns = PlayerState.FlagReturns;
+		}
+	}
+
+	MatchStats.Add(NewMatchStats);
 }

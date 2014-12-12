@@ -167,20 +167,10 @@ void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStats
 	ReadStatsFromCloud();	
 }
 
-void AUTPlayerState::ReadStatsFromCloud()
-{
-	// Don't read stats from cloud if we've already written them, consider memory to be a valid representation of the stats
-	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator)
-	{
-		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
-	}
-}
-
 bool AUTPlayerState::ServerReceiveStatsID_Validate(const FString& NewStatsID)
 {
 	return true;
 }
-
 
 void AUTPlayerState::ServerRequestChangeTeam_Implementation(uint8 NewTeamIndex)
 {
@@ -346,10 +336,25 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 	}
 }
 
+void AUTPlayerState::ReadStatsFromCloud()
+{
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode->bDisableCloudStats)
+	{
+		return;
+	}
+
+	// Don't read stats from cloud if we've already written them, consider memory to be a valid representation of the stats
+	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator)
+	{
+		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
+	}
+}
+
 void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	// this notification is for us
-	if (InUserId.ToString() == StatsID)
+	if (InUserId.ToString() == StatsID && FileName == GetStatsFilename())
 	{
 		UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
 
@@ -385,7 +390,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 void AUTPlayerState::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	// this notification is for us
-	if (InUserId.ToString() == StatsID)
+	if (InUserId.ToString() == StatsID && FileName == GetStatsFilename())
 	{
 		UE_LOG(LogGameStats, Log, TEXT("OnWriteUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
 		bWroteStatsToCloud = true;
@@ -407,9 +412,17 @@ void AUTPlayerState::WriteStatsToCloud()
 {
 	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && StatManager != nullptr && !bOnlySpectator)
 	{
+		// We ended with this player name, save it in the stats
+		StatManager->PreviousPlayerNames.AddUnique(PlayerName);
+		if (StatManager->PreviousPlayerNames.Num() > StatManager->NumPreviousPlayerNamesToKeep)
+		{
+			StatManager->PreviousPlayerNames.RemoveAt(0, StatManager->PreviousPlayerNames.Num() - StatManager->NumPreviousPlayerNamesToKeep);
+		}
+
 		TArray<uint8> FileContents;
 		TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
 		StatsJson->SetStringField(TEXT("StatsID"), StatsID);
+		StatsJson->SetStringField(TEXT("PlayerName"), PlayerName);
 		StatManager->PopulateJsonObject(StatsJson);
 
 		FString OutputJsonString;
@@ -419,6 +432,17 @@ void AUTPlayerState::WriteStatsToCloud()
 			FMemoryWriter MemoryWriter(FileContents);
 			MemoryWriter << OutputJsonString;
 		}
+
+		//UE_LOG(LogGameStats, Log, TEXT("%s"), *OutputJsonString);
+
 		OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents);
+	}
+}
+
+void AUTPlayerState::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
+{
+	if (StatManager != nullptr && !StatsID.IsEmpty())
+	{
+		StatManager->AddMatchToStats(Teams, ActivePlayerStates, InactivePlayerStates);
 	}
 }

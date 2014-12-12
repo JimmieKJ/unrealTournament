@@ -39,6 +39,29 @@ DECLARE_DELEGATE_RetVal_TwoParams( int32 , FStatModifier, int32, int32 )
 /** Delegate prototype for the function to be called when the stat is modified */
 DECLARE_MULTICAST_DELEGATE_FourParams( FOnStatModified, class AUTPlayerState*, FName, int32, EStatMod::Type);
 
+USTRUCT()
+struct FMatchStatsPlayer
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FString PlayerName;
+	FString StatsID;
+	int32 Score;
+	int32 Kills;
+	int32 Deaths;
+	int32 FlagCaptures;
+	int32 FlagReturns;
+};
+
+USTRUCT()
+struct FMatchStats
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	TArray<int32> Teams;
+	TArray<FMatchStatsPlayer> Players;
+};
+
 // A single stat
 UCLASS()
 class UStat : public UObject

@@ -428,6 +428,8 @@ public:
 	UPROPERTY(Config)
 	float LobbyInitialTimeoutTime;
 
+	UPROPERTY(Config)
+	bool bDisableCloudStats;
 
 protected:
 	// A Beacon for communicating back to the lobby
@@ -439,7 +441,6 @@ protected:
 	virtual void SendEveryoneBackToLobby();
 
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
-
 };
 
 

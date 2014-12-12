@@ -94,7 +94,7 @@ void UStat::ModifyStat(int32 Amount, EStatMod::Type ModType)
 
 	if (Cast<UStatManager>(GetOuter()))
 	{
-		Player = Cast<UStatManager>(GetOuter())->UTPS;
+		Player = Cast<UStatManager>(GetOuter())->GetPlayerState();
 	}
 
 	OnStatModifiedDelegate.Broadcast(Player, StatName, Amount, ModType);

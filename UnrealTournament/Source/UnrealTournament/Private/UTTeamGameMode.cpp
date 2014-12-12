@@ -398,5 +398,21 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("EndTeamMatch"), ParamArray);
 		}
 	}
+	
+	if (!bDisableCloudStats)
+	{
+		const double CloudStatsStartTime = FPlatformTime::Seconds();
+		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
+			PS->AddMatchToStats(&Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+			if (PS != nullptr)
+			{
+				PS->WriteStatsToCloud();
+			}
+		}
+		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
+		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
+	}
 }
 
