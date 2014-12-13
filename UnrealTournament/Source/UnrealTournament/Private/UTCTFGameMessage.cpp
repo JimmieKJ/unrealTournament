@@ -41,6 +41,29 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 	return FText::GetEmpty();
 }
 
+
+bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+{
+	if (Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken)
+	{
+		return true;
+	}
+	if (GetClass() == OtherMessageClass)
+	{
+		if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9))
+		{
+			// never interrupt scoring announcements
+			return false;
+		}
+		if (OptionalObject == OtherOptionalObject)
+		{
+			// interrupt announcement about same object
+			return true;
+		}
+	}
+	return false;
+}
+
 void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
 	for (int32 i = 0; i <= 10; i++)
