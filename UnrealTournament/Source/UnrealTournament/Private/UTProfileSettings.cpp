@@ -63,6 +63,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
 		MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
 		bSingleTapWallDodge = PC->bSingleTapWallDodge;
+		bTapCrouchToSlide = PC->bTapCrouchToSlide;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
 		WeaponBob = PC->WeaponBobGlobalScaling;
 		FFAPlayerColor = PC->FFAPlayerColor;
@@ -141,6 +142,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
+		PC->bTapCrouchToSlide = bTapCrouchToSlide;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
 		PC->WeaponBobGlobalScaling = WeaponBob;
 		PC->FFAPlayerColor = FFAPlayerColor;

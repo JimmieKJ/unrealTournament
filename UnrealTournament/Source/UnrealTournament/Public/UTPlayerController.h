@@ -195,6 +195,10 @@ public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bHoldAccelWithSlideRoll;
 
+	/** If true, tapping crouch will cause a slide. */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
+		bool bTapCrouchToSlide;
+
 	/** Toggles bSingleTapWallDodge */
 	UFUNCTION(exec)
 	virtual void ToggleSingleTap();

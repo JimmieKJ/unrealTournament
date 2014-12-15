@@ -119,6 +119,9 @@ protected:
 	uint32 bSingleTapWallDodge:1;
 
 	UPROPERTY()
+	uint32 bTapCrouchToSlide : 1;
+	
+	UPROPERTY()
 	FKey ConsoleKey;
 
 	UPROPERTY()

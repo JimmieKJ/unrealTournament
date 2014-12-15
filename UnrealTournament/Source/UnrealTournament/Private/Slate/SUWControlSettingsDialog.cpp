@@ -583,6 +583,20 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 						+ SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SAssignNew(TapCrouchToSlide, SCheckBox)
+								.ForegroundColor(FLinearColor::Black)
+								.IsChecked(PC->bTapCrouchToSlide ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+								.Content()
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "TapCrouchToSlide", "Tap Crouch To Slide").ToString())
+								]
+							]
+						+ SVerticalBox::Slot()
 						.HAlign(HAlign_Center)
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
@@ -812,6 +826,7 @@ FReply SUWControlSettingsDialog::OKClick()
 	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
 	{
 		It->bSingleTapWallDodge = SingleTapWallDodge->IsChecked();
+		It->bTapCrouchToSlide = TapCrouchToSlide->IsChecked();
 		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 	}

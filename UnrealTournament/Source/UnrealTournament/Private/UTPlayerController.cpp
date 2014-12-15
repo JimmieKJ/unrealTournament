@@ -45,6 +45,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastTapBackTime = -10.f;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
+	bTapCrouchToSlide = true;
 	CrouchRollTapInterval = 0.25f;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
@@ -787,7 +788,7 @@ void AUTPlayerController::UnCrouch()
 	if (GetCharacter() != NULL)
 	{
 		GetCharacter()->UnCrouch(false);
-		if (GetWorld()->GetTimeSeconds() < RollTapThresholdTime && UTCharacter != NULL)
+		if (bTapCrouchToSlide && (GetWorld()->GetTimeSeconds() < RollTapThresholdTime) && (UTCharacter != NULL))
 		{
 			// tap roll
 			RollTapThresholdTime = 0.f;
