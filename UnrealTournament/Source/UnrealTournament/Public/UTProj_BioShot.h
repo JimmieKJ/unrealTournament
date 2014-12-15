@@ -353,4 +353,9 @@ class AUTProj_BioShot : public AUTProjectile
 
 	/** Return true if the hit info should cause damage to this bio glob. */
 	bool ComponentCanBeDamaged(const FHitResult& Hit, float DamageRadius);
+
+	/** Web capsule got overlapped - currently not enabled. */
+	UFUNCTION()
+		virtual void OnWebOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
 };

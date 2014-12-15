@@ -309,11 +309,11 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			NewCapsule = NewObject<UCapsuleComponent>(this);
 			NewCapsule->SetCapsuleSize(WebCollisionRadius, 0.5f*(LinkedBio->GetActorLocation() - GetActorLocation()).Size(), false);
 			NewCapsule->RegisterComponent();
+//			NewCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioShot::OnWebOverlapBegin);
 			FRotator WebRot = (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation();
 			WebRot.Pitch += 90.f;
 			NewCapsule->SetWorldLocationAndRotation(0.5f*(LinkedBio->GetActorLocation() + GetActorLocation()), WebRot);
 			NewCapsule->BodyInstance.SetCollisionProfileName("Projectile");
-			NewCapsule->SetHiddenInGame(false);
 			NewCapsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		}
 
@@ -357,6 +357,10 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 	return true;
 }
 
+void AUTProj_BioShot::OnWebOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+}
+
 bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
 {
 	if (LinkedBio && (LinkedBio != this) && !LinkedBio->IsPendingKillPending() && (GetActorLocation() - LinkedBio->GetActorLocation()).Size() < MaxLinkDistance)
@@ -384,29 +388,6 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 {
 	if (Role == ROLE_Authority)
 	{
-		if (WebLinks.Num() > 0)
-		{
-			if (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID) && !ComponentCanBeDamaged(((const FUTPointDamageEvent&)DamageEvent).HitInfo, 0.f))
-			{
-				return 0.f;
-			}
-			else if (DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID))
-			{
-				bool bFoundCollisionComp = false;
-				for (int32 i = 0; i < ((const FUTRadialDamageEvent&)DamageEvent).ComponentHits.Num(); i++)
-				{
-					if (ComponentCanBeDamaged(((const FUTRadialDamageEvent&)DamageEvent).ComponentHits[i], ((const FUTRadialDamageEvent&)DamageEvent).Params.OuterRadius))
-					{
-						bFoundCollisionComp = true;
-						break;
-					}
-				}
-				if (!bFoundCollisionComp)
-				{
-					return 0.f;
-				}
-			}
-		}
 		if (InstigatorController && EventInstigator && Cast<AUTWeap_LinkGun>(DamageCauser))
 		{
 			if ((GlobStrength >= 1.f) && bLanded)
@@ -463,6 +444,29 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 				}
 			}
 			return 0.f;
+		}
+		if (WebLinks.Num() > 0)
+		{
+			if (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID) && !ComponentCanBeDamaged(((const FUTPointDamageEvent&)DamageEvent).HitInfo, 0.f))
+			{
+				return 0.f;
+			}
+			else if (DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID))
+			{
+				bool bFoundCollisionComp = false;
+				for (int32 i = 0; i < ((const FUTRadialDamageEvent&)DamageEvent).ComponentHits.Num(); i++)
+				{
+					if (ComponentCanBeDamaged(((const FUTRadialDamageEvent&)DamageEvent).ComponentHits[i], ((const FUTRadialDamageEvent&)DamageEvent).Params.OuterRadius))
+					{
+						bFoundCollisionComp = true;
+						break;
+					}
+				}
+				if (!bFoundCollisionComp)
+				{
+					return 0.f;
+				}
+			}
 		}
 		if ((bLanded || TrackedPawn) && !bExploded && (DamageAmount > 15.f))
 		{
@@ -718,7 +722,6 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 	}
 }
 
-// @TODO FIXMESTEVE some links stay charge looking
 void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
 	if (Role == ROLE_Authority)
@@ -815,7 +818,10 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 	AUTProj_BioShot* OtherBio = Cast<AUTProj_BioShot>(OtherActor);
 	if (OtherBio)
 	{
-		MergeWithGlob(OtherBio);
+		if (!bAddingWebLink && !OtherBio->bAddingWebLink)
+		{
+			MergeWithGlob(OtherBio);
+		}
 	}
 	else if (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
 	{
