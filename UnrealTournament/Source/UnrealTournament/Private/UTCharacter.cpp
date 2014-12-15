@@ -2082,6 +2082,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3752,4 +3753,17 @@ void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
 {
 	WalkMovementReductionPct = (InDuration > 0.0f) ? InPct : 0.0f;
 	WalkMovementReductionTime = InDuration;
+}
+
+void AUTCharacter::OnRep_Invisible_Implementation()
+{
+}
+
+void AUTCharacter::SetInvisible(bool bNowInvisible)
+{
+	bInvisible = bNowInvisible;
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		OnRep_Invisible();
+	}
 }

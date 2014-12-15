@@ -536,9 +536,21 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitTime;
 
+protected:
 	/** indicates character is (mostly) invisible so AI only sees at short range, homing effects can't target the character, etc */
-	UPROPERTY(BlueprintReadWrite, Category = Pawn)
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Invisible, Category = Pawn)
 	bool bInvisible;
+public:
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	void OnRep_Invisible();
+
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	void SetInvisible(bool bNowInvisible);
+
+	inline bool IsInvisible() const
+	{
+		return bInvisible;
+	}
 
 	/** whether spawn protection may potentially be applied (still must meet time since spawn check in UTGameMode)
 	 * set to false after firing weapon or any other action that is considered offensive

@@ -1776,7 +1776,7 @@ bool AUTBot::LostContact(float MaxTime)
 	{
 		// lose invisible enemies faster
 		AUTCharacter* EnemyUTChar = Cast<AUTCharacter>(Enemy);
-		if (EnemyUTChar != NULL && /*EnemyUTChar->IsInvisible()*/ false)
+		if (EnemyUTChar != NULL && EnemyUTChar->IsInvisible())
 		{
 			MaxTime = FMath::Max<float>(2.0f, MaxTime - 2.0f);
 		}
@@ -3204,7 +3204,7 @@ void AUTBot::SeePawn(APawn* Other)
 
 bool AUTBot::CanSee(APawn* Other, bool bMaySkipChecks)
 {
-	if (Other == NULL || GetPawn() == NULL || (Other->IsA(AUTCharacter::StaticClass()) && false)) // FIXME: IsInvisible()
+	if (Other == NULL || GetPawn() == NULL || (Other->IsA(AUTCharacter::StaticClass()) && ((AUTCharacter*)Other)->IsInvisible()))
 	{
 		return false;
 	}
