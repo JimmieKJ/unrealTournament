@@ -671,6 +671,8 @@ public:
 	virtual bool IsEnemyVisible(APawn* TestEnemy);
 	/** return if the bot has other visible enemies than Enemy */
 	virtual bool HasOtherVisibleEnemy();
+	/** returns list of enemies bot *thinks* are near the given point */
+	virtual TArray<APawn*> GetEnemiesNear(const FVector& TestLoc, float MaxDist, bool bAllowPrediction);
 
 	/** returns true if we haven't noted any update from Enemy in the specified amount of time
 	 * NOTE: SetEnemy() counts as an update for purposes of this function

@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTWeap_Redeemer.h"
+#include "UTSquadAI.h"
 
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -11,6 +12,8 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	MaxAmmo = 1;
 	FiringViewKickback = -50.f;
 	bMustBeHolstered = true;
+	BasePickupDesireability = 1.5f;
+	BaseAISelectRating = 1.5f;
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()
@@ -63,4 +66,74 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 	{
 		return NULL;
 	}
+}
+
+float AUTWeap_Redeemer::SuggestAttackStyle_Implementation()
+{
+	return -1.0f;
+}
+float AUTWeap_Redeemer::SuggestDefenseStyle_Implementation()
+{
+	return -1.0f;
+}
+
+float AUTWeap_Redeemer::GetAISelectRating_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(GetUTOwner()->Controller);
+	if (B == NULL)
+	{
+		return BaseAISelectRating;
+	}
+	// TODO:
+	//else if (B->IsShootingObjective())
+	else if (false)
+	{
+		return 2.0f;
+	}
+	else
+	{
+		float ExplosionRadius = 4000.0f;
+		if (ProjClass.Num() > 0 && ProjClass[0] != NULL)
+		{
+			ExplosionRadius = ProjClass[0].GetDefaultObject()->DamageParams.OuterRadius;
+		}
+		// avoid switching to at suicide range unless it will kill more enemies/high priority enemy and bot thinks it can get away with the long switch time
+		if (B->GetEnemy() == NULL || (UTOwner->GetWeapon() != this && !B->GetSquad()->MustKeepEnemy(B->GetEnemy()) && (B->GetEnemyLocation(B->GetEnemy(), false) - UTOwner->GetActorLocation()).Size() < ExplosionRadius * 1.1f))
+		{
+			if (B->IsEnemyVisible(B->GetEnemy()) && B->Skill + B->Personality.Tactics < 3.0f + 1.5f * FMath::FRand() && (B->Personality.Aggressiveness <= 0.0f || FMath::FRand() > B->Personality.Aggressiveness))
+			{
+				return 0.4f;
+			}
+			else
+			{
+				TArray<APawn*> Enemies = B->GetEnemiesNear(B->GetEnemyLocation(B->GetEnemy(), true), ExplosionRadius * 0.75f, true);
+				if (Enemies.Num() > 2)
+				{
+					return BaseAISelectRating;
+				}
+				else
+				{
+					for (APawn* TestEnemy : Enemies)
+					{
+						if (B->GetSquad()->MustKeepEnemy(TestEnemy))
+						{
+							return BaseAISelectRating;
+						}
+					}
+					return 0.4f;
+				}
+			}
+		}
+		else
+		{
+			return BaseAISelectRating;
+		}
+	}
+}
+
+bool AUTWeap_Redeemer::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
+{
+	// TODO: support guided fire
+	BestFireMode = 0;
+	return Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc);
 }

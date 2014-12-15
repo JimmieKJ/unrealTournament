@@ -1749,6 +1749,23 @@ bool AUTBot::HasOtherVisibleEnemy()
 	return false;
 }
 
+TArray<APawn*> AUTBot::GetEnemiesNear(const FVector& TestLoc, float MaxDist, bool bAllowPrediction)
+{
+	TArray<APawn*> Results;
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
+	for (int32 i = 0; i < EnemyList.Num(); i++)
+	{
+		if (EnemyList[i].IsValid() && GetWorld()->TimeSeconds - EnemyList[i].LastUpdateTime < 5.0f && (TestLoc - GetEnemyLocation(EnemyList[i].GetPawn(), bAllowPrediction)).Size() <= MaxDist)
+		{
+			Results.Add(EnemyList[i].GetPawn());
+		}
+	}
+
+	return Results;
+}
+
 bool AUTBot::LostContact(float MaxTime)
 {
 	if (Enemy == NULL)
