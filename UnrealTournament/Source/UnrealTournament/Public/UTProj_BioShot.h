@@ -172,6 +172,10 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(ReplicatedUsing = OnRep_WebMaster, BlueprintReadOnly, Category = Bio)
 		AUTProj_BioShot* WebMaster;
 
+	/** Radius around web strands which collides. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Web)
+		float WebCollisionRadius;
+
 	UFUNCTION()
 		virtual void OnRep_WebMaster();
 
@@ -260,7 +264,7 @@ class AUTProj_BioShot : public AUTProjectile
 	/**Overridden to do the landing*/
 	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
 
-	/**Explode on recieving any damage*/
+	/**Explode on receiving any damage*/
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) override;
 
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
@@ -335,4 +339,7 @@ class AUTProj_BioShot : public AUTProjectile
 	/** Randomness added to Splash projectile direction. (Dir = SurfaceNormal + VRand() * SplashSpread)  */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 		float SplashSpread;
+
+	/** Return true if the hit info should cause damage to this bio glob. */
+	bool ComponentCanBeDamaged(const FHitResult& Hit, float DamageRadius);
 };

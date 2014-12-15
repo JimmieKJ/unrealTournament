@@ -77,6 +77,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	BaseBeamColor = FLinearColor(0.2f, 0.33f, 0.07f, 1.f);
 	LowLifeBeamColor = FLinearColor(0.1f, 0.5f, 0.f, 0.01f);
 	ChargingBeamColor = FLinearColor(100.f, 500.f, 100.f, 1.f);
+	WebCollisionRadius = 20.f;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -293,14 +294,12 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 		if (Role == ROLE_Authority)
 		{
 			NewCapsule = NewObject<UCapsuleComponent>(this);
-			float WebCollisionRadius = 20.f;
 			NewCapsule->SetCapsuleSize(WebCollisionRadius, 0.5f*(LinkedBio->GetActorLocation() - GetActorLocation()).Size(), false);
 			NewCapsule->RegisterComponent();
 			FRotator WebRot = (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation();
 			WebRot.Pitch += 90.f;
 			NewCapsule->SetWorldLocationAndRotation(0.5f*(LinkedBio->GetActorLocation() + GetActorLocation()), WebRot);
 			NewCapsule->BodyInstance.SetCollisionProfileName("Projectile");
-			NewCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
 			NewCapsule->SetHiddenInGame(false);
 			NewCapsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		}
@@ -350,10 +349,42 @@ bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
 	return false;
 }
 
+bool AUTProj_BioShot::ComponentCanBeDamaged(const FHitResult& Hit, float DamageRadius)
+{
+	if ((Hit.Component == CollisionComp) || (Hit.Component == PawnOverlapSphere))
+	{
+		return true;
+	}
+	return ((GetActorLocation() - Hit.ImpactPoint).SizeSquared() < FMath::Square(0.5f*DamageRadius + 22.f));
+}
+
 float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser)
 {
 	if (Role == ROLE_Authority)
 	{
+		if (WebLinks.Num() > 0)
+		{
+			if (DamageEvent.IsOfType(FUTPointDamageEvent::ClassID) && !ComponentCanBeDamaged(((const FUTPointDamageEvent&)DamageEvent).HitInfo, 0.f))
+			{
+				return 0.f;
+			}
+			else if (DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID))
+			{
+				bool bFoundCollisionComp = false;
+				for (int32 i = 0; i < ((const FUTRadialDamageEvent&)DamageEvent).ComponentHits.Num(); i++)
+				{
+					if (ComponentCanBeDamaged(((const FUTRadialDamageEvent&)DamageEvent).ComponentHits[i], ((const FUTRadialDamageEvent&)DamageEvent).Params.OuterRadius))
+					{
+						bFoundCollisionComp = true;
+						break;
+					}
+				}
+				if (!bFoundCollisionComp)
+				{
+					return 0.f;
+				}
+			}
+		}
 		if (InstigatorController && EventInstigator && Cast<AUTWeap_LinkGun>(DamageCauser))
 		{
 			if ((GlobStrength >= 1.f) && bLanded)
@@ -411,7 +442,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 			}
 			return 0.f;
 		}
-		if ((bLanded || TrackedPawn) && !bExploded)
+		if ((bLanded || TrackedPawn) && !bExploded && (DamageAmount > 15.f))
 		{
 			Explode(GetActorLocation(), SurfaceNormal);
 		}
@@ -797,7 +828,10 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 			DamageParams.OuterRadius += DamageRadiusGain * (GlobStrength - 1.0f);
 			Momentum = GetClass()->GetDefaultObject<AUTProjectile>()->Momentum * GlobScalingSqrt;
 		}
-		Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+		if ((Cast<AUTProjectile>(OtherActor) == NULL) || (WebLinks.Num() == 0))
+		{
+			Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+		}
 	}
 	else if (!bLanded)
 	{
