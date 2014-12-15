@@ -119,6 +119,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	OutofWaterZ = 700.f;
 	JumpOutOfWaterPitch = -90.f;
+	bFallingInWater = false;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
@@ -772,6 +773,10 @@ float UUTCharacterMovement::GetMaxSpeed() const
 	{
 		return MaxDodgeRollSpeed;
 	}
+	else if (bFallingInWater && (MovementMode == MOVE_Falling))
+	{
+		return MaxWaterSpeed;
+	}
 	else
 	{
 		return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();
@@ -803,7 +808,6 @@ void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bF
 
 float UUTCharacterMovement::GetCurrentMovementTime() const
 {
-	// @TODO FIXMESTEVE remove listen server support here
 	return ((CharacterOwner->Role == ROLE_AutonomousProxy) || (GetNetMode() == NM_DedicatedServer) || ((GetNetMode() == NM_ListenServer) && !CharacterOwner->IsLocallyControlled()))
 		? CurrentServerMoveTime
 		: CharacterOwner->GetWorld()->GetTimeSeconds();
@@ -887,6 +891,7 @@ float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FH
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
 	bIsAgainstWall = false;
+	bFallingInWater = false;
 
 	if (CharacterOwner)
 	{
@@ -1411,7 +1416,6 @@ float UUTCharacterMovement::GetGravityZ() const
 	return Super::GetGravityZ() * (bApplyWallSlide ? SlideGravityScaling : 1.f);
 }
 
-
 void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 {
 	if (Velocity.Size() > MaxWaterSpeed)
@@ -1423,73 +1427,18 @@ void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 		}
 	}
 
-	// check for water current
-	AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(GetPhysicsVolume());
-	FVector WaterCurrent = WaterVolume ? WaterVolume->GetCurrentFor(CharacterOwner) : FVector(0.f);
-	if (!WaterCurrent.IsNearlyZero())
+	ApplyWaterCurrent(deltaTime);
+	if (!GetPhysicsVolume()->bWaterVolume && IsSwimming())
 	{
-		FVector OldLocation = CharacterOwner->GetActorLocation();
+		SetMovementMode(MOVE_Falling); //in case script didn't change it (w/ zone change)
+	}
 
-		// current force is not added to velocity (velocity is relative to current, not limited by it)
-		FVector Adjusted = WaterCurrent*deltaTime;
-		FHitResult Hit(1.f);
-		float remainingTime = deltaTime * Swim(Adjusted, Hit);
-
-		//may have left water - if so, script might have set new physics mode
-		if (!IsSwimming())
-		{
-			SafeMoveUpdatedComponent(remainingTime*Adjusted, CharacterOwner->GetActorRotation(), true, Hit);
-			StartNewPhysics(remainingTime, Iterations);
-			return;
-		}
-
-		if (Hit.Time < 1.f && CharacterOwner)
-		{
-			const FVector GravDir = FVector(0.f, 0.f, -1.f);
-			const FVector VelDir = Velocity.SafeNormal();
-			const float UpDown = GravDir | VelDir;
-
-			bool bSteppedUp = false;
-			if ((FMath::Abs(Hit.ImpactNormal.Z) < 0.2f) && (UpDown < 0.5f) && (UpDown > -0.2f) && CanStepUp(Hit))
-			{
-				float stepZ = CharacterOwner->GetActorLocation().Z;
-				const FVector RealVelocity = Velocity;
-				Velocity.Z = 1.f;	// HACK: since will be moving up, in case pawn leaves the water
-				bSteppedUp = StepUp(GravDir, Adjusted * (1.f - Hit.Time), Hit);
-				if (bSteppedUp)
-				{
-					//may have left water - if so, script might have set new physics mode
-					if (!IsSwimming())
-					{
-						StartNewPhysics(remainingTime, Iterations);
-						return;
-					}
-					OldLocation.Z = CharacterOwner->GetActorLocation().Z + (OldLocation.Z - stepZ);
-				}
-				Velocity = RealVelocity;
-			}
-
-			if (!bSteppedUp)
-			{
-				//adjust and try again
-				HandleImpact(Hit, deltaTime, Adjusted);
-				SlideAlongSurface(Adjusted, (1.f - Hit.Time), Hit.Normal, Hit, true);
-			}
-		}
-
-		if (!GetPhysicsVolume()->bWaterVolume && IsSwimming())
-		{
-			SetMovementMode(MOVE_Falling); //in case script didn't change it (w/ zone change)
-		}
-
-		//may have left water - if so, script might have set new physics mode
-		if (!IsSwimming())
-		{
-			// include water current velocity if leave water (different frame of reference)
-			Velocity = (CharacterOwner->GetActorLocation() - OldLocation) / (deltaTime - remainingTime);
-			StartNewPhysics(remainingTime, Iterations);
-			return;
-		}
+	//may have left water - if so, script might have set new physics mode
+	if (!IsSwimming())
+	{
+		// include water current velocity if leave water (different frame of reference)
+		StartNewPhysics(deltaTime, Iterations);
+		return;
 	}
 	Super::PhysSwimming(deltaTime, Iterations);
 }
@@ -1499,9 +1448,80 @@ float UUTCharacterMovement::ComputeAnalogInputModifier() const
 	return 1.f;
 }
 
+bool UUTCharacterMovement::ShouldJumpOutOfWater(FVector& JumpDir)
+{
+	// only consider velocity, not view dir
+	if (Velocity.Z > 0.f)
+	{
+		JumpDir = Acceleration.SafeNormal();
+		return true;
+	}
+	return false;
+}
+
+void UUTCharacterMovement::ApplyWaterCurrent(float DeltaTime)
+{
+	if (!CharacterOwner)
+	{
+		return;
+	}
+	AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(GetPhysicsVolume());
+	if (!WaterVolume && bFallingInWater)
+	{
+		FVector FootLocation = GetActorLocation() - FVector(0.f, 0.f, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+		// check if touching water with current
+		TArray<FOverlapResult> Hits;
+		static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
+		FComponentQueryParams Params(NAME_PhysicsVolumeTrace, CharacterOwner->GetOwner());
+		GetWorld()->OverlapMulti(Hits, FootLocation, FQuat::Identity, CharacterOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
+
+		for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
+		{
+			const FOverlapResult& Link = Hits[HitIdx];
+			AUTWaterVolume* const V = Cast<AUTWaterVolume>(Link.GetActor());
+			if (V && (!WaterVolume || (V->Priority > WaterVolume->Priority)))
+			{
+				WaterVolume = V;
+			}
+		}
+	}
+	bFallingInWater = false;
+	if (WaterVolume)
+	{
+		bFallingInWater = true;
+		// apply any water current
+		// current force is not added to velocity (velocity is relative to current, not limited by it)
+		FVector WaterCurrent = WaterVolume ? WaterVolume->GetCurrentFor(CharacterOwner) : FVector(0.f);
+		if (!WaterCurrent.IsNearlyZero())
+		{
+	
+			// current force is not added to velocity (velocity is relative to current, not limited by it)
+			FVector Adjusted = WaterCurrent*DeltaTime;
+			FHitResult Hit(1.f);
+			SafeMoveUpdatedComponent(Adjusted, CharacterOwner->GetActorRotation(), true, Hit);
+			float remainingTime = DeltaTime * (1.f - Hit.Time);
+
+			if (Hit.Time < 1.f && CharacterOwner)
+			{
+				//adjust and try again
+				HandleImpact(Hit, remainingTime, Adjusted);
+				SlideAlongSurface(Adjusted, (1.f - Hit.Time), Hit.Normal, Hit, true);
+			}
+		}
+	}
+}
+
 /** @TODO FIXMESTEVE - physfalling copied from base version and edited.  At some point should probably add some hooks to base version and use those instead. */
 void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 {
+	ApplyWaterCurrent(deltaTime);
+	if (!IsFalling())
+	{
+		// include water current velocity if leave water (different frame of reference)
+		StartNewPhysics(deltaTime, Iterations);
+		return;
+	}
+
 	// Bound final 2d portion of velocity
 	const float Speed2d = Velocity.Size2D();
 	const float BoundSpeed = FMath::Max(Speed2d, GetMaxSpeed() * AnalogInputModifier);

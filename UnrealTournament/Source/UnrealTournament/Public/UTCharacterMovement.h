@@ -80,6 +80,15 @@ public:
 
 	virtual void PhysSwimming(float deltaTime, int32 Iterations) override;
 
+	/** True if was swimming in current, and haven't landed yet. */
+	UPROPERTY(BlueprintReadOnly, Category = Swimming)
+		bool bFallingInWater;
+
+	/** Apply water current to swimming or falling player in contact with water. */
+	virtual void ApplyWaterCurrent(float DeltaTime);
+
+	virtual bool ShouldJumpOutOfWater(FVector& JumpDir) override;
+
 	/** Push off bottom while swimming. */
 	virtual void PerformWaterJump();
 
