@@ -888,6 +888,12 @@ float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FH
 	return (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollBonusTapInterval) ? FallingDamageRollReduction : 0.f;
 }
 
+void UUTCharacterMovement::ClearRestrictedJump()
+{
+	bRestrictedJump = false;
+	GetWorld()->GetTimerManager().ClearTimer(this, &UUTCharacterMovement::ClearRestrictedJump);
+}
+
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
 	bIsAgainstWall = false;
@@ -923,6 +929,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	bJumpAssisted = false;
 	bApplyWallSlide = false;
 	bExplicitJump = false;
+	ClearRestrictedJump();
 	CurrentMultiJumpCount = 0;
 	CurrentWallDodgeCount = 0;
 	if (IsFalling())
@@ -1544,6 +1551,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	{
 	// test for slope to avoid using air control to climb walls 
 		float TickAirControl = (CurrentMultiJumpCount < 1) ? AirControl : MultiJumpAirControl;
+		if (bRestrictedJump)
+		{
+			TickAirControl = 0.0f;
+		}
 		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
 		{
 			const float TestWalkTime = FMath::Max(deltaTime, 0.05f);

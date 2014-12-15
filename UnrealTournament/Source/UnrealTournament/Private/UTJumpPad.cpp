@@ -70,6 +70,16 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 		//Launch the character to the target
 		Char->LaunchCharacter(CalculateJumpVelocity(Char), !bMaintainVelocity, true);
 
+		if (RestrictedJumpTime > 0.0f)
+		{
+			AUTCharacter* UTChar = Cast<AUTCharacter>(Char);
+			if (UTChar != NULL)
+			{
+				UTChar->UTCharacterMovement->bRestrictedJump = true;
+				GetWorldTimerManager().SetTimer(UTChar->UTCharacterMovement, &UUTCharacterMovement::ClearRestrictedJump, RestrictedJumpTime, false);
+			}
+		}
+
 		// Play Jump sound if we have one
 		UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, Char, SRT_AllButOwner, false);
 
@@ -165,7 +175,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 		}
 
 		// if we support air control, look for additional jump targets that could be reached by air controlling against the jump pad's standard velocity
-		if (NavData->ScoutClass != NULL && NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->AirControl > 0.0f)
+		if (RestrictedJumpTime < JumpTime && NavData->ScoutClass != NULL && NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->AirControl > 0.0f)
 		{
 			// intentionally place start loc high up to avoid clipping the edges of any irrelevant geometry
 			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 3.0f;

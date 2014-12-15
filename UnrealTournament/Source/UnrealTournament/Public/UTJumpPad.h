@@ -37,6 +37,10 @@ class AUTJumpPad : public AActor, public IUTPathBuilderInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpPad, meta = (ClampMin = "0.1"))
 	float JumpTime;
 
+	/** amount of jump time during which a Pawn's movement is restricted (no air control, etc) to avoid them unintentionally missing the expected destination */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpPad)
+	float RestrictedJumpTime;
+
 	/** Keep the characters XY Velocity when jumping */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpPad)
 	bool bMaintainVelocity;

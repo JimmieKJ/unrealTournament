@@ -363,7 +363,7 @@ public:
 
 	/** True if player is falling because of a jump or dodge. */
 	UPROPERTY(Category = "Multijump", BlueprintReadWrite)
-		bool bExplicitJump;
+	bool bExplicitJump;
 
 	/** Whether to allow multijumps during a dodge. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
@@ -371,7 +371,7 @@ public:
 
 	/** Whether to allow multijumps during a jump. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
-		bool bAllowJumpMultijumps;
+	bool bAllowJumpMultijumps;
 
 	/** Max absolute Z velocity allowed for multijump (low values mean only near jump apex). */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Multijump Z Speed"))
@@ -383,11 +383,19 @@ public:
 
 	/** Vertical impulse on dodge jump. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Dodge jump impulse (vertical)"))
-		float DodgeJumpImpulse;
+	float DodgeJumpImpulse;
 
 	/** Air control during multijump . */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multijump)
 	float MultiJumpAirControl;
+
+	/** if set air control is forced to zero during the current jump/fall */
+	UPROPERTY(BlueprintReadWrite, Category = AirControl)
+	bool bRestrictedJump;
+
+	/** allows timed clearing of bRestrictedJump during the jump/fall (e.g. jump pads that only want to restrict for part of the jump) */
+	UFUNCTION()
+	virtual void ClearRestrictedJump();
 
 	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) override;
 
