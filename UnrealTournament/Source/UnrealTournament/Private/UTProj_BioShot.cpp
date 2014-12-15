@@ -209,6 +209,11 @@ void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
 			WebLinks[i].WebLink->DeactivateSystem();
 			WebLinks[i].WebLink->bAutoDestroy = true;
 		}
+		if (WebLinks[i].WebCapsule != NULL)
+		{
+			WebLinks[i].WebCapsule->DestroyComponent();
+			WebLinks[i].WebCapsule = NULL;
+		}
 		WebLinks.RemoveAt(i);
 		bRemovingWebLink = false;
 	}
@@ -290,12 +295,14 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			NewCapsule = NewObject<UCapsuleComponent>(this);
 			float WebCollisionRadius = 20.f;
 			NewCapsule->SetCapsuleSize(WebCollisionRadius, 0.5f*(LinkedBio->GetActorLocation() - GetActorLocation()).Size(), false);
-			NewCapsule->SetWorldLocationAndRotation(0.5f*(LinkedBio->GetActorLocation() + GetActorLocation()), (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation());
+			NewCapsule->RegisterComponent();
+			FRotator WebRot = (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation();
+			WebRot.Pitch += 90.f;
+			NewCapsule->SetWorldLocationAndRotation(0.5f*(LinkedBio->GetActorLocation() + GetActorLocation()), WebRot);
 			NewCapsule->BodyInstance.SetCollisionProfileName("Projectile");
 			NewCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
 			NewCapsule->SetHiddenInGame(false);
 			NewCapsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			UE_LOG(UT, Warning, TEXT("Web capsule added height %f"), NewCapsule->GetScaledCapsuleHalfHeight());
 		}
 
 		// replication support (temp)
@@ -684,30 +691,15 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 	{
 		bWebLifeLow = (RemainingLife < WebLifeLowThreshold);
 		bIsLinkCharging = bIsLinkCharging && ((Role != ROLE_Authority) || (LinkChargeEndTime > GetWorld()->GetTimeSeconds()));
-		static FName NAME_BeamColor("BeamColor");
-		float PulseMag = FMath::Sin(GetWorld()->GetTimeSeconds()*8.f);
-		for (int32 i = 0; i<WebLinks.Num(); i++)
+		if (GetWorld()->GetNetMode() != NM_DedicatedServer)
 		{
-			bool bOtherWebLifeLow = false;
-			bool bOtherWebLinkCharging = false;
-			if (WebLinks[i].LinkedBio && !WebLinks[i].LinkedBio->IsPendingKillPending()) 
+			static FName NAME_BeamColor("BeamColor");
+			float PulseMag = FMath::Sin(GetWorld()->GetTimeSeconds()*8.f);
+			for (int32 i = 0; i<WebLinks.Num(); i++)
 			{
-			/*	if (Role == ROLE_Authority)
-				{
-					FHitResult Hit;
-					static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-					bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation(), WebLinks[i].LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
-					if (Cast<AUTCharacter>(Hit.Actor.Get()))
-					{
-						ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
-						if (IsPendingKillPending())
-						{
-							return;
-						}
-						break;
-					}
-				}*/
-				if (WebLinks[i].WebLink && (GetWorld()->GetNetMode() != NM_DedicatedServer))
+				bool bOtherWebLifeLow = false;
+				bool bOtherWebLinkCharging = false;
+				if (WebLinks[i].WebLink)
 				{
 					bOtherWebLifeLow = WebLinks[i].LinkedBio->bWebLifeLow;
 					bOtherWebLinkCharging = WebLinks[i].LinkedBio->bIsLinkCharging;
@@ -715,7 +707,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 					{
 						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : ChargingBeamColor;
 					}
-					else if (bWebLifeLow || bOtherWebLifeLow) 
+					else if (bWebLifeLow || bOtherWebLifeLow)
 					{
 						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : LowLifeBeamColor;
 					}
@@ -724,7 +716,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 						CurrentBeamColor = BaseBeamColor;
 					}
 					if (CurrentBeamColor != WebLinks[i].SetBeamColor)
-					{ 
+					{
 						WebLinks[i].WebLink->SetColorParameter(NAME_BeamColor, CurrentBeamColor);
 						WebLinks[i].SetBeamColor = CurrentBeamColor;
 					}
