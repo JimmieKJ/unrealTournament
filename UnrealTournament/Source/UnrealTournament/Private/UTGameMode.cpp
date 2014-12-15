@@ -2107,7 +2107,7 @@ void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController
 	{
 		// Check that incoming playerstate was actually put into the inactive array
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(InactivePlayerArray[InactivePlayerArray.Num() - 1]);
-		if (SavedNetworkAddress == UTPS->SavedNetworkAddress)
+		if (SavedNetworkAddress == UTPS->SavedNetworkAddress && !HasMatchEnded())
 		{
 			// Someone quit, write their partial stats to the cloud
 			UTPS->WriteStatsToCloud();
