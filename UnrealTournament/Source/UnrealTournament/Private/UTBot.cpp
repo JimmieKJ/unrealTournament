@@ -3061,6 +3061,11 @@ void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 			{
 				if (!LocalEnemyList[i].IsValid(this))
 				{
+					// we assume our current enemy is in the list!
+					if (LocalEnemyList[i].GetPawn() == Enemy)
+					{
+						SetEnemy(NULL);
+					}
 					LocalEnemyList.RemoveAt(i--, 1);
 				}
 				else if (LocalEnemyList[i].GetPawn() == NewEnemy)
