@@ -376,6 +376,9 @@ public:
 	/** Max absolute Z velocity allowed for multijump (low values mean only near jump apex). */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Max Multijump Z Speed"))
 	float MaxMultiJumpZSpeed;
+	/** if set, always allow multijump while Velocity.Z < 0 */
+	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite)
+	bool bAlwaysAllowFallingMultiJump;
 
 	/** Vertical impulse on multijump. */
 	UPROPERTY(Category = "Multijump", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Multijump impulse (vertical)"))

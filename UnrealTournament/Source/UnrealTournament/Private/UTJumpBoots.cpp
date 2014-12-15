@@ -13,6 +13,7 @@ AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 	MultiJumpAirControl = 0.8f;
 	bCallOwnerEvent = true;
 	BasePickupDesireability = 0.8f;
+	MaxMultiJumpZSpeed = 600.0f;
 }
 
 void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
@@ -29,6 +30,7 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->bAllowDodgeMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAllowDodgeMultijumps;
 			Movement->bAllowJumpMultijumps = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAllowJumpMultijumps;
 			Movement->MaxMultiJumpZSpeed = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->MaxMultiJumpZSpeed;
+			Movement->bAlwaysAllowFallingMultiJump = ((UUTCharacterMovement*)GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement())->bAlwaysAllowFallingMultiJump;
 
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
 
@@ -43,7 +45,8 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 			Movement->bAllowDodgeMultijumps = true;
 			Movement->bAllowJumpMultijumps = true;
 			Movement->MultiJumpAirControl = MultiJumpAirControl;
-			Movement->MaxMultiJumpZSpeed = SuperJumpZ;
+			Movement->MaxMultiJumpZSpeed = MaxMultiJumpZSpeed;
+			Movement->bAlwaysAllowFallingMultiJump = true;
 
 			if (Movement->MaxMultiJumpCount < 1)
 			{

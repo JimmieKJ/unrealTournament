@@ -16,6 +16,10 @@ class AUTJumpBoots : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = JumpBoots)
 	float SuperJumpZ;
 
+	/** sets multijump velocity threshold (how close to apex player must be to trigger) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = JumpBoots)
+	float MaxMultiJumpZSpeed;
+
 	/** Air control during multijump while equipped */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpBoots)
 	float MultiJumpAirControl;
