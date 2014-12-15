@@ -144,7 +144,8 @@ void AUTWeap_Translocator::FireShot()
 						UTOwner->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 						UTOwner->DropFlag();
 
-						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
+						// You can die during teleportation, UTOwner is not guaranteed valid
+						if (UTOwner->TeleportTo(WarpLocation, WarpRotation) && UTOwner != nullptr)
 						{
 							ConsumeAmmo(CurrentFireMode);
 							if (AfterImageType != NULL)
