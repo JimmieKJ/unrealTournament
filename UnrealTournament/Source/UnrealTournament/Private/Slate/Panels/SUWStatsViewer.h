@@ -5,9 +5,10 @@
 #include "../SUWindowsStyle.h"
 #include "../SUWPanel.h"
 #include "UTLocalPlayer.h"
-#include "SWebBrowser.h"
 
 #if !UE_SERVER
+
+#include "SWebBrowser.h"
 
 class SUWStatsViewer : public SUWPanel
 {
