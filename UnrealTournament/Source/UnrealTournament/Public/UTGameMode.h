@@ -259,6 +259,7 @@ public:
 
 	virtual void HandleMatchHasStarted();
 	virtual void AnnounceMatchStart();
+	virtual void HandleMatchHasEnded() override;
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime();
 

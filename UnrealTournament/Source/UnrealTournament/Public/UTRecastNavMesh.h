@@ -226,6 +226,13 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	}
 
 	virtual void PreInitializeComponents() override;
+	virtual void BeginPlay() override;
+
+	virtual FString GetMapLearningDataFilename() const;
+	/** loads AI learning data for the current map, if any */
+	virtual void LoadMapLearningData();
+	/** saves AI learning data for the current map */
+	virtual void SaveMapLearningData();
 
 	// add or remove an Actor from the list of POIs
 	// some pathfinding functions (inventory searches, for example) use this list to efficiently find possible endpoints

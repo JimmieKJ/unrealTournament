@@ -237,6 +237,19 @@ class UUTPathNode : public UObject
 	UPROPERTY(BlueprintReadOnly, Category = PathNode)
 	TArray< TWeakObjectPtr<AActor> > POIs;
 
+	/** number of kills that have occurred while the killer is standing in this node's area */
+	UPROPERTY(BlueprintReadWrite, SaveGame, Category = AIMapData)
+	int32 NearbyKills;
+	/** number of deaths that have occurred while the victim is standing in this node's area */
+	UPROPERTY(BlueprintReadWrite, SaveGame, Category = AIMapData)
+	int32 NearbyDeaths;
+	/** number of times a bot has attempted to use this path node as a hiding spot (e.g. CTF flag carrier) */
+	UPROPERTY(BlueprintReadWrite, SaveGame, Category = AIMapData)
+	int32 HideAttempts;
+	/** average amount of time a bot hid on this node before being detected by an enemy */
+	UPROPERTY(BlueprintReadWrite, SaveGame, Category = AIMapData)
+	float AvgHideDuration;
+
 	/** returns index to best link in Paths for Asker to move from this node to Target, or INDEX_NONE if no link is found that can be used
 	 * note that there may be multiple links to the other node with different traversability properties; the one with shortest Distance is used
 	 */

@@ -1986,6 +1986,126 @@ void AUTRecastNavMesh::PreInitializeComponents()
 	Super::PreInitializeComponents();
 }
 
+void AUTRecastNavMesh::BeginPlay()
+{
+	Super::BeginPlay();
+
+	LoadMapLearningData();
+}
+
+static const int32 LearningDataSizeLimit = 20000000;
+
+FString AUTRecastNavMesh::GetMapLearningDataFilename() const
+{
+	// determine filename based on map GUID
+	// this causes the data to be invalidated on editor changes
+	// and not invalidated on map copy/move/rename
+	return FPaths::GameSavedDir() + GetOutermost()->GetGuid().ToString() + TEXT(".ai");
+}
+
+void AUTRecastNavMesh::SaveMapLearningData()
+{
+	if (GetWorld()->IsGameWorld())
+	{
+		FString Filename = GetMapLearningDataFilename();
+		// serialize all path nodes and reachspecs using the SaveGame property flag as the filter
+		TArray<uint8> Data;
+		FArchive* DataAr = NULL;
+		DataAr = new FMemoryWriter(Data, true);
+		DataAr->ArIsSaveGame = true;
+		FObjectAndNameAsStringProxyArchive OuterAr(*DataAr, false);
+		OuterAr.ArIsSaveGame = true;
+		for (UUTPathNode* Node : PathNodes)
+		{
+			FString SimplePathName = Node->GetPathName(GetOuter());
+			OuterAr << SimplePathName;
+			Node->SerializeScriptProperties(OuterAr);
+		}
+		for (UUTReachSpec* Spec : AllReachSpecs)
+		{
+			FString SimplePathName = Spec->GetPathName(GetOuter());
+			OuterAr << SimplePathName;
+			Spec->SerializeScriptProperties(OuterAr);
+		}
+		delete DataAr;
+		// compress and write to disk
+		int32 UncompressedSize = Data.Num();
+		TArray<uint8> CompressedData;
+		int32 CompressedSize = UncompressedSize;
+		CompressedData.SetNum(CompressedSize);
+		if (FCompression::CompressMemory(ECompressionFlags(COMPRESS_ZLIB | COMPRESS_BiasMemory), CompressedData.GetData(), CompressedSize, Data.GetData(), Data.Num()))
+		{
+			CompressedData.SetNum(CompressedSize);
+			FArchive* FileAr = IFileManager::Get().CreateFileWriter(*Filename);
+			if (FileAr != NULL)
+			{
+				*FileAr << UncompressedSize;
+				*FileAr << CompressedData;
+				delete FileAr;
+			}
+		}
+	}
+}
+
+void AUTRecastNavMesh::LoadMapLearningData()
+{
+	if (GetWorld()->IsGameWorld())
+	{
+		FString Filename = GetMapLearningDataFilename();
+		if (FPaths::FileExists(Filename))
+		{
+			TArray<uint8> Data;
+			FArchive* DataAr = NULL;
+			{
+				FArchive* FileAr = IFileManager::Get().CreateFileReader(*Filename);
+				if (FileAr != NULL)
+				{
+					int32 UncompressedSize = 0;
+					*FileAr << UncompressedSize;
+					TArray<uint8> CompressedData;
+					*FileAr << CompressedData;
+					if (UncompressedSize > LearningDataSizeLimit) // sanity check for corrupt data that could OOM crash
+					{
+						UE_LOG(UT, Error, TEXT("Failed to load AI map data for %s; size limit of %i exceeded"), *GetOutermost()->GetName(), LearningDataSizeLimit);
+					}
+					else
+					{
+						Data.AddUninitialized(UncompressedSize);
+						if (FCompression::UncompressMemory(ECompressionFlags(COMPRESS_ZLIB | COMPRESS_BiasMemory), Data.GetData(), UncompressedSize, CompressedData.GetData(), CompressedData.Num()))
+						{
+							DataAr = new FMemoryReader(Data, true);
+						}
+					}
+					delete FileAr;
+				}
+			}
+			if (DataAr != NULL)
+			{
+				FObjectAndNameAsStringProxyArchive OuterAr(*DataAr, false);
+				OuterAr.ArIsSaveGame = true;
+				// serialize objects until we reach the end of the data
+				// we have to halt if any are not found as we're not storing seeking info that would allow skipping missing objects
+				while (!OuterAr.AtEnd())
+				{
+					FString PathName;
+					OuterAr << PathName;
+					UObject* Obj = StaticFindObject(UObject::StaticClass(), GetOuter(), *PathName);
+					if (Obj != NULL)
+					{
+						Obj->SerializeScriptProperties(OuterAr);
+					}
+					else
+					{
+						UE_LOG(UT, Error, TEXT("Failed to load AI map data for %s"), *GetOutermost()->GetName());
+						break;
+					}
+				}
+				delete DataAr;
+			}
+		}
+	}
+}
+
 void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 {
 	// in editor this will be handled by path building

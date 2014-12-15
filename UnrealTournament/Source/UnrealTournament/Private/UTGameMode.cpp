@@ -609,6 +609,31 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
+	// update AI data
+	if (Killer != NULL && Killer != Killed)
+	{
+		AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+		if (NavData != NULL)
+		{
+			{
+				UUTPathNode* Node = NavData->FindNearestNode(KilledPawn->GetNavAgentLocation(), KilledPawn->GetSimpleCollisionCylinderExtent());
+				if (Node != NULL)
+				{
+					Node->NearbyDeaths++;
+				}
+			}
+			if (Killer->GetPawn() != NULL)
+			{
+				// it'd be better to get the node from which the shot was fired, but it's probably not worth it
+				UUTPathNode* Node = NavData->FindNearestNode(Killer->GetPawn()->GetNavAgentLocation(), Killer->GetPawn()->GetSimpleCollisionCylinderExtent());
+				if (Node != NULL)
+				{
+					Node->NearbyKills++;
+				}
+			}
+		}
+	}
+
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
 		if (It->IsValid())
@@ -1467,6 +1492,18 @@ void AUTGameMode::SetMatchState(FName NewState)
 	else if (MatchState == MatchState::MatchIsInOvertime)
 	{
 		HandleMatchInOvertime();
+	}
+}
+
+void AUTGameMode::HandleMatchHasEnded()
+{
+	Super::HandleMatchHasEnded();
+
+	// save AI data only after completed matches
+	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+	if (NavData != NULL)
+	{
+		NavData->SaveMapLearningData();
 	}
 }
 
