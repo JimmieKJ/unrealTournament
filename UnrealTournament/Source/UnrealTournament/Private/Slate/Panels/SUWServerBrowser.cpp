@@ -1015,7 +1015,10 @@ void SUWServerBrowser::CleanupQoS()
 {
 	for (int i=0;i<PingTrackers.Num();i++)
 	{
-		PingTrackers[i].Beacon->DestroyBeacon();
+		if (PingTrackers[i].Beacon != nullptr)
+		{
+			PingTrackers[i].Beacon->DestroyBeacon();
+		}
 	}
 	PingTrackers.Empty();
 }
