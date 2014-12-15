@@ -367,13 +367,15 @@ void SUChatPanel::Tick( const FGeometry& AllottedGeometry, const double InCurren
 
 	TickNonChatPanel(InDeltaTime);
 
-	FName CurrentChatDestination = GetOwnerPlayerState()->ChatDestination;
-	if (LastChatDestination != CurrentChatDestination)
+	if (GetOwnerPlayerState() != nullptr)
 	{
-		LastChatDestination = CurrentChatDestination;
-		ChatDestinationButton->SetContent( SNew(STextBlock).Text(GetChatButtonText()).TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle")));
+		FName CurrentChatDestination = GetOwnerPlayerState()->ChatDestination;
+		if (LastChatDestination != CurrentChatDestination)
+		{
+			LastChatDestination = CurrentChatDestination;
+			ChatDestinationButton->SetContent( SNew(STextBlock).Text(GetChatButtonText()).TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle")));
+		}
 	}
-
 }
 
 TSharedRef<ITableRow> SUChatPanel::OnGenerateWidgetForList( TSharedPtr<FSimpleListData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
