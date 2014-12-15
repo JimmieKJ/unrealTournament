@@ -276,6 +276,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		.SetColorAndOpacity(FLinearColor::Blue)
 		);
 
+	{
+		Style.Set("UWindows.Standard.StatsViewer.Backdrop", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Backdrop", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
+	}
 
 	// Server Browser
 	{

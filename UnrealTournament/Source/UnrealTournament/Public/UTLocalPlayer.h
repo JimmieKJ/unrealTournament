@@ -68,6 +68,7 @@ public:
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog, int32 ZOrder = 255);
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
+	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
 
 	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
 	{
@@ -86,6 +87,8 @@ protected:
 	
 	// Holds a persistent reference to the server browser.
 	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
+
+	TSharedPtr<class SUWStatsViewer> StatsViewerWidget;
 
 	/** stores a reference to open dialogs so they don't get destroyed */
 	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;

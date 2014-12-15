@@ -14,6 +14,7 @@ protected:
 	virtual void CreateDesktop();
 
 	virtual FReply OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnShowStatsViewer(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnCreateGame(bool bOnline,TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnConnectIP(TSharedPtr<SComboButton> MenuButton);
 	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);

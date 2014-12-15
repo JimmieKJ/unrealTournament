@@ -11,6 +11,7 @@
 #include "Slate/SUWindowsMainMenu.h"
 #include "Slate/SUWindowsMidGame.h"
 #include "Slate/Panels/SUWServerBrowser.h"
+#include "Slate/Panels/SUWStatsViewer.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SUWDialog.h"
@@ -301,6 +302,18 @@ TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
 
 	return ServerBrowserWidget;
 }
+
+TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
+{
+	if (!StatsViewerWidget.IsValid())
+	{
+		SAssignNew(StatsViewerWidget, SUWStatsViewer)
+			.PlayerOwner(this);
+	}
+
+	return StatsViewerWidget;
+}
+
 #endif
 
 bool UUTLocalPlayer::IsLoggedIn() 

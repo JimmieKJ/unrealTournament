@@ -17,6 +17,7 @@
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 #include "Panels/SUWServerBrowser.h"
+#include "Panels/SUWStatsViewer.h"
 
 #if !UE_SERVER
 
@@ -233,7 +234,17 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")			
 				.OnClicked(this, &SUWindowsMainMenu::OnShowServerBrowser, DropDownButton)
 			];
-
+			
+			(*Menu).AddSlot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_File_StatsViewer", "Stats Viewer").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")			
+				.OnClicked(this, &SUWindowsMainMenu::OnShowStatsViewer, DropDownButton)
+			];
 
 			if (PlayerOwner->PlayerController != NULL)
 			{
@@ -658,6 +669,18 @@ FReply SUWindowsMainMenu::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButto
 	if (Browser.IsValid())
 	{
 		ActivatePanel(Browser);
+	}
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnShowStatsViewer(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	TSharedPtr<class SUWStatsViewer> StatsViewer = PlayerOwner->GetStatsViewer();
+	if (StatsViewer.IsValid())
+	{
+		ActivatePanel(StatsViewer);
 	}
 	return FReply::Handled();
 }
