@@ -52,12 +52,23 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY()
 	TArray<FBioWebLink> WebLinks;
 
-	/** @TODO FIXMESTEVE  figure out best way to replicate web once past prototype stage. */
+	/** Replicated endpoints of web links from this bio. */
 	UPROPERTY(ReplicatedUsing = OnRep_WebLinkOne)
 		AUTProj_BioShot* WebLinkOne;
 
 	UPROPERTY(ReplicatedUsing = OnRep_WebLinkTwo)
 		AUTProj_BioShot* WebLinkTwo;
+	
+	/** Saved previously replicated web links. */
+	UPROPERTY(ReplicatedUsing = OnRep_WebLinkOne)
+		AUTProj_BioShot* SavedWebLinkOne;
+
+	UPROPERTY(ReplicatedUsing = OnRep_WebLinkTwo)
+		AUTProj_BioShot* SavedWebLinkTwo;
+
+	/** Identifies which weblink should be overwritten next. */
+	UPROPERTY()
+		bool bReplaceLinkTwo;
 
 	/** Should be playing web link charging effect. */
 	UPROPERTY(Replicated)

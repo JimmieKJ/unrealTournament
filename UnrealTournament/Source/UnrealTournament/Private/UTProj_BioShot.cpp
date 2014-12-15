@@ -78,6 +78,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	LowLifeBeamColor = FLinearColor(0.1f, 0.5f, 0.f, 0.01f);
 	ChargingBeamColor = FLinearColor(100.f, 500.f, 100.f, 1.f);
 	WebCollisionRadius = 20.f;
+	bReplaceLinkTwo = false;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -222,17 +223,29 @@ void AUTProj_BioShot::RemoveWebLink(AUTProj_BioShot* LinkedBio)
 
 void AUTProj_BioShot::OnRep_WebLinkOne()
 {
+	if (SavedWebLinkOne)
+	{
+		RemoveWebLink(SavedWebLinkOne);
+		SavedWebLinkOne = NULL;
+	}
 	if (WebLinkOne && !WebLinkOne->IsPendingKillPending() && !WebLinkOne->bExploded)
 	{
 		AddWebLink(WebLinkOne);
+		SavedWebLinkOne = WebLinkOne;
 	}
 }
 
 void AUTProj_BioShot::OnRep_WebLinkTwo()
 {
+	if (SavedWebLinkTwo)
+	{
+		RemoveWebLink(SavedWebLinkTwo);
+		SavedWebLinkTwo = NULL;
+	}
 	if (WebLinkTwo && !WebLinkTwo->IsPendingKillPending() && !WebLinkTwo->bExploded)
 	{
 		AddWebLink(WebLinkTwo);
+		SavedWebLinkTwo = WebLinkTwo;
 	}
 }
 
@@ -273,9 +286,9 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 	}
 	UParticleSystemComponent* NewWebLinkEffect = NULL;
 	UCapsuleComponent* NewCapsule = NULL;
-	UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 	if (!LinkedBio->bAddingWebLink)
 	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 		float Dist2D = (GetActorLocation() - LinkedBio->GetActorLocation()).Size2D();
 		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation(), EAttachLocation::KeepWorldPosition, false);
 		if (NewWebLinkEffect)
@@ -323,12 +336,21 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			{
 				LinkedBio->WebLinkTwo = this;
 			}
+			else if (bReplaceLinkTwo)
+			{
+				RemoveWebLink(WebLinkTwo);
+				WebLinkTwo = LinkedBio;
+				bReplaceLinkTwo = false;
+			}
 			else
 			{
-				// @TODO FIXMESTEVE - remove old link, replace
+				RemoveWebLink(WebLinkOne);
+				WebLinkOne = LinkedBio;
+				bReplaceLinkTwo = true;
 			}
 		}
 	}
+
 	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect, NewCapsule);
 	LinkedBio->AddWebLink(this);
 	bAddingWebLink = false;
