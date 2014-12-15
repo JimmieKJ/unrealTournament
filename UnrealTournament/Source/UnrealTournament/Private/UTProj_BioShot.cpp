@@ -266,12 +266,12 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 		RemainingLife += WebLifeBoost;
 	}
 	UParticleSystemComponent* NewWebLinkEffect = NULL;
+	UCapsuleComponent* NewCapsule = NULL;
 	UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 	if (!LinkedBio->bAddingWebLink)
 	{
 		float Dist2D = (GetActorLocation() - LinkedBio->GetActorLocation()).Size2D();
-		FVector Sag = /*(Dist2D > 200.f) ? FVector(0.f, 0.f, 0.25*Dist2D) :*/ FVector(0.f);
-		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation() - Sag).Rotation(), EAttachLocation::KeepWorldPosition, false);
+		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation(), EAttachLocation::KeepWorldPosition, false);
 		if (NewWebLinkEffect)
 		{
 			NewWebLinkEffect->bAutoActivate = false;
@@ -285,6 +285,19 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			CurrentBeamColor = BaseBeamColor;
 			NewWebLinkEffect->SetColorParameter(NAME_BeamColor, CurrentBeamColor);
 		}
+		if (Role == ROLE_Authority)
+		{
+			NewCapsule = NewObject<UCapsuleComponent>(this);
+			float WebCollisionRadius = 20.f;
+			NewCapsule->SetCapsuleSize(WebCollisionRadius, 0.5f*(LinkedBio->GetActorLocation() - GetActorLocation()).Size(), false);
+			NewCapsule->SetWorldLocationAndRotation(0.5f*(LinkedBio->GetActorLocation() + GetActorLocation()), (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation());
+			NewCapsule->BodyInstance.SetCollisionProfileName("Projectile");
+			NewCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
+			NewCapsule->SetHiddenInGame(false);
+			NewCapsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			UE_LOG(UT, Warning, TEXT("Web capsule added height %f"), NewCapsule->GetScaledCapsuleHalfHeight());
+		}
+
 		// replication support (temp)
 		if ((Role == ROLE_Authority) && (this != LinkedBio->WebMaster) && (WebMaster != LinkedBio))
 		{
@@ -304,9 +317,13 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			{
 				LinkedBio->WebLinkTwo = this;
 			}
+			else
+			{
+				// @TODO FIXMESTEVE - remove old link, replace
+			}
 		}
 	}
-	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect);
+	new(WebLinks) FBioWebLink(LinkedBio, NewWebLinkEffect, NewCapsule);
 	LinkedBio->AddWebLink(this);
 	bAddingWebLink = false;
 	return true;
@@ -448,7 +465,7 @@ void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
 	}
 	bSpawningGloblings = false;
 	SetGlobStrength(1.f);
-	RemainingLife = RestTime + WebLifeBoost;
+	RemainingLife = RestTime + 1.f;  // to match this blobs remaining life with web
 }
 
 void AUTProj_BioShot::BioStabilityTimer()
@@ -675,20 +692,22 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			bool bOtherWebLinkCharging = false;
 			if (WebLinks[i].LinkedBio && !WebLinks[i].LinkedBio->IsPendingKillPending()) 
 			{
-				FHitResult Hit;
-				static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-				bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation(), WebLinks[i].LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
-				if (Cast<AUTCharacter>(Hit.Actor.Get()))
+			/*	if (Role == ROLE_Authority)
 				{
-					ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
-					if (IsPendingKillPending())
+					FHitResult Hit;
+					static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
+					bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation(), WebLinks[i].LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+					if (Cast<AUTCharacter>(Hit.Actor.Get()))
 					{
-						return;
+						ProcessHit(Hit.Actor.Get(), Hit.Component.Get(), Hit.Location, Hit.Normal);
+						if (IsPendingKillPending())
+						{
+							return;
+						}
+						break;
 					}
-					break;
-				}
-
-				if (WebLinks[i].WebLink)
+				}*/
+				if (WebLinks[i].WebLink && (GetWorld()->GetNetMode() != NM_DedicatedServer))
 				{
 					bOtherWebLifeLow = WebLinks[i].LinkedBio->bWebLifeLow;
 					bOtherWebLinkCharging = WebLinks[i].LinkedBio->bIsLinkCharging;

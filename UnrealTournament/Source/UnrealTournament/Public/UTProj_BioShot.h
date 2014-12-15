@@ -25,6 +25,9 @@ struct FBioWebLink
 	UPROPERTY()
 	UParticleSystemComponent* WebLink;
 
+	UPROPERTY()
+	UCapsuleComponent* WebCapsule;
+
 	/** Currently Set Beam Color */
 	UPROPERTY(BlueprintReadWrite, Category = Web)
 		FLinearColor SetBeamColor;
@@ -32,9 +35,10 @@ struct FBioWebLink
 	FBioWebLink()
 		: LinkedBio(NULL)
 		, WebLink(NULL)
+		, WebCapsule(NULL)
 	{}
 
-	FBioWebLink(class AUTProj_BioShot* InLinkedBio, UParticleSystemComponent* InWebLink) : LinkedBio(InLinkedBio), WebLink(InWebLink) {};
+	FBioWebLink(class AUTProj_BioShot* InLinkedBio, UParticleSystemComponent* InWebLink, UCapsuleComponent* NewCapsule) : LinkedBio(InLinkedBio), WebLink(InWebLink), WebCapsule(NewCapsule) {};
 };
 
 UCLASS()
