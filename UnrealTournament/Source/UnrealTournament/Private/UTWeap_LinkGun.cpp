@@ -7,6 +7,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	LinkedBio = NULL;
+	bRecommendSuppressiveFire = true;
 }
 
 void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)

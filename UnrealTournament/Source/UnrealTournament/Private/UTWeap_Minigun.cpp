@@ -33,6 +33,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 
 	BaseAISelectRating = 0.71f;
 	BasePickupDesireability = 0.73f;
+	bRecommendSuppressiveFire = true;
 }
 
 float AUTWeap_Minigun::GetAISelectRating_Implementation()

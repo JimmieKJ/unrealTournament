@@ -226,6 +226,11 @@ public:
 	/** indicates AI should target for splash damage (e.g. shoot at feet or nearby walls) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	bool bRecommendSplashDamage;
+	/** indicates AI should consider firing at enemies that aren't currently visible but are close to being so
+	 * generally set for rapid fire weapons or weapons with spinup/spindown costs
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
+	bool bRecommendSuppressiveFire;
 	/** indicates this is a sniping weapon (for AI, will prioritize headshots and long range targeting) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	bool bSniping;

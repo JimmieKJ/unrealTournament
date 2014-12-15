@@ -1043,10 +1043,8 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 		{
 			const float WorldTime = GetWorld()->TimeSeconds;
 
-			if (GetFocusActor() != NULL)
-			{
-				TrackedVelocity = GetFocusActor()->GetVelocity();
-			}
+			TrackedVelocity = (GetFocusActor() != NULL) ? GetFocusActor()->GetVelocity() : FVector::ZeroVector;
+			bLastCanAttackSuccess = false;
 
 			// warning: assumption that if bot wants to shoot an enemy Pawn it always sets it as Enemy
 			if (Enemy != NULL && GetFocusActor() == Enemy)
@@ -1074,6 +1072,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 
 							if (CanAttack(Enemy, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 							{
+								bLastCanAttackSuccess = true;
 								bPickNewFireMode = false;
 								ApplyWeaponAimAdjust(TargetLoc, FocalPoint);
 							}
@@ -1088,6 +1087,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 				}
 				else if (CanAttack(Enemy, GetEnemyLocation(Enemy, true), false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 				{
+					bLastCanAttackSuccess = true;
 					bPickNewFireMode = false;
 					ApplyWeaponAimAdjust(GetEnemyLocation(Enemy, true), FocalPoint);
 				}
@@ -1101,6 +1101,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 				FVector TargetLoc = GetFocusActor()->GetTargetLocation();
 				if (CanAttack(GetFocusActor(), TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 				{
+					bLastCanAttackSuccess = true;
 					bPickNewFireMode = false;
 					ApplyWeaponAimAdjust(TargetLoc, FocalPoint);
 				}
@@ -1523,10 +1524,10 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 				TestTarget = Enemy;
 			}
 			// TODO: if no target, ask weapon if it should fire anyway (mine layers, traps, fortifications, etc)
-			FVector OptimalLoc;
 			// TODO: think about how to prevent Focus/Target/Enemy mismatches
-			if (TestTarget != NULL && GetFocusActor() == TestTarget && UTChar->GetWeapon()->CanAttack(TestTarget, TestTarget->GetTargetLocation(), false, true, NextFireMode, OptimalLoc) && (!NeedToTurn(OptimalLoc) || UTChar->GetWeapon()->IsChargedFireMode(NextFireMode)))
+			if (TestTarget != NULL && GetFocusActor() == TestTarget && bLastCanAttackSuccess && (!NeedToTurn(FinalFocalPoint) || UTChar->GetWeapon()->IsChargedFireMode(NextFireMode)))
 			{
+				LastFireSuccessTime = GetWorld()->TimeSeconds;
 				for (uint8 i = 0; i < UTChar->GetWeapon()->GetNumFireModes(); i++)
 				{
 					if (i == NextFireMode)
@@ -1548,7 +1549,7 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 					}
 				}
 			}
-			else
+			else if (TestTarget == NULL || !bFromWeapon || !UTChar->GetWeapon()->bRecommendSuppressiveFire || GetWorld()->TimeSeconds - LastFireSuccessTime > 1.0f)
 			{
 				UTChar->StopFiring();
 			}
