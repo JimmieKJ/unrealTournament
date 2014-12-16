@@ -833,6 +833,19 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		AUTCharacter* TargetCharacter = Cast<AUTCharacter>(OtherActor);
 		if (TargetCharacter && ((TargetCharacter != Instigator) || bCanHitInstigator))
 		{
+			if (WebLinks.Num() > 0)
+			{
+				// web ignores teammates and instigator
+				if (TargetCharacter == Instigator)
+				{
+					return;
+				}
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS && GS->OnSameTeam(InstigatorController, TargetCharacter))
+				{
+					return;
+				}
+			}
 			if (!bFakeClientProjectile && (Role == ROLE_Authority) && (TargetCharacter != Instigator))
 			{
 				// tell nearby bio that is on ground @TODO FIXMESTEVE OPTIMIZE
