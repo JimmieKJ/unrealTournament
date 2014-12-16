@@ -78,6 +78,12 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	uint32 bForceZMomentum : 1;
 
+	/** if set this damagetype doesn't cause momentum on Z axis (= victim not set to falling state) while the victim is walking
+	 * supersedes bForceZMomentum in that case
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
+	uint32 bPreventWalkingZMomentum : 1;
+
 	/** whether this damagetype causes blood effects (generally should be set unless damagetype implements some other feedback) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	uint32 bCausesBlood : 1;
