@@ -611,7 +611,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 			// if Z impulse is low enough and currently walking, remove Z impulse to prevent switch to falling physics, preventing lockdown effects
-			else if (GetCharacterMovement()->MovementMode == MOVE_Walking && ResultMomentum.Z < ResultMomentum.Size() * 0.1f)
+			else if (GetCharacterMovement()->MovementMode == MOVE_Walking && ((UTDamageTypeCDO != NULL && UTDamageTypeCDO->bPreventWalkingZMomentum) || ResultMomentum.Z < ResultMomentum.Size() * 0.1f))
 			{
 				ResultMomentum.Z = 0.0f;
 			}
