@@ -21,6 +21,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 
 	StatManager = nullptr;
 	bWroteStatsToCloud = false;
+	SkillRatingThisMatch = 0;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -384,6 +385,8 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				}
 
 				StatManager->InsertDataFromJsonObject(StatsJson);
+
+				SkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
 			}
 		}
 	}
@@ -449,15 +452,11 @@ void AUTPlayerState::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, co
 	}
 }
 
+// Don't access the skill rating in the statmanager so UpdateSkillRating() can rely on this function
 int32 AUTPlayerState::GetSkillRating()
 {
-	int32 SkillRating = 0;
-
-	if (StatManager != nullptr && !StatsID.IsEmpty())
-	{
-		 SkillRating = StatManager->GetStatValueByName(FName(TEXT("SkillRating")), EStatRecordingPeriod::Persistent);
-	}
-
+	int32 SkillRating = SkillRatingThisMatch;
+	
 	// SkillRating was unset previously, return starting value
 	if (SkillRating == 0)
 	{
@@ -485,7 +484,7 @@ void AUTPlayerState::UpdateSkillRating(AUTPlayerState *Opponent, bool bWonMatch)
 	int32 OpponentSkillRating = Opponent->GetSkillRating();
 	float ExpectedWinPercentage = 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
 
-	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating Expected Win Percentage %f"), ExpectedWinPercentage);
+	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating %s RA:%d RB:%d E:%f"), *PlayerName, SkillRating, OpponentSkillRating, ExpectedWinPercentage);
 
 	// KFactor selection can be chosen many different ways, feel free to change it
 	float KFactor = 32.0f;
@@ -508,6 +507,6 @@ void AUTPlayerState::UpdateSkillRating(AUTPlayerState *Opponent, bool bWonMatch)
 		NewSkillRating = SkillRating + KFactor*(0.0f - ExpectedWinPercentage);
 	}
 
-	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating New Skill Rating %d"), NewSkillRating);
+	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
 	ModifyStat(FName(TEXT("SkillRating")), NewSkillRating, EStatMod::Set);
 }

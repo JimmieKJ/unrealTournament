@@ -81,7 +81,7 @@ public:
 
 	/** This is the unique ID for stats generation*/
 	FString StatsID;
-
+	
 	// How long until this player can repawn.  It's not directly replicated to the clients instead it's set
 	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
 
@@ -162,6 +162,7 @@ public:
 
 private:
 	bool bWroteStatsToCloud;
+	int32 SkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
