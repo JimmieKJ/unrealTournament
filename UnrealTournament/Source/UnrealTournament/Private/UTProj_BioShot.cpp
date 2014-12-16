@@ -313,7 +313,7 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 			NewCapsule = NewObject<UCapsuleComponent>(this);
 			NewCapsule->SetCapsuleSize(WebCollisionRadius, 0.5f*(LinkedBio->GetActorLocation() - GetActorLocation()).Size(), false);
 			NewCapsule->RegisterComponent();
-//			NewCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioShot::OnWebOverlapBegin);
+			NewCapsule->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioShot::OnWebOverlapBegin);
 			FRotator WebRot = (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation();
 			WebRot.Pitch += 90.f;
 			NewCapsule->SetWorldLocationAndRotation(0.5f*(LinkedBio->GetActorLocation() + GetActorLocation()), WebRot);
@@ -363,6 +363,7 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 
 void AUTProj_BioShot::OnWebOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 }
 
 bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
@@ -533,7 +534,7 @@ void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
 	}
 	bSpawningGloblings = false;
 	SetGlobStrength(1.f);
-	RemainingLife = RestTime + 1.f;  // to match this blobs remaining life with web
+	RemainingLife = RestTime + 0.5f;  // to match this blobs remaining life with web
 }
 
 void AUTProj_BioShot::BioStabilityTimer()
