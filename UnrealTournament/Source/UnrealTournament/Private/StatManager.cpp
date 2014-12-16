@@ -11,6 +11,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 
 	Stats.Add(MakeStat(FName(TEXT("SkillRating")), EStatRecordingPeriod::Persistent));
 
+	Stats.Add(MakeStat(FName(TEXT("MatchesPlayed")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Kills")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Deaths")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Suicides")), EStatRecordingPeriod::Persistent));
@@ -53,6 +54,8 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	
 	NumMatchesToKeep = 5;
 	NumPreviousPlayerNamesToKeep = 5;
+
+	JSONVersionNumber = 0;
 }
 
 UStat* UStatManager::MakeStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod)
@@ -222,6 +225,8 @@ void UStatManager::PopulateStatLookup()
 
 void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 {
+	JsonObject->SetNumberField(TEXT("Version"), JSONVersionNumber);
+
 	for (auto* Stat : Stats)
 	{
 		if (Stat)

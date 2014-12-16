@@ -903,6 +903,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
+			PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
 			PS->AddMatchToStats(nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 			if (PS != nullptr)
 			{

@@ -70,6 +70,7 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	TArray<FString> PreviousPlayerNames;
 private:
 	int32 NumMatchesToKeep;
+	int32 JSONVersionNumber;
 
 	/**
 	 * Called during load to populate the StatLookup map. This is used to look up stat objects quickly.
