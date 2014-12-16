@@ -69,7 +69,9 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 			{
 				MomentumDir = GetActorRotation().Vector();
 			}
-			FUTPointDamageEvent DmgEvent(0.0f, FHitResult(OtherActor, OtherComp, HitLocation, HitNormal), MomentumDir, MyDamageType, MomentumDir * Momentum);
+			const float Radius = FMath::Max<float>(1.0f, CollisionBox->Bounds.SphereRadius);
+			const float OtherDist = FMath::PointDistToLine(OtherComp->GetComponentLocation(), GetVelocity().SafeNormal(), GetActorLocation() - GetVelocity());
+			FUTPointDamageEvent DmgEvent(0.0f, FHitResult(OtherActor, OtherComp, HitLocation, HitNormal), MomentumDir, MyDamageType, MomentumDir * (Momentum * (1.0f - FMath::Clamp<float>(OtherDist / Radius, 0.0f, 0.8f))));
 			OtherActor->TakeDamage(0.0f, DmgEvent, InstigatorController, this);
 		}
 	}
