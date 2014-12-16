@@ -286,9 +286,13 @@ bool AUTProj_BioShot::AddWebLink(AUTProj_BioShot* LinkedBio)
 	}
 	UParticleSystemComponent* NewWebLinkEffect = NULL;
 	UCapsuleComponent* NewCapsule = NULL;
+	if (this != LinkedBio->WebMaster)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_None);
+	}
+
 	if (!LinkedBio->bAddingWebLink)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
 		float Dist2D = (GetActorLocation() - LinkedBio->GetActorLocation()).Size2D();
 		NewWebLinkEffect = UGameplayStatics::SpawnEmitterAttached(WebLinkEffect, RootComponent, NAME_None, GetActorLocation(), (LinkedBio->GetActorLocation() - GetActorLocation()).Rotation(), EAttachLocation::KeepWorldPosition, false);
 		if (NewWebLinkEffect)
