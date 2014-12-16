@@ -85,6 +85,22 @@ class UUTSpreeMessage : public UUTLocalMessage
 			return NAME_None;
 		}
 	}
+	virtual void PrecacheAnnouncements_Implementation(class UUTAnnouncer* Announcer) const
+	{
+		// switch 0 has no announcement, skip it
+		for (int32 i = 1; i < 50; i++)
+		{
+			FName SoundName = GetAnnouncementName(i, NULL);
+			if (SoundName != NAME_None)
+			{
+				Announcer->PrecacheAnnouncement(SoundName);
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
 		// positive switch is spree level + 1
