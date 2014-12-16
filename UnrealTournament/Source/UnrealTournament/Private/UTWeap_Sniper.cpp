@@ -12,7 +12,8 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 {
 	BringUpTime = 0.54f;
 	PutDownTime = 0.41f;
-	SlowHeadshotScale = 1.6f;
+	StoppedHeadshotScale = 1.8f;
+	SlowHeadshotScale = 1.4f;
 	AimedHeadshotScale = 1.f;
 	RunningHeadshotScale = 0.0f;
 	HeadshotDamageMult = 2.0f;
@@ -35,10 +36,10 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 
 float AUTWeap_Sniper::GetHeadshotScale() const
 {
-	if ( GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->GetCharacterMovement()->MaxWalkSpeedCrouched + 1.0f &&
+	if ( (GetUTOwner()->GetVelocity().Size() <= GetUTOwner()->GetCharacterMovement()->MaxWalkSpeedCrouched + 1.0f) &&
 		(GetUTOwner()->bIsCrouched || GetUTOwner()->GetCharacterMovement() == NULL || GetUTOwner()->GetCharacterMovement()->GetCurrentAcceleration().Size() < GetUTOwner()->GetCharacterMovement()->MaxWalkSpeedCrouched + 1.0f) )
 	{
-		return SlowHeadshotScale;
+		return (GetUTOwner()->GetVelocity().Size() < 10.f) ? StoppedHeadshotScale : SlowHeadshotScale;
 	}
 	else if (GetUTOwner()->GetCharacterMovement()->GetCurrentAcceleration().IsZero())
 	{

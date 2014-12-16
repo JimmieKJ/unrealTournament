@@ -122,6 +122,7 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 			{
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 				APlayerState* OwnerState = GetUTOwner()->PlayerState;
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetUTOwner()->GetController());
 				float WorldTime = GetWorld()->TimeSeconds;
 				FVector FireStart = GetOuterAUTWeapon()->GetFireStartLoc();
 				for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
@@ -133,7 +134,6 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 						static FName NAME_SniperZoom(TEXT("SniperZoom"));
 						if (!GetWorld()->LineTraceTest(FireStart, HeadLoc, ECC_Visibility, FCollisionQueryParams(NAME_SniperZoom, true, GetUTOwner())))
 						{
-							AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetUTOwner()->GetController());
 							bool bDrawPingAdjust = bDrawPingAdjustedTargets && OwnerState != NULL && !EnemyChar->GetVelocity().IsZero();
 							float NetPing = 0.0f;
 							if (bDrawPingAdjust)
@@ -148,15 +148,19 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 								FVector PointB = C->Project(HeadLoc - Perpendicular * (EnemyChar->HeadRadius * EnemyChar->HeadScale * HeadScale));
 								FVector2D UpperLeft(FMath::Min<float>(PointA.X, PointB.X), FMath::Min<float>(PointA.Y, PointB.Y));
 								FVector2D BottomRight(FMath::Max<float>(PointA.X, PointB.X), FMath::Max<float>(PointA.Y, PointB.Y));
-								// square-ify
 								float MidY = (UpperLeft.Y + BottomRight.Y) * 0.5f;
-								float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
-								UpperLeft.Y = MidY - SizeY;
-								BottomRight.Y = MidY + SizeY;
-								FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, (i == 0) ? FLinearColor(1.0f, 0.0f, 0.0f, 1.0f) : FLinearColor(0.7f, 0.7f, 0.7f, 0.9f));
-								HeadCircleItem.BlendMode = SE_BLEND_Translucent;
-								C->DrawItem(HeadCircleItem);
 
+								// skip drawing if too off-center
+								if ((FMath::Abs(MidY - 0.5f*C->SizeY) < 0.11f*C->SizeY) && (FMath::Abs(0.5f*(UpperLeft.X + BottomRight.X) - 0.5f*C->SizeX) < 0.11f*C->SizeX))
+								{
+									// square-ify
+									float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
+									UpperLeft.Y = MidY - SizeY;
+									BottomRight.Y = MidY + SizeY;
+									FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, (i == 0) ? FLinearColor(1.0f, 0.0f, 0.0f, 1.0f) : FLinearColor(0.7f, 0.7f, 0.7f, 0.9f));
+									HeadCircleItem.BlendMode = SE_BLEND_Translucent;
+									C->DrawItem(HeadCircleItem);
+								}
 								if (OwnerState != NULL)
 								{
 									HeadLoc += EnemyChar->GetVelocity() * NetPing;

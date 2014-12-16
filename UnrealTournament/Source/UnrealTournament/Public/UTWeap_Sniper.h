@@ -11,6 +11,10 @@ class AUTWeap_Sniper : public AUTWeapon
 
 	/** target head area size bonus when moving slowly (crouch speed or less) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+	float StoppedHeadshotScale;
+
+	/** target head area size bonus when moving slowly (crouch speed or less) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float SlowHeadshotScale;
 
 	/** target head area size bonus when have just stopped accelerating */
