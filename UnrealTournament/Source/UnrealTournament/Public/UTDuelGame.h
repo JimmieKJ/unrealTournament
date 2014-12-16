@@ -14,6 +14,7 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 	virtual void InitGameState() override;
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void PlayEndOfMatchMessage() override;
+	virtual void SendEndOfGameStats(FName Reason);
 
 	/** How long powerups last in Duel */
 	UPROPERTY()

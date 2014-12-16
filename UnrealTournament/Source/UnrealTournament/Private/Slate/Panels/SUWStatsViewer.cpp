@@ -76,6 +76,9 @@ void SUWStatsViewer::DownloadStats()
 			StatsID = UserId->ToString();
 			if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid())
 			{
+				// Invalidate the local cache, this seems to be the best way to do that
+				OnlineUserCloudInterface->DeleteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), false, true);
+
 				OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
 			}
 		}

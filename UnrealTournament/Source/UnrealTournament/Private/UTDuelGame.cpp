@@ -237,3 +237,32 @@ void AUTDuelGame::UpdateLobbyMatchStats()
 
 	}
 }
+
+void AUTDuelGame::SendEndOfGameStats(FName Reason)
+{
+	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS != nullptr && !PS->bIsSpectator)
+		{
+			// There's probably a better way of finding the opponent PS
+			AUTPlayerState* OpponentPS = nullptr;
+			for (int OpponentIdx = 0; OpponentIdx < UTGameState->PlayerArray.Num(); OpponentIdx++)
+			{
+				AUTPlayerState* CandidatePS = Cast<AUTPlayerState>(UTGameState->PlayerArray[OpponentIdx]);
+				if (CandidatePS != nullptr && !CandidatePS->bIsSpectator)
+				{
+					OpponentPS = CandidatePS;
+					break;
+				}
+			}
+
+			if (OpponentPS != nullptr)
+			{
+				PS->UpdateSkillRating(OpponentPS, UTGameState->WinnerPlayerState == PS);
+			}
+		}
+	}
+
+	Super::SendEndOfGameStats(Reason);
+}

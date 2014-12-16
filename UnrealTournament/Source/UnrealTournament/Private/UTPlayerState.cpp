@@ -448,3 +448,66 @@ void AUTPlayerState::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, co
 		StatManager->AddMatchToStats(Teams, ActivePlayerStates, InactivePlayerStates);
 	}
 }
+
+int32 AUTPlayerState::GetSkillRating()
+{
+	int32 SkillRating = 0;
+
+	if (StatManager != nullptr && !StatsID.IsEmpty())
+	{
+		 SkillRating = StatManager->GetStatValueByName(FName(TEXT("SkillRating")), EStatRecordingPeriod::Persistent);
+	}
+
+	// SkillRating was unset previously, return starting value
+	if (SkillRating == 0)
+	{
+		SkillRating = 1500;
+	}
+
+	return SkillRating;
+}
+
+void AUTPlayerState::UpdateSkillRating(AUTPlayerState *Opponent, bool bWonMatch)
+{
+	if (Opponent == nullptr)
+	{
+		UE_LOG(LogGameStats, Warning, TEXT("UpdateSkillRating No Opponent supplied"));
+		return;
+	}
+
+	// Not writing stats for this player
+	if (StatManager == nullptr || StatsID.IsEmpty())
+	{
+		return;
+	}
+
+	int32 SkillRating = GetSkillRating();
+	int32 OpponentSkillRating = Opponent->GetSkillRating();
+	float ExpectedWinPercentage = 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
+
+	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating Expected Win Percentage %f"), ExpectedWinPercentage);
+
+	// KFactor selection can be chosen many different ways, feel free to change it
+	float KFactor = 32.0f;
+	if (SkillRating > 2400)
+	{
+		KFactor = 16.0f;
+	}
+	else if (SkillRating >= 2100)
+	{
+		KFactor = 24.0f;
+	}
+
+	int32 NewSkillRating = 0;
+	if (bWonMatch)
+	{
+		NewSkillRating = SkillRating + KFactor*(1.0f - ExpectedWinPercentage);
+	}
+	else
+	{
+		NewSkillRating = SkillRating + KFactor*(0.0f - ExpectedWinPercentage);
+	}
+
+	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating New Skill Rating %d"), NewSkillRating);
+	ModifyStat(FName(TEXT("SkillRating")), NewSkillRating, EStatMod::Set);
+}
