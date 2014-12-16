@@ -514,7 +514,7 @@ void AUTPlayerController::ThrowWeapon()
 {
 	if (UTCharacter != NULL && IsLocalPlayerController() && !UTCharacter->IsRagdoll())
 	{
-		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr)
+		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon)
 		{
 			ServerThrowWeapon();
 		}
@@ -530,9 +530,9 @@ void AUTPlayerController::ServerThrowWeapon_Implementation()
 {
 	if (UTCharacter != NULL && !UTCharacter->IsRagdoll())
 	{
-		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr)
+		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon)
 		{
-			UTCharacter->TossInventory(UTCharacter->GetWeapon(), FVector(200.0f, 0, 200.f));
+			UTCharacter->TossInventory(UTCharacter->GetWeapon(), FVector(400.0f, 0, 200.f));
 		}
 	}
 }

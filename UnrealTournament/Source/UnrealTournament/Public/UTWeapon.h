@@ -194,6 +194,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 		bool bMustBeHolstered;
 
+	/** If true , weapon can be thrown. */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+		bool bCanThrowWeapon;
+
 	UFUNCTION()
 	virtual void AttachToHolster(USkeletalMeshComponent* AttachToMesh);
 

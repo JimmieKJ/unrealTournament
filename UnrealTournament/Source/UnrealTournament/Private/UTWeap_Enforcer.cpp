@@ -31,6 +31,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	ImpactCount = 0;
 	bDualEnforcerMode = false;
 	bBecomeDual = false;
+	bCanThrowWeapon = false;
 
 	LeftMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("LeftMesh"));
 	LeftMesh->SetOnlyOwnerSee(true);

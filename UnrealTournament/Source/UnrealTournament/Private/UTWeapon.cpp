@@ -32,6 +32,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
 
 	bWeaponStay = true;
+	bCanThrowWeapon = true;
 
 	Ammo = 20;
 	MaxAmmo = 50;
