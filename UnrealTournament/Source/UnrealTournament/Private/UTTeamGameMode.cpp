@@ -405,7 +405,17 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
+			
 			PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
+			if (UTGameState->WinningTeam == PS->Team)
+			{
+				PS->ModifyStat(FName(TEXT("Wins")), 1, EStatMod::Delta);
+			}
+			else
+			{
+				PS->ModifyStat(FName(TEXT("Losses")), 1, EStatMod::Delta);
+			}
+
 			PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 			if (PS != nullptr)
 			{
