@@ -46,6 +46,7 @@ struct FMatchStatsPlayer
 public:
 	FString PlayerName;
 	FString StatsID;
+	int32 TeamIndex;
 	int32 Score;
 	int32 Kills;
 	int32 Deaths;

@@ -287,6 +287,7 @@ void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 
 					PlayerJson->SetStringField(TEXT("PlayerName"), Player.PlayerName);
 					PlayerJson->SetStringField(TEXT("StatsID"), Player.StatsID);
+					PlayerJson->SetNumberField(TEXT("TeamIndex"), Player.TeamIndex);
 					PlayerJson->SetNumberField(TEXT("Score"), Player.Score);
 					PlayerJson->SetNumberField(TEXT("Kills"), Player.Kills);
 					PlayerJson->SetNumberField(TEXT("Deaths"), Player.Deaths);
@@ -366,11 +367,12 @@ void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
 
 					Player.PlayerName = PlayerJsonObject->GetStringField(TEXT("PlayerName"));
 					Player.StatsID = PlayerJsonObject->GetStringField(TEXT("StatsID"));
-					Player.Score = PlayerJsonObject->GetNumberField(TEXT("Score"));
-					Player.Kills = PlayerJsonObject->GetNumberField(TEXT("Kills"));
-					Player.Deaths = PlayerJsonObject->GetNumberField(TEXT("Deaths"));
-					Player.FlagCaptures = PlayerJsonObject->GetNumberField(TEXT("FlagCaptures"));
-					Player.FlagReturns = PlayerJsonObject->GetNumberField(TEXT("FlagReturns"));
+					PlayerJsonObject->TryGetNumberField(TEXT("TeamIndex"), Player.TeamIndex);
+					PlayerJsonObject->TryGetNumberField(TEXT("Score"), Player.Score);
+					PlayerJsonObject->TryGetNumberField(TEXT("Kills"), Player.Kills);
+					PlayerJsonObject->TryGetNumberField(TEXT("Deaths"), Player.Deaths);
+					PlayerJsonObject->TryGetNumberField(TEXT("FlagCaptures"), Player.FlagCaptures);
+					PlayerJsonObject->TryGetNumberField(TEXT("FlagReturns"), Player.FlagReturns);
 				}
 			}
 		}
@@ -407,6 +409,14 @@ void UStatManager::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, cons
 		{
 			const AUTPlayerState& PlayerState = *(Cast<AUTPlayerState>((*ActivePlayerStates)[i]));
 			MatchPlayer.PlayerName = PlayerState.PlayerName;
+			if (PlayerState.Team != nullptr)
+			{
+				MatchPlayer.TeamIndex = PlayerState.Team->TeamIndex;
+			}
+			else
+			{
+				MatchPlayer.TeamIndex = 0;
+			}
 			MatchPlayer.StatsID = PlayerState.StatsID;
 			MatchPlayer.Score = PlayerState.Score;
 			MatchPlayer.Kills = PlayerState.Kills;
@@ -425,6 +435,14 @@ void UStatManager::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, cons
 		{
 			const AUTPlayerState& PlayerState = *(Cast<AUTPlayerState>((*InactivePlayerStates)[i]));
 			MatchPlayer.PlayerName = PlayerState.PlayerName;
+			if (PlayerState.Team != nullptr)
+			{
+				MatchPlayer.TeamIndex = PlayerState.Team->TeamIndex;
+			}
+			else
+			{
+				MatchPlayer.TeamIndex = 0;
+			}
 			MatchPlayer.StatsID = PlayerState.StatsID;
 			MatchPlayer.Score = PlayerState.Score;
 			MatchPlayer.Kills = PlayerState.Kills;
