@@ -350,7 +350,11 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRconNextMap(const FString& NextMap);
-
+	
+	UFUNCTION(Exec)
+	virtual void UTBugIt(const FString& ScreenShotDescription);
+	virtual void UTBugItStringCreator(FVector ViewLocation, FRotator ViewRotation, FString& GoString, FString& LocString);
+	virtual void UTLogOutBugItGoToLogFile(const FString& InScreenShotDesc, const FString& InGoString, const FString& InLocString);
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.

@@ -1845,3 +1845,72 @@ bool AUTPlayerController::ServerViewPlaceholderAtLocation_Validate(FVector Locat
 {
 	return true;
 }
+
+
+void AUTPlayerController::UTBugIt(const FString& ScreenShotDescription)
+{
+	ConsoleCommand(FString::Printf(TEXT("BUGSCREENSHOTWITHHUDINFO %s"), *ScreenShotDescription));
+
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+	if (GetPawn() != NULL)
+	{
+		ViewLocation = GetPawn()->GetActorLocation();
+	}
+
+	FString GoString, LocString;
+	UTBugItStringCreator(ViewLocation, ViewRotation, GoString, LocString);
+
+	UTLogOutBugItGoToLogFile(ScreenShotDescription, GoString, LocString);
+}
+
+void AUTPlayerController::UTBugItStringCreator(FVector ViewLocation, FRotator ViewRotation, FString& GoString, FString& LocString)
+{
+	GoString = FString::Printf(TEXT("BugItGo %f %f %f %f %f %f"), ViewLocation.X, ViewLocation.Y, ViewLocation.Z, ViewRotation.Pitch, ViewRotation.Yaw, ViewRotation.Roll);
+	UE_LOG(LogUTPlayerController, Log, TEXT("%s"), *GoString);
+
+	LocString = FString::Printf(TEXT("?BugLoc=%s?BugRot=%s"), *ViewLocation.ToString(), *ViewRotation.ToString());
+	UE_LOG(LogUTPlayerController, Log, TEXT("%s"), *LocString);
+}
+
+void AUTPlayerController::UTLogOutBugItGoToLogFile(const FString& InScreenShotDesc, const FString& InGoString, const FString& InLocString)
+{
+#if ALLOW_DEBUG_FILES
+	// Create folder if not already there
+
+	const FString OutputDir = FPaths::BugItDir() + InScreenShotDesc + TEXT("/");
+
+	IFileManager::Get().MakeDirectory(*OutputDir);
+	// Create archive for log data.
+	// we have to +1 on the GScreenshotBitmapIndex as it will be incremented by the bugitscreenshot which is processed next tick
+
+	const FString DescPlusExtension = FString::Printf(TEXT("%s%i.txt"), *InScreenShotDesc, GScreenshotBitmapIndex);
+	const FString TxtFileName = CreateProfileFilename(DescPlusExtension, false);
+
+	//FString::Printf( TEXT("BugIt%s-%s%05i"), *GEngineVersion.ToString(), *InScreenShotDesc, GScreenshotBitmapIndex+1 ) + TEXT( ".txt" );
+	const FString FullFileName = OutputDir + TxtFileName;
+
+	FOutputDeviceFile OutputFile(*FullFileName);
+	//FArchive* OutputFile = IFileManager::Get().CreateDebugFileWriter( *(FullFileName), FILEWRITE_Append );
+
+
+	OutputFile.Logf(TEXT("Dumping BugIt data chart at %s using build %s built from changelist %i"), *FDateTime::Now().ToString(), *GEngineVersion.ToString(), GetChangeListNumberForPerfTesting());
+
+	const FString MapNameStr = GetWorld()->GetMapName();
+
+	OutputFile.Logf(TEXT("MapName: %s"), *MapNameStr);
+
+	OutputFile.Logf(TEXT("Description: %s"), *InScreenShotDesc);
+	OutputFile.Logf(TEXT("%s"), *InGoString);
+	OutputFile.Logf(TEXT("%s"), *InLocString);
+	
+	// Flush, close and delete.
+	//delete OutputFile;
+	OutputFile.TearDown();
+
+	// so here we want to send this bad boy back to the PC
+	SendDataToPCViaUnrealConsole(TEXT("UE_PROFILER!BUGIT:"), *(FullFileName));
+#endif // ALLOW_DEBUG_FILES
+}
