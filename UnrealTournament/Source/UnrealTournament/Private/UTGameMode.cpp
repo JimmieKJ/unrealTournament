@@ -668,6 +668,7 @@ void AUTGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf
 		if (Other != NULL && Other->PlayerState != NULL && Cast<AUTPlayerState>(Other->PlayerState) != NULL)
 		{
 			Cast<AUTPlayerState>(Other->PlayerState)->AdjustScore(-1);
+			Cast<AUTPlayerState>(Other->PlayerState)->IncrementKills(DamageType, false);
 		}
 	}
 	else 

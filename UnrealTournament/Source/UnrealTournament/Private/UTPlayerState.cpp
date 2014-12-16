@@ -100,6 +100,10 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1, EStatMod::Delta);
 		}
 	}
+	else
+	{
+		ModifyStat(FName(TEXT("Suicides")), 1, EStatMod::Delta);
+	}
 }
 
 void AUTPlayerState::IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState)
