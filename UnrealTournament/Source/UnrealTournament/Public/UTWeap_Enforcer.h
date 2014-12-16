@@ -53,6 +53,17 @@ class AUTWeap_Enforcer : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<float> SpreadDualWield;
 
+	/** Weapon bring up time when dual wielding. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		float DualBringUpTime;
+
+	/** Weapon put down time when dual wielding. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		float DualPutDownTime;
+
+	virtual float GetBringUpTime() override;
+	virtual float GetPutDownTime() override;
+
 	UPROPERTY()
 	FVector FirstPLeftMeshOffset;
 		

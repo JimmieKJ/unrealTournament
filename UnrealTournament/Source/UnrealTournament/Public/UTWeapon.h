@@ -268,6 +268,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float PutDownTime;
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+		virtual float GetBringUpTime();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+		virtual float GetPutDownTime();
+
 	/** equip anims */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* BringUpAnim;

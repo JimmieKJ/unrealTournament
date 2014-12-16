@@ -57,13 +57,13 @@ void UUTWeaponStateFiring_Enforcer::PutDown()
 	// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
 	// However, allow putdown time to overlap with reload time - start a timer to do an early check
 	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiring::RefireCheckTimer);
-	if (TimeTillPutDown <= GetOuterAUTWeapon()->PutDownTime)
+	if (TimeTillPutDown <= GetOuterAUTWeapon()->GetPutDownTime())
 	{
 		Super::PutDown();
 	}
 	else
 	{
-		TimeTillPutDown -= GetOuterAUTWeapon()->PutDownTime;
+		TimeTillPutDown -= GetOuterAUTWeapon()->GetPutDownTime();
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring_Enforcer::PutDown, TimeTillPutDown, false);
 	}
 }

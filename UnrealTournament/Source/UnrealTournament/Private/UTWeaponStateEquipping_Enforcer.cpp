@@ -10,7 +10,7 @@ void UUTWeaponStateUnequipping_Enforcer::BeginState(const UUTWeaponState* PrevSt
 	const UUTWeaponStateEquipping* PrevEquip = Cast<UUTWeaponStateEquipping>(PrevState);
 
 	// if was previously equipping, pay same amount of time to take back down
-	UnequipTime = (PrevEquip != NULL) ? FMath::Min(PrevEquip->PartialEquipTime, GetOuterAUTWeapon()->PutDownTime) : GetOuterAUTWeapon()->PutDownTime;
+	UnequipTime = (PrevEquip != NULL) ? FMath::Min(PrevEquip->PartialEquipTime, GetOuterAUTWeapon()->GetPutDownTime()) : GetOuterAUTWeapon()->GetPutDownTime();
 	UnequipTimeElapsed = 0.0f;
 	if (UnequipTime <= 0.0f)
 	{
@@ -19,7 +19,6 @@ void UUTWeaponStateUnequipping_Enforcer::BeginState(const UUTWeaponState* PrevSt
 	else
 	{
 		AUTWeap_Enforcer* OuterWeapon = Cast<AUTWeap_Enforcer>(GetOuterAUTWeapon());
-
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateUnequipping_Enforcer::PutDownFinished, UnequipTime);
 		if (OuterWeapon->PutDownAnim != NULL)
 		{
@@ -34,14 +33,12 @@ void UUTWeaponStateUnequipping_Enforcer::BeginState(const UUTWeaponState* PrevSt
 			{
 				AnimInstance->Montage_Play(OuterWeapon->PutDownAnim, OuterWeapon->PutDownAnim->SequenceLength / UnequipTime);
 			}
-			
 		}
 	}
 }
 
 void UUTWeaponStateEquipping_Enforcer::StartEquip(float OverflowTime)
 {
-
 	EquipTime -= OverflowTime;
 	if (EquipTime <= 0.0f)
 	{
@@ -50,9 +47,7 @@ void UUTWeaponStateEquipping_Enforcer::StartEquip(float OverflowTime)
 	else
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateEquipping_Enforcer::BringUpFinished, EquipTime);
-
 		AUTWeap_Enforcer* OuterWeapon = Cast<AUTWeap_Enforcer>(GetOuterAUTWeapon());
-
 		if (OuterWeapon->BringUpAnim != NULL)
 		{
 			UAnimInstance* AnimInstance = OuterWeapon->Mesh->GetAnimInstance();

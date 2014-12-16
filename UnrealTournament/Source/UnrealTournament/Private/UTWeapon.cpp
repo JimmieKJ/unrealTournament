@@ -447,6 +447,16 @@ void AUTWeapon::BringUp(float OverflowTime)
 	CurrentState->BringUp(OverflowTime);
 }
 
+float AUTWeapon::GetPutDownTime()
+{
+	return PutDownTime;
+}
+
+float AUTWeapon::GetBringUpTime()
+{
+	return BringUpTime;
+}
+
 bool AUTWeapon::PutDown()
 {
 	if (eventPreventPutDown())
