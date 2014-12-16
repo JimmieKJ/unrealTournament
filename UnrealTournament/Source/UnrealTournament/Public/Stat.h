@@ -61,6 +61,7 @@ struct FMatchStats
 public:
 	TArray<int32> Teams;
 	TArray<FMatchStatsPlayer> Players;
+	FString GameType;
 };
 
 // A single stat

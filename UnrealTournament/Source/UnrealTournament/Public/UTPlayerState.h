@@ -155,7 +155,7 @@ public:
 
 public:
 	void WriteStatsToCloud();
-	virtual void AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
+	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	int32 GetSkillRating();
 	void UpdateSkillRating(AUTPlayerState *Opponent, bool bWonMatch);

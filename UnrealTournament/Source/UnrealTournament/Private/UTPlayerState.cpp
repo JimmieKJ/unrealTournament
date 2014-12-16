@@ -444,11 +444,11 @@ void AUTPlayerState::WriteStatsToCloud()
 	}
 }
 
-void AUTPlayerState::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
+void AUTPlayerState::AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	if (StatManager != nullptr && !StatsID.IsEmpty())
 	{
-		StatManager->AddMatchToStats(Teams, ActivePlayerStates, InactivePlayerStates);
+		StatManager->AddMatchToStats(GameType, Teams, ActivePlayerStates, InactivePlayerStates);
 	}
 }
 

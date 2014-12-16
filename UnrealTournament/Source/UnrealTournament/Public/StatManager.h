@@ -64,7 +64,7 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	virtual void PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject);
 	virtual void InsertDataFromJsonObject(const TSharedPtr<FJsonObject> JsonObject);
 
-	virtual void AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
+	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	int NumPreviousPlayerNamesToKeep;
 	TArray<FString> PreviousPlayerNames;

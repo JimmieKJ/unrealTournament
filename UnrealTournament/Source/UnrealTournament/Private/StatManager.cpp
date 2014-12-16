@@ -258,6 +258,9 @@ void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 		for (int32 MatchIdx = 0; MatchIdx < MatchStats.Num(); MatchIdx++)
 		{
 			TSharedPtr<FJsonObject> MatchStatJson = MakeShareable(new FJsonObject);
+
+			MatchStatJson->SetStringField(TEXT("GameType"), MatchStats[MatchIdx].GameType);
+
 			if (MatchStats[MatchIdx].Teams.Num() > 0)
 			{
 				TArray< TSharedPtr<FJsonValue> > TeamStatsJson;
@@ -345,6 +348,8 @@ void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
 		{
 			const TSharedPtr<FJsonValue>& MatchJsonValue = (*Matches)[MatchIdx];
 
+			MatchJsonValue->AsObject()->TryGetStringField(TEXT("GameType"), MatchStats[MatchIdx].GameType);
+
 			const TArray<TSharedPtr<FJsonValue>>* Teams;
 			if (MatchJsonValue->AsObject()->TryGetArrayField(TEXT("Teams"), Teams))
 			{
@@ -379,7 +384,7 @@ void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
 	}
 }
 
-void UStatManager::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
+void UStatManager::AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	// Keep match stats at 5
 	if (MatchStats.Num() >= NumMatchesToKeep)
@@ -388,6 +393,8 @@ void UStatManager::AddMatchToStats(const TArray<class AUTTeamInfo*>* Teams, cons
 	}
 
 	FMatchStats NewMatchStats;
+
+	NewMatchStats.GameType = GameType;
 
 	// Teams is optional
 	if (Teams != nullptr)

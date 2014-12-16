@@ -406,7 +406,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
 			PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
-			PS->AddMatchToStats(&Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+			PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 			if (PS != nullptr)
 			{
 				PS->WriteStatsToCloud();
