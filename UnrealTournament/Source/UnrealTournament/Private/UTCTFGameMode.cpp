@@ -423,6 +423,15 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 			PC->SetViewTarget(CTFGameState->FlagBases[CTFGameState->FlagBases.IsValidIndex(PC->GetTeamNum()) ? PC->GetTeamNum() : 0]);
 		}
 	}
+	
+	// Freeze all of the pawns
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It)
+		{
+			(*It)->TurnOff();
+		}
+	}
 
 	CTFGameState->bHalftime = true;
 	CTFGameState->OnHalftimeChanged();
