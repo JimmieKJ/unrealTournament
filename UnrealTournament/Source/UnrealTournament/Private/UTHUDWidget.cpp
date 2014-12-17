@@ -269,6 +269,7 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 
 void FUTCanvasTextItem::DrawStringInternal_HackyFix( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& InColor )
 {
+#if !UE_SERVER
 	DrawnSize = FVector2D::ZeroVector;
 
 	// Nothing to do if no text
@@ -421,6 +422,7 @@ void FUTCanvasTextItem::DrawStringInternal_HackyFix( FCanvas* InCanvas, const FV
 			}
 		}
 	}
+#endif
 }
 
 
