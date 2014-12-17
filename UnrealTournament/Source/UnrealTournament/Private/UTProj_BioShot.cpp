@@ -77,8 +77,10 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	BaseBeamColor = FLinearColor(0.2f, 0.33f, 0.07f, 1.f);
 	LowLifeBeamColor = FLinearColor(0.1f, 0.5f, 0.f, 0.01f);
 	ChargingBeamColor = FLinearColor(100.f, 500.f, 100.f, 1.f);
+	FriendlyBeamColor = FLinearColor(200.f, 300.f, 0.f, 1.f);
 	WebCollisionRadius = 20.f;
 	bReplaceLinkTwo = false;
+	LastFriendlyHitTime = 0.f;
 }
 
 void AUTProj_BioShot::BeginPlay()
@@ -737,6 +739,9 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			BioStabilityTimer();
 			return;
 		}
+		bWebLifeLow = (RemainingLife < WebLifeLowThreshold);
+		bFriendlyHit = (LastFriendlyHitTime > GetWorld()->GetTimeSeconds() - 0.5f);
+		bIsLinkCharging = (LinkChargeEndTime > GetWorld()->GetTimeSeconds());
 	}
 	if (ProjectileMovement->bIsHomingProjectile)
 	{
@@ -750,25 +755,23 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 	}
 	else
 	{
-		bWebLifeLow = (RemainingLife < WebLifeLowThreshold);
-		bIsLinkCharging = bIsLinkCharging && ((Role != ROLE_Authority) || (LinkChargeEndTime > GetWorld()->GetTimeSeconds()));
 		if (GetWorld()->GetNetMode() != NM_DedicatedServer)
 		{
 			static FName NAME_BeamColor("BeamColor");
 			float PulseMag = FMath::Sin(GetWorld()->GetTimeSeconds()*8.f);
 			for (int32 i = 0; i<WebLinks.Num(); i++)
 			{
-				bool bOtherWebLifeLow = false;
-				bool bOtherWebLinkCharging = false;
 				if (WebLinks[i].WebLink)
 				{
-					bOtherWebLifeLow = WebLinks[i].LinkedBio->bWebLifeLow;
-					bOtherWebLinkCharging = WebLinks[i].LinkedBio->bIsLinkCharging;
-					if (bIsLinkCharging || bOtherWebLinkCharging)
+					if (bFriendlyHit || WebLinks[i].LinkedBio->bFriendlyHit)
+					{
+						CurrentBeamColor = FriendlyBeamColor;
+					}
+					else if (bIsLinkCharging || WebLinks[i].LinkedBio->bIsLinkCharging)
 					{
 						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : ChargingBeamColor;
 					}
-					else if (bWebLifeLow || bOtherWebLifeLow)
+					else if (bWebLifeLow || WebLinks[i].LinkedBio->bWebLifeLow)
 					{
 						CurrentBeamColor = (PulseMag > 0.f) ? BaseBeamColor : LowLifeBeamColor;
 					}
@@ -838,11 +841,21 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 				// web ignores teammates and instigator
 				if (TargetCharacter == Instigator)
 				{
+					if (Role == ROLE_Authority)
+					{
+						UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_All);
+					}
+					LastFriendlyHitTime = GetWorld()->GetTimeSeconds();
 					return;
 				}
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 				if (GS && GS->OnSameTeam(InstigatorController, TargetCharacter))
 				{
+					if (Role == ROLE_Authority)
+					{
+						UUTGameplayStatics::UTPlaySound(GetWorld(), WebLinkSound, this, ESoundReplicationType::SRT_All);
+					}
+					LastFriendlyHitTime = GetWorld()->GetTimeSeconds();
 					return;
 				}
 			}
@@ -1009,5 +1022,6 @@ void AUTProj_BioShot::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, WebMaster, COND_None);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bIsLinkCharging, COND_None);
 	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bWebLifeLow, COND_None);
+	DOREPLIFETIME_CONDITION(AUTProj_BioShot, bFriendlyHit, COND_None);
 	DOREPLIFETIME(AUTProj_BioShot, bLanded);
 }

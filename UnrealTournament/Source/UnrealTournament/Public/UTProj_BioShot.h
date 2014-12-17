@@ -78,9 +78,17 @@ class AUTProj_BioShot : public AUTProjectile
 	UPROPERTY(Replicated)
 		bool bWebLifeLow;
 
+	/** Should be playing web friendly hit effect. */
+	UPROPERTY(Replicated)
+		bool bFriendlyHit;
+
 	/** Time to end web charging effect. */
 	UPROPERTY()
 		float LinkChargeEndTime;
+
+	/** Last time friendly walked through me. */
+	UPROPERTY()
+		float LastFriendlyHitTime;
 
 	/** Used to avoid web charging propagation loops */
 	UPROPERTY()
@@ -126,6 +134,10 @@ class AUTProj_BioShot : public AUTProjectile
 	/** Low Life Beam Color */
 	UPROPERTY(BlueprintReadWrite, Category = Web)
 		FLinearColor LowLifeBeamColor;
+
+	/** Friendly walk through Beam Color */
+	UPROPERTY(BlueprintReadWrite, Category = Web)
+		FLinearColor FriendlyBeamColor;
 
 	/** Prevent re-entrancy of TriggerWeb(). */
 	UPROPERTY()
