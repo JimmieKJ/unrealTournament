@@ -1681,6 +1681,7 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 {
 	Super::PostLogin(NewPlayer);
 
+	NewPlayer->ClientSetLocation(NewPlayer->GetFocalLocation(), NewPlayer->GetControlRotation());
 	if (GameSession != NULL)
 	{
 		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
@@ -1690,7 +1691,6 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 	}
 }
-
 
 void AUTGameMode::Logout(AController* Exiting)
 {

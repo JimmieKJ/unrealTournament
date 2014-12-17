@@ -1914,3 +1914,12 @@ void AUTPlayerController::UTLogOutBugItGoToLogFile(const FString& InScreenShotDe
 	SendDataToPCViaUnrealConsole(TEXT("UE_PROFILER!BUGIT:"), *(FullFileName));
 #endif // ALLOW_DEBUG_FILES
 }
+
+void AUTPlayerController::ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation)
+{
+	Super::ClientSetLocation_Implementation(NewLocation, NewRotation);
+	if (!GetPawn())
+	{
+		SetSpawnLocation(NewLocation);
+	}
+}

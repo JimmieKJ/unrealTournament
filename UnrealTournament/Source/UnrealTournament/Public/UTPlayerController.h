@@ -67,6 +67,7 @@ public:
 	virtual void PawnPendingDestroy(APawn* InPawn) override;
 
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
+	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 
 	virtual void BeginInactiveState() override;
 	virtual void EndInactiveState() override;
@@ -160,7 +161,6 @@ public:
 	 */
 	UFUNCTION(Client, Unreliable)
 	void ClientNotifyCausedHit(APawn* HitPawn, int32 Damage);
-
 
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)
