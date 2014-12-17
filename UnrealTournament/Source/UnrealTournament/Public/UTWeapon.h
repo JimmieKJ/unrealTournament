@@ -115,6 +115,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	bool bAffectedByStoppingPower;
 
+	/** Custom Momentum scaling for friendly hitscanned pawns */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		float FriendlyMomentumScaling;
+
 	virtual	float GetImpartedMomentumMag(AActor* HitActor);
 
 #if WITH_EDITORONLY_DATA

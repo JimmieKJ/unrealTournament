@@ -44,6 +44,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	bFPFireFromCenter = true;
 	FireOffset = FVector(75.0f, 0.0f, 0.0f);
+	FriendlyMomentumScaling = 1.f;
 
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
@@ -1128,6 +1129,12 @@ void AUTWeapon::PlayDelayedImpactEffects()
 
 float AUTWeapon::GetImpartedMomentumMag(AActor* HitActor)
 {
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if ((FriendlyMomentumScaling != 1.f) && GS != NULL && Cast<AUTCharacter>(HitActor) && GS->OnSameTeam(HitActor, UTOwner))
+	{
+		return  InstantHitInfo[CurrentFireMode].Momentum *FriendlyMomentumScaling;
+	}
+
 	return InstantHitInfo[CurrentFireMode].Momentum;
 }
 
