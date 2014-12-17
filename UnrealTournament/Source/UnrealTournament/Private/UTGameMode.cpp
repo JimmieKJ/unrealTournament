@@ -72,6 +72,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	LobbyInstanceID = 0;
 
 	//LobbySetupPanelClass = SUDuelSettings::StaticClass();
+
+	DemoFilename = TEXT("%m-%td");
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -94,7 +96,6 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 // Parse options for this game...
 void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
-
 	// HACK: workaround to inject CheckRelevance() into the BeginPlay sequence
 	UFunction* Func = AActor::GetClass()->FindFunctionByName(FName(TEXT("ReceiveBeginPlay")));
 	Func->FunctionFlags |= FUNC_Native;
@@ -194,6 +195,16 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	InOpt = ParseOption(Options, TEXT("WeaponStay"));
 	bWeaponStayActive = EvalBoolOptions(InOpt, true);
+
+	InOpt = ParseOption(Options, TEXT("Demorec"));
+	if (InOpt.Len() > 0)
+	{
+		bRecordDemo = InOpt != TEXT("off") && InOpt != TEXT("false") && InOpt != TEXT("0") && InOpt != TEXT("no") && InOpt != GFalse.ToString() && InOpt != GNo.ToString();
+		if (bRecordDemo)
+		{
+			DemoFilename = InOpt;
+		}
+	}
 
 	PostInitGame(Options);
 }
@@ -454,7 +465,6 @@ AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
  **/
 void AUTGameMode::DefaultTimer()
 {	
-
 	// Let the game see if it's time to end the match
 	CheckGameTime();
 
@@ -1585,6 +1595,11 @@ void AUTGameMode::HandleMatchInOvertime()
 
 void AUTGameMode::HandleCountdownToBegin()
 {
+	if (bRecordDemo)
+	{
+		FString MapName = GetOutermost()->GetName();
+		GetWorld()->Exec(GetWorld(), *FString::Printf(TEXT("Demorec %s"), *DemoFilename.Replace(TEXT("%m"), *MapName.RightChop(MapName.Find(TEXT("/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd) + 1))));
+	}
 	CountDown = 5;
 	GetWorldTimerManager().SetTimer(this, &AUTGameMode::CheckCountDown, 1.0, false);
 }
@@ -1828,6 +1843,8 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	ConfigProps.Add(CombatantsAttr);
 	TSharedPtr< TAttributeProperty<float> > BotSkillAttr = MakeShareable(new TAttributeProperty<float>(this, &GameDifficulty));
 	ConfigProps.Add(BotSkillAttr);
+	TSharedPtr< TAttributePropertyBool > DemoRecAttr = MakeShareable(new TAttributePropertyBool(this, &bRecordDemo));
+	ConfigProps.Add(DemoRecAttr);
 
 	MenuSpace->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
@@ -1957,6 +1974,23 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 				SNew(STextBlock)
 				.ColorAndOpacity(FLinearColor::Black)
 				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn").ToString())
+			]
+		];
+	MenuSpace->AddSlot()
+		.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Center)
+		[
+			SNew(SCheckBox)
+			.IsChecked(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+			.OnCheckStateChanged(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+			.Type(ESlateCheckBoxType::CheckBox)
+			.Content()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
 			]
 		];
 }

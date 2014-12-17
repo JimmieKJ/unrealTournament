@@ -190,6 +190,13 @@ public:
 	/** cached list of mutator assets from the asset registry and native classes, used to allow shorthand names for mutators instead of full paths all the time */
 	TArray<FAssetData> MutatorAssets;
 
+	/** whether to record a demo (starts when the countdown starts) */
+	UPROPERTY(GlobalConfig)
+	bool bRecordDemo;
+	/** filename for demos... should use one of the replacement strings or it'll overwrite every game */
+	UPROPERTY(GlobalConfig)
+	FString DemoFilename;
+
 	UPROPERTY(Config)
 	TArray<FRedirectReference> RedirectReferences;
 
