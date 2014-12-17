@@ -12,6 +12,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(FName(TEXT("SkillRating")), EStatRecordingPeriod::Persistent));
 
 	Stats.Add(MakeStat(FName(TEXT("MatchesPlayed")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("TimePlayed")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Wins")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Losses")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Kills")), EStatRecordingPeriod::Persistent));

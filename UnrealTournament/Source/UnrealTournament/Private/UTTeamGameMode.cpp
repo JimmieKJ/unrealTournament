@@ -407,6 +407,8 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
 			
 			PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
+			PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
+
 			if (UTGameState->WinningTeam == PS->Team)
 			{
 				PS->ModifyStat(FName(TEXT("Wins")), 1, EStatMod::Delta);
