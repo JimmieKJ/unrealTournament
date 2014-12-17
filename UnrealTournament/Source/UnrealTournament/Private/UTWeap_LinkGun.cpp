@@ -140,20 +140,6 @@ void AUTWeap_LinkGun::LinkedConsumeAmmo(int32 Mode)
 	}
 }
 
-void AUTWeap_LinkGun::OnRep_Links()
-{
-	if (Links > 0)
-	{
-		bLinking = true;
-		Links = Links;
-	}
-	else
-	{
-		bLinking = false;
-	}
-}
-
-
 bool AUTWeap_LinkGun::LinkedTo(AUTWeap_LinkGun* L)
 {
 	AUTCharacter* LinkCharacter = Cast<AUTCharacter>(LinkTarget);
@@ -204,7 +190,6 @@ void AUTWeap_LinkGun::SetLinkTo(AActor* Other)
 	if (LinkTarget != nullptr)
 	{
 		RemoveLink(1 + Links, UTOwner);
-		bLinking = false;
 	}
 
 	LinkTarget = Other;
@@ -215,7 +200,6 @@ void AUTWeap_LinkGun::SetLinkTo(AActor* Other)
 		{
 			bFeedbackDeath = true;
 		}
-		bLinking = true;
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -371,7 +355,6 @@ void AUTWeap_LinkGun::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTWeap_LinkGun, Links, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTWeap_LinkGun, bLinking, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTWeap_LinkGun, LinkTarget, COND_OwnerOnly);
 }
 

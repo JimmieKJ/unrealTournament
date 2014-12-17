@@ -14,11 +14,8 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
 	class AUTProj_BioShot* LinkedBio;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_Links, Category = LinkGun)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = LinkGun)
 	int32 Links;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_Links, Category = LinkGun)
-	bool bLinking;
 
 	// scale damage on link bolts per link
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
@@ -91,9 +88,6 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LinkGun)
 	bool bFeedbackDeath;
-    
-	UFUNCTION()
-	virtual void OnRep_Links();
 
 	/** test whether another LinkGun is linked to us */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
