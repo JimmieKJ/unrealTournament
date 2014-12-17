@@ -1547,8 +1547,9 @@ void AUTCharacter::FiringInfoUpdated()
 		AnimInstance->Montage_Stop(0.2f);
 	}
 
+	// TODO: first person spectating
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
-	if (Weapon != NULL && IsLocallyControlled() && UTPC != NULL && UTPC->GetPredictionTime() == 0.f && !UTPC->IsBehindView())
+	if (Weapon != NULL && IsLocallyControlled() && UTPC != NULL && (bLocalFlashLoc || UTPC->GetPredictionTime() == 0.f) && !UTPC->IsBehindView())
 	{
 		if (!FlashLocation.IsZero())
 		{
