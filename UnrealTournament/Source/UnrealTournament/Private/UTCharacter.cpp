@@ -2605,7 +2605,7 @@ void AUTCharacter::UpdateSkin()
 	{
 		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
 		{
-			GetMesh()->SetMaterial(i, GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->GetMaterial(i));
+			GetMesh()->SetMaterial(i, (i == 0 && BodyMI != NULL) ? BodyMI : GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->GetMaterial(i));
 		}
 	}
 	if (Weapon != NULL)
