@@ -17,12 +17,12 @@ struct FWeaponGroup
 
 	TArray<AUTWeapon*> WeaponsInGroup;
 
-	FWeaponGroup::FWeaponGroup()
+	FWeaponGroup()
 	{
 		Group = -1;
 	}
 
-	FWeaponGroup::FWeaponGroup(int32 inGroup, AUTWeapon* FirstWeapon)
+	FWeaponGroup(int32 inGroup, AUTWeapon* FirstWeapon)
 	{
 		Group = inGroup;
 		WeaponsInGroup.Add(FirstWeapon);
