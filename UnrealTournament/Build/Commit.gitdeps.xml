@@ -3729,7 +3729,6 @@
     <File Name="UnrealTournament/Content/RestrictedAssets/Weapons/WeaponBase.uasset" Hash="90f07770ec15012590ef37a2dbbc4cdd0de62333" />
     <File Name="UnrealTournament/Content/Splash/EdSplash.bmp" Hash="a201a2a5aa28c8eb4fa82af48f8aaad81dffaa34" />
     <File Name="UnrealTournament/Content/Splash/Splash.bmp" Hash="3cfbfc430d71ea543b8b1fa9cef2319ffac59fd9" />
-    <File Name="UnrealTournament/Content/UserContent/LinkGun/BP_LinkGun_P.uasset" Hash="e917440747e28cb7c15e23192c3bbfc013d9faea" />
     <File Name="UnrealTournament/Content/WindowsNoEditor-AssetRegistry.bin" Hash="f21f730734de86cdd040d55b8f0305296892e3fd" />
     <File Name="UnrealTournament/Plugins/ContentOnly/Content/Mutator_ContentOnly.uasset" Hash="d54afea7f4871eb63ba0f7316790523116c35583" />
     <File Name="UnrealTournament/Plugins/SampleGameMode/Binaries/Win64/UE4Editor-SampleGameMode.dll" Hash="766128dbd2756fcd3f0f75bfd7bd9c64f2db079b" />
@@ -7116,7 +7115,6 @@
     <Blob Hash="e8d6bf92cc93882d743b41b8e873dcb8b2e7255f" Size="3081373" PackHash="5943ff33dca266c05f0138eda31e967f63889a0f" PackOffset="8" />
     <Blob Hash="e8dbe6163f187ea9794be26d58c1a44915d63be5" Size="262254" PackHash="781561123e0c82ae268af5724c2f5fcee927f28b" PackOffset="8" />
     <Blob Hash="e906f4547e5302c6582a9df1f74d87271729360b" Size="7106023" PackHash="20c6f8e280933eff913bcef9db6099fa82803057" PackOffset="8" />
-    <Blob Hash="e917440747e28cb7c15e23192c3bbfc013d9faea" Size="90898" PackHash="ab65af68881d631561441af6cfcc4929f28e2487" PackOffset="475084" />
     <Blob Hash="e91860e90182184c1853f9d71682006bc3ae5c61" Size="33793" PackHash="5327a0536a42a8a416f5e7af3326f9a14d9cbe3f" PackOffset="274144" />
     <Blob Hash="e9236258253d2faf11d109fc681b7f67fb72991b" Size="58557" PackHash="6c109443e4ad66c96f7fa1c89497bc8aa3723b7f" PackOffset="1029135" />
     <Blob Hash="e92ea1e33d55c75ba1b92c3ef07f8117d0239274" Size="31195" PackHash="bcc4d75ad90fa66e2f6046a8f7cd0ee915982d30" PackOffset="1009577" />
