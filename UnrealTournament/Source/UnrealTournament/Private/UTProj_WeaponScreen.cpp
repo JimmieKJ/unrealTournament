@@ -36,6 +36,7 @@ AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FObjectInitializer& ObjectIniti
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	bAlwaysShootable = true;
+	FriendlyMomentumScaling = 1.f;
 }
 
 float AUTProj_WeaponScreen::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -71,7 +72,14 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 			}
 			const float Radius = FMath::Max<float>(1.0f, CollisionBox->Bounds.SphereRadius);
 			const float OtherDist = FMath::PointDistToLine(OtherComp->GetComponentLocation(), GetVelocity().SafeNormal(), GetActorLocation() - GetVelocity());
-			FUTPointDamageEvent DmgEvent(0.0f, FHitResult(OtherActor, OtherComp, HitLocation, HitNormal), MomentumDir, MyDamageType, MomentumDir * (Momentum * (1.0f - FMath::Clamp<float>(OtherDist / Radius, 0.0f, 0.8f))));
+			float MomentumScale = (Momentum * (1.0f - FMath::Clamp<float>(OtherDist / Radius, 0.0f, 0.8f)));
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS != NULL && GS->OnSameTeam(OtherActor, InstigatorController))
+			{
+				MomentumScale *= FriendlyMomentumScaling;
+			}
+
+			FUTPointDamageEvent DmgEvent(0.0f, FHitResult(OtherActor, OtherComp, HitLocation, HitNormal), MomentumDir, MyDamageType, MomentumDir * MomentumScale);
 			OtherActor->TakeDamage(0.0f, DmgEvent, InstigatorController, this);
 		}
 	}

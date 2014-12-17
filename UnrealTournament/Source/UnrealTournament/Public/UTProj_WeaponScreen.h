@@ -12,6 +12,10 @@ class AUTProj_WeaponScreen : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
 	bool bCauseMomentumToPawns;
 
+	/** Momentum scaling for friendly pawns */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
+	float FriendlyMomentumScaling;
+
 	/** Pawns touched so far (so no repeat hits) */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponScreen)
 	TArray<APawn*> HitPawns;
