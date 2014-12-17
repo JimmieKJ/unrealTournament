@@ -15,7 +15,33 @@ class UUTHUDWidget_WeaponInfo : public UUTHUDWidget
 public:
 
 	virtual void Draw_Implementation(float DeltaTime);
+	virtual void InitializeWidget(AUTHUD* Hud);
+
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BackgroundSlate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BackgroundBorder;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text AmmoText;
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetAmmoAmount();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	float AmmoFlashTime;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FLinearColor AmmoFlashColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FLinearColor WeaponChangeFlashColor;
 
 private:
+	float FlashTimer;
+	int32 LastAmmoAmount;
+	AUTWeapon* LastWeapon;
+
 };

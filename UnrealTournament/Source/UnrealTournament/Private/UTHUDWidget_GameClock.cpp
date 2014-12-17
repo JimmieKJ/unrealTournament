@@ -7,86 +7,76 @@ UUTHUDWidget_GameClock::UUTHUDWidget_GameClock(const FObjectInitializer& ObjectI
 : Super(ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<UTexture> Tex(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
-	HudTexture = Tex.Object;
 
-	Position=FVector2D(5.0f, 5.0f);
-	Size=FVector2D(0.0f,0.0f);
-	ScreenPosition=FVector2D(0.0f, 0.0f);
-	Origin=FVector2D(0.0f,0.0f);
+	Position=FVector2D(0.0f, 0.0f);
+	Size=FVector2D(430.0f,83.0f);
+	ScreenPosition=FVector2D(0.5f, 0.0f);
+	Origin=FVector2D(0.5f,0.0f);
+}
 
+
+void UUTHUDWidget_GameClock::InitializeWidget(AUTHUD* Hud)
+{
+	Super::InitializeWidget(Hud);
+
+	PlayerScoreText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerScoreText_Implementation);
+	ClockText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetClockText_Implementation);
+	PlayerRankText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerRankText_Implementation);
+	PlayerRankThText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetPlayerRankThText_Implementation);
+	NumPlayersText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetNumPlayersText_Implementation);
+	GameStateText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_GameClock::GetGameStateText_Implementation);
 }
 
 void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 {
+	Super::Draw_Implementation(DeltaTime);
+}
+
+FText UUTHUDWidget_GameClock::GetPlayerScoreText_Implementation()
+{
+	return FText::AsNumber(UTHUDOwner->CurrentPlayerScore);
+}
+
+FText UUTHUDWidget_GameClock::GetClockText_Implementation()
+{
+	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+	return UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), (GS ? GS->RemainingTime : 0));
+}
+
+FText UUTHUDWidget_GameClock::GetPlayerRankText_Implementation()
+{
+	return FText::AsNumber(UTHUDOwner->CurrentPlayerStanding);
+}
+
+FText UUTHUDWidget_GameClock::GetPlayerRankThText_Implementation()
+{
+	return UTHUDOwner->GetPlaceSuffix(UTHUDOwner->CurrentPlayerStanding);
+}
+
+FText UUTHUDWidget_GameClock::GetNumPlayersText_Implementation()
+{
+	return FText::AsNumber(UTHUDOwner->NumActualPlayers);
+}
+
+FText UUTHUDWidget_GameClock::GetGameStateText_Implementation()
+{
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GS != NULL)
 	{
-
-		float OldScale = RenderScale;
-
-		if (GS->IsMatchInProgress() && GS->RemainingTime <= 10.0)
+		if (!GS->IsMatchInProgress())
 		{
-			BounceValue += DeltaTime * 6;
-			RenderScale *= 1.0 + (0.1 * sin(BounceValue));
-		}
-		else
-		{
-			BounceValue = 0.0f;
-		}
-
-		// Draw the background
-		DrawTexture(HudTexture, 0.0f,0.0f, 181.0f,43.0f, 491.0f,396.0f,181.0f,43.0f,1.0f,ApplyHUDColor(FLinearColor::White));
-		FText TimeStr = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), GS->RemainingTime);
-		DrawText(TimeStr, 37, 8, UTHUDOwner->NumberFont, 0.5, 1.0, BounceValue > 0.0 ? FLinearColor::Yellow : FLinearColor::White, ETextHorzPos::Left);
-
-		AUTCTFGameState* CGS = Cast<AUTCTFGameState>(GS);
-		if (CGS != NULL)
-		{
-			if (!GS->IsMatchInProgress())
+			if (GS->HasMatchEnded())
 			{
-				if (GS->HasMatchEnded())
-				{
-					DrawText(NSLOCTEXT("GameClock", "PostGame", "!! Game Over !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
-				}
-				else
-				{
-					DrawText(NSLOCTEXT("GameClock", "PreGame", "!! Pre-Game !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
-				}
-			}
-			else if (CGS->IsMatchInSuddenDeath())
-			{
-				DrawText(NSLOCTEXT("GameClock", "SuddenDeath", "!! Sudden Death !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
-			}
-			else if (GS->IsMatchInOvertime())
-			{
-				DrawText(NSLOCTEXT("GameClock","OverTime","!! Overtime !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
-			}
-			else if (CGS->bHalftime)
-			{
-				if (CGS->bSecondHalf)
-				{
-					DrawText(NSLOCTEXT("GameClock", "PreOvertime", "!! Get Ready !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
-
-				}
-				else
-				{
-					DrawText(NSLOCTEXT("GameClock", "HalfTime", "!! Halftime !!"), 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White, ETextHorzPos::Center);
-
-				}
-			}
-			else if (CGS->bPlayingAdvantage)
-			{
-				FText AdvantageText = CGS->AdvantageTeamIndex == 0 ? NSLOCTEXT("GameClock", "RedAdvantage", "!! Red Advantage !!") : NSLOCTEXT("GameClock", "BlueAdvantage", "!! Blue Advantage !!");
-				FLinearColor AdvantageColor = CGS->AdvantageTeamIndex == 1 ? FLinearColor::Red : FLinearColor::Blue;
-				DrawText(AdvantageText, 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, AdvantageColor, ETextHorzPos::Center);
+				return NSLOCTEXT("GameClock", "PostGame", "!! Game Over !!");
 			}
 			else
 			{
-				FText HalfText = !CGS->bSecondHalf ? NSLOCTEXT("CTFScore","FirstHalf","First Half") : NSLOCTEXT("CTFScore","SecondHalf","Second Half");
-				DrawText(HalfText, 90, 50, UTHUDOwner->GetFontFromSizeIndex(2), 0.5, 1.0, FLinearColor::White,ETextHorzPos::Center);
+				return NSLOCTEXT("GameClock", "PreGame", "!! Pre-Game !!");
 			}
 		}
 
-		RenderScale = OldScale;
 	}
+
+	return FText::GetEmpty();
 }
+

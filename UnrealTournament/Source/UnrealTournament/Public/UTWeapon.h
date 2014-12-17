@@ -721,4 +721,16 @@ protected:
 	/** overlay mesh for overlay effects */
 	UPROPERTY()
 	USkeletalMeshComponent* OverlayMesh;
+
+public:
+	float WeaponBarScale;
+
+	// The UV coords for this weapon when displaying it on the weapon bar
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+	FTextureUVs WeaponBarSelectedUVs;
+
+	// The UV coords for this weapon when displaying it on the weapon bar
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+	FTextureUVs WeaponBarInactiveUVs;
+
 };

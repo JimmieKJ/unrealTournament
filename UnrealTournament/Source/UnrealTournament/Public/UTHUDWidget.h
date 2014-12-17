@@ -13,7 +13,7 @@
 
 #include "UTHUDWidget.generated.h"
 
-const float WIDGET_DEFAULT_Y_RESOLUTION = 720;	// designing for 720p (1280x720).  Widgets will be reposition/size against this number. 
+const float WIDGET_DEFAULT_Y_RESOLUTION = 1080;	// We design everything against 1080p
 
 /** UT version of FCanvasTextItem that properly handles distance field font features */
 struct FUTCanvasTextItem : public FCanvasTextItem
@@ -34,7 +34,184 @@ private:
 	{
 		UTDrawStringInternal(InCanvas, DrawPos, DrawColor);
 	}
+
+	void DrawStringInternal_HackyFix( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& DrawColor );
+
 };
+
+
+USTRUCT(BlueprintType)
+struct FHUDRenderObject
+{
+	GENERATED_USTRUCT_BODY()
+
+	// Set to true to make this renderobject hidden
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	bool bHidden;
+
+	// The depth priority.  Higher means rendered later.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	float RenderPriority;
+
+	// Where (in unscaled pixels) should this HUDObject be displayed.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FVector2D Position;
+
+	// How big (in unscaled pixels) is this HUDObject.  NOTE: the HUD object will be scaled to fit the size.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FVector2D Size;
+
+	// The Text Color to display this in.  
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FLinearColor RenderColor;
+
+	// An override for the opacity of this object
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	float RenderOpacity;
+
+	FHUDRenderObject()
+	{
+		RenderPriority = 0.0f;
+		RenderColor = FLinearColor::White;
+		RenderOpacity = 1.0f;
+	};
+
+public:
+	virtual float GetWidth() { return Size.X; }
+	virtual float GetHeight() { return Size.Y; }
+};
+
+
+USTRUCT(BlueprintType)
+struct FHUDRenderObject_Texture : public FHUDRenderObject
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The texture to draw
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	UTexture* Atlas;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FTextureUVs UVs;
+
+	// If true, this texture object will pickup the team color of the owner
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	bool bUseTeamColors;
+
+	// If true, this is a background element and should take the HUDWidgetBorderOpacity
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	bool bIsBorderElement;
+
+	// The offset to be applied to the position.  They are normalized to the width and height of the image being draw.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FVector2D RenderOffset;
+
+	// The rotation angle to render with
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	float Rotation;
+
+	// The point at which within the image that the rotation will be around
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FVector2D RotPivot;
+
+	FHUDRenderObject_Texture() : FHUDRenderObject()
+	{
+		Atlas = NULL;
+		bUseTeamColors = false;
+		bIsBorderElement = false;
+		Rotation = 0.0f;
+	}
+
+public:
+	virtual float GetWidth()
+	{
+		return (Size.X <= 0) ? UVs.UL : Size.X;
+	}
+
+	virtual float GetHeight()
+	{
+		return (Size.Y <= 0) ? UVs.VL : Size.Y;
+	}
+
+};
+
+// This is a simple delegate that returns an FTEXT value for rendering things in HUD render widgets
+DECLARE_DELEGATE_RetVal(FText, FUTGetTextDelegate)
+
+USTRUCT(BlueprintType)
+struct FHUDRenderObject_Text : public FHUDRenderObject
+{
+	GENERATED_USTRUCT_BODY()
+
+	// If this delegate is set, then Text is ignore and this function is called each frame.
+	FUTGetTextDelegate GetTextDelegate;
+
+	// The text to be displayed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FText Text;
+
+	// The font to render with
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	UFont* Font;
+
+	// Additional scaling applied to the font.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	float TextScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	bool bDrawShadow;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FVector2D ShadowDirection;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FLinearColor ShadowColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	bool bDrawOutline;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FLinearColor OutlineColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	TEnumAsByte<ETextHorzPos::Type> HorzPosition;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	TEnumAsByte<ETextVertPos::Type> VertPosition;
+
+	FHUDRenderObject_Text() : FHUDRenderObject()
+	{
+		Font = NULL;
+		TextScale = 1.0f;
+		bDrawShadow = false;
+		ShadowColor = FLinearColor::White;
+		bDrawOutline = false;
+		OutlineColor = FLinearColor::Black;
+		HorzPosition = ETextHorzPos::Left;
+		VertPosition = ETextVertPos::Top;
+	}
+
+public:
+	FVector2D GetSize()
+	{
+		if (Font)
+		{
+			FText TextToRender = Text;
+			if (GetTextDelegate.IsBound())
+			{
+				TextToRender = GetTextDelegate.Execute();
+			}
+
+			int32 Width = 0;
+			int32 Height = 0;
+			Font->GetStringHeightAndWidth(TextToRender.ToString(), Width, Height);
+			return FVector2D(Width * TextScale , Height * TextScale);
+		}
+	
+		return FVector2D(0,0);
+	}
+};
+
 
 UCLASS(BlueprintType, Blueprintable)
 class UNREALTOURNAMENT_API UUTHUDWidget : public UObject
@@ -122,6 +299,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widgets")
 	virtual FLinearColor ApplyHUDColor(FLinearColor DrawColor);
 
+	bool bShowBounds;
 
 protected:
 
@@ -304,7 +482,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widgets")
 	virtual void DrawMaterial( UMaterialInterface* Material, float X, float Y, float Width, float Height, float MaterialU, float MaterialV, float MaterialUWidth, float MaterialVHeight, float DrawOpacity = 1.0f, FLinearColor DrawColor = FLinearColor::White, FVector2D RenderOffset = FVector2D(0.0f, 0.0f), float Rotation=0, FVector2D RotPivot = FVector2D(0.5f, 0.5f));
 
+protected:
+
+	// Draws any render objects associated with this widget.  NOTE: If a blueprint overrides Draw it needs to call DrawAllRenderObjects
+	UFUNCTION(BlueprintCallable, Category="Widgets")
+	virtual void DrawAllRenderObjects(float DeltaTime, FVector2D DrawOffset);
+
+	/**
+	 *	These are the HUDRenderObject render functions.  They will take whatever is defined by the object and display it.  
+	 **/
+	virtual void RenderObj_Texture(FHUDRenderObject_Texture& TextureObject, FVector2D DrawOffset = FVector2D(0,0));
+
+	// Render a Texture object at a given position on the screen.
+	virtual void RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, float X, float Y, float Width, float Height);
+
+	virtual FVector2D RenderObj_Text(FHUDRenderObject_Text& TextObject, FVector2D DrawOffset = FVector2D(0,0));
+	virtual FVector2D RenderObj_TextAt(FHUDRenderObject_Text& TextObject, float X, float Y);
+
 private:
+
+	// This is a sorted list of all RenderObjects in this widget.  
+	TArray<UStructProperty*> RenderObjectList;
 
 
 };
+

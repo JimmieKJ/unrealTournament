@@ -524,6 +524,7 @@ public:
 	void ApplyDeferredFireInputs();
 
 	bool HasDeferredFireInputs();
+
 };
 
 

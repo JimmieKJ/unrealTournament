@@ -275,6 +275,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("PlayEmote1", IE_Pressed, this, &AUTPlayerController::PlayEmote1);
 	InputComponent->BindAction("PlayEmote2", IE_Pressed, this, &AUTPlayerController::PlayEmote2);
 	InputComponent->BindAction("PlayEmote3", IE_Pressed, this, &AUTPlayerController::PlayEmote3);
+
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)

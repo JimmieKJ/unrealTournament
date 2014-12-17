@@ -1,6 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "EngineFontServices.h"
 
 #include "BatchedElements.h"
 #include "RenderResource.h"
@@ -110,7 +111,8 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 	// for now, just redirect to the flawed engine implementation
 	if (GetFontCacheType() == EFontCacheType::Runtime)
 	{
-		DrawStringInternal_RuntimeCache(InCanvas, DrawPos, InColour);
+		BlendMode = SE_BLEND_TranslucentAlphaOnly;
+		DrawStringInternal_HackyFix(InCanvas, DrawPos, InColour);
 		return;
 	}
 
@@ -265,6 +267,163 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 	}
 }
 
+void FUTCanvasTextItem::DrawStringInternal_HackyFix( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& InColor )
+{
+	DrawnSize = FVector2D::ZeroVector;
+
+	// Nothing to do if no text
+	const FString& TextString = Text.ToString();
+	if( TextString.Len() == 0 )
+	{
+		return;
+	}
+
+	TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
+	if( !FontCache.IsValid() )
+	{
+		return;
+	}
+
+	const float FontScale = Scale.X;
+	const FSlateFontInfo LegacyFontInfo = (SlateFontInfo.IsSet()) ? SlateFontInfo.GetValue() : Font->GetLegacySlateFontInfo();
+	FCharacterList& CharacterList = FontCache->GetCharacterList( LegacyFontInfo, FontScale );
+
+	const float MaxHeight = CharacterList.GetMaxHeight();
+
+	FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
+
+	uint32 FontTextureIndex = 0;
+	FTextureResource* FontTexture = nullptr;
+
+	float InvTextureSizeX = 0;
+	float InvTextureSizeY = 0;
+
+	float LineX = 0;
+
+	const FCharacterEntry* PreviousCharEntry = nullptr;
+
+	int32 Kerning = 0;
+
+	FVector2D TopLeft(0,0);
+
+	const float PosX = TopLeft.X;
+	float PosY = TopLeft.Y;
+
+	const float ScaledHorizSpacingAdjust = HorizSpacingAdjust * Scale.X;
+
+	LineX = PosX;
+	
+	for( int32 CharIndex = 0; CharIndex < TextString.Len(); ++CharIndex )
+	{
+		const TCHAR CurrentChar = TextString[ CharIndex ];
+
+		if (DrawnSize.Y == 0)
+		{
+			// We have a valid character so initialize vertical DrawnSize
+			DrawnSize.Y = MaxHeight;
+		}
+
+		const bool IsNewline = (CurrentChar == '\n');
+
+		if (IsNewline)
+		{
+			// Move down: we are drawing the next line.
+			PosY += MaxHeight;
+			// Carriage return 
+			LineX = PosX;
+			// Increase the vertical DrawnSize
+			DrawnSize.Y += MaxHeight;
+		}
+		else
+		{
+			const FCharacterEntry& Entry = CharacterList[ CurrentChar ];
+
+			if( FontTexture == nullptr || Entry.TextureIndex != FontTextureIndex )
+			{
+				// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
+				FontTextureIndex = Entry.TextureIndex;
+				FontTexture = FontCache->GetEngineTextureResource( FontTextureIndex );
+				check(FontTexture);
+
+				FBatchedElementParameters* BatchedElementParameters = nullptr;
+				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParameters, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+				check(BatchedElements);
+
+				InvTextureSizeX = 1.0f/FontTexture->GetSizeX();
+				InvTextureSizeY = 1.0f/FontTexture->GetSizeY();
+			}
+
+			const bool bIsWhitespace = FChar::IsWhitespace(CurrentChar);
+
+			if( !bIsWhitespace && CharIndex > 0 )
+			{
+				Kerning = CharacterList.GetKerning( *PreviousCharEntry, Entry );
+			}
+			else
+			{
+				Kerning = 0;
+			}
+
+			LineX += Kerning;
+			PreviousCharEntry = &Entry;
+
+			if( !bIsWhitespace )
+			{
+				const float X = LineX + Entry.HorizontalOffset + DrawPos.X;
+				// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
+
+				const float Y = PosY - Entry.VerticalOffset + MaxHeight + Entry.GlobalDescender + DrawPos.Y;
+				const float U = Entry.StartU * InvTextureSizeX;
+				const float V = Entry.StartV * InvTextureSizeY;
+				const float SizeX = Entry.USize;
+				const float SizeY = Entry.VSize;
+				const float SizeU = Entry.USize * InvTextureSizeX;
+				const float SizeV = Entry.VSize * InvTextureSizeY;
+
+				float Left, Top, Right, Bottom;
+				Left = X * Depth;
+				Top = Y * Depth;
+				Right = (X + SizeX) * Depth;
+				Bottom = (Y + SizeY) * Depth;
+
+				int32 V00 = BatchedElements->AddVertex(
+					FVector4( Left, Top, 0.f, Depth ),
+					FVector2D( U, V ),
+					InColor,
+					HitProxyId );
+				int32 V10 = BatchedElements->AddVertex(
+					FVector4( Right, Top, 0.0f, Depth ),
+					FVector2D( U + SizeU, V ),			
+					InColor,
+					HitProxyId );
+				int32 V01 = BatchedElements->AddVertex(
+					FVector4( Left, Bottom, 0.0f, Depth ),
+					FVector2D( U, V + SizeV ),	
+					InColor,
+					HitProxyId);
+				int32 V11 = BatchedElements->AddVertex(
+					FVector4( Right, Bottom, 0.0f, Depth ),
+					FVector2D( U + SizeU, V + SizeV ),
+					InColor,
+					HitProxyId);
+
+				BatchedElements->AddTriangle(V00, V10, V11, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+				BatchedElements->AddTriangle(V00, V11, V01, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+			}
+
+			LineX += Entry.XAdvance;
+			LineX += ScaledHorizSpacingAdjust;
+
+			// Increase the Horizontal DrawnSize
+			if (LineX > DrawnSize.X)
+			{
+				DrawnSize.X = LineX;
+			}
+		}
+	}
+}
+
+
 UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	bIgnoreHUDBaseColor = false;
@@ -279,6 +438,64 @@ UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : 
 
 void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
 {
+	UE_LOG(UT,Log,TEXT("Initialikze Widget for %s"),*GetNameSafe(GetClass()));
+
+	for (TFieldIterator<UStructProperty> PropIt(GetClass()); PropIt; ++PropIt)
+	{
+		UStructProperty* Prop = NULL;
+		float PropRenderPriority = 0.0;
+		
+		FString CPPType = PropIt->Struct->GetName();
+		if ( CPPType == TEXT("HUDRenderObject_Texture") )
+		{
+			// Get the object.
+			Prop = *PropIt;
+			FHUDRenderObject_Texture* PtrToProperty = Prop->ContainerPtrToValuePtr<FHUDRenderObject_Texture>(this,0);
+			if (PtrToProperty)
+			{
+				PropRenderPriority = PtrToProperty->RenderPriority;
+			}
+		}
+		else if ( CPPType == TEXT("HUDRenderObject_Text") )
+		{
+			// Get the object.
+			Prop = *PropIt;
+			FHUDRenderObject_Text* PtrToProperty = Prop->ContainerPtrToValuePtr<FHUDRenderObject_Text>(this, 0);
+			if (PtrToProperty)
+			{
+				PropRenderPriority = PtrToProperty->RenderPriority;
+			}
+	
+		}
+
+		if (Prop)
+		{
+			int32 InsertPosition = -1;
+			for (int32 i=0; i < RenderObjectList.Num(); i++)
+			{
+				FHUDRenderObject* ObjPtr = RenderObjectList[i]->ContainerPtrToValuePtr<FHUDRenderObject>(this, 0);
+				if (ObjPtr)
+				{
+					if (PropRenderPriority < ObjPtr->RenderPriority)
+					{
+						InsertPosition = i;
+						break;
+					}
+				}
+			}
+
+			if (InsertPosition >= 0)
+			{
+				RenderObjectList.Insert(Prop, InsertPosition);
+			}
+			else
+			{
+				RenderObjectList.Add(Prop);
+			}
+		}
+
+		UE_LOG(UT,Log,TEXT("   Property %s of type %s"), *PropIt->GetNameCPP(), *PropIt->Struct->GetName());
+	}
 }
 
 UCanvas* UUTHUDWidget::GetCanvas()
@@ -340,6 +557,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	RenderPosition.Y = Canvas->ClipY * ScreenPosition.Y;
 
 	RenderScale = (bScaleByDesignedResolution) ? Canvas->ClipY / WIDGET_DEFAULT_Y_RESOLUTION : 1.0f;
+	RenderScale *= UTHUDOwner->HUDWidgetScaleOverride;
 
 	// Apply any scaling
 	RenderSize.Y = Size.Y * RenderScale;
@@ -354,21 +572,51 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 
 void UUTHUDWidget::Draw_Implementation(float DeltaTime)
 {
+	DrawAllRenderObjects(DeltaTime, FVector2D(0,0));
 }
+
+
 
 void UUTHUDWidget::PostDraw(float RenderedTime)
 {
+	 if (bShowBounds)
+	 {
+		Canvas->SetDrawColor(255,255,0,255);
+		Canvas->K2_DrawBox(RenderPosition, RenderSize, 1.0);
+	 }
 
-/* -- Show the bounds of a widget.  Uncompress to work on sizing/etc.
-	Canvas->SetDrawColor(255,255,255,255);
-	Canvas->K2_DrawBox(RenderPosition, RenderSize, 1.0);
-*/
 	LastRenderTime = RenderedTime;
 	Canvas = NULL;
 	UTPlayerOwner = NULL;
 	UTCharacterOwner = NULL;
 }
 
+void UUTHUDWidget::DrawAllRenderObjects(float RenderedTime, FVector2D DrawOffset)
+{
+	for (int32 i=0; i < RenderObjectList.Num(); i++)
+	{
+		UStructProperty* Prop = RenderObjectList[i]; 
+		FString CPPType = Prop->Struct->GetName();
+		if ( CPPType == TEXT("HUDRenderObject_Texture") )
+		{
+			// Get the object.
+			FHUDRenderObject_Texture* PtrToTexture = RenderObjectList[i]->ContainerPtrToValuePtr<FHUDRenderObject_Texture>(this,0);
+			if (PtrToTexture)
+			{
+				RenderObj_Texture(*PtrToTexture, DrawOffset);
+			}
+		}
+		else if ( CPPType == TEXT("HUDRenderObject_Text") )
+		{
+			// Get the object.
+			FHUDRenderObject_Text* PtrToText = RenderObjectList[i]->ContainerPtrToValuePtr<FHUDRenderObject_Text>(this, 0);
+			if (PtrToText)
+			{
+				RenderObj_Text(*PtrToText, DrawOffset);
+			}
+		}
+	}
+}
 
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment)
 {
@@ -525,3 +773,61 @@ FLinearColor UUTHUDWidget::ApplyHUDColor(FLinearColor DrawColor)
 	}
 	return DrawColor;
 }
+
+void UUTHUDWidget::RenderObj_Texture(FHUDRenderObject_Texture& TextureObject, FVector2D DrawOffset)
+{
+	FVector2D RenderSize = FVector2D(TextureObject.GetWidth(), TextureObject.GetHeight());
+	RenderObj_TextureAt(TextureObject, (TextureObject.Position.X + DrawOffset.X), (TextureObject.Position.Y + DrawOffset.Y), RenderSize.X, RenderSize.Y);
+}
+
+void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, float X, float Y, float Width, float Height)
+{
+	if (TextureObject.bHidden || TextureObject.Atlas == NULL || Width <= 0.0 || Height <= 0.0) return;
+
+	FLinearColor RenderColor = TextureObject.bUseTeamColors ? UTHUDOwner->GetWidgetTeamColor() : TextureObject.RenderColor;
+
+	DrawTexture(TextureObject.Atlas, 
+						X * UTHUDOwner->HUDWidgetScaleOverride, 
+						Y * UTHUDOwner->HUDWidgetScaleOverride, 
+						Width * UTHUDOwner->HUDWidgetScaleOverride, 
+						Height * UTHUDOwner->HUDWidgetScaleOverride,
+						TextureObject.UVs.U, TextureObject.UVs.V, TextureObject.UVs.UL, TextureObject.UVs.VL,
+						TextureObject.RenderOpacity * UTHUDOwner->HUDWidgetOpacity * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity : 1.0f), 
+						RenderColor, 
+						TextureObject.RenderOffset, 
+						TextureObject.Rotation, 
+						TextureObject.RotPivot);
+}
+
+FVector2D UUTHUDWidget::RenderObj_Text(FHUDRenderObject_Text& TextObject, FVector2D DrawOffset)
+{
+	return RenderObj_TextAt(TextObject, TextObject.Position.X + DrawOffset.X, TextObject.Position.Y + DrawOffset.Y);
+}
+FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, float X, float Y)
+{
+	FText TextToRender = TextObject.Text;
+	if (TextObject.GetTextDelegate.IsBound())
+	{
+		TextToRender = TextObject.GetTextDelegate.Execute();
+	}
+
+	if (TextObject.bHidden || TextToRender.IsEmpty() || TextObject.Font == NULL) return FVector2D(0,0);
+	
+	return DrawText(TextToRender, 
+				X * UTHUDOwner->HUDWidgetScaleOverride, 
+				Y * UTHUDOwner->HUDWidgetScaleOverride, 
+				TextObject.Font, 
+				TextObject.bDrawShadow, 
+				TextObject.ShadowDirection, 
+				TextObject.ShadowColor,
+				TextObject.bDrawOutline, 
+				TextObject.OutlineColor, 
+				TextObject.TextScale, 
+				TextObject.RenderOpacity * UTHUDOwner->HUDWidgetOpacity, 
+				TextObject.RenderColor, 
+				TextObject.HorzPosition, 
+				TextObject.VertPosition);
+}
+
+
+

@@ -7,282 +7,172 @@
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
-	OldHudTexture = HudTexture.Object;
-
-	Position=FVector2D(0.0f, -5.0f);
+	Position=FVector2D(0.0f, -90.0f);
 	Size=FVector2D(0,0);
-	ScreenPosition=FVector2D(0.5f, 1.0f);
-	Origin=FVector2D(0.0f,0.0f);
+	ScreenPosition=FVector2D(1.0f, 1.0f);
+	Origin=FVector2D(1.0f,1.0f);
 
-	WeaponScaleSpeed = 10;
-	BouncedWeapon = -1;
-
-	BounceWeaponScale=1.5;
-	SelectedWeaponScale=1.35;
-
-	CellWidth = 72;		
-	CellHeight = 48;	
-
-	AmmoBarOffset = FVector2D(18.0f,-13.0f);
-	AmmoBarSize = FVector2D(34.0f, 4.0f);
-	SlotOffset = FVector2D(9.0f, -15.0f);
-	for (int i=0;i<10;i++) CurrentWeaponScale[i] = 1.0f;
-
-	MaxIconSize = FVector2D(80, 56);
-
-	SelectedWeaponDisplayTime = 1.5;
-	CurrentSelectedWeaponDisplayTime = 0.0;
+	SelectedCellScale=1.1;
+	SelectedAnimRate=0.3;
+	CellWidth = 90;
 }
 
+void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
+{
+	Super::InitializeWidget(Hud);
+}
+
+/**
+ *	We aren't going tor use DrawAllRenderObjects.  Instead we are going to have a nice little custom bit of drawing based on what weapon gropup this 
+ *  is.
+ **/
 void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 {
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (UTC != NULL)
+	TArray<FWeaponGroup> WeaponGroups;
+
+	CollectWeaponData(WeaponGroups);
+	if (WeaponGroups.Num() > 0)
 	{
-		FLinearColor HudColor = ApplyHUDColor(FLinearColor::White);
+		// Draw the Weapon Groups
 
-		TArray< AUTWeapon*, TInlineAllocator<10> > WeaponList;
-		WeaponList.SetNumZeroed(10);
+		float YPosition = 0.0;
 
-		int32 FirstWeaponIndex = 11; 
-		int32 LastWeaponIndex = -1;
-		int32 CellCount = 0;
+		AUTWeapon* SelectedWeapon = UTCharacterOwner->GetWeapon();
+		int32 SelectedGroup = SelectedWeapon ? SelectedWeapon->Group : -1;
 
-		AUTWeapon* PendingWeapon = UTC->GetPendingWeapon();
-		AUTWeapon* CurrentWeapon = UTC->GetWeapon();
-
-		if (PendingWeapon != NULL && PendingWeapon != CurrentWeapon)
+		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
-			SelectedWeaponDisplayName = PendingWeapon->DisplayName;
-			CurrentSelectedWeaponDisplayTime = SelectedWeaponDisplayTime;
-		}
-
-		if (CurrentSelectedWeaponDisplayTime > 0.f)
-		{
-			float Alpha = CurrentSelectedWeaponDisplayTime > (SelectedWeaponDisplayTime * 0.5) ? 1.0 : CurrentSelectedWeaponDisplayTime / (SelectedWeaponDisplayTime * 0.5);
-			DrawText(SelectedWeaponDisplayName, 0, -100, UTHUDOwner->MediumFont, true, FVector2D(0,-1), FLinearColor::Black, false, FLinearColor::Black, 1.0, Alpha, FLinearColor::Yellow, ETextHorzPos::Center);
-			CurrentSelectedWeaponDisplayTime-=DeltaTime;
-
-			// clear pickup messages
-			UUTHUDWidgetMessage* DestinationWidget = (UTHUDOwner->HudMessageWidgets.FindRef(FName(TEXT("PickupMessage"))));
-			if (DestinationWidget && PendingWeapon)
-			{
-				DestinationWidget->ClearMessages();
-			}
-		}
-
-		// Get the weapon list.
-		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)
-		{
-			AUTWeapon* Weapon = *It;
-
-			int32 WeaponGroup = FMath::Max(0, Weapon->Group - 1); // weapon group 0 and 1 share a slot
-
-			// make sure we have enough entries
-			WeaponList.SetNum(FMath::Max<int32>(WeaponList.Num(), WeaponGroup + 1));
-
-			// Count if needed
-			if (WeaponList[WeaponGroup] == NULL)
-			{
-				CellCount++;
-			}
-
-			// if two weapons share a slot, bias towards the one that is selected
-			if (WeaponList[WeaponGroup] == NULL || WeaponList[WeaponGroup] != CurrentWeapon)
-			{
-				// Store off - NOTE: if a weapon already exists in that group.. it will get blown out.  This implementation
-				// doesn't support stacking.
-
-				WeaponList[WeaponGroup] = Weapon;
-
-				// Move the first and last if needed
-				if (WeaponGroup < FirstWeaponIndex) FirstWeaponIndex = WeaponGroup;
-				if (WeaponGroup > LastWeaponIndex) LastWeaponIndex = WeaponGroup;
-			}
-		}
-
-		if (CellCount <= 0) return;	// Quick out if we do not have any weapons
-
-		// Figure out the selected weapon
-		int32 SelectedWeaponIndex = (PendingWeapon != NULL ? PendingWeapon->Group : (CurrentWeapon != NULL ? CurrentWeapon->Group : -1));
-		if (SelectedWeaponIndex > 0) SelectedWeaponIndex--;
-		
-		float Delta = WeaponScaleSpeed * DeltaTime;
-		float BarWidth = 0;
-		float BarHeight = 0;
-
-		int32 PrevWeaponIndex = -1;
-		int32 WeaponIndex = -1;
-		int32 NextWeaponIndex = -1;
-
-		float DesiredWeaponScale[10];
-
-		for (int i=FirstWeaponIndex; i<= LastWeaponIndex; i++)
-		{
-			// Sanity
-			if (WeaponList[i] != NULL)
-			{
-				if (SelectedWeaponIndex == i)	// This is the selected weapon
-				{
-					PrevWeaponIndex = WeaponIndex;
-					if (BouncedWeapon == i)
-					{
-						DesiredWeaponScale[i] = SelectedWeaponScale;
-					}
-					else
-					{
-						DesiredWeaponScale[i] = BounceWeaponScale;
-						if (CurrentWeaponScale[i] > DesiredWeaponScale[i])
-						{
-							BouncedWeapon = i;
-						}
-					}
-				}
-				else
-				{
-					if (WeaponIndex == SelectedWeaponIndex)
-					{
-						NextWeaponIndex = i;
-					}
-					DesiredWeaponScale[i] = 1.0f;
-				}
+			// We have no allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
 			
-				if (CurrentWeaponScale[i] != DesiredWeaponScale[i])
-				{
-					if (DesiredWeaponScale[i] > CurrentWeaponScale[i])
-					{
-						CurrentWeaponScale[i] = FMath::Min<float>(CurrentWeaponScale[i]+Delta , DesiredWeaponScale[i]);
-					}
-					else
-					{
-						CurrentWeaponScale[i] = FMath::Max<float>(CurrentWeaponScale[i]-Delta , DesiredWeaponScale[i]);
-					}
-				}
+			float Y2 = YPosition;			
+			float TextXPosition = 0;
 
-				BarWidth += CellWidth * CurrentWeaponScale[i];
-				BarHeight = FMath::Max<float>(BarHeight, CellHeight * CurrentWeaponScale[i]);
-				WeaponIndex = i;
-			}
-		}
-
-		// Draw the bar
-
-		float X = BarWidth * -0.5f;
-		for (int i=FirstWeaponIndex; i<= LastWeaponIndex; i++)
-		{
-			if (WeaponList[i] != NULL)
+			// Draw the elements.
+			for (int32 WeapIdx = 0; WeapIdx < WeaponGroups[GroupIdx].WeaponsInGroup.Num(); WeapIdx++)
 			{
-				float NegativeScale = CurrentWeaponScale[i] * -1;
+				AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
+				bool bSelected = CurrentWeapon == SelectedWeapon;
 
-				if (i == SelectedWeaponIndex)
+				// Draw the background and the background's border.
+
+				int32 Idx = (WeapIdx == 0) ? 0 : 1;
+
+				float FullIconCellWidth = (CurrentWeapon->Group == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
+				float FullCellWidth = FullIconCellWidth + HeaderTab[Idx].GetWidth() + 3 + GroupHeaderCap[Idx].GetWidth();
+
+				float CellScale = bSelected ? SelectedCellScale : 1.0;
+				float CellHeight = CellBackground[Idx].GetHeight() * CellScale;
+
+				float IconCellWidth = CellWidth * CellScale;
+
+				float XPosition = (FullCellWidth * -1);
+				YPosition -= HeaderTab[Idx].GetHeight() * CellScale;
+
+				// Draw the Tab.
+				RenderObj_TextureAt(HeaderTab[Idx], XPosition, YPosition, HeaderTab[Idx].GetWidth(), CellHeight);
+				XPosition += HeaderTab[Idx].GetWidth();
+				TextXPosition = XPosition;
+
+				// Draw the Stretch bar
+
+				// Calculate the size of the stretch bar.
+
+				float StretchSize = FMath::Abs<float>(XPosition) - IconCellWidth - GroupHeaderCap[Idx].GetWidth();
+				RenderObj_TextureAt(GroupSpacerBorder[Idx], XPosition, YPosition, StretchSize, CellHeight);
+				XPosition += StretchSize;
+
+				// Draw the cap
+
+				RenderObj_TextureAt(GroupHeaderCap[Idx], XPosition, YPosition, GroupHeaderCap[Idx].GetWidth(), CellHeight);
+				XPosition += GroupHeaderCap[Idx].GetWidth();
+
+
+				// Draw the cell and the icon.
+
+				RenderObj_TextureAt(CellBackground[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
+				RenderObj_TextureAt(CellBorders[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
+
+				// Draw the Weapon Icon
+
+				WeaponIcon.UVs = bSelected ? CurrentWeapon->WeaponBarSelectedUVs : CurrentWeapon->WeaponBarInactiveUVs;
+
+				float WeaponY = (CellHeight * 0.5) -  (WeaponIcon.UVs.VL * CellScale * 0.5);
+				RenderObj_TextureAt(WeaponIcon, -10, YPosition + WeaponY, WeaponIcon.UVs.UL * CellScale, WeaponIcon.UVs.VL * CellScale);
+
+				// Draw the ammo bars
+
+				if (BarTexture)
 				{
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,248,69,49,1.0, HudColor);
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,148,69,49,1.0, HudColor);
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,248,69,49,1.0, HudColor);
-					
-					// Draw ammo bar ticks...
+					float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.0;
+					float BarHeight = CellHeight-16;
+					float Width = bSelected ? 4.0 : 2.0;
+					float X = (Width * - 1) - 2;
+					float Y = YPosition + 8;
+					DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, bSelected ? 1.0 : 0.5, FLinearColor::Black);
 
-					//FVector2D BarOffset = AmmoBarOffset * CurrentWeaponScale[i];
-					//FVector2D BarSize = AmmoBarSize * CurrentWeaponScale[i];
+					Y = Y + BarHeight - (BarHeight * AmmoPerc);
+					BarHeight *= AmmoPerc;
 
-					//DrawTexture(OldHudTexture, X + BarOffset.X, BarOffset.Y, BarSize.X, BarSize.Y, 407,479, AmmoBarSize.X, AmmoBarSize.Y);
+					DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, bSelected ? 1.0 : 0.5, FLinearColor::White);
 				}
-				else
-				{
-					DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 459,148,69,49,0.6f,HudColor);
-					if (i == PrevWeaponIndex)
-					{
-						DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,97,69,49,0.6f,HudColor);
-					}
-						
-					if (i == NextWeaponIndex)
-					{
-						DrawTexture(OldHudTexture, X, CellHeight * NegativeScale, CellWidth * CurrentWeaponScale[i], CellHeight * CurrentWeaponScale[i], 530,148,69,49,0.6f,HudColor);
-					}
-			
-				}
-
-				X += CellWidth * CurrentWeaponScale[i];
+			 
 			}
+
+			GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].WeaponsInGroup[0]->Group);
+			RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ( (Y2 - YPosition) * 0.5) + GroupText.Position.Y);
+
+			YPosition -= 10;
 		}
-
-		// Draw the Weapon Icons
-		X = BarWidth * -0.5f;
-		for (int i=FirstWeaponIndex; i<= LastWeaponIndex; i++)
-		{
-			if (WeaponList[i] != NULL)
-			{
-				if (WeaponList[i]->HUDIcon.Texture != NULL)
-				{
-					float IconX = X + (CellWidth * CurrentWeaponScale[i]) * 0.5;
-					float IconY = (CellHeight * CurrentWeaponScale[i]) * -0.5;
-
-					float IconWidth = WeaponList[i]->HUDIcon.UL;
-					float IconHeight = WeaponList[i]->HUDIcon.VL;
-
-					if (IconWidth > MaxIconSize.X || IconHeight > MaxIconSize.Y)
-					{
-						if (IconWidth - MaxIconSize.X > IconHeight - MaxIconSize.Y)
-						{
-							IconHeight = MaxIconSize.X * (IconHeight / IconWidth);
-							IconWidth = MaxIconSize.X;
-						}
-						else
-						{
-							IconWidth = MaxIconSize.Y * (IconWidth / IconHeight);
-							IconHeight = MaxIconSize.Y;
-						}
-					}
-
-					IconWidth *= CurrentWeaponScale[i];
-					IconHeight *= CurrentWeaponScale[i];
-
-					DrawTexture( WeaponList[i]->HUDIcon.Texture, IconX, IconY, IconWidth, IconHeight,
-									WeaponList[i]->HUDIcon.U, WeaponList[i]->HUDIcon.V, WeaponList[i]->HUDIcon.UL, WeaponList[i]->HUDIcon.VL,
-									1.0, FLinearColor::White, FVector2D(0.5f, 0.5f),15, FVector2D(0.5f, 0.5f) );
-				}
-
-				X += CellWidth * CurrentWeaponScale[i];
-			}
-		}
-
-
-
-		// Draw the Ammo Bars
-		X = BarWidth * -0.5f;
-		for (int i=FirstWeaponIndex; i<= LastWeaponIndex; i++)
-		{
-			if (WeaponList[i] != NULL)
-			{
-				if  (WeaponList[i]->Ammo > 0 && WeaponList[i]->MaxAmmo > 0)
-				{
-					FVector2D BarOffset = AmmoBarOffset * CurrentWeaponScale[i];
-					FVector2D BarSize = (i == SelectedWeaponIndex) ?  AmmoBarSize * CurrentWeaponScale[i] : FVector2D(AmmoBarSize.X,2.0f);
-
-					float Perc = float(WeaponList[i]->Ammo) / float(WeaponList[i]->MaxAmmo);
-					DrawTexture(Canvas->DefaultTexture, X + BarOffset.X, BarOffset.Y, BarSize.X, BarSize.Y,0,0,1,1,1.0, FLinearColor::White);
-					DrawTexture(Canvas->DefaultTexture, X + BarOffset.X-1, BarOffset.Y-1, BarSize.X * Perc+2, BarSize.Y+2,0,0,1,1,1.0, FLinearColor(0.0,1.0,0.0,1.0));
-					DrawTexture(Canvas->DefaultTexture, X + BarOffset.X, BarOffset.Y, BarSize.X * Perc, BarSize.Y,0,0,1,1,1.0, FLinearColor(0.0,0.5,0.0,1.0));
-				}
-				X += CellWidth * CurrentWeaponScale[i];
-			}
-		}
-
-		// Draw the Weapon Numbers
-		X = BarWidth * -0.5f;
-		UFont* NumberFont = UTHUDOwner->GetFontFromSizeIndex(0);
-		for (int i=FirstWeaponIndex; i<= LastWeaponIndex; i++)
-		{
-			if (WeaponList[i] != NULL)
-			{
-				FVector2D NumberOffset = SlotOffset * CurrentWeaponScale[i];
-				FString NumText = i < 10 ? FString::Printf(TEXT("%i"),i+1) : FString::Printf(TEXT("0"));
-				DrawText(FText::FromString(NumText), X + NumberOffset.X, NumberOffset.Y, NumberFont, FVector2D(1,1), FLinearColor::Black, CurrentWeaponScale[i], 1.0f, i == SelectedWeaponIndex ? FLinearColor::Yellow : FLinearColor::White );
-				X += CellWidth * CurrentWeaponScale[i];
-			}
-		}
-
 	}
 }
 
+void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups)
+{
+	if (UTCharacterOwner)
+	{
+		// Parse over the character and see what weapons they have.
+
+		for (TInventoryIterator<AUTWeapon> It(UTCharacterOwner); It; ++It)
+		{
+			AUTWeapon* Weapon = *It;
+			int32 GroupIndex = -1;
+			for (int32 i=0;i<WeaponGroups.Num();i++)
+			{
+				if (WeaponGroups[i].Group == Weapon->Group)
+				{
+					GroupIndex = i;
+					break;
+				}
+			}
+	
+			if (GroupIndex < 0)
+			{
+				FWeaponGroup G = FWeaponGroup(Weapon->Group, Weapon);
+
+				int32 InsertPosition = -1;
+				for (int32 i=0;i<WeaponGroups.Num();i++)
+				{
+					if ( WeaponGroups[i].Group < G.Group)
+					{
+						InsertPosition = i;
+						break;
+					}
+				}
+
+				if (InsertPosition <0)
+				{
+					WeaponGroups.Add(G);
+				}
+				else
+				{
+					WeaponGroups.Insert(G,InsertPosition);
+				}
+
+			}
+			else
+			{
+				WeaponGroups[GroupIndex].WeaponsInGroup.Add(Weapon);
+			}
+		}
+	}
+}

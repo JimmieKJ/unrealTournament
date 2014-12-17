@@ -89,6 +89,8 @@ void AUTWeapon::PostInitProperties()
 {
 	Super::PostInitProperties();
 
+	WeaponBarScale = 0.0f;
+
 	if (DisplayName.IsEmpty() || (GetClass() != AUTWeapon::StaticClass() && DisplayName.EqualTo(GetClass()->GetSuperClass()->GetDefaultObject<AUTWeapon>()->DisplayName)))
 	{
 		DisplayName = FText::FromName(GetClass()->GetFName());

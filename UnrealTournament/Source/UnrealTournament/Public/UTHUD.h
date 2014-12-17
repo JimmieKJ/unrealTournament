@@ -148,7 +148,39 @@ public:
 	/** get player state of PlayerOwner's viewtarget (or own if not viewing another player) */
 	virtual AUTPlayerState* GetViewedPlayerState();
 
+public:
+	// This is the base HUD opacity level used by HUD Widgets RenderObjects
+	UPROPERTY(config)
+	float HUDWidgetOpacity;
+
+	// HUD widgets will multiple their background/border slate opacities by this value as well as the root HUDOpacity
+	UPROPERTY(config)
+	float HUDWidgetBorderOpacity;
+
+	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
+	UPROPERTY(config)
+	float HUDWidgetWeaponbarInactiveOpacity;
+
+	// Allows the user to override the scaling factor for their hud.
+	UPROPERTY(config)
+	float HUDWidgetScaleOverride;
+
+	// accessor for CachedTeamColor.  
+	FLinearColor GetWidgetTeamColor();
+
+	// These 3 vars are used in a few widgets so we calculate them once in PreDraw so they may be used each frame.
+	int32 CurrentPlayerStanding;
+	int32 CurrentPlayerScore;
+	int32 CurrentPlayerSpread;
+
+	int32 NumActualPlayers;
+
+	TArray<AUTPlayerState*> Leaderboard;
+
 protected:
+
+	// We cache the team color so we only have to look it up once at the start of the render pass
+	FLinearColor CachedTeamColor;
 
 	// The current Scoreboard
 	UPROPERTY()
@@ -175,13 +207,19 @@ protected:
 	// Helper function to take a JSON object and try to convert it to the FVector2D.  
 	virtual FVector2D JSon2FVector2D(const TSharedPtr<FJsonObject> Vector2DObject, FVector2D Default);
 
+	// Calculates the currently viewed player's standing.  NOTE: Happens once per frame
+	void CalcStanding();
+
 public:
 
+	// Takes seconds and converts it to a string
 	FText ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
+
+	// Creates a suffix string based on a value (st, nd, rd, th).
+	FText GetPlaceSuffix(int32 Value);
 
 	void DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
 	void DrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
-
 
 
 private:

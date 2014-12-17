@@ -9,18 +9,71 @@ class UUTHUDWidget_GameClock : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY()
-	UTexture* HudTexture;
-
 	virtual void Draw_Implementation(float DeltaTime);
+	virtual void InitializeWidget(AUTHUD* Hud);
 
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return true;
 	}
 
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BackgroundSlate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BackgroundBorder;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture Skull;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture DivideSlash;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture ClockBackground;
+
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text PlayerScoreText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text ClockText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text PlayerRankText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text PlayerRankThText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text NumPlayersText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text GameStateText;
+
+
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetPlayerScoreText();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetClockText();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetPlayerRankText();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetPlayerRankThText();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetNumPlayersText();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetGameStateText();
+
+
 private:
-	// Holds the value used to bounce the clock when it get's close to time
-	float BounceValue;
+
 
 };

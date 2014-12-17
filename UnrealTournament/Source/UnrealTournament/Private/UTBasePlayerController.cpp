@@ -53,6 +53,13 @@ void AUTBasePlayerController::ShowMessage(FText MessageTitle, FText MessageText,
 void AUTBasePlayerController::DebugTest(FString TestCommand)
 {
 	ServerDebugTest(TestCommand);
+
+	for (TFieldIterator<UProperty> PropIt(GetClass()); PropIt; ++PropIt)	
+	{
+	
+	
+	
+	}
 }
 
 void AUTBasePlayerController::ServerDebugTest_Implementation(const FString& TestCommand)

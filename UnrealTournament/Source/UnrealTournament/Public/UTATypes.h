@@ -77,3 +77,34 @@ namespace ChatDestinations
 
 // Our Dialog results delegate.  It passes in a reference to the dialog triggering it, as well as the button id 
 DECLARE_DELEGATE_TwoParams(FDialogResultDelegate, TSharedPtr<SCompoundWidget>, uint16);
+
+USTRUCT()
+struct FTextureUVs
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TextureUVs")
+	float U;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TextureUVs")
+	float V;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TextureUVs")
+	float UL;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TextureUVs")
+	float VL;
+
+	FTextureUVs()
+		: U(0.0f)
+		, V(0.0f)
+		, UL(0.0f)
+		, VL(0.0f)
+	{};
+
+	FTextureUVs(float inU, float inV, float inUL, float inVL)
+	{
+		U = inU; V = inV; UL = inUL;  VL = inVL;
+	}
+
+};

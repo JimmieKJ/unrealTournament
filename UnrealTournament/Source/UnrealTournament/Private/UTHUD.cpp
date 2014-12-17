@@ -297,6 +297,9 @@ void AUTHUD::PostRender()
 	{
 		GS->SortPRIArray();
 	}
+
+	CalcStanding();
+
 /* -- ENABLE to see the player list 
 
 		float Y = Canvas->ClipY * 0.5;
@@ -524,5 +527,105 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 FLinearColor AUTHUD::GetBaseHUDColor()
 {
 	return FLinearColor::White;
+}
+
+FLinearColor AUTHUD::GetWidgetTeamColor()
+{
+	// Add code to cache and return the team color if it's a team game
+	return FLinearColor::Black;
+}
+
+void AUTHUD::CalcStanding()
+{
+	// NOTE: By here in the Hud rendering chain, the PlayerArray in the GameState
+	// has been sorted.
+
+	Leaderboard.Empty();
+
+	CurrentPlayerStanding = 0;
+	CurrentPlayerSpread = 0;
+	CurrentPlayerScore = 0;
+	NumActualPlayers = 0;
+
+	AUTPlayerState* MyPS = GetViewedPlayerState();
+
+	if (!UTPlayerOwner || !MyPS) return;	// Quick out if not ready
+
+	CurrentPlayerScore = int32(UTPlayerOwner->PlayerState->Score);
+
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+
+		// Build the leaderboard.
+		for (int i=0;i<GameState->PlayerArray.Num();i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
+			if (PS != NULL && !PS->bIsSpectator)
+			{
+
+				// Sort in to the leaderboard
+
+				int32 Index = -1;
+				for (int32 j=0;j<Leaderboard.Num();j++)
+				{
+					if (PS->Score > Leaderboard[j]->Score)
+					{
+						Index = j;
+						break;
+					}
+				}
+
+				if (Index >=0)
+				{
+					Leaderboard.Insert(PS, Index);
+				}
+				else
+				{
+					Leaderboard.Add(PS);
+				}
+			}
+		}
+		
+		NumActualPlayers = Leaderboard.Num();
+
+		// Find my index in it.
+
+		CurrentPlayerStanding = 1;
+		int MyIndex = Leaderboard.Find(MyPS);
+		if (MyIndex >= 0)
+		{
+			for (int32 i=0; i < MyIndex; i++)
+			{
+				if (Leaderboard[i]->Score > MyPS->Score && (i==0 || Leaderboard[i]->Score < Leaderboard[i-1]->Score))
+				{
+					CurrentPlayerStanding++;
+				}
+			}
+		}
+
+		if (CurrentPlayerStanding > 1)
+		{
+			CurrentPlayerSpread = MyPS->Score - Leaderboard[0]->Score;
+		}
+		else if (MyIndex < Leaderboard.Num()-1)
+		{
+			CurrentPlayerSpread = MyPS->Score - Leaderboard[MyIndex+1]->Score;
+		}
+	}
+}
+
+FText AUTHUD::GetPlaceSuffix(int32 Value)
+{
+	switch (Value)
+	{
+		case 0: return FText::GetEmpty(); break;
+		case 1:  return NSLOCTEXT("UTHUD","FirstPlaceSuffix","st"); break;
+		case 2:  return NSLOCTEXT("UTHUD","SecondPlaceSuffix","nd"); break;
+		case 3:  return NSLOCTEXT("UTHUD","ThirdPlaceSuffix","rd"); break;
+		default: return NSLOCTEXT("UTHUD","NthPlaceSuffix","th"); break;
+	}
+
+	return FText::GetEmpty();
 }
 
