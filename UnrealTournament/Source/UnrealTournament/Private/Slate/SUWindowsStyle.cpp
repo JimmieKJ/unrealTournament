@@ -116,7 +116,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		Style.Set("UWindows.Standard.MainMenuButton.SubMenu.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Medium", 12))
-			.SetColorAndOpacity(FLinearColor::Blue)
+			.SetColorAndOpacity(FLinearColor(0.1f, 0.1f, 0.1f, 1.f))
 			);
 
 	}
