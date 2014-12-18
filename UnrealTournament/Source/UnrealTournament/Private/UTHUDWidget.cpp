@@ -788,13 +788,15 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 
 	FLinearColor RenderColor = TextureObject.bUseTeamColors ? UTHUDOwner->GetWidgetTeamColor() : TextureObject.RenderColor;
 
+	float Opacity = UTHUDOwner->HUDWidgetOpacity * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->HUDWidgetSlateOpacity : 1.0f); 
+
 	DrawTexture(TextureObject.Atlas, 
 						X * UTHUDOwner->HUDWidgetScaleOverride, 
 						Y * UTHUDOwner->HUDWidgetScaleOverride, 
 						Width * UTHUDOwner->HUDWidgetScaleOverride, 
 						Height * UTHUDOwner->HUDWidgetScaleOverride,
 						TextureObject.UVs.U, TextureObject.UVs.V, TextureObject.UVs.UL, TextureObject.UVs.VL,
-						TextureObject.RenderOpacity * UTHUDOwner->HUDWidgetOpacity * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity : 1.0f), 
+						TextureObject.RenderOpacity * Opacity,
 						RenderColor, 
 						TextureObject.RenderOffset, 
 						TextureObject.Rotation, 

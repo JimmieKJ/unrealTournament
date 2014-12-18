@@ -453,3 +453,21 @@ void AUTGameState::ReceivedGameModeClass()
 		}
 	}
 }
+
+
+FText AUTGameState::GetGameStatusText()
+{
+	if (!IsMatchInProgress())
+	{
+		if (HasMatchEnded())
+		{
+			return NSLOCTEXT("UTGameState", "PostGame", "!! Game Over !!");
+		}
+		else
+		{
+			return NSLOCTEXT("UTGameState", "PreGame", "!! Pre-Game !!");
+		}
+	}
+
+	return FText::GetEmpty();
+}

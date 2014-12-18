@@ -153,9 +153,13 @@ public:
 	UPROPERTY(config)
 	float HUDWidgetOpacity;
 
-	// HUD widgets will multiple their background/border slate opacities by this value as well as the root HUDOpacity
+	// HUD widgets that have borders will use this opacity value when rendering.
 	UPROPERTY(config)
 	float HUDWidgetBorderOpacity;
+
+	// HUD widgets that have background slates will use this opacity value when rendering.
+	UPROPERTY(config)
+	float HUDWidgetSlateOpacity;
 
 	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
 	UPROPERTY(config)

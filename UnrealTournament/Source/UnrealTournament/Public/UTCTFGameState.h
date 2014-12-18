@@ -169,4 +169,7 @@ public:
 	}
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Scoring)
 	virtual void AddScoringPlay(const FCTFScoringPlay& NewScoringPlay);
+
+	virtual FText GetGameStatusText();
+
 };

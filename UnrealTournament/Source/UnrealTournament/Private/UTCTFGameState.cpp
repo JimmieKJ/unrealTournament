@@ -200,3 +200,33 @@ void AUTCTFGameState::AddScoringPlay(const FCTFScoringPlay& NewScoringPlay)
 		ScoringPlays.AddUnique(NewScoringPlay);
 	}
 }
+
+FText AUTCTFGameState::GetGameStatusText()
+{
+	if (bPlayingAdvantage)
+	{
+		if (AdvantageTeamIndex == 0)
+		{
+			return NSLOCTEXT("UTCTFGameState", "RedAdvantage", "!! Red Advantage !!");
+		}
+		else
+		{
+			return NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "!! Blue Advantage !!");
+		}
+	}
+	else if (IsMatchAtHalftime()) 
+	{
+		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "PreOvertime", "!! Get Ready !!") : NSLOCTEXT("UTCTFGameState", "HalfTime", "!! HalfTime !!");
+	}
+	else if (IsMatchInProgress())
+	{
+		if (IsMatchInOvertime())
+		{
+			return NSLOCTEXT("UTFGameState", "Overtime", "!! Overtime !!");
+		}
+
+		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "SecondHalf", "!! Second Half !!") : NSLOCTEXT("UTCTFGameState", "FirstHalf", "!! First Half !!");
+	}
+
+	return Super::GetGameStatusText();
+}

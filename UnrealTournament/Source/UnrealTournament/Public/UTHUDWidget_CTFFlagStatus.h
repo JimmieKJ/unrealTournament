@@ -29,6 +29,31 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	float AnimationAlpha;
 
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	TArray<FHUDRenderObject_Texture> CircleSlate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	TArray<FHUDRenderObject_Texture> CircleBorder;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture FlagIconTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture DroppedIconTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture TakenIconTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture FlagArrowTemplate;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text FlagStatusText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	TArray<FHUDRenderObject_Text> FlagHolderNames;
+
 	virtual void Draw_Implementation(float DeltaTime);
+	virtual void InitializeWidget(AUTHUD* Hud);
 
 };

@@ -532,6 +532,14 @@ FLinearColor AUTHUD::GetBaseHUDColor()
 FLinearColor AUTHUD::GetWidgetTeamColor()
 {
 	// Add code to cache and return the team color if it's a team game
+
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL || GS->bTeamGame && UTPlayerOwner && UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->Team)
+	{
+		//return UTPlayerOwner->UTPlayerState->Team->TeamColor;
+		return (UTPlayerOwner->GetTeamNum() == 0) ? FLinearColor(0.1,0.025,0.025,1.0) : FLinearColor(0.025,0.025,0.1,1.0);
+	}
+
 	return FLinearColor::Black;
 }
 

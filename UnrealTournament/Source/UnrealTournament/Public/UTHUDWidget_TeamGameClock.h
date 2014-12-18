@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "UTHUDWidget_GameClock.generated.h"
+#include "UTHUDWidget_TeamGameClock.generated.h"
 
 UCLASS()
-class UUTHUDWidget_GameClock : public UUTHUDWidget
+class UUTHUDWidget_TeamGameClock : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
@@ -25,29 +25,28 @@ protected:
 	FHUDRenderObject_Texture BackgroundBorder;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture Skull;
-	
+	FHUDRenderObject_Texture RedTeamLogo;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture DivideSlash;
+	FHUDRenderObject_Texture RedTeamBanner;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BlueTeamLogo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture BlueTeamBanner;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture ClockBackground;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Text RedScoreText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Text PlayerScoreText;
+	FHUDRenderObject_Text BlueScoreText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text ClockText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Text PlayerRankText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Text PlayerRankThText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Text NumPlayersText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture GameStateBackground;
@@ -59,20 +58,15 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float AltClockScale;
 
+
 	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerScoreText();
+	FText GetRedScoreText();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
+	FText GetBlueScoreText();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
 	FText GetClockText();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerRankText();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetPlayerRankThText();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
-	FText GetNumPlayersText();
 
 private:
 
