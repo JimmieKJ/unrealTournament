@@ -225,7 +225,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		Style.Set("UWindows.Standard.Dialog.Options.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Roboto-Regular", 12))
-			.SetColorAndOpacity(FLinearColor::Black)
+			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 

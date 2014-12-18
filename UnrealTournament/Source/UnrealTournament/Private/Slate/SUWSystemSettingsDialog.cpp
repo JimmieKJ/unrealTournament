@@ -223,7 +223,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 			[
 				SAssignNew(Fullscreen, SCheckBox)
-				.ForegroundColor(FLinearColor::Black)
+				.ForegroundColor(FLinearColor::White)
 				.IsChecked(GetPlayerOwner()->ViewportClient->IsFullScreenViewport() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 				.Content()
 				[
@@ -237,7 +237,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 			[
 				SAssignNew(SmoothFrameRate, SCheckBox)
-				.ForegroundColor(FLinearColor::Black)
+				.ForegroundColor(FLinearColor::White)
 				.IsChecked(GEngine->bSmoothFrameRate ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 				.Content()
 				[

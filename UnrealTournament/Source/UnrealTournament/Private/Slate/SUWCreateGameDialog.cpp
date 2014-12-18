@@ -106,7 +106,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(NSLOCTEXT("SUWCreateGameDialog", "Gametype", "Gametype:"))
 			]
 			+ SVerticalBox::Slot()
@@ -136,7 +136,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(NSLOCTEXT("SUWCreateGameDialog", "Map", "Map:"))
 			]
 			+ SVerticalBox::Slot()
@@ -165,7 +165,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SAssignNew(MapAuthor, STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "Author", "Author: {0}"), FText::FromString(TEXT("-"))))
 			]
 			+ SVerticalBox::Slot()
@@ -175,7 +175,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SAssignNew(MapRecommendedPlayers, STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
 			]
 			+ SVerticalBox::Slot()
@@ -185,7 +185,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SAssignNew(MapDesc, STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(FText())
 				.WrapTextAt(500.0f)
 			]
@@ -205,7 +205,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(NSLOCTEXT("SUWCreateGameDialog", "ServerName", "Server Name:"))
 			]
 			+ SHorizontalBox::Slot()
@@ -224,7 +224,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		.AutoHeight()
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.ColorAndOpacity(FLinearColor::White)
 			.Text(NSLOCTEXT("SUWCreateGameDialog", "ServerMOTD", "Server MOTD:"))
 		];
 		MainBox->AddSlot()
@@ -244,7 +244,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	.AutoHeight()
 	[
 		SNew(STextBlock)
-		.ColorAndOpacity(FLinearColor::Black)
+		.ColorAndOpacity(FLinearColor::White)
 		.Text(NSLOCTEXT("SUWCreateGameDialog", "GameSettings", "Game Settings:"))
 	];
 	MainBox->AddSlot()
@@ -259,7 +259,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	.AutoHeight()
 	[
 		SNew(STextBlock)
-		.ColorAndOpacity(FLinearColor::Black)
+		.ColorAndOpacity(FLinearColor::White)
 		.Text(NSLOCTEXT("SUWCreateGameDialog", "Mutators", "Mutators:"))
 	];
 	MainBox->AddSlot()
@@ -456,7 +456,7 @@ TSharedRef<SWidget> SUWCreateGameDialog::GenerateGameNameWidget(UClass* InItem)
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.ColorAndOpacity(FLinearColor::White)
 			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName.ToString())
 		];
 }
@@ -598,7 +598,7 @@ TSharedRef<ITableRow> SUWCreateGameDialog::GenerateMutatorListRow(UClass* Mutato
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.ColorAndOpacity(FLinearColor::White)
 			.Text(MutatorName)
 		]; 
 }

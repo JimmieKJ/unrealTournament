@@ -101,7 +101,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.ColorAndOpacity(FLinearColor::White)
 					.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "PlayerName", "Name:").ToString())
 				]
 				+ SHorizontalBox::Slot()
@@ -122,12 +122,12 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SAssignNew(AutoWeaponSwitch, SCheckBox)
-				.ForegroundColor(FLinearColor::Black)
+				.ForegroundColor(FLinearColor::White)
 				.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 				.Content()
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::Black)
+					.ColorAndOpacity(FLinearColor::White)
 					.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup").ToString())
 				]
 			]
@@ -138,7 +138,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "WeaponPriorities", "Weapon Priorities"))
 			]
 			+ SVerticalBox::Slot()
@@ -218,7 +218,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Content()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
+						.ColorAndOpacity(FLinearColor::White)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "WeaponBobScaling", "Weapon Bob").ToString())
 					]
 				]
@@ -255,7 +255,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Content()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
+						.ColorAndOpacity(FLinearColor::White)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "ViewBobScaling", "View Bob").ToString())
 					]
 				]
@@ -297,7 +297,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Label()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
+						.ColorAndOpacity(FLinearColor::White)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 1", "Emote 1"))
 					]
 				]
@@ -318,7 +318,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Label()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
+						.ColorAndOpacity(FLinearColor::White)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 2", "Emote 2"))
 					]
 				]
@@ -339,7 +339,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Label()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
+						.ColorAndOpacity(FLinearColor::White)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 3", "Emote 3"))
 					]
 				]
@@ -362,7 +362,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Content()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::Black)
+						.ColorAndOpacity(FLinearColor::White)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "FFAPlayerColor", "Free for All Player Color").ToString())
 					]
 				]
@@ -408,7 +408,7 @@ TSharedRef<ITableRow> SUWPlayerSettingsDialog::GenerateWeaponListRow(UClass* Wea
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.ColorAndOpacity(FLinearColor::White)
 			.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName.ToString())
 		];
 }

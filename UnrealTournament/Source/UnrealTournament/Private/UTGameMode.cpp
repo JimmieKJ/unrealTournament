@@ -1972,7 +1972,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			.Content()
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn").ToString())
 			]
 		];
@@ -1989,7 +1989,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			.Content()
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
+				.ColorAndOpacity(FLinearColor::White)
 				.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
 			]
 		];
