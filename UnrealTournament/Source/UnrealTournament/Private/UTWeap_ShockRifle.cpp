@@ -10,13 +10,14 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	BaseAISelectRating = 0.65f;
 	BasePickupDesireability = 0.65f;
 	ScreenMaterialID = 5;
+	//LastClientKillTime = -100000.0f;
 }
 
 void AUTWeap_ShockRifle::AttachToOwnerNative()
 {
 	Super::AttachToOwnerNative();
 
-	if (Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
+	if (GetNetMode() != NM_DedicatedServer && Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
 	{
 		ScreenMI = Mesh->CreateAndSetMaterialInstanceDynamic(ScreenMaterialID);
 		// FIXME: can't use, results in crash due to engine bug
@@ -33,21 +34,29 @@ void AUTWeap_ShockRifle::AttachToOwnerNative()
 
 void AUTWeap_ShockRifle::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 {
-	FFontRenderInfo RenderInfo;
-	RenderInfo.bClipText = true;
-	RenderInfo.GlowInfo.bEnableGlow = true;
-	RenderInfo.GlowInfo.GlowColor = FLinearColor(-0.75f, -0.75f, -0.75f, 1.0f);
-	RenderInfo.GlowInfo.GlowOuterRadius.X = 0.45f;
-	RenderInfo.GlowInfo.GlowOuterRadius.Y = 0.475f;
-	RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
-	RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
+	/*if (LastClientKillTime - GetWorld()->TimeSeconds < 2.0f && ScreenKillNotifyTexture != NULL)
+	{
+		C->SetDrawColor(FColor::White);
+		C->DrawTile(ScreenKillNotifyTexture, 0.0f, 0.0f, float(Width), float(Height), 0.0f, 0.0f, ScreenKillNotifyTexture->GetSizeX(), ScreenKillNotifyTexture->GetSizeY());
+	}
+	else*/
+	{
+		FFontRenderInfo RenderInfo;
+		RenderInfo.bClipText = true;
+		RenderInfo.GlowInfo.bEnableGlow = true;
+		RenderInfo.GlowInfo.GlowColor = FLinearColor(-0.75f, -0.75f, -0.75f, 1.0f);
+		RenderInfo.GlowInfo.GlowOuterRadius.X = 0.45f;
+		RenderInfo.GlowInfo.GlowOuterRadius.Y = 0.475f;
+		RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
+		RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
 
-	FString AmmoText = FString::FromInt(Ammo);
-	float XL, YL;
-	C->TextSize(ScreenFont, AmmoText, XL, YL);
-	FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(AmmoText), ScreenFont, (Ammo <= 5) ? FLinearColor::Red : FLinearColor::White);
-	Item.FontRenderInfo = RenderInfo;
-	C->DrawItem(Item);
+		FString AmmoText = FString::FromInt(Ammo);
+		float XL, YL;
+		C->TextSize(ScreenFont, AmmoText, XL, YL);
+		FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(AmmoText), ScreenFont, (Ammo <= 5) ? FLinearColor::Red : FLinearColor::White);
+		Item.FontRenderInfo = RenderInfo;
+		C->DrawItem(Item);
+	}
 }
 
 void AUTWeap_ShockRifle::Tick(float DeltaTime)
