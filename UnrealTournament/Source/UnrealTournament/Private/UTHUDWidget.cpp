@@ -789,7 +789,19 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 {
 	if (TextureObject.bHidden || TextureObject.Atlas == NULL || Width <= 0.0 || Height <= 0.0) return;
 
-	FLinearColor RenderColor = TextureObject.bUseTeamColors ? UTHUDOwner->GetWidgetTeamColor() : TextureObject.RenderColor;
+	FLinearColor RenderColor = TextureObject.RenderColor;
+	if (TextureObject.bUseTeamColors && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
+	{
+		uint8 TeamIdx = UTHUDOwner->UTPlayerOwner->GetTeamNum();
+		if (TeamIdx < TextureObject.TeamColorOverrides.Num())
+		{
+			RenderColor = TextureObject.TeamColorOverrides[TeamIdx];
+		}
+		else
+		{
+			RenderColor = UTHUDOwner->GetWidgetTeamColor();
+		}	
+	}
 
 	float Opacity = UTHUDOwner->HUDWidgetOpacity * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->HUDWidgetSlateOpacity : 1.0f); 
 

@@ -167,6 +167,10 @@ struct FHUDRenderObject_Texture : public FHUDRenderObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	bool bUseTeamColors;
 
+	// The team colors to select from.  If this array is empty, the base HUD team colors will be used.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	TArray<FLinearColor> TeamColorOverrides;
+
 	// If true, this is a background element and should take the HUDWidgetBorderOpacity
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	bool bIsBorderElement;
