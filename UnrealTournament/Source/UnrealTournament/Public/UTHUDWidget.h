@@ -50,6 +50,11 @@ public:
 
 	// This is the position of the widget relative to the Screen position and origin.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
+	float DesignedResolution;
+
+
+	// This is the position of the widget relative to the Screen position and origin.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	FVector2D Position;
 
 	// The size of the widget as designed.  NOTE: Currently no clipping occurs so it's very possible

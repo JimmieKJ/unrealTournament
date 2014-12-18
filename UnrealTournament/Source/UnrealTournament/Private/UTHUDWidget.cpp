@@ -436,6 +436,9 @@ UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : 
 
 	bScaleByDesignedResolution = true;
 	bMaintainAspectRatio = true;
+
+	DesignedResolution=720;
+
 }
 
 void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
@@ -558,7 +561,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	RenderPosition.X = Canvas->ClipX * ScreenPosition.X;
 	RenderPosition.Y = Canvas->ClipY * ScreenPosition.Y;
 
-	RenderScale = (bScaleByDesignedResolution) ? Canvas->ClipY / WIDGET_DEFAULT_Y_RESOLUTION : 1.0f;
+	RenderScale = (bScaleByDesignedResolution) ? Canvas->ClipY / DesignedResolution : 1.0f;
 	RenderScale *= UTHUDOwner->HUDWidgetScaleOverride;
 
 	// Apply any scaling
