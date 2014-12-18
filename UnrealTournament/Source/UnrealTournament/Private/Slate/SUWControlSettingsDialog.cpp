@@ -508,7 +508,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.HAlign(HAlign_Left)
 							[
 								SAssignNew(MouseSmoothing, SCheckBox)
-								.ForegroundColor(FLinearColor::Black)
+								.ForegroundColor(FLinearColor::White)
 								.IsChecked(GetDefault<UInputSettings>()->bEnableMouseSmoothing ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 								.Content()
 								[
@@ -522,7 +522,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SAssignNew(MouseInvert, SCheckBox)
-								.ForegroundColor(FLinearColor::Black)
+								.ForegroundColor(FLinearColor::White)
 								.IsChecked(bMouseInverted ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 								.Content()
 								[
@@ -573,7 +573,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
 							SAssignNew(SingleTapWallDodge, SCheckBox)
-							.ForegroundColor(FLinearColor::Black)
+							.ForegroundColor(FLinearColor::White)
 							.IsChecked(PC->bSingleTapWallDodge ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 							.Content()
 							[
@@ -587,7 +587,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SAssignNew(SingleTapAfterJump, SCheckBox)
-								.ForegroundColor(FLinearColor::Black)
+								.ForegroundColor(FLinearColor::White)
 								.IsChecked(PC->bSingleTapAfterJump ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 								.Content()
 								[
@@ -601,7 +601,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SAssignNew(AutoSlide, SCheckBox)
-								.ForegroundColor(FLinearColor::Black)
+								.ForegroundColor(FLinearColor::White)
 								.IsChecked(PC->bAutoSlide ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 								.Content()
 								[
@@ -615,7 +615,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SAssignNew(TapCrouchToSlide, SCheckBox)
-								.ForegroundColor(FLinearColor::Black)
+								.ForegroundColor(FLinearColor::White)
 								.IsChecked(PC->bTapCrouchToSlide ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 								.Content()
 								[

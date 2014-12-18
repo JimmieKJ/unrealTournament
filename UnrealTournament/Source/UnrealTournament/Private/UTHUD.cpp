@@ -537,7 +537,7 @@ FLinearColor AUTHUD::GetWidgetTeamColor()
 	if (GS == NULL || GS->bTeamGame && UTPlayerOwner && UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->Team)
 	{
 		//return UTPlayerOwner->UTPlayerState->Team->TeamColor;
-		return (UTPlayerOwner->GetTeamNum() == 0) ? FLinearColor(0.1,0.025,0.025,1.0) : FLinearColor(0.025,0.025,0.1,1.0);
+		return (UTPlayerOwner->GetTeamNum() == 0) ? FLinearColor(0.15,0.0,0.0,1.0) : FLinearColor(0.025,0.025,0.1,1.0);
 	}
 
 	return FLinearColor::Black;
