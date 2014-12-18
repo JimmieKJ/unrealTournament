@@ -31,7 +31,6 @@ public:
 	virtual FVector GetImpartedMovementBaseVelocity() const override;
 	virtual bool CanCrouchInCurrentState() const override;
 	virtual void PerformMovement(float DeltaSeconds) override;
-	virtual FVector ConsumeInputVector() override;
 	virtual float ComputeAnalogInputModifier() const override;
 
 	/** Try to base on lift that just ran into me, return true if success */
@@ -243,14 +242,6 @@ public:
 
 	UPROPERTY(Category = "Emote", BlueprintReadOnly)
 	bool bIsEmoting;
-
-	/** Acceleration at start of last PerformMovement. */
-	UPROPERTY(Category = "Saved Acceleration", BlueprintReadOnly)
-	FVector SavedAcceleration;
-
-	/** If true, keep old acceleration while holding bWantSlideRoll if no movement keys are pressed. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	bool bMaintainSlideRollAccel;
 	
 protected:
 	/** True if player is holding modifier to slide/roll.  Change with UpdateSlideRoll(). */

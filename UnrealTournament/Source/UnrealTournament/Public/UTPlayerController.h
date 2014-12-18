@@ -191,10 +191,6 @@ public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapAfterJump;
 
-	/** If true, holding slide/roll (shift) will keep current acceleration if no movement keys are pressed. */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-	bool bHoldAccelWithSlideRoll;
-
 	/** If true, tapping crouch will cause a slide. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 		bool bTapCrouchToSlide;
@@ -202,10 +198,6 @@ public:
 	/** Toggles bSingleTapWallDodge */
 	UFUNCTION(exec)
 	virtual void ToggleSingleTap();
-
-	/** Toggles holding acceleration with slide/roll (shift) */
-	UFUNCTION(exec)
-	virtual void ToggleHoldAccel();
 
 	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
@@ -479,6 +471,7 @@ protected:
 	/** Max held time for roll from crouch tap */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
 	float CrouchRollTapInterval;
+
 	/** max world time to release crouch tap to roll, set from CrouchRollTapInterval */
 	UPROPERTY(BlueprintReadOnly, Category = Dodging)
 	float RollTapThresholdTime;

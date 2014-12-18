@@ -104,8 +104,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CurrentWallDodgeCount = 0;				
 	bWantsSlideRoll = false;				
 	bApplyWallSlide = false;			
-	SavedAcceleration = FVector(0.f);		
-	bMaintainSlideRollAccel = true;			
 	bHasCheckedAgainstWall = false;			
 	bIsSettingUpFirstReplayMove = false;
 
@@ -641,19 +639,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		SetMovementMode(MOVE_Falling);
 	}
 	return true;
-}
-
-FVector UUTCharacterMovement::ConsumeInputVector()
-{
-	FVector NewInputVector = Super::ConsumeInputVector();
-
-	if (bWantsSlideRoll && NewInputVector.IsZero() && bMaintainSlideRollAccel)
-	{
-		NewInputVector = SavedAcceleration;
-	}
-
-	SavedAcceleration = NewInputVector;
-	return NewInputVector;
 }
 
 void UUTCharacterMovement::Crouch(bool bClientSimulation)

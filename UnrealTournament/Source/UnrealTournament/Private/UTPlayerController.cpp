@@ -61,7 +61,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	EmoteCooldownTime = 0.3f;
 
 	bAutoSlide = false;
-	bHoldAccelWithSlideRoll = true;
 
 	bSpectateBehindView = true;
 
@@ -152,16 +151,6 @@ void AUTPlayerController::ServerNotifyProjectileHit_Implementation(AUTProjectile
 void AUTPlayerController::ToggleSingleTap()
 {
 	bSingleTapWallDodge = !bSingleTapWallDodge;
-}
-
-void AUTPlayerController::ToggleHoldAccel()
-{
-	bHoldAccelWithSlideRoll = !bHoldAccelWithSlideRoll;
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->bMaintainSlideRollAccel = bHoldAccelWithSlideRoll;
-	}
 }
 
 void AUTPlayerController::ToggleAutoSlide()
@@ -382,7 +371,6 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		{
 			UTCharacter->UTCharacterMovement->UpdateSlideRoll(bIsHoldingSlideRoll);
 			SetAutoSlide(bAutoSlide);
-			UTCharacter->UTCharacterMovement->bMaintainSlideRollAccel = bHoldAccelWithSlideRoll;
 		}
 	}
 }
