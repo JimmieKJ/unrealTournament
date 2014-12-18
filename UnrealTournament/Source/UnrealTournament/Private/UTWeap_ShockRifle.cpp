@@ -2,12 +2,62 @@
 #include "UnrealTournament.h"
 #include "UTWeap_ShockRifle.h"
 #include "UTProj_ShockBall.h"
+#include "UTCanvasRenderTarget2D.h"
 
 AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	BaseAISelectRating = 0.65f;
 	BasePickupDesireability = 0.65f;
+	ScreenMaterialID = 5;
+}
+
+void AUTWeap_ShockRifle::AttachToOwnerNative()
+{
+	Super::AttachToOwnerNative();
+
+	if (Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
+	{
+		ScreenMI = Mesh->CreateAndSetMaterialInstanceDynamic(ScreenMaterialID);
+		// FIXME: can't use, results in crash due to engine bug
+		//ScreenTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(UCanvasRenderTarget2D::StaticClass(), 64, 64);
+		{
+			ScreenTexture = ConstructObject<UUTCanvasRenderTarget2D>(UUTCanvasRenderTarget2D::StaticClass(), this);
+			ScreenTexture->InitAutoFormat(64, 64);
+		}
+		ScreenTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		ScreenTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTWeap_ShockRifle::UpdateScreenTexture);
+		ScreenMI->SetTextureParameterValue(FName(TEXT("ScreenTexture")), ScreenTexture);
+	}
+}
+
+void AUTWeap_ShockRifle::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
+{
+	FFontRenderInfo RenderInfo;
+	RenderInfo.bClipText = true;
+	RenderInfo.GlowInfo.bEnableGlow = true;
+	RenderInfo.GlowInfo.GlowColor = FLinearColor(-0.75f, -0.75f, -0.75f, 1.0f);
+	RenderInfo.GlowInfo.GlowOuterRadius.X = 0.45f;
+	RenderInfo.GlowInfo.GlowOuterRadius.Y = 0.475f;
+	RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
+	RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
+
+	FString AmmoText = FString::FromInt(Ammo);
+	float XL, YL;
+	C->TextSize(ScreenFont, AmmoText, XL, YL);
+	FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(AmmoText), ScreenFont, (Ammo <= 5) ? FLinearColor::Red : FLinearColor::White);
+	Item.FontRenderInfo = RenderInfo;
+	C->DrawItem(Item);
+}
+
+void AUTWeap_ShockRifle::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 1.0f)
+	{
+		ScreenTexture->UpdateResource();
+	}
 }
 
 bool AUTWeap_ShockRifle::WaitingForCombo()

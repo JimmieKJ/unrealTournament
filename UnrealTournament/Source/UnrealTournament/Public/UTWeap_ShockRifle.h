@@ -20,6 +20,24 @@ class AUTWeap_ShockRifle : public AUTWeapon
 	UPROPERTY()
 	bool bMovingComboCheckResult;
 
+	/** render target for on-mesh display screen */
+	UPROPERTY(BlueprintReadWrite, Category = Mesh)
+	UCanvasRenderTarget2D* ScreenTexture;
+	/** font for text on the display screen */
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = Mesh)
+	UFont* ScreenFont;
+	/** material ID for the screen */
+	UPROPERTY(EditDefaultsOnly, Category = Mesh)
+	int32 ScreenMaterialID;
+	/** material instance showing the screen */
+	UPROPERTY(BlueprintReadWrite, Category = Mesh)
+	UMaterialInstanceDynamic* ScreenMI;
+	
+	virtual void AttachToOwnerNative() override;
+	UFUNCTION()
+	virtual void UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height);
+	virtual void Tick(float DeltaTime) override;
+
 	virtual AUTProjectile* FireProjectile() override;
 
 	/** returns whether AI using this weapon shouldn't fire because it's waiting for a combo trigger */
