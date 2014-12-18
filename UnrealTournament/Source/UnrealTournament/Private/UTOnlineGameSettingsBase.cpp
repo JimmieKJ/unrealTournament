@@ -26,21 +26,23 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 	// Stub function.  We will need to fill this out later.
 	bIsDedicated = CurrentGame->GetWorld()->GetNetMode() == NM_DedicatedServer;
 
-	AUTGameMode* UTGameMode = Cast<AUTGameMode>(CurrentGame);
-
 	Set(SETTING_GAMEMODE, CurrentGame->GetClass()->GetPathName(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	Set(SETTING_MAPNAME, CurrentGame->GetWorld()->GetMapName(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 
+	AUTGameMode* UTGameMode = Cast<AUTGameMode>(CurrentGame);
 	if (UTGameMode)
 	{
 		Set(SETTING_GAMENAME, UTGameMode->DisplayName.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-		if (UTGameMode->UTGameState)
-		{
-			Set(SETTING_SERVERNAME, UTGameMode->UTGameState->ServerName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-			Set(SETTING_SERVERMOTD, UTGameMode->UTGameState->ServerMOTD, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-		}
 	}
+
+	AUTGameState* GameState = CurrentGame->GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameMode->UTGameState)
+	{
+		Set(SETTING_SERVERNAME, GameState->ServerName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+		Set(SETTING_SERVERMOTD, GameState->ServerMOTD, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	}
+
 
 	Set(SETTING_PLAYERSONLINE, CurrentGame->NumPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	Set(SETTING_SPECTATORSONLINE, CurrentGame->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
