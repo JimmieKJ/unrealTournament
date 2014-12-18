@@ -461,7 +461,7 @@ TSharedRef<SWidget> SUWCreateGameDialog::GenerateGameNameWidget(UClass* InItem)
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
+			.ColorAndOpacity(FLinearColor::Black)
 			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName.ToString())
 		];
 }
