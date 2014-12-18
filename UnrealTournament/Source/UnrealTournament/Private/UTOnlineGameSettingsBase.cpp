@@ -37,7 +37,7 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 	}
 
 	AUTGameState* GameState = CurrentGame->GetWorld()->GetGameState<AUTGameState>();
-	if (UTGameMode->UTGameState)
+	if (GameState)
 	{
 		Set(SETTING_SERVERNAME, GameState->ServerName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 		Set(SETTING_SERVERMOTD, GameState->ServerMOTD, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
