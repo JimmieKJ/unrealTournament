@@ -104,7 +104,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			[
 				SAssignNew(MainBox, SVerticalBox)
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+				.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 				.AutoHeight()
 				.VAlign(VAlign_Top)
 				.HAlign(HAlign_Center)
@@ -131,11 +131,12 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 					[
 						SAssignNew(SelectedGameName, STextBlock)
 						.Text(InitialSelectedGameClass.GetDefaultObject()->DisplayName.ToString())
+						.MinDesiredWidth(200.0f)
 					]
 				]
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-				.AutoHeight()
+					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+					.AutoHeight()
 				.VAlign(VAlign_Top)
 				.HAlign(HAlign_Center)
 				[
@@ -144,8 +145,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 					.Text(NSLOCTEXT("SUWCreateGameDialog", "Map", "Map:"))
 				]
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 0.0f, 0.0f, 0.0f)
-				.AutoHeight()
+					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+					.AutoHeight()
 				.VAlign(VAlign_Top)
 				.HAlign(HAlign_Center)
 				[
@@ -160,11 +161,12 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 					[
 						SAssignNew(SelectedMap, STextBlock)
 						.Text(NSLOCTEXT("SUWCreateGameDialog", "NoMaps", "No Maps Available").ToString())
+						.MinDesiredWidth(200.0f)
 					]
 				]
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-				.AutoHeight()
+					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+					.AutoHeight()
 				.VAlign(VAlign_Top)
 				.HAlign(HAlign_Center)
 				[
@@ -173,8 +175,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 					.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "Author", "Author: {0}"), FText::FromString(TEXT("-"))))
 				]
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-				.AutoHeight()
+					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+					.AutoHeight()
 				.VAlign(VAlign_Top)
 				.HAlign(HAlign_Center)
 				[
@@ -183,8 +185,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 					.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
 				]
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-				.AutoHeight()
+					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+					.AutoHeight()
 				.VAlign(VAlign_Top)
 				.HAlign(HAlign_Center)
 				[
@@ -205,7 +207,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
-			.Padding(5.0f, 0.0f, 5.0f, 0.0f)
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 			.VAlign(VAlign_Center)
 			.AutoWidth()
 			[
@@ -214,8 +216,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 				.Text(NSLOCTEXT("SUWCreateGameDialog", "ServerName", "Server Name:"))
 			]
 			+ SHorizontalBox::Slot()
-			.Padding(5.0f, 0.0f, 5.0f, 0.0f)
-			.AutoWidth()
+				.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+				.AutoWidth()
 			[
 				SNew(SEditableTextBox)
 				.OnTextChanged(ServerNameProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
@@ -224,8 +226,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			]
 		];
 		MainBox->AddSlot()
-		.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-		.HAlign(HAlign_Center)
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			.HAlign(HAlign_Left)
 		.AutoHeight()
 		[
 			SNew(STextBlock)
@@ -233,8 +235,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.Text(NSLOCTEXT("SUWCreateGameDialog", "ServerMOTD", "Server MOTD:"))
 		];
 		MainBox->AddSlot()
-		.Padding(0.0f, 0.0f, 0.0f, 0.0f)
-		.AutoHeight()
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			.AutoHeight()
 		[
 			SNew(SEditableTextBox)
 			.OnTextChanged(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
@@ -244,8 +246,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	}
 
 	MainBox->AddSlot()
-	.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-	.HAlign(HAlign_Center)
+		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+		.HAlign(HAlign_Left)
 	.AutoHeight()
 	[
 		SNew(STextBlock)
@@ -253,14 +255,14 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		.Text(NSLOCTEXT("SUWCreateGameDialog", "GameSettings", "Game Settings:"))
 	];
 	MainBox->AddSlot()
-	.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-	.AutoHeight()
+		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+		.AutoHeight()
 	[
 		SAssignNew(GameConfigPanel, SVerticalBox)
 	];
 	MainBox->AddSlot()
-	.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-	.HAlign(HAlign_Center)
+		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+		.HAlign(HAlign_Left)
 	.AutoHeight()
 	[
 		SNew(STextBlock)
@@ -268,13 +270,13 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		.Text(NSLOCTEXT("SUWCreateGameDialog", "Mutators", "Mutators:"))
 	];
 	MainBox->AddSlot()
-	.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-	.HAlign(HAlign_Center)
+		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+		.HAlign(HAlign_Left)
 	.AutoHeight()
 	[
 		SNew(SGridPanel)
 		+ SGridPanel::Slot(0, 0)
-		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 		[
 			SNew(SBox)
 			.WidthOverride(200.0f)
@@ -291,31 +293,31 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			]
 		]
 		+ SGridPanel::Slot(1, 0)
-		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
-		[
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			[
 			SNew(SBox)
 			.VAlign(VAlign_Center)
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-				.HAlign(HAlign_Center)
+				.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+				.HAlign(HAlign_Left)
 				.AutoHeight()
 				[
 					SNew(SButton)
-					.HAlign(HAlign_Center)
+					.HAlign(HAlign_Left)
 					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 					.Text(NSLOCTEXT("SUWCreateGameDialog", "MutatorAdd", "-->").ToString())
 					.OnClicked(this, &SUWCreateGameDialog::AddMutator)
 				]
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-				.HAlign(HAlign_Center)
+					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+					.HAlign(HAlign_Left)
 				.AutoHeight()
 				[
 					SNew(SButton)
-					.HAlign(HAlign_Center)
+					.HAlign(HAlign_Left)
 					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 					.Text(NSLOCTEXT("SUWCreateGameDialog", "MutatorRemove", "<--").ToString())
@@ -324,8 +326,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			]
 		]
 		+ SGridPanel::Slot(2, 0)
-		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
-		[
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			[
 			SNew(SBox)
 			.WidthOverride(200.0f)
 			.HeightOverride(200.0f)
@@ -341,10 +343,10 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			]
 		]
 		+ SGridPanel::Slot(2, 1)
-		.Padding(5.0f, 5.0f, 5.0f, 5.0f)
-		[
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			[
 			SNew(SButton)
-			.HAlign(HAlign_Center)
+			.HAlign(HAlign_Left)
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWCreateGameDialog", "ConfigureMutator", "Configure Mutator").ToString())
@@ -355,7 +357,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	.AutoHeight()
 	.VAlign(VAlign_Bottom)
 	.HAlign(HAlign_Right)
-	.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 	[
 		SAssignNew(ButtonRow, SUniformGridPanel)
 		.SlotPadding(FMargin(10.0f, 10.0f, 10.0f, 10.0f))
@@ -369,7 +371,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		ButtonRow->AddSlot(ButtonID++, 0)
 		[
 			SNew(SButton)
-			.HAlign(HAlign_Center)
+			.HAlign(HAlign_Left)
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWCreateGameDialog", "StartDedicatedButton", "Start Dedicated").ToString())
@@ -381,7 +383,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		ButtonRow->AddSlot(ButtonID++, 0)
 		[
 			SNew(SButton)
-			.HAlign(HAlign_Center)
+			.HAlign(HAlign_Left)
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWCreateGameDialog", "StartButton", "Start").ToString())
@@ -391,7 +393,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	ButtonRow->AddSlot(ButtonID++, 0)
 	[
 		SNew(SButton)
-		.HAlign(HAlign_Center)
+		.HAlign(HAlign_Left)
 		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
 		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 		.Text(NSLOCTEXT("SUWMessageBox", "CancelButton", "Cancel").ToString())

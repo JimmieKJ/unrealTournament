@@ -1850,7 +1850,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
-	.HAlign(HAlign_Center)
+	.HAlign(HAlign_Left)
 	[
 		SNew(SBox)
 		.WidthOverride(200.0f)
@@ -1879,7 +1879,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
-	.HAlign(HAlign_Center)
+	.HAlign(HAlign_Left)
 	[
 		SNew(SBox)
 		.WidthOverride(200.0f)
@@ -1907,7 +1907,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
-	.HAlign(HAlign_Center)
+	.HAlign(HAlign_Left)
 	[
 		SNew(SBox)
 		.WidthOverride(150.0f)
@@ -1935,7 +1935,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
-	.HAlign(HAlign_Center)
+	.HAlign(HAlign_Left)
 	[
 		SNew(SBox)
 		.WidthOverride(150.0f)
@@ -1963,7 +1963,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 		.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 		.AutoHeight()
 		.VAlign(VAlign_Top)
-		.HAlign(HAlign_Center)
+		.HAlign(HAlign_Left)
 		[
 			SNew(SCheckBox)
 			.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
@@ -1980,7 +1980,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 		.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 		.AutoHeight()
 		.VAlign(VAlign_Top)
-		.HAlign(HAlign_Center)
+		.HAlign(HAlign_Left)
 		[
 			SNew(SCheckBox)
 			.IsChecked(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
