@@ -19,6 +19,27 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 
 void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 {
+	if (CellBackground.Num() < 2)
+	{
+		CellBackground.SetNumZeroed(2);
+	}
+	if (CellBorders.Num() < 2)
+	{
+		CellBorders.SetNumZeroed(2);
+	}
+	if (GroupHeaderCap.Num() < 2)
+	{
+		GroupHeaderCap.SetNumZeroed(2);
+	}
+	if (GroupSpacerBorder.Num() < 2)
+	{
+		GroupSpacerBorder.SetNumZeroed(2);
+	}
+	if (HeaderTab.Num() < 2)
+	{
+		HeaderTab.SetNumZeroed(2);
+	}
+
 	Super::InitializeWidget(Hud);
 }
 
