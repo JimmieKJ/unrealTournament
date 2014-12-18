@@ -50,14 +50,14 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 FText UUTHUDWidget_TeamGameClock::GetRedScoreText_Implementation()
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS->bTeamGame && GS->Teams.Num() > 0 && GS->Teams[0]) return FText::AsNumber(GS->Teams[0]->Score);
+	if (GS && GS->bTeamGame && GS->Teams.Num() > 0 && GS->Teams[0]) return FText::AsNumber(GS->Teams[0]->Score);
 	return FText::AsNumber(0);
 }
 
 FText UUTHUDWidget_TeamGameClock::GetBlueScoreText_Implementation()
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS->bTeamGame && GS->Teams.Num() > 1 && GS->Teams[1]) return FText::AsNumber(GS->Teams[1]->Score);
+	if (GS && GS->bTeamGame && GS->Teams.Num() > 1 && GS->Teams[1]) return FText::AsNumber(GS->Teams[1]->Score);
 	return FText::AsNumber(0);
 }
 
