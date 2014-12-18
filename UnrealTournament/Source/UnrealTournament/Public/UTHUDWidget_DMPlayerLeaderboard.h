@@ -54,6 +54,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text SpreadTextTemplate;
 
+	// This is the template to use when drawing the player's "Name"
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FLinearColor OwnerNameColor;
+
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float BarWidth;
 

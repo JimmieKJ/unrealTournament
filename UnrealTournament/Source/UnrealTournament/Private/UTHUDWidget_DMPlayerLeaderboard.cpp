@@ -9,6 +9,7 @@ UUTHUDWidget_DMPlayerLeaderboard::UUTHUDWidget_DMPlayerLeaderboard(const class F
 	Size=FVector2D(0.0f,0.0f);
 	ScreenPosition=FVector2D(1.0f, 0.0f);
 	Origin=FVector2D(1.0f,0.0f);
+	OwnerNameColor = FLinearColor::White;
 }
 
 void UUTHUDWidget_DMPlayerLeaderboard::InitializeWidget(AUTHUD* Hud)
@@ -87,6 +88,8 @@ void UUTHUDWidget_DMPlayerLeaderboard::DrawPlayer(float& YPosition, int32 Player
 	RenderObj_TextureAt(Bar[0], BarWidth * -1, YPosition, BarWidth, Bar[0].GetHeight());
 	RenderObj_TextureAt(Bar[1], BarWidth * -1, YPosition, BarWidth, Bar[1].GetHeight());
 	NameTextTemplate.Text = FText::FromString(PS->PlayerName);
+
+	NameTextTemplate.RenderColor = (bIsOwner) ? OwnerNameColor : GetClass()->GetDefaultObject<UUTHUDWidget_DMPlayerLeaderboard>()->NameTextTemplate.RenderColor;
 	RenderObj_TextAt(NameTextTemplate, 0 + NameTextTemplate.Position.X, YPosition + NameTextTemplate.Position.Y);
 
 	// Draw the place
