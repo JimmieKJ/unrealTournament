@@ -10,7 +10,7 @@
 AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	LobbyName = TEXT("My First Lobby");
+	LobbyName = TEXT("My First HUB");
 	LobbyMOTD = TEXT("Welcome!");
 }
 

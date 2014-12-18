@@ -33,6 +33,8 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	DefaultPlayerName = FString("Malcolm");
 	GameMessageClass = UUTGameMessage::StaticClass();
 
+	DisplayName = NSLOCTEXT("UTLobbyGameMode", "HUB", "HUB");
+
 }
 
 // Parse options for this game...

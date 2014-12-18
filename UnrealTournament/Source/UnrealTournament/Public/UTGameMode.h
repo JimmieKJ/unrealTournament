@@ -64,9 +64,6 @@ public:
 	UPROPERTY(Config)
 	bool bOnlyTheStrongSurvive;
 
-	/** human readable localized name for the game mode */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
-	FText DisplayName;
 
 	/** Score needed to win the match.  Can be overridden with GOALSCORE=x on the url */
 	UPROPERTY(config)

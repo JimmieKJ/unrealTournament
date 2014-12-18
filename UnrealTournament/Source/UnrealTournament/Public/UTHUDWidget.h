@@ -313,18 +313,23 @@ public:
 protected:
 
 	// Draws any render objects associated with this widget.  NOTE: If a blueprint overrides Draw it needs to call DrawAllRenderObjects
-	UFUNCTION(BlueprintCallable, Category="Widgets")
+	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual void DrawAllRenderObjects(float DeltaTime, FVector2D DrawOffset);
 
 	/**
 	 *	These are the HUDRenderObject render functions.  They will take whatever is defined by the object and display it.  
 	 **/
+	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual void RenderObj_Texture(FHUDRenderObject_Texture& TextureObject, FVector2D DrawOffset = FVector2D(0,0));
 
 	// Render a Texture object at a given position on the screen.
+	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual void RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, float X, float Y, float Width, float Height);
 
+	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual FVector2D RenderObj_Text(FHUDRenderObject_Text& TextObject, FVector2D DrawOffset = FVector2D(0,0));
+
+	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual FVector2D RenderObj_TextAt(FHUDRenderObject_Text& TextObject, float X, float Y);
 
 private:

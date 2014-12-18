@@ -36,6 +36,11 @@ protected:
 
 public:
 
+	/** human readable localized name for the game mode */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
+	FText DisplayName;
+
+
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 
 	// The Unique ID for this game instance.

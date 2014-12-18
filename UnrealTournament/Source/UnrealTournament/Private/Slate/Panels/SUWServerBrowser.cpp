@@ -9,6 +9,7 @@
 #include "../SUWindowsStyle.h"
 #include "SUWServerBrowser.h"
 #include "Online.h"
+#include "UTBaseGameMode.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
 #include "OnlineSubsystemTypes.h"
@@ -958,10 +959,10 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				// prefer using the name in the client's language, if available
 				// TODO: would be nice to not have to load the class, but the localization system doesn't guarantee any particular lookup location for the data,
 				//		so we have no way to know where it is
-				UClass* GameClass = LoadClass<AUTGameMode>(NULL, *ServerGamePath, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+				UClass* GameClass = LoadClass<AUTBaseGameMode>(NULL, *ServerGamePath, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 				if (GameClass != NULL)
 				{
-					ServerGameName = GameClass->GetDefaultObject<AUTGameMode>()->DisplayName.ToString();
+					ServerGameName = GameClass->GetDefaultObject<AUTBaseGameMode>()->DisplayName.ToString();
 				}
 				else
 				{
