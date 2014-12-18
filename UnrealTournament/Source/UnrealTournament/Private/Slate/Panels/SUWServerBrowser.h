@@ -333,7 +333,7 @@ private:
 struct FServerPingTracker 
 {
 	TSharedPtr<FServerData> Server;
-	AUTServerBeaconClient* Beacon;
+	TWeakObjectPtr<AUTServerBeaconClient> Beacon;
 
 	FServerPingTracker(TSharedPtr<FServerData> inServer, AUTServerBeaconClient* inBeacon)
 		: Server(inServer)
