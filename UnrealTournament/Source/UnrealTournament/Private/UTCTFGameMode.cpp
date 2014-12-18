@@ -488,10 +488,9 @@ void AUTCTFGameMode::HandleExitingHalftime()
 	// reset everything
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
-		IUTResetInterface* ResetActor = Cast<IUTResetInterface>(*It);
-		if (ResetActor != NULL)
+		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
 		{
-			ResetActor->Execute_Reset(*It);
+			IUTResetInterface::Execute_Reset(*It);
 		}
 	}
 
