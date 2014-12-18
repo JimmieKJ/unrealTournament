@@ -55,9 +55,12 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		{
 			TakenIconTemplate.RenderColor = Team == 0 ? BlueColor : RedColor;
 			RenderObj_TextureAt(TakenIconTemplate, X, Y,TakenIconTemplate.GetWidth(), TakenIconTemplate.GetHeight());
-
-			FlagHolderNames[Team].Text = FText::FromString(GS->GetFlagHolder(Team)->PlayerName);
-			RenderObj_Text(FlagHolderNames[Team]);
+			AUTPlayerState* Holder = GS->GetFlagHolder(Team);
+			if (Holder)
+			{
+				FlagHolderNames[Team].Text = FText::FromString(Holder->PlayerName);
+				RenderObj_Text(FlagHolderNames[Team]);
+			}
 		}
 
 		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
