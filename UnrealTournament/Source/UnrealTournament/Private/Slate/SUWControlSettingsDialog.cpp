@@ -505,7 +505,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							SNew(SVerticalBox)
 							+ SVerticalBox::Slot()
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-							.HAlign(HAlign_Center)
+							.HAlign(HAlign_Left)
 							[
 								SAssignNew(MouseSmoothing, SCheckBox)
 								.ForegroundColor(FLinearColor::Black)
@@ -518,7 +518,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 								]
 							]
 							+ SVerticalBox::Slot()
-							.HAlign(HAlign_Center)
+							.HAlign(HAlign_Left)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SAssignNew(MouseInvert, SCheckBox)
@@ -569,7 +569,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(SVerticalBox)
 						+ SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
+						.HAlign(HAlign_Left)
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
 							SAssignNew(SingleTapWallDodge, SCheckBox)
@@ -579,11 +579,39 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							[
 								SNew(STextBlock)
 								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-								.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapWallDodge", "Single Tap Wall Dodge").ToString())
+								.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapWallDodge", "Enable single tap wall dodge").ToString())
 							]
 						]
 						+ SVerticalBox::Slot()
-							.HAlign(HAlign_Center)
+							.HAlign(HAlign_Left)
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SAssignNew(SingleTapAfterJump, SCheckBox)
+								.ForegroundColor(FLinearColor::Black)
+								.IsChecked(PC->bSingleTapAfterJump ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+								.Content()
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapAfterJump", "Single tap wall dodge only after jump").ToString())
+								]
+							]
+						+ SVerticalBox::Slot()
+							.HAlign(HAlign_Left)
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SAssignNew(AutoSlide, SCheckBox)
+								.ForegroundColor(FLinearColor::Black)
+								.IsChecked(PC->bAutoSlide ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+								.Content()
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+									.Text(NSLOCTEXT("SUWControlSettingsDialog", "AutoSlide", "Automatically engage wall-slide when pressed against wall").ToString())
+								]
+							]
+						+ SVerticalBox::Slot()
+							.HAlign(HAlign_Left)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SAssignNew(TapCrouchToSlide, SCheckBox)
@@ -597,7 +625,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 								]
 							]
 						+ SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
+							.HAlign(HAlign_Left)
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
 							SNew(SHorizontalBox)
@@ -621,7 +649,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 						+ SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
+						.HAlign(HAlign_Left)
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
 							SNew(SHorizontalBox)
@@ -629,7 +657,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 							.AutoWidth()
 							.VAlign(VAlign_Center)
-							.HAlign(HAlign_Center)
+							.HAlign(HAlign_Left)
 							[
 								SNew(STextBlock)
 								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
@@ -827,6 +855,8 @@ FReply SUWControlSettingsDialog::OKClick()
 	{
 		It->bSingleTapWallDodge = SingleTapWallDodge->IsChecked();
 		It->bTapCrouchToSlide = TapCrouchToSlide->IsChecked();
+		It->bAutoSlide = AutoSlide->IsChecked();
+		It->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
 		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 	}

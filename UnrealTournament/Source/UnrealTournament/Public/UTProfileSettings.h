@@ -120,7 +120,13 @@ protected:
 
 	UPROPERTY()
 	uint32 bTapCrouchToSlide : 1;
-	
+
+	UPROPERTY()
+		uint32 bAutoSlide : 1;
+
+	UPROPERTY()
+		uint32 bSingleTapAfterJump : 1;
+
 	UPROPERTY()
 	FKey ConsoleKey;
 
