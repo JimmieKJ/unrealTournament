@@ -297,7 +297,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Label()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::White)
+						.ColorAndOpacity(FLinearColor::Black)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 1", "Emote 1"))
 					]
 				]
@@ -318,7 +318,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Label()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::White)
+						.ColorAndOpacity(FLinearColor::Black)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 2", "Emote 2"))
 					]
 				]
@@ -339,7 +339,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Label()
 					[
 						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::White)
+						.ColorAndOpacity(FLinearColor::Black)
 						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Emote 3", "Emote 3"))
 					]
 				]
