@@ -42,6 +42,7 @@ protected:
 private:
 	float FlashTimer;
 	int32 LastAmmoAmount;
-	AUTWeapon* LastWeapon;
 
+	UPROPERTY()
+	AUTWeapon* LastWeapon;
 };
