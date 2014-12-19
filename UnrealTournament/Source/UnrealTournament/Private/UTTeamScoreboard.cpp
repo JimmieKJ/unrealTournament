@@ -11,7 +11,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 void UUTTeamScoreboard::DrawScoreboard(float RenderDelta)
 {
 	// Give Blueprint a chance to draw it's scoreboard
-	if (eventDraw(RenderDelta))
+	if (eventDraw(RenderDelta) || UTGameState->PlayerArray.Num() == 0 || UTGameState->PlayerArray[0] == NULL)
 	{
 		return;
 	}
