@@ -340,6 +340,8 @@ protected:
 private:
 
 	// This is a sorted list of all RenderObjects in this widget.  
+
+	UPROPERTY()
 	TArray<UStructProperty*> RenderObjectList;
 
 

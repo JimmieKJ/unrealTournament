@@ -15,6 +15,7 @@ struct FWeaponGroup
 	UPROPERTY()
 	int32 Group;
 
+	UPROPERTY()
 	TArray<AUTWeapon*> WeaponsInGroup;
 
 	FWeaponGroup()
