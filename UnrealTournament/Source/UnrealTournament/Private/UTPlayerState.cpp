@@ -5,6 +5,7 @@
 #include "UTPlayerState.h"
 #include "Engine/LocalPlayer.h"
 #include "Net/UnrealNetwork.h"
+#include "UTGameMessage.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -195,6 +196,15 @@ void AUTPlayerState::ServerRequestChangeTeam_Implementation(uint8 NewTeamIndex)
 				if (Pawn != NULL)
 				{
 					Pawn->PlayerChangedTeam();
+				}
+				if (Team)
+				{
+					int32 Switch = (Team->TeamIndex == 0) ? 9 : 10;
+					AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+					if (PC)
+					{
+						PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), Switch, this, NULL, NULL);
+					}
 				}
 			}
 		}
