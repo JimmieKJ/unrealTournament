@@ -79,6 +79,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	WeaponJumpBob = FVector(0.f, 0.f, -3.6f);
 	WeaponDodgeBob = FVector(0.f, 6.f, -2.5f);
 	WeaponLandBob = FVector(0.f, 0.f, 10.5f);
+	WeaponSlideBob = FVector(0.f, 12.f, 15.f);
 	WeaponBreathingBobRate = 0.2f;
 	WeaponRunningBobRate = 0.8f;
 	WeaponJumpBobInterpRate = 6.5f;
@@ -255,7 +256,7 @@ FVector AUTCharacter::GetRewindLocation(float PredictionTime)
 
 void AUTCharacter::RecalculateBaseEyeHeight()
 {
-	BaseEyeHeight = bIsCrouched ? CrouchedEyeHeight : DefaultBaseEyeHeight;
+	BaseEyeHeight = (bIsCrouched || (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)) ? CrouchedEyeHeight : DefaultBaseEyeHeight;
 }
 
 void AUTCharacter::Crouch(bool bClientSimulation)
@@ -269,13 +270,16 @@ void AUTCharacter::Crouch(bool bClientSimulation)
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
-	CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
-	UTCharacterMovement->OldZ = GetActorLocation().Z;
-	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
 	if (bRollNextUncrouch && IsLocallyControlled())
 	{
 		Roll(GetVelocity().SafeNormal());
 		bRollNextUncrouch = false;
+	}
+	else
+	{
+		CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
+		UTCharacterMovement->OldZ = GetActorLocation().Z;
+		CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
 	}
 }
 
@@ -447,7 +451,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		CurrentWeaponBob.X = 0.f;
 		if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
 		{
-			// interp out weapon bob when dodge rolliing
+			// interp out weapon bob when dodge rolling and bring weapon up and in
 			BobTime = 0.f;
 			CurrentWeaponBob.Y *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
 			CurrentWeaponBob.Z *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
@@ -2301,6 +2305,24 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 	else
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_AllButOwner);
+	}
+}
+
+void AUTCharacter::OnSlide_Implementation(const FVector &SlideDir)
+{
+	UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
+
+	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
+	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
+	FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
+	DesiredJumpBob = WeaponSlideBob;
+	if ((Y | SlideDir) > 0.6f)
+	{
+		DesiredJumpBob.Y *= -1.f;
+	}
+	else if ((Y | SlideDir) > -0.6f)
+	{
+		DesiredJumpBob.Y = 0.f;
 	}
 }
 

@@ -950,7 +950,11 @@ void UUTCharacterMovement::PerformRoll(const FVector& DodgeDir)
 		Acceleration = DodgeRollAcceleration * DodgeDir;
 		DodgeResetTime = DodgeRollEndTime + DodgeResetInterval;
 		Velocity = MaxDodgeRollSpeed*DodgeDir;
-		UUTGameplayStatics::UTPlaySound(GetWorld(), Cast<AUTCharacter>(CharacterOwner)->DodgeRollSound, CharacterOwner, SRT_None);
+		AUTCharacter* UTChar = Cast<AUTCharacter>(CharacterOwner);
+		if (UTChar)
+		{
+			UTChar->OnSlide(DodgeDir);
+		}
 	}
 }
 
@@ -1044,6 +1048,11 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 		if (!bIsDodgeRolling && bWasDodgeRolling)
 		{
 			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+			AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+			if (UTCharacterOwner)
+			{
+				UTCharacterOwner->DesiredJumpBob = FVector(0.f);
+			}
 		}
 	}
 

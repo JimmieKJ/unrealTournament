@@ -790,11 +790,17 @@ public:
 	/** Roll requested by controller, return whether roll occurred. */
 	virtual bool Roll(FVector RollDir);
 
-	/** Dodge just occured in dodge dir, play any sounds/effects desired.
+	/** Dodge just occurred in dodge dir, play any sounds/effects desired.
 	 * called on server and owning client
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnDodge(const FVector &DodgeDir);
+
+	/** Slide just occurred, play any sounds/effects desired.
+	* called on server and owning client
+	*/
+	UFUNCTION(BlueprintNativeEvent)
+		void OnSlide(const FVector &SlideDir);
 
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -1075,6 +1081,10 @@ public:
 	/** deflection of first person weapon when player dodges */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	FVector WeaponDodgeBob;
+
+	/** deflection of first person weapon when player slides */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+	FVector WeaponSlideBob;
 
 	/** Z deflection of first person weapon when player lands */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
