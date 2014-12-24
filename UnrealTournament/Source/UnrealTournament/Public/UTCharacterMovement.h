@@ -228,10 +228,6 @@ public:
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
 
-	/** True the frame a dodge occured. */
-	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
-	bool bJustDodged;
-
 	/** True during a dodge roll. */
 	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
 	bool bIsDodgeRolling;

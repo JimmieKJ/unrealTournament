@@ -95,7 +95,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bJumpAssisted = false;					
 	DodgeResetTime = 0.f;					
 	bIsDodging = false;					
-	bJustDodged = false;					
 	bIsDodgeRolling = false;				
 	DodgeRollTapTime = 0.f;					
 	DodgeRollEndTime = 0.f;					
@@ -600,7 +599,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	bExplicitJump = true;
 	bIsDodging = true;
 	bNotifyApex = true;
-	bJustDodged = true;
 	if (IsMovingOnGround())
 	{
 		SetMovementMode(MOVE_Falling);
@@ -945,7 +943,6 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 			bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
 			bIsSprinting = CanSprint();
 		}
-		bJustDodged = false;
 
 		if (!bIsDodgeRolling && bWasDodgeRolling)
 		{
