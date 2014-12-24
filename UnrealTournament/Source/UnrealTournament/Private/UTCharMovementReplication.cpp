@@ -445,7 +445,6 @@ void UUTCharacterMovement::SendClientAdjustment()
 	}
 }
 
-// @TODO FIXMESTEVE - remove this once engine implements CanDelaySendingMove()
 void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration)
 {
 	check(CharacterOwner != NULL);
@@ -463,7 +462,7 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 		return;
 	}
 
-	// Find the oldest (unacknowledged) important move (OldMove).
+	// Find the oldest unacknowledged important move (OldMove).
 	// Don't include the last move because it may be combined with the next new move.
 	// A saved move is interesting if it differs significantly from the last acknowledged move
 	FSavedMovePtr OldMove = NULL;
@@ -490,8 +489,6 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	NewMove->SetMoveFor(CharacterOwner, DeltaTime, NewAcceleration, *ClientData);
 	NewMove->SetInitialPosition(CharacterOwner);
 
-	// @TODO FIXMESTEVE re-introduce limited move combining maybe - note that teleport can have side effects
-
 	// Perform the move locally
 	Acceleration = ScaleInputAcceleration(NewMove->Acceleration);
 	CharacterOwner->ClientRootMotionParams.Clear();
@@ -502,22 +499,14 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	// Add NewMove to the list
 	ClientData->SavedMoves.Push(NewMove);
 
-	if (CanDelaySendingMove(NewMove) && ClientData->PendingMove.IsValid() == false)
+	if (CanDelaySendingMove(NewMove, ClientData) && ClientData->PendingMove.IsValid() == false)
 	{
 		// Decide whether to hold off on move
 		// send moves more frequently in small games where server isn't likely to be saturated
-		float NetMoveDelta;
+		float NetMoveDelta = 0.015f;
 		UPlayer* Player = (PC ? PC->Player : NULL);
 
 		if (Player && (Player->CurrentNetSpeed > 10000) && (GetWorld()->GameState != NULL) && (GetWorld()->GameState->PlayerArray.Num() <= 10))
-		{
-			NetMoveDelta = 0.011f;
-		}
-		else if (Player && CharacterOwner->GetWorldSettings()->GameNetworkManagerClass)
-		{
-			NetMoveDelta = FMath::Max(0.0222f, 2 * GetDefault<AGameNetworkManager>(CharacterOwner->GetWorldSettings()->GameNetworkManagerClass)->MoveRepSize / Player->CurrentNetSpeed);
-		}
-		else
 		{
 			NetMoveDelta = 0.011f;
 		}
@@ -539,36 +528,61 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	ClientData->PendingMove = NULL;
 }
 
-bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
+bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove, FNetworkPredictionData_Client_Character* ClientData)
 {
-	if (true) // @TODO FIXMESTEVE CVarNetEnableMoveCombining.GetValueOnGameThread() != 0)  
+	if (ClientData->SavedMoves.Num() < 2)
 	{
-		// don't delay if just dodged - important because combined moves don't send first rotation
-		if (bJustDodged)
-		{
-			return false;
-		}
-
-		// don't delay if just pressed fire
-		AUTPlayerController * PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : NULL;
-		if (PC && (PC->HasDeferredFireInputs()))
-		{
-			return false;
-		}
-		return true;
+		//UE_LOG(UT, Warning, TEXT("Nothing to compare to  %f"), NewMove->TimeStamp);
+		return false;
 	}
-	return false;
+	const FSavedMovePtr& PreviousMove = ClientData->SavedMoves.Last(1);
+	if (PreviousMove.IsValid() && NewMove->IsImportantMove(PreviousMove))
+	{
+		//UE_LOG(UT, Warning, TEXT("NO CanDelaySendingMove %f"), NewMove->TimeStamp);
+		return false;
+	}
+
+	// don't delay if just pressed fire
+	AUTPlayerController * PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : NULL;
+	if (PC && (PC->HasDeferredFireInputs()))
+	{
+		//UE_LOG(UT, Warning, TEXT("CanDelaySendingMove Firing %f"), NewMove->TimeStamp);
+		return false;
+	}
+	return true;
 }
 
-bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& LastAckedMove) const
+bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) const
 {
 	if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight)
 	{
 		return true;
 	}
-	return Super::IsImportantMove(LastAckedMove);
-}
 
+	// @ TODO FIXMESTEVE - maybe move combining?  Don't delay if direction change, jump, or teleport (need to be able to look at NewMove properties)
+
+	// Check if any important movement flags have changed status.
+	if ((bPressedJump && (bPressedJump != ComparedMove->bPressedJump)) || (bWantsToCrouch != ComparedMove->bWantsToCrouch))
+	{
+		return true;
+	}
+
+	if (MovementMode != ComparedMove->MovementMode)
+	{
+		return true;
+	}
+
+	// check if acceleration has changed significantly
+	if (Acceleration != ComparedMove->Acceleration)
+	{
+		// Compare magnitude and orientation
+		if ((FMath::Abs(AccelMag - ComparedMove->AccelMag) > AccelMagThreshold) || ((AccelNormal | ComparedMove->AccelNormal) < AccelDotThreshold))
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 void UUTCharacterMovement::CallServerMove
 (

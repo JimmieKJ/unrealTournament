@@ -17,7 +17,7 @@ public:
 	virtual void ClientAckGoodMove_Implementation(float TimeStamp) override;
 
 	/** Return true if it is OK to delay sending this player movement to the server to conserve bandwidth. */
-	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove);
+	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove, FNetworkPredictionData_Client_Character* ClientData);
 
 	virtual void CallServerMove(const class FSavedMove_Character* NewMove, const class FSavedMove_Character* OldMove)  override;
 
@@ -540,6 +540,8 @@ public:
 
 	FSavedMove_UTCharacter()
 	{
+		AccelMagThreshold = 2000.f;
+		AccelDotThreshold = 0.8f;
 	}
 
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
