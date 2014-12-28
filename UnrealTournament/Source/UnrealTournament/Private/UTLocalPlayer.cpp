@@ -280,49 +280,6 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 	return NewDialog;
 }
 
-void UUTLocalPlayer::ShowHUDSettings()
-{
-#if !UE_SERVER
-	if (!HUDSettings.IsValid())
-	{
-		SAssignNew(HUDSettings, SUWHUDSettingsDialog)
-			.PlayerOwner(this);
-
-		OpenDialog( HUDSettings.ToSharedRef() );
-
-		if (PlayerController)
-		{
-			PlayerController->bShowMouseCursor = true;
-			if (!IsMenuGame())
-			{
-				PlayerController->SetPause(true);
-			}
-		}
-	}
-#endif
-}
-void UUTLocalPlayer::HideHUDSettings()
-{
-#if !UE_SERVER
-
-	if (HUDSettings.IsValid())
-	{
-		CloseDialog(HUDSettings.ToSharedRef());
-		HUDSettings.Reset();
-
-		if (PlayerController)
-		{
-			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
-			PlayerController->SetPause(false);
-		}
-
-		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
-	}
-#endif
-}
-
-
 void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog, int32 ZOrder)
 {
 	GEngine->GameViewport->AddViewportWidgetContent(Dialog, ZOrder);
@@ -358,6 +315,49 @@ TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
 }
 
 #endif
+
+void UUTLocalPlayer::ShowHUDSettings()
+{
+#if !UE_SERVER
+	if (!HUDSettings.IsValid())
+	{
+		SAssignNew(HUDSettings, SUWHUDSettingsDialog)
+			.PlayerOwner(this);
+
+		OpenDialog( HUDSettings.ToSharedRef() );
+
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = true;
+			if (!IsMenuGame())
+			{
+				PlayerController->SetPause(true);
+			}
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::HideHUDSettings()
+{
+#if !UE_SERVER
+
+	if (HUDSettings.IsValid())
+	{
+		CloseDialog(HUDSettings.ToSharedRef());
+		HUDSettings.Reset();
+
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = false;
+			PlayerController->SetInputMode(FInputModeGameOnly());
+			PlayerController->SetPause(false);
+		}
+
+		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+	}
+#endif
+}
 
 bool UUTLocalPlayer::IsLoggedIn() 
 { 
