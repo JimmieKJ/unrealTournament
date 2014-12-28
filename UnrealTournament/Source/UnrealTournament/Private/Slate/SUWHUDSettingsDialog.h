@@ -11,9 +11,9 @@ class SUWHUDSettingsDialog : public SUWDialog
 {
 public:
 	SLATE_BEGIN_ARGS(SUWHUDSettingsDialog)
-	: _DialogSize(FVector2D(0.4f,0.35f))
+	: _DialogTitle(NSLOCTEXT("SUWHUDSettingsDialog","Title","HUD Settings"))
+	, _DialogSize(FVector2D(0.4f,0.35f))
 	, _bDialogSizeIsRelative(true)
-	, _DialogTitle(NSLOCTEXT("SUWHUDSettingsDialog","Title","HUD Settings"))
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
