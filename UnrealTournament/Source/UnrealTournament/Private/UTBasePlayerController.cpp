@@ -4,8 +4,8 @@
 #include "Engine/Console.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
+#include "UTWeap_RocketLauncher.h"
 #include "UTGameEngine.h"
-
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -52,6 +52,13 @@ void AUTBasePlayerController::ShowMessage(FText MessageTitle, FText MessageText,
 // LEAVE ME for quick debug commands when we need them.
 void AUTBasePlayerController::DebugTest(FString TestCommand)
 {
+
+	AUTWeap_RocketLauncher* W = AUTWeap_RocketLauncher::StaticClass()->GetDefaultObject<AUTWeap_RocketLauncher>();
+	if (W)
+	{
+		UE_LOG(UT,Log,TEXT("Weapon %i"), W->Group);
+	}
+
 	ServerDebugTest(TestCommand);
 
 	for (TFieldIterator<UProperty> PropIt(GetClass()); PropIt; ++PropIt)	

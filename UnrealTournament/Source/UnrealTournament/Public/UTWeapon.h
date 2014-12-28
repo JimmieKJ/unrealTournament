@@ -288,12 +288,12 @@ public:
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(Config, Transient, BlueprintReadOnly, Category = "Weapon")
 	int32 Group;
 	/** if the player acquires more than one weapon in a group, we assign a unique GroupSlot to keep a consistent order
 	 * this value is only set on clients
 	 */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(Config, Transient,  BlueprintReadOnly, Category = "Weapon")
 	int32 GroupSlot;
 
 	/** user set priority for auto switching and switch to best weapon functionality

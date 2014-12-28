@@ -19,6 +19,7 @@
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWLoginDialog.h"
 #include "Slate/SUWPlayerSettingsDialog.h"
+#include "Slate/SUWHUDSettingsDialog.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -275,10 +276,34 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 			.OnDialogResult(Callback);
 	}
 
-
 	OpenDialog( NewDialog.ToSharedRef() );
 	return NewDialog;
 }
+
+void UUTLocalPlayer::ShowHUDSettings()
+{
+#if !UE_SERVER
+	if (!HUDSettings.IsValid())
+	{
+		SAssignNew(HUDSettings, SUWHUDSettingsDialog)
+			.PlayerOwner(this);
+
+		OpenDialog( HUDSettings.ToSharedRef() );
+	}
+#endif
+}
+void UUTLocalPlayer::HideHUDSettings()
+{
+#if !UE_SERVER
+
+	if (HUDSettings.IsValid())
+	{
+		CloseDialog(HUDSettings.ToSharedRef());
+		HUDSettings.Reset();
+	}
+#endif
+}
+
 
 void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog, int32 ZOrder)
 {

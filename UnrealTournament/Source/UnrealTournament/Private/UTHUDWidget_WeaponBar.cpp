@@ -19,6 +19,10 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 
 void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 {
+
+	LastGroup = -1;
+	LastGroupSlot = -1.0;
+
 	if (CellBackground.Num() < 2)
 	{
 		CellBackground.SetNumZeroed(2);
@@ -51,7 +55,45 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 {
 	TArray<FWeaponGroup> WeaponGroups;
 
-	CollectWeaponData(WeaponGroups);
+	if (UTCharacterOwner)
+	{
+		// Handle fading out.
+		if (FadeTimer > 0.0f)
+		{
+			FadeTimer -= DeltaTime;
+		}
+		else if (Opacity != UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity)
+		{
+			float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) * DeltaTime;	// 1 second fade
+			if (Opacity < UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) 
+			{
+				Opacity = FMath::Clamp<float>(Opacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity);
+			}
+			else
+			{
+				Opacity = FMath::Clamp<float>(Opacity - Delta, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity, 1.0);
+			}
+		}
+
+		AUTWeapon* Weap = UTCharacterOwner->GetWeapon();
+		if (Weap)
+		{
+			if (Weap->Group != LastGroup || Weap->GroupSlot != LastGroupSlot)
+			{
+				// Weapon has changed.. set everything up.
+				Opacity = 1.0;
+				FadeTimer = 1.0;
+
+				LastGroup = Weap->Group;
+				LastGroupSlot = Weap->GroupSlot;
+			}
+		}
+	}
+
+	CollectWeaponData(WeaponGroups, DeltaTime);
+
+	float DesiredOpacity = Opacity;
+
 	if (WeaponGroups.Num() > 0)
 	{
 		// Draw the Weapon Groups
@@ -73,6 +115,8 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			{
 				AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 				bool bSelected = CurrentWeapon == SelectedWeapon;
+
+				Opacity = bSelected ?  1.0 : DesiredOpacity;
 
 				// Draw the background and the background's border.
 
@@ -147,7 +191,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	}
 }
 
-void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups)
+void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime)
 {
 	if (UTCharacterOwner)
 	{

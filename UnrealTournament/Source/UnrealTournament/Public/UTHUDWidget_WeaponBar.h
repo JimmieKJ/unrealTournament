@@ -88,17 +88,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	FTextureUVs BarTextureUVs;
 
-	void CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups);
+	void CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime);
 
 private:
-/*
-	int32 LastSelectedGroup;		// Holds the group of the last selected weapon
-	int32 BouncedWeapon;			// Used to bounce the animation slightly
-	float C/urrentWeaponScale[10];	// Holds the scaling for each weapon
-
-	float SelectedWeaponScale;		// How big should the selected weapon be
-	float BounceWeaponScale;		// How big should it grow too before bouncing back
-
-	float CurrentSelectedWeaponDisplayTime;
-*/
+	float FadeTimer;
+	int LastGroup;
+	float LastGroupSlot;
 };

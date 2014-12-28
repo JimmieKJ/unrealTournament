@@ -1912,3 +1912,12 @@ void AUTPlayerController::ClientSetLocation_Implementation(FVector NewLocation, 
 		SetSpawnLocation(NewLocation);
 	}
 }
+
+void AUTPlayerController::HUDSettings()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->ShowHUDSettings();	
+	}
+}

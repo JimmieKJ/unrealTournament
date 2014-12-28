@@ -220,8 +220,16 @@ protected:
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 
+#if !UE_SERVER
+	TSharedPtr<class SUWDialog> HUDSettings;
+#endif
+
 public:
 	FString LastLobbyServerGUID;
+
+	virtual void ShowHUDSettings();
+	virtual void HideHUDSettings();
+
 
 };
 

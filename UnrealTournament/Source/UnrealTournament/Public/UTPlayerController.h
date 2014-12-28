@@ -518,6 +518,9 @@ public:
 
 	bool HasDeferredFireInputs();
 
+	UFUNCTION(Exec)
+	virtual void HUDSettings();
+
 };
 
 
