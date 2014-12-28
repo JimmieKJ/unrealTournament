@@ -23,6 +23,7 @@ namespace SettingsDialogs
 	const FName SettingPlayer = FName(TEXT("SettingsPlayern"));
 	const FName SettingsSystem = FName(TEXT("SettingsSystem"));
 	const FName SettingsControls = FName(TEXT("SettingsControls"));
+	const FName SettingsHUD = FName(TEXT("SettingsHUD"));
 }
 
 #if !UE_SERVER
@@ -480,26 +481,36 @@ void SUInGameMenu::BuildOptionsSubMenu()
 			.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
 			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingPlayer)
 		]
-	+ SVerticalBox::Slot()
+		+ SVerticalBox::Slot()
 		.AutoHeight()
 		[
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
 			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings").ToString())
 			.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsSystem)
-		] 
-	+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
-			.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsControls)
+			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsHUD)
 		]
+		+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
+				.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsSystem)
+			] 
+		+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
+				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
+				.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsControls)
+			]
 	);
 
 	MenuBar->AddSlot()
@@ -737,6 +748,13 @@ FReply SUInGameMenu::Reconnect(TSharedPtr<SComboButton> MenuButton)
 FReply SUInGameMenu::OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton, FName SettingsToOpen)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (SettingsToOpen == SettingsDialogs::SettingsHUD)
+	{
+		CloseMenus();
+		PlayerOwner->ShowHUDSettings();
+		return FReply::Handled();
+	}
 
 	TSharedPtr<SUWDialog> Dialog;
 	if (SettingsToOpen == SettingsDialogs::SettingPlayer) SAssignNew(Dialog, SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","PlayerSettings","Player Settings"));

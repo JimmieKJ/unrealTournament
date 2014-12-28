@@ -150,23 +150,23 @@ public:
 
 public:
 	// This is the base HUD opacity level used by HUD Widgets RenderObjects
-	UPROPERTY(config)
+	UPROPERTY(globalconfig)
 	float HUDWidgetOpacity;
 
 	// HUD widgets that have borders will use this opacity value when rendering.
-	UPROPERTY(config)
+	UPROPERTY(globalconfig)
 	float HUDWidgetBorderOpacity;
 
 	// HUD widgets that have background slates will use this opacity value when rendering.
-	UPROPERTY(config)
+	UPROPERTY(globalconfig)
 	float HUDWidgetSlateOpacity;
 
 	// This is a special opacity value used by just the Weapon bar.  When the weapon bar isn't in use, this opacity value will be multipled in
-	UPROPERTY(config)
+	UPROPERTY(globalconfig)
 	float HUDWidgetWeaponbarInactiveOpacity;
 
 	// Allows the user to override the scaling factor for their hud.
-	UPROPERTY(config)
+	UPROPERTY(globalconfig)
 	float HUDWidgetScaleOverride;
 
 	// accessor for CachedTeamColor.  

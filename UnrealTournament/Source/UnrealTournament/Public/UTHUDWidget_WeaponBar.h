@@ -26,12 +26,15 @@ struct FWeaponGroup
 	FWeaponGroup(int32 inGroup, AUTWeapon* FirstWeapon)
 	{
 		Group = inGroup;
-		WeaponsInGroup.Add(FirstWeapon);
+		if (FirstWeapon)
+		{
+			WeaponsInGroup.Add(FirstWeapon);
+		}
 	}
 
 };
 
-UCLASS()
+UCLASS(Config=Game)
 class UUTHUDWidget_WeaponBar : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
@@ -41,6 +44,10 @@ public:
 	virtual void InitializeWidget(AUTHUD* Hud);
 
 protected:
+
+	// Insures this many groups will be shown on the weapon bar
+	UPROPERTY(config)
+	int32 RequiredGroups;
 
 	// This is the background slate for the weapon icon portion of the bar.  Index 0 is the for the first item in a group, Index 1 is for all other items
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
