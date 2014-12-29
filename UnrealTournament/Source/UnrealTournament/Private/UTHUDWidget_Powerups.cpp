@@ -23,107 +23,117 @@ void UUTHUDWidget_Powerups::InitializeWidget(AUTHUD* Hud)
  **/
 void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 {
-	if (UTCharacterOwner)
+	if (UTCharacterOwner && TimeText.Font)
 	{
-
 		int32 IconCount = 0;
 		float BarWidth = 0;
+		
+		float TextWidth;
+		float TextHeight;
+		Canvas->TextSize(TimeText.Font, TEXT("00"), TextWidth, TextHeight);
 
-		// Size all of the characters.
+		struct FRenderItemInfo
+		{
+			AUTInventory* InventoryItem;
+			float Width;
+			float Height;
 
-		//TimeText.Text = FText::FromString(TEXT("00"));
-		FVector2D TextSize = FVector2D(32, 59);
+			FText TextToRender;
+
+			FRenderItemInfo() {};
+			FRenderItemInfo(AUTInventory* inInventoryItem, float inWidth, float inHeight, FText inTextToRender)
+						   : InventoryItem(inInventoryItem)
+						   , Width(inWidth)
+						   , Height(inHeight)
+						   , TextToRender(inTextToRender)
+			{};
+		};
+		
+		TArray<FRenderItemInfo> RenderItems;
+
+		// First pass is a sizing pass and builds the RenderItems Array.
 
 		for (TInventoryIterator<> It(UTCharacterOwner); It; ++It)
 		{
-			AUTTimedPowerup* Powerup = Cast<AUTTimedPowerup>(*It);
-			if (Powerup)
+			AUTInventory* InventoryItem = (*It);
+			if (InventoryItem && InventoryItem->HUDShouldRender(this))
 			{
-				float Height = Powerup->HUDIcon.VL;
+				float Height = InventoryItem->HUDIcon.VL;
 				if (Height > (TileTexture[0].GetHeight() * 0.95))
 				{
 					Height *= (TileTexture[0].GetHeight() * 0.95) / Height;
 				}
-				BarWidth += 10.0 + TextSize.X + 5.0 + (Height * (Powerup->HUDIcon.UL / Powerup->HUDIcon.VL));
-				IconCount++;
-			
-			}
-			else
-			{
-				AUTJumpBoots* JumpBoots = Cast<AUTJumpBoots>(*It);
-				if (JumpBoots)
+
+				float Width = (Height * (InventoryItem->HUDIcon.UL / InventoryItem->HUDIcon.VL));
+
+				FText Text = InventoryItem->GetHUDText();
+				BarWidth += Width + 10.0f + (Text.IsEmpty() ? 0.0f : TextWidth);
+
+				int32 InsertPoint = -1;
+				for (int32 i=0;i<RenderItems.Num();i++)
 				{
-
-					BarWidth += 10.0 + TextSize.X + 5.0 + JumpBootsTexture.GetWidth();
-					IconCount++;
+					if (RenderItems[i].InventoryItem && RenderItems[i].InventoryItem->HUDRenderPriority > InventoryItem->HUDRenderPriority)
+					{
+						InsertPoint = i;
+						break;
+					}
 				}
-			}
 
+				if (InsertPoint >= 0)
+				{
+					RenderItems.Insert(FRenderItemInfo(InventoryItem, Width, Height, Text),InsertPoint);
+				}
+				else
+				{
+					RenderItems.Add(FRenderItemInfo(InventoryItem, Width, Height, Text));
+				}
+
+				IconCount++;
+			}
 		}
 
 		BarWidth += 5.0;	// A little extra space at the end
 
 		if (IconCount == 0) return;
 
-		float XOffset = LeftTexture[0].GetWidth();
+		float XOffset = 0;
 
 		RenderObj_TextureAt(LeftTexture[0], XOffset + LeftTexture[0].Position.X, LeftTexture[0].Position.Y, LeftTexture[0].GetWidth(), LeftTexture[0].GetHeight());
 		RenderObj_TextureAt(LeftTexture[1], XOffset + LeftTexture[1].Position.X, LeftTexture[1].Position.Y, LeftTexture[1].GetWidth(), LeftTexture[1].GetHeight());
-
 
 		XOffset += LeftTexture[0].GetWidth();
 
 		RenderObj_TextureAt(TileTexture[0], XOffset + TileTexture[0].Position.X, TileTexture[0].Position.Y, BarWidth, TileTexture[0].GetHeight());
 		RenderObj_TextureAt(TileTexture[1], XOffset + TileTexture[1].Position.X, TileTexture[1].Position.Y, BarWidth, TileTexture[1].GetHeight());
 
-		RenderObj_TextureAt(RightTexture[0], XOffset +BarWidth + RightTexture[0].Position.X, RightTexture[0].Position.Y, RightTexture[0].GetWidth(), RightTexture[0].GetHeight());
-		RenderObj_TextureAt(RightTexture[1], XOffset +BarWidth + RightTexture[1].Position.X, RightTexture[1].Position.Y, RightTexture[1].GetWidth(), RightTexture[1].GetHeight());
+		RenderObj_TextureAt(RightTexture[0], XOffset + BarWidth + RightTexture[0].Position.X, RightTexture[0].Position.Y, RightTexture[0].GetWidth(), RightTexture[0].GetHeight());
+		RenderObj_TextureAt(RightTexture[1], XOffset + BarWidth + RightTexture[1].Position.X, RightTexture[1].Position.Y, RightTexture[1].GetWidth(), RightTexture[1].GetHeight());
 
-		for (TInventoryIterator<> It(UTCharacterOwner); It; ++It)
+		for (int i=0;i<RenderItems.Num(); i++)
 		{
-			AUTTimedPowerup* Powerup = Cast<AUTTimedPowerup>(*It);
-			if (Powerup)
+			AUTInventory* InventoryItem = RenderItems[i].InventoryItem;
+			if (InventoryItem)
 			{
-				XOffset += 10 + TextSize.X;
+				// Draw the Text
 
-				int TimeRemaining = int(int(Powerup->TimeRemaining));
-				TimeText.Text = FText::AsNumber(TimeRemaining);
-				RenderObj_TextAt(TimeText, XOffset + TimeText.Position.X, TimeText.Position.Y);
-				XOffset += 5;
+				float DrawXOffset = XOffset + TextWidth;
 
-				IconTexture.UVs.U = Powerup->HUDIcon.U;
-				IconTexture.UVs.V = Powerup->HUDIcon.V;
-				IconTexture.UVs.UL = Powerup->HUDIcon.UL;
-				IconTexture.UVs.VL = Powerup->HUDIcon.VL;
-				IconTexture.Atlas = Powerup->HUDIcon.Texture;
-	
-					// Force it to fit.
-
-				float Height = Powerup->HUDIcon.VL;
-				if (Height > (TileTexture[0].GetHeight() * 0.95))
+				if (!RenderItems[i].TextToRender.IsEmpty())
 				{
-					Height *= (TileTexture[0].GetHeight() * 0.95) / Height;
+					TimeText.Text = RenderItems[i].TextToRender;
+					RenderObj_TextAt(TimeText, DrawXOffset + TimeText.Position.X, TimeText.Position.Y);
+					XOffset += TextWidth;
+
 				}
 
-				float Width = Height * (Powerup->HUDIcon.UL / Powerup->HUDIcon.VL);
+				IconTexture.UVs.U = InventoryItem->HUDIcon.U;
+				IconTexture.UVs.V = InventoryItem->HUDIcon.V;
+				IconTexture.UVs.UL = InventoryItem->HUDIcon.UL;
+				IconTexture.UVs.VL = InventoryItem->HUDIcon.VL;
+				IconTexture.Atlas = InventoryItem->HUDIcon.Texture;
 
-			
-				RenderObj_TextureAt(IconTexture, XOffset + IconTexture.Position.X, IconTexture.Position.Y, Width, Height);
-				XOffset += Width;
-			}
-			else
-			{
-				AUTJumpBoots* JumpBoots = Cast<AUTJumpBoots>(*It);
-				if (JumpBoots)
-				{
-					XOffset += 10 + TextSize.X;
-					TimeText.Text = FText::FromString( FString::Printf(TEXT("x%i"),JumpBoots->NumJumps));
-					RenderObj_TextAt(TimeText, XOffset + TimeText.Position.X, TimeText.Position.Y);
-					XOffset += 5;
-			
-					RenderObj_TextureAt(JumpBootsTexture, XOffset + JumpBootsTexture.Position.X, JumpBootsTexture.Position.Y, JumpBootsTexture.GetWidth(), JumpBootsTexture.GetHeight());
-					XOffset += JumpBootsTexture.GetWidth();
-				}
+				RenderObj_TextureAt(IconTexture, DrawXOffset + IconTexture.Position.X, IconTexture.Position.Y, RenderItems[i].Width, RenderItems[i].Height);
+				XOffset += RenderItems[i].Width;
 			}
 		}
 	}

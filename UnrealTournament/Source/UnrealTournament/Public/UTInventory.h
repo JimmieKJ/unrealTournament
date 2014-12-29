@@ -3,7 +3,7 @@
 #pragma once
 
 #include "UTCharacter.h"
-
+#include "UTHUDWidget.h"
 #include "UTInventory.generated.h"
 
 UCLASS(Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
@@ -171,6 +171,27 @@ public:
 	*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = AI)
 	float DetourWeight(APawn* Asker, AActor* Pickup, float PathDistance) const;
+
+public:
+	/** icon for drawing time remaining on the HUD */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+	FCanvasIcon HUDIcon;
+
+	/** How important is this inventory item when rendering a group of them */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+	float HUDRenderPriority;
+
+	/** Returns the HUD text to display for this item */
+	virtual FText GetHUDText() 
+	{ 
+		return FText::GetEmpty(); 
+	}
+
+	// Allows inventory items to decide if a widget should be allowed to render them.
+	virtual bool HUDShouldRender(UUTHUDWidget* TargetWidget) 
+	{
+		return false;
+	}
 };
 
 // template to access a character's inventory

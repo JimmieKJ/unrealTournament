@@ -30,10 +30,6 @@ class AUTTimedPowerup : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
 
-	/** icon for drawing time remaining on the HUD */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
-	FCanvasIcon HUDIcon;
-
 	UPROPERTY(BlueprintReadOnly, Category = Powerup)
 	class AUTDroppedPickup* MyPickup;
 
@@ -67,4 +63,14 @@ class AUTTimedPowerup : public AUTInventory
 	{
 		return BotDesireability(Asker, Pickup, PathDistance);
 	}
+
+public:
+
+	/** Returns the HUD text to display for this item */
+	virtual FText GetHUDText() 
+	{ 
+		return FText::AsNumber(int(TimeRemaining)); 
+	}
+
+	virtual bool HUDShouldRender(UUTHUDWidget* TargetWidget);
 };

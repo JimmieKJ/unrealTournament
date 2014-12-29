@@ -592,10 +592,6 @@ public:
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);
 
-	/** HUD icon for e.g. weapon bar */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icon")
-	FCanvasIcon HUDIcon;
-
 	//*********
 	// Rotation Lag/Lead
 

@@ -11,6 +11,7 @@
  *
  **/
 
+#include "UTATypes.h"
 #include "UTHUDWidget.generated.h"
 
 const float WIDGET_DEFAULT_Y_RESOLUTION = 1080;	// We design everything against 1080p
@@ -39,7 +40,8 @@ private:
 
 };
 
-
+// Forward declare
+class AUTHUD;
 
 UCLASS(BlueprintType, Blueprintable)
 class UNREALTOURNAMENT_API UUTHUDWidget : public UObject

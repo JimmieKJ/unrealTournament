@@ -28,9 +28,6 @@ protected:
 	FHUDRenderObject_Texture IconTexture;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture JumpBootsTexture;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text TimeText;
 
 };

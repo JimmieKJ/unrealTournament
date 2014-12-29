@@ -4,6 +4,7 @@
 #include "UTReplicatedEmitter.h"
 #include "UTCharacterMovement.h"
 #include "UnrealNetwork.h"
+#include "UTHUDWidget_Powerups.h"
 
 AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -173,4 +174,10 @@ float AUTJumpBoots::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, fl
 	{
 		return 0.0f;
 	}
+}
+
+// Allows inventory items to decide if a widget should be allowed to render them.
+bool AUTJumpBoots::HUDShouldRender(UUTHUDWidget* TargetWidget)
+{
+	return (TargetWidget && Cast<UUTHUDWidget_Powerups>(TargetWidget));
 }

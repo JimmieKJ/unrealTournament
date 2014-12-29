@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTTimedPowerup.h"
 #include "UTDroppedPickup.h"
+#include "UTHUDWidget_Powerups.h"
 #include "UnrealNetwork.h"
 
 AUTTimedPowerup::AUTTimedPowerup(const FObjectInitializer& ObjectInitializer)
@@ -142,4 +143,10 @@ void AUTTimedPowerup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Out
 
 	// this is for spectators, owner gets this via RPC for better accuracy
 	DOREPLIFETIME_CONDITION(AUTTimedPowerup, TimeRemaining, COND_SkipOwner);
+}
+
+// Allows inventory items to decide if a widget should be allowed to render them.
+bool AUTTimedPowerup::HUDShouldRender(UUTHUDWidget* TargetWidget)
+{
+	return (TargetWidget && Cast<UUTHUDWidget_Powerups>(TargetWidget));
 }

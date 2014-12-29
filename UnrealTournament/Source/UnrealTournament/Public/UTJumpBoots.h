@@ -43,4 +43,14 @@ class AUTJumpBoots : public AUTInventory
 
 	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
+
+public:
+	/** Returns the HUD text to display for this item */
+	virtual FText GetHUDText()
+	{
+		return FText::AsNumber(NumJumps);
+	}
+
+	virtual bool HUDShouldRender(UUTHUDWidget* TargetWidget);
+
 };
