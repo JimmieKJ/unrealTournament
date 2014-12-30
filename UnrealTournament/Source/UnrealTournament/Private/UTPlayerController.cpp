@@ -781,7 +781,11 @@ void AUTPlayerController::UnCrouch()
 		{
 			// tap roll
 			RollTapThresholdTime = 0.f;
-			UTCharacter->bRollNextUncrouch = true;
+			UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+			if (MyCharMovement)
+			{
+				MyCharMovement->bPressedSlide = true;
+			}
 		}
 	}
 }

@@ -322,6 +322,9 @@ public:
 	bool bPressedDodgeLeft;
 	bool bPressedDodgeRight;
 
+	/** Flag to synchronize tap slide */
+	bool bPressedSlide;
+
 	/** Return true if character can dodge. */
 	virtual bool CanDodge();
 
@@ -548,6 +551,7 @@ public:
 	bool bSavedIsSprinting;
 	bool bSavedIsRolling;
 	bool bSavedWantsSlide;
+	bool bPressedSlide;
 
 	// Flag to plant character during emoting
 	bool bSavedIsEmoting;

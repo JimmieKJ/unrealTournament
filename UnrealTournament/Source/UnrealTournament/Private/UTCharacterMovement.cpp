@@ -646,11 +646,11 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	float CurrentMoveTime = GetCurrentSynchTime();
 	if (CharacterOwner->Role < ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f from %f %f %f vel %f %f %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z);
+		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f from %f %f %f vel %f %f %f wants to crouch %d sliding %d"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, bWantsToCrouch, bIsDodgeRolling);
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("SERVER Move at %f from %f %f %f vel %f %f %f"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z);
+		UE_LOG(UT, Warning, TEXT("SERVER Move at %f from %f %f %f vel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
 	}
 */
 	//UE_LOG(UT, Warning, TEXT("PerformMovement %f saved sprint start %f bIsSprinting %d"), GetCurrentMovementTime(), SprintStartTime, bIsSprinting);
@@ -844,7 +844,6 @@ void UUTCharacterMovement::PerformRoll(const FVector& DodgeDir)
 {
 	if (!IsFalling() && CharacterOwner)
 	{
-		// @todo FIXMESTEVE test networking
 		DodgeRollTapTime = GetCurrentMovementTime();
 		bIsDodgeRolling = true;
 		DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
@@ -903,6 +902,7 @@ void UUTCharacterMovement::ClearDodgeInput()
 	bPressedDodgeBack = false;
 	bPressedDodgeLeft = false;
 	bPressedDodgeRight = false;
+	bPressedSlide = false;
 }
 
 void UUTCharacterMovement::CheckJumpInput(float DeltaTime)

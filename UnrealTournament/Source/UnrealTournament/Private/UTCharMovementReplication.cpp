@@ -84,6 +84,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bPressedDodgeRight = (DodgeFlags == 4);
 	bIsSprinting = (DodgeFlags == 5);
 	bIsDodgeRolling = (DodgeFlags == 6);
+	bPressedSlide = (DodgeFlags == 7);
 	bool bOldWillDodgeRoll = bWantsSlideRoll;
 	bWantsSlideRoll = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
 	if (!bOldWillDodgeRoll && bWantsSlideRoll)
@@ -554,12 +555,10 @@ bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove, FNe
 
 bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) const
 {
-	if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight)
+	if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight || bPressedSlide)
 	{
 		return true;
 	}
-
-	// @ TODO FIXMESTEVE - maybe move combining?  Don't delay if direction change, jump, or teleport (need to be able to look at NewMove properties)
 
 	// Check if any important movement flags have changed status.
 	if ((bPressedJump && (bPressedJump != ComparedMove->bPressedJump)) || (bWantsToCrouch != ComparedMove->bWantsToCrouch))
@@ -816,8 +815,8 @@ bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, AChara
 		return false;
 	}
 
-	bool bPressedDodge = bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight;
-	bool bNewPressedDodge = ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight;
+	bool bPressedDodge = bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight || bPressedSlide;
+	bool bNewPressedDodge = ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeForward || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeBack || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeLeft || ((FSavedMove_UTCharacter*)&NewMove)->bPressedDodgeRight || ((FSavedMove_UTCharacter*)&NewMove)->bPressedSlide;
 	if (bPressedDodge || bNewPressedDodge)
 	{
 		return false;
@@ -855,6 +854,10 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	else if (bPressedDodgeRight)
 	{
 		Result |= (4 << 2);
+	}
+	else if (bPressedSlide)
+	{
+		Result |= (7 << 2);
 	}
 	else if (bSavedIsSprinting)
 	{
@@ -896,6 +899,7 @@ void FSavedMove_UTCharacter::Clear()
 	SavedDodgeRollEndTime = 0.f;
 	bSavedJumpAssisted = false;
 	bSavedIsDodging = false;
+	bPressedSlide = false;
 }
 
 void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData)
@@ -919,6 +923,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		SavedDodgeRollEndTime = UTCharMov->DodgeRollEndTime;
 		bSavedJumpAssisted = UTCharMov->bJumpAssisted;
 		bSavedIsDodging = UTCharMov->bIsDodging;
+		bPressedSlide = UTCharMov->bPressedSlide;
 		//UE_LOG(UT, Warning, TEXT("set move %f saved sprint start %f"), TimeStamp, SavedSprintStartTime);
 	}
 

@@ -1193,10 +1193,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float TeamPlayerIndicatorMaxDistance;
 
-	/** crouch/uncrouch is delayed so on tap roll we need to buffer */
-	UPROPERTY(BlueprintReadOnly, Category = Dodging)
-	bool bRollNextUncrouch;
-
 	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
 	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)
 	bool bHasHighScore;
