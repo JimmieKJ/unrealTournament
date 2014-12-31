@@ -367,6 +367,12 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			PC->ApplyDeferredFireInputs();
 		}
 	}
+
+	if ((GetNetMode() == NM_Client) && (CharacterOwner->Role == ROLE_AutonomousProxy))
+	{
+		// Send to the server
+		UTCallServerMove();
+	}
 }
 
 void UUTCharacterMovement::ClearPendingImpulse()

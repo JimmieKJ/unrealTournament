@@ -483,34 +483,7 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	// Add NewMove to the list
 	ClientData->SavedMoves.Push(NewMove);
 
-	// Find Previous move
-	if (ClientData->SavedMoves.Num() >= 2)
-	{
-		const FSavedMovePtr& PreviousMove = ClientData->SavedMoves.Last(1);
-		if (PreviousMove.IsValid() && CanDelaySendingMove(NewMove, PreviousMove))
-		{
-			// Decide whether to hold off on move
-			// send moves more frequently in small games where server isn't likely to be saturated
-			float NetMoveDelta = 0.02f;
-			UPlayer* Player = (PC ? PC->Player : NULL);
-			if (Player && (Player->CurrentNetSpeed > 10000) && (GetWorld()->GameState != NULL) && (GetWorld()->GameState->PlayerArray.Num() <= 10))
-			{
-				NetMoveDelta = 0.011f;
-			}
-
-			if ((NewMove->TimeStamp - ClientData->ClientUpdateTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta)
-			{
-				//UE_LOG(UT, Warning, TEXT("Delay sending %f"), NewMove->TimeStamp);
-				return;
-			}
-		}
-	}
-
-	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s DeltaTime %f"),
-		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString(), DeltaTime);
-
-	// Send to the server
-	UTCallServerMove();
+	// actually send server moves at end of frame, so can add firing information appropriately
 }
 
 bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove, const FSavedMovePtr& PreviousMove)
@@ -569,13 +542,37 @@ bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) 
 void UUTCharacterMovement::UTCallServerMove()
 {
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
-	if (!UTCharacterOwner)
+	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+	if (!UTCharacterOwner || !ClientData || (ClientData->SavedMoves.Num() == 0))
 	{
-		UE_LOG(UT, Warning, TEXT("CallServerMove() with no owner!?!"));
 		return;
 	}
 
-	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+	// Decide whether to hold off on move
+	const FSavedMovePtr& NewMove = ClientData->SavedMoves.Last();
+	if (ClientData->SavedMoves.Num() >= 2)
+	{
+		const FSavedMovePtr& PreviousMove = ClientData->SavedMoves.Last(1);
+		if (PreviousMove.IsValid() && CanDelaySendingMove(NewMove, PreviousMove))
+		{
+			// send moves more frequently in small games where server isn't likely to be saturated
+			float NetMoveDelta = 0.02f;
+			APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
+			UPlayer* Player = (PC ? PC->Player : NULL);
+			if (Player && (Player->CurrentNetSpeed > 10000) && (GetWorld()->GameState != NULL) && (GetWorld()->GameState->PlayerArray.Num() <= 10))
+			{
+				NetMoveDelta = 0.011f;
+			}
+
+			if ((NewMove->TimeStamp - ClientData->ClientUpdateTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta)
+			{
+				//UE_LOG(UT, Warning, TEXT("Delay sending %f"), NewMove->TimeStamp);
+				return;
+			}
+		}
+	}
+	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s"),
+		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString());
 
 	// Find the oldest unacknowledged sent important move (OldMove).
 	// Don't include the last move because it may be combined with the next new move.
@@ -624,24 +621,23 @@ void UUTCharacterMovement::UTCallServerMove()
 		}
 	}
 
-	const FSavedMovePtr& MoveToSend = ClientData->SavedMoves.Last();
-	if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > ClientData->ClientUpdateTime))
+	if (NewMove.IsValid() && (NewMove->TimeStamp > ClientData->ClientUpdateTime))
 	{
 		// Determine if we send absolute or relative location
-		UPrimitiveComponent* ClientMovementBase = MoveToSend->EndBase.Get();
-		const FVector SendLocation = MovementBaseUtility::UseRelativeLocation(ClientMovementBase) ? MoveToSend->SavedRelativeLocation : MoveToSend->SavedLocation;
+		UPrimitiveComponent* ClientMovementBase = NewMove->EndBase.Get();
+		const FVector SendLocation = MovementBaseUtility::UseRelativeLocation(ClientMovementBase) ? NewMove->SavedRelativeLocation : NewMove->SavedLocation;
 		//UE_LOG(UT, Warning, TEXT("Sending last move %f"), MoveToSend->TimeStamp);
-		ClientData->ClientUpdateTime = MoveToSend->TimeStamp;
+		ClientData->ClientUpdateTime = NewMove->TimeStamp;
 		UTCharacterOwner->UTServerMove
 			(
-			MoveToSend->TimeStamp,
-			MoveToSend->Acceleration,
+			NewMove->TimeStamp,
+			NewMove->Acceleration,
 			SendLocation,
-			MoveToSend->GetCompressedFlags(),
-			MoveToSend->SavedControlRotation.Yaw,
-			MoveToSend->SavedControlRotation.Pitch,
+			NewMove->GetCompressedFlags(),
+			NewMove->SavedControlRotation.Yaw,
+			NewMove->SavedControlRotation.Pitch,
 			ClientMovementBase,
-			MoveToSend->EndBoneName,
+			NewMove->EndBoneName,
 			PackNetworkMovementMode()
 			);
 	}
