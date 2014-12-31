@@ -17,12 +17,18 @@ public:
 	virtual void ClientAckGoodMove_Implementation(float TimeStamp) override;
 
 	/** Return true if it is OK to delay sending this player movement to the server to conserve bandwidth. */
-	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove, FNetworkPredictionData_Client_Character* ClientData);
+	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove, const FSavedMovePtr& PreviousMove);
 
-	virtual void CallServerMove(const class FSavedMove_Character* NewMove, const class FSavedMove_Character* OldMove)  override;
+	virtual void UTCallServerMove();
 
 	/** Process servermove forwarded by character */
 	virtual void ProcessServerMove(float TimeStamp, FVector Accel, FVector ClientLoc, uint8 CompressedMoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
+
+	/** Process servermove forwarded by character, without correction */
+	virtual void ProcessQuickServerMove(float TimeStamp, FVector Accel, uint8 CompressedMoveFlags);
+
+	/** Process servermove forwarded by character, without correction, but needs rotation */
+	virtual void ProcessSavedServerMove(float TimeStamp, FVector Accel, uint8 CompressedMoveFlags, float ViewYaw, float ViewPitch);
 
 	/** Process old servermove forwarded by character */
 	virtual void ProcessOldServerMove(float OldTimeStamp, FVector OldAccel, float OldYaw, uint8 OldMoveFlags);
@@ -517,6 +523,9 @@ public:
 	UPROPERTY()
 	float CurrentServerMoveTime;
 
+	/** Most recently sent move timestamp */
+	float LastSentMoveTime;
+
 	/** Return world time on client, CurrentClientTimeStamp on server */
 	virtual float GetCurrentMovementTime() const;
 
@@ -541,7 +550,18 @@ public:
 	{
 		AccelMagThreshold = 2000.f;
 		AccelDotThreshold = 0.8f;
+		bShotSpawned = false;
 	}
+
+	// Flags used to synchronize weapon firing
+	/** true if fire button is currently pressed. */
+	bool bFirePressed;
+
+	/** true if alt-fire button is currently pressed. */
+	bool bAltFirePressed;
+
+	/** true if projectile/hitscan spawned this frame. */
+	bool bShotSpawned;
 
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
 	bool bPressedDodgeForward;
@@ -564,6 +584,9 @@ public:
 	float SavedDodgeRollEndTime;
 	bool bSavedJumpAssisted;
 	bool bSavedIsDodging;
+
+	// return true if rotation affects this moves implementation
+	virtual bool NeedsRotationSent() const;
 
 	virtual void Clear() override;
 	virtual void SetMoveFor(ACharacter* Character, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character & ClientData) override;

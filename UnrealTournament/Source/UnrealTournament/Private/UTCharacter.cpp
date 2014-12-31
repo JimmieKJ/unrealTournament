@@ -3729,40 +3729,28 @@ bool AUTCharacter::UTServerMoveOld_Validate(float OldTimeStamp, FVector_NetQuant
 	return true;
 }
 
-void AUTCharacter::UTServerMoveDual_Implementation(
-	float TimeStamp0,
-	FVector_NetQuantize InAccel0,
-	uint8 PendingFlags,
-	float TimeStamp,
-	FVector_NetQuantize InAccel,
-	FVector_NetQuantize100 ClientLoc,
-	uint8 NewFlags,
-	float ViewYaw,
-	float ViewPitch,
-	UPrimitiveComponent* ClientMovementBase,
-	FName ClientBaseBone,
-	uint8 ClientMovementMode)
+void AUTCharacter::UTServerMoveSaved_Implementation(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags, float ViewYaw, float ViewPitch)
 {
 	if (UTCharacterMovement)
 	{
-		UTCharacterMovement->ProcessServerMove(TimeStamp0, InAccel0, FVector(1.f, 2.f, 3.f), PendingFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBone, ClientMovementMode);
-		UTCharacterMovement->ProcessServerMove(TimeStamp, InAccel, ClientLoc, NewFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBone, ClientMovementMode);
+		UTCharacterMovement->ProcessSavedServerMove(TimeStamp, InAccel, PendingFlags, ViewYaw, ViewPitch);
 	}
 }
 
-bool AUTCharacter::UTServerMoveDual_Validate(
-	float TimeStamp0,
-	FVector_NetQuantize InAccel0,
-	uint8 PendingFlags,
-	float TimeStamp,
-	FVector_NetQuantize InAccel,
-	FVector_NetQuantize100 ClientLoc,
-	uint8 NewFlags,
-	float ViewYaw,
-	float ViewPitch,
-	UPrimitiveComponent* ClientMovementBase,
-	FName ClientBaseBone,
-	uint8 ClientMovementMode)
+bool AUTCharacter::UTServerMoveSaved_Validate(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags, float ViewYaw, float ViewPitch)
+{
+	return true;
+}
+
+void AUTCharacter::UTServerMoveQuick_Implementation(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags)
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->ProcessQuickServerMove(TimeStamp, InAccel, PendingFlags);
+	}
+}
+
+bool AUTCharacter::UTServerMoveQuick_Validate(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags)
 {
 	return true;
 }

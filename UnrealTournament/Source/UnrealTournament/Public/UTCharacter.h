@@ -252,9 +252,13 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(unreliable, server, WithValidation)
 	virtual void UTServerMoveOld(float OldTimeStamp, FVector_NetQuantize OldAccel, float OldYaw, uint8 OldMoveFlags);
 
-	/** Replicated function sent by client to server - contains client movement and view info for two moves. */
+	/** Replicated function sent by client to server - contains client movement for a pending move, but no expectation of correction. */
 	UFUNCTION(unreliable, server, WithValidation)
-	virtual void UTServerMoveDual(float TimeStamp0, FVector_NetQuantize InAccel0, uint8 PendingFlags, float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize100 ClientLoc, uint8 NewFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
+	virtual void UTServerMoveQuick(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags);
+
+	/** Replicated function sent by client to server - contains client movement for an important pending move where rotation is needed. */
+	UFUNCTION(unreliable, server, WithValidation)
+	virtual void UTServerMoveSaved(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags, float ViewYaw, float ViewPitch);
 
 	//====================================
 
