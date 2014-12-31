@@ -197,6 +197,36 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 					]
+				+SVerticalBox::Slot()
+					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						[
+							SAssignNew(HUDOpacityLabel, STextBlock)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.Text(this, &SUWHUDSettingsDialog::GetWeaponBarScaleLabel)
+						]
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Right)
+						[
+							SNew(SBox)
+							.WidthOverride(300.0f)
+							.Content()
+							[
+								SAssignNew(HUDOpacity, SSlider)
+								.Orientation(Orient_Horizontal)
+								.Value(TargetHUD->HUDWidgetWeaponBarScaleOverride / 2.0f)
+								.OnValueChanged(this, &SUWHUDSettingsDialog::OnWeaponBarScaleChanged)
+							]
+						]
+					]
 			];
 		}
 		else
@@ -242,6 +272,11 @@ FText SUWHUDSettingsDialog::GetWeaponBarOpacityLabel() const
 	return FText::Format(NSLOCTEXT("HUDSETTINGS", "WeaponBarOpacityLabel", "Weapon Bar Opacity ({0})"), FText::AsNumber(TargetHUD->HUDWidgetWeaponbarInactiveOpacity));
 }
 
+FText SUWHUDSettingsDialog::GetWeaponBarScaleLabel() const
+{
+	return FText::Format(NSLOCTEXT("HUDSETTINGS", "WeaponBarScaleLabel", "Weapon Bar Scale ({0})"), FText::AsNumber(TargetHUD->HUDWidgetWeaponBarScaleOverride));
+}
+
 
 void SUWHUDSettingsDialog::OnHUDOpacityChanged(float NewValue)
 {
@@ -282,6 +317,15 @@ void SUWHUDSettingsDialog::OnWeaponBarOpacityChanged(float NewValue)
 		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = float(int(NewValue * 100.0f)) / 100.0f;
 	}
 }
+
+void SUWHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->HUDWidgetWeaponBarScaleOverride = 2.0 * float(int(NewValue * 100.0f)) / 100.0f;
+	}
+}
+
 
 
 FReply SUWHUDSettingsDialog::OKClick()

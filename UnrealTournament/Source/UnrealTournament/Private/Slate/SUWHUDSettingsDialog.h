@@ -12,7 +12,7 @@ class SUWHUDSettingsDialog : public SUWDialog
 public:
 	SLATE_BEGIN_ARGS(SUWHUDSettingsDialog)
 	: _DialogTitle(NSLOCTEXT("SUWHUDSettingsDialog","Title","HUD Settings"))
-	, _DialogSize(FVector2D(0.4f,0.35f))
+	, _DialogSize(FVector2D(0.4f,0.38f))
 	, _bDialogSizeIsRelative(true)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -61,12 +61,14 @@ protected:
 	FText GetHUDSlateOpacityLabel() const;
 	FText GetHUDScaleLabel() const;
 	FText GetWeaponBarOpacityLabel() const;
+	FText GetWeaponBarScaleLabel() const;
 
 	void OnHUDOpacityChanged(float NewValue);
 	void OnHUDBorderOpacityChanged(float NewValue);
 	void OnHUDSlateOpacityChanged(float NewValue);
 	void OnHUDScaleChanged(float NewValue);
 	void OnWeaponBarOpacityChanged(float NewValue);
+	void OnWeaponBarScaleChanged(float NewValue);
 
 
 };

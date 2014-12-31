@@ -97,6 +97,9 @@ protected:
 
 	void CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime);
 
+	// Override the default version to return the secondary scaling
+	virtual float GetDrawScaleOverride();
+
 private:
 	float FadeTimer;
 	int LastGroup;

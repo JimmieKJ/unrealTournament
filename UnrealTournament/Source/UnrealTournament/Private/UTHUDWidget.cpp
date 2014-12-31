@@ -562,7 +562,7 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	RenderPosition.Y = Canvas->ClipY * ScreenPosition.Y;
 
 	RenderScale = (bScaleByDesignedResolution) ? Canvas->ClipY / DesignedResolution : 1.0f;
-	RenderScale *= UTHUDOwner->HUDWidgetScaleOverride;
+	RenderScale *= GetDrawScaleOverride();
 
 	// Apply any scaling
 	RenderSize.Y = Size.Y * RenderScale;
@@ -852,5 +852,7 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 				TextObject.VertPosition);
 }
 
-
-
+float UUTHUDWidget::GetDrawScaleOverride()
+{
+	return UTHUDOwner->HUDWidgetScaleOverride;
+}

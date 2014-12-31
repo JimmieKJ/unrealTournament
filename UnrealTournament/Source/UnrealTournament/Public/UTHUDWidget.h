@@ -338,6 +338,9 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual FVector2D RenderObj_TextAt(FHUDRenderObject_Text& TextObject, float X, float Y);
+	
+	// Get any scaling overrides.  
+	virtual float GetDrawScaleOverride();
 
 private:
 

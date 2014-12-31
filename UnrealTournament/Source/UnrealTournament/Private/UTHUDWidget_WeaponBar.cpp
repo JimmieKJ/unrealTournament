@@ -295,8 +295,10 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 				WeaponGroups[GroupIndex].WeaponsInGroup.Add(Weapon);
 			}
 		}
-
-
-
 	}
+}
+
+float UUTHUDWidget_WeaponBar::GetDrawScaleOverride()
+{
+	return UTHUDOwner->HUDWidgetScaleOverride * UTHUDOwner->HUDWidgetWeaponBarScaleOverride;
 }

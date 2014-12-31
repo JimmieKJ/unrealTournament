@@ -165,6 +165,10 @@ public:
 	UPROPERTY(globalconfig)
 	float HUDWidgetWeaponbarInactiveOpacity;
 
+	// The weapon bar can get a secondary scale override using this value
+	UPROPERTY(globalconfig)
+	float HUDWidgetWeaponBarScaleOverride;
+
 	// Allows the user to override the scaling factor for their hud.
 	UPROPERTY(globalconfig)
 	float HUDWidgetScaleOverride;
