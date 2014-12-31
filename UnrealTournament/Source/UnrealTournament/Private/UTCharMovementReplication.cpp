@@ -491,22 +491,20 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 		{
 			// Decide whether to hold off on move
 			// send moves more frequently in small games where server isn't likely to be saturated
-		float NetMoveDelta = 0.015f;
+			float NetMoveDelta = 0.02f;
 			UPlayer* Player = (PC ? PC->Player : NULL);
-
 			if (Player && (Player->CurrentNetSpeed > 10000) && (GetWorld()->GameState != NULL) && (GetWorld()->GameState->PlayerArray.Num() <= 10))
 			{
-			NetMoveDelta = 0.011f;
+				NetMoveDelta = 0.011f;
 			}
 
-			if ((NewMove->TimeStamp - LastSentMoveTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta)
+			if ((NewMove->TimeStamp - ClientData->ClientUpdateTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta)
 			{
 				//UE_LOG(UT, Warning, TEXT("Delay sending %f"), NewMove->TimeStamp);
 				return;
 			}
 		}
 	}
-	ClientData->ClientUpdateTime = GetWorld()->TimeSeconds; // FIXMESTEVE use instead of lastsentmovetime?
 
 	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s DeltaTime %f"),
 		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString(), DeltaTime);
@@ -588,7 +586,7 @@ void UUTCharacterMovement::UTCallServerMove()
 		for (int32 i = 0; i < ClientData->SavedMoves.Num() - 1; i++)
 		{
 			const FSavedMovePtr& CurrentMove = ClientData->SavedMoves[i];
-			if (CurrentMove->TimeStamp > LastSentMoveTime)
+			if (CurrentMove->TimeStamp > ClientData->ClientUpdateTime)
 			{
 				// move hasn't been sent yet
 				break;
@@ -611,11 +609,10 @@ void UUTCharacterMovement::UTCallServerMove()
 	for (int32 i = 0; i<ClientData->SavedMoves.Num()-1; i++)
 	{
 		const FSavedMovePtr& MoveToSend = ClientData->SavedMoves[i];
-		if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > LastSentMoveTime))
+		if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > ClientData->ClientUpdateTime))
 		{
-			// Determine if we send absolute or relative location
 			//UE_LOG(UT, Warning, TEXT("Sending pending %f"), MoveToSend->TimeStamp);
-			LastSentMoveTime = MoveToSend->TimeStamp;
+			ClientData->ClientUpdateTime = MoveToSend->TimeStamp;
 			if (((FSavedMove_UTCharacter*)(MoveToSend.Get()))->NeedsRotationSent())
 			{
 				UTCharacterOwner->UTServerMoveSaved(MoveToSend->TimeStamp, MoveToSend->Acceleration, MoveToSend->GetCompressedFlags(), MoveToSend->SavedControlRotation.Yaw, MoveToSend->SavedControlRotation.Pitch);
@@ -628,13 +625,13 @@ void UUTCharacterMovement::UTCallServerMove()
 	}
 
 	const FSavedMovePtr& MoveToSend = ClientData->SavedMoves.Last();
-	if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > LastSentMoveTime))
+	if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > ClientData->ClientUpdateTime))
 	{
 		// Determine if we send absolute or relative location
 		UPrimitiveComponent* ClientMovementBase = MoveToSend->EndBase.Get();
 		const FVector SendLocation = MovementBaseUtility::UseRelativeLocation(ClientMovementBase) ? MoveToSend->SavedRelativeLocation : MoveToSend->SavedLocation;
 		//UE_LOG(UT, Warning, TEXT("Sending last move %f"), MoveToSend->TimeStamp);
-		LastSentMoveTime = MoveToSend->TimeStamp;
+		ClientData->ClientUpdateTime = MoveToSend->TimeStamp;
 		UTCharacterOwner->UTServerMove
 			(
 			MoveToSend->TimeStamp,

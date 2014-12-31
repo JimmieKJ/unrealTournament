@@ -523,9 +523,6 @@ public:
 	UPROPERTY()
 	float CurrentServerMoveTime;
 
-	/** Most recently sent move timestamp */
-	float LastSentMoveTime;
-
 	/** Return world time on client, CurrentClientTimeStamp on server */
 	virtual float GetCurrentMovementTime() const;
 
