@@ -547,6 +547,7 @@ void UUTCharacterMovement::UTCallServerMove()
 	{
 		return;
 	}
+	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
 
 	// Decide whether to hold off on move
 	const FSavedMovePtr& NewMove = ClientData->SavedMoves.Last();
@@ -557,7 +558,6 @@ void UUTCharacterMovement::UTCallServerMove()
 		{
 			// send moves more frequently in small games where server isn't likely to be saturated
 			float NetMoveDelta = 0.02f;
-			APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
 			UPlayer* Player = (PC ? PC->Player : NULL);
 			if (Player && (Player->CurrentNetSpeed > 10000) && (GetWorld()->GameState != NULL) && (GetWorld()->GameState->PlayerArray.Num() <= 10))
 			{
@@ -642,7 +642,6 @@ void UUTCharacterMovement::UTCallServerMove()
 			);
 	}
 
-	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
 	APlayerCameraManager* PlayerCameraManager = (PC ? PC->PlayerCameraManager : NULL);
 	if (PlayerCameraManager != NULL && PlayerCameraManager->bUseClientSideCameraUpdates)
 	{
