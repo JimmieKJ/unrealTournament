@@ -359,15 +359,8 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 		}
 	}
 	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
-
 	if (CharacterOwner != NULL)
 	{
-		// @TODO FIXMESTEVE move after firing (so can get projectile shots), but only after  we fix ordering issues.
-		if ((GetNetMode() == NM_Client) && (CharacterOwner->Role == ROLE_AutonomousProxy))
-		{
-			// Send to the server
-			UTCallServerMove();
-		}
 		AUTPlayerController* PC = Cast<AUTPlayerController>(CharacterOwner->Controller);
 		if (PC != NULL && PC->PlayerInput != NULL)
 		{

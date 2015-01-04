@@ -483,7 +483,7 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	// Add NewMove to the list
 	ClientData->SavedMoves.Push(NewMove);
 
-	// actually send server moves at end of frame, so can add firing information appropriately
+	UTCallServerMove();
 }
 
 bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove, const FSavedMovePtr& PreviousMove)
