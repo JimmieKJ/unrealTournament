@@ -32,6 +32,13 @@ class UUTWeaponState : public UObject
 	{}
 	virtual void EndFiringSequence(uint8 FireModeNum)
 	{}
+
+	/** Returns true if weapon will fire a shot this frame - used for network synchronization */
+	virtual bool WillSpawnShot(float DeltaTime)
+	{
+		return false;
+	}
+
 	/** handle request to bring up
 	 * only inactive and equipping states should ever receive this function
 	 */

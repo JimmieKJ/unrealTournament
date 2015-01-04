@@ -28,6 +28,9 @@ class UUTWeaponStateFiring : public UUTWeaponState
 		return true;
 	}
 
+	/** Returns true if weapon will fire a shot this frame - used for network synchronization */
+	virtual bool WillSpawnShot(float DeltaTime);
+
 	/** called to fire the shot and consume ammo */
 	virtual void FireShot();
 

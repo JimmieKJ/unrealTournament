@@ -400,6 +400,11 @@ bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
 	return true;
 }
 
+bool AUTWeapon::WillSpawnShot(float DeltaTime)
+{
+	return (CurrentState != NULL) && CurrentState->WillSpawnShot(DeltaTime);
+}
+
 void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
 {
 	UTOwner->SetPendingFire(FireModeNum, true);

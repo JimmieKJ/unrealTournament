@@ -365,6 +365,9 @@ public:
 	virtual void BeginFiringSequence(uint8 FireModeNum);
 	virtual void EndFiringSequence(uint8 FireModeNum);
 
+	/** Returns true if weapon will fire a shot this frame - used for network synchronization */
+	virtual bool WillSpawnShot(float DeltaTime);
+
 	/** hook when the firing state starts; called on both client and server */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnStartedFiring();

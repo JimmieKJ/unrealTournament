@@ -480,6 +480,10 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 
 	NewMove->PostUpdate(CharacterOwner, FSavedMove_Character::PostUpdate_Record);
 
+	// set flag if weapon is shooting on client this frame not from new fire press/release (to keep client and server synchronized)
+	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+	((FSavedMove_UTCharacter*)(NewMove.Get()))->bShotSpawned = (UTCharacterOwner && UTCharacterOwner->GetWeapon()) ? UTCharacterOwner->GetWeapon()->WillSpawnShot(DeltaTime) : false;
+
 	// Add NewMove to the list
 	ClientData->SavedMoves.Push(NewMove);
 

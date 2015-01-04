@@ -35,6 +35,11 @@ void UUTWeaponStateFiring::UpdateTiming()
 	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
 }
 
+bool UUTWeaponStateFiring::WillSpawnShot(float DeltaTime)
+{
+	return (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiring::RefireCheckTimer) < DeltaTime);
+}
+
 void UUTWeaponStateFiring::RefireCheckTimer()
 {
 	// query bot to consider whether to still fire, switch modes, etc
@@ -52,6 +57,8 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 
 void UUTWeaponStateFiring::FireShot()
 {
+//	float CurrentMoveTime = (GetUTOwner() && GetUTOwner()->UTCharacterMovement) ? GetUTOwner()->UTCharacterMovement->GetCurrentSynchTime() : GetWorld()->GetTimeSeconds();
+//	UE_LOG(UT, Warning, TEXT("Fire SHOT at %f"), CurrentMoveTime);
 	GetOuterAUTWeapon()->FireShot();
 }
 

@@ -550,14 +550,7 @@ public:
 		bShotSpawned = false;
 	}
 
-	// Flags used to synchronize weapon firing
-	/** true if fire button is currently pressed. */
-	bool bFirePressed;
-
-	/** true if alt-fire button is currently pressed. */
-	bool bAltFirePressed;
-
-	/** true if projectile/hitscan spawned this frame. */
+	/** true if projectile/hitscan spawned this frame, not from firing press/release. */
 	bool bShotSpawned;
 
 	// Flags used to synchronize dodging in networking (analoguous to bPressedJump)
