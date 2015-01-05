@@ -101,6 +101,10 @@ protected:
 	virtual float GetDrawScaleOverride();
 
 private:
+
+	float InactiveOpacity;
+	float InactiveIconOpacity;
+
 	float FadeTimer;
 	int LastGroup;
 	float LastGroupSlot;

@@ -101,7 +101,7 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		{
 			// Draw Game Text
 			FText Score = FText::Format(NSLOCTEXT("UTScoreboard","GoalScoreFormat","First to {0} Frags"), FText::AsNumber(UTGameState->GoalScore));
-			DrawText(Score, 1255, 28, LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(Score, 1255, 28, MediumFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 
 		FText StatusText = UTGameState->GetGameStatusText();

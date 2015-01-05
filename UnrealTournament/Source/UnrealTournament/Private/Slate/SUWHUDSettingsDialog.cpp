@@ -197,6 +197,70 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 					]
+
+				+SVerticalBox::Slot()
+					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						[
+							SAssignNew(HUDOpacityLabel, STextBlock)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.Text(this, &SUWHUDSettingsDialog::GetWeaponBarIconOpacityLabel)
+						]
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Right)
+						[
+							SNew(SBox)
+							.WidthOverride(300.0f)
+							.Content()
+							[
+								SAssignNew(HUDOpacity, SSlider)
+								.Orientation(Orient_Horizontal)
+								.Value(TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity)
+								.OnValueChanged(this, &SUWHUDSettingsDialog::OnWeaponBarIconOpacityChanged)
+							]
+						]
+					]
+
+				+SVerticalBox::Slot()
+					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						[
+							SAssignNew(HUDOpacityLabel, STextBlock)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.Text(this, &SUWHUDSettingsDialog::GetWeaponBarEmptyOpacityLabel)
+						]
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Right)
+						[
+							SNew(SBox)
+							.WidthOverride(300.0f)
+							.Content()
+							[
+								SAssignNew(HUDOpacity, SSlider)
+								.Orientation(Orient_Horizontal)
+								.Value(TargetHUD->HUDWidgetWeaponBarEmptyOpacity)
+								.OnValueChanged(this, &SUWHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged)
+							]
+						]
+					]
+
+
 				+SVerticalBox::Slot()
 					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
 					[
@@ -272,6 +336,17 @@ FText SUWHUDSettingsDialog::GetWeaponBarOpacityLabel() const
 	return FText::Format(NSLOCTEXT("HUDSETTINGS", "WeaponBarOpacityLabel", "Weapon Bar Opacity ({0})"), FText::AsNumber(TargetHUD->HUDWidgetWeaponbarInactiveOpacity));
 }
 
+FText SUWHUDSettingsDialog::GetWeaponBarIconOpacityLabel() const
+{
+	return FText::Format(NSLOCTEXT("HUDSETTINGS", "WeaponBarIconOpacityLabel", "Weapon Bar Icon/Label Opacity ({0})"), FText::AsNumber(TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity));
+}
+
+FText SUWHUDSettingsDialog::GetWeaponBarEmptyOpacityLabel() const
+{
+	return FText::Format(NSLOCTEXT("HUDSETTINGS", "WeaponBarEmptyOpacityLabel", "Weapon Bar Empy Slot Opacity ({0})"), FText::AsNumber(TargetHUD->HUDWidgetWeaponBarEmptyOpacity));
+}
+
+
 FText SUWHUDSettingsDialog::GetWeaponBarScaleLabel() const
 {
 	return FText::Format(NSLOCTEXT("HUDSETTINGS", "WeaponBarScaleLabel", "Weapon Bar Scale ({0})"), FText::AsNumber(TargetHUD->HUDWidgetWeaponBarScaleOverride));
@@ -317,6 +392,24 @@ void SUWHUDSettingsDialog::OnWeaponBarOpacityChanged(float NewValue)
 		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = float(int(NewValue * 100.0f)) / 100.0f;
 	}
 }
+
+void SUWHUDSettingsDialog::OnWeaponBarIconOpacityChanged(float NewValue)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+	}
+}
+
+void SUWHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged(float NewValue)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+	}
+}
+
+
 
 void SUWHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
 {

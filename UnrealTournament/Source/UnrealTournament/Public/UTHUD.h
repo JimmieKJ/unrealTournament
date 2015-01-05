@@ -169,9 +169,16 @@ public:
 	UPROPERTY(globalconfig)
 	float HUDWidgetWeaponBarScaleOverride;
 
+	UPROPERTY(globalconfig)
+	float HUDWidgetWeaponBarInactiveIconOpacity;
+
+	UPROPERTY(globalconfig)
+	float HUDWidgetWeaponBarEmptyOpacity;
+
 	// Allows the user to override the scaling factor for their hud.
 	UPROPERTY(globalconfig)
 	float HUDWidgetScaleOverride;
+
 
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();

@@ -12,7 +12,7 @@ class SUWHUDSettingsDialog : public SUWDialog
 public:
 	SLATE_BEGIN_ARGS(SUWHUDSettingsDialog)
 	: _DialogTitle(NSLOCTEXT("SUWHUDSettingsDialog","Title","HUD Settings"))
-	, _DialogSize(FVector2D(0.4f,0.38f))
+	, _DialogSize(FVector2D(0.4f,0.45f))
 	, _bDialogSizeIsRelative(true)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -49,6 +49,12 @@ protected:
 	TSharedPtr<SSlider> WeaponBarOpacity;
 	TSharedPtr<STextBlock> WeaponBarOpacityLabel;
 
+	TSharedPtr<SSlider> WeaponBarIconOpacity;
+	TSharedPtr<STextBlock> WeaponBarIconOpacityLabel;
+
+	TSharedPtr<SSlider> WeaponBarEmptyOpacity;
+	TSharedPtr<STextBlock> WeaponBarEmptyOpacityLabel;
+
 	// A reference to the target HUD..
 	TWeakObjectPtr<AUTHUD> TargetHUD;
 
@@ -61,6 +67,8 @@ protected:
 	FText GetHUDSlateOpacityLabel() const;
 	FText GetHUDScaleLabel() const;
 	FText GetWeaponBarOpacityLabel() const;
+	FText GetWeaponBarIconOpacityLabel() const;
+	FText GetWeaponBarEmptyOpacityLabel() const;
 	FText GetWeaponBarScaleLabel() const;
 
 	void OnHUDOpacityChanged(float NewValue);
@@ -68,6 +76,8 @@ protected:
 	void OnHUDSlateOpacityChanged(float NewValue);
 	void OnHUDScaleChanged(float NewValue);
 	void OnWeaponBarOpacityChanged(float NewValue);
+	void OnWeaponBarIconOpacityChanged(float NewValue);
+	void OnWeaponBarEmptyOpacityChanged(float NewValue);
 	void OnWeaponBarScaleChanged(float NewValue);
 
 
