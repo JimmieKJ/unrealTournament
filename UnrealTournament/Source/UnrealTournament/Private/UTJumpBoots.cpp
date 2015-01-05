@@ -134,6 +134,18 @@ bool AUTJumpBoots::StackPickup_Implementation(AUTInventory* ContainedInv)
 	return true;
 }
 
+void AUTJumpBoots::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
+{
+	if (NumJumps <= 0)
+	{
+		Destroy();
+	}
+	else
+	{
+		Super::DropFrom(StartLocation, TossVelocity);
+	}
+}
+
 void AUTJumpBoots::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
