@@ -53,7 +53,7 @@ void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		DrawTexture(TextureAtlas, XOffset, YOffset, Width, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
 
 		DrawText(CH_PlayerName, XOffset + ColumnHeaderPlayerX, YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
-		if (UTGameState->HasMatchStarted())
+		if (UTGameState && UTGameState->HasMatchStarted())
 		{
 			DrawText(CH_Score, XOffset + ColumnHeaderScoreX, YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			DrawText(CH_Caps, XOffset + ColumnHeaderCapsX, YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
@@ -105,7 +105,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	// Draw the Text
 	DrawText(PlayerName, XOffset + 42, YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
-	if (UTGameState->HasMatchStarted())
+	if (UTGameState && UTGameState->HasMatchStarted())
 	{
 		DrawText(PlayerScore, XOffset + ColumnHeaderScoreX, YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 		DrawText(PlayerCaps, XOffset + ColumnHeaderCapsX, YOffset + ColumnY, SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);

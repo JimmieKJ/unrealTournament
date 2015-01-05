@@ -45,11 +45,14 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
 
 	ActualPlayerCount=0;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	if (UTGameState)
 	{
-		if (UTGameState->PlayerArray[i] && !UTGameState->PlayerArray[i]->bOnlySpectator)
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
-			ActualPlayerCount++;
+			if (UTGameState->PlayerArray[i] && !UTGameState->PlayerArray[i]->bOnlySpectator)
+			{
+				ActualPlayerCount++;
+			}
 		}
 	}
 }
@@ -161,7 +164,7 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	FText CH_Ping = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "PING");
 	FText CH_Ready = NSLOCTEXT("UTScoreboard","ColumnHeader_Ready","READY TO PLAY");
 
-	int32 ColumnCnt = (UTGameState->bTeamGame|| ActualPlayerCount > 16) ? 2 : 1;
+	int32 ColumnCnt = ((UTGameState && UTGameState->bTeamGame) || ActualPlayerCount > 16) ? 2 : 1;
 
 	for (int32 i = 0; i < ColumnCnt; i++)
 	{
@@ -170,7 +173,7 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 
 		DrawText(CH_PlayerName, XOffset + ColumnHeaderPlayerX, YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
 
-		if (UTGameState->HasMatchStarted())
+		if (UTGameState && UTGameState->HasMatchStarted())
 		{
 			DrawText(CH_Score, XOffset + ColumnHeaderScoreX, YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 			DrawText(CH_Deaths, XOffset + ColumnHeaderDeathsX, YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
@@ -189,6 +192,10 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 
 void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 {
+	if (!UTGameState)
+	{
+		return;
+	}
 	int32 Place = 1;
 	int32 NumSpectators = 0;
 	int32 XOffset = 0;
@@ -256,7 +263,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	DrawText(Position, XOffset + 50, YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 	DrawText(PlayerName, XOffset + 94, YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center); 		
 
-	if (UTGameState->HasMatchStarted())
+	if (UTGameState && UTGameState->HasMatchStarted())
 	{
 		DrawText(PlayerScore, XOffset + ColumnHeaderScoreX, YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 		DrawText(PlayerDeaths, XOffset + ColumnHeaderDeathsX, YOffset + ColumnY, SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
