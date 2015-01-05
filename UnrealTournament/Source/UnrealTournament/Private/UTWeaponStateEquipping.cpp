@@ -46,7 +46,7 @@ void UUTWeaponStateEquipping::BeginState(const UUTWeaponState* PrevState)
 void UUTWeaponStateEquipping::BringUpFinished()
 {
 	GetOuterAUTWeapon()->GotoActiveState();
-	if (PendingFireSequence >= 0)
+	if  ((PendingFireSequence >= 0) && GetUTOwner())
 	{
 		GetOuterAUTWeapon()->BeginFiringSequence(PendingFireSequence, true);
 		PendingFireSequence = -1;
@@ -77,7 +77,7 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 bool UUTWeaponStateEquipping::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
 	// on server, might not be quite done equipping yet when client done, so queue firing
-	if (bClientFired)
+	if (bClientFired && GetUTOwner())
 	{
 		PendingFireSequence = FireModeNum;
 		GetUTOwner()->NotifyPendingServerFire();
