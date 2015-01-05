@@ -40,6 +40,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	LeftMesh->AttachParent = RootComponent;
 	LeftMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	LeftMesh->bSelfShadowOnly = true;
+	LeftMesh->bHiddenInGame = true;
 	FirstPLeftMeshOffset = FVector(0.f);
 
 	EnforcerEquippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateEquipping_Enforcer>(this, TEXT("EnforcerEquippingState"));
@@ -55,6 +56,7 @@ void AUTWeap_Enforcer::AttachLeftMesh()
 
 	if (LeftMesh != NULL && LeftMesh->SkeletalMesh != NULL)
 	{
+		LeftMesh->SetHiddenInGame(false);
 		LeftMesh->AttachTo(UTOwner->FirstPersonMesh);
 		if (Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
 		{
