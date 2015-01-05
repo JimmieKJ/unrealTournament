@@ -63,6 +63,9 @@ public:
 
 protected:
 
+	// The actual instance query port to use.
+	int32 InstanceQueryPort;
+
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
 	 **/

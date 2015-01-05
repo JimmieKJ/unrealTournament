@@ -177,6 +177,7 @@ void AUTLobbyGameState::SetupLobbyBeacons()
 		if (LobbyBeacon_Object)
 		{
 			LobbyBeacon_Listener->RegisterHost(LobbyBeacon_Object);
+			GameInstanceListenPort = LobbyBeacon_Listener->ListenPort;
 			return;
 		}
 	}
@@ -195,7 +196,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		// Append the InstanceID so that we know who to talk about to.  TODO: We have to add the server's accessible address (or the iC's address) here once we support
 		// instances on a machines.  NOTE: All communication that comes from the instance server to the lobby will need this id.
 
-		FString GameOptions = FString::Printf(TEXT("%s?Game=%s?%s?InstanceID=%i"), *MatchOwner->MatchMap, *MatchOwner->MatchGameMode, *ServerURLOptions, GameInstanceID);
+		FString GameOptions = FString::Printf(TEXT("%s?Game=%s?%s?InstanceID=%i?HostPort=%i"), *MatchOwner->MatchMap, *MatchOwner->MatchGameMode, *ServerURLOptions, GameInstanceID, GameInstanceListenPort);
 
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 

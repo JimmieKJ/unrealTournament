@@ -449,6 +449,8 @@ protected:
 	// A Beacon for communicating back to the lobby
 	AUTServerBeaconLobbyClient* LobbyBeacon;
 
+	uint32 HostLobbyListenPort;
+
 	// Update the Lobby with the current stats of the game
 	virtual void UpdateLobbyMatchStats();
 

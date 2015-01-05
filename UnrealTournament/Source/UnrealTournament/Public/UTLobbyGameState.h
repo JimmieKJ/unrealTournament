@@ -146,6 +146,8 @@ protected:
 	// game server instance is launched.  NOTE: this id should never be 0.
 	uint32 GameInstanceID;
 
+	uint32 GameInstanceListenPort;
+
 	AUTServerBeaconLobbyHostListener* LobbyBeacon_Listener;
 	AUTServerBeaconLobbyHostObject* LobbyBeacon_Object;
 

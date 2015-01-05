@@ -117,7 +117,8 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	GameDifficulty = FMath::Max(0, GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
-
+	
+	HostLobbyListenPort = GetIntOption(Options, TEXT("HostPort"), 14000);
 	FString InOpt = ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
 
@@ -353,11 +354,11 @@ void AUTGameMode::InitGameState()
 		{
 			FString BeaconNetDriverName = FString::Printf(TEXT("LobbyBeaconDriver%i"), LobbyInstanceID);
 			FURL LobbyURL(nullptr, TEXT("127.0.0.1"),TRAVEL_Absolute);
-			LobbyURL.Port = 15001;
+			LobbyURL.Port = HostLobbyListenPort;
 
 			LobbyBeacon->SetBeaconNetDriverName(BeaconNetDriverName);
 			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID);
-			UE_LOG(UT,Log,TEXT("..... Connecting back to lobby!"));
+			UE_LOG(UT,Log,TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
 		}
 	}
 
