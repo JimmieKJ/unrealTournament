@@ -330,7 +330,13 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRconAuth(const FString& Password);
-	
+
+	UFUNCTION(Exec)
+	virtual void RconExec(FString Command);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconExec(const FString& Command);
+
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);
 
