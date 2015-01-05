@@ -54,6 +54,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	CountDown = 4;
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
+	ForceRespawnTime = 3.0f;
 	bPlayersMustBeReady = false;
 	MinPlayersToStart = 1;
 	bOnlyTheStrongSurvive = true;
@@ -322,6 +323,7 @@ void AUTGameMode::InitGameState()
 		UTGameState->SetGoalScore(GoalScore);
 		UTGameState->SetTimeLimit(0);
 		UTGameState->RespawnWaitTime = RespawnWaitTime;
+		UTGameState->ForceRespawnTime = ForceRespawnTime;
 		UTGameState->bPlayerMustBeReady = bPlayersMustBeReady;
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bWeaponStay = bWeaponStayActive;
@@ -476,7 +478,7 @@ void AUTGameMode::DefaultTimer()
 			if (Controller->IsInState(NAME_Inactive))
 			{
 				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
-				if (PS != NULL && PS->RespawnTime <= 0.0f)
+				if (PS != NULL && PS->ForceRespawnTime <= 0.0f)
 				{
 					RestartPlayer(Controller);
 				}

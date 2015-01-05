@@ -150,6 +150,7 @@ void AUTPlayerState::OnDeathsReceived()
 	if (UTGameState != NULL)
 	{
 		RespawnTime = UTGameState->RespawnWaitTime;
+		ForceRespawnTime = UTGameState->ForceRespawnTime;
 	}
 }
 
@@ -161,6 +162,11 @@ void AUTPlayerState::Tick(float DeltaTime)
 	if (RespawnTime > 0.0f)
 	{
 		RespawnTime -= DeltaTime;
+	}
+
+	if (ForceRespawnTime > 0.0f)
+	{
+		ForceRespawnTime -= DeltaTime;
 	}
 }
 

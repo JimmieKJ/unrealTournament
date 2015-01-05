@@ -86,6 +86,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float RespawnWaitTime;
 
+	// How long a player can wait before being forced respawned.  Set to 0 for no delay.
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
+	float ForceRespawnTime;
+
 	/** offset to level placed team IDs for the purposes of swapping/rotating sides
 	 * i.e. if this value is 1 and there are 4 teams, team 0 objects become owned by team 1, team 1 objects become owned by team 2... team 3 objects become owned by team 0
 	 */

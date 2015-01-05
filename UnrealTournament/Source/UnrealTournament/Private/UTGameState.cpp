@@ -29,6 +29,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);
+	DOREPLIFETIME(AUTGameState, ForceRespawnTime);
 	DOREPLIFETIME(AUTGameState, TimeLimit);
 	DOREPLIFETIME(AUTGameState, bTeamGame);
 	DOREPLIFETIME(AUTGameState, bOnlyTheStrongSurvive);
