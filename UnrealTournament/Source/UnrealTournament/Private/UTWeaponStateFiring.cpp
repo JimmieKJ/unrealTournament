@@ -18,8 +18,7 @@ void UUTWeaponStateFiring::EndState()
 	GetOuterAUTWeapon()->OnStoppedFiring();
 	GetOuterAUTWeapon()->StopFiringEffects();
 	GetOuterAUTWeapon()->GetUTOwner()->ClearFiringInfo();
-	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::RefireCheckTimer);
-	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::PutDown);
+	GetOuterAUTWeapon()->GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
 void UUTWeaponStateFiring::ToggleLoopingEffects(bool bNowOn)
@@ -49,7 +48,7 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 	{
 		B->CheckWeaponFiring();
 	}
-	if ((PendingFireSequence >= 0) && GetUTOwner())
+	if (PendingFireSequence >= 0)
 	{
 		GetUTOwner()->SetPendingFire(PendingFireSequence, true);
 		PendingFireSequence = -1;

@@ -35,7 +35,7 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 	virtual void StartEquip(float OverflowTime);
 	virtual void EndState() override
 	{
-		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateEquipping::BringUpFinished);
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearAllTimersForObject(this);
 	}
 
 	virtual void Tick(float DeltaTime)
