@@ -443,8 +443,6 @@ UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : 
 
 void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
 {
-	UE_LOG(UT,Log,TEXT("Initialikze Widget for %s"),*GetNameSafe(GetClass()));
-
 	for (TFieldIterator<UStructProperty> PropIt(GetClass()); PropIt; ++PropIt)
 	{
 		UStructProperty* Prop = NULL;
@@ -498,8 +496,6 @@ void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
 				RenderObjectList.Add(Prop);
 			}
 		}
-
-		UE_LOG(UT,Log,TEXT("   Property %s of type %s"), *PropIt->GetNameCPP(), *PropIt->Struct->GetName());
 	}
 }
 
