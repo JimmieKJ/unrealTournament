@@ -1089,18 +1089,17 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 			// warning: assumption that if bot wants to shoot an enemy Pawn it always sets it as Enemy
 			if (Enemy != NULL && GetFocusActor() == Enemy)
 			{
-				const TArray<FSavedPosition>* SavedPosPtr = NULL;
+				TArray<FSavedPosition> SavedPositions;
 				if (IsEnemyVisible(Enemy))
 				{
 					AUTCharacter* TargetP = Cast<AUTCharacter>(Enemy);
 					if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
 					{
-						SavedPosPtr = &TargetP->SavedPositions;
+						TargetP->GetSimplifiedSavedPositions(SavedPositions);
 					}
 				}
-				if (SavedPosPtr != NULL)
+				if (SavedPositions.Num() > 1)
 				{
-					const TArray<FSavedPosition>& SavedPositions = *SavedPosPtr;
 					// determine his position and velocity at the appropriate point in the past
 					for (int32 i = 1; i < SavedPositions.Num(); i++)
 					{

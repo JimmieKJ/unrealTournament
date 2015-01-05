@@ -219,7 +219,8 @@ void AUTCharacter::NotifyPendingServerFire()
 void AUTCharacter::PositionUpdated(bool bShotSpawned)
 {
 	const float WorldTime = GetWorld()->TimeSeconds;
-	new(SavedPositions)FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+
+	new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 
 	// maintain one position beyond MaxSavedPositionAge for interpolation
 	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < WorldTime - MaxSavedPositionAge)
@@ -249,6 +250,22 @@ FVector AUTCharacter::GetRewindLocation(float PredictionTime)
 		}
 	}
 	return TargetLocation;
+}
+
+void AUTCharacter::GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions) const
+{
+	OutPositions.Empty(SavedPositions.Num());
+	if (SavedPositions.Num() > 0)
+	{
+		OutPositions.Add(SavedPositions[0]);
+		for (int32 i = 1; i < SavedPositions.Num(); i++)
+		{
+			if (OutPositions.Last().Time < SavedPositions[i].Time)
+			{
+				OutPositions.Add(SavedPositions[i]);
+			}
+		}
+	}
 }
 
 void AUTCharacter::RecalculateBaseEyeHeight()
