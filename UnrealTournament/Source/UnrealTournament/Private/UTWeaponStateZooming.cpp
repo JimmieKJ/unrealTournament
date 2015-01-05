@@ -56,20 +56,23 @@ void UUTWeaponStateZooming::PendingFireStarted()
 		}
 	}
 }
+
 void UUTWeaponStateZooming::PendingFireStopped()
 {
 	ZoomTickHandler.UnRegisterTickFunction();
 	ToggleZoomInSound(false);
 }
 
-void UUTWeaponStateZooming::BeginFiringSequence(uint8 FireModeNum)
+bool UUTWeaponStateZooming::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
 	// this isn't actually firing so immediately switch to other fire mode
 	if (FireModeNum != GetOuterAUTWeapon()->GetCurrentFireMode() && GetOuterAUTWeapon()->FiringState.IsValidIndex(FireModeNum) && GetOuterAUTWeapon()->HasAmmo(FireModeNum))
 	{
 		GetOuterAUTWeapon()->GotoFireMode(FireModeNum);
 	}
+	return false;
 }
+
 void UUTWeaponStateZooming::EndFiringSequence(uint8 FireModeNum)
 {
 	GetOuterAUTWeapon()->GotoActiveState();

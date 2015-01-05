@@ -23,11 +23,13 @@ void UUTWeaponStateActive::BeginState(const UUTWeaponState* PrevState)
 	}
 }
 
-void UUTWeaponStateActive::BeginFiringSequence(uint8 FireModeNum)
+bool UUTWeaponStateActive::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
 	if (GetOuterAUTWeapon()->FiringState.IsValidIndex(FireModeNum) && GetOuterAUTWeapon()->HasAmmo(FireModeNum))
 	{
 		GetOuterAUTWeapon()->CurrentFireMode = FireModeNum;
 		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->FiringState[FireModeNum]);
+		return true;
 	}
+	return false;
 }

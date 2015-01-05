@@ -379,23 +379,23 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 {
 	if (!UTOwner->IsFiringDisabled())
 	{
-		BeginFiringSequence(FireModeNum);
+		bool bClientFired = BeginFiringSequence(FireModeNum, false);
 		if (Role < ROLE_Authority)
 		{
-			ServerStartFire(FireModeNum);
+			ServerStartFire(FireModeNum, bClientFired); 
 		}
 	}
 }
 
-void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum)
+void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, bool bClientFired)
 {
 	if (!UTOwner->IsFiringDisabled())
 	{
-		BeginFiringSequence(FireModeNum);
+		BeginFiringSequence(FireModeNum, bClientFired);
 	}
 }
 
-bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
+bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, bool bClientFired)
 {
 	return true;
 }
@@ -405,18 +405,19 @@ bool AUTWeapon::WillSpawnShot(float DeltaTime)
 	return (CurrentState != NULL) && CanFireAgain() && CurrentState->WillSpawnShot(DeltaTime);
 }
 
-void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
+bool AUTWeapon::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
 	UTOwner->SetPendingFire(FireModeNum, true);
 	if (FiringState.IsValidIndex(FireModeNum) && CurrentState != EquippingState && CurrentState != UnequippingState)
 	{
 		FiringState[FireModeNum]->PendingFireStarted();
 	}
-	CurrentState->BeginFiringSequence(FireModeNum);
+	bool bResult = CurrentState->BeginFiringSequence(FireModeNum, bClientFired);
 	if (CurrentState->IsFiring() && CurrentFireMode != FireModeNum)
 	{
 		OnMultiPress(FireModeNum);
 	}
+	return bResult;
 }
 
 void AUTWeapon::StopFire(uint8 FireModeNum)

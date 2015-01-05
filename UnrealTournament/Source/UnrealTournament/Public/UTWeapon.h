@@ -357,12 +357,15 @@ public:
 	/** firing entry point */
 	virtual void StartFire(uint8 FireModeNum);
 	virtual void StopFire(uint8 FireModeNum);
+
+	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerStartFire(uint8 FireModeNum);
+	virtual void ServerStartFire(uint8 FireModeNum, bool bClientFired);
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerStopFire(uint8 FireModeNum);
 
-	virtual void BeginFiringSequence(uint8 FireModeNum);
+	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired);
 	virtual void EndFiringSequence(uint8 FireModeNum);
 
 	/** Returns true if weapon will fire a shot this frame - used for network synchronization */

@@ -28,8 +28,10 @@ class UUTWeaponState : public UObject
 	{}
 	virtual void EndState()
 	{}
-	virtual void BeginFiringSequence(uint8 FireModeNum)
-	{}
+	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
+	{
+		return false;
+	}
 	virtual void EndFiringSequence(uint8 FireModeNum)
 	{}
 

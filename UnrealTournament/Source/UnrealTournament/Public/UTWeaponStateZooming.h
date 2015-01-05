@@ -79,7 +79,7 @@ public:
 
 	virtual void PendingFireStarted() override;
 	virtual void PendingFireStopped() override;
-	virtual void BeginFiringSequence(uint8 FireModeNum) override;
+	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
 	virtual void EndFiringSequence(uint8 FireModeNum) override;
 	virtual void WeaponBecameInactive() override;
 	virtual bool DrawHUD(class UUTHUDWidget* WeaponHudWidget) override;

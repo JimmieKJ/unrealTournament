@@ -35,12 +35,23 @@ void UUTWeaponStateEquipping::BeginState(const UUTWeaponState* PrevState)
 	const UUTWeaponStateUnequipping* PrevEquip = Cast<UUTWeaponStateUnequipping>(PrevState);
 	// if was previously unequipping, pay same amount of time to bring back up
 	EquipTime = (PrevEquip != NULL) ? FMath::Min(PrevEquip->PartialEquipTime, GetOuterAUTWeapon()->GetBringUpTime()) : GetOuterAUTWeapon()->GetBringUpTime();
+	PendingFireSequence = -1;
 	if (EquipTime <= 0.0f)
 	{
 		BringUpFinished();
 	}
 	// else require StartEquip() to start timer/anim so overflow time (if any) can be passed in
 }
+
+void UUTWeaponStateEquipping::BringUpFinished()
+{
+	GetOuterAUTWeapon()->GotoActiveState();
+	if (PendingFireSequence >= 0)
+	{
+		GetOuterAUTWeapon()->BeginFiringSequence(PendingFireSequence, true);
+	}
+}
+
 void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 {
 	EquipTime -= OverflowTime;
@@ -60,4 +71,14 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 			}
 		}
 	}
+}
+
+bool UUTWeaponStateEquipping::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
+{
+	// on server, might not be quite done equipping yet when client done, so queue firing
+	if (bClientFired)
+	{
+		PendingFireSequence = FireModeNum;
+	}
+	return false;
 }

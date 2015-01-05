@@ -22,7 +22,13 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 	/** total time to bring up the weapon */
 	float EquipTime;
 
+	/** Pending fire mode on server when equip completes. */
+	int32 PendingFireSequence;
+
 	virtual void BeginState(const UUTWeaponState* PrevState) override;
+
+	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
+
 	/** called to start the equip timer/anim; this isn't done automatically in BeginState() because we need to pass in any overflow time from the previous weapon's PutDown() */
 	virtual void StartEquip(float OverflowTime);
 	virtual void EndState() override
@@ -40,10 +46,7 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 		}
 	}
 
-	void BringUpFinished()
-	{
-		GetOuterAUTWeapon()->GotoActiveState();
-	}
+	virtual void BringUpFinished();
 
 	virtual void PutDown() override
 	{
