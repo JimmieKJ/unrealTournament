@@ -49,7 +49,7 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 	{
 		B->CheckWeaponFiring();
 	}
-	if (PendingFireSequence >= 0)
+	if ((PendingFireSequence >= 0) && GetUTOwner())
 	{
 		GetUTOwner()->SetPendingFire(PendingFireSequence, true);
 		PendingFireSequence = -1;
