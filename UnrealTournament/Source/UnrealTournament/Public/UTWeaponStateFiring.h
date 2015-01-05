@@ -42,6 +42,11 @@ class UUTWeaponStateFiring : public UUTWeaponState
 
 	virtual void PutDown() override;
 
+	/** Pending fire mode on server when equip completes. */
+	int32 PendingFireSequence;
+
+	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
+
 	/** called when the owner starts a pending fire for this mode (pressed button but may or may not move to this state yet)
 	 * this function is called even if another fire mode is in use
 	 * NOTE: the weapon is *not* in this state! This is intended for modes that can do something while another mode is active (e.g. zooming)

@@ -8,6 +8,7 @@ void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 {
 	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
 	ToggleLoopingEffects(true);
+	PendingFireSequence = -1;
 	GetOuterAUTWeapon()->OnStartedFiring();
 	FireShot();
 }
@@ -48,6 +49,10 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 	{
 		B->CheckWeaponFiring();
 	}
+	if (PendingFireSequence >= 0)
+	{
+		GetUTOwner()->SetPendingFire(PendingFireSequence, true);
+	}
 
 	if (GetOuterAUTWeapon()->HandleContinuedFiring())
 	{
@@ -57,8 +62,8 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 
 void UUTWeaponStateFiring::FireShot()
 {
-//	float CurrentMoveTime = (GetUTOwner() && GetUTOwner()->UTCharacterMovement) ? GetUTOwner()->UTCharacterMovement->GetCurrentSynchTime() : GetWorld()->GetTimeSeconds();
-//	UE_LOG(UT, Warning, TEXT("Fire SHOT at %f"), CurrentMoveTime);
+	//float CurrentMoveTime = (GetUTOwner() && GetUTOwner()->UTCharacterMovement) ? GetUTOwner()->UTCharacterMovement->GetCurrentSynchTime() : GetWorld()->GetTimeSeconds();
+	//UE_LOG(UT, Warning, TEXT("Fire SHOT at %f (world time %f)"), CurrentMoveTime, GetWorld()->GetTimeSeconds());
 	GetOuterAUTWeapon()->FireShot();
 }
 
@@ -77,5 +82,16 @@ void UUTWeaponStateFiring::PutDown()
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::PutDown, TimeTillPutDown, false);
 	}
 }
+
+bool UUTWeaponStateFiring::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
+{
+	// on server, might not be quite done reloading yet when client done, so queue firing
+	if (bClientFired)
+	{
+		PendingFireSequence = FireModeNum;
+	}
+	return false;
+}
+
 
 // FIX PUTDOWN FOR CHARGING modes
