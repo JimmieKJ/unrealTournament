@@ -6,19 +6,32 @@
 
 UUTHUDWidget_CTFSpectator::UUTHUDWidget_CTFSpectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	Position=FVector2D(0,0);
-	Size=FVector2D(0.0f,0.0f);
-	ScreenPosition=FVector2D(0.0f, 0.85f);
-	Origin=FVector2D(0.0f,0.0f);
+	DesignedResolution = 1080;
+	Position = FVector2D(0, 0);
+	Size = FVector2D(1920.0f, 108.0f);
+	ScreenPosition = FVector2D(0.0f, 0.85f);
+	Origin = FVector2D(0.0f, 0.0f);
+
+	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Large.fntScoreboard_Large'"));
+	MessageFont = MFont.Object;
+
+	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	TextureAtlas = Tex.Object;
 }
+
+bool UUTHUDWidget_CTFSpectator::ShouldDraw_Implementation(bool bShowScores)
+{
+	return (UTGameState != NULL && !UTGameState->HasMatchEnded() && UTHUDOwner->UTPlayerOwner != NULL && 
+				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && (UTCharacterOwner == NULL || UTCharacterOwner->IsDead()) && !bShowScores);
+}
+
 
 void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
-	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTCTFGameState* GameState = Cast<AUTCTFGameState>(UTGameState);
 	if (GameState == NULL) return;
-		
 
 	if (GameState->HasMatchEnded())
 	{
@@ -75,18 +88,13 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidget_CTFSpectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime)
 {
-	float XL, YL;
-	Canvas->StrLen(UTHUDOwner->MediumFont, SimpleMessage.ToString(), XL, YL);
-	DrawTexture(Canvas->DefaultTexture, 0,0,Canvas->ClipX, YL * RenderScale,0,0,1,1,1.0, FLinearColor(0.08,0.28,0.60,1.0));
+	// Draw the Background
+	DrawTexture(TextureAtlas, 0, 0, 1920.0, 108.0f, 4, 2, 124, 128, 1.0);
 
-	// Draw the Unreal Symbol
+	// Draw the Logo
+	DrawTexture(TextureAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
-	float H = 69.0 * RenderScale;
-	float W = H * (82.0/69.0);
-
-	float LogoX = Canvas->ClipX * 0.005;
-
-	DrawTexture(UTHUDOwner->OldHudTexture, LogoX, YL * 0.5f, W, H, 734,190, 82,70, 1.0f, FLinearColor::White, FVector2D(0.0f,0.5f));
-	DrawText(SimpleMessage, LogoX + (W*1.1), (5*RenderScale) , UTHUDOwner->MediumFont, false, FVector2D(0,0), FLinearColor::Black, false, FLinearColor::Black, RenderScale);
+	// Draw the Spacer Bar
+	DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
+	DrawText(SimpleMessage, 360, 50, MessageFont , 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 }
-

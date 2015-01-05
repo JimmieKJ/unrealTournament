@@ -46,6 +46,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME_CONDITION(AUTGameState, NumTeams, COND_InitialOnly);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerName, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, ServerDescription, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
 }
 

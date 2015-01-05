@@ -23,9 +23,19 @@ class UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY()
 	FText NoScoringText;
 
-	virtual void DrawScoreboard(float RenderDelta);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderCapsX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderAssistsX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderReturnsX;
+
 
 protected:
-	virtual void DrawPlayers(float RenderDelta, float X, float Y, float ClipX, float ClipY, int32 TeamFilter = -1);
-	virtual void DrawScoringPlays();
+	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
+	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
+	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+
 };

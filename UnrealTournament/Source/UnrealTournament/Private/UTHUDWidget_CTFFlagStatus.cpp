@@ -26,7 +26,7 @@ void UUTHUDWidget_CTFFlagStatus::InitializeWidget(AUTHUD* Hud)
 
 void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 {
-	AUTCTFGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTCTFGameState* GS = Cast<AUTCTFGameState>(UTGameState);
 	if (GS == NULL) return;
 
 	FLinearColor RedColor = (GS->Teams.Num() > 1 && GS->Teams[0]) ? GS->Teams[0]->TeamColor : FLinearColor::Red;

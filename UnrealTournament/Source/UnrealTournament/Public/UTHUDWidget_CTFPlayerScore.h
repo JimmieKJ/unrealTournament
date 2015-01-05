@@ -11,10 +11,4 @@ class UUTHUDWidget_CTFPlayerScore : public UUTHUDWidget_DMPlayerScore
 	GENERATED_UCLASS_BODY()
 
 	virtual void Draw_Implementation(float DeltaTime);
-
-	virtual bool ShouldDraw_Implementation(bool bShowScores)
-	{
-		return true;
-	}
-
 };

@@ -13,8 +13,14 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** server settings */
 	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerName;
+	
+	// The message of the day
 	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerMOTD;
+
+	// A quick string field for the scoreboard and other browsers that contains description of the server
+	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	FString ServerDescription;
 
 	/** teams, if the game type has them */
 	UPROPERTY(BlueprintReadOnly, Category = GameState)

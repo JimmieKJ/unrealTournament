@@ -12,12 +12,16 @@ class UUTTeamScoreboard : public UUTScoreboard
 
 public:
 
-	virtual void DrawScoreboard(float RenderDelta);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UFont* HugeFont;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UFont* ScoreFont;
+
 
 protected:
-
-	virtual void DrawPlayers(float RenderDelta, float X, float Y, float ClipX, float ClipY, int32 TeamFilter = -1);
-
+	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
+	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
 
 };
 

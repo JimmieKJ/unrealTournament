@@ -14,7 +14,7 @@ class UUTHUDWidget_GameClock : public UUTHUDWidget
 
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
-		return true;
+		return !bShowScores;
 	}
 
 protected:

@@ -535,7 +535,7 @@ void UUTHUDWidget::SetHidden(bool bIsHidden)
 
 bool UUTHUDWidget::ShouldDraw_Implementation(bool bShowScores)
 {
-	return !bShowScores;
+	return UTGameState && UTGameState->HasMatchStarted() && (UTCharacterOwner && !UTCharacterOwner->IsDead()) && !bShowScores;
 }
 
 void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -549,7 +549,10 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 		{
 			UTCharacterOwner = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 		}
+
+		UTGameState = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	}
+
 
 	Canvas = InCanvas;
 	CanvasCenter = InCanvasCenter;
@@ -594,6 +597,7 @@ void UUTHUDWidget::PostDraw(float RenderedTime)
 	Canvas = NULL;
 	UTPlayerOwner = NULL;
 	UTCharacterOwner = NULL;
+	UTGameState = NULL;
 }
 
 void UUTHUDWidget::DrawAllRenderObjects(float RenderedTime, FVector2D DrawOffset)
@@ -683,7 +687,7 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		}
 
 		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;
-		Canvas->DrawColor = DrawColor;
+		Canvas->DrawColor = DrawColor.ToFColor(false);
 
 		FUTCanvasTextItem TextItem(RenderPos, Text, Font, DrawColor);
 		TextItem.FontRenderInfo = RenderInfo;
@@ -792,8 +796,7 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 	FLinearColor RenderColor = TextureObject.RenderColor;
 	if (TextureObject.bUseTeamColors && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
-		AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (GS && GS->bTeamGame)
+		if (UTGameState && UTGameState->bTeamGame)
 		{
 			uint8 TeamIdx = UTHUDOwner->UTPlayerOwner->GetTeamNum();
 			if (TeamIdx < TextureObject.TeamColorOverrides.Num())

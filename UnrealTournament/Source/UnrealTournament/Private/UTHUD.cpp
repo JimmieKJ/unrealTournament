@@ -268,7 +268,8 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 
 void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
 {
-	MyUTScoreboard = ConstructObject<UUTScoreboard>(NewScoreboardClass, GetTransientPackage());
+	//MyUTScoreboard = ConstructObject<UUTScoreboard>(NewScoreboardClass, GetTransientPackage());
+	// Scoreboards are now HUD widgets
 }
 
 void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
@@ -339,27 +340,7 @@ void AUTHUD::DrawHUD()
 		}
 	}
 
-
-	if (bShowScores)
-	{
-		if (MyUTScoreboard != NULL)
-		{
-
-			MyUTScoreboard->Canvas = Canvas;
-			MyUTScoreboard->UTHUDOwner = this;
-			MyUTScoreboard->UTGameState = GetWorld()->GetGameState<AUTGameState>();
-
-			if (Canvas && MyUTScoreboard->UTGameState)
-			{
-				MyUTScoreboard->DrawScoreboard(RenderDelta);
-			}
-
-			MyUTScoreboard->Canvas = NULL;
-			MyUTScoreboard->UTHUDOwner = NULL;
-			MyUTScoreboard->UTGameState = NULL;
-		}
-	}
-	else
+	if (!bShowScores)
 	{
 		DrawDamageIndicators();
 	}

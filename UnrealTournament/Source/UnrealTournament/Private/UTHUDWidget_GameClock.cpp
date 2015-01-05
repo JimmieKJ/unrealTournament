@@ -27,10 +27,9 @@ void UUTHUDWidget_GameClock::InitializeWidget(AUTHUD* Hud)
 void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 {
 	FText StatusText = FText::GetEmpty();
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS != NULL)
+	if (UTGameState != NULL)
 	{
-		StatusText = GS->GetGameStatusText();
+		StatusText = UTGameState->GetGameStatusText();
 	}
 
 	if (!StatusText.IsEmpty())
@@ -56,16 +55,15 @@ FText UUTHUDWidget_GameClock::GetPlayerScoreText_Implementation()
 
 FText UUTHUDWidget_GameClock::GetClockText_Implementation()
 {
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	float RemainingTime = 0.0;
-	if (GS)
+	if (UTGameState)
 	{
-		RemainingTime = (GS->TimeLimit) ? GS->RemainingTime : GS->ElapsedTime;
+		RemainingTime = (UTGameState->TimeLimit) ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
 	}
 	
 	FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(),FText::GetEmpty(),RemainingTime,false);
 
-	if (GS && GS->RemainingTime >= 3600)	// More than an hour
+	if (UTGameState && UTGameState->RemainingTime >= 3600)	// More than an hour
 	{
 		ClockText.TextScale = AltClockScale;
 	}

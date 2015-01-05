@@ -14,7 +14,7 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 
 	SelectedCellScale=1.1;
 	SelectedAnimRate=0.3;
-	CellWidth = 90;
+	CellWidth = 145;
 }
 
 void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
@@ -166,23 +166,30 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					WeaponIcon.UVs = bSelected ? CurrentWeapon->WeaponBarSelectedUVs : CurrentWeapon->WeaponBarInactiveUVs;
 
 					float WeaponY = (CellHeight * 0.5) - (WeaponIcon.UVs.VL * CellScale * 0.5);
-					RenderObj_TextureAt(WeaponIcon, -10, YPosition + WeaponY, WeaponIcon.UVs.UL * CellScale, WeaponIcon.UVs.VL * CellScale);
+					RenderObj_TextureAt(WeaponIcon, -15, YPosition + WeaponY, WeaponIcon.UVs.UL * CellScale, WeaponIcon.UVs.VL * CellScale);
 
 					// Draw the ammo bars
 
 					if (BarTexture)
 					{
+						Opacity = 1.0f;
+
 						float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.0;
 						float BarHeight = CellHeight - 16;
-						float Width = bSelected ? 4.0 : 2.0;
+						float Width = bSelected ? 9.0 : 7.0;
 						float X = (Width * -1) - 2;
 						float Y = YPosition + 8;
-						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, bSelected ? 1.0 : 0.5, FLinearColor::Black);
+						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.0, FLinearColor::Black);
 
-						Y = Y + BarHeight - (BarHeight * AmmoPerc);
-						BarHeight *= AmmoPerc;
+						Y = Y + BarHeight - 1 - ((BarHeight-2) * AmmoPerc);
+						BarHeight = (BarHeight -2) * AmmoPerc;
 
-						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, bSelected ? 1.0 : 0.5, FLinearColor::White);
+						FLinearColor BarColor = FLinearColor::Green;
+
+						if (AmmoPerc <= 0.33) BarColor = FLinearColor::Red;
+						else if (AmmoPerc <= 0.66) BarColor = FLinearColor::Yellow;
+
+						DrawTexture(BarTexture, X+1, Y, Width-2, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.0, BarColor);
 					}
 				}
 			}

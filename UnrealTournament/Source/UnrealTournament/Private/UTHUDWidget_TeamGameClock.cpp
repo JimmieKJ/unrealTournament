@@ -25,10 +25,9 @@ void UUTHUDWidget_TeamGameClock::InitializeWidget(AUTHUD* Hud)
 void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 {
 	FText StatusText = FText::GetEmpty();
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS != NULL)
+	if (UTGameState != NULL)
 	{
-		StatusText = GS->GetGameStatusText();
+		StatusText = UTGameState->GetGameStatusText();
 	}
 
 	if (!StatusText.IsEmpty())
@@ -49,31 +48,28 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 
 FText UUTHUDWidget_TeamGameClock::GetRedScoreText_Implementation()
 {
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->bTeamGame && GS->Teams.Num() > 0 && GS->Teams[0]) return FText::AsNumber(GS->Teams[0]->Score);
+	if (UTGameState && UTGameState->bTeamGame && UTGameState->Teams.Num() > 0 && UTGameState->Teams[0]) return FText::AsNumber(UTGameState->Teams[0]->Score);
 	return FText::AsNumber(0);
 }
 
 FText UUTHUDWidget_TeamGameClock::GetBlueScoreText_Implementation()
 {
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->bTeamGame && GS->Teams.Num() > 1 && GS->Teams[1]) return FText::AsNumber(GS->Teams[1]->Score);
+	if (UTGameState && UTGameState->bTeamGame && UTGameState->Teams.Num() > 1 && UTGameState->Teams[1]) return FText::AsNumber(UTGameState->Teams[1]->Score);
 	return FText::AsNumber(0);
 }
 
 
 FText UUTHUDWidget_TeamGameClock::GetClockText_Implementation()
 {
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	float RemainingTime = 0.0;
-	if (GS)
+	if (UTGameState)
 	{
-		RemainingTime = (GS->TimeLimit) ? GS->RemainingTime : GS->ElapsedTime;
+		RemainingTime = (UTGameState->TimeLimit) ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
 	}
 	
 	FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(),FText::GetEmpty(),RemainingTime,false);
 
-	if (GS && GS->RemainingTime >= 3600)	// More than an hour
+	if (UTGameState && UTGameState->RemainingTime >= 3600)	// More than an hour
 	{
 		ClockText.TextScale = AltClockScale;
 	}

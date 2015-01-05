@@ -54,7 +54,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	float DesignedResolution;
 
-
 	// This is the position of the widget relative to the Screen position and origin.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	FVector2D Position;
@@ -119,11 +118,17 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	class AUTHUD* UTHUDOwner;
 
+	// Cached reference to the player controller that "owns" this Widget.  ONLY VALID During the render phase
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	class AUTPlayerController* UTPlayerOwner;
 
+	// Cached reference to UTCharacter (if any) that "owns" this widget.  ONLY VALID during the render phase
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	class AUTCharacter* UTCharacterOwner;
+
+	// Cached reference to the UTGameState for the current match.  ONLY VALID during the render phase
+	UPROPERTY(BlueprintReadOnly, Category = "Widgets Live")
+	class AUTGameState* UTGameState;
 
 	virtual UCanvas* GetCanvas();
 	virtual FVector2D GetRenderPosition();
@@ -163,7 +168,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	FVector2D CanvasCenter;
 
-	// The cached reference to the UCanvas object
+	// The cached reference to the UCanvas object.  ONLY VALID during the render phase
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	class UCanvas* Canvas;
 

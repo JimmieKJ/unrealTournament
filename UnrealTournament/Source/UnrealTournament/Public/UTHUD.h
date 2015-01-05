@@ -183,7 +183,11 @@ public:
 
 	int32 NumActualPlayers;
 
+	UPROPERTY()
 	TArray<AUTPlayerState*> Leaderboard;
+
+	// Used to determine which page of the scoreboard we should show
+	uint32 ScoreboardPage;
 
 protected:
 

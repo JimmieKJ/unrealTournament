@@ -20,7 +20,7 @@ void UUTHUDWidget_CTFScore::Draw_Implementation(float DeltaTime)
 
 	// Draw the Red Score...
 
-	AUTCTFGameState* CGS = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTCTFGameState* CGS = Cast<AUTCTFGameState>(UTGameState);
 	if (CGS != NULL && CGS->Teams.Num() >= 2 && CGS->Teams[0] != NULL && CGS->Teams[1] != NULL)
 	{
 		// Draw the Red Flag State...

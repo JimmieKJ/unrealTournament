@@ -42,10 +42,4 @@ class UUTHUDWidget_TeamScore : public UUTHUDWidget
 			UTHUDOwner->DrawNumber(GS->Teams[1]->Score, RenderPosition.X + (75 * RenderScale * BlueScale), 10 * RenderScale * BlueScale, GS->Teams[1]->TeamColor, 1.0, RenderScale * BlueScale * 0.75);
 		}
 	}
-
-	virtual bool ShouldDraw_Implementation(bool bShowScores)
-	{
-		return true;
-	}
-
 };

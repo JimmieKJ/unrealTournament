@@ -1,45 +1,77 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
+#include "UTHUDWidget.h"
 #include "UTScoreboard.generated.h"
 
 UCLASS()
-class UUTScoreboard : public UObject
+class UUTScoreboard : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
 public:
+	// This font is used for the game rules's values
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UFont* LargeFont;
 
-	// Reference to the UTHUD that owns this scoreboard.  ONLY VALID during the rendering phase
-	UPROPERTY(BlueprintReadOnly, Category="Scoreboard")
-	class AUTHUD* UTHUDOwner;
+	// This font is used for Game rules descriptions and player names
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UFont* MediumFont;
 
-	// Reference to the UTGameState object.  ONLY VALID during the rendering phase
-	UPROPERTY(BlueprintReadOnly, Category="Scoreboard")
-	class AUTGameState* UTGameState;
+	// This font is used for Player Values, Server Name and Server Rules
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UFont* SmallFont;
 
-	// Reference to the Canvas object.  ONLY VALID during the rendering phase
-	UPROPERTY(BlueprintReadOnly, Category="Scoreboard")
-	class UCanvas* Canvas;
+	// This font is used for player headings
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UFont* TinyFont;
 
-	// How much to scale each cell to make sure it all fits.
-	float CellScale;
-	float CellHeight;
-	float ResScale;
+	// The font for the clock
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UFont* ClockFont;
 
-	/**
-	 *	The Blueprint hook for the scoreboard.  Return true if you want to short-circuit the native drawing code.
-	 *
-	 * @param RenderDelta	The amount of time since the last frame
-	 **/
-	UFUNCTION(BlueprintImplementableEvent)
-	bool eventDraw(float RenderDelta);
+	// The main drawing stub
+	virtual void Draw_Implementation(float DeltaTime);
 
-	virtual void DrawScoreboard(float RenderDelta);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderPlayerX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderScoreX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderDeathsX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderPingX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnHeaderY;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnY;
 
 protected:
-	virtual void DrawHeader(float RenderDelta, float X, float Y, float ClipX, float ClipY);
-	virtual void DrawPlayers(float RenderDelta, float X, float Y, float ClipX, float ClipY, int32 TeamFilter = -1);
-	virtual void DrawFooter(float RenderDelta, float X, float Y, float ClipX, float ClipY);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	UTexture2D* TextureAtlas;
+
+	virtual bool ShouldDraw_Implementation(bool bShowScores)
+	{
+		return bShowScores;
+	}
+
+	virtual void DrawGamePanel(float RenderDelta, float& YOffset);
+	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
+
+	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
+
+	virtual void DrawScorePanel(float RenderDelta, float& YOffset);
+	virtual void DrawScoreHeaders(float RenderDelta, float& DrawY);
+	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
+	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+
+
+	virtual void DrawServerPanel(float RenderDelta, float& YOffset);
 };
 
