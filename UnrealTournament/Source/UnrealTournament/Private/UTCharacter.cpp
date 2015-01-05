@@ -208,7 +208,7 @@ void AUTCharacter::PostInitializeComponents()
 	}
 }
 
-void AUTCharacter::PositionUpdated()
+void AUTCharacter::PositionUpdated(bool bShotSpawned)
 {
 	const float WorldTime = GetWorld()->TimeSeconds;
 	// if a SavedPosition at the current time already exists, replace it
@@ -217,11 +217,11 @@ void AUTCharacter::PositionUpdated()
 	// NOTE: this is clobbering the synch timestamp of the first move; currently doesn't seem to be a problem
 	if (SavedPositions.Num() > 0 && SavedPositions.Last().Time == WorldTime)
 	{
-		SavedPositions.Last() = FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+		SavedPositions.Last() = FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 	}
 	else
 	{
-		new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+		new(SavedPositions)FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 
 		// maintain one position beyond MaxSavedPositionAge for interpolation
 		if (SavedPositions.Num() > 1 && SavedPositions[1].Time < WorldTime - MaxSavedPositionAge)

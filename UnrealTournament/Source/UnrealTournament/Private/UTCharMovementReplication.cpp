@@ -87,6 +87,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bPressedSlide = (DodgeFlags == 7);
 	bool bOldWillDodgeRoll = bWantsSlideRoll;
 	bWantsSlideRoll = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
+	bShotSpawned = ((Flags & FSavedMove_Character::FLAG_Custom_3) != 0);
 	if (!bOldWillDodgeRoll && bWantsSlideRoll)
 	{
 		DodgeRollTapTime = GetCurrentMovementTime();
@@ -478,11 +479,9 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	CharacterOwner->ClientRootMotionParams.Clear();
 	PerformMovement(NewMove->DeltaTime);
 
-	NewMove->PostUpdate(CharacterOwner, FSavedMove_Character::PostUpdate_Record);
-
-	// set flag if weapon is shooting on client this frame not from new fire press/release (to keep client and server synchronized)
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
-	((FSavedMove_UTCharacter*)(NewMove.Get()))->bShotSpawned = (UTCharacterOwner && UTCharacterOwner->GetWeapon()) ? UTCharacterOwner->GetWeapon()->WillSpawnShot(DeltaTime) : false;
+	bShotSpawned = (UTCharacterOwner && UTCharacterOwner->GetWeapon()) ? UTCharacterOwner->GetWeapon()->WillSpawnShot(DeltaTime) : false;
+	NewMove->PostUpdate(CharacterOwner, FSavedMove_Character::PostUpdate_Record);
 
 	// Add NewMove to the list
 	ClientData->SavedMoves.Push(NewMove);
@@ -515,7 +514,7 @@ bool FSavedMove_UTCharacter::NeedsRotationSent() const
 
 bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) const
 {
-	if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight || bPressedSlide)
+	if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight || bPressedSlide || bShotSpawned)
 	{
 		return true;
 	}
@@ -971,6 +970,11 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 		Result |= FLAG_Custom_2;
 	}
 
+	if (bShotSpawned)
+	{
+		Result |= FLAG_Custom_3;
+	}
+
 	return Result;
 }
 
@@ -1097,6 +1101,9 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 
 void FSavedMove_UTCharacter::PostUpdate(ACharacter* Character, FSavedMove_Character::EPostUpdateMode PostUpdateMode)
 {
+	// set flag if weapon is shooting on client this frame not from new fire press/release (to keep client and server synchronized)
+	UUTCharacterMovement* UTCharMovement = Character ? Cast<UUTCharacterMovement>(Character->CharacterMovement) : NULL;
+	bShotSpawned = UTCharMovement->bShotSpawned;
 	Super::PostUpdate(Character, PostUpdateMode);
 }
 

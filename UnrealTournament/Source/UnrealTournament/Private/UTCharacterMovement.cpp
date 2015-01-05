@@ -319,6 +319,11 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 				if (CharacterOwner->Role == ROLE_Authority)
 				{
+// @TODO FIXMESTEVE TEMP REMOVE
+					if (GetNetMode() == NM_DedicatedServer)
+					{
+						UE_LOG(UT, Warning, TEXT("Perform movement from Tick on server"));
+					}
 					PerformMovement(DeltaTime);
 				}
 				else if (bIsClient)
@@ -662,7 +667,8 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
 	if (UTOwner != NULL)
 	{
-		UTOwner->PositionUpdated();
+		UTOwner->PositionUpdated(bShotSpawned);
+		bShotSpawned = false;
 		// tick movement reduction timer
 		// we do this based on the client's movement timestamp to minimize corrections
 		UTOwner->WalkMovementReductionTime -= DeltaSeconds;

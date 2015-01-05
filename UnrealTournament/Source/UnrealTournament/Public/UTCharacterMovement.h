@@ -140,6 +140,10 @@ public:
 	/** Clear pending impulse. */
 	virtual void ClearPendingImpulse();
 
+	/** true if projectile/hitscan spawned this frame (replicated to synchronize held firing) */
+UPROPERTY()
+	bool bShotSpawned;
+
 	//=========================================
 	// DODGING
 	/** Dodge impulse in XY plane */

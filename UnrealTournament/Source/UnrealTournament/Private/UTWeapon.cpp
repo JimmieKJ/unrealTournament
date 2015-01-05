@@ -402,7 +402,7 @@ bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum)
 
 bool AUTWeapon::WillSpawnShot(float DeltaTime)
 {
-	return (CurrentState != NULL) && CurrentState->WillSpawnShot(DeltaTime);
+	return (CurrentState != NULL) && CanFireAgain() && CurrentState->WillSpawnShot(DeltaTime);
 }
 
 void AUTWeapon::BeginFiringSequence(uint8 FireModeNum)
@@ -1391,9 +1391,14 @@ void AUTWeapon::Destroyed()
 	GotoState(InactiveState);
 }
 
+bool AUTWeapon::CanFireAgain()
+{
+	return (GetUTOwner() && (GetUTOwner()->GetPendingWeapon() == NULL) && GetUTOwner()->IsPendingFire(GetCurrentFireMode()) && HasAmmo(GetCurrentFireMode()));
+}
+
 bool AUTWeapon::HandleContinuedFiring()
 {
-	if (!GetUTOwner() || GetUTOwner()->GetPendingWeapon() != NULL || !GetUTOwner()->IsPendingFire(GetCurrentFireMode()) || !HasAmmo(GetCurrentFireMode()))
+	if (!CanFireAgain())
 	{
 		GotoActiveState();
 		return false;
