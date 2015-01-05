@@ -180,6 +180,44 @@ bool FBestInventoryEval::GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) con
 		return false;
 	}
 }
+float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
+{
+	if (RejectNodes.Contains(Node))
+	{
+		return 0.0f;
+	}
+	else
+	{
+		// make sure point is not in avoid list
+		for (const FSphere& TestAvoidLoc : AvoidLocs)
+		{
+			if ((TestAvoidLoc.Center - EntryLoc).Size() <= TestAvoidLoc.W)
+			{
+				return 0.0f;
+			}
+		}
+		// make sure point is in attract list
+		for (const FSphere& TestAttractLoc : AttractLocs)
+		{
+			if ((TestAttractLoc.Center - EntryLoc).Size() > TestAttractLoc.W)
+			{
+				return 0.0f;
+			}
+		}
+
+		if (bUseLearningData && Node->HideAttempts > 2)
+		{
+			return Node->AvgHideDuration / 20.0f; // TODO: 20 seconds as ideal hide time picked arbitrarily
+		}
+		else
+		{
+			// rate based on number of linked paths and number of polys in this node (implying area size)
+			// TODO: calculate actual poly area?
+			// TODO: early out?
+			return 0.5f / FMath::Max<int32>(1, Node->Paths.Num()) + 0.5f / FMath::Max<int32>(1, Node->Polys.Num());
+		}
+	}
+}
 
 void AUTBot::InitializeSkill(float NewBaseSkill)
 {
@@ -295,6 +333,7 @@ void AUTBot::PawnPendingDestroy(APawn* InPawn)
 {
 	Enemy = NULL;
 	StartNewAction(NULL);
+	MoveTarget.Clear();
 	bHasTranslocator = false;
 	ImpactJumpZ = 0.0f;
 
@@ -557,7 +596,8 @@ void AUTBot::Tick(float DeltaTime)
 			}
 		}
 		// start new action, if requested
-		if (bPendingWhatToDoNext)
+		// make sure updates above didn't result in losing Pawn (stop firing -> suicide, etc)
+		if (bPendingWhatToDoNext && GetPawn() != NULL)
 		{
 			bExecutingWhatToDoNext = true;
 			ExecuteWhatToDoNext();

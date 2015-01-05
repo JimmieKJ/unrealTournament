@@ -77,26 +77,94 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 			// fight enemy
 			return false;
 		}
-		else if (HideTarget.IsValid() && !NavData->HasReachedTarget(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), HideTarget))
+		else if (HideTarget.IsValid())
 		{
-			FSingleEndpointEval NodeEval(HideTarget.GetLocation(NULL));
-			float Weight = 0.0f;
-			if (NavData->FindBestPath(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
+			if (StartHideTime == 0.0f && !NavData->HasReachedTarget(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), HideTarget))
 			{
-				B->GoalString = "Hide";
-				B->SetMoveTarget(B->RouteCache[0]);
-				B->StartWaitForMove();
-				return true;
+				FSingleEndpointEval NodeEval(HideTarget.GetLocation(NULL));
+				float Weight = 0.0f;
+				if (NavData->FindBestPath(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
+				{
+					B->GoalString = "Hide";
+					B->SetMoveTarget(B->RouteCache[0]);
+					B->StartWaitForMove();
+					return true;
+				}
+			}
+			else
+			{
+				// TODO: maybe don't fire and try to hide even if visible enemy if they don't seem to have seen us?
+				if (B->GetEnemy() == NULL || (!B->IsEnemyVisible(B->GetEnemy()) && GetWorld()->TimeSeconds - B->GetEnemyInfo(B->GetEnemy(), false)->LastHitByTime > 2.0f))
+				{
+					if (StartHideTime == 0.0f)
+					{
+						StartHideTime = GetWorld()->TimeSeconds;
+						UsedHidingSpots.AddUnique(HideTarget.Node);
+						if (UsedHidingSpots.Num() > 5)
+						{
+							UsedHidingSpots.RemoveAt(0);
+						}
+					}
+					if (B->FindInventoryGoal(0.0005f))
+					{
+						B->GoalString = "Pick up item while hiding";
+						B->SetMoveTarget(B->RouteCache[0]);
+						B->StartWaitForMove();
+						return true;
+					}
+					else if (!NavData->HasReachedTarget(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), HideTarget))
+					{
+						FSingleEndpointEval NodeEval(HideTarget.GetLocation(NULL));
+						float Weight = 0.0f;
+						if (NavData->FindBestPath(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
+						{
+							B->GoalString = "Hide";
+							B->SetMoveTarget(B->RouteCache[0]);
+							B->StartWaitForMove();
+							return true;
+						}
+						// else intentional fallthrough, path to HideTarget became invalid for some reason
+					}
+					else
+					{
+						if (B->GetCharacter() != NULL)
+						{
+							B->GetCharacter()->GetCharacterMovement()->bWantsToCrouch = (B->Skill > 2.0f);
+						}
+						B->GoalString = "Hide here";
+						// TODO: Camp action
+						B->SetMoveTarget(HideTarget);
+						B->StartWaitForMove();
+						return true;
+					}
+				}
+				else
+				{
+					HidingSpotDiscoveredTime = GetWorld()->TimeSeconds;
+					// note that we only record fails in the learning data because we don't know how much longer we could have hidden
+					if (StartHideTime > 0.0f && HideTarget.Node != NULL)
+					{
+						HideTarget.Node->AvgHideDuration = ((HideTarget.Node->AvgHideDuration * HideTarget.Node->HideAttempts) + (GetWorld()->TimeSeconds - StartHideTime)) / float(HideTarget.Node->HideAttempts + 1);
+						HideTarget.Node->HideAttempts++;
+					}
+					HideTarget.Clear();
+				}
 			}
 		}
+		if (B->GetEnemy() != NULL && GetWorld()->TimeSeconds - HidingSpotDiscoveredTime < 3.0f)
+		{
+			// fight off enemy before trying new hiding spot
+			return false;
+		}
 		// new hide target
-		// TODO: real logic
-		HideTarget = FRouteCacheItem(FriendlyBase);
-		FSingleEndpointEval NodeEval(HideTarget.GetLocation(NULL));
+		StartHideTime = 0.0f;
+		FHideLocEval NodeEval(FMath::FRand() < (0.07f * B->Skill + 0.5f * B->Personality.MapAwareness), FSphere(FriendlyBase->GetActorLocation(), (EnemyBase->GetActorLocation() - FriendlyBase->GetActorLocation()).Size()));
+		NodeEval.RejectNodes = UsedHidingSpots;
 		float Weight = 0.0f;
 		if (NavData->FindBestPath(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
 		{
 			B->GoalString = "Hide";
+			HideTarget = B->RouteCache.Last();
 			B->SetMoveTarget(B->RouteCache[0]);
 			B->StartWaitForMove();
 			return true;
@@ -109,6 +177,8 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	}
 	else
 	{
+		HideTarget.Clear();
+		StartHideTime = 0.0f;
 		// return to base
 		// TODO: much more to do here
 		bool bAllowDetours = (FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home) || (B->GetPawn()->GetActorLocation() - EnemyBase->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size();

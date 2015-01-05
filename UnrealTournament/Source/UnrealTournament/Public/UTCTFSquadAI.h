@@ -17,6 +17,15 @@ class AUTCTFSquadAI : public AUTSquadAI
 	/** current friendly flag carrier hide location */
 	UPROPERTY()
 	FRouteCacheItem HideTarget;
+	/** time flag carrier reached hide location, used for tracking how long it was able to hide */
+	UPROPERTY()
+	float StartHideTime;
+	/** last time flag carrier was discovered while hiding, used to make the FC fight/run away for a while before trying to hide again */
+	UPROPERTY()
+	float HidingSpotDiscoveredTime;
+	/** recent hiding spots to avoid reusing a spot too quickly */
+	UPROPERTY()
+	TArray< TWeakObjectPtr<UUTPathNode> > UsedHidingSpots;
 
 	virtual void Initialize(AUTTeamInfo* InTeam, FName InOrders) override;
 	virtual bool MustKeepEnemy(APawn* TheEnemy) override;

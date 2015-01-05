@@ -88,6 +88,34 @@ struct UNREALTOURNAMENT_API FRandomDestEval : public FUTNodeEvaluator
 		return (TotalDistance > 0) ? FMath::FRand() * 1.5f : 0.1f;
 	}
 };
+struct UNREALTOURNAMENT_API FHideLocEval : public FUTNodeEvaluator
+{
+	/** location(s) bot should stay away from */
+	TArray<FSphere> AvoidLocs;
+	/** location(s) bot should stay near */
+	TArray<FSphere> AttractLocs;
+	/** specific nodes to reject regardless of rating */
+	TArray< TWeakObjectPtr<UUTPathNode> > RejectNodes;
+	/** whether to use saved learning data to evaluate previously-used hide points */
+	bool bUseLearningData;
+
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
+
+	FHideLocEval()
+	{}
+	explicit FHideLocEval(bool bInUseLearningData, const FSphere& SingleAttractLoc = FSphere(FVector::ZeroVector, 0.0f), const FSphere& SingleAvoidLoc = FSphere(FVector::ZeroVector, 0.0f), const TArray< TWeakObjectPtr<UUTPathNode> >& InRejectNodes = TArray< TWeakObjectPtr<UUTPathNode> >())
+		: RejectNodes(InRejectNodes), bUseLearningData(bInUseLearningData)
+	{
+		if (SingleAvoidLoc.W > 0.0f)
+		{
+			AvoidLocs.Add(SingleAvoidLoc);
+		}
+		if (SingleAttractLoc.W > 0.0f)
+		{
+			AttractLocs.Add(SingleAttractLoc);
+		}
+	}
+};
 
 UENUM()
 enum EAIEnemyUpdateType
