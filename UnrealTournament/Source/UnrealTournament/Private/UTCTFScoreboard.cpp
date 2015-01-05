@@ -93,6 +93,10 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 		DrawColor = FLinearColor(0.0f, 0.92f, 1.0f, 1.0f);
 		BarOpacity = 0.5;
 	}
+	else if (!PlayerState->bReadyToPlay && !UTGameState->HasMatchStarted())
+	{
+		DrawColor = FLinearColor::Red;
+	}
 
 	FText PlayerPing = FText::Format(NSLOCTEXT("UTScoreboard", "PingFormatText", "{0}ms"), FText::AsNumber(Ping));
 
