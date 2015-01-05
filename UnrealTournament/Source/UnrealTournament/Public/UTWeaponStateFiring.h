@@ -14,7 +14,9 @@ class UUTWeaponStateFiring : public UUTWeaponState
 
 	UUTWeaponStateFiring(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	{}
+	{
+		PendingFireSequence = -1;
+	}
 
 	// accessor for convenience
 	inline uint8 GetFireMode()

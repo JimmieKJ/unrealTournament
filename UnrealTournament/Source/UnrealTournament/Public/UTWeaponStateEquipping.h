@@ -14,7 +14,9 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 
 	UUTWeaponStateEquipping(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	{}
+	{
+		PendingFireSequence = -1;
+	}
 
 	// set to amount of equip time that elapsed when exiting early, i.e. to go back down
 	float PartialEquipTime;
