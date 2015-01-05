@@ -52,8 +52,6 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 			ActualPlayerCount++;
 		}
 	}
-
-	UE_LOG(UT,Log,TEXT("Actual Player Count %i"), ActualPlayerCount);
 }
 
 
