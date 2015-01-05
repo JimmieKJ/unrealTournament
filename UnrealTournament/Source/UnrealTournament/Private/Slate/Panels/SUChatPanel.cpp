@@ -417,7 +417,7 @@ void SUChatPanel::ChatTextChanged(const FText& NewText)
 
 void SUChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
 {
-	FName ChatDestination = GetOwnerPlayerState()->ChatDestination;
+	FName ChatDestination = GetOwnerPlayerState() ? GetOwnerPlayerState()->ChatDestination : ChatDestinations::Global;
 
 	if (CommitType == ETextCommit::OnEnter)
 	{
