@@ -45,7 +45,7 @@ void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	FText CH_Assists = NSLOCTEXT("UTCTFScoreboard", "ColumnHeader_PlayerAssists", "A");
 	FText CH_Returns = NSLOCTEXT("UTCTFScoreboard", "ColumnHeader_PlayerReturns", "R");
 	FText CH_Ping = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "PING");
-	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "READY TO PLAY");
+	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
 
 	for (int32 i = 0; i < 2; i++)
 	{
@@ -114,7 +114,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	}
 	else
 	{
-		FText PlayerReady = PlayerState->bReadyToPlay ? NSLOCTEXT("UTScoreboard", "YES", "YES") : NSLOCTEXT("UTScoreboard", "NO", "NO");
+		FText PlayerReady = PlayerState->bReadyToPlay ? NSLOCTEXT("UTScoreboard", "READY", "READY") : NSLOCTEXT("UTScoreboard", "NOTREADY", "");
 		DrawText(PlayerReady, XOffset + ColumnHeaderScoreX, YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 
