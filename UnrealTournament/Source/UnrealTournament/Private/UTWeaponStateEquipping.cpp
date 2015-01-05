@@ -49,6 +49,7 @@ void UUTWeaponStateEquipping::BringUpFinished()
 	if (PendingFireSequence >= 0)
 	{
 		GetOuterAUTWeapon()->BeginFiringSequence(PendingFireSequence, true);
+		PendingFireSequence = -1;
 	}
 }
 
@@ -79,6 +80,7 @@ bool UUTWeaponStateEquipping::BeginFiringSequence(uint8 FireModeNum, bool bClien
 	if (bClientFired)
 	{
 		PendingFireSequence = FireModeNum;
+		GetUTOwner()->NotifyPendingServerFire();
 	}
 	return false;
 }

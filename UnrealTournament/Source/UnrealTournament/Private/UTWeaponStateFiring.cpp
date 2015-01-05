@@ -52,6 +52,7 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 	if (PendingFireSequence >= 0)
 	{
 		GetUTOwner()->SetPendingFire(PendingFireSequence, true);
+		PendingFireSequence = -1;
 	}
 
 	if (GetOuterAUTWeapon()->HandleContinuedFiring())
@@ -89,6 +90,7 @@ bool UUTWeaponStateFiring::BeginFiringSequence(uint8 FireModeNum, bool bClientFi
 	if (bClientFired)
 	{
 		PendingFireSequence = FireModeNum;
+		GetUTOwner()->NotifyPendingServerFire();
 	}
 	return false;
 }

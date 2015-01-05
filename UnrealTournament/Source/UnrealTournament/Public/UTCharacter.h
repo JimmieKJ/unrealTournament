@@ -321,6 +321,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Maximum interval to hold saved positions for. */
 	UPROPERTY()
 	float MaxSavedPositionAge;
+	
+	/** Mark the last saved position as where a shot was spawned so can synch firing to client position. */
+	virtual void NotifyPendingServerFire();
 
 	/** Called by CharacterMovement after movement */
 	virtual void PositionUpdated(bool bShotSpawned);
