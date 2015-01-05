@@ -51,7 +51,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnY;
 
+	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
+
 protected:
+
+	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
+	uint32 ActualPlayerCount;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* TextureAtlas;

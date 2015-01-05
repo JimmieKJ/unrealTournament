@@ -40,6 +40,23 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 
 }
 
+void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
+{
+	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
+
+	ActualPlayerCount=0;
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		if (UTGameState->PlayerArray[i] && !UTGameState->PlayerArray[i]->bOnlySpectator)
+		{
+			ActualPlayerCount++;
+		}
+	}
+
+	UE_LOG(UT,Log,TEXT("Actual Player Count %i"), ActualPlayerCount);
+}
+
+
 void UUTScoreboard::Draw_Implementation(float RenderDelta)
 {
 	Super::Draw_Implementation(RenderDelta);
@@ -146,7 +163,9 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	FText CH_Ping = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "PING");
 	FText CH_Ready = NSLOCTEXT("UTScoreboard","ColumnHeader_Ready","READY TO PLAY");
 
-	for (int32 i = 0; i < 2; i++)
+	int32 ColumnCnt = (UTGameState->bTeamGame|| ActualPlayerCount > 16) ? 2 : 1;
+
+	for (int32 i = 0; i < ColumnCnt; i++)
 	{
 		// Draw the background Border
 		DrawTexture(TextureAtlas, XOffset, YOffset, Width, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
@@ -175,6 +194,7 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	int32 Place = 1;
 	int32 NumSpectators = 0;
 	int32 XOffset = 0;
+	float DrawOffset = YOffset;
 	for (int32 i=0; i<UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
@@ -182,11 +202,14 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 		{
 			if (!PlayerState->bOnlySpectator)
 			{
-				DrawPlayer(Place, PlayerState, RenderDelta, XOffset, YOffset);
-				XOffset = XOffset == 0 ? 648 : 0;
-				if (XOffset == 0) YOffset += 40;
-
+				DrawPlayer(Place, PlayerState, RenderDelta, XOffset, DrawOffset);
+				DrawOffset += 40;
 				Place++;
+				if (Place == 17)
+				{
+					XOffset = 648;
+					DrawOffset = YOffset;
+				}
 			}
 			else
 			{
