@@ -236,4 +236,5 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 			ProfilePlayer->PlayerController->PlayerInput->ForceRebuildingKeyMaps(true);
 		}
 	}
+	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->ForceRebuildingKeyMaps(true);
 }
