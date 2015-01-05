@@ -10,7 +10,7 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	BaseAISelectRating = 0.65f;
 	BasePickupDesireability = 0.65f;
 	ScreenMaterialID = 5;
-	//LastClientKillTime = -100000.0f;
+	LastClientKillTime = -100000.0f;
 }
 
 void AUTWeap_ShockRifle::AttachToOwnerNative()
@@ -34,12 +34,12 @@ void AUTWeap_ShockRifle::AttachToOwnerNative()
 
 void AUTWeap_ShockRifle::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 {
-	/*if (LastClientKillTime - GetWorld()->TimeSeconds < 2.0f && ScreenKillNotifyTexture != NULL)
+	if (GetWorld()->TimeSeconds - LastClientKillTime < 2.5f && ScreenKillNotifyTexture != NULL)
 	{
 		C->SetDrawColor(FColor::White);
 		C->DrawTile(ScreenKillNotifyTexture, 0.0f, 0.0f, float(Width), float(Height), 0.0f, 0.0f, ScreenKillNotifyTexture->GetSizeX(), ScreenKillNotifyTexture->GetSizeY());
 	}
-	else*/
+	else
 	{
 		FFontRenderInfo RenderInfo;
 		RenderInfo.bClipText = true;

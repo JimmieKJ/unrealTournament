@@ -117,7 +117,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** Custom Momentum scaling for friendly hitscanned pawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
-		float FriendlyMomentumScaling;
+	float FriendlyMomentumScaling;
 
 	virtual	float GetImpartedMomentumMag(AActor* HitActor);
 
@@ -196,11 +196,11 @@ public:
 
 	/** If true, weapon is visibly holstered when not active.  There can only be one holstered weapon in inventory at a time. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-		bool bMustBeHolstered;
+	bool bMustBeHolstered;
 
 	/** If true , weapon can be thrown. */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
-		bool bCanThrowWeapon;
+	bool bCanThrowWeapon;
 
 	UFUNCTION()
 	virtual void AttachToHolster(USkeletalMeshComponent* AttachToMesh);
@@ -273,10 +273,10 @@ public:
 	float PutDownTime;
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-		virtual float GetBringUpTime();
+	virtual float GetBringUpTime();
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-		virtual float GetPutDownTime();
+	virtual float GetPutDownTime();
 
 	/** equip anims */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -328,7 +328,7 @@ public:
 
 	/** Scaling for 1st person firing view kickback */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
-		float FiringViewKickback;
+	float FiringViewKickback;
 
 	virtual void PostInitProperties() override;
 	virtual void BeginPlay() override;
@@ -457,14 +457,14 @@ public:
 
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-		virtual void GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation);
+	virtual void GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation);
 
 	/** play effects associated with the shot's impact given the impact point
 	 * called only if FlashLocation has been set (instant hit weapon)
 	 * Call GetImpactSpawnPosition() to set SpawnLocation and SpawnRotation
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-		virtual void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation);
+	virtual void PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation);
 
 	/** shared code between UTWeapon and UTWeaponAttachment to refine replicated FlashLocation into impact effect transform via trace */
 	static FHitResult GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc, const FVector& TargetLoc);
@@ -555,6 +555,12 @@ public:
 		return CurrentState;
 	}
 
+	/** called on clients only when the local owner got a kill while holding this weapon
+	 * NOTE: this weapon didn't necessarily cause the kill (previously fired projectile, etc), if you care check the damagetype
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
+	void NotifyKillWhileHolding(TSubclassOf<UDamageType> DmgType);
+
 	/** returns scaling of head for headshot effects
 	 * NOTE: not used by base weapon implementation; stub is here for subclasses and firemodes that use it to avoid needing to cast to a specific weapon type
 	 */
@@ -583,7 +589,7 @@ public:
 
 	/** Returns desired crosshair scale (affected by recent pickups */
 	UFUNCTION(BlueprintCallable, Category = Weapon)
-		virtual float GetCrosshairScale(class AUTHUD* HUD);
+	virtual float GetCrosshairScale(class AUTHUD* HUD);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
@@ -640,7 +646,6 @@ public:
 
 	/** Begin unequipping this weapon */
 	virtual void UnEquip();
-
 
 	virtual void GotoEquippingState(float OverflowTime);
 	

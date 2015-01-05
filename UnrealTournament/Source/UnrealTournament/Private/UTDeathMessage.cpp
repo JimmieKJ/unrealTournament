@@ -39,6 +39,11 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			GetDefault<UUTKillerMessage>()->ResolveMessage(ClientData.MessageIndex, ClientData.RelatedPlayerState_1== ClientData.LocalPC->PlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 			ClientData.OptionalObject );
 		}
+		AUTCharacter* P = Cast<AUTCharacter>(ClientData.LocalPC->GetPawn());
+		if (P != NULL && P->GetWeapon() != NULL)
+		{
+			P->GetWeapon()->NotifyKillWhileHolding(Cast<UClass>(ClientData.OptionalObject));
+		}
 	}
 	else if (ClientData.RelatedPlayerState_2 == ClientData.LocalPC->PlayerState)
 	{

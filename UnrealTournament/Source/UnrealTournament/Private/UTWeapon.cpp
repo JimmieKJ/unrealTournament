@@ -1791,6 +1791,6 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 	}
 }
 
-
-
-
+void AUTWeapon::NotifyKillWhileHolding_Implementation(TSubclassOf<UDamageType> DmgType)
+{
+}
