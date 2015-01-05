@@ -22,6 +22,8 @@ class UUTDemoNetDriver : public UNetDriver// UDemoNetDriver
 		if (IsServer() && ClientConnections.Num() > 0)
 		{
 			InternalProcessRemoteFunction(Actor, SubObject, ClientConnections[0], Function, Parameters, OutParms, Stack, true);
+			// need to flush right away to avoid dumb assert
+			ClientConnections[0]->FlushNet();
 		}
 	}
 };
