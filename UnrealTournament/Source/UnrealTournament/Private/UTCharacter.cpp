@@ -242,7 +242,7 @@ FVector AUTCharacter::GetRewindLocation(float PredictionTime)
 			{
 				if (!SavedPositions[i].bTeleported && (i<SavedPositions.Num()-1))
 				{
-					float Percent = (TargetTime - SavedPositions[i].Time) / (SavedPositions[i + 1].Time - SavedPositions[i].Time);
+					float Percent = (SavedPositions[i + 1].Time == SavedPositions[i].Time) ? 1.f : (TargetTime - SavedPositions[i].Time) / (SavedPositions[i + 1].Time - SavedPositions[i].Time);
 					TargetLocation = SavedPositions[i].Position + Percent * (SavedPositions[i + 1].Position - SavedPositions[i].Position);
 				}
 				break;
