@@ -106,11 +106,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		}
 	}
 
-/*
-	UE_LOG(UT,Log,TEXT("WTF: %s %s %s"), SelectedWeapon ? *SelectedWeapon->DisplayName.ToString() : TEXT("None"),
-										 UTCharacterOwner->GetWeapon() ? *UTCharacterOwner->GetWeapon()->DisplayName.ToString() : TEXT("None"),
-										 UTCharacterOwner->GetPendingWeapon() ? *UTCharacterOwner->GetPendingWeapon()->DisplayName.ToString() : TEXT("None"));
-*/
 	if (SelectedWeapon)
 	{
 		if (SelectedWeapon->Group != LastGroup || SelectedWeapon->GroupSlot != LastGroupSlot)

@@ -309,7 +309,6 @@ void AUTGameState::OnTeamSideSwap()
 
 void AUTGameState::SetTimeLimit(uint32 NewTimeLimit)
 {
-	UE_LOG(UT,Log,TEXT("UTGameState.SetTimeLimit %i"),NewTimeLimit);
 	TimeLimit = NewTimeLimit;
 	RemainingTime = TimeLimit;
 	RemainingMinute = TimeLimit;
