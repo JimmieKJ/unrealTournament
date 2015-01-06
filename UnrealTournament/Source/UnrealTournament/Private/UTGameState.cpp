@@ -155,14 +155,30 @@ void AUTGameState::DefaultTimer()
 		}
 	}
 
-	if (RemainingTime > 0 && !bStopGameClock && IsMatchInProgress())
+	if (RemainingTime > 0 && !bStopGameClock)
 	{
-		RemainingTime--;
-		if (GetWorld()->GetNetMode() != NM_Client)
+		if (IsMatchInProgress())
 		{
-			if (RemainingTime % 60 == 0)
+			RemainingTime--;
+			if (GetWorld()->GetNetMode() != NM_Client)
 			{
-				RemainingMinute	= RemainingTime;
+				if (RemainingTime % 60 == 0)
+				{
+					RemainingMinute = RemainingTime;
+				}
+			}
+		}
+		else if (!HasMatchStarted())
+		{
+			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (Game == NULL || Game->NumPlayers + Game->NumBots > Game->MinPlayersToStart)
+			{
+				RemainingTime--;
+				if (GetWorld()->GetNetMode() != NM_Client)
+				{
+					// during pre-match bandwidth isn't at a premium, let's be accurate
+					RemainingMinute = RemainingTime;
+				}
 			}
 		}
 	}

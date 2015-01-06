@@ -64,6 +64,9 @@ public:
 	UPROPERTY(Config)
 	bool bOnlyTheStrongSurvive;
 
+	/** maximum amount of time (in seconds) to wait when bPlayersMustBeReady before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
+	UPROPERTY(globalconfig)
+	int32 MaxReadyWaitTime;
 
 	/** Score needed to win the match.  Can be overridden with GOALSCORE=x on the url */
 	UPROPERTY(config)
@@ -265,6 +268,7 @@ public:
 	virtual void HandleCountdownToBegin();
 	virtual void CheckCountDown();
 
+	virtual void HandleMatchIsWaitingToStart() override;
 	virtual void HandleMatchHasStarted();
 	virtual void AnnounceMatchStart();
 	virtual void HandleMatchHasEnded() override;
@@ -458,8 +462,3 @@ protected:
 
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 };
-
-
-
-
-

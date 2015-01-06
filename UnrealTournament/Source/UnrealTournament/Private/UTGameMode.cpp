@@ -55,7 +55,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
 	ForceRespawnTime = 3.0f;
-	bPlayersMustBeReady = false;
+	bPlayersMustBeReady = true;
+	MaxReadyWaitTime = 20;
 	MinPlayersToStart = 1;
 	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
@@ -127,6 +128,8 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	InOpt = ParseOption(Options, TEXT("MustBeReady"));
 	bPlayersMustBeReady = EvalBoolOptions(InOpt, bPlayersMustBeReady);
+
+	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
 
 	TimeLimit = FMath::Max(0,GetIntOption( Options, TEXT("TimeLimit"), TimeLimit ));
 	TimeLimit *= 60;
@@ -1420,7 +1423,7 @@ bool AUTGameMode::ReadyToStartMatch()
 	{
 		if (NumPlayers + NumBots >= MinPlayersToStart && NumPlayers + NumSpectators > 0)
 		{
-			if (bPlayersMustBeReady)
+			if (bPlayersMustBeReady && (MaxReadyWaitTime <= 0 || UTGameState->RemainingTime > 0))
 			{
 				for (int i=0;i<UTGameState->PlayerArray.Num();i++)
 				{
@@ -1433,6 +1436,11 @@ bool AUTGameMode::ReadyToStartMatch()
 			}
 
 			return true;
+		}
+		else if (MaxReadyWaitTime > 0)
+		{
+			// reset max wait for players to ready up
+			UTGameState->SetTimeLimit(MaxReadyWaitTime);
 		}
 	}
 	return false;
@@ -1624,7 +1632,7 @@ void AUTGameMode::CheckCountDown()
 
 void AUTGameMode::CheckGameTime()
 {
-	if ( IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
 	{
 		// Game should be over.. look to see if we need to go in to overtime....	
 
@@ -1641,6 +1649,16 @@ void AUTGameMode::CheckGameTime()
 			UTGameState->bStopGameClock = true;
 			SetMatchState(MatchState::MatchEnteringOvertime);
 		}
+	}
+}
+
+void AUTGameMode::HandleMatchIsWaitingToStart()
+{
+	Super::HandleMatchIsWaitingToStart();
+
+	if (bPlayersMustBeReady && MaxReadyWaitTime > 0)
+	{
+		UTGameState->SetTimeLimit(MaxReadyWaitTime);
 	}
 }
 
