@@ -396,8 +396,11 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
 	}
 
-	Cast<AUTPlayerState>(PlayerState)->RespawnChoiceA = nullptr;
-	Cast<AUTPlayerState>(PlayerState)->RespawnChoiceB = nullptr;
+	if (PlayerState != nullptr)
+	{
+		Cast<AUTPlayerState>(PlayerState)->RespawnChoiceA = nullptr;
+		Cast<AUTPlayerState>(PlayerState)->RespawnChoiceB = nullptr;
+	}
 
 	SetCameraMode("Default");
 
