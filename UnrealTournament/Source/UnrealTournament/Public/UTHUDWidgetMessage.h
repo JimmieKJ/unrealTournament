@@ -66,6 +66,11 @@ struct FLocalizedMessageData
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	int32 MessageCount;
 
+	virtual bool ShouldDraw_Implementation(bool bShowScores)
+	{
+		return bShowScores;
+	}
+
 	FLocalizedMessageData()
 		: MessageClass(NULL)
 		, MessageIndex(0)

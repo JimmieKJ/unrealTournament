@@ -55,6 +55,8 @@ protected:
 	TSharedPtr<SSlider> WeaponBarEmptyOpacity;
 	TSharedPtr<STextBlock> WeaponBarEmptyOpacityLabel;
 
+	TSharedPtr<SCheckBox> UseWeaponColor;
+
 	// A reference to the target HUD..
 	TWeakObjectPtr<AUTHUD> TargetHUD;
 
@@ -80,6 +82,7 @@ protected:
 	void OnWeaponBarEmptyOpacityChanged(float NewValue);
 	void OnWeaponBarScaleChanged(float NewValue);
 
+	void OnUseWeaponColorChanged(ESlateCheckBoxState::Type NewState);
 
 };
 

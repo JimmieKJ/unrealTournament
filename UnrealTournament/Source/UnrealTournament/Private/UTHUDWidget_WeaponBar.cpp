@@ -55,55 +55,73 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 {
 	TArray<FWeaponGroup> WeaponGroups;
 
-	if (UTCharacterOwner)
+	if (UTCharacterOwner == NULL) return; // Don't draw without a character
+
+	// Handle fading out.
+	if (FadeTimer > 0.0f)
 	{
-		// Handle fading out.
-		if (FadeTimer > 0.0f)
+		FadeTimer -= DeltaTime;
+	}
+	else 
+	{
+		if (InactiveOpacity != UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity)
 		{
-			FadeTimer -= DeltaTime;
-		}
-		else 
-		{
-			if (InactiveOpacity != UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity)
+			float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) * DeltaTime;	// 1 second fade
+			if (InactiveOpacity < UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) 
 			{
-				float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) * DeltaTime;	// 1 second fade
-				if (InactiveOpacity < UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) 
-				{
-					InactiveOpacity = FMath::Clamp<float>(InactiveOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity);
-				}
-				else
-				{
-					InactiveOpacity = FMath::Clamp<float>(InactiveOpacity - Delta, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity, 1.0);
-				}
+				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity);
 			}
-
-			if (InactiveIconOpacity != UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity)
+			else
 			{
-				float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) * DeltaTime;	// 1 second fade
-				if (InactiveIconOpacity < UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) 
-				{
-					InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
-				}
-				else
-				{
-					InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity - Delta, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity, 1.0);
-				}
+				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity - Delta, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity, 1.0);
 			}
 		}
 
-		AUTWeapon* Weap = UTCharacterOwner->GetWeapon();
-		if (Weap)
+		if (InactiveIconOpacity != UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity)
 		{
-			if (Weap->Group != LastGroup || Weap->GroupSlot != LastGroupSlot)
+			float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) * DeltaTime;	// 1 second fade
+			if (InactiveIconOpacity < UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) 
 			{
-				// Weapon has changed.. set everything up.
-				InactiveOpacity = 1.0;
-				InactiveIconOpacity = 1.0;
-				FadeTimer = 1.0;
-
-				LastGroup = Weap->Group;
-				LastGroupSlot = Weap->GroupSlot;
+				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
 			}
+			else
+			{
+				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity - Delta, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity, 1.0);
+			}
+		}
+	}
+
+	AUTWeapon* SelectedWeapon = UTCharacterOwner->GetPendingWeapon();
+	if (SelectedWeapon == NULL)
+	{
+		SelectedWeapon = UTCharacterOwner->GetWeapon();
+	}
+	else
+	{
+		if (!WeaponNameText.Text.EqualTo(SelectedWeapon->DisplayName))
+		{
+			WeaponNameText.Text = SelectedWeapon->DisplayName;
+			WeaponNameText.RenderOpacity = 1.0;
+			WeaponNameDisplayTimer = WeaponNameDisplayTime;
+		}
+	}
+
+/*
+	UE_LOG(UT,Log,TEXT("WTF: %s %s %s"), SelectedWeapon ? *SelectedWeapon->DisplayName.ToString() : TEXT("None"),
+										 UTCharacterOwner->GetWeapon() ? *UTCharacterOwner->GetWeapon()->DisplayName.ToString() : TEXT("None"),
+										 UTCharacterOwner->GetPendingWeapon() ? *UTCharacterOwner->GetPendingWeapon()->DisplayName.ToString() : TEXT("None"));
+*/
+	if (SelectedWeapon)
+	{
+		if (SelectedWeapon->Group != LastGroup || SelectedWeapon->GroupSlot != LastGroupSlot)
+		{
+			// Weapon has changed.. set everything up.
+			InactiveOpacity = 1.0;
+			InactiveIconOpacity = 1.0;
+			FadeTimer = 1.0;
+
+			LastGroup = SelectedWeapon->Group;
+			LastGroupSlot = SelectedWeapon->GroupSlot;
 		}
 	}
 
@@ -115,7 +133,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 		float YPosition = 0.0;
 
-		AUTWeapon* SelectedWeapon = UTCharacterOwner->GetWeapon();
 		int32 SelectedGroup = SelectedWeapon ? SelectedWeapon->Group : -1;
 
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
@@ -183,8 +200,10 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					if (CurrentWeapon)
 
 					WeaponIcon.UVs = bSelected ? CurrentWeapon->WeaponBarSelectedUVs : CurrentWeapon->WeaponBarInactiveUVs;
+					WeaponIcon.RenderColor = UTHUDOwner->bUseWeaponColors ? CurrentWeapon->IconColor : FLinearColor::White;
 
 					float WeaponY = (CellHeight * 0.5) - (WeaponIcon.UVs.VL * CellScale * 0.5);
+
 					RenderObj_TextureAt(WeaponIcon, -15, YPosition + WeaponY, WeaponIcon.UVs.UL * CellScale, WeaponIcon.UVs.VL * CellScale);
 
 					// Draw the ammo bars
@@ -262,6 +281,28 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			YPosition -= 10;
 		}
 
+	}
+
+	if (WeaponNameText.RenderOpacity > 0.0)
+	{
+		Opacity = 1.0;
+
+		// Recalc this to handle aspect ratio
+		WeaponNameText.Position.X = (Canvas->ClipX * 0.5) * RenderScale;
+		RenderObj_TextAt(WeaponNameText, WeaponNameText.Position.X, WeaponNameText.Position.Y);
+	}
+
+	if (WeaponNameDisplayTimer > 0)
+	{
+		WeaponNameDisplayTimer -= DeltaTime;
+		if ( WeaponNameDisplayTimer <= (WeaponNameDisplayTime * 0.5f) )
+		{
+			WeaponNameText.RenderOpacity = WeaponNameDisplayTimer / (WeaponNameDisplayTime * 0.5f);
+		}
+		else
+		{
+			Opacity = 1.0;
+		}
 	}
 }
 

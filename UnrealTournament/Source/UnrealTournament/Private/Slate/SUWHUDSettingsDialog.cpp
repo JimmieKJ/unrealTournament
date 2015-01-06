@@ -291,6 +291,25 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 					]
+
+				+SVerticalBox::Slot()
+					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+					.HAlign(HAlign_Right)
+					[
+						SAssignNew(UseWeaponColor, SCheckBox)
+						.ForegroundColor(FLinearColor::White)
+						.IsChecked(TargetHUD->bUseWeaponColors ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+						.OnCheckStateChanged(this, &SUWHUDSettingsDialog::OnUseWeaponColorChanged)
+						.Content()
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.Text(NSLOCTEXT("SUWHUDSettingsDialog", "UseWeaponColors", "Colorize Icons").ToString())
+						]
+					]
+
+
+
 			];
 		}
 		else
@@ -419,6 +438,13 @@ void SUWHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
 	}
 }
 
+void SUWHUDSettingsDialog::OnUseWeaponColorChanged(ESlateCheckBoxState::Type NewState)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->bUseWeaponColors = NewState == ESlateCheckBoxState::Checked;
+	}
+}
 
 
 FReply SUWHUDSettingsDialog::OKClick()
@@ -441,8 +467,11 @@ FReply SUWHUDSettingsDialog::CancelClick()
 		TargetHUD->HUDWidgetOpacity = DefaultHUD->HUDWidgetOpacity;
 		TargetHUD->HUDWidgetBorderOpacity = DefaultHUD->HUDWidgetBorderOpacity;
 		TargetHUD->HUDWidgetSlateOpacity = DefaultHUD->HUDWidgetSlateOpacity;
+		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = DefaultHUD->HUDWidgetWeaponbarInactiveOpacity;
+		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = DefaultHUD->HUDWidgetWeaponBarEmptyOpacity;
 		TargetHUD->HUDWidgetScaleOverride = DefaultHUD->HUDWidgetScaleOverride;
 		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = DefaultHUD->HUDWidgetBorderOpacity;
+		TargetHUD->bUseWeaponColors = DefaultHUD->bUseWeaponColors;
 	}
 
 	TargetHUD.Reset();
@@ -457,5 +486,7 @@ FReply SUWHUDSettingsDialog::OnButtonClick(uint16 ButtonID)
 	else if (ButtonID == UTDIALOG_BUTTON_CANCEL) CancelClick();
 	return FReply::Handled();
 }
+
+
 
 #endif

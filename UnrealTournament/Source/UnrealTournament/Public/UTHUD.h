@@ -179,6 +179,8 @@ public:
 	UPROPERTY(globalconfig)
 	float HUDWidgetScaleOverride;
 
+	UPROPERTY(globalconfig)
+	bool bUseWeaponColors;
 
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();

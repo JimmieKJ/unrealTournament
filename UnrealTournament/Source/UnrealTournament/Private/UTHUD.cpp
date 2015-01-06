@@ -137,15 +137,12 @@ TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceNa
 	{
 		return WidgetClass;
 	}
-
-	UBlueprint* Blueprint = LoadObject<UBlueprint>(NULL, ResourceName, NULL, LOAD_None, NULL);
-	if (Blueprint != NULL)
+	FString BlueprintResourceName = FString::Printf(TEXT("%s_C"), ResourceName);
+	
+	WidgetClass = LoadClass<UUTHUDWidget>(NULL, *BlueprintResourceName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	if (WidgetClass != NULL)
 	{
-		WidgetClass = Blueprint->GeneratedClass;
-		if (WidgetClass != NULL)
-		{
-			return WidgetClass;
-		}
+		return WidgetClass;
 	}
 
 	return NULL;
