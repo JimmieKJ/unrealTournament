@@ -9,8 +9,8 @@
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	BringUpTime = 1.8f;
-	PutDownTime = 1.44f;
+	BringUpTime = 1.1f;
+	PutDownTime = 0.72f;
 	Ammo = 1;
 	MaxAmmo = 1;
 	FiringViewKickback = -50.f;
