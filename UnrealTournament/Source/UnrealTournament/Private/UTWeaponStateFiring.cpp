@@ -74,7 +74,6 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 		bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound();
 		if (!bDelayShot)
 		{
-			check(GetWorld()->GetTimeSeconds() - LastShotTime > 0.08f);
 			LastShotTime = GetWorld()->GetTimeSeconds();
 			FireShot();
 		}
