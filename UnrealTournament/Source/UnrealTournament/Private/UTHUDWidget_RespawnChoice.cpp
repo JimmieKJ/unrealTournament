@@ -47,7 +47,7 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 			bHasValidRespawnCapture = true;
 			LastRespawnCaptureTime = UTHUDOwner->GetWorld()->RealTimeSeconds;
 		}
-		else if (UTHUDOwner->GetWorld()->RealTimeSeconds - LastRespawnCaptureTime > 0.2f)
+		else if (UTHUDOwner->GetWorld()->RealTimeSeconds - LastRespawnCaptureTime > 0.2f && UTPS->RespawnTime <= 0.25f)
 		{
 			RespawnChoiceACaptureComponent->SetVisibility(false);
 			RespawnChoiceBCaptureComponent->SetVisibility(false);
