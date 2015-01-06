@@ -47,26 +47,29 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 			bHasValidRespawnCapture = true;
 			LastRespawnCaptureTime = UTHUDOwner->GetWorld()->RealTimeSeconds;
 		}
-		else if (UTHUDOwner->GetWorld()->RealTimeSeconds - LastRespawnCaptureTime > 0.2f && UTPS->RespawnTime <= 0.25f)
+		else if (UTHUDOwner->GetWorld()->RealTimeSeconds - LastRespawnCaptureTime > 0.2f)
 		{
 			RespawnChoiceACaptureComponent->SetVisibility(false);
 			RespawnChoiceBCaptureComponent->SetVisibility(false);
 
-			FVector2D Size;
-			Size.X = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeX * 0.4f;
-			Size.Y = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeY * 0.4f;
+			if (UTPS->RespawnTime <= 0.25f)
+			{
+				FVector2D Size;
+				Size.X = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeX * 0.4f;
+				Size.Y = (Canvas->SizeY / 720.0f) * RespawnChoiceACaptureComponent->TextureTarget->SizeY * 0.4f;
 
-			FVector2D PositionA(Canvas->SizeX / 2.0f - Size.X - Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
-			FVector2D PositionB(Canvas->SizeX / 2.0f + Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
+				FVector2D PositionA(Canvas->SizeX / 2.0f - Size.X - Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
+				FVector2D PositionB(Canvas->SizeX / 2.0f + Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
 
-			Canvas->K2_DrawTexture(RespawnChoiceACaptureComponent->TextureTarget, PositionA, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
-			Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
+				Canvas->K2_DrawTexture(RespawnChoiceACaptureComponent->TextureTarget, PositionA, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
+				Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
 						
-			FText ChoiceA = NSLOCTEXT("UTHUDWidth_RespawnChoice", "FIRE", "FIRE");
-			DrawText(ChoiceA, PositionA.X + Size.X / 2.0f, PositionA.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+				FText ChoiceA = NSLOCTEXT("UTHUDWidth_RespawnChoice", "FIRE", "FIRE");
+				DrawText(ChoiceA, PositionA.X + Size.X / 2.0f, PositionA.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 
-			FText ChoiceB = NSLOCTEXT("UTHUDWidth_RespawnChoice", "ALT-FIRE", "ALT-FIRE");
-			DrawText(ChoiceB, PositionB.X + Size.X / 2.0f, PositionB.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+				FText ChoiceB = NSLOCTEXT("UTHUDWidth_RespawnChoice", "ALT-FIRE", "ALT-FIRE");
+				DrawText(ChoiceB, PositionB.X + Size.X / 2.0f, PositionB.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+			}
 		}
 	}
 	else
