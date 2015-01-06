@@ -24,6 +24,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	ProjectileMovement->Friction = 0.008f;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 140.f;
 
+	CollisionComp->bAbsoluteScale = true;
 	DamageParams.BaseDamage = 21.0f;
 
 	Momentum = 40000.0f;
