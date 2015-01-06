@@ -9,9 +9,12 @@ void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
 	ToggleLoopingEffects(true);
 	PendingFireSequence = -1;
+	bDelayShot = false;
 	GetOuterAUTWeapon()->OnStartedFiring();
 	FireShot();
+	GetOuterAUTWeapon()->bNetDelayedShot = false;
 }
+
 void UUTWeaponStateFiring::EndState()
 {
 	ToggleLoopingEffects(false);
@@ -40,6 +43,8 @@ bool UUTWeaponStateFiring::WillSpawnShot(float DeltaTime)
 	return (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiring::RefireCheckTimer) < DeltaTime);
 }
 
+static float LastShotTime = 0.f;
+
 void UUTWeaponStateFiring::RefireCheckTimer()
 {
 	// query bot to consider whether to still fire, switch modes, etc
@@ -48,15 +53,43 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 	{
 		B->CheckWeaponFiring();
 	}
-	if (PendingFireSequence >= 0)
+
+	GetOuterAUTWeapon()->bNetDelayedShot = (GetUTOwner()->GetNetMode() == NM_DedicatedServer);
+	if ((PendingFireSequence >= 0) && GetUTOwner())
 	{
+		bool bClearPendingFire = !GetUTOwner()->IsPendingFire(PendingFireSequence);
 		GetUTOwner()->SetPendingFire(PendingFireSequence, true);
+		if (GetOuterAUTWeapon()->HandleContinuedFiring())
+		{
+			FireShot();
+		}
+		if (bClearPendingFire)
+		{
+			GetUTOwner()->SetPendingFire(PendingFireSequence, false);
+		}
 		PendingFireSequence = -1;
 	}
-
-	if (GetOuterAUTWeapon()->HandleContinuedFiring())
+	else if (GetOuterAUTWeapon()->HandleContinuedFiring())
 	{
+		bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound();
+		if (!bDelayShot)
+		{
+			check(GetWorld()->GetTimeSeconds() - LastShotTime > 0.08f);
+			LastShotTime = GetWorld()->GetTimeSeconds();
+			FireShot();
+		}
+	}
+	GetOuterAUTWeapon()->bNetDelayedShot = false;
+}
+
+void UUTWeaponStateFiring::Tick(float DeltaTime)
+{
+	if (bDelayShot)
+	{
+		GetOuterAUTWeapon()->bNetDelayedShot = true;
 		FireShot();
+		bDelayShot = false;
+		GetOuterAUTWeapon()->bNetDelayedShot = false;
 	}
 }
 

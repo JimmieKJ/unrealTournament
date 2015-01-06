@@ -332,6 +332,17 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual FVector GetRewindLocation(float PredictionTime);
 
+	/** Max time server will look back to found client synchronized shot position. */
+	UPROPERTY(EditAnyWhere, Category = "Weapon")
+	float MaxShotSynchDelay;
+
+	/** Returns most recent position with bShotSpawned. */
+	virtual FVector GetDelayedShotPosition();
+	virtual FRotator GetDelayedShotRotation();
+
+	/** Return true if there's a recent delayed shot */
+	virtual bool DelayedShotFound();
+
 	/** returns a simplified set of SavedPositions containing only the latest position for a given frame (i.e. each element has a unique Time) */
 	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions) const;
 

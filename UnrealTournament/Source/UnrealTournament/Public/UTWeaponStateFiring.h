@@ -16,6 +16,7 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	: Super(ObjectInitializer)
 	{
 		PendingFireSequence = -1;
+		bDelayShot = false;
 	}
 
 	// accessor for convenience
@@ -43,9 +44,13 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	virtual void RefireCheckTimer();
 
 	virtual void PutDown() override;
+	virtual void Tick(float DeltaTime) override;
 
 	/** Pending fire mode on server when equip completes. */
 	int32 PendingFireSequence;
+
+	/** Delay shot one frame to synch with client */
+	bool bDelayShot;
 
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
 

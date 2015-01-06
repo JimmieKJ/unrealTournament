@@ -118,6 +118,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
 	PlayerIndicatorMaxDistance = 1200.f;
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
+	MaxShotSynchDelay = 0.1f;
 
 	GoodMoveAckTime = 0.f;
 	MaxStackedArmor = 200;
@@ -216,11 +217,61 @@ void AUTCharacter::NotifyPendingServerFire()
 	}
 }
 
+bool AUTCharacter::DelayedShotFound()
+{
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	for (int32 i = SavedPositions.Num() - 1; i >= 0; i--)
+	{
+		if (SavedPositions[i].bShotSpawned)
+		{
+			return true;
+		}
+		if (WorldTime - SavedPositions[i].Time > MaxShotSynchDelay)
+		{
+			break;
+		}
+	}
+	return false;
+}
+
+FVector AUTCharacter::GetDelayedShotPosition()
+{
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	for (int32 i = SavedPositions.Num() - 1; i >= 0; i--)
+	{
+		if (SavedPositions[i].bShotSpawned)
+		{
+			return SavedPositions[i].Position;
+		}
+		if (WorldTime - SavedPositions[i].Time > MaxShotSynchDelay)
+		{
+			break;
+		}
+	}
+	return GetActorLocation();
+}
+
+FRotator AUTCharacter::GetDelayedShotRotation()
+{
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	for (int32 i = SavedPositions.Num() - 1; i >= 0; i--)
+	{
+		if (SavedPositions[i].bShotSpawned)
+		{
+			return SavedPositions[i].Rotation;
+		}
+		if (WorldTime - SavedPositions[i].Time > MaxShotSynchDelay)
+		{
+			break;
+		}
+	}
+	return GetViewRotation();
+}
+
 void AUTCharacter::PositionUpdated(bool bShotSpawned)
 {
-	const float WorldTime = GetWorld()->TimeSeconds;
-
-	new(SavedPositions) FSavedPosition(GetActorLocation(), GetActorRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	new(SavedPositions) FSavedPosition(GetActorLocation(), GetViewRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
 
 	// maintain one position beyond MaxSavedPositionAge for interpolation
 	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < WorldTime - MaxSavedPositionAge)
@@ -3717,6 +3768,7 @@ void AUTCharacter::UTServerMove_Implementation(
 	{
 		UTCharacterMovement->ProcessServerMove(TimeStamp, InAccel, ClientLoc, MoveFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
 	}
+	//UE_LOG(UT, Warning, TEXT("ServerMove timestamp %f"), TimeStamp);
 }
 
 bool AUTCharacter::UTServerMove_Validate(float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize100 ClientLoc, uint8 MoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
@@ -3749,6 +3801,7 @@ void AUTCharacter::UTServerMoveSaved_Implementation(float TimeStamp, FVector_Net
 	{
 		UTCharacterMovement->ProcessSavedServerMove(TimeStamp, InAccel, PendingFlags, ViewYaw, ViewPitch);
 	}
+	//UE_LOG(UT, Warning, TEXT("ServerMoveSaved timestamp %f"), TimeStamp);
 }
 
 bool AUTCharacter::UTServerMoveSaved_Validate(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags, float ViewYaw, float ViewPitch)
@@ -3762,6 +3815,7 @@ void AUTCharacter::UTServerMoveQuick_Implementation(float TimeStamp, FVector_Net
 	{
 		UTCharacterMovement->ProcessQuickServerMove(TimeStamp, InAccel, PendingFlags);
 	}
+	//UE_LOG(UT, Warning, TEXT("ServerMoveQuick timestamp %f"), TimeStamp);
 }
 
 bool AUTCharacter::UTServerMoveQuick_Validate(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags)

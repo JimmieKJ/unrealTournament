@@ -41,6 +41,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	PutDownTime = 0.3f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;
+	bNetDelayedShot = false;
 
 	bFPFireFromCenter = true;
 	FireOffset = FVector(75.0f, 0.0f, 0.0f);
@@ -407,17 +408,21 @@ bool AUTWeapon::WillSpawnShot(float DeltaTime)
 
 bool AUTWeapon::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
-	UTOwner->SetPendingFire(FireModeNum, true);
-	if (FiringState.IsValidIndex(FireModeNum) && CurrentState != EquippingState && CurrentState != UnequippingState)
+	if (UTOwner)
 	{
-		FiringState[FireModeNum]->PendingFireStarted();
+		UTOwner->SetPendingFire(FireModeNum, true);
+		if (FiringState.IsValidIndex(FireModeNum) && CurrentState != EquippingState && CurrentState != UnequippingState)
+		{
+			FiringState[FireModeNum]->PendingFireStarted();
+		}
+		bool bResult = CurrentState->BeginFiringSequence(FireModeNum, bClientFired);
+		if (CurrentState->IsFiring() && CurrentFireMode != FireModeNum)
+		{
+			OnMultiPress(FireModeNum);
+		}
+		return bResult;
 	}
-	bool bResult = CurrentState->BeginFiringSequence(FireModeNum, bClientFired);
-	if (CurrentState->IsFiring() && CurrentFireMode != FireModeNum)
-	{
-		OnMultiPress(FireModeNum);
-	}
-	return bResult;
+	return false;
 }
 
 void AUTWeapon::StopFire(uint8 FireModeNum)
@@ -441,7 +446,10 @@ bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum)
 
 void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 {
-	UTOwner->SetPendingFire(FireModeNum, false);
+	if (UTOwner)
+	{
+		UTOwner->SetPendingFire(FireModeNum, false);
+	}
 	if (FiringState.IsValidIndex(FireModeNum) && CurrentState != EquippingState && CurrentState != UnequippingState)
 	{
 		FiringState[FireModeNum]->PendingFireStopped();
@@ -867,6 +875,12 @@ FVector AUTWeapon::GetFireStartLoc()
 		{
 			BaseLoc = UTOwner->GetActorLocation();
 		}
+
+		if (bNetDelayedShot)
+		{
+			// adjust for delayed shot to position client shot from
+			BaseLoc = BaseLoc + UTOwner->GetDelayedShotPosition() - UTOwner->GetActorLocation();
+		}
 		if (FireOffset.IsZero())
 		{
 			return BaseLoc;
@@ -909,6 +923,10 @@ FRotator AUTWeapon::GetBaseFireRotation()
 	{
 		UE_LOG(UT, Warning, TEXT("%s::GetBaseFireRotation(): No Owner (died while firing?)"), *GetName());
 		return FRotator::ZeroRotator;
+	}
+	else if (bNetDelayedShot)
+	{
+		return UTOwner->GetDelayedShotRotation();
 	}
 	else
 	{
@@ -1195,11 +1213,11 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		float CurrentMoveTime = (UTOwner && UTOwner->UTCharacterMovement) ? UTOwner->UTCharacterMovement->GetCurrentSynchTime() : GetWorld()->GetTimeSeconds();
 		if (UTOwner->Role < ROLE_Authority)
 		{
-			UE_LOG(UT, Warning, TEXT("CLIENT SpawnNetPredictedProjectile at %f yaw %f"), CurrentMoveTime, SpawnRotation.Yaw);
+			UE_LOG(UT, Warning, TEXT("CLIENT SpawnNetPredictedProjectile at %f yaw %f "), CurrentMoveTime, SpawnRotation.Yaw);
 		}
 		else
 		{
-			UE_LOG(UT, Warning, TEXT("SERVER SpawnNetPredictedProjectile at %f yaw %f"), CurrentMoveTime, SpawnRotation.Yaw);
+			UE_LOG(UT, Warning, TEXT("SERVER SpawnNetPredictedProjectile at %f yaw %f TIME %f"), CurrentMoveTime, SpawnRotation.Yaw, GetWorld()->GetTimeSeconds());
 		}
 	}
 */

@@ -48,8 +48,10 @@ void UUTWeaponStateEquipping::BringUpFinished()
 	GetOuterAUTWeapon()->GotoActiveState();
 	if (PendingFireSequence >= 0)
 	{
+		GetOuterAUTWeapon()->bNetDelayedShot = true;
 		GetOuterAUTWeapon()->BeginFiringSequence(PendingFireSequence, true);
 		PendingFireSequence = -1;
+		GetOuterAUTWeapon()->bNetDelayedShot = false;
 	}
 }
 

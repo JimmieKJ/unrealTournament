@@ -95,6 +95,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void OnRep_Ammo();
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Weapon")
 	int32 MaxAmmo;
+
 	/** ammo cost for one shot of each fire mode */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<int32> AmmoCost;
@@ -224,6 +225,10 @@ public:
 	/** Firing offset from weapon for weapons fire. If bFPFireFromCenter is true and it's a player in first person mode, this is from the camera center */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	FVector FireOffset;
+
+	/** If true (on server), use the last bSpawnedShot saved position as starting point for this shot to synch with client firing position. */
+	UPROPERTY()
+	bool bNetDelayedShot;
 
 	/** indicates this weapon is most useful in melee range (used by AI) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
