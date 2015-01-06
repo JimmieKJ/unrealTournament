@@ -91,6 +91,15 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float ForceRespawnTime;
 
+	UPROPERTY()
+	bool bChosePrimaryRespawnChoice;
+
+	UPROPERTY(replicated)
+	class APlayerStart* RespawnChoiceA;
+
+	UPROPERTY(replicated)
+	class APlayerStart* RespawnChoiceB;
+
 	/** The currently held object */
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnCarriedObjectChanged, Category = PlayerState)
 	class AUTCarriedObject* CarriedObject;

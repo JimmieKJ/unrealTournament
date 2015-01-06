@@ -64,6 +64,9 @@ public:
 	UPROPERTY(Config)
 	bool bOnlyTheStrongSurvive;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Rules)
+	bool bHasRespawnChoices;
+
 	/** maximum amount of time (in seconds) to wait when bPlayersMustBeReady before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
 	UPROPERTY(globalconfig)
 	int32 MaxReadyWaitTime;

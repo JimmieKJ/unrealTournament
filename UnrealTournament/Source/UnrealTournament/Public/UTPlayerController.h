@@ -119,10 +119,14 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
+	
+	/** Attempts to restart this player, generally called from the client upon respawn request. */
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerRestartPlayerAltFire();
 
 	/**	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun	 **/
 	virtual void ServerRestartPlayer_Implementation();
-
+	
 	/**  Added a check to see if the player's RespawnTimer is > 0	 **/
 	virtual bool CanRestartPlayer();
 

@@ -396,7 +396,11 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
 	}
 
+	Cast<AUTPlayerState>(PlayerState)->RespawnChoiceA = nullptr;
+	Cast<AUTPlayerState>(PlayerState)->RespawnChoiceB = nullptr;
+
 	SetCameraMode("Default");
+
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
@@ -681,7 +685,7 @@ void AUTPlayerController::OnStopAltFire()
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) &&
 			bPlayerIsWaiting)
 		{
-			ServerRestartPlayer();
+			ServerRestartPlayerAltFire();
 		}
 		else
 		{
@@ -690,7 +694,7 @@ void AUTPlayerController::OnStopAltFire()
 	}
 	else
 	{
-		ServerRestartPlayer();
+		ServerRestartPlayerAltFire();
 	}
 }
 
@@ -1205,9 +1209,14 @@ AUTCharacter* AUTPlayerController::GetUTCharacter()
 
 void AUTPlayerController::ServerRestartPlayer_Implementation()
 {
+	if (UTPlayerState != nullptr)
+	{
+		UTPlayerState->bChosePrimaryRespawnChoice = true;
+	}
+
 	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted() && UTPlayerState != NULL)
 	{
-		UTPlayerState ->bReadyToPlay = true;
+		UTPlayerState->bReadyToPlay = true;
 	}
 
 	// If we can't restart this player, try to view a new player
@@ -1218,7 +1227,33 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	}
 
 	Super::ServerRestartPlayer_Implementation();
+}
 
+bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
+{
+	if (UTPlayerState != nullptr)
+	{
+		UTPlayerState->bChosePrimaryRespawnChoice = false;
+	}
+
+	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted() && UTPlayerState != NULL)
+	{
+		UTPlayerState->bReadyToPlay = true;
+	}
+
+	// If we can't restart this player, try to view a new player
+	if (!CanRestartPlayer())
+	{
+		ServerViewNextPlayer();
+		return;
+	}
+
+	Super::ServerRestartPlayer_Implementation();
 }
 
 bool AUTPlayerController::CanRestartPlayer()

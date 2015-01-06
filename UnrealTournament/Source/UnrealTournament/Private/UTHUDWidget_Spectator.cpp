@@ -87,7 +87,14 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				}
 				else
 				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnMessage","Press [FIRE] to respawn...");
+					if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
+					{
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRepsawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]");
+					}
+					else
+					{
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "RepsawnMessage", "Press [FIRE] to respawn...");
+					}
 				}
 			}
 			else
@@ -105,7 +112,14 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				}
 				else
 				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnMessage","Press [FIRE] to respawn...");
+					if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
+					{
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRepsawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]");
+					}
+					else
+					{
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "RepsawnMessage", "Press [FIRE] to respawn...");
+					}
 				}
 
 			}

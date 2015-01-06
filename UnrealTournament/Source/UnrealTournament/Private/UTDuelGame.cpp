@@ -22,6 +22,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	bPlayersMustBeReady = true;
 	bForceRespawn = true;
 	bAnnounceTeam = false;
+	bHasRespawnChoices = true;
 }
 
 void AUTDuelGame::InitGameState()

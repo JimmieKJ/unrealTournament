@@ -57,6 +57,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	ForceRespawnTime = 3.0f;
 	bPlayersMustBeReady = true;
 	MaxReadyWaitTime = 20;
+	bHasRespawnChoices = false;
 	MinPlayersToStart = 1;
 	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
@@ -130,6 +131,8 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	bPlayersMustBeReady = EvalBoolOptions(InOpt, bPlayersMustBeReady);
 
 	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
+	InOpt = ParseOption(Options, TEXT("HasRespawnChoices"));
+	bHasRespawnChoices = EvalBoolOptions(InOpt, bHasRespawnChoices);
 
 	TimeLimit = FMath::Max(0,GetIntOption( Options, TEXT("TimeLimit"), TimeLimit ));
 	TimeLimit *= 60;
@@ -484,6 +487,7 @@ void AUTGameMode::DefaultTimer()
 				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
 				if (PS != NULL && PS->ForceRespawnTime <= 0.0f)
 				{
+					PS->bChosePrimaryRespawnChoice = true;
 					RestartPlayer(Controller);
 				}
 			}
@@ -611,6 +615,14 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 			ScoreKill(Killer, KilledPlayer, DamageType);
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
+			
+			if (bHasRespawnChoices)
+			{
+				KilledPlayerState->RespawnChoiceA = nullptr;
+				KilledPlayerState->RespawnChoiceB = nullptr;
+				KilledPlayerState->RespawnChoiceA = Cast<APlayerStart>(ChoosePlayerStart(KilledPlayer));
+				KilledPlayerState->RespawnChoiceB = Cast<APlayerStart>(ChoosePlayerStart(KilledPlayer));
+			}
 		}
 
 		DiscardInventory(KilledPawn, Killer);
@@ -1149,6 +1161,9 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	bSetPlayerDefaultsSpawnInventory = true;
 	Super::RestartPlayer(aPlayer);
 	bSetPlayerDefaultsSpawnInventory = false;
+
+	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceA = nullptr;
+	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceB = nullptr;
 }
 
 void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
@@ -1240,6 +1255,19 @@ AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& Incomin
 
 AActor* AUTGameMode::ChoosePlayerStart(AController* Player)
 {
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(Player->PlayerState);
+	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
+	{
+		if (UTPS->bChosePrimaryRespawnChoice)
+		{
+			return UTPS->RespawnChoiceA;
+		}
+		else
+		{
+			return UTPS->RespawnChoiceB;
+		}
+	}
+
 	if (PlayerStarts.Num() == 0)
 	{
 		return Super::ChoosePlayerStart(Player);
@@ -1315,7 +1343,8 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	float Score = 30.0f;
 
 	AActor* LastSpot = (Player != NULL && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
-	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot))
+	AUTPlayerState *UTPS = Cast<AUTPlayerState>(Player->PlayerState);
+	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot) || P == UTPS->RespawnChoiceA)
 	{
 		// avoid re-using starts
 		Score -= 15.0f;

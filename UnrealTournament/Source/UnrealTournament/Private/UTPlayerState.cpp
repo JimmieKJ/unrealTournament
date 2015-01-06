@@ -42,6 +42,9 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, LastKillerPlayerState);
 	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
+	
+	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
 }
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()
