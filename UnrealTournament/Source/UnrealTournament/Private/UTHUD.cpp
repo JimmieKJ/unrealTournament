@@ -131,7 +131,7 @@ AUTPlayerState* AUTHUD::GetViewedPlayerState()
 
 TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceName)
 {
-	UClass* WidgetClass = LoadClass<UUTHUDWidget>(NULL, ResourceName, NULL, LOAD_None, NULL);
+	UClass* WidgetClass = LoadClass<UUTHUDWidget>(NULL, ResourceName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 
 	if (WidgetClass != NULL)
 	{
@@ -326,7 +326,7 @@ void AUTHUD::DrawHUD()
 	// find center of the Canvas
 	const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
-	for (int WidgetIndex=0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
+	for (int WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 	{
 		// If we aren't hidden then set the canvas and render..
 		if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
