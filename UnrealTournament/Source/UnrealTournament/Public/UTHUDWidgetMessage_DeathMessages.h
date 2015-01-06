@@ -7,10 +7,12 @@ class UUTHUDWidgetMessage_DeathMessages : public UUTHUDWidgetMessage
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override
+	{
+		return !bShowScores;
+	}
+
 protected:
 	virtual void DrawMessages(float DeltaTime);
 	virtual void LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
-
-private:
-
 };

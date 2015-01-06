@@ -8,8 +8,10 @@ class UUTHUDWidgetMessage_GameMessages : public UUTHUDWidgetMessage
 	GENERATED_UCLASS_BODY()
 
 public:
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override
+	{
+		return !bShowScores;
+	}
 protected:
 	float GetTextScale(int32 QueueIndex);
-private:
-
 };
