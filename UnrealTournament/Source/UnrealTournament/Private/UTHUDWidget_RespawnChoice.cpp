@@ -35,7 +35,7 @@ void UUTHUDWidget_RespawnChoice::InitializeWidget(AUTHUD* Hud)
 void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
+	if (UTPS != nullptr && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
 	{
 		if (!bHasValidRespawnCapture)
 		{
