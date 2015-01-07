@@ -85,6 +85,14 @@ void AUTMutator::ScoreDamage_Implementation(int32 DamageAmount, AController* Vic
 	}
 }
 
+void AUTMutator::NotifyMatchStateChange_Implementation(FName NewState)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->NotifyMatchStateChange(NewState);
+	}
+}
+
 bool AUTMutator::OverridePickupQuery_Implementation(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup)
 {
 	return (NextMutator != NULL && NextMutator->OverridePickupQuery(Other, ItemClass, Pickup, bAllowPickup));

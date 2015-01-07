@@ -45,7 +45,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
 
-	virtual void SetMatchState(FName NewState);
+	virtual void CallMatchStateChangeNotify() override;
 
 	virtual void HandleEnteringHalftime();
 	virtual void HandleHalftime();

@@ -267,6 +267,7 @@ public:
 	virtual bool IsMatchInProgress() const;
 	virtual bool HasMatchEnded() const;
 	virtual void SetMatchState(FName NewState);
+	virtual void CallMatchStateChangeNotify();
 
 	virtual void HandleCountdownToBegin();
 	virtual void CheckCountDown();

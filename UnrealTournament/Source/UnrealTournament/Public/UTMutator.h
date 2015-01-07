@@ -110,6 +110,10 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
 
+	/** notification that the game's state has changed (e.g. pre-match -> in progress -> half time -> in progress -> game over) */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void NotifyMatchStateChange(FName NewState);
+
 	/** allows preserving Actors during travel
 	 * this function does not need to invoke NextMutator; the GameMode guarantees everyone gets a shot
 	 */

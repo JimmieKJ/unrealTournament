@@ -727,32 +727,27 @@ bool AUTCTFGameMode::IsMatchInSuddenDeath()
 	return CTFGameState->IsMatchInSuddenDeath();
 }
 
-void AUTCTFGameMode::SetMatchState(FName NewState)
+void AUTCTFGameMode::CallMatchStateChangeNotify()
 {
-	if (MatchState == NewState)
-	{
-		return;
-	}
+	Super::CallMatchStateChangeNotify();
 
-	Super::SetMatchState(NewState);
-
-	if (NewState == MatchState::MatchEnteringHalftime)
+	if (MatchState == MatchState::MatchEnteringHalftime)
 	{
 		HandleEnteringHalftime();
 	}
-	else if (NewState == MatchState::MatchIsAtHalftime)
+	else if (MatchState == MatchState::MatchIsAtHalftime)
 	{
 		HandleHalftime();
 	}
-	else if (NewState == MatchState::MatchExitingHalftime)
+	else if (MatchState == MatchState::MatchExitingHalftime)
 	{
 		HandleExitingHalftime();
 	}
-	else if (NewState == MatchState::MatchEnteringSuddenDeath)
+	else if (MatchState == MatchState::MatchEnteringSuddenDeath)
 	{
 		HandleEnteringSuddenDeath();
 	}
-	else if (NewState == MatchState::MatchIsInSuddenDeath)
+	else if (MatchState == MatchState::MatchIsInSuddenDeath)
 	{
 		HandleSuddenDeath();
 	}

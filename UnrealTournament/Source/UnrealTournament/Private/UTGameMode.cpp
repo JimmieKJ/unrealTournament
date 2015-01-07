@@ -1512,6 +1512,16 @@ void AUTGameMode::SetMatchState(FName NewState)
 		GameState->SetMatchState(NewState);
 	}
 
+	CallMatchStateChangeNotify();
+
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->NotifyMatchStateChange(MatchState);
+	}
+}
+
+void AUTGameMode::CallMatchStateChangeNotify()
+{
 	// Call change callbacks
 
 	if (MatchState == MatchState::WaitingToStart)
