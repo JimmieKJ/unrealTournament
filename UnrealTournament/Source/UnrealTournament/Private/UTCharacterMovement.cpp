@@ -320,7 +320,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 				if (CharacterOwner->Role == ROLE_Authority)
 				{
 // @TODO FIXMESTEVE TEMP REMOVE
-					if (GetNetMode() == NM_DedicatedServer)
+					if (GetNetMode() == NM_DedicatedServer && Cast<APlayerController>(CharacterOwner->Controller) != NULL)
 					{
 						UE_LOG(UT, Warning, TEXT("Perform movement from Tick on server"));
 					}
