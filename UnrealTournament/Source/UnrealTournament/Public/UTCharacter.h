@@ -3,6 +3,7 @@
 
 #include "UTCarriedObject.h"
 #include "UTCharacterMovement.h"
+#include "UTRecastNavMesh.h"
 
 #include "UTCharacter.generated.h"
 
@@ -1484,9 +1485,13 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerUseCarriedObject();
 
-
 private:
 	void ApplyDamageMomentum(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator, AActor* DamageCauser);
+
+public:
+	/** set by path following to last MoveTarget that was successfully reached; used to avoid pathing getting confused about its current position on the navigation graph when it is on two nodes/polys simultaneously */
+	UPROPERTY()
+	FRouteCacheItem LastReachedMoveTarget;
 };
 
 inline bool AUTCharacter::IsDead()

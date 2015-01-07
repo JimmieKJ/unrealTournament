@@ -1310,6 +1310,38 @@ float AUTRecastNavMesh::GetPolyZAtLoc(NavNodeRef PolyID, const FVector2D& Loc2D)
 	}
 }
 
+NavNodeRef AUTRecastNavMesh::FindAnchorPoly(const FVector& TestLoc, APawn* Asker, const FNavAgentProperties& AgentProps) const
+{
+	AUTCharacter* P = Cast<AUTCharacter>(Asker);
+	if (P != NULL && P->LastReachedMoveTarget.TargetPoly != INVALID_NAVNODEREF && HasReachedTarget(P, AgentProps, P->LastReachedMoveTarget))
+	{
+		return P->LastReachedMoveTarget.TargetPoly;
+	}
+	else
+	{
+		NavNodeRef StartPoly = FindNearestPoly(TestLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+		if (StartPoly != INVALID_NAVNODEREF)
+		{
+			// currently in a water volume the polys are at the bottom of the water area
+			APhysicsVolume* Volume = FindPhysicsVolume(GetWorld(), TestLoc, FCollisionShape::MakeCapsule(AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+			if (Volume->bWaterVolume && Volume->GetBrushComponent() != NULL)
+			{
+				FHitResult Hit;
+				if (Volume->GetBrushComponent()->LineTraceComponent(Hit, TestLoc - FVector(0.0f, 0.0f, 100000.0f), TestLoc, FCollisionQueryParams()))
+				{
+					StartPoly = FindNearestPoly(Hit.Location + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+				}
+			}
+		}
+		// HACK: handle lifts (see FindLiftPoly())
+		if (StartPoly == INVALID_NAVNODEREF)
+		{
+			StartPoly = FindLiftPoly(Asker, AgentProps);
+		}
+		return StartPoly;
+	}
+}
+
 NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentProperties& AgentProps) const
 {
 	if (Asker == NULL)
@@ -1415,25 +1447,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 
 	NodeRoute.Reset();
 	bool bNeedMoveToStartNode = false;
-	NavNodeRef StartPoly = FindNearestPoly(StartLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-	if (StartPoly == INVALID_NAVNODEREF)
-	{
-		// currently in a water volume the polys are at the bottom of the water area
-		APhysicsVolume* Volume = FindPhysicsVolume(GetWorld(), StartLoc, FCollisionShape::MakeCapsule(AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-		if (Volume->bWaterVolume && Volume->GetBrushComponent() != NULL)
-		{
-			FHitResult Hit;
-			if (Volume->GetBrushComponent()->LineTraceComponent(Hit, StartLoc - FVector(0.0f, 0.0f, 100000.0f), StartLoc, FCollisionQueryParams()))
-			{
-				StartPoly = FindNearestPoly(Hit.Location + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-			}
-		}
-	}
-	// HACK: handle lifts (see FindLiftPoly())
-	if (StartPoly == INVALID_NAVNODEREF)
-	{
-		StartPoly = FindLiftPoly(Asker, AgentProps);
-	}
+	NavNodeRef StartPoly = FindAnchorPoly(StartLoc, Asker, AgentProps);
 	if (StartPoly == INVALID_NAVNODEREF)
 	{
 		bNeedMoveToStartNode = true;
@@ -1785,12 +1799,7 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 	}
 	NodeLink = FUTPathLink();
 
-	NavNodeRef StartPoly = FindNearestPoly(OrigStartLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-	// HACK: handle lifts (see FindLiftPoly())
-	if (StartPoly == INVALID_NAVNODEREF)
-	{
-		StartPoly = FindLiftPoly(Asker, AgentProps);
-	}
+	NavNodeRef StartPoly = FindAnchorPoly(OrigStartLoc, Asker, AgentProps);
 	if (StartPoly == INVALID_NAVNODEREF)
 	{
 		// we're off the navmesh, but FindBestPath() may have suggested a re-entry point to get us in here
@@ -1850,88 +1859,100 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 
 bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target) const
 {
-	if (Asker == NULL)
+	bool bResult = [&]() -> bool
 	{
-		return false;
-	}
-	else
-	{
-		// TODO: probably some kind of interface needed here
-
-		AUTPickup* Pickup = NULL;
-		AUTTeleporter* Teleporter = NULL;
-		if (Target.Actor.IsValid())
+		if (Asker == NULL)
 		{
-			Pickup = Cast<AUTPickup>(Target.Actor.Get());
-			Teleporter = Cast<AUTTeleporter>(Target.Actor.Get());
-		}
-		if (Pickup != NULL && Pickup->State.bActive)
-		{
-			return Pickup->IsOverlappingActor(Asker);
-		}
-		else if (Teleporter != NULL && Teleporter->IsOverlappingActor(Asker))
-		{
-			Teleporter->OnOverlapBegin(Asker);
-			return true;
-		}
-		else if (Target.IsDirectTarget())
-		{
-			// if direct location with no nav data then require pawn box to touch target point
-			FBox TestBox(0);
-			FVector Extent(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5);
-			FVector AskerLoc = Asker->GetActorLocation();
-			TestBox += AskerLoc + Extent;
-			TestBox += AskerLoc - Extent;
-			return TestBox.IsInside(Target.GetLocation(Asker));
+			return false;
 		}
 		else
 		{
-			NavNodeRef MyPoly = FindNearestPoly(Asker->GetNavAgentLocation(), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-			if (MyPoly == Target.TargetPoly)
+			// TODO: probably some kind of interface needed here
+
+			AUTPickup* Pickup = NULL;
+			AUTTeleporter* Teleporter = NULL;
+			if (Target.Actor.IsValid())
 			{
+				Pickup = Cast<AUTPickup>(Target.Actor.Get());
+				Teleporter = Cast<AUTTeleporter>(Target.Actor.Get());
+			}
+			if (Pickup != NULL && Pickup->State.bActive)
+			{
+				return Pickup->IsOverlappingActor(Asker);
+			}
+			else if (Teleporter != NULL && Teleporter->IsOverlappingActor(Asker))
+			{
+				Teleporter->OnOverlapBegin(Asker);
 				return true;
 			}
-			else if (MyPoly == INVALID_NAVNODEREF)
+			else if (Target.IsDirectTarget())
 			{
-				return false;
+				// if direct location with no nav data then require pawn box to touch target point
+				FBox TestBox(0);
+				FVector Extent(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5);
+				FVector AskerLoc = Asker->GetActorLocation();
+				TestBox += AskerLoc + Extent;
+				TestBox += AskerLoc - Extent;
+				return TestBox.IsInside(Target.GetLocation(Asker));
 			}
 			else
 			{
-				// in cases of multiple Z axis walkable surfaces adjacent to each other, we might not quite get the polygon we expect
-				// if we think we're in the right place, do a more general intersection test to see if we're touching the right polygon even though the mesh doesn't judge it the "best" one
-				FBox TestBox(0);
-				FVector Extent(AgentProps.AgentRadius * 0.5f, AgentProps.AgentRadius * 0.5f, AgentProps.AgentHeight * 0.5); // intentionally half radius
-				FVector AskerLoc = Asker->GetActorLocation(); // note: using Actor location here, not agent location
-				TestBox += AskerLoc + Extent;
-				TestBox += AskerLoc - Extent;
-				if (!TestBox.IsInside(Target.GetLocation(Asker)))
+				NavNodeRef MyPoly = FindNearestPoly(Asker->GetNavAgentLocation(), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
+				if (MyPoly == Target.TargetPoly)
+				{
+					return true;
+				}
+				else if (MyPoly == INVALID_NAVNODEREF)
 				{
 					return false;
 				}
 				else
 				{
-					dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
-
-					FVector RecastAskerLoc = Unreal2RecastPoint(AskerLoc);
-					FVector QueryExtent = FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f);
-					float RecastExtent[3] = { QueryExtent.X, QueryExtent.Z, QueryExtent.Y };
-					NavNodeRef Polys[16];
-					int32 PolyCount = 0;
-					if (dtStatusSucceed(InternalQuery.queryPolygons((float*)&RecastAskerLoc, RecastExtent, GetDefaultDetourFilter(), Polys, &PolyCount, ARRAY_COUNT(Polys))))
+					// in cases of multiple Z axis walkable surfaces adjacent to each other, we might not quite get the polygon we expect
+					// if we think we're in the right place, do a more general intersection test to see if we're touching the right polygon even though the mesh doesn't judge it the "best" one
+					FBox TestBox(0);
+					FVector Extent(AgentProps.AgentRadius * 0.5f, AgentProps.AgentRadius * 0.5f, AgentProps.AgentHeight * 0.5); // intentionally half radius
+					FVector AskerLoc = Asker->GetActorLocation(); // note: using Actor location here, not agent location
+					TestBox += AskerLoc + Extent;
+					TestBox += AskerLoc - Extent;
+					if (!TestBox.IsInside(Target.GetLocation(Asker)))
 					{
-						for (int32 i = 0; i < PolyCount; i++)
+						return false;
+					}
+					else
+					{
+						dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
+
+						FVector RecastAskerLoc = Unreal2RecastPoint(AskerLoc);
+						FVector QueryExtent = FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f);
+						float RecastExtent[3] = { QueryExtent.X, QueryExtent.Z, QueryExtent.Y };
+						NavNodeRef Polys[16];
+						int32 PolyCount = 0;
+						if (dtStatusSucceed(InternalQuery.queryPolygons((float*)&RecastAskerLoc, RecastExtent, GetDefaultDetourFilter(), Polys, &PolyCount, ARRAY_COUNT(Polys))))
 						{
-							if (Polys[i] == Target.TargetPoly)
+							for (int32 i = 0; i < PolyCount; i++)
 							{
-								return true;
+								if (Polys[i] == Target.TargetPoly)
+								{
+									return true;
+								}
 							}
 						}
+						return false;
 					}
-					return false;
 				}
 			}
 		}
+	}();
+	if (bResult)
+	{
+		AUTCharacter* P = Cast<AUTCharacter>(Asker);
+		if (P != NULL)
+		{
+			P->LastReachedMoveTarget = Target;
+		}
 	}
+	return bResult;
 }
 
 void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, bool bOnlyWalkable, TArray<NavNodeRef>& Polys) const

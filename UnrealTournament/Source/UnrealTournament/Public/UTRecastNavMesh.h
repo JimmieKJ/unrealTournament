@@ -302,6 +302,12 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	 */
 	virtual bool HasReachedTarget(APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target) const;
 
+	/** returns poly that the given target should be "on" for purposes of pathing, i.e. the source location for path finding and following
+	* Asker may be NULL; if specified and it has a valid LastReachedMoveTarget then that takes precedence over a poly search to minimize errors where a Pawn reaches a target but then doesn't use it as the next start location
+	* if bAllowFallbackTraces is set, when no valid poly can be found at TestLoc then we attempt to find a directly reachable fallback poly via world traces
+	*/
+	virtual NavNodeRef FindAnchorPoly(const FVector& TestLoc, APawn* Asker, const FNavAgentProperties& AgentProps) const;
+
 	/** HACK: workaround for navmesh not supporting moving objects
 	* and thus when on lifts players will be temporarily off the navmesh
 	* look for lift and try to figure out what poly the lift is taking the Pawn to
