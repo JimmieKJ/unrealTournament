@@ -83,6 +83,8 @@ class AUTTeamInfo : public AInfo, public IUTTeamInterface
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
 	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName);
 
+	const TArray<AController*>& GetTeamMembers() { return TeamMembers; }
+
 protected:
 	/** list of players on this team currently (server only) */
 	UPROPERTY(BlueprintReadOnly, Category = Team)

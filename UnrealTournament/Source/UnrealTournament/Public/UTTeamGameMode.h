@@ -36,7 +36,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 
 	/** whether we should announce your team */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
-		bool bAnnounceTeam;
+	bool bAnnounceTeam;
 
 	/** whether players should be spawned only on UTTeamPlayerStarts with the appropriate team number */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
@@ -54,6 +54,9 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 	int32 MercyScore;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+	bool bHighScorerPerTeamBasis;
+
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState() override;
 	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
@@ -62,6 +65,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual bool CheckScore(AUTPlayerState* Scorer) override;
 	virtual void PlayEndOfMatchMessage() override;
 	virtual void AnnounceMatchStart() override;
+	virtual void FindAndMarkHighScorer() override;
 
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
 

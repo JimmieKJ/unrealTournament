@@ -34,6 +34,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
 	bTeamGame = true;
 	bHasBroadcastDominating = false;
 	bAnnounceTeam = true;
+	bHighScorerPerTeamBasis = true;
 }
 
 void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -429,3 +430,49 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 	}
 }
 
+void AUTTeamGameMode::FindAndMarkHighScorer()
+{
+	// Some game modes like Duel may not want every team to have a high scorer
+	if (!bHighScorerPerTeamBasis)
+	{
+		Super::FindAndMarkHighScorer();
+		return;
+	}
+
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		int32 BestScore = 0;
+
+		for (int32 PlayerIdx = 0; PlayerIdx < Teams[i]->GetTeamMembers().Num(); PlayerIdx++)
+		{
+			if (Teams[i]->GetTeamMembers()[PlayerIdx] != nullptr)
+			{
+				AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[i]->GetTeamMembers()[PlayerIdx]->PlayerState);
+				if (PS != nullptr)
+				{
+					if (BestScore == 0 || PS->Score > BestScore)
+					{
+						BestScore = PS->Score;
+					}
+				}
+			}
+		}
+
+		for (int32 PlayerIdx = 0; PlayerIdx < Teams[i]->GetTeamMembers().Num(); PlayerIdx++)
+		{
+			if (Teams[i]->GetTeamMembers()[PlayerIdx] != nullptr)
+			{
+				AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[i]->GetTeamMembers()[PlayerIdx]->PlayerState);
+				if (PS != nullptr)
+				{
+					PS->bHasHighScore = (BestScore == PS->Score);
+					AUTCharacter *UTChar = Cast<AUTCharacter>(Teams[i]->GetTeamMembers()[PlayerIdx]->GetPawn());
+					if (UTChar)
+					{
+						UTChar->bHasHighScore = (BestScore == PS->Score);
+					}
+				}
+			}
+		}
+	}
+}
