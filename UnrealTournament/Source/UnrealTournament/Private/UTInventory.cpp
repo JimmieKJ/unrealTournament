@@ -215,8 +215,10 @@ void AUTInventory::DropFrom(const FVector& StartLocation, const FVector& TossVel
 			UCapsuleComponent* TestCapsule = DroppedPickupClass.GetDefaultObject()->Collision;
 			if (TestCapsule != NULL)
 			{
+				FCollisionQueryParams QueryParams(FName(TEXT("DropPlacement")), false);
 				FHitResult Hit;
-				if (GetWorld()->SweepSingle(Hit, StartLocation - TossVelocity * 0.25f, StartLocation, FQuat::Identity, TestCapsule->GetCollisionObjectType(), TestCapsule->GetCollisionShape(), FCollisionQueryParams(FName(TEXT("DropPlacement")), false), TestCapsule->GetCollisionResponseToChannels()))
+				if ( GetWorld()->SweepSingle(Hit, StartLocation - FVector(TossVelocity.X, TossVelocity.Y, 0.0f) * 0.25f, StartLocation, FQuat::Identity, TestCapsule->GetCollisionObjectType(), TestCapsule->GetCollisionShape(), QueryParams, TestCapsule->GetCollisionResponseToChannels()) &&
+					 !Hit.bStartPenetrating )
 				{
 					AdjustedStartLoc = Hit.Location;
 				}
