@@ -73,6 +73,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
 		{
+			ModifyStat(FName(*(TEXT("MultiKillLevel") + FString::FromInt(FMath::Min(MultiKillLevel, 3)))), 1, EStatMod::Delta);
+
 			MultiKillLevel++;
 			if (Cast<APlayerController>(GetOwner()) != NULL)
 			{
@@ -88,6 +90,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			Spree++;
 			if (Spree % 5 == 0)
 			{
+				ModifyStat(FName(*(TEXT("SpreeKillLevel") + FString::FromInt(FMath::Min(Spree / 5 - 1, 4)))), 1, EStatMod::Delta);
+
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
 					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / 5, this);

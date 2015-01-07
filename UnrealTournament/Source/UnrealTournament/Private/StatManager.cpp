@@ -18,6 +18,17 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(FName(TEXT("Kills")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Deaths")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("Suicides")), EStatRecordingPeriod::Persistent));
+	
+	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel0")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel1")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel2")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel3")), EStatRecordingPeriod::Persistent));
+
+	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel0")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel1")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel2")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel3")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel4")), EStatRecordingPeriod::Persistent));
 
 	Stats.Add(MakeStat(FName(TEXT("ImpactHammerKills")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("EnforcerKills")), EStatRecordingPeriod::Persistent));
