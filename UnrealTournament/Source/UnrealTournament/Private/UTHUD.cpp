@@ -583,7 +583,7 @@ void AUTHUD::CalcStanding()
 		{
 			for (int32 i=0; i < MyIndex; i++)
 			{
-				if (Leaderboard[i]->Score > MyPS->Score && (i==0 || Leaderboard[i]->Score < Leaderboard[i-1]->Score))
+				if (Leaderboard[i]->Score > MyPS->Score)
 				{
 					CurrentPlayerStanding++;
 				}
@@ -598,6 +598,14 @@ void AUTHUD::CalcStanding()
 		{
 			CurrentPlayerSpread = MyPS->Score - Leaderboard[MyIndex+1]->Score;
 		}
+
+		if ( Leaderboard.Num() > 0 && Leaderboard[0]->Score == MyPS->Score && Leaderboard[0] != MyPS)
+		{
+			// Bubble this player to the top
+			Leaderboard.Remove(MyPS);
+			Leaderboard.Insert(MyPS,0);
+		}
+
 	}
 }
 

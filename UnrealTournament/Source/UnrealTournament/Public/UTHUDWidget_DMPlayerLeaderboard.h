@@ -62,7 +62,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float BarWidth;
 
-	void DrawPlayer(float& YPosition, int32 PlayerIndex, bool bIsOwner);
+	void DrawPlayer(float& YPosition, int32 PlayerIndex, AUTPlayerState* OwnerPS);
 
 
 
