@@ -46,6 +46,11 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 
 void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 {
+	if (UTGameState == nullptr)
+	{
+		return;
+	}
+
 	int32 NumSpectators = 0;
 	int32 XOffset = 0;
 
