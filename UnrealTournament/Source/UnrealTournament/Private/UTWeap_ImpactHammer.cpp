@@ -219,7 +219,45 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 					AutoHitTarget = NULL;
 				}
 			}
+			// if AI controlled, see if bot wants to stop charging
+			AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+			if (B != NULL && !B->IsCharging() && GetAISelectRating() < 0.5f)
+			{
+				UTOwner->StopFiring();
+			}
 		}
+	}
+}
+
+bool AUTWeap_ImpactHammer::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
+{
+	if (Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc))
+	{
+		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+		if (B != NULL)
+		{
+			// intentionally ignoring bPreferCurrentMode here as either fire mode can be pretty worthless based on the bot's current movement goals
+			BestFireMode = 1;
+			if (B->IsCharging())
+			{
+				BestFireMode = 0;
+			}
+			else
+			{
+				for (const FRouteCacheItem& Item : B->RouteCache)
+				{
+					if (Item.Actor.IsValid() && Item.Actor.Get() == B->GetEnemy())
+					{
+						BestFireMode = 0;
+					}
+				}
+			}
+		}
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 
@@ -286,6 +324,12 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 	if (B == NULL)
 	{
+		return false;
+	}
+	// if AI no longer has enough health (got hit on the way?) then abort
+	else if (UTOwner->HealthMax * UTOwner->GetEffectiveHealthPct(false) <= UTOwner->UTCharacterMovement->FullImpactDamage)
+	{
+		B->MoveTimer = -1.0f;
 		return false;
 	}
 	else
