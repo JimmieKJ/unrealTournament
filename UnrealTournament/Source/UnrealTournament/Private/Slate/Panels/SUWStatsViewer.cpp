@@ -25,16 +25,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		OnReadUserFileCompleteDelegate.BindSP(this, &SUWStatsViewer::OnReadUserFileComplete);
 		OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate(OnReadUserFileCompleteDelegate);
 	}
-
-	if (!PlayerOwner->IsLoggedIn())
-	{
-		PlayerOwner->LoginOnline(TEXT(""), TEXT(""), false);
-	}
-	else
-	{
-		DownloadStats();
-	}
-	
+		
 	this->ChildSlot
 	[
 		SNew(SOverlay)
@@ -56,6 +47,20 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 			]
 		]
 	];
+
+	LastStatsDownloadTime = -1;
+}
+
+void SUWStatsViewer::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+{
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline(TEXT(""), TEXT(""), false);
+	}
+	else
+	{
+		DownloadStats();
+	}
 }
 
 void SUWStatsViewer::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
@@ -68,6 +73,12 @@ void SUWStatsViewer::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, E
 
 void SUWStatsViewer::DownloadStats()
 {
+	double TimeDiff = FApp::GetCurrentTime() - LastStatsDownloadTime;
+	if (LastStatsDownloadTime > 0 && TimeDiff < 30.0)
+	{
+		return;
+	}
+
 	if (OnlineIdentityInterface.IsValid())
 	{
 		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->ControllerId);
@@ -76,6 +87,8 @@ void SUWStatsViewer::DownloadStats()
 			StatsID = UserId->ToString();
 			if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid())
 			{
+				LastStatsDownloadTime = FApp::GetCurrentTime();
+
 				// Invalidate the local cache, this seems to be the best way to do that
 				OnlineUserCloudInterface->DeleteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), false, true);
 

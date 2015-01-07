@@ -17,8 +17,11 @@ class SUWStatsViewer : public SUWPanel
 	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
+	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow) override;
 protected:
 	FString StatsID;
+
+	double LastStatsDownloadTime;
 
 	virtual void DownloadStats();
 
