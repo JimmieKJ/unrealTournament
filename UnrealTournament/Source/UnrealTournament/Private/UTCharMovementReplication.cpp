@@ -824,7 +824,7 @@ void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldA
 		PC->SetControlRotation(ViewRot);
 	}
 
-	UE_LOG(LogNetPlayerMovement, Warning, TEXT("Recovered move from OldTimeStamp %f, DeltaTime: %f"), OldTimeStamp, OldTimeStamp - ServerData->CurrentClientTimeStamp);
+	//UE_LOG(LogNetPlayerMovement, Warning, TEXT("Recovered move from OldTimeStamp %f, DeltaTime: %f"), OldTimeStamp, OldTimeStamp - ServerData->CurrentClientTimeStamp);
 	const float MaxResponseTime = ServerData->MaxResponseTime * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation();
 
 	MoveAutonomous(OldTimeStamp, FMath::Min(OldTimeStamp - ServerData->CurrentClientTimeStamp, MaxResponseTime), OldMoveFlags, OldAccel);
