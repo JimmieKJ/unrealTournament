@@ -1108,10 +1108,10 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* Controller = *Iterator;
-		if (Controller->IsA(AUTPlayerController::StaticClass()))
+		if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-			if ((PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
+			if (PC && (PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
 			{
 				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, FlawlessOffset + ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
 			}

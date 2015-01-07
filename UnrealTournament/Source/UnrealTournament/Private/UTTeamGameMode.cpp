@@ -371,10 +371,10 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* Controller = *Iterator;
-		if (Controller->IsA(AUTPlayerController::StaticClass()))
+		if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-			if (Cast<AUTPlayerState>(PC->PlayerState) && !PC->PlayerState->bOnlySpectator)
+			if (PC && Cast<AUTPlayerState>(PC->PlayerState) && !PC->PlayerState->bOnlySpectator)
 			{
 				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
 			}
