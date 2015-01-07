@@ -1010,6 +1010,8 @@ void AUTPlayerController::ReleaseDodge()
 void AUTPlayerController::OnTapForward()
 {
 	LastTapBackTime = -10.f;
+	LastTapRightTime = -10.f;
+	LastTapLeftTime = -10.f;
 	CheckDodge(LastTapForwardTime, MaxDodgeClickTime, true, false, false, false);
 	LastTapForwardTime = GetWorld()->GetTimeSeconds();
 }
@@ -1017,6 +1019,8 @@ void AUTPlayerController::OnTapForward()
 void AUTPlayerController::OnTapBack()
 {
 	LastTapForwardTime = -10.f;
+	LastTapRightTime = -10.f;
+	LastTapLeftTime = -10.f;
 	CheckDodge(LastTapBackTime, MaxDodgeClickTime, false, true, false, false);
 	LastTapBackTime = GetWorld()->GetTimeSeconds();
 }
@@ -1024,6 +1028,8 @@ void AUTPlayerController::OnTapBack()
 void AUTPlayerController::OnTapLeft()
 {
 	LastTapRightTime = -10.f;
+	LastTapBackTime = -10.f;
+	LastTapForwardTime = -10.f;
 	CheckDodge(LastTapLeftTime, MaxDodgeClickTime, false, false, true, false);
 	LastTapLeftTime = GetWorld()->GetTimeSeconds();
 }
@@ -1031,6 +1037,8 @@ void AUTPlayerController::OnTapLeft()
 void AUTPlayerController::OnTapRight()
 {
 	LastTapLeftTime = -10.f;
+	LastTapBackTime = -10.f;
+	LastTapForwardTime = -10.f;
 	CheckDodge(LastTapRightTime, MaxDodgeClickTime, false, false, false, true);
 	LastTapRightTime = GetWorld()->GetTimeSeconds();
 }
