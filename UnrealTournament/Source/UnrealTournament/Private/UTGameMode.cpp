@@ -913,6 +913,11 @@ void AUTGameMode::EndMatch()
 	}
 }
 
+void AUTGameMode::UpdateSkillRating()
+{
+
+}
+
 void AUTGameMode::SendEndOfGameStats(FName Reason)
 {
 	if (FUTAnalytics::IsAvailable())
@@ -928,6 +933,8 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 	if (!bDisableCloudStats)
 	{
+		UpdateSkillRating();
+
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{

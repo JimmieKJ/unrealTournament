@@ -167,6 +167,8 @@ protected:
 
 	virtual void EndOfHalf();
 
+	virtual void UpdateSkillRating() override;
+
 };
 
 

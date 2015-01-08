@@ -10,6 +10,8 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	StatPrefix = TEXT("STAT_");
 
 	Stats.Add(MakeStat(FName(TEXT("SkillRating")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("TDMSkillRating")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("CTFSkillRating")), EStatRecordingPeriod::Persistent));
 
 	Stats.Add(MakeStat(FName(TEXT("MatchesPlayed")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("TimePlayed")), EStatRecordingPeriod::Persistent));

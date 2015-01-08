@@ -402,6 +402,8 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 	
 	if (!bDisableCloudStats)
 	{
+		UpdateSkillRating();
+
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{
@@ -472,6 +474,22 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 						UTChar->bHasHighScore = (BestScore == PS->Score);
 					}
 				}
+			}
+		}
+	}
+}
+
+void AUTTeamGameMode::UpdateSkillRating()
+{
+	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < UTGameState->PlayerArray.Num(); OuterPlayerIdx++)
+	{
+		AUTPlayerState* OuterPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[OuterPlayerIdx]);
+		for (int32 InnerPlayerIdx = 0; InnerPlayerIdx < UTGameState->PlayerArray.Num(); InnerPlayerIdx++)
+		{
+			AUTPlayerState* InnerPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[InnerPlayerIdx]);
+			if (InnerPS != OuterPS && InnerPS && OuterPS && InnerPS->Team != OuterPS->Team)
+			{
+				OuterPS->UpdateSkillRating(FName(TEXT("TDMSkillRating")), InnerPS, OuterPS->Team == UTGameState->WinningTeam);
 			}
 		}
 	}

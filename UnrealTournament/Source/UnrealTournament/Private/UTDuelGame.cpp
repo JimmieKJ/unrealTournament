@@ -240,7 +240,7 @@ void AUTDuelGame::UpdateLobbyMatchStats()
 	}
 }
 
-void AUTDuelGame::SendEndOfGameStats(FName Reason)
+void AUTDuelGame::UpdateSkillRating()
 {
 	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
@@ -261,10 +261,8 @@ void AUTDuelGame::SendEndOfGameStats(FName Reason)
 
 			if (OpponentPS != nullptr)
 			{
-				PS->UpdateSkillRating(OpponentPS, UTGameState->WinnerPlayerState == PS);
+				PS->UpdateSkillRating(FName(TEXT("SkillRating")), OpponentPS, UTGameState->WinnerPlayerState == PS);
 			}
 		}
 	}
-
-	Super::SendEndOfGameStats(Reason);
 }

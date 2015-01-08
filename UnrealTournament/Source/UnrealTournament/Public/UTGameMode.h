@@ -435,6 +435,7 @@ protected:
 	virtual void UpdateOnlineServer();
 
 	virtual void SendEndOfGameStats(FName Reason);
+	virtual void UpdateSkillRating();
 
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such

@@ -493,7 +493,7 @@ int32 AUTPlayerState::GetSkillRating()
 	return SkillRating;
 }
 
-void AUTPlayerState::UpdateSkillRating(AUTPlayerState *Opponent, bool bWonMatch)
+void AUTPlayerState::UpdateSkillRating(FName SkillStatName, AUTPlayerState *Opponent, bool bWonMatch)
 {
 	if (Opponent == nullptr)
 	{
@@ -535,5 +535,5 @@ void AUTPlayerState::UpdateSkillRating(AUTPlayerState *Opponent, bool bWonMatch)
 	}
 
 	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
-	ModifyStat(FName(TEXT("SkillRating")), NewSkillRating, EStatMod::Set);
+	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
 }

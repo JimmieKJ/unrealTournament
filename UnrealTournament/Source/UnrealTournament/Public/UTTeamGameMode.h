@@ -66,6 +66,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void PlayEndOfMatchMessage() override;
 	virtual void AnnounceMatchStart() override;
 	virtual void FindAndMarkHighScorer() override;
+	virtual void UpdateSkillRating() override;
 
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
 
