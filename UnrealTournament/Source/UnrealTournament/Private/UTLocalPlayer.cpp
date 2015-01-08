@@ -656,10 +656,12 @@ void UUTLocalPlayer::LoadProfileSettings()
 
 void UUTLocalPlayer::ClearProfileSettings()
 {
+#if !UE_SERVER
 	if (IsLoggedIn())
 	{
 		ShowMessage(NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnTitle","Clear Cloud"), NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnMessage","You are about to clear out your cloud storage.  Are you sure you want to do this?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ClearProfileWarnResults));
 	}
+#endif
 }
 
 void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
@@ -673,11 +675,13 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 
 void UUTLocalPlayer::OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
+#if !UE_SERVER
 	// We successfully cleared the cloud, rewrite everything
 	if (bWasSuccessful)
 	{
 		ShowMessage(NSLOCTEXT("UTLocalPlayer","CloudClearedTitle","Important"), NSLOCTEXT("UTLocalPlayer","CloudClearedMsg","You have just cleared your cloud settings.  You should restart the game."), UTDIALOG_BUTTON_OK);
 	}
+#endif
 }
 
 
