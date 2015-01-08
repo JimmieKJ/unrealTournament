@@ -9,6 +9,20 @@
 
 #include "UTSquadAI.generated.h"
 
+struct UNREALTOURNAMENT_API FSuperPickupEval : public FBestInventoryEval
+{
+	/** threshold to consider a pickup sufficiently "super" */
+	float MinDesireability;
+	/** list of pickups to ignore because a teammate has a claim on them */
+	TArray<AActor*> ClaimedPickups;
+
+	virtual bool AllowPickup(APawn* Asker, AActor* Pickup, float Desireability, float PickupDist);
+
+	FSuperPickupEval(float InPredictionTime, float InMoveSpeed, int32 InMaxDist = 0, float InMinDesireability = 1.0f, const TArray<AActor*>& InClaimedPickups = TArray<AActor*>())
+		: FBestInventoryEval(InPredictionTime, InMoveSpeed, InMaxDist), MinDesireability(InMinDesireability), ClaimedPickups(InClaimedPickups)
+	{}
+};
+
 extern FName NAME_Attack;
 extern FName NAME_Defend;
 
@@ -140,6 +154,14 @@ public:
 	{
 		return Orders;
 	}
+
+	/** return true if the bot B has a better claim on the given pickup than the current claiming pawn (so this bot may consider taking it instead) */
+	virtual bool HasBetterPickupClaim(AUTBot* B, const FPickupClaim& Claim);
+
+	/** checks for any super pickups (powerups, strong armor, etc) that the AI should focus on above any game objectives right now (or AS the game objectives, such as in DM/TDM)
+	 * also handles the possibility of teammate(s) already headed to a particular pickup so this bot shouldn't consider it
+	 */
+	virtual bool CheckSuperPickups(AUTBot* B, int32 MaxDist);
 
 	/** called by bot during its decision logic to see if there's an action relating to the game's objectives it should take
 	 * @return if an action was assigned

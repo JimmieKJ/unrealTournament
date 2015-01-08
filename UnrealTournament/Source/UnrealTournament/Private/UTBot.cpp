@@ -129,19 +129,23 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 			AUTPickup* TestPickup = Cast<AUTPickup>(TestActor.Get());
 			if (TestPickup != NULL)
 			{
-				float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
-				float RespawnOffset = TestPickup->GetRespawnTimeOffset(Asker);
+				const float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
+				const float RespawnOffset = TestPickup->GetRespawnTimeOffset(Asker);
 				// if short distance and active, allow regardless of prediction time to make sure bots don't look excessively stupid walking by a pickup right in front of them
 				if ((TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f)) || ((RespawnOffset <= 0.0f) ? (RespawnPredictionTime > RespawnOffset) : (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) > RespawnOffset)))
 				{
-					float NewWeight = TestPickup->BotDesireability(Asker, TotalDistance) / PickupDist;
-					if (NewWeight > BestNodeWeight)
+					float NewWeight = TestPickup->BotDesireability(Asker, PickupDist);
+					if (AllowPickup(Asker, TestPickup, NewWeight, PickupDist))
 					{
-						BestNodeWeight = NewWeight;
-						if (NewWeight > BestWeight)
+						NewWeight /= PickupDist;
+						if (NewWeight > BestNodeWeight)
 						{
-							BestPickup = TestPickup;
-							BestWeight = NewWeight;
+							BestNodeWeight = NewWeight;
+							if (NewWeight > BestWeight)
+							{
+								BestPickup = TestPickup;
+								BestWeight = NewWeight;
+							}
 						}
 					}
 				}
@@ -151,14 +155,19 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				AUTDroppedPickup* TestDrop = Cast<AUTDroppedPickup>(TestActor.Get());
 				if (TestDrop != NULL)
 				{
-					float NewWeight = TestDrop->BotDesireability(Asker, TotalDistance) / FMath::Max<float>(1.0f, float(TotalDistance) + (TestDrop->GetActorLocation() - EntryLoc).Size());
-					if (NewWeight > BestNodeWeight)
+					const float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestDrop->GetActorLocation() - EntryLoc).Size());
+					float NewWeight = TestDrop->BotDesireability(Asker, TotalDistance);
+					if (AllowPickup(Asker, TestDrop, NewWeight, PickupDist))
 					{
-						BestNodeWeight = NewWeight;
-						if (NewWeight > BestWeight)
+						NewWeight /= PickupDist;
+						if (NewWeight > BestNodeWeight)
 						{
-							BestPickup = TestDrop;
-							BestWeight = NewWeight;
+							BestNodeWeight = NewWeight;
+							if (NewWeight > BestWeight)
+							{
+								BestPickup = TestDrop;
+								BestWeight = NewWeight;
+							}
 						}
 					}
 				}
@@ -336,6 +345,10 @@ void AUTBot::PawnPendingDestroy(APawn* InPawn)
 	MoveTarget.Clear();
 	bHasTranslocator = false;
 	ImpactJumpZ = 0.0f;
+	if (Squad != NULL && Squad->Team != NULL)
+	{
+		Squad->Team->ClearPickupClaimFor(InPawn);
+	}
 
 	Super::PawnPendingDestroy(InPawn);
 }
@@ -1703,7 +1716,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 		LastFindInventoryTime = GetWorld()->TimeSeconds;
 		LastFindInventoryWeight = MinWeight;
 
-		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed);
+		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, (MinWeight > 0.0f) ? FMath::TruncToInt(5.0f / MinWeight) : 0);
 		return NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
 	}
 }
@@ -2020,11 +2033,11 @@ void AUTBot::ChooseAttackMode()
 			}
 			else if (NeedsWeapon())
 			{
-				WeaponRating = (EnemyStrength > 0.3f) ? 0.0f : (MyWeap->GetAISelectRating() / 2000.0f);
+				WeaponRating = (EnemyStrength > 0.3f) ? 0.0f : (MyWeap->GetAISelectRating() / 4000.0f);
 			}
 			else
 			{
-				WeaponRating = MyWeap->GetAISelectRating() / ((EnemyStrength > 0.3f) ? 2000.0f : 1000.0f);
+				WeaponRating = MyWeap->GetAISelectRating() / ((EnemyStrength > 0.3f) ? 4000.0f : 2000.0f);
 			}
 
 			// fallback to better pickup?
@@ -2677,6 +2690,11 @@ void AUTBot::NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius
 				UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
 			}
 		}
+	}
+	// clear any claims on this pickup since it's likely no longer available
+	if (Squad != NULL && Squad->Team != NULL)
+	{
+		Squad->Team->ClearClaimedPickup(Pickup);
 	}
 }
 

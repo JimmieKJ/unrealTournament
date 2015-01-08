@@ -1169,6 +1169,11 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	Super::RestartPlayer(aPlayer);
 	bSetPlayerDefaultsSpawnInventory = false;
 
+	if (Cast<AUTBot>(aPlayer) != NULL)
+	{
+		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
+	}
+
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceA = nullptr;
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceB = nullptr;
 }

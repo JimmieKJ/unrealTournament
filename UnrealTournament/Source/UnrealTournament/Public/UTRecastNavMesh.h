@@ -133,6 +133,12 @@ struct UNREALTOURNAMENT_API FUTNodeEvaluator
 	 */
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) = 0;
 
+	/** adds optional evaluator specific cost to the given path link; return BLOCKED_PATH_COST to prevent a path from being used even if it would otherwise be valid */
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance)
+	{
+		return 0;
+	}
+
 	/** optional function that allows the evaluator to add a point to move to at the end of the route, i.e. the final target
 	 * since the core functionality only adds PathNodes
 	 * only called if pathing succeeds (some node returned a value from Eval() that exceeds the minimum requirement passed into FindBestPath())

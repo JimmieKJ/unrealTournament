@@ -36,6 +36,8 @@ class AUTCTFSquadAI : public AUTSquadAI
 	virtual bool IsNearEnemyBase(const FVector& TestLoc);
 	/** return action for flag carrier to take */
 	virtual bool SetFlagCarrierAction(AUTBot* B);
+	/** tell bot best action to recover friendly flag (assumed not at home base) */
+	virtual bool RecoverFriendlyFlag(AUTBot* B);
 
 	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName) override;
 	virtual bool HasHighPriorityObjective(AUTBot* B);

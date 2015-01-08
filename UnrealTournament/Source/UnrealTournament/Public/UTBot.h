@@ -70,15 +70,25 @@ struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 {
 	const float RespawnPredictionTime;
 	const float MoveSpeed;
+	const int32 MaxDist;
 
 	float BestWeight;
 	AActor* BestPickup;
 
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
 	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override;
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance) override
+	{
+		return (MaxDist <= 0 || TotalDistance < MaxDist) ? 0 : BLOCKED_PATH_COST;
+	}
+	/** return false to ignore this pickup even if it is desirable and available */
+	virtual bool AllowPickup(APawn* Asker, AActor* Pickup, float Desireability, float PickupDist)
+	{
+		return true;
+	}
 
-	FBestInventoryEval(float InPredictionTime, float InMoveSpeed)
-		: RespawnPredictionTime(InPredictionTime), MoveSpeed(FMath::Max<float>(InMoveSpeed, 1.0f)), BestWeight(0.0f), BestPickup(NULL)
+	FBestInventoryEval(float InPredictionTime, float InMoveSpeed, int32 InMaxDist = 0)
+		: RespawnPredictionTime(InPredictionTime), MoveSpeed(FMath::Max<float>(InMoveSpeed, 1.0f)), MaxDist(InMaxDist), BestWeight(0.0f), BestPickup(NULL)
 	{}
 };
 struct UNREALTOURNAMENT_API FRandomDestEval : public FUTNodeEvaluator
@@ -306,6 +316,10 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** debugging string set during decision logic */
 	UPROPERTY()
 	FString GoalString;
+
+	/** last time bot respawned (not necessarily lining up with Pawn creation time due to vehicles, etc) */
+	UPROPERTY()
+	float LastRespawnTime;
 
 private:
 	/** current action, if any */

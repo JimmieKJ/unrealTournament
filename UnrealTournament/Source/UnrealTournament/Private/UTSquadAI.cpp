@@ -1,9 +1,40 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTSquadAI.h"
+#include "UTPickupWeapon.h"
 
 FName NAME_Attack(TEXT("Attack"));
 FName NAME_Defend(TEXT("Defend"));
+
+bool FSuperPickupEval::AllowPickup(APawn* Asker, AActor* Pickup, float Desireability, float PickupDist)
+{
+	if (ClaimedPickups.Contains(Pickup))
+	{
+		return false;
+	}
+	else if (Desireability >= MinDesireability)
+	{
+		return true;
+	}
+	else
+	{
+		bool bResult = false;
+		// ignore desireability constraint for bot's favorite weapon
+		if (Asker != NULL)
+		{
+			AUTBot* B = Cast<AUTBot>(Asker->Controller);
+			if (B != NULL && B->Personality.FavoriteWeapon != NAME_None)
+			{
+				AUTPickupWeapon* WeaponPickup = Cast<AUTPickupWeapon>(Pickup);
+				if (WeaponPickup != NULL && B->IsFavoriteWeapon(WeaponPickup->WeaponType))
+				{
+					bResult = true;
+				}
+			}
+		}
+		return bResult;
+	}
+}
 
 AUTSquadAI::AUTSquadAI(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -74,9 +105,74 @@ bool AUTSquadAI::LostEnemy(AUTBot* B)
 	}
 }
 
+bool AUTSquadAI::HasBetterPickupClaim(AUTBot* B, const FPickupClaim& Claim)
+{
+	if (Claim.bHardClaim)
+	{
+		return false;
+	}
+	// priority to flag carriers
+	else if (B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL)
+	{
+		return true;
+	}
+	else if (Cast<AUTCharacter>(Claim.ClaimedBy) != NULL && ((AUTCharacter*)Claim.ClaimedBy)->GetCarriedObject() != NULL)
+	{
+		return false;
+	}
+	// if I'm signficantly closer, let me take it
+	else if ((Claim.Pickup->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() * 0.9f < (Claim.Pickup->GetActorLocation() - Claim.ClaimedBy->GetActorLocation()).Size())
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool AUTSquadAI::CheckSuperPickups(AUTBot* B, int32 MaxDist)
+{
+	// TODO: check vehicle driver
+
+	TArray<AActor*> ClaimedPickups;
+	if (Team != NULL)
+	{
+		for (const FPickupClaim& Claim : Team->PickupClaims)
+		{
+			if (Claim.IsValid() && Claim.ClaimedBy != B->GetPawn() && !HasBetterPickupClaim(B, Claim))
+			{
+				ClaimedPickups.Add(Claim.Pickup);
+			}
+		}
+	}
+
+	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (B->GetCharacter() != NULL) ? B->GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, MaxDist, 1.0f, ClaimedPickups);
+	float Weight = 0.0f;
+	TArray<FRouteCacheItem> PotentialRoute;
+	if (NavData->FindBestPath(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, true, PotentialRoute))
+	{
+		if (Team != NULL && PotentialRoute.Last().Actor != NULL)
+		{
+			Team->SetPickupClaim(B->GetPawn(), PotentialRoute.Last().Actor.Get());
+		}
+		B->GoalString = FString::Printf(TEXT("Get super pickup %s"), *GetNameSafe(PotentialRoute.Last().Actor.Get()));
+		B->RouteCache = PotentialRoute;
+		B->SetMoveTarget(PotentialRoute[0]);
+		B->StartWaitForMove();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 bool AUTSquadAI::CheckSquadObjectives(AUTBot* B)
 {
-	return false;
+	// search specifically for super pickups
+	// TODO: maybe get distracted depending on enemy, skill, personality (e.g. grudge)
+	return (B->Skill >= 1.5f && !B->NeedsWeapon() && CheckSuperPickups(B, 2000 * (B->Skill + B->Personality.Tactics + B->Personality.MapAwareness)));
 }
 
 bool AUTSquadAI::PickRetreatDestination(AUTBot* B)

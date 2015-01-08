@@ -3,6 +3,33 @@
 
 #include "UTTeamInfo.generated.h"
 
+USTRUCT()
+struct FPickupClaim
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** player doing the claiming (by Pawn intentionally; generally claim should become invalid on death) */
+	UPROPERTY()
+	APawn* ClaimedBy;
+	UPROPERTY()
+	AActor* Pickup;
+	/** if set, only this player should be allowed to pick it up at all (e.g. don't let other bots take it even if closer and enemy might contest it) */
+	UPROPERTY()
+	bool bHardClaim;
+
+	inline bool IsValid() const
+	{
+		return ClaimedBy != NULL && !ClaimedBy->bTearOff && !ClaimedBy->bPendingKillPending && Pickup != NULL && !Pickup->bPendingKillPending;
+	}
+
+	FPickupClaim()
+	: ClaimedBy(NULL), Pickup(NULL), bHardClaim(false)
+	{}
+	FPickupClaim(APawn* InClaimedBy, AActor* InPickup, bool bInHardClaim)
+	: ClaimedBy(InClaimedBy), Pickup(InPickup), bHardClaim(bInHardClaim)
+	{}
+};
+
 UCLASS()
 class AUTTeamInfo : public AInfo, public IUTTeamInterface
 {
@@ -21,6 +48,10 @@ class AUTTeamInfo : public AInfo, public IUTTeamInterface
 	/** current place in DefaultOrders that we assign next bot to */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	int32 DefaultOrderIndex;
+
+	/** team claims on pickups for AI coordination */
+	UPROPERTY()
+	TArray<FPickupClaim> PickupClaims;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Team)
 	FText TeamName;
@@ -84,6 +115,78 @@ class AUTTeamInfo : public AInfo, public IUTTeamInterface
 	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName);
 
 	const TArray<AController*>& GetTeamMembers() { return TeamMembers; }
+
+	FPickupClaim GetClaimForPickup(AActor* InPickup)
+	{
+		for (int32 i = 0; i < PickupClaims.Num(); i++)
+		{
+			if (!PickupClaims[i].IsValid())
+			{
+				PickupClaims.RemoveAt(i);
+				i--;
+			}
+			else if (PickupClaims[i].Pickup == InPickup)
+			{
+				return PickupClaims[i];
+			}
+		}
+		return FPickupClaim();
+	}
+
+	FPickupClaim GetClaimForPawn(APawn* ClaimedBy)
+	{
+		for (int32 i = 0; i < PickupClaims.Num(); i++)
+		{
+			if (!PickupClaims[i].IsValid())
+			{
+				PickupClaims.RemoveAt(i);
+				i--;
+			}
+			else if (PickupClaims[i].ClaimedBy == ClaimedBy)
+			{
+				return PickupClaims[i];
+			}
+		}
+		return FPickupClaim();
+	}
+
+	void ClearClaimedPickup(AActor* InPickup)
+	{
+		for (int32 i = 0; i < PickupClaims.Num(); i++)
+		{
+			if (PickupClaims[i].Pickup == InPickup)
+			{
+				PickupClaims.RemoveAt(i);
+				return;
+			}
+		}
+	}
+
+	void ClearPickupClaimFor(APawn* ClaimedBy)
+	{
+		for (int32 i = 0; i < PickupClaims.Num(); i++)
+		{
+			if (PickupClaims[i].ClaimedBy == ClaimedBy)
+			{
+				PickupClaims.RemoveAt(i);
+				return;
+			}
+		}
+	}
+
+	void SetPickupClaim(APawn* ClaimedBy, AActor* InPickup, bool bHardClaim = false)
+	{
+		for (FPickupClaim& Claim : PickupClaims)
+		{
+			if (Claim.ClaimedBy == ClaimedBy)
+			{
+				Claim.Pickup = InPickup;
+				Claim.bHardClaim = bHardClaim;
+				return;
+			}
+		}
+		new(PickupClaims) FPickupClaim(ClaimedBy, InPickup, bHardClaim);
+	}
 
 protected:
 	/** list of players on this team currently (server only) */

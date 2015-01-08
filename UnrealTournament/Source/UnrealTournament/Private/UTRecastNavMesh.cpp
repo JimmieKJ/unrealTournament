@@ -1528,6 +1528,10 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, CurrentNode->Poly, this);
 						if (NextDistance < BLOCKED_PATH_COST)
 						{
+							NextDistance += NodeEval.GetTransientCost(CurrentNode->Node->Paths[i], Asker, AgentProps, CurrentNode->Poly, NextDistance + CurrentNode->TotalDistance);
+						}
+						if (NextDistance < BLOCKED_PATH_COST)
+						{
 							// don't allow zero or negative distance - could create a loop
 							if (NextDistance <= 0)
 							{
