@@ -10,7 +10,6 @@ AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer
 {
 	bScoreSuicides = true;
 	bScoreTeamKills = true;
-	bHasRespawnChoices = true;
 	GoalScore = 50;
 	HUDClass = AUTHUD_TeamDM::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "TDM", "Team Deathmatch");
