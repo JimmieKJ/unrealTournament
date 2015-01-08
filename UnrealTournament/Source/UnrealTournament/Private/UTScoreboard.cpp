@@ -83,8 +83,8 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, 325, 60, 4, 99, 488,13,4,99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
 	// Draw Game Text
-	DrawText(NSLOCTEXT("UTScoreBoard","Game","GAME"), 455, 38, MediumFont, 1.0, 1.0, FLinearColor(0.64,0.64,0.64,1.0), ETextHorzPos::Right, ETextVertPos::Center );
-	DrawText(NSLOCTEXT("UTScoreBoard","Map", "MAP"),  455, 90, MediumFont, 1.0, 1.0, FLinearColor(0.64, 0.64, 0.64, 1.0), ETextHorzPos::Right, ETextVertPos::Center);
+	//DrawText(NSLOCTEXT("UTScoreBoard","Game","GAME"), 455, 38, MediumFont, 1.0, 1.0, FLinearColor(0.64,0.64,0.64,1.0), ETextHorzPos::Right, ETextVertPos::Center );
+	//DrawText(NSLOCTEXT("UTScoreBoard","Map", "MAP"),  455, 90, MediumFont, 1.0, 1.0, FLinearColor(0.64, 0.64, 0.64, 1.0), ETextHorzPos::Right, ETextVertPos::Center);
 
 	FText MapName = UTHUDOwner ? FText::FromString(UTHUDOwner->GetWorld()->GetMapName().ToUpper()) : FText::GetEmpty();
 
@@ -100,11 +100,11 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 
 	if (!GameName.IsEmpty())
 	{
-		DrawText(GameName, 470, 28, LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(GameName, 355, 28, LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
 	}
 	if (!MapName.IsEmpty())
 	{
-		DrawText(MapName, 470, 80, LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(MapName, 355, 80, LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
 	}
 
 	DrawGameOptions(RenderDelta, YOffset);
@@ -147,14 +147,16 @@ void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 {
 	float DrawY = YOffset;
 
-	DrawScoreHeaders(RenderDelta, DrawY);
-	DrawPlayerScores(RenderDelta, DrawY);
+	if (UTGameState)
+	{
+		DrawScoreHeaders(RenderDelta, DrawY);
+		DrawPlayerScores(RenderDelta, DrawY);
+	}
 
 }
 
 void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 {
-	float XOffset = 0.0;
 	float Width = 625;  // 20 pixels between them
 	float Height = 23;
 
@@ -165,6 +167,7 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	FText CH_Ready = NSLOCTEXT("UTScoreboard","ColumnHeader_Ready","");
 
 	int32 ColumnCnt = ((UTGameState && UTGameState->bTeamGame) || ActualPlayerCount > 16) ? 2 : 1;
+	float XOffset = ColumnCnt > 1 ? 0 : 322;
 
 	for (int32 i = 0; i < ColumnCnt; i++)
 	{
@@ -198,7 +201,7 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	}
 	int32 Place = 1;
 	int32 NumSpectators = 0;
-	int32 XOffset = 0;
+	int32 XOffset = ActualPlayerCount > 16 ? 0 : 322;
 	float DrawOffset = YOffset;
 	for (int32 i=0; i<UTGameState->PlayerArray.Num(); i++)
 	{
