@@ -449,6 +449,11 @@ public:
 		// make sure special links are done
 		BuildSpecialLinks(MAX_int32);
 	}
+
+	virtual bool NeedsRebuild() const
+	{
+		return (Super::NeedsRebuild() || PathNodes.Num() == 0);
+	}
 };
 
 inline AUTRecastNavMesh* GetUTNavData(UWorld* World)
