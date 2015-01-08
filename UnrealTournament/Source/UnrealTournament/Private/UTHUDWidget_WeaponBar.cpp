@@ -283,7 +283,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		Opacity = 1.0;
 
 		// Recalc this to handle aspect ratio
-		WeaponNameText.Position.X = (Canvas->ClipX * 0.5) * RenderScale * -1;
+		WeaponNameText.Position.X = (Canvas->ClipX * 0.5) / RenderScale * -1;
 		RenderObj_TextAt(WeaponNameText, WeaponNameText.Position.X, WeaponNameText.Position.Y);
 	}
 
