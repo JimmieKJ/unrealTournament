@@ -21,7 +21,7 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	return (UTGameState != NULL && !UTGameState->HasMatchEnded() && UTHUDOwner->UTPlayerOwner != NULL &&
-				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && (UTCharacterOwner == NULL || UTCharacterOwner->IsDead()) && !bShowScores);
+				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && ( ( UTCharacterOwner == NULL && UTPlayerOwner->GetPawn() == NULL ) || ( UTCharacterOwner != NULL && UTCharacterOwner->IsDead()) ) && !bShowScores);
 }
 
 void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)

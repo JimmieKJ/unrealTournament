@@ -56,4 +56,10 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
 
+	virtual bool ShouldDraw_Implementation(bool bShowScores)
+	{
+		return !bShowScores;
+	}
+
+
 };

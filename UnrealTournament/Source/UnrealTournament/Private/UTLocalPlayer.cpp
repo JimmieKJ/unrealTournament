@@ -66,9 +66,12 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 
 	    OnReadUserFileCompleteDelegate = FOnReadUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadUserFileComplete);
 		OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate(OnReadUserFileCompleteDelegate);
-
+		
 	    OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnWriteUserFileComplete);
 		OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate(OnWriteUserFileCompleteDelegate);
+
+		OnDeleteUserFileCompleteDelegate = FOnDeleteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDeleteUserFileComplete);
+		OnlineUserCloudInterface->AddOnDeleteUserFileCompleteDelegate(OnDeleteUserFileCompleteDelegate);
 
 	}
 
@@ -651,6 +654,33 @@ void UUTLocalPlayer::LoadProfileSettings()
 	}
 }
 
+void UUTLocalPlayer::ClearProfileSettings()
+{
+	if (IsLoggedIn())
+	{
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnTitle","Clear Cloud"), NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnMessage","You are about to clear out your cloud storage.  Are you sure you want to do this?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ClearProfileWarnResults));
+	}
+}
+
+void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (IsLoggedIn() && ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		OnlineUserCloudInterface->DeleteUserFile(*UserID, GetProfileFilename(), true, true);
+	}
+}
+
+void UUTLocalPlayer::OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
+{
+	// We successfully cleared the cloud, rewrite everything
+	if (bWasSuccessful)
+	{
+		ShowMessage(NSLOCTEXT("UTLocalPlayer","CloudClearedTitle","Important"), NSLOCTEXT("UTLocalPlayer","CloudClearedMsg","You have just cleared your cloud settings.  You should restart the game."), UTDIALOG_BUTTON_OK);
+	}
+}
+
+
 void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	if (FileName == GetProfileFilename())
@@ -687,6 +717,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			{
 				CurrentProfileSettings->ClearWeaponPriorities();
 			}
+		}
+		else if (CurrentProfileSettings == NULL) // Create a new profile settings object
+		{
+			CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(), GetTransientPackage());
 		}
 
 		PlayerNickname = GetAccountDisplayName().ToString();

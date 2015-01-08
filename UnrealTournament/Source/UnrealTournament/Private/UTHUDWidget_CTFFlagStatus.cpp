@@ -64,10 +64,11 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		}
 
 		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
-		if (Base && UTCharacterOwner)
+		if (Base && UTPlayerOwner->GetPawn())
 		{
-			FRotator Dir = (Base->GetActorLocation() - UTCharacterOwner->GetActorLocation()).Rotation();
-			float Yaw = (Dir.Yaw - UTCharacterOwner->GetViewRotation().Yaw);
+			APawn* P = UTPlayerOwner->GetPawn();
+			FRotator Dir = (Base->GetActorLocation() - P->GetActorLocation()).Rotation();
+			float Yaw = (Dir.Yaw - P->GetViewRotation().Yaw);
 			FlagArrowTemplate.RotPivot = FVector2D(0.5,0.5);
 			FlagArrowTemplate.Rotation = Yaw;
 			RenderObj_TextureAt(FlagArrowTemplate, X, Y, FlagArrowTemplate.GetWidth(), FlagArrowTemplate.GetHeight());

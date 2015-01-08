@@ -21,6 +21,7 @@ protected:
 	virtual FReply OnChangeTeam(int32 NewTeamIndex, TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenTPSReport(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenCredits(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnMenuHTTPButton(FString URL, TSharedPtr<SComboButton> MenuButton);

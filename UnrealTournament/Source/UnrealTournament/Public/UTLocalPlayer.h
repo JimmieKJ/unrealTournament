@@ -199,10 +199,13 @@ private:
 
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
 	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
+	FOnDeleteUserFileCompleteDelegate OnDeleteUserFileCompleteDelegate;
 	
 public:
 	virtual void LoadProfileSettings();
 	virtual void SaveProfileSettings();
+	virtual void ClearProfileSettings();
+
 	virtual UUTProfileSettings* GetProfileSettings() { return CurrentProfileSettings; };
 
 	virtual void SetNickname(FString NewName);
@@ -216,9 +219,10 @@ protected:
 	UUTProfileSettings* CurrentProfileSettings;
 
 	virtual FString GetProfileFilename();	
-
+	virtual void ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
+	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 
 #if !UE_SERVER
 	TSharedPtr<class SUWDialog> HUDSettings;

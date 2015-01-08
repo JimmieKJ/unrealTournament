@@ -435,6 +435,16 @@ void SUWindowsMainMenu::BuildOptionsSubMenu()
 			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 			.OnClicked(this, &SUWindowsMainMenu::OpenControlSettings, DropDownButton)
 		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear your Cloud").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+			.OnClicked(this, &SUWindowsMainMenu::ClearCloud, DropDownButton)
+		]
 	);
 
 	MenuBar->AddSlot()
@@ -566,6 +576,21 @@ FReply SUWindowsMainMenu::OpenControlSettings(TSharedPtr<SComboButton> MenuButto
 	PlayerOwner->OpenDialog(SNew(SUWControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","Controls","Control Settings")));
 	return FReply::Handled();
 }
+
+FReply SUWindowsMainMenu::ClearCloud(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	if (PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->ClearProfileSettings();				
+	}
+	else
+	{
+		PlayerOwner->ShowMessage(NSLOCTEXT("SUWindowsMainMenu","NotLoggedInTitle","NOT LOGGED IN"), NSLOCTEXT("SuWindowsMainMenu","NoLoggedInMsg","You need to be logged in to clear your cloud settings"), UTDIALOG_BUTTON_OK);
+	}
+	return FReply::Handled();
+}
+
 
 FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
 {

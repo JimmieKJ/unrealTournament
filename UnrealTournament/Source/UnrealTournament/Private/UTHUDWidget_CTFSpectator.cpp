@@ -22,7 +22,7 @@ UUTHUDWidget_CTFSpectator::UUTHUDWidget_CTFSpectator(const class FObjectInitiali
 bool UUTHUDWidget_CTFSpectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	return (UTGameState != NULL && !UTGameState->HasMatchEnded() && UTHUDOwner->UTPlayerOwner != NULL && 
-				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && (UTCharacterOwner == NULL || UTCharacterOwner->IsDead()) && !bShowScores);
+				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && ( (UTCharacterOwner == NULL && UTPlayerOwner->GetPawn() == NULL) || ( UTCharacterOwner != NULL && UTCharacterOwner->IsDead() ) ) && !bShowScores);
 }
 
 
