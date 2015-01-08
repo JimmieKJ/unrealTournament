@@ -677,7 +677,7 @@ void UUTLocalPlayer::OnDeleteUserFileComplete(bool bWasSuccessful, const FUnique
 {
 #if !UE_SERVER
 	// We successfully cleared the cloud, rewrite everything
-	if (bWasSuccessful)
+	if (bWasSuccessful && FileName == GetProfileFilename())
 	{
 		ShowMessage(NSLOCTEXT("UTLocalPlayer","CloudClearedTitle","Important"), NSLOCTEXT("UTLocalPlayer","CloudClearedMsg","You have just cleared your cloud settings.  You should restart the game."), UTDIALOG_BUTTON_OK);
 	}
