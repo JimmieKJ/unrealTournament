@@ -323,13 +323,6 @@ void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode
 	}
 }
 
-// reset links
-void AUTWeap_LinkGun::OnBringUp()
-{
-	ClearLinks();
-	Super::OnBringUp();
-}
-
 void AUTWeap_LinkGun::StopFire(uint8 FireModeNum)
 {
 	LinkedBio = NULL;
@@ -339,10 +332,15 @@ void AUTWeap_LinkGun::StopFire(uint8 FireModeNum)
 // reset links
 bool AUTWeap_LinkGun::PutDown()
 {
-	Super::PutDown();
-	ClearLinks();
-
-	return true;
+	if (Super::PutDown())
+	{
+		ClearLinks();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 void AUTWeap_LinkGun::ServerStopFire_Implementation(uint8 FireModeNum)

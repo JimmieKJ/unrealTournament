@@ -46,7 +46,8 @@ class UUTWeaponState : public UObject
 	 */
 	virtual void BringUp(float OverflowTime)
 	{
-		UE_LOG(UT, Warning, TEXT("BringUp() called in state %s"), *GetName());
+		// note that this can happen legitimately if the player sets a pending weapon while firing then reverts back to this weapon before that firing sequence completes
+		//UE_LOG(UT, Warning, TEXT("BringUp() called in state %s"), *GetName());
 	}
 	/** handle request to put down weapon
 	 * note that the state can't outright reject putdown (weapon has that authority)

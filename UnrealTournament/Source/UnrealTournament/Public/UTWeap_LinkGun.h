@@ -124,9 +124,6 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	virtual void StopFire(uint8 FireModeNum) override;
 
 	virtual void ServerStopFire_Implementation(uint8 FireModeNum) override;
-
-	// reset links
-	virtual void OnBringUp();
     
 	// reset links
 	virtual bool PutDown() override;
