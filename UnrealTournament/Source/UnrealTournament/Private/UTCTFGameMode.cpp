@@ -946,16 +946,12 @@ void AUTCTFGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 
 void AUTCTFGameMode::UpdateSkillRating()
 {
-	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < UTGameState->PlayerArray.Num(); OuterPlayerIdx++)
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 	{
-		AUTPlayerState* OuterPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[OuterPlayerIdx]);
-		for (int32 InnerPlayerIdx = 0; InnerPlayerIdx < UTGameState->PlayerArray.Num(); InnerPlayerIdx++)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
 		{
-			AUTPlayerState* InnerPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[InnerPlayerIdx]);
-			if (InnerPS != OuterPS && InnerPS && OuterPS && InnerPS->Team != OuterPS->Team)
-			{
-				OuterPS->UpdateSkillRating(FName(TEXT("CTFSkillRating")), InnerPS, OuterPS->Team == UTGameState->WinningTeam);
-			}
+			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam);
 		}
 	}
 }

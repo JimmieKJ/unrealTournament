@@ -169,12 +169,14 @@ public:
 	void WriteStatsToCloud();
 	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
-	int32 GetSkillRating();
-	void UpdateSkillRating(FName SkillStatName, AUTPlayerState *Opponent, bool bWonMatch);
+	virtual int32 GetSkillRating(FName SkillStatName);
+	virtual void UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch);
 
 private:
 	bool bWroteStatsToCloud;
-	int32 SkillRatingThisMatch;
+	int32 DuelSkillRatingThisMatch;
+	int32 TDMSkillRatingThisMatch;
+	int32 CTFSkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;

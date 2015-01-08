@@ -18,4 +18,5 @@ class UNREALTOURNAMENT_API AUTTeamDMGameMode : public AUTTeamGameMode
 	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType) override;
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual void UpdateSkillRating() override;
 };

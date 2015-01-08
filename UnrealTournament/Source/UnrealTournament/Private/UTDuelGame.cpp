@@ -244,24 +244,9 @@ void AUTDuelGame::UpdateSkillRating()
 	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS != nullptr && !PS->bIsSpectator)
+		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			// There's probably a better way of finding the opponent PS
-			AUTPlayerState* OpponentPS = nullptr;
-			for (int OpponentIdx = 0; OpponentIdx < UTGameState->PlayerArray.Num(); OpponentIdx++)
-			{
-				AUTPlayerState* CandidatePS = Cast<AUTPlayerState>(UTGameState->PlayerArray[OpponentIdx]);
-				if (CandidatePS != nullptr && !CandidatePS->bIsSpectator)
-				{
-					OpponentPS = CandidatePS;
-					break;
-				}
-			}
-
-			if (OpponentPS != nullptr)
-			{
-				PS->UpdateSkillRating(FName(TEXT("SkillRating")), OpponentPS, UTGameState->WinnerPlayerState == PS);
-			}
+			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS);
 		}
 	}
 }

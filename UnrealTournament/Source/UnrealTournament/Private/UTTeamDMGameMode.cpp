@@ -121,3 +121,15 @@ AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner(uint32& bTied)
 	return BestPlayer;
 
 }
+
+void AUTTeamDMGameMode::UpdateSkillRating()
+{
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(FName(TEXT("TDMSkillRating")), PS->Team == UTGameState->WinningTeam);
+		}
+	}
+}
