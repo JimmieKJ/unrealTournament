@@ -220,10 +220,13 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 				}
 			}
 			// if AI controlled, see if bot wants to stop charging
-			AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-			if (B != NULL && !B->IsCharging() && GetAISelectRating() < 0.5f)
+			if (UTOwner != NULL) // above auto-fire might have killed Owner
 			{
-				UTOwner->StopFiring();
+				AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+				if (B != NULL && !B->IsCharging() && GetAISelectRating() < 0.5f)
+				{
+					UTOwner->StopFiring();
+				}
 			}
 		}
 	}
