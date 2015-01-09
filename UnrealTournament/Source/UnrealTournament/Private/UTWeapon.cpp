@@ -461,6 +461,7 @@ void AUTWeapon::EndFiringSequence(uint8 FireModeNum)
 void AUTWeapon::BringUp(float OverflowTime)
 {
 	AttachToOwner();
+	OnBringUp();
 	CurrentState->BringUp(OverflowTime);
 }
 

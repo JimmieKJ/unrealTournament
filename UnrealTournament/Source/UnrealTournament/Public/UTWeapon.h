@@ -410,6 +410,10 @@ public:
 	 */
 	virtual bool PutDown();
 
+	/**Hook to do effects when the weapon is raised*/
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnBringUp();
+
 	/** allows blueprint to prevent the weapon from being switched away from */
 	UFUNCTION(BlueprintImplementableEvent)
 	bool eventPreventPutDown();
