@@ -213,6 +213,41 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 	return BestTeams[FMath::RandHelper(BestTeams.Num())]->TeamIndex;
 }
 
+void AUTTeamGameMode::DefaultTimer()
+{
+	Super::DefaultTimer();
+
+	// check if bots should switch teams for balancing
+	if (bBalanceTeams && NumBots > 0)
+	{
+		struct FTeamSizeSort
+		{
+			bool operator()(AUTTeamInfo& A, AUTTeamInfo& B) const
+			{
+				return (A.GetSize() > B.GetSize());
+			}
+		};
+		TArray<AUTTeamInfo*> SortedTeams = UTGameState->Teams;
+		SortedTeams.Sort(FTeamSizeSort());
+
+		for (int32 i = 1; i < SortedTeams.Num(); i++)
+		{
+			if (SortedTeams[i - 1]->GetSize() > SortedTeams[i]->GetSize() + 1)
+			{
+				TArray<AController*> Members = SortedTeams[i - 1]->GetTeamMembers();
+				for (AController* C : Members)
+				{
+					AUTBot* B = Cast<AUTBot>(C);
+					if (B != NULL && B->GetPawn() == NULL)
+					{
+						ChangeTeam(B, SortedTeams[i]->GetTeamNum(), true);
+					}
+				}
+			}
+		}
+	}
+}
+
 void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	if (InstigatedBy != NULL && InstigatedBy != Injured->Controller && Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))

@@ -41,6 +41,13 @@ void AUTTeamInfo::RemoveFromTeam(AController* C)
 	if (C != NULL && TeamMembers.Contains(C))
 	{
 		TeamMembers.Remove(C);
+		// remove from squad
+		AUTBot* B = Cast<AUTBot>(C);
+		if (B != NULL && B->GetSquad() != NULL)
+		{
+			B->GetSquad()->RemoveMember(B);
+		}
+		// TODO: human player squads
 		AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
 		if (PS != NULL)
 		{

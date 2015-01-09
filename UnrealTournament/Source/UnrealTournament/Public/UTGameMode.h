@@ -302,6 +302,9 @@ public:
 	/** adds a bot to the game, ignoring game settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual class AUTBot* ForceAddBot(uint8 TeamNum = 255);
+	/** sets bot count, ignoring startup settings */
+	UFUNCTION(Exec, BlueprintCallable, Category = AI)
+	virtual void SetBotCount(uint8 NewCount);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);

@@ -67,6 +67,8 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void AnnounceMatchStart() override;
 	virtual void FindAndMarkHighScorer() override;
 	
+	virtual void DefaultTimer() override;
+
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
 
 	/** pick the best team to place this player to keep the teams as balanced as possible
