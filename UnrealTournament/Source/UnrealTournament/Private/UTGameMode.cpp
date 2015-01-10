@@ -54,7 +54,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	CountDown = 4;
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
-	ForceRespawnTime = 3.0f;
+	ForceRespawnTime = 3.5f;
 	bPlayersMustBeReady = true;
 	MaxReadyWaitTime = 20;
 	bHasRespawnChoices = false;
@@ -1268,6 +1268,22 @@ AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& Incomin
 	}
 
 	return Best;
+}
+
+FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+{
+	FString ErrorMessage = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
+
+	AUTPlayerState* NewPlayerState = Cast<AUTPlayerState>(NewPlayerController->PlayerState);
+	if (bHasRespawnChoices && NewPlayerState)
+	{
+		NewPlayerState->RespawnChoiceA = nullptr;
+		NewPlayerState->RespawnChoiceB = nullptr;
+		NewPlayerState->RespawnChoiceA = Cast<APlayerStart>(ChoosePlayerStart(NewPlayerController));
+		NewPlayerState->RespawnChoiceB = Cast<APlayerStart>(ChoosePlayerStart(NewPlayerController));
+	}
+
+	return ErrorMessage;
 }
 
 AActor* AUTGameMode::ChoosePlayerStart(AController* Player)

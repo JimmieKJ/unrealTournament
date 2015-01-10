@@ -250,6 +250,7 @@ public:
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 

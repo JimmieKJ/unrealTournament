@@ -83,17 +83,17 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 					FFormatNamedArguments Args;
 					uint32 WaitTime = uint32(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime) + 1;
 					Args.Add("RespawnTime", FText::AsNumber(WaitTime));
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
+					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
 				}
 				else
 				{
 					if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
 					{
-						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRepsawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]");
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]");
 					}
 					else
 					{
-						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "RepsawnMessage", "Press [FIRE] to respawn...");
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
 					}
 				}
 			}
@@ -114,16 +114,14 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				{
 					if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
 					{
-						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRepsawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]");
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]");
 					}
 					else
 					{
-						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "RepsawnMessage", "Press [FIRE] to respawn...");
+						SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
 					}
 				}
-
 			}
-
 		}
 		DrawText(SpectatorMessage, 360, 50, MessageFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	}

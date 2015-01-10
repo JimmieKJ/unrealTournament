@@ -16,7 +16,6 @@ UUTHUDWidget_RespawnChoice::UUTHUDWidget_RespawnChoice(const FObjectInitializer&
 	bScaleByDesignedResolution = false;
 }
 
-
 void UUTHUDWidget_RespawnChoice::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
@@ -35,7 +34,8 @@ void UUTHUDWidget_RespawnChoice::InitializeWidget(AUTHUD* Hud)
 void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (UTPS != nullptr && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
+	AUTGameState* UTGameState = Cast<AUTGameState>(UTPlayerOwner->GetWorld()->GameState);
+	if (UTPS != nullptr && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB && UTGameState != nullptr && (UTGameState->IsMatchInProgress() || UTGameState->IsMatchInCountdown()))
 	{
 		if (!bHasValidRespawnCapture)
 		{
@@ -76,7 +76,6 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 	{
 		bHasValidRespawnCapture = false;
 	}
-
 	Super::Draw_Implementation(DeltaTime);
 }
 

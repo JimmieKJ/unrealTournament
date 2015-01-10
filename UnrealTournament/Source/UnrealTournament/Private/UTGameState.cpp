@@ -392,6 +392,11 @@ void AUTGameState::SortPRIArray()
 	}
 }
 
+bool AUTGameState::IsMatchInCountdown() const
+{
+	return GetMatchState() == MatchState::CountdownToBegin;
+}
+
 bool AUTGameState::HasMatchStarted() const
 {
 	return Super::HasMatchStarted() && GetMatchState() != MatchState::CountdownToBegin;

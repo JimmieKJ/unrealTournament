@@ -151,6 +151,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInOvertime() const;
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	virtual bool IsMatchInCountdown() const;
+
 	virtual void BeginPlay() override;
 
 	/** add an overlay to the OverlayMaterials list */
