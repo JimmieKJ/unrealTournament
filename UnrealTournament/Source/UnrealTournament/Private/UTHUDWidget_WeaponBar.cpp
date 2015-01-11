@@ -125,15 +125,12 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	if (WeaponGroups.Num() > 0)
 	{
 		// Draw the Weapon Groups
-
 		float YPosition = 0.0;
-
 		int32 SelectedGroup = SelectedWeapon ? SelectedWeapon->Group : -1;
 
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
 			// We have no allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
-
 			float Y2 = YPosition;
 			float TextXPosition = 0;
 			bool bSelectedGroup = false;
@@ -145,22 +142,19 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;
 
-					if (bSelected) bSelectedGroup = true;
-
+					if (bSelected)
+					{
+						bSelectedGroup = true;
+					}
 					Opacity = bSelected ? 1.0 : InactiveOpacity;
 
 					// Draw the background and the background's border.
-
 					int32 Idx = (WeapIdx == 0) ? 0 : 1;
-
 					float FullIconCellWidth = (CurrentWeapon->Group == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
 					float FullCellWidth = FullIconCellWidth + HeaderTab[Idx].GetWidth() + 3 + GroupHeaderCap[Idx].GetWidth();
-
 					float CellScale = bSelected ? SelectedCellScale : 1.0;
 					float CellHeight = CellBackground[Idx].GetHeight() * CellScale;
-
 					float IconCellWidth = CellWidth * CellScale;
-
 					float XPosition = (FullCellWidth * -1);
 					YPosition -= HeaderTab[Idx].GetHeight() * CellScale;
 
@@ -172,37 +166,31 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					// Draw the Stretch bar
 
 					// Calculate the size of the stretch bar.
-
 					float StretchSize = FMath::Abs<float>(XPosition) -IconCellWidth - GroupHeaderCap[Idx].GetWidth();
 					RenderObj_TextureAt(GroupSpacerBorder[Idx], XPosition, YPosition, StretchSize, CellHeight);
 					XPosition += StretchSize;
 
 					// Draw the cap
-
 					RenderObj_TextureAt(GroupHeaderCap[Idx], XPosition, YPosition, GroupHeaderCap[Idx].GetWidth(), CellHeight);
 					XPosition += GroupHeaderCap[Idx].GetWidth();
 
-
 					// Draw the cell and the icon.
-
 					RenderObj_TextureAt(CellBackground[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
 					RenderObj_TextureAt(CellBorders[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
 
 					Opacity = bSelected ? 1.0 : InactiveIconOpacity;
 
 					// Draw the Weapon Icon
-
 					if (CurrentWeapon)
-
-					WeaponIcon.UVs = bSelected ? CurrentWeapon->WeaponBarSelectedUVs : CurrentWeapon->WeaponBarInactiveUVs;
-					WeaponIcon.RenderColor = UTHUDOwner->bUseWeaponColors ? CurrentWeapon->IconColor : FLinearColor::White;
+					{
+						WeaponIcon.UVs = bSelected ? CurrentWeapon->WeaponBarSelectedUVs : CurrentWeapon->WeaponBarInactiveUVs;
+						WeaponIcon.RenderColor = UTHUDOwner->bUseWeaponColors ? CurrentWeapon->IconColor : FLinearColor::White;
+					}
 
 					float WeaponY = (CellHeight * 0.5) - (WeaponIcon.UVs.VL * CellScale * 0.5);
-
 					RenderObj_TextureAt(WeaponIcon, -15, YPosition + WeaponY, WeaponIcon.UVs.UL * CellScale, WeaponIcon.UVs.VL * CellScale);
 
 					// Draw the ammo bars
-
 					if (BarTexture)
 					{
 						float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.0;
@@ -214,18 +202,35 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 						Y = Y + BarHeight - 1 - ((BarHeight-2) * AmmoPerc);
 						BarHeight = (BarHeight -2) * AmmoPerc;
-
 						FLinearColor BarColor = FLinearColor::Green;
-
-						if (AmmoPerc <= 0.33) BarColor = FLinearColor::Red;
-						else if (AmmoPerc <= 0.66) BarColor = FLinearColor::Yellow;
-
+						if (AmmoPerc <= 0.33)
+						{
+							BarColor = FLinearColor::Red;
+						}
+						else if (AmmoPerc <= 0.66)
+						{
+							BarColor = FLinearColor::Yellow;
+						}
 						DrawTexture(BarTexture, X+1, Y, Width-2, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.0, BarColor);
 					}
 				}
 
 				Opacity = bSelectedGroup ? 1.0 : InactiveIconOpacity;
-				GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
+
+				// @TODO FIXME - should show the actual key bound to the weapon group
+				if (WeaponGroups[GroupIdx].Group == 0)
+				{
+					GroupText.Text = FText::FromString(TEXT("Q"));
+				}
+				else if (WeaponGroups[GroupIdx].Group == 10)
+				{
+					GroupText.Text = FText::FromString(TEXT("0"));
+				}
+				else
+				{
+					GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
+				}
+
 				RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5) + GroupText.Position.Y);
 			}
 			else
@@ -233,15 +238,11 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				Opacity = UTHUDOwner->HUDWidgetWeaponBarEmptyOpacity * InactiveOpacity;
 
 				// Draw the background and the background's border.
-
 				float FullIconCellWidth = CellWidth;
 				float FullCellWidth = FullIconCellWidth + HeaderTab[0].GetWidth() + 3 + GroupHeaderCap[0].GetWidth();
-
 				float CellScale = 1.0;
 				float CellHeight = CellBackground[0].GetHeight() * CellScale;
-
 				float IconCellWidth = CellWidth * CellScale;
-
 				float XPosition = (FullCellWidth * -1);
 				YPosition -= HeaderTab[0].GetHeight() * CellScale;
 
@@ -251,20 +252,16 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				TextXPosition = XPosition;
 
 				// Draw the Stretch bar
-
 				// Calculate the size of the stretch bar.
-
 				float StretchSize = FMath::Abs<float>(XPosition) -IconCellWidth - GroupHeaderCap[0].GetWidth();
 				RenderObj_TextureAt(GroupSpacerBorder[0], XPosition, YPosition, StretchSize, CellHeight);
 				XPosition += StretchSize;
 
 				// Draw the cap
-
 				RenderObj_TextureAt(GroupHeaderCap[0], XPosition, YPosition, GroupHeaderCap[0].GetWidth(), CellHeight);
 				XPosition += GroupHeaderCap[0].GetWidth();
 
 				// Draw the cell and the icon.
-
 				RenderObj_TextureAt(CellBackground[0], XPosition, YPosition, IconCellWidth, CellHeight);
 				RenderObj_TextureAt(CellBorders[0], XPosition, YPosition, IconCellWidth, CellHeight);
 
@@ -275,7 +272,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 			YPosition -= 10;
 		}
-
 	}
 
 	if (WeaponNameText.RenderOpacity > 0.0)
@@ -306,7 +302,6 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 	if (UTCharacterOwner)
 	{
 		// Parse over the character and see what weapons they have.
-
 		if (RequiredGroups >= 0)
 		{
 			for (int i=RequiredGroups;i>=0;i--)
@@ -352,7 +347,6 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 				{
 					WeaponGroups.Insert(G,InsertPosition);
 				}
-
 			}
 			else
 			{
