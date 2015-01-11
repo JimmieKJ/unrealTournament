@@ -136,7 +136,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			if (WeaponGroups[GroupIdx].WeaponsInGroup.Num() > 0)
 			{
 				// Draw the elements.
-				for (int32 WeapIdx = WeaponGroups[GroupIdx].WeaponsInGroup.Num() - 1;  WeapIdx >=0 ; WeapIdx--)
+				for (int32 WeapIdx = 0; WeapIdx < WeaponGroups[GroupIdx].WeaponsInGroup.Num(); WeapIdx++)
 				{
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;
@@ -320,6 +320,24 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 				if (WeaponGroups[i].Group == Weapon->Group)
 				{
 					GroupIndex = i;
+					int32 InsertPosition = -1;
+					for (int32 i = 0; i<WeaponGroups[GroupIndex].WeaponsInGroup.Num(); i++)
+					{
+						if (WeaponGroups[GroupIndex].WeaponsInGroup[i]->GroupSlot < Weapon->GroupSlot)
+						{
+							InsertPosition = i;
+							break;
+						}
+					}
+
+					if (InsertPosition < 0)
+					{
+						WeaponGroups[GroupIndex].WeaponsInGroup.Add(Weapon);
+					}
+					else
+					{
+						WeaponGroups[GroupIndex].WeaponsInGroup.Insert(Weapon, InsertPosition);
+					}
 					break;
 				}
 			}
@@ -338,7 +356,7 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 					}
 				}
 
-				if (InsertPosition <0)
+				if (InsertPosition < 0)
 				{
 					WeaponGroups.Add(G);
 				}
@@ -346,10 +364,6 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 				{
 					WeaponGroups.Insert(G,InsertPosition);
 				}
-			}
-			else
-			{
-				WeaponGroups[GroupIndex].WeaponsInGroup.Add(Weapon);
 			}
 		}
 	}

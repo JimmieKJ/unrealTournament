@@ -315,12 +315,19 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	}
 
 	// assign GroupSlot if required
+	int32 MaxGroupSlot = 0;
+	bool bDuplicateSlot = false;
 	for (TInventoryIterator<AUTWeapon> It(UTOwner); It; ++It)
 	{
 		if (*It != this && It->Group == Group)
 		{
-			GroupSlot = FMath::Max<int32>(GroupSlot, It->GroupSlot + 1);
+			MaxGroupSlot = FMath::Max<int32>(MaxGroupSlot, It->GroupSlot);
+			bDuplicateSlot = bDuplicateSlot || (GroupSlot == It->GroupSlot);
 		}
+	}
+	if (bDuplicateSlot)
+	{
+		GroupSlot = MaxGroupSlot + 1;
 	}
 
 	if (bAutoActivate && UTPC != NULL)
