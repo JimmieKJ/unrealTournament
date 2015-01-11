@@ -117,7 +117,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	bool bAffectedByStoppingPower;
 
 	/** Custom Momentum scaling for friendly hitscanned pawns */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float FriendlyMomentumScaling;
 
 	virtual	float GetImpartedMomentumMag(AActor* HitActor);
@@ -293,7 +293,7 @@ public:
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
 	 */
-	UPROPERTY(Config, Transient, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(EditAnywhere, Config, Transient, BlueprintReadOnly, Category = "Selection")
 	int32 Group;
 
 	/** Group this weapon was assigned to in past UTs when each weapon was in its own slot. */
@@ -303,13 +303,13 @@ public:
 	/** if the player acquires more than one weapon in a group, we assign a unique GroupSlot to keep a consistent order
 	 * this value is only set on clients
 	 */
-	UPROPERTY(Config, Transient,  BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(EditAnywhere, Config, Transient, BlueprintReadOnly, Category = "Selection")
 	int32 GroupSlot;
 
 	/** user set priority for auto switching and switch to best weapon functionality
 	 * this value only has meaning on clients
 	 */
-	UPROPERTY(Config, Transient, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(EditAnywhere, Config, Transient, BlueprintReadOnly, Category = "Selection")
 	float AutoSwitchPriority;
 
 	/** return priority for human player auto weapon switch (on pickup if enabled, or switch to best weapon key)
