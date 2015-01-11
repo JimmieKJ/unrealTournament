@@ -1377,18 +1377,31 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 	AActor* LastSpot = (Player != NULL && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
 	AUTPlayerState *UTPS = Cast<AUTPlayerState>(Player->PlayerState);
-	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot) || P == UTPS->RespawnChoiceA)
+	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot))
 	{
 		// avoid re-using starts
 		Score -= 15.0f;
 	}
-
-	bool bTwoPlayerGame = (NumPlayers + NumBots == 2);
+	FVector StartLoc = P->GetActorLocation() + AUTCharacter::StaticClass()->GetDefaultObject<AUTCharacter>()->BaseEyeHeight;
+	if (UTPS->RespawnChoiceA)
+	{
+		if (P == UTPS->RespawnChoiceA)
+		{
+			// make sure to have two choices
+			return -5.f;
+		}
+		// try to get far apart choices
+		float Dist = (UTPS->RespawnChoiceA->GetActorLocation() - StartLoc).Size();
+		if (Dist < 5000.0f)
+		{
+			Score -= 5.f;
+		}
+	}
 
 	if (Player != NULL)
 	{
-		FVector StartLoc = P->GetActorLocation() + AUTCharacter::StaticClass()->GetDefaultObject<AUTCharacter>()->BaseEyeHeight ;
-		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+		bool bTwoPlayerGame = (NumPlayers + NumBots == 2);
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
 			AController* OtherController = *Iterator;
 			ACharacter* OtherCharacter = Cast<ACharacter>( OtherController->GetPawn());
@@ -1430,6 +1443,16 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 					}
 				}
 			}
+			else if (bHasRespawnChoices && OtherController->PlayerState && !OtherController->GetPawn() && !OtherController->PlayerState->bOnlySpectator)
+			{
+				// make sure no one else has this start as a pending choice
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(OtherController->PlayerState);
+				if (UTPS && (P == UTPS->RespawnChoiceA) || (P == UTPS->RespawnChoiceB))
+				{
+					return -5.f;
+				}
+			}
+
 		}
 	}
 	return FMath::Max(Score, 0.2f);
@@ -1513,7 +1536,6 @@ bool AUTGameMode::ReadyToStartMatch()
  *  only be in 1 place otherwise it's prone to mismatch errors.  I'm chosen the GameState because it's
  *  replicated and will be available on clients.
  **/
-
 bool AUTGameMode::HasMatchStarted() const
 {
 	return UTGameState->HasMatchStarted();
@@ -1529,9 +1551,7 @@ bool AUTGameMode::HasMatchEnded() const
 	return UTGameState->HasMatchEnded();
 }
 
-/**
- *	I needed to rework the ordering of SetMatchState until it can be corrected in the engine.
- **/
+/**	I needed to rework the ordering of SetMatchState until it can be corrected in the engine. **/
 void AUTGameMode::SetMatchState(FName NewState)
 {
 	if (MatchState == NewState)
@@ -1822,6 +1842,8 @@ void AUTGameMode::Logout(AController* Exiting)
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Kills));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Score"), PS->Score));
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
+		PS->RespawnChoiceA = NULL;
+		PS->RespawnChoiceB = NULL;
 	}
 
 	if (Cast<AUTBot>(Exiting) != NULL)
