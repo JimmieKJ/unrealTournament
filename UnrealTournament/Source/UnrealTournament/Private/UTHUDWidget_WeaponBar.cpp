@@ -19,7 +19,6 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 
 void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 {
-
 	LastGroup = -1;
 	LastGroupSlot = -1.0;
 
@@ -137,7 +136,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			if (WeaponGroups[GroupIdx].WeaponsInGroup.Num() > 0)
 			{
 				// Draw the elements.
-				for (int32 WeapIdx = 0; WeapIdx < WeaponGroups[GroupIdx].WeaponsInGroup.Num(); WeapIdx++)
+				for (int32 WeapIdx = WeaponGroups[GroupIdx].WeaponsInGroup.Num() - 1;  WeapIdx >=0 ; WeapIdx--)
 				{
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;

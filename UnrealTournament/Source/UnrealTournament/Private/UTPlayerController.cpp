@@ -545,36 +545,23 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 		{
 			AUTWeapon* Best = NULL;
 			AUTWeapon* WraparoundChoice = NULL;
-			int32 CurrentGroup = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon()->Group : UTCharacter->GetWeapon()->Group;
-			int32 CurrentSlot = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon()->GroupSlot : UTCharacter->GetWeapon()->GroupSlot;
+			AUTWeapon* CurrentWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
 			for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 			{
 				AUTWeapon* Weap = *It;
-				if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
+				if (Weap != CurrentWeapon && Weap->HasAnyAmmo())
 				{
-					if (bPrev)
+					if (Weap->FollowsInList(CurrentWeapon) == bPrev)
 					{
-						if ( (Weap->Group < CurrentGroup || (Weap->Group == CurrentGroup && Weap->GroupSlot < CurrentSlot)) &&
-							(Best == NULL || Weap->Group > Best->Group || Weap->GroupSlot > Best->GroupSlot) )
-						{
-							Best = Weap;
-						}
-						if (WraparoundChoice == NULL || Weap->Group > WraparoundChoice->Group || (Weap->Group == WraparoundChoice->Group && Weap->GroupSlot > WraparoundChoice->GroupSlot))
+						// remember last weapon in list as possible wraparound choice
+						if (WraparoundChoice == NULL || (Weap->FollowsInList(WraparoundChoice) == bPrev))
 						{
 							WraparoundChoice = Weap;
 						}
 					}
-					else
+					else if (Best == NULL || (Weap->FollowsInList(Best) == bPrev))
 					{
-						if ( (Weap->Group > CurrentGroup || (Weap->Group == CurrentGroup && Weap->GroupSlot > CurrentSlot)) &&
-							(Best == NULL || Weap->Group < Best->Group || Weap->GroupSlot < Best->GroupSlot) )
-						{
-							Best = Weap;
-						}
-						if (WraparoundChoice == NULL || Weap->Group < WraparoundChoice->Group || (Weap->Group == WraparoundChoice->Group && Weap->GroupSlot < WraparoundChoice->GroupSlot))
-						{
-							WraparoundChoice = Weap;
-						}
+						Best = Weap;
 					}
 				}
 			}
@@ -582,6 +569,7 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			{
 				Best = WraparoundChoice;
 			}
+			//UE_LOG(UT, Warning, TEXT("Switch(previous %d) to %s %d %d"), bPrev, *Best->GetName(), Best->Group, Best->GroupSlot);
 			UTCharacter->SwitchWeapon(Best);
 		}
 	}

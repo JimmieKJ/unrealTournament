@@ -372,6 +372,16 @@ void AUTWeapon::ClientRemoved_Implementation()
 	}
 }
 
+bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
+{
+	// return true if this weapon is after OtherWeapon in the weapon list
+	if (!OtherWeapon)
+	{
+		return true;
+	}
+	return (Group == OtherWeapon->Group) ? (GroupSlot > OtherWeapon->GroupSlot) : (Group > OtherWeapon->Group);
+}
+
 float AUTWeapon::GetAutoSwitchPriority()
 {
 	return (AutoSwitchPriority > 0.0f) ? AutoSwitchPriority : (float(Group) + float(GroupSlot) * 0.01f);
