@@ -10,6 +10,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 : Super(ObjectInitializer)
 { 
 	// UI
+	ClassicGroup = 7;
 	Group = 7;
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 131.000000, 429.000000, 132.000000, 52.000000);
 

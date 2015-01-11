@@ -17,6 +17,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 		FiringStateType[1] = UUTWeaponStateFiringChargedRocket::StaticClass();
 #endif
 	}
+	ClassicGroup = 8;
 	BringUpTime = 0.54f;
 
 	NumLoadedRockets = 0;

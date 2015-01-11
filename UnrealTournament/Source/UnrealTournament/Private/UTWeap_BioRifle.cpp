@@ -15,7 +15,7 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 		FiringStateType[1] = UUTWeaponStateFiringCharged::StaticClass();
 #endif
 	}
-
+	ClassicGroup = 3;
 	Ammo = 40;
 	MaxAmmo = 100;
 	AmmoCost[0] = 2;

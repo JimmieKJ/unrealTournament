@@ -20,6 +20,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 			ChargedState->bChargeFlashCount = true;
 		}
 	}
+	ClassicGroup = 1;
 	WeaponBobScaling = 0.7f;
 	FiringViewKickback = -50.f;
 	FullChargeTime = 2.5f;

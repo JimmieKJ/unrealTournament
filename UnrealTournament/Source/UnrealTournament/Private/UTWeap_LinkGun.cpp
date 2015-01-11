@@ -20,6 +20,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	{
 		AmmoCost.SetNum(2);
 	}
+	ClassicGroup = 5;
 	AmmoCost[0] = 1;
 	AmmoCost[1] = 1;
 

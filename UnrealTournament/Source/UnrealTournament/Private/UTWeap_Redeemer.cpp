@@ -9,6 +9,7 @@
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	ClassicGroup = 10;
 	BringUpTime = 1.1f;
 	PutDownTime = 0.72f;
 	Ammo = 1;

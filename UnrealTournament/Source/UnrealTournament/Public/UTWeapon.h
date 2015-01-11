@@ -295,6 +295,11 @@ public:
 	 */
 	UPROPERTY(Config, Transient, BlueprintReadOnly, Category = "Weapon")
 	int32 Group;
+
+	/** Group this weapon was assigned to in past UTs when each weapon was in its own slot. */
+	UPROPERTY()
+	int32 ClassicGroup;
+
 	/** if the player acquires more than one weapon in a group, we assign a unique GroupSlot to keep a consistent order
 	 * this value is only set on clients
 	 */

@@ -17,6 +17,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+	ClassicGroup = 2;
 	Ammo = 20;
 	MaxAmmo = 40;
 	LastFireTime = 0.f;
