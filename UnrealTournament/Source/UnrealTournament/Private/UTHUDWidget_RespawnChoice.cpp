@@ -14,6 +14,9 @@ UUTHUDWidget_RespawnChoice::UUTHUDWidget_RespawnChoice(const FObjectInitializer&
 
 	// Not scaling automatically right now
 	bScaleByDesignedResolution = false;
+
+	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	TextureAtlas = Tex.Object;
 }
 
 void UUTHUDWidget_RespawnChoice::InitializeWidget(AUTHUD* Hud)
@@ -34,9 +37,9 @@ void UUTHUDWidget_RespawnChoice::InitializeWidget(AUTHUD* Hud)
 void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	AUTGameState* UTGameState = Cast<AUTGameState>(UTPlayerOwner->GetWorld()->GameState);
-	if (UTPS != nullptr && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB && UTGameState != nullptr && (UTGameState->IsMatchInProgress() || UTGameState->IsMatchInCountdown()))
+	if (UTPS != nullptr && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
 	{
+
 		if (!bHasValidRespawnCapture)
 		{
 			RespawnChoiceACaptureComponent->SetWorldLocationAndRotation(UTPS->RespawnChoiceA->GetActorLocation(), UTPS->RespawnChoiceA->GetActorRotation());
@@ -61,13 +64,17 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 				FVector2D PositionA(Canvas->SizeX / 2.0f - Size.X - Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
 				FVector2D PositionB(Canvas->SizeX / 2.0f + Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
 
+				// Draw the Background
+				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, Canvas->SizeY *0.25f - 0.15f*Size.Y , 1.1f*Size.X, 1.3f*Size.Y, 4, 2, 124, 128, 1.0);
+				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, Canvas->SizeY *0.25f - 0.15f*Size.Y, 1.1f*Size.X, 1.3f*Size.Y, 4, 2, 124, 128, 1.0);
+
 				Canvas->K2_DrawTexture(RespawnChoiceACaptureComponent->TextureTarget, PositionA, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
 				Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
 						
-				FText ChoiceA = NSLOCTEXT("UTHUDWidth_RespawnChoice", "FIRE", "FIRE");
+				FText ChoiceA = NSLOCTEXT("UTHUDWidth_RespawnChoice", "FIRE", "FIRE to select this spawn");
 				DrawText(ChoiceA, PositionA.X + Size.X / 2.0f, PositionA.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 
-				FText ChoiceB = NSLOCTEXT("UTHUDWidth_RespawnChoice", "ALT-FIRE", "ALT-FIRE");
+				FText ChoiceB = NSLOCTEXT("UTHUDWidth_RespawnChoice", "ALT-FIRE", "ALT-FIRE to select this spawn");
 				DrawText(ChoiceB, PositionB.X + Size.X / 2.0f, PositionB.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 			}
 		}
@@ -81,5 +88,6 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 
 bool UUTHUDWidget_RespawnChoice::ShouldDraw_Implementation(bool bShowScores)
 {
-	return !bShowScores;
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+	return !bShowScores && UTPS != nullptr && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB && UTGameState && (UTGameState->IsMatchInProgress() || UTGameState->IsMatchInCountdown());
 }
