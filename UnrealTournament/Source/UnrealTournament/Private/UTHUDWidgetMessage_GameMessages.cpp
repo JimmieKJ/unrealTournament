@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidgetMessage_GameMessages.h"
+#include "UTGameMessage.h"
 
 UUTHUDWidgetMessage_GameMessages::UUTHUDWidgetMessage_GameMessages(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -23,5 +24,23 @@ UUTHUDWidgetMessage_GameMessages::UUTHUDWidgetMessage_GameMessages(const class F
 float UUTHUDWidgetMessage_GameMessages::GetTextScale(int32 QueueIndex)
 {
 	return 0.75;
+}
+
+void UUTHUDWidgetMessage_GameMessages::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	Super::LayoutMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+
+	// @TODO FIXMESTEVE temp hack until get proper per message coloring support implemented
+	if (MessageClass == UUTGameMessage::StaticClass())
+	{
+		if (MessageIndex == 9)
+		{
+			MessageQueue[QueueIndex].DrawColor = FLinearColor::Red;
+		}
+		else if (MessageIndex == 10)
+		{
+			MessageQueue[QueueIndex].DrawColor = FLinearColor::Blue;
+		}
+	}
 }
 
