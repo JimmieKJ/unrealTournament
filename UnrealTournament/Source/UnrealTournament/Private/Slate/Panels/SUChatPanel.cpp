@@ -443,14 +443,16 @@ FText SUChatPanel::GetChatButtonText() const
 	if (PC) 
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
-		FName ChatDestination = PS->ChatDestination;
+		if (PS)
+		{
+			FName ChatDestination = PS->ChatDestination;
 
-		if		(ChatDestination == ChatDestinations::Match)	return NSLOCTEXT("Chat", "Match", "Match Chat");
-		else if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "Friends", "Friends Only");
-		else if (ChatDestination == ChatDestinations::Local)	return NSLOCTEXT("Chat", "Local", "Local Chat");
-		else if (ChatDestination == ChatDestinations::Lobby)	return NSLOCTEXT("Chat", "Lobby", "Lobby Chat");
-		else if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "Team", "Team Chat");
-		
+			if		(ChatDestination == ChatDestinations::Match)	return NSLOCTEXT("Chat", "Match", "Match Chat");
+			else if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "Friends", "Friends Only");
+			else if (ChatDestination == ChatDestinations::Local)	return NSLOCTEXT("Chat", "Local", "Local Chat");
+			else if (ChatDestination == ChatDestinations::Lobby)	return NSLOCTEXT("Chat", "Lobby", "Lobby Chat");
+			else if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "Team", "Team Chat");
+		}
 	}
 	return NSLOCTEXT("Chat", "GlobalChat", "Global Chat");
 }
