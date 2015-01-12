@@ -16,7 +16,7 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 
 	bIsStatusAnnouncement = true;
 
-	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","Match begins in {Count}...");
+	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
 }
 
 void UUTCountDownMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const

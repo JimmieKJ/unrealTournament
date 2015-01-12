@@ -71,8 +71,19 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 	}
 	else
 	{
-		// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
-		if (UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState->bReadyToPlay)
+		if (UTGameState->IsMatchInCountdown())
+		{
+			AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
+			if (UTPS != NULL && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
+			{
+				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position"), DeltaTime);
+			}
+			else
+			{
+				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start"), DeltaTime);
+			}
+		}
+		else if (UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState->bReadyToPlay)
 		{
 			DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator","IsReady","You are ready to play"),DeltaTime);
 		}
