@@ -284,6 +284,11 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float& YOffset)
 {
 	if (UTGameState)
 	{
+		if (!UTGameState->HasMatchStarted())
+		{
+			// fixmesteve only draw if there is room above spectator panel
+			YOffset = 800;
+		}
 		// Draw the Background
 		DrawTexture(TextureAtlas, 0, YOffset, 1269, 38, 4, 132, 30, 38, 1.0);
 		DrawText(FText::FromString(UTGameState->ServerName), 10, YOffset + 13, SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);

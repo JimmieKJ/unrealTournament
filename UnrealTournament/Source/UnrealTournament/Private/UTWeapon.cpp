@@ -386,6 +386,7 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 	{
 		return true;
 	}
+	// if same group, order by slot, else order by group number
 	return (Group == OtherWeapon->Group) ? (GroupSlot > OtherWeapon->GroupSlot) : (Group > OtherWeapon->Group);
 }
 

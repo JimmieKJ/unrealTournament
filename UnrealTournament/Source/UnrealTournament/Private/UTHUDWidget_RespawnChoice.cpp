@@ -64,9 +64,14 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 				FVector2D PositionA(Canvas->SizeX / 2.0f - Size.X - Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
 				FVector2D PositionB(Canvas->SizeX / 2.0f + Canvas->SizeX * 0.05f, Canvas->SizeY * .25f);
 
-				// Draw the Background
-				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, Canvas->SizeY *0.25f - 0.15f*Size.Y , 1.1f*Size.X, 1.3f*Size.Y, 4, 2, 124, 128, 1.0);
-				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, Canvas->SizeY *0.25f - 0.15f*Size.Y, 1.1f*Size.X, 1.3f*Size.Y, 4, 2, 124, 128, 1.0);
+				// Draw the Backgrounds
+				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y,		1.1f*Size.X, 4,					4, 2, 124, 8, 1.0);
+				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y - 0.15f*Size.Y + 4,	1.1f*Size.X, 1.3f*Size.Y - 8,	4, 10, 124, 112, 1.0);
+				DrawTexture(TextureAtlas, PositionA.X - 0.05f*Size.X, PositionA.Y + 1.15f*Size.Y - 4,	1.1f*Size.X, 4,					4, 122, 124, 8, 1.0);
+
+				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y, 1.1f*Size.X, 4, 4, 2, 124, 8, 1.0);
+				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y - 0.15f*Size.Y + 4, 1.1f*Size.X, 1.3f*Size.Y - 8, 4, 10, 124, 112, 1.0);
+				DrawTexture(TextureAtlas, PositionB.X - 0.05f*Size.X, PositionB.Y + 1.15f*Size.Y - 4, 1.1f*Size.X, 4, 4, 122, 124, 8, 1.0);
 
 				Canvas->K2_DrawTexture(RespawnChoiceACaptureComponent->TextureTarget, PositionA, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
 				Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
