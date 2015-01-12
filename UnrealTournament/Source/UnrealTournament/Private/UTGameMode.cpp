@@ -55,7 +55,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
 	ForceRespawnTime = 3.5f;
-	bPlayersMustBeReady = true;
 	MaxReadyWaitTime = 20;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 1;
@@ -126,9 +125,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	InOpt = ParseOption(Options, TEXT("OnlyStrong"));
 	bOnlyTheStrongSurvive = EvalBoolOptions(InOpt, bOnlyTheStrongSurvive);
-
-	InOpt = ParseOption(Options, TEXT("MustBeReady"));
-	bPlayersMustBeReady = EvalBoolOptions(InOpt, bPlayersMustBeReady);
 
 	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
 	InOpt = ParseOption(Options, TEXT("HasRespawnChoices"));
@@ -331,7 +327,6 @@ void AUTGameMode::InitGameState()
 		UTGameState->SetTimeLimit(0);
 		UTGameState->RespawnWaitTime = RespawnWaitTime;
 		UTGameState->ForceRespawnTime = ForceRespawnTime;
-		UTGameState->bPlayerMustBeReady = bPlayersMustBeReady;
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bWeaponStay = bWeaponStayActive;
 
@@ -1153,7 +1148,7 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	}
 	
 
-	if ( !UTGameState->HasMatchStarted() && bPlayersMustBeReady )
+	if (!UTGameState->HasMatchStarted())
 	{
 		// If we are in the pre-game stage then flag the player as ready to play.  The game starting will be handled in the DefaultTimer() event
 		Cast<AUTPlayerState>(aPlayer->PlayerState)->bReadyToPlay = true;
@@ -1508,7 +1503,7 @@ bool AUTGameMode::ReadyToStartMatch()
 	{
 		if (NumPlayers + NumBots >= MinPlayersToStart && NumPlayers + NumSpectators > 0)
 		{
-			if (bPlayersMustBeReady && (MaxReadyWaitTime <= 0 || UTGameState->RemainingTime > 0))
+			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0))
 			{
 				for (int i=0;i<UTGameState->PlayerArray.Num();i++)
 				{
@@ -1748,7 +1743,7 @@ void AUTGameMode::HandleMatchIsWaitingToStart()
 {
 	Super::HandleMatchIsWaitingToStart();
 
-	if (bPlayersMustBeReady && MaxReadyWaitTime > 0)
+	if (MaxReadyWaitTime > 0)
 	{
 		UTGameState->SetTimeLimit(MaxReadyWaitTime);
 	}
@@ -2138,7 +2133,6 @@ void AUTGameMode::BuildServerResponseRules(FString& OutRules)
 	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
 	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
 	OutRules += FString::Printf(TEXT("Only The Strong\t%s\t"), bOnlyTheStrongSurvive ? TEXT("True") : TEXT("False"));
-	OutRules += FString::Printf(TEXT("Players Must Be Ready\t%s\t"), bPlayersMustBeReady ?  TEXT("True") : TEXT("False"));
 
 	AUTMutator* Mut = BaseMutator;
 	while (Mut)

@@ -891,9 +891,6 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 		OutRules += FString::Printf(TEXT("Sudden Death\tTrue\t"));
 	}
 
-
-	OutRules += FString::Printf(TEXT("Players Must Be Ready\t%s\t"), bPlayersMustBeReady ?  TEXT("True") : TEXT("False"));
-
 	AUTMutator* Mut = BaseMutator;
 	while (Mut)
 	{

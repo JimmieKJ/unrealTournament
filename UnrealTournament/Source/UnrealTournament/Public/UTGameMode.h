@@ -56,10 +56,6 @@ public:
 	UPROPERTY(globalconfig)
 	bool bForceRespawn;
 
-	/** If true, players will have to all be ready before the match will begin */
-	UPROPERTY()
-	bool bPlayersMustBeReady;
-
 	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
 	UPROPERTY(Config)
 	bool bOnlyTheStrongSurvive;
@@ -67,7 +63,7 @@ public:
 	UPROPERTY(Config)
 	bool bHasRespawnChoices;
 
-	/** maximum amount of time (in seconds) to wait when bPlayersMustBeReady before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
+	/** maximum amount of time (in seconds) to wait for players to be ready before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
 	UPROPERTY(globalconfig)
 	int32 MaxReadyWaitTime;
 

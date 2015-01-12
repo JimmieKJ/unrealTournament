@@ -50,10 +50,6 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position");
 			}
-			else if (!UTGameState->bPlayerMustBeReady)
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitForMatch", "Waiting for Match to Begin");
-			}
 			else if (UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState->bReadyToPlay)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","IsReady","You are ready to play");

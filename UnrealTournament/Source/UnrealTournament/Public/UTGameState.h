@@ -30,10 +30,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bWeaponStay:1;
 
-	/** If TRUE, then the player has to signal ready before they can start */
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
-	uint32 bPlayerMustBeReady:1;
-
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bTeamGame : 1;
 

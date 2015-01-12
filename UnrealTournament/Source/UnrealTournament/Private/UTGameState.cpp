@@ -38,10 +38,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, bIsInstanceServer);
 	
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, bPlayerMustBeReady, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, OverlayMaterials, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, SpawnProtectionTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, NumTeams, COND_InitialOnly);
