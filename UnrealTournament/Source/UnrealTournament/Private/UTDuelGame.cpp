@@ -34,6 +34,7 @@ void AUTDuelGame::InitGameState()
 	if (UTGameState != NULL)
 	{
 		UTGameState->bWeaponStay = false;
+		UTGameState->bAllowTeamSwitches = false;
 	}
 }
 

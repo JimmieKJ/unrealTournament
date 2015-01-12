@@ -85,7 +85,7 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 		}
 		else if (UTPS != NULL && UTPS->bReadyToPlay)
 		{
-			if (UTGameState->bTeamGame)
+			if (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
 			{
 				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready to play, [ALTFIRE] to change teams."), DeltaTime);
 			}
@@ -96,7 +96,7 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 		}
 		else
 		{
-			if (UTGameState->bTeamGame)
+			if (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
 			{
 				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] when you are ready, [ALTFIRE] to change teams."), DeltaTime);
 			}

@@ -16,6 +16,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	SpawnProtectionTime = 2.5f;
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
+	bAllowTeamSwitches = true;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -28,15 +29,16 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
-	DOREPLIFETIME(AUTGameState, RespawnWaitTime);
-	DOREPLIFETIME(AUTGameState, ForceRespawnTime);
-	DOREPLIFETIME(AUTGameState, TimeLimit);
-	DOREPLIFETIME(AUTGameState, bTeamGame);
-	DOREPLIFETIME(AUTGameState, bOnlyTheStrongSurvive);
-	DOREPLIFETIME(AUTGameState, bViewKillerOnDeath);
+	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, ForceRespawnTime);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, bTeamGame);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, bOnlyTheStrongSurvive);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, bViewKillerOnDeath);  // @TODO FIXMESTEVE why not initial only
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
-	DOREPLIFETIME(AUTGameState, bIsInstanceServer);
+	DOREPLIFETIME(AUTGameState, bIsInstanceServer);  // @TODO FIXMESTEVE why not initial only
 	
+	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);

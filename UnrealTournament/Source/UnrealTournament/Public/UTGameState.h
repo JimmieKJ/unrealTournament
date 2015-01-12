@@ -33,6 +33,11 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bTeamGame : 1;
 
+	/** True if plaeyrs are allowed to switch teams (if team game). */
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
+		uint32 bAllowTeamSwitches : 1;
+
+
 	/** If true, we will stop the game clock */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
 	uint32 bStopGameClock : 1;
