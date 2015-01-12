@@ -142,7 +142,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				{
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;
-					int32 CurrentGroup = bUseClassicGroups ? SelectedWeapon->ClassicGroup : SelectedWeapon->Group;
+					int32 CurrentGroup = bUseClassicGroups ? CurrentWeapon->ClassicGroup : CurrentWeapon->Group;
 
 					if (bSelected)
 					{

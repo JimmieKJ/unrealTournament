@@ -14,7 +14,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 {
-	if (UTGameState == NULL || UTGameState->Teams.Num() < 2) return;
+	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL) return;
 
 	// Draw the front end End
 
