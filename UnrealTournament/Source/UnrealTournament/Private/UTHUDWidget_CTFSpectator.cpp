@@ -71,9 +71,9 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 	}
 	else
 	{
+		AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 		if (UTGameState->IsMatchInCountdown())
 		{
-			AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 			if (UTPS != NULL && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
 			{
 				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position"), DeltaTime);
@@ -83,16 +83,32 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start"), DeltaTime);
 			}
 		}
-		else if (UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && UTHUDOwner->UTPlayerOwner->UTPlayerState->bReadyToPlay)
+		else if (UTPS != NULL && UTPS->bReadyToPlay)
 		{
-			DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator","IsReady","You are ready to play"),DeltaTime);
+			if (UTGameState->bTeamGame)
+			{
+				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready to play, [ALTFIRE] to change teams."), DeltaTime);
+			}
+			else
+			{
+				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play."), DeltaTime);
+			}
 		}
 		else
 		{
-			DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator","IsReady","Press [FIRE] when you are ready to play..."),DeltaTime);
+			if (UTGameState->bTeamGame)
+			{
+				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] when you are ready, [ALTFIRE] to change teams."), DeltaTime);
+			}
+			else
+			{
+				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "GetReady", "Press [FIRE] when you are ready."), DeltaTime);
+			}
 		}
 	}
 }
+
+
 
 void UUTHUDWidget_CTFSpectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime)
 {

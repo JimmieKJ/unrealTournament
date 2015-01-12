@@ -41,7 +41,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 		DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
 		FText SpectatorMessage;
-		
+
 		if (!UTGameState->HasMatchStarted())	
 		{
 			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
@@ -59,11 +59,25 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			}
 			else if (UTPS != NULL && UTPS->bReadyToPlay)
 			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","IsReady","You are ready to play");
+				if (UTGameState->bTeamGame)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready to play, [ALTFIRE] to change teams.");
+				}
+				else
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
+				}
 			}
 			else
 			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator","IsReady","Press [FIRE] when you are ready to play...");
+				if (UTGameState->bTeamGame)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] when you are ready, [ALTFIRE] to change teams.");
+				}
+				else
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "GetReady", "Press [FIRE] when you are ready.");
+				}
 			}
 		}
 		else if (!UTGameState->HasMatchEnded())

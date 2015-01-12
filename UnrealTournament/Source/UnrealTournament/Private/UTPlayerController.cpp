@@ -708,13 +708,6 @@ void AUTPlayerController::OnAltFire()
 	{
 		new(DeferredFireInputs) FDeferredFireInput(1, true);
 	}
-}
-void AUTPlayerController::OnStopAltFire()
-{
-	if (GetPawn() != NULL)
-	{
-		new(DeferredFireInputs) FDeferredFireInput(1, false);
-	}
 	else if (IsInState(NAME_Spectating))
 	{
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) &&
@@ -730,6 +723,13 @@ void AUTPlayerController::OnStopAltFire()
 	else
 	{
 		ServerRestartPlayerAltFire();
+	}
+}
+void AUTPlayerController::OnStopAltFire()
+{
+	if (GetPawn() != NULL)
+	{
+		new(DeferredFireInputs) FDeferredFireInput(1, false);
 	}
 }
 
@@ -1284,9 +1284,9 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 		UTPlayerState->bChosePrimaryRespawnChoice = false;
 	}
 
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted() && UTPlayerState != NULL)
+	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted() && UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 	{
-		UTPlayerState->bReadyToPlay = true;
+		ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
 	}
 
 	// If we can't restart this player, try to view a new player

@@ -37,6 +37,24 @@ void AUTDuelGame::InitGameState()
 	}
 }
 
+bool AUTDuelGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
+{
+	// don't allow team changes in Duel once have initial team
+	if (Player == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
+		if (PS == NULL || PS->bOnlySpectator || PS->Team)
+		{
+			return false;
+		}
+	}
+	return Super::ChangeTeam(Player, NewTeam, bBroadcast);
+}
+
 bool AUTDuelGame::CheckRelevance_Implementation(AActor* Other)
 {
 	AUTTimedPowerup* Powerup = Cast<AUTTimedPowerup>(Other);
