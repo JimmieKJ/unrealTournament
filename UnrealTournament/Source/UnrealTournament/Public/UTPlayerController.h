@@ -392,6 +392,11 @@ public:
 	/** Max held time for single tap wall dodge */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
 	float MaxDodgeTapTime;
+
+	/** Use classic weapon groups. */
+	UPROPERTY(globalconfig)
+		bool bUseClassicGroups;
+
 protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapLeftTime;
@@ -438,9 +443,16 @@ protected:
 
 	int32 PreviousWeaponGroup;
 
+
 	virtual void SwitchWeaponInSequence(bool bPrev);
+
+	/** Switches weapons using classic groups. */
 	UFUNCTION(Exec)
 	virtual void SwitchWeapon(int32 Group);
+
+	/** Switches weapons using modern groups. */
+	UFUNCTION(Exec)
+	virtual void SwitchWeaponGroup(int32 Group);
 
 	/** weapon fire input handling -- NOTE: Just forward to the pawn */
 	virtual void OnFire();

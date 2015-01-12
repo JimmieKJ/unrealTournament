@@ -69,6 +69,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	DesiredPredictionPing = 0.f;
 
 	bIsDebuggingProjectiles = false;
+	bUseClassicGroups = true;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -551,15 +552,15 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 				AUTWeapon* Weap = *It;
 				if (Weap != CurrentWeapon && Weap->HasAnyAmmo())
 				{
-					if (Weap->FollowsInList(CurrentWeapon) == bPrev)
+					if (Weap->FollowsInList(CurrentWeapon, bUseClassicGroups) == bPrev)
 					{
 						// remember last weapon in list as possible wraparound choice
-						if (WraparoundChoice == NULL || (Weap->FollowsInList(WraparoundChoice) == bPrev))
+						if (WraparoundChoice == NULL || (Weap->FollowsInList(WraparoundChoice, bUseClassicGroups) == bPrev))
 						{
 							WraparoundChoice = Weap;
 						}
 					}
-					else if (Best == NULL || (Weap->FollowsInList(Best) == bPrev))
+					else if (Best == NULL || (Weap->FollowsInList(Best, bUseClassicGroups) == bPrev))
 					{
 						Best = Weap;
 					}
@@ -589,8 +590,13 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		}
 	}
 }
-void AUTPlayerController::SwitchWeapon(int32 Group)
+
+void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 {
+	if (bUseClassicGroups)
+	{
+		SwitchWeapon(Group);
+	}
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
 	{
 		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
@@ -610,6 +616,44 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 						LowestSlotWeapon = Weap;
 					}
 					if (CurrWeapon != NULL && CurrWeapon->Group == Group && Weap->GroupSlot > CurrWeapon->GroupSlot && (NextSlotWeapon == NULL || NextSlotWeapon->GroupSlot > Weap->GroupSlot))
+					{
+						NextSlotWeapon = Weap;
+					}
+				}
+			}
+		}
+		if (NextSlotWeapon != NULL)
+		{
+			UTCharacter->SwitchWeapon(NextSlotWeapon);
+		}
+		else if (LowestSlotWeapon != NULL)
+		{
+			UTCharacter->SwitchWeapon(LowestSlotWeapon);
+		}
+	}
+}
+
+void AUTPlayerController::SwitchWeapon(int32 Group)
+{
+	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
+	{
+		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
+		// if it is, then pick next highest slot, or wrap around to lowest if no higher slot
+		AUTWeapon* CurrWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
+		AUTWeapon* LowestSlotWeapon = NULL;
+		AUTWeapon* NextSlotWeapon = NULL;
+		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
+		{
+			AUTWeapon* Weap = *It;
+			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
+			{
+				if (Weap->ClassicGroup == Group)
+				{
+					if (LowestSlotWeapon == NULL || LowestSlotWeapon->GroupSlot > Weap->GroupSlot)
+					{
+						LowestSlotWeapon = Weap;
+					}
+					if (CurrWeapon != NULL && CurrWeapon->ClassicGroup == Group && Weap->GroupSlot > CurrWeapon->GroupSlot && (NextSlotWeapon == NULL || NextSlotWeapon->GroupSlot > Weap->GroupSlot))
 					{
 						NextSlotWeapon = Weap;
 					}

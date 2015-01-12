@@ -307,7 +307,7 @@ public:
 	int32 GroupSlot;
 
 	/** Returns true if weapon follows OtherWeapon in the weapon list (used for nextweapon/previousweapon) */
-	virtual bool FollowsInList(AUTWeapon* OtherWeapon);
+	virtual bool FollowsInList(AUTWeapon* OtherWeapon, bool bUseClassicGroups);
 
 	/** user set priority for auto switching and switch to best weapon functionality
 	 * this value only has meaning on clients

@@ -435,7 +435,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void InventoryEvent(FName EventName);
 
-	/** switches weapons; handles client/server sync, safe to call on either side */
+	/** switches weapons; handles client/server sync, safe to call on either side.  Uses classic groups, temporary until we have full weapon switching configurability menu. FIXMESTEVE */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void SwitchWeapon(AUTWeapon* NewWeapon);
 

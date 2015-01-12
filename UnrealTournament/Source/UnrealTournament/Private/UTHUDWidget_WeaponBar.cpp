@@ -105,16 +105,19 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		}
 	}
 
+	bool bUseClassicGroups = UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bUseClassicGroups;
+	int32 SelectedGroup = -1;
 	if (SelectedWeapon)
 	{
-		if (SelectedWeapon->Group != LastGroup || SelectedWeapon->GroupSlot != LastGroupSlot)
+		SelectedGroup = bUseClassicGroups ? SelectedWeapon->ClassicGroup : SelectedWeapon->Group;
+		if (SelectedGroup != LastGroup || SelectedWeapon->GroupSlot != LastGroupSlot)
 		{
 			// Weapon has changed.. set everything up.
 			InactiveOpacity = 1.0;
 			InactiveIconOpacity = 1.0;
 			FadeTimer = 1.0;
 
-			LastGroup = SelectedWeapon->Group;
+			LastGroup = SelectedGroup;
 			LastGroupSlot = SelectedWeapon->GroupSlot;
 		}
 	}
@@ -125,7 +128,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	{
 		// Draw the Weapon Groups
 		float YPosition = 0.0;
-		int32 SelectedGroup = SelectedWeapon ? SelectedWeapon->Group : -1;
 
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
@@ -140,6 +142,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				{
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;
+					int32 CurrentGroup = bUseClassicGroups ? SelectedWeapon->ClassicGroup : SelectedWeapon->Group;
 
 					if (bSelected)
 					{
@@ -149,7 +152,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 					// Draw the background and the background's border.
 					int32 Idx = (WeapIdx == 0) ? 0 : 1;
-					float FullIconCellWidth = (CurrentWeapon->Group == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
+					float FullIconCellWidth = (CurrentGroup == SelectedGroup) ? CellWidth * SelectedCellScale : CellWidth;
 					float FullCellWidth = FullIconCellWidth + HeaderTab[Idx].GetWidth() + 3 + GroupHeaderCap[Idx].GetWidth();
 					float CellScale = bSelected ? SelectedCellScale : 1.0;
 					float CellHeight = CellBackground[Idx].GetHeight() * CellScale;
@@ -300,10 +303,13 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 {
 	if (UTCharacterOwner)
 	{
+		bool bUseClassicGroups = UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bUseClassicGroups;
+		int32 ActualRequiredGroups = bUseClassicGroups ? 10 : RequiredGroups;
+
 		// Parse over the character and see what weapons they have.
-		if (RequiredGroups >= 0)
+		if (ActualRequiredGroups >= 0)
 		{
-			for (int i=RequiredGroups;i>=0;i--)
+			for (int i = ActualRequiredGroups; i >= 0; i--)
 			{
 				FWeaponGroup G = FWeaponGroup(i, NULL);
 				WeaponGroups.Add(G);
@@ -313,11 +319,11 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 		for (TInventoryIterator<AUTWeapon> It(UTCharacterOwner); It; ++It)
 		{
 			AUTWeapon* Weapon = *It;
-
+			int32 WeaponGroup = bUseClassicGroups ? Weapon->ClassicGroup : Weapon->Group;
 			int32 GroupIndex = -1;
 			for (int32 i=0;i<WeaponGroups.Num();i++)
 			{
-				if (WeaponGroups[i].Group == Weapon->Group)
+				if (WeaponGroups[i].Group == WeaponGroup)
 				{
 					GroupIndex = i;
 					int32 InsertPosition = -1;
@@ -344,7 +350,7 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 	
 			if (GroupIndex < 0)
 			{
-				FWeaponGroup G = FWeaponGroup(Weapon->Group, Weapon);
+				FWeaponGroup G = FWeaponGroup(WeaponGroup, Weapon);
 
 				int32 InsertPosition = -1;
 				for (int32 i=0;i<WeaponGroups.Num();i++)

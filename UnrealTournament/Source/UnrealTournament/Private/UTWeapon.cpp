@@ -379,7 +379,7 @@ void AUTWeapon::ClientRemoved_Implementation()
 	}
 }
 
-bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
+bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon, bool bUseClassicGroups)
 {
 	// return true if this weapon is after OtherWeapon in the weapon list
 	if (!OtherWeapon)
@@ -387,7 +387,14 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 		return true;
 	}
 	// if same group, order by slot, else order by group number
-	return (Group == OtherWeapon->Group) ? (GroupSlot > OtherWeapon->GroupSlot) : (Group > OtherWeapon->Group);
+	if (bUseClassicGroups)
+	{
+		return (ClassicGroup == OtherWeapon->ClassicGroup) ? (GroupSlot > OtherWeapon->GroupSlot) : (ClassicGroup > OtherWeapon->ClassicGroup);
+	}
+	else
+	{
+		return (Group == OtherWeapon->Group) ? (GroupSlot > OtherWeapon->GroupSlot) : (Group > OtherWeapon->Group);
+	}
 }
 
 float AUTWeapon::GetAutoSwitchPriority()
