@@ -22,7 +22,8 @@ UUTHUDWidget_CTFSpectator::UUTHUDWidget_CTFSpectator(const class FObjectInitiali
 bool UUTHUDWidget_CTFSpectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	return (UTGameState != NULL && !UTGameState->HasMatchEnded() && UTHUDOwner->UTPlayerOwner != NULL && 
-				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && ( (UTCharacterOwner == NULL && UTPlayerOwner->GetPawn() == NULL) || ( UTCharacterOwner != NULL && UTCharacterOwner->IsDead() ) ) && !bShowScores);
+				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && ( (UTCharacterOwner == NULL && UTPlayerOwner->GetPawn() == NULL) || ( UTCharacterOwner != NULL && UTCharacterOwner->IsDead() ) ) 
+				&& (!bShowScores || !UTGameState->HasMatchStarted()));
 }
 
 
@@ -59,12 +60,12 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 				FFormatNamedArguments Args;
 				uint32 WaitTime = uint32(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime) + 1;
 				Args.Add("RespawnTime", FText::AsNumber(WaitTime));
-				FText Msg = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
+				FText Msg = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
 				DrawSimpleMessage(Msg, DeltaTime);
 			}
 			else
 			{
-				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator","RepsawnMessage","Press [FIRE] to respawn..."), DeltaTime);
+				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnMessage","Press [FIRE] to respawn..."), DeltaTime);
 			}
 		}
 	}
