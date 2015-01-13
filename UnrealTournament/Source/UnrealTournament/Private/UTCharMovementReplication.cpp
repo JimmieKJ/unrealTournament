@@ -522,6 +522,7 @@ bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) 
 
 	if (!ComparedMove.IsValid())
 	{
+		// if no previous move to compare, always send impulses
 		return bPressedJump;
 	}
 
