@@ -2,6 +2,7 @@
 #pragma once
 
 #include "SlateBasics.h"
+#include "STableRow.h"
 #include "SUWDialog.h"
 
 #if !UE_SERVER
