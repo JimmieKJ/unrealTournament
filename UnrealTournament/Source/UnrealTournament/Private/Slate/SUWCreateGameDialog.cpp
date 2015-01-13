@@ -7,6 +7,7 @@
 #include "AssetData.h"
 #include "UTLevelSummary.h"
 #include "UTMutator.h"
+#include "SUWBotConfigDialog.h"
 
 #if !UE_SERVER
 
@@ -259,6 +260,17 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		.AutoHeight()
 	[
 		SAssignNew(GameConfigPanel, SVerticalBox)
+	];
+	MainBox->AddSlot()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.AutoHeight()
+	[
+		SNew(SButton)
+		.HAlign(HAlign_Center)
+		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+		.Text(NSLOCTEXT("SUWCreateGameDialog", "ConfigureBots", "Configure Bots").ToString())
+		.OnClicked(this, &SUWCreateGameDialog::ConfigureBots)
 	];
 	MainBox->AddSlot()
 		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
@@ -650,6 +662,12 @@ FReply SUWCreateGameDialog::ConfigureMutator()
 			}
 		}
 	}
+	return FReply::Handled();
+}
+
+FReply SUWCreateGameDialog::ConfigureBots()
+{
+	GetPlayerOwner()->OpenDialog(SNew(SUWBotConfigDialog).PlayerOwner(GetPlayerOwner()).GameClass(SelectedGameClass).NumBots(SelectedGameClass->GetDefaultObject<AUTGameMode>()->BotFillCount - 1));
 	return FReply::Handled();
 }
 

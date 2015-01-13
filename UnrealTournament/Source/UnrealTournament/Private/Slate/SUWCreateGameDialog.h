@@ -58,6 +58,7 @@ protected:
 	FReply AddMutator();
 	FReply RemoveMutator();
 	FReply ConfigureMutator();
+	FReply ConfigureBots();
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{

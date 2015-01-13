@@ -4,6 +4,7 @@
 #include "../Private/Slate/Panels/SULobbyGameSettingsPanel.h"
 #include "TAttributeProperty.h"
 #include "UTServerBeaconLobbyClient.h"
+#include "UTBotConfig.h"
 #include "UTGameMode.generated.h"
 
 /** Defines the current state of the game. */
@@ -25,6 +26,26 @@ struct FRedirectReference
 
 	UPROPERTY()
 	FString MapURL;
+};
+
+/** list of bots user asked to put into the game */
+USTRUCT()
+struct FSelectedBot
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString BotName;
+	/** team to place them on - note that 255 is valid even for team games (placed on any team) */
+	UPROPERTY()
+	uint8 Team;
+
+	FSelectedBot()
+		: Team(255)
+	{}
+	FSelectedBot(const FString& InName, uint8 InTeam)
+		: BotName(InName), Team(InTeam)
+	{}
 };
 
 UCLASS(Config = Game, Abstract)
@@ -179,9 +200,11 @@ public:
 		}
 	}
 
-	/** list of bot characters that may be added */
-	UPROPERTY(GlobalConfig)
-	TArray<struct FBotCharacter> BotCharacters;
+	UPROPERTY(Config)
+	TArray<FSelectedBot> SelectedBots;
+	/** bot configuration (skill ratings, etc) to use */
+	UPROPERTY(Transient)
+	UUTBotConfig* BotConfig;
 
 	/** type of SquadAI that contains game specific AI logic for this gametype */
 	UPROPERTY(EditDefaultsOnly, Category = AI)
@@ -295,10 +318,13 @@ public:
 protected:
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
+	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
 public:
 	/** adds a bot to the game, ignoring game settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual class AUTBot* ForceAddBot(uint8 TeamNum = 255);
+	UFUNCTION(Exec, BlueprintCallable, Category = AI)
+	virtual class AUTBot* ForceAddNamedBot(const FString& BotName, uint8 TeamNum = 255);
 	/** sets bot count, ignoring startup settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual void SetBotCount(uint8 NewCount);

@@ -390,6 +390,12 @@ void AUTGameMode::PreInitializeComponents()
 		ObjIt->InitializeObjective();	
 		GameObjectiveInitialized(*ObjIt);
 	}
+
+	// init startup bots
+	for (const FSelectedBot& Bot : SelectedBots)
+	{
+		AddNamedBot(Bot.BotName, Bot.Team);
+	}
 }
 
 void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
@@ -414,8 +420,12 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
 	if (NewBot != NULL)
 	{
+		if (BotConfig == NULL)
+		{
+			BotConfig = NewObject<UUTBotConfig>(this);
+		}
 		// pick bot character
-		if (BotCharacters.Num() == 0)
+		if (BotConfig->BotCharacters.Num() == 0)
 		{
 			UE_LOG(UT, Warning, TEXT("AddBot(): No BotCharacters defined"));
 			static int32 NameCount = 0;
@@ -427,7 +437,7 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			int32 NumEligible = 0;
 			FBotCharacter* BestChar = NULL;
 			uint8 BestSelectCount = MAX_uint8;
-			for (FBotCharacter& Character : BotCharacters)
+			for (FBotCharacter& Character : BotConfig->BotCharacters)
 			{
 				if (Character.SelectCount < BestSelectCount)
 				{
@@ -456,11 +466,54 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 	}
 	return NewBot;
 }
+AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
+{
+	if (BotConfig == NULL)
+	{
+		BotConfig = NewObject<UUTBotConfig>(this);
+	}
+	FBotCharacter* TheChar = NULL;
+	for (FBotCharacter& Character : BotConfig->BotCharacters)
+	{
+		if (Character.PlayerName == BotName)
+		{
+			TheChar = &Character;
+			break;
+		}
+	}
+
+	if (TheChar == NULL)
+	{
+		UE_LOG(UT, Error, TEXT("Character data for bot '%s' not found"), *BotName);
+		return NULL;
+	}
+	else
+	{
+		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
+		if (NewBot != NULL)
+		{
+			TheChar->SelectCount++;
+			NewBot->Personality = *TheChar;
+			NewBot->PlayerState->SetPlayerName(TheChar->PlayerName);
+
+			NewBot->InitializeSkill(GameDifficulty);
+			NumBots++;
+			ChangeTeam(NewBot, TeamNum);
+			GenericPlayerInitialization(NewBot);
+		}
+
+		return NewBot;
+	}
+}
 
 AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
 {
 	BotFillCount = FMath::Max<int32>(BotFillCount, NumPlayers + NumBots + 1);
 	return AddBot(TeamNum);
+}
+AUTBot* AUTGameMode::ForceAddNamedBot(const FString& BotName, uint8 TeamNum)
+{
+	return AddNamedBot(BotName, TeamNum);
 }
 
 void AUTGameMode::SetBotCount(uint8 NewCount)
