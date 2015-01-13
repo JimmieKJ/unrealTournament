@@ -207,6 +207,7 @@ protected:
 	UPROPERTY()
 	class UUTScoreboard* MyUTScoreboard;
 
+public:
 	// Takes a raw widget string and tries to build a widget from it.  It supports embedded JSON objects that define the widget as follows:
 	//
 	// { "Classname" : "//path.to.unreal.object",
@@ -225,6 +226,7 @@ protected:
 
 	virtual void BuildHudWidget(FString NewWidgetString);
 
+protected:
 	// Helper function to take a JSON object and try to convert it to the FVector2D.  
 	virtual FVector2D JSon2FVector2D(const TSharedPtr<FJsonObject> Vector2DObject, FVector2D Default);
 
