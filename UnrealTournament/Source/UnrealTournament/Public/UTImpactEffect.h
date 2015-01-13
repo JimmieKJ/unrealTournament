@@ -1,5 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
 #include "UTImpactEffect.generated.h"
 
 /** encapsulates all of the components of an impact or explosion effect (particles, sound, decals, etc)
