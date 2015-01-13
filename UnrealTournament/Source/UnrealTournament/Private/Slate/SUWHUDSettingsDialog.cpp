@@ -298,7 +298,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SAssignNew(UseWeaponColor, SCheckBox)
 						.ForegroundColor(FLinearColor::White)
-						.IsChecked(TargetHUD->bUseWeaponColors ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+						.IsChecked(TargetHUD->bUseWeaponColors ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 						.OnCheckStateChanged(this, &SUWHUDSettingsDialog::OnUseWeaponColorChanged)
 						.Content()
 						[
