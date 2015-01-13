@@ -7,8 +7,6 @@
 #include "UTLift.h"
 #include "UTProjectileMovementComponent.h"
 
-static const float GOO_TIMER_TICK = 0.5f;
-
 AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {

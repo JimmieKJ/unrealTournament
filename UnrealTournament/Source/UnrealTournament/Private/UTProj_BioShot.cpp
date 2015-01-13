@@ -8,8 +8,6 @@
 #include "UTWeap_LinkGun.h"
 #include "UTProjectileMovementComponent.h"
 
-static const float GOO_TIMER_TICK = 0.5f;
-
 AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
