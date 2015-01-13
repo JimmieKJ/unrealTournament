@@ -408,6 +408,14 @@ public:
 	{
 		Super::PostLoad();
 
+		// work around nav data selection code that keeps breaking us
+		NavDataConfig.AgentRadius = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->AgentRadius;
+		NavDataConfig.AgentHeight = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->AgentHeight;
+		NavDataConfig.AgentStepHeight = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->AgentMaxStepHeight;
+
+		// HACK: UNavigationSystem's preloading of nav classes doesn't work because UT module wasn't loaded yet
+		UNavigationSystem::StaticClass()->GetDefaultObject()->PostInitProperties();
+
 		PathNodes.Remove(NULL); // really shouldn't happen but no need to crash for it
 		for (UUTPathNode* Node : PathNodes)
 		{
