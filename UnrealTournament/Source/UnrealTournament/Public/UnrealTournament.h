@@ -74,6 +74,6 @@ FORCEINLINE FCanvasIcon MakeCanvasIcon(UTexture* Tex, float InU, float InV, floa
  * this does not actually load assets, so it's fast in a cooked build, although the first time it is run
  * in an uncooked build it will hitch while scanning the asset registry
  */
-extern void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList);
+extern UNREALTOURNAMENT_API void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList);
 
 #endif
