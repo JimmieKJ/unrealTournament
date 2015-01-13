@@ -935,9 +935,9 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		// (at small bandwidth cost)
 		if (GetWorld()->TimeSeconds - LastPainSoundTime >= MinPainSoundInterval)
 		{
-			if (HitArmor != nullptr && HitArmor->PainSound != nullptr)
+			if (HitArmor != nullptr && HitArmor->ReceivedDamageSound != nullptr)
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
+				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->ReceivedDamageSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
 			else
 			{
