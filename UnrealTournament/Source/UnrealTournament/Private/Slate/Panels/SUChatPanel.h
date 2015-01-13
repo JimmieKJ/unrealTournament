@@ -32,6 +32,7 @@ public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void SortUserList();
 
 	AUTPlayerState* GetOwnerPlayerState();
 

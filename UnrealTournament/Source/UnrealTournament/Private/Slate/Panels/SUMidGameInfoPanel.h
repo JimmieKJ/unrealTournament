@@ -25,6 +25,8 @@ protected:
 
 	virtual void BuildNonChatPanel();
 
+	virtual void SortUserList() override;
+
 };
 
 #endif

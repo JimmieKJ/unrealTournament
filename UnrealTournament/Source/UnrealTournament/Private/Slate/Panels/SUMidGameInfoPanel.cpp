@@ -15,7 +15,7 @@
 
 #if !UE_SERVER
 
-struct FCompareUsers
+struct FCompareUsersMidGame
 {
 	FORCEINLINE bool operator()	( const TSharedPtr< FSimpleListData > A, const TSharedPtr< FSimpleListData > B ) const 
 	{
@@ -28,6 +28,11 @@ struct FCompareUsers
 		return ( A->DisplayText> B->DisplayText);
 	}
 };
+
+void SUMidGameInfoPanel::SortUserList()
+{
+	UserList.Sort(FCompareUsersMidGame());
+}
 
 
 void SUMidGameInfoPanel::ConstructPanel(FVector2D ViewportSize)

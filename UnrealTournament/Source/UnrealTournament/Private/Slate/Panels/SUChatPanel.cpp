@@ -27,7 +27,7 @@ AUTPlayerState* SUChatPanel::GetOwnerPlayerState()
 }
 
 
-struct FCompareUsers
+struct FCompareUsersChat
 {
 	FORCEINLINE bool operator()	( const TSharedPtr< FSimpleListData > A, const TSharedPtr< FSimpleListData > B ) const 
 	{
@@ -252,6 +252,12 @@ void SUChatPanel::TickNonChatPanel(float DeltaTime)
 {
 }
 
+
+void SUChatPanel::SortUserList()
+{
+	UserList.Sort(FCompareUsersChat());
+}
+
 void SUChatPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	// Clear the current user list
@@ -284,7 +290,7 @@ void SUChatPanel::Tick( const FGeometry& AllottedGeometry, const double InCurren
 			}
 		}
 
-		UserList.Sort(FCompareUsers());
+		SortUserList();
 		UserListView->RequestListRefresh();
 	}
 
