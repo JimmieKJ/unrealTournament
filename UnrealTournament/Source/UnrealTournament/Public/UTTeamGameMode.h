@@ -69,7 +69,11 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	
 	virtual void DefaultTimer() override;
 
+	/** Process team change request.  May fail based on team sizes and balancing rules. */
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
+
+	/** Put player on new team if it is valid, return true if successful. */
+	virtual bool MovePlayerToTeam(AController* Player, AUTPlayerState* PS, uint8 NewTeam);
 
 	/** pick the best team to place this player to keep the teams as balanced as possible
 	 * passed in team number is used as tiebreaker if the teams would be just as balanced either way

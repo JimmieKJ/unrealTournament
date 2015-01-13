@@ -12,6 +12,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 {
 	bWaitingPlayer = false;
 	bReadyToPlay = false;
+	bPendingTeamSwitch = false;
 	LastKillTime = 0.0f;
 	int32 Kills = 0;
 	bOutOfLives = false;
@@ -34,6 +35,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CarriedObject);
 	DOREPLIFETIME(AUTPlayerState, bWaitingPlayer);
 	DOREPLIFETIME(AUTPlayerState, bReadyToPlay);
+	DOREPLIFETIME(AUTPlayerState, bPendingTeamSwitch);
 	DOREPLIFETIME(AUTPlayerState, bOutOfLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
@@ -193,6 +195,24 @@ bool AUTPlayerState::ServerReceiveStatsID_Validate(const FString& NewStatsID)
 	return true;
 }
 
+void AUTPlayerState::HandleTeamChanged(AController* Controller)
+{
+	AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+	if (Pawn != NULL)
+	{
+		Pawn->PlayerChangedTeam();
+	}
+	if (Team)
+	{
+		int32 Switch = (Team->TeamIndex == 0) ? 9 : 10;
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+		if (PC)
+		{
+			PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), Switch, this, NULL, NULL);
+		}
+	}
+}
+
 void AUTPlayerState::ServerRequestChangeTeam_Implementation(uint8 NewTeamIndex)
 {
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -207,24 +227,12 @@ void AUTPlayerState::ServerRequestChangeTeam_Implementation(uint8 NewTeamIndex)
 			}
 			if (Game->ChangeTeam(Controller, NewTeamIndex, true))
 			{
-				AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-				if (Pawn != NULL)
-				{
-					Pawn->PlayerChangedTeam();
-				}
-				if (Team)
-				{
-					int32 Switch = (Team->TeamIndex == 0) ? 9 : 10;
-					AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-					if (PC)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), Switch, this, NULL, NULL);
-					}
-				}
+				HandleTeamChanged(Controller);
 			}
 		}
 	}
 }
+
 bool AUTPlayerState::ServerRequestChangeTeam_Validate(uint8 FireModeNum)
 {
 	return true;

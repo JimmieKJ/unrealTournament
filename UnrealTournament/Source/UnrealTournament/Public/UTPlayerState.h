@@ -33,6 +33,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
+	/** Whether this player has a pending switch team request (waiting for swap partner) */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		uint32 bPendingTeamSwitch : 1;
+
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;
 	/** current multikill level (1 = double, 2 = multi, etc)
@@ -106,6 +110,10 @@ public:
 
 	UFUNCTION()
 	void OnDeathsReceived();
+
+	/** Team has changed, announce, tell pawn, etc. */
+	UFUNCTION()
+		virtual void HandleTeamChanged(AController* Controller);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void NotifyTeamChanged();

@@ -137,15 +137,33 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 			{
 				bForceTeam = true;
 			}
-			else if (bBalanceTeams)
+			else
 			{
-				for (int32 i = 0; i < Teams.Num(); i++)
+				// see if someone is willing to switch
+				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 				{
-					// don't allow switching to a team with more players, or equal players if the player is on a team now
-					if (i != NewTeam && Teams[i]->GetSize() - ((PS->Team != NULL && PS->Team->TeamIndex == i) ? 1 : 0)  < Teams[NewTeam]->GetSize())
+					AUTPlayerController* NextPlayer = Cast<AUTPlayerController>(*Iterator);
+					AUTPlayerState* SwitchingPS = NextPlayer ? Cast<AUTPlayerState>(NextPlayer->PlayerState) : NULL;
+					if (SwitchingPS && SwitchingPS->bPendingTeamSwitch && (SwitchingPS->Team == Teams[NewTeam]) && Teams.IsValidIndex(1-NewTeam))
 					{
-						bForceTeam = true;
-						break;
+						// Found someone who wants to leave team, so just replace them
+						MovePlayerToTeam(NextPlayer, SwitchingPS, 1 - NewTeam);
+						SwitchingPS->HandleTeamChanged(NextPlayer);
+						MovePlayerToTeam(Player, PS, NewTeam);
+						return true;
+					}
+				}
+
+				if (bBalanceTeams)
+				{
+					for (int32 i = 0; i < Teams.Num(); i++)
+					{
+						// don't allow switching to a team with more players, or equal players if the player is on a team now
+						if (i != NewTeam && Teams[i]->GetSize() - ((PS->Team != NULL && PS->Team->TeamIndex == i) ? 1 : 0)  < Teams[NewTeam]->GetSize())
+						{
+							bForceTeam = true;
+							break;
+						}
 					}
 				}
 			}
@@ -153,28 +171,37 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 			{
 				NewTeam = PickBalancedTeam(PS, NewTeam);
 			}
-
-			if (Teams.IsValidIndex(NewTeam) && (PS->Team == NULL || PS->Team->TeamIndex != NewTeam))
+		
+			if (MovePlayerToTeam(Player, PS, NewTeam))
 			{
-				if (PS->Team != NULL)
-				{
-					PS->Team->RemoveFromTeam(Player);
-				}
-				Teams[NewTeam]->AddToTeam(Player);
 				return true;
 			}
-			else
+
+			// temp logging to track down intermittent issue of not being able to change teams in reasonable situations
+			UE_LOG(UT, Log, TEXT("Player %s denied from team change:"), *PS->PlayerName);
+			for (int32 i = 0; i < Teams.Num(); i++)
 			{
-				// temp logging to track down intermittent issue of not being able to change teams in reasonable situations
-				UE_LOG(UT, Log, TEXT("Player %s denied from team change:"), *PS->PlayerName);
-				for (int32 i = 0; i < Teams.Num(); i++)
-				{
-					UE_LOG(UT, Log, TEXT("Team (%i) size: %i"), i, Teams[i]->GetSize());
-				}
-				return false;
+				UE_LOG(UT, Log, TEXT("Team (%i) size: %i"), i, Teams[i]->GetSize());
 			}
+			PS->bPendingTeamSwitch = true;
+			return false;
 		}
 	}
+}
+
+bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, uint8 NewTeam)
+{
+	if (Teams.IsValidIndex(NewTeam) && (PS->Team == NULL || PS->Team->TeamIndex != NewTeam))
+	{
+		if (PS->Team != NULL)
+		{
+			PS->Team->RemoveFromTeam(Player);
+		}
+		Teams[NewTeam]->AddToTeam(Player);
+		PS->bPendingTeamSwitch = false;
+		return true;
+	}
+	return false;
 }
 
 uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
