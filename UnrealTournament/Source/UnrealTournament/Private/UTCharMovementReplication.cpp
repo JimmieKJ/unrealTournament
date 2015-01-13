@@ -520,6 +520,11 @@ bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) 
 		return true;
 	}
 
+	if (!ComparedMove.IsValid())
+	{
+		return bPressedJump;
+	}
+
 	// Check if any important movement flags have changed status.
 	if ((bPressedJump && (bPressedJump != ComparedMove->bPressedJump)) || (bWantsToCrouch != ComparedMove->bWantsToCrouch))
 	{
