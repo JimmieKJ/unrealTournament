@@ -200,7 +200,8 @@ void SUWDialog::OnDialogOpened()
 
 void SUWDialog::OnDialogClosed()
 {
-	FSlateApplication::Get().SetKeyboardFocus(GameViewportWidget);
+	FSlateApplication::Get().ClearKeyboardFocus();
+	FSlateApplication::Get().ClearUserFocus(0);
 }
 
 bool SUWDialog::SupportsKeyboardFocus() const
