@@ -172,7 +172,7 @@ FVector AUTProj_TransDisk::ComputeBounceResult(const FHitResult& Hit, float Time
 	// Bounciness or Friction > 1 could cause us to exceed velocity.
 	if (ProjectileMovement->GetMaxSpeed() > 0.f)
 	{
-		TempVelocity = TempVelocity.ClampMaxSize(ProjectileMovement->GetMaxSpeed());
+		TempVelocity = TempVelocity.GetClampedToMaxSize(ProjectileMovement->GetMaxSpeed());
 	}
 
 	return TempVelocity;

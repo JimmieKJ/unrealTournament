@@ -44,9 +44,9 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		{
 			// only provide momentum along plane
 			FVector MomentumDir = OtherActor->GetActorLocation() - GetActorLocation();
-			MomentumDir = (MomentumDir - (ImpactNormal | MomentumDir) * ImpactNormal).SafeNormal();
+			MomentumDir = (MomentumDir - (ImpactNormal | MomentumDir) * ImpactNormal).GetSafeNormal();
 			MomentumDir.Z = 1.f;
-			ProjectileMovement->Velocity = MomentumDir.SafeNormal();
+			ProjectileMovement->Velocity = MomentumDir.GetSafeNormal();
 
 			// clamp player z vel
 			AUTCharacter* HitChar = Cast<AUTCharacter>(HitPawn);

@@ -257,7 +257,7 @@ bool AUTWorldSettings::EffectIsRelevant(AActor* RelevantActor, const FVector& Sp
 					// @TODO FIXMESTEVE - do we want to differentiate between dist when in front of viewer versus behind?
 					return true;
 				}
-				if ((ViewRot.Vector() | (SpawnLocation - ViewLoc).SafeNormal()) > 0.1f)
+				if ((ViewRot.Vector() | (SpawnLocation - ViewLoc).GetSafeNormal()) > 0.1f)
 				{
 					bBehindAllPlayers = false;
 				}

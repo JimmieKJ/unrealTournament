@@ -86,25 +86,33 @@ FNavGraphSceneProxy::FNavGraphSceneProxy(UUTNavGraphRenderingComponent* InCompon
 	}
 }
 
-void FNavGraphSceneProxy::DrawDynamicElements(FPrimitiveDrawInterface* PDI, const FSceneView* View)
+
+void FNavGraphSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
-	for (const FUTPathNodeRenderProxy& Node : PathNodes)
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
-		PDI->DrawPoint(Node.Location + FVector(0.0f, 0.0f, 32.0f), bDrawPolyEdges ? Node.PolyColor : FLinearColor(0.0f, 1.0f, 0.0f), 32.0f, 0);
-		for (const FUTPathLinkRenderProxy& Link : Node.Paths)
+		if (VisibilityMap & (1 << ViewIndex))
 		{
-			// TODO: color based on collision size?
-			PDI->DrawLine(Node.Location, Link.EndLocation, Link.PathColor, 0, 5.0f);
-		}
-		if (bDrawPolyEdges)
-		{
-			for (const FVector& PolyLoc : Node.PolyCenters)
+			FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
+
+			for (const FUTPathNodeRenderProxy& Node : PathNodes)
 			{
-				PDI->DrawPoint(PolyLoc + FVector(0.0f, 0.0f, 12.0f), Node.PolyColor, 12.0f, 0);
+				PDI->DrawPoint(Node.Location + FVector(0.0f, 0.0f, 32.0f), bDrawPolyEdges ? Node.PolyColor : FLinearColor(0.0f, 1.0f, 0.0f), 32.0f, 0);
+				for (const FUTPathLinkRenderProxy& Link : Node.Paths)
+				{
+					// TODO: color based on collision size?
+					PDI->DrawLine(Node.Location, Link.EndLocation, Link.PathColor, 0, 5.0f);
+				}
+				if (bDrawPolyEdges)
+				{
+					for (const FVector& PolyLoc : Node.PolyCenters)
+					{
+						PDI->DrawPoint(PolyLoc + FVector(0.0f, 0.0f, 12.0f), Node.PolyColor, 12.0f, 0);
+					}
+				}
 			}
 		}
 	}
-	FDebugRenderSceneProxy::DrawDynamicElements(PDI, View);
 }
 
 #endif

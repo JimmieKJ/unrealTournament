@@ -6,16 +6,6 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if PLATFORM_MAC || PLATFORM_LINUX
-// Mac compiler doesn't support forward enum declarations...
-#include "SlateBasics.h"
-#else
-namespace ESlateCheckBoxState
-{
-	enum Type;
-};
-#endif
-
 struct TAttributePropertyBase
 {
 	// base class so we can store a TArray of the below without regard for template parameter
@@ -72,8 +62,8 @@ struct TAttributePropertyBool : public TAttributeProperty<bool>
 	TAttributePropertyBool(UObject* InObj, bool* InData)
 	: TAttributeProperty<bool>(InObj, InData)
 	{}
-	ESlateCheckBoxState::Type GetAsCheckBox() const;
-	void SetFromCheckBox(ESlateCheckBoxState::Type CheckedState);
+	ECheckBoxState GetAsCheckBox() const;
+	void SetFromCheckBox(ECheckBoxState CheckedState);
 };
 // extras for FStrings for FText conversion
 struct TAttributePropertyString : public TAttributeProperty<FString>

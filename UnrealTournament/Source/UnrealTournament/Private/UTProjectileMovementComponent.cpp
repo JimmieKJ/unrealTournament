@@ -156,7 +156,7 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 				{
 					// recurse
 					bRecursing = true;
-					bResult = MoveUpdatedComponent(Delta.SafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit);
+					bResult = MoveUpdatedComponent(Delta.GetSafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit);
 					bRecursing = false;
 				}				
 
@@ -316,7 +316,7 @@ void UUTProjectileMovementComponent::ServerUpdateState_Implementation(FVector In
 
 FVector UUTProjectileMovementComponent::ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const
 {
-	FVector HomingAcceleration = ((HomingTargetComponent->GetComponentLocation() - UpdatedComponent->GetComponentLocation()).SafeNormal() * HomingAccelerationMagnitude);
+	FVector HomingAcceleration = ((HomingTargetComponent->GetComponentLocation() - UpdatedComponent->GetComponentLocation()).GetSafeNormal() * HomingAccelerationMagnitude);
 	if (bPreventZHoming)
 	{
 		HomingAcceleration.Z = 0.f;

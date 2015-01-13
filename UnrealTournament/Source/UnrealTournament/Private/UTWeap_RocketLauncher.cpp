@@ -264,7 +264,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 			FHitResult Hit;
 			if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
 			{
-				SpawnLocation = Hit.Location - (AdjustedSpawnLoc - SpawnLocation).SafeNormal();
+				SpawnLocation = Hit.Location - (AdjustedSpawnLoc - SpawnLocation).GetSafeNormal();
 			}
 			else
 			{
@@ -387,7 +387,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 					FHitResult Hit;
 					if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, SpreadLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
 					{
-						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).SafeNormal();
+						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).GetSafeNormal();
 					}
 				}
 
@@ -429,7 +429,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 					FHitResult Hit;
 					if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, SpreadLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
 					{
-						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).SafeNormal();
+						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).GetSafeNormal();
 					}
 				}
 				FRotator SpreadRot = SpawnRotation;
@@ -514,7 +514,7 @@ bool AUTWeap_RocketLauncher::WithinLockAim(AActor *Target)
 	if (CanLockTarget(Target))
 	{
 		const FVector Dir = GetAdjustedAim(GetFireStartLoc()).Vector();
-		const FVector TargetDir = (Target->GetActorLocation() - UTOwner->GetActorLocation()).SafeNormal();
+		const FVector TargetDir = (Target->GetActorLocation() - UTOwner->GetActorLocation()).GetSafeNormal();
 		// note that we're not tracing to retain existing target; allows locking through walls to a limited extent
 		return (FVector::DotProduct(Dir, TargetDir) > LockAim || UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, GetFireStartLoc(), Dir, LockAim, LockRange, AUTCharacter::StaticClass()) == Target);
 	}

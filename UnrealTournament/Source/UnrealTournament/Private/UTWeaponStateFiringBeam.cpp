@@ -37,7 +37,7 @@ void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
 			{
 				int32 AppliedDamage = FMath::TruncToInt(Accumulator);
 				Accumulator -= AppliedDamage;
-				FVector FireDir = (Hit.Location - Hit.TraceStart).SafeNormal();
+				FVector FireDir = (Hit.Location - Hit.TraceStart).GetSafeNormal();
 				Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (GetOuterAUTWeapon()->GetImpartedMomentumMag(Hit.Actor.Get()) * float(AppliedDamage) / float(DamageInfo.Damage))), GetOuterAUTWeapon()->GetUTOwner()->Controller, GetOuterAUTWeapon());
 			}
 		}

@@ -336,7 +336,7 @@ void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	if (UTCharacterMovement->bPressedSlide)
 	{
-		Roll(GetVelocity().SafeNormal());
+		Roll(GetVelocity().GetSafeNormal());
 		UTCharacterMovement->bPressedSlide = false;
 	}
 	else
@@ -501,7 +501,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		float BobFactor = (WeaponBreathingBobRate + WeaponRunningBobRate*Speed / GetCharacterMovement()->MaxWalkSpeed);
 		BobTime += DeltaTime * BobFactor;
 		DesiredJumpBob *= FMath::Max(0.f, 1.f - WeaponLandBobDecayRate*DeltaTime);
-		FVector AccelDir = GetCharacterMovement()->GetCurrentAcceleration().SafeNormal();
+		FVector AccelDir = GetCharacterMovement()->GetCurrentAcceleration().GetSafeNormal();
 		if ((AccelDir | GetCharacterMovement()->Velocity) < 0.5f*GetCharacterMovement()->MaxWalkSpeed)
 		{
 			if ((AccelDir | Y) > 0.65f)
@@ -788,7 +788,7 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUT
 	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
 		NewRelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetActorLocation();
-		ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).SafeNormal();
+		ShotDir = (((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].ImpactPoint - ((FRadialDamageEvent*)&DamageEvent)->Origin).GetSafeNormal();
 	}
 	// make sure there's a difference from the last time so replication happens
 	if ((NewRelHitLocation - LastTakeHitInfo.RelHitLocation).IsNearlyZero(1.0f))
@@ -1052,7 +1052,7 @@ void AUTCharacter::StartRagdoll()
 	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
-	GetMesh()->UpdateKinematicBonesToPhysics(true, true);
+	GetMesh()->UpdateKinematicBonesToPhysics(GetMesh()->GetSpaceBases(), true, true, true);
 	GetMesh()->SetSimulatePhysics(true);
 	GetMesh()->RefreshBoneTransforms();
 	GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);
@@ -1240,7 +1240,7 @@ void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
 			if (Gib->Mesh != NULL)
 			{
 				FVector Vel = (GetMesh() == RootComponent) ? GetMesh()->GetComponentVelocity() : GetCharacterMovement()->Velocity;
-				Vel += (Gib->GetActorLocation() - GetActorLocation()).SafeNormal() * Vel.Size() * 0.25f;
+				Vel += (Gib->GetActorLocation() - GetActorLocation()).GetSafeNormal() * Vel.Size() * 0.25f;
 				Gib->Mesh->SetPhysicsLinearVelocity(Vel, false);
 			}
 			if (DmgType != NULL)
@@ -2401,7 +2401,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 			float Damage = CrushingDamageFactor * GetCharacterMovement()->Velocity.Z / -100.0f;
 			if (Damage >= 1.0f)
 			{
-				FUTPointDamageEvent DamageEvent(Damage, Hit, -GetCharacterMovement()->Velocity.SafeNormal(), UUTDmgType_FallingCrush::StaticClass());
+				FUTPointDamageEvent DamageEvent(Damage, Hit, -GetCharacterMovement()->Velocity.GetSafeNormal(), UUTDmgType_FallingCrush::StaticClass());
 				Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
 			}
 		}
@@ -2490,7 +2490,7 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 				FallingDamage -= UTCharacterMovement->FallingDamageReduction(FallingDamage, Hit);
 				if (FallingDamage >= 1.0f)
 				{
-					FUTPointDamageEvent DamageEvent(FallingDamage, Hit, GetCharacterMovement()->Velocity.SafeNormal(), UUTDmgType_Fell::StaticClass());
+					FUTPointDamageEvent DamageEvent(FallingDamage, Hit, GetCharacterMovement()->Velocity.GetSafeNormal(), UUTDmgType_Fell::StaticClass());
 					TakeDamage(DamageEvent.Damage, DamageEvent, Controller, this);
 				}
 			}
@@ -2498,7 +2498,8 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 	}
 }
 
-void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+
+void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* HitComponent, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (IsDead())
 	{

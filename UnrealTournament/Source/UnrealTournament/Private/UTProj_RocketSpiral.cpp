@@ -29,10 +29,10 @@ void AUTProj_RocketSpiral::UpdateSpiral()
 		// initialize Dir, if necessary
 		if (InitialDir.IsZero())
 		{
-			InitialDir = UTProjMovement->Velocity.SafeNormal();
+			InitialDir = UTProjMovement->Velocity.GetSafeNormal();
 		}
 
-		UTProjMovement->Velocity = UTProjMovement->InitialSpeed * (InitialDir * 0.5 * UTProjMovement->InitialSpeed + UTProjMovement->Velocity).SafeNormal();
+		UTProjMovement->Velocity = UTProjMovement->InitialSpeed * (InitialDir * 0.5 * UTProjMovement->InitialSpeed + UTProjMovement->Velocity).GetSafeNormal();
 
 		// Work out force between flock to add madness
 		for (int32 i = ARRAY_COUNT(Flock) - 1; i >= 0; i--)
@@ -42,17 +42,17 @@ void AUTProj_RocketSpiral::UpdateSpiral()
 				// Attract if distance between rockets is over 2*FlockRadius, repulse if below.
 				FVector ForceDir = Flock[i]->GetActorLocation() - GetActorLocation();
 				float ForceMag = FlockStiffness * ((2.0f * FlockRadius) - ForceDir.Size());
-				UTProjMovement->Acceleration = ForceDir.SafeNormal() * FMath::Min(ForceMag, FlockMaxForce);
+				UTProjMovement->Acceleration = ForceDir.GetSafeNormal() * FMath::Min(ForceMag, FlockMaxForce);
 
 				// Vector 'curl'
 				FVector CurlDir = FVector::CrossProduct(Flock[i]->ProjectileMovement->Velocity, ForceDir);
 				if (bCurl == Flock[i]->bCurl)
 				{
-					UTProjMovement->Acceleration += CurlDir.SafeNormal() * FlockCurlForce;
+					UTProjMovement->Acceleration += CurlDir.GetSafeNormal() * FlockCurlForce;
 				}
 				else
 				{
-					UTProjMovement->Acceleration -= CurlDir.SafeNormal() * FlockCurlForce;
+					UTProjMovement->Acceleration -= CurlDir.GetSafeNormal() * FlockCurlForce;
 				}
 				break;
 			}

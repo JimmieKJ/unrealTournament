@@ -40,7 +40,7 @@ class UUTProjectileMovementComponent : public UProjectileMovementComponent
 
 	virtual FVector ComputeVelocity(FVector InitialVelocity, float DeltaTime) const override
 	{
-		InitialVelocity += InitialVelocity.SafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
+		InitialVelocity += InitialVelocity.GetSafeNormal() * AccelRate * DeltaTime + Acceleration * DeltaTime;
 		return Super::ComputeVelocity(InitialVelocity, DeltaTime);
 	}
 

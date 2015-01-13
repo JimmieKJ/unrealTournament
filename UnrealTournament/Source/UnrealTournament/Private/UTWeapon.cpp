@@ -690,7 +690,7 @@ FHitResult AUTWeapon::GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc
 {
 	// trace for precise hit location and hit normal
 	FHitResult Hit;
-	FVector TargetToGun = (StartLoc - TargetLoc).SafeNormal();
+	FVector TargetToGun = (StartLoc - TargetLoc).GetSafeNormal();
 	if (Shooter->GetWorld()->LineTraceSingle(Hit, TargetLoc + TargetToGun * 10.0f, TargetLoc - TargetToGun * 10.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("ImpactEffect")), false, Shooter)))
 	{
 		return Hit;
@@ -936,7 +936,7 @@ FVector AUTWeapon::GetFireStartLoc()
 			FHitResult Hit;
 			if (GetWorld()->SweepSingle(Hit, BaseLoc, FinalLoc, FQuat::Identity, COLLISION_TRACE_WEAPON, Collider, Params))
 			{
-				FinalLoc = Hit.Location - (FinalLoc - BaseLoc).SafeNormal();
+				FinalLoc = Hit.Location - (FinalLoc - BaseLoc).GetSafeNormal();
 			}
 			return FinalLoc;
 		}
@@ -1052,7 +1052,7 @@ void AUTWeapon::HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult
 			// we found a player to hit, so update hit result
 			// @TODO FIXMESTEVE - need proper hit location for shot on surface of capsule
 			Hit.Location = BestPoint;
-			Hit.Normal = (EndTrace - StartLocation).SafeNormal();
+			Hit.Normal = (EndTrace - StartLocation).GetSafeNormal();
 			Hit.ImpactNormal = Hit.Normal;
 			Hit.Actor = BestTarget;
 			Hit.bBlockingHit = true;

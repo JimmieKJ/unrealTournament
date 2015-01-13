@@ -86,7 +86,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 bool AUTWeap_LinkGun::IsLinkValid_Implementation()
 {
 	const FVector Dir = GetAdjustedAim(GetFireStartLoc()).Vector();
-	const FVector TargetDir = (LinkTarget->GetActorLocation() - GetUTOwner()->GetActorLocation()).SafeNormal();
+	const FVector TargetDir = (LinkTarget->GetActorLocation() - GetUTOwner()->GetActorLocation()).GetSafeNormal();
 
 	// do a trace to prevent link through objects
 	FCollisionQueryParams TraceParams;

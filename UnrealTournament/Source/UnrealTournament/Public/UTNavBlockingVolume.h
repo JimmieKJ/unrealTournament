@@ -14,7 +14,6 @@ class AUTNavBlockingVolume : public AVolume // can't sublcass ABlockingVolume ei
 	: Super(ObjectInitializer)
 	{
 		GetBrushComponent()->bCanEverAffectNavigation = true;
-		GetBrushComponent()->BodyInstance.bEnableCollision_DEPRECATED = true;
 		GetBrushComponent()->SetCollisionProfileName(FName(TEXT("InvisibleWall")));
 		// NOTE: this relies on no nav building during gameplay
 		GetBrushComponent()->AlwaysLoadOnClient = false;

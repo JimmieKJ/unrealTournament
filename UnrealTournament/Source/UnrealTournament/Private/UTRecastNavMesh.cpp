@@ -238,7 +238,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 			}
 
 			FVector Diff = End - CurrentLoc;
-			FVector NewVelocity = Diff.SafeNormal2D() * FMath::Min<float>(Diff.Size2D() / TimeStep, XYSpeed);
+			FVector NewVelocity = Diff.GetSafeNormal2D() * FMath::Min<float>(Diff.Size2D() / TimeStep, XYSpeed);
 			NewVelocity.Z = ZSpeed;
 			ZSpeed += GravityZ * TimeStep;
 			FVector NewLoc = CurrentLoc + NewVelocity * TimeStep;
@@ -253,7 +253,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 				else
 				{
 					// try Z only
-					CurrentLoc -= Diff.SafeNormal2D(); // avoid float precision penetration issues
+					CurrentLoc -= Diff.GetSafeNormal2D(); // avoid float precision penetration issues
 					if ((NewVelocity.X == 0.0f && NewVelocity.Y == 0.0f) || GetWorld()->SweepSingle(Hit, CurrentLoc, FVector(CurrentLoc.X, CurrentLoc.Y, NewLoc.Z), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 					{
 						if (NewVelocity.Z > 0.0f && Hit.Normal.Z < -0.99f)
@@ -302,7 +302,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 		// TODO: what about jumping vehicles?
 		return false;
 	}
-	else if (!GetWorld()->FindTeleportSpot(Char, Start, (End - Start).SafeNormal2D().Rotation()))
+	else if (!GetWorld()->FindTeleportSpot(Char, Start, (End - Start).GetSafeNormal2D().Rotation()))
 	{
 		// can't fit at start location
 		return false;
@@ -323,7 +323,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 	
 		// move start position to edge of walkable surface
 		{
-			FVector MoveSlice = (End - Start).SafeNormal2D() * ScoutShape.GetCapsuleRadius();
+			FVector MoveSlice = (End - Start).GetSafeNormal2D() * ScoutShape.GetCapsuleRadius();
 			FHitResult Hit;
 			bool bAnyHit = false;
 			while ( !GetWorld()->SweepSingle(Hit, Start, Start + FVector(0.0f, 0.0f, AgentMaxStepHeight), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
@@ -873,7 +873,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 								// if there's a valid jump more than ~45 degrees off the direction to the wall there is probably another poly wall in this polygon that will handle it
 								// we add a little leeway to ~50 degrees since we're only testing the wall center and not the whole thing
 								// FIXME: replace NumSegments hack and threshold dot test with loop that uses wall with best angle
-								if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).SafeNormal2D() | (WallCenter - PolyCenter).SafeNormal2D()) > 0.64f) &&
+								if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).GetSafeNormal2D() | (WallCenter - PolyCenter).GetSafeNormal2D()) > 0.64f) &&
 									!IsInPain(GetWorld(), TestLoc)) // TODO: probably want to allow pain volumes in some situations... maybe make LDs manually specify those edge cases?
 								{
 									// make sure not directly walk reachable
@@ -1390,7 +1390,7 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 					{
 						PolyBox += Vert;
 					}
-					if (FMath::LineBoxIntersection(PolyBox, AgentLoc, AgentLoc + TraceEnd, TraceEnd.SafeNormal()))
+					if (FMath::LineBoxIntersection(PolyBox, AgentLoc, AgentLoc + TraceEnd, TraceEnd.GetSafeNormal()))
 					{
 						float Dist = (PolyBox.GetCenter() - AgentLoc).SizeSquared();
 						if (Dist < BestDist)
@@ -1645,7 +1645,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
 			{
 				FVector NextLoc = NodeRoute[0].GetLocation(Asker);
-				FVector NextDir = (NextLoc - StartLoc).SafeNormal();
+				FVector NextDir = (NextLoc - StartLoc).GetSafeNormal();
 				float MaxDetourDist = (StartLoc - NextLoc).Size() * 1.5f;
 				// TODO: get movement speed for non-characters somehow
 				const float MoveSpeed = FMath::Max<float>(1.0f, (Cast<ACharacter>(Asker) != NULL) ? ((ACharacter*)Asker)->GetCharacterMovement()->GetMaxSpeed() : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed);
@@ -1672,7 +1672,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 							if (bValid)
 							{
 								// reject detours too far behind desired path
-								float Angle = (POILoc - StartLoc).SafeNormal() | NextDir;
+								float Angle = (POILoc - StartLoc).GetSafeNormal() | NextDir;
 								float MaxDist = (MaxDetourDist / (2.0f - Angle));
 								if (Dist < MaxDist)
 								{

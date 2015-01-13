@@ -150,7 +150,7 @@ bool AUTSquadAI::CheckSuperPickups(AUTBot* B, int32 MaxDist)
 	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (B->GetCharacter() != NULL) ? B->GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, MaxDist, 1.0f, ClaimedPickups);
 	float Weight = 0.0f;
 	TArray<FRouteCacheItem> PotentialRoute;
-	if (NavData->FindBestPath(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, true, PotentialRoute))
+	if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, true, PotentialRoute))
 	{
 		if (Team != NULL && PotentialRoute.Last().Actor != NULL)
 		{
@@ -183,7 +183,7 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 		return true;
 	}
 	// keep moving to previous retreat destination if possible (don't oscillate)
-	else if (B->RouteCache.Num() > 1 && NavData->HasReachedTarget(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), B->RouteCache[0]))
+	else if (B->RouteCache.Num() > 1 && NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), B->RouteCache[0]))
 	{
 		B->RouteCache.RemoveAt(0);
 		B->SetMoveTarget(B->RouteCache[0]);
@@ -193,7 +193,7 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 	{
 		FRandomDestEval NodeEval;
 		float Weight = 0.0f;
-		if (NavData->FindBestPath(B->GetPawn(), *B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, false, B->RouteCache))
+		if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, false, B->RouteCache))
 		{
 			B->SetMoveTarget(B->RouteCache[0]);
 			return true;

@@ -57,7 +57,7 @@ FRadialDamageParams AUTProj_FlakShardMain::GetDamageParams_Implementation(AActor
 		{
 			// Apply bonus damage
 			const float CharacterRadius = OtherCharacter->GetSimpleCollisionRadius();
-			const float OffCenterDistance = FMath::PointDistToLine(OtherActor->GetActorLocation(), GetVelocity().SafeNormal(), HitLocation);
+			const float OffCenterDistance = FMath::PointDistToLine(OtherActor->GetActorLocation(), GetVelocity().GetSafeNormal(), HitLocation);
 			const float OffCenterMultiplier = FMath::Max(0.f, 2.f * CharacterRadius - OffCenterDistance) / CharacterRadius;
 			CalculatedParams.BaseDamage += CenteredDamageBonus * BonusTime * OffCenterMultiplier;
 			OutMomentum += CenteredMomentumBonus * BonusTime;

@@ -38,14 +38,14 @@ void AUTPhysicsVortex::Tick(float DeltaTime)
 				{
 					// if it has reached the center, gib it
 					const FVector Dir = MyLocation - OtherLocation;
-					if (Dir.Size() < P->GetMesh()->Bounds.SphereRadius && (P->GetVelocity().SafeNormal() | Dir) > 0.0/* TODO: && !class'GameInfo'.static.UseLowGore(WorldInfo)*/)
+					if (Dir.Size() < P->GetMesh()->Bounds.SphereRadius && (P->GetVelocity().GetSafeNormal() | Dir) > 0.0/* TODO: && !class'GameInfo'.static.UseLowGore(WorldInfo)*/)
 					{
 						P->LastTakeHitInfo.DamageType = DamageType;
 						P->GibExplosion();
 					}
 					else
 					{
-						P->GetMesh()->AddForce(Dir.SafeNormal() * CurrentForce);
+						P->GetMesh()->AddForce(Dir.GetSafeNormal() * CurrentForce);
 					}
 				}
 			}

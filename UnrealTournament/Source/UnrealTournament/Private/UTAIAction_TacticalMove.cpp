@@ -24,13 +24,13 @@ void UUTAIAction_TacticalMove::PickDestination()
 	bForcedDirection = false;
 
 	if ( GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->GetPhysicsVolume() != NULL && GetCharacter()->GetCharacterMovement()->GetPhysicsVolume()->bWaterVolume &&
-		/*!Pawn.bCanSwim && */ GetPawn()->GetNavAgentProperties()->bCanFly )
+		/*!Pawn.bCanSwim && */ GetPawn()->GetNavAgentProperties().bCanFly )
 	{
 		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + 75.0f * (FMath::VRand() + FVector(0.0f, 0.0f, 1.0f)) + FVector(0.0f, 0.0f, 100.0f)));
 	}
 	else
 	{
-		FVector EnemyDir = (GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true) - GetPawn()->GetActorLocation()).SafeNormal();
+		FVector EnemyDir = (GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true) - GetPawn()->GetActorLocation()).GetSafeNormal();
 		FVector Y = (EnemyDir ^ FVector(0.0f, 0.0f, 1.0f));
 
 		if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
@@ -88,10 +88,10 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 	if (!bForced)
 	{
 		FVector Extent = GetPawn()->GetSimpleCollisionRadius() * FVector(1.0f, 1.0f, 0.0f);
-		Extent.Z = FMath::Max<float>(15.0f, GetPawn()->GetSimpleCollisionHalfHeight() - GetPawn()->GetNavAgentProperties()->AgentStepHeight);
+		Extent.Z = FMath::Max<float>(15.0f, GetPawn()->GetSimpleCollisionHalfHeight() - GetPawn()->GetNavAgentProperties().AgentStepHeight);
 
 		bool bWantJump = GetCharacter() != NULL && GetCharacter()->CanJump() && (FMath::FRand() < 0.05f * GetOuterAUTBot()->Skill + 0.6f * GetOuterAUTBot()->Personality.Jumpiness || (GetWeapon() != NULL && GetWeapon()->bRecommendSplashDamage && GetOuterAUTBot()->WeaponProficiencyCheck()))
-			&& (GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true).Z - GetEnemy()->GetSimpleCollisionHalfHeight() <= GetPawn()->GetActorLocation().Z + GetPawn()->GetNavAgentProperties()->AgentStepHeight - GetPawn()->GetSimpleCollisionHalfHeight())
+			&& (GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true).Z - GetEnemy()->GetSimpleCollisionHalfHeight() <= GetPawn()->GetActorLocation().Z + GetPawn()->GetNavAgentProperties().AgentStepHeight - GetPawn()->GetSimpleCollisionHalfHeight())
 			&& !GetOuterAUTBot()->NeedToTurn(GetOuterAUTBot()->GetFocalPoint());
 		FCollisionQueryParams TraceParams(FName(TEXT("EngageDirection")), false, GetPawn());
 		FCollisionObjectQueryParams HitParams(ECC_WorldStatic);
@@ -108,7 +108,7 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 			{
 				Extent.X = FMath::Min<float>(30.0f, 0.5f * GetPawn()->GetSimpleCollisionRadius());
 				Extent.Y = Extent.X;
-				if (!GetWorld()->SweepSingle(Hit, MinDest, MinDest - (3.0f * GetPawn()->GetNavAgentProperties()->AgentStepHeight) * FVector(0.0f, 0.0f, 1.0f), FQuat::Identity, FCollisionShape::MakeCapsule(Extent), TraceParams, HitParams))
+				if (!GetWorld()->SweepSingle(Hit, MinDest, MinDest - (3.0f * GetPawn()->GetNavAgentProperties().AgentStepHeight) * FVector(0.0f, 0.0f, 1.0f), FQuat::Identity, FCollisionShape::MakeCapsule(Extent), TraceParams, HitParams))
 				{
 					return false;
 				}
@@ -131,7 +131,7 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 				//bPlannedJump = true;
 				//DodgeLandZ = Pawn.Location.Z;
 				//bInDodgeMove = true;
-				GetCharacter()->GetCharacterMovement()->Velocity = (MinDest - GetPawn()->GetActorLocation()).ClampMaxSize2D(GetCharacter()->GetCharacterMovement()->GetMaxSpeed());
+				GetCharacter()->GetCharacterMovement()->Velocity = (MinDest - GetPawn()->GetActorLocation()).GetClampedToMaxSize2D(GetCharacter()->GetCharacterMovement()->GetMaxSpeed());
 				GetCharacter()->GetCharacterMovement()->Velocity.Z = 0.0f;
 				GetCharacter()->GetCharacterMovement()->DoJump(false);
 				if ( (GetOuterAUTBot()->Personality.Jumpiness > 0.0f && FMath::FRand() < GetOuterAUTBot()->Personality.Jumpiness * 0.5f) ||
@@ -153,7 +153,7 @@ void UUTAIAction_TacticalMove::FinalWaitFinished()
 {
 	if (FMath::FRand() + 0.3f > GetOuterAUTBot()->CurrentAggression)
 	{
-		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(HidingSpot + 4.0 * GetPawn()->GetSimpleCollisionRadius() * (HidingSpot - GetPawn()->GetActorLocation()).SafeNormal()));
+		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(HidingSpot + 4.0 * GetPawn()->GetSimpleCollisionRadius() * (HidingSpot - GetPawn()->GetActorLocation()).GetSafeNormal()));
 		bFinalMove = false;
 	}
 	else
@@ -175,7 +175,7 @@ void UUTAIAction_TacticalMove::StartFinalMove()
 		// try to get back to a shooting position
 		bFinalMove = true;
 
-		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(EnemyInfo->LastSeeingLoc + 4.0f * GetPawn()->GetSimpleCollisionRadius() * (EnemyInfo->LastSeeingLoc - GetPawn()->GetActorLocation()).SafeNormal()));
+		GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(EnemyInfo->LastSeeingLoc + 4.0f * GetPawn()->GetSimpleCollisionRadius() * (EnemyInfo->LastSeeingLoc - GetPawn()->GetActorLocation()).GetSafeNormal()));
 	}
 }
 

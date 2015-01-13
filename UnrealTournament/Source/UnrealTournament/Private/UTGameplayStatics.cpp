@@ -185,7 +185,7 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 	if (!VictimComp->LineTraceComponent(OutHitResult, TraceStart, TraceEnd, LineParams))
 	{
 		FVector FakeHitLoc = VictimComp->GetComponentLocation();
-		OutHitResult = FHitResult(VictimComp->GetOwner(), VictimComp, FakeHitLoc, (Origin - FakeHitLoc).SafeNormal());
+		OutHitResult = FHitResult(VictimComp->GetOwner(), VictimComp, FakeHitLoc, (Origin - FakeHitLoc).GetSafeNormal());
 	}
 	return true;
 }
@@ -198,7 +198,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 	SphereParams.AddIgnoredActors(IgnoreActors);
 	if (DamageCauser != NULL)
 	{
-		SphereParams.IgnoreActors.Add(DamageCauser->GetUniqueID());
+		SphereParams.AddIgnoredActor(DamageCauser);
 	}
 
 	// query scene to see what we hit

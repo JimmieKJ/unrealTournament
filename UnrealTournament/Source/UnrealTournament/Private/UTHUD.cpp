@@ -429,8 +429,8 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 		FRotator CharacterRotation;
 
 		UTC->GetActorEyesViewPoint(CharacterLocation, CharacterRotation);
-		FVector HitSafeNormal = (HitLocation - CharacterLocation).SafeNormal2D();
-		float Ang = FMath::Acos(FVector::DotProduct(CharacterRotation.Vector().SafeNormal2D(), HitSafeNormal)) * (180.0f / PI);
+		FVector HitSafeNormal = (HitLocation - CharacterLocation).GetSafeNormal2D();
+		float Ang = FMath::Acos(FVector::DotProduct(CharacterRotation.Vector().GetSafeNormal2D(), HitSafeNormal)) * (180.0f / PI);
 
 		// Figure out Left/Right....
 		float FinalAng = ( FVector::DotProduct( FVector::CrossProduct(CharacterRotation.Vector(), FVector(0,0,1)), HitSafeNormal)) > 0 ? 360 - Ang : Ang;

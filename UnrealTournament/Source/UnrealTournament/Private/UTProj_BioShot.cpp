@@ -519,7 +519,7 @@ void AUTProj_BioShot::BlobToWeb(const FVector& NormalDir)
 	//Adjust a bit so globlings don't spawn in the floor
 	FVector FloorOffset = GetActorLocation() + (SurfaceNormal * 10.0f);
 	int32 NumGloblings = int32(GlobStrength);
-	FVector CrossVector = (NormalDir ^ SurfaceNormal).SafeNormal();
+	FVector CrossVector = (NormalDir ^ SurfaceNormal).GetSafeNormal();
 
 	for (int32 i = 0; i<NumGloblings; i++)
 	{
@@ -684,7 +684,7 @@ void AUTProj_BioShot::MergeWithGlob(AUTProj_BioShot* OtherBio)
 		bLanded = false;
 		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
 		{
-			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SafeNormal();
+			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).GetSafeNormal();
 		}
 	}
 	else if (OtherBio->TrackedPawn)
@@ -725,7 +725,7 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 
 		if (ProjectileMovement->Velocity.Size() < 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold)
 		{
-			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).SafeNormal();
+			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).GetSafeNormal();
 		}
 	}
 }

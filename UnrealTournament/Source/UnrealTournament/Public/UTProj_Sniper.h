@@ -37,7 +37,7 @@ class AUTProj_Sniper : public AUTProjectile
 			TSubclassOf<UDamageType> SavedDamageType = MyDamageType;
 
 			AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
-			if (UTC != NULL && UTC->IsHeadShot(HitLocation, GetVelocity().SafeNormal(), HeadScaling, true))
+			if (UTC != NULL && UTC->IsHeadShot(HitLocation, GetVelocity().GetSafeNormal(), HeadScaling, true))
 			{
 				DamageParams.BaseDamage *= HeadshotDamageMult;
 				MyDamageType = (HeadshotDamageType != NULL) ? HeadshotDamageType : MyDamageType;

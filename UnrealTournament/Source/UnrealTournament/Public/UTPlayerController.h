@@ -63,7 +63,6 @@ public:
 	virtual void SetPawn(APawn* InPawn);
 	virtual void SetupInputComponent() override;
 	virtual void ProcessPlayerInput(const float DeltaTime, const bool bGamePaused) override;
-	virtual void PostInitializeComponents() override;
 	virtual void PawnPendingDestroy(APawn* InPawn) override;
 
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;

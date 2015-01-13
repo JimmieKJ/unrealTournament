@@ -9,7 +9,6 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 {
 	SetReplicates(true);
 	bOnlyRelevantToOwner = true;
-	bReplicateInstigator = true;
 
 	RespawnTime = 30.0f;
 

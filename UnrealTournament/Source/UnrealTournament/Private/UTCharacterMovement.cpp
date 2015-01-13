@@ -146,7 +146,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					{
 						if (B->RouteCache[i] == B->GetMoveTarget())
 						{
-							int32 LinkIndex = B->GetMoveTarget().Node->GetBestLinkTo(B->GetMoveTarget().TargetPoly, B->RouteCache[i + 1], CharacterOwner, *CharacterOwner->GetNavAgentProperties(), GetUTNavData(GetWorld()));
+							int32 LinkIndex = B->GetMoveTarget().Node->GetBestLinkTo(B->GetMoveTarget().TargetPoly, B->RouteCache[i + 1], CharacterOwner, CharacterOwner->GetNavAgentProperties(), GetUTNavData(GetWorld()));
 							if (LinkIndex != INDEX_NONE && (B->GetMoveTarget().Node->Paths[LinkIndex].ReachFlags & R_JUMP) && B->GetMoveTarget().Node->Paths[LinkIndex].Spec.IsValid())
 							{
 								LiftPath = Cast<UUTReachSpec_Lift>(B->GetMoveTarget().Node->Paths[LinkIndex].Spec.Get());
@@ -165,7 +165,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					if (PawnLoc.Z + (LiftVelocity.Z + JumpZVelocity * 0.9f) * Time + 0.5f * GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z)
 					{
 						// jump!
-						Velocity = (LiftPath->LiftExitLoc - PawnLoc).SafeNormal2D() * MaxWalkSpeed;
+						Velocity = (LiftPath->LiftExitLoc - PawnLoc).GetSafeNormal2D() * MaxWalkSpeed;
 						DoJump(false);
 						// redirect bot to next point on route if necessary
 						if (ExitRouteIndex != INDEX_NONE)
@@ -202,7 +202,7 @@ void UUTCharacterMovement::ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpa
 	if (NewVelocity.Size2D() > ImpactMaxHorizontalVelocity)
 	{
 		float VelZ = NewVelocity.Z;
-		NewVelocity = NewVelocity.SafeNormal2D() * ImpactMaxHorizontalVelocity;
+		NewVelocity = NewVelocity.GetSafeNormal2D() * ImpactMaxHorizontalVelocity;
 		NewVelocity.Z = VelZ;
 	}
 	NewVelocity.Z = FMath::Min(NewVelocity.Z, ImpactMaxVerticalFactor*ImpulseMag);
@@ -395,7 +395,7 @@ void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted
 		float FinalImpulseZ = FinalImpulse.Z;
 		FinalImpulse.Z = 0.f;
 		FVector PendingVelocity = Velocity + PendingImpulseToApply;
-		FVector PendingVelocityDir = PendingVelocity.SafeNormal();
+		FVector PendingVelocityDir = PendingVelocity.GetSafeNormal();
 		FVector AdditiveImpulse = PendingVelocityDir * (PendingVelocityDir | FinalImpulse);
 		FVector OrthogonalImpulse = FinalImpulse - AdditiveImpulse;
 		FVector ResultVelocity = PendingVelocity + AdditiveImpulse;
@@ -442,7 +442,7 @@ FVector UUTCharacterMovement::GetImpartedMovementBaseVelocity() const
 		float MaxSpeedSq = FMath::Square(MaxWalkSpeed + Result.Size2D()) + FMath::Square(JumpZVelocity + Result.Z);
 		if ((Velocity + Result).SizeSquared() > MaxSpeedSq)
 		{
-			Result = (Velocity + Result).SafeNormal() * FMath::Sqrt(MaxSpeedSq) - Velocity;
+			Result = (Velocity + Result).GetSafeNormal() * FMath::Sqrt(MaxSpeedSq) - Velocity;
 		}
 		Result.Z = FMath::Max(Result.Z, 0.f);
 	}
@@ -540,14 +540,14 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		if ((Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal)
 		{
 			// clamp dodge direction based on wall normal
-			FVector ForwardDir = (Result.ImpactNormal ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
+			FVector ForwardDir = (Result.ImpactNormal ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 			if ((ForwardDir | DodgeDir) < 0.f)
 			{
 				ForwardDir *= -1.f;
 			}
 			DodgeDir = Result.ImpactNormal*WallDodgeMinNormal*WallDodgeMinNormal + ForwardDir*(1.f - WallDodgeMinNormal*WallDodgeMinNormal);
-			DodgeDir = DodgeDir.SafeNormal();
-			FVector NewDodgeCross = (DodgeDir ^ FVector(0.f, 0.f, 1.f)).SafeNormal();
+			DodgeDir = DodgeDir.GetSafeNormal();
+			FVector NewDodgeCross = (DodgeDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 			DodgeCross = ((NewDodgeCross | DodgeCross) < 0.f) ? -1.f*NewDodgeCross : NewDodgeCross;
 		}
 		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
@@ -568,7 +568,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
 	float SpeedXY = FMath::Min(Velocity.Size(), DodgeMaxHorizontalVelocity);
-	Velocity = SpeedXY*Velocity.SafeNormal();
+	Velocity = SpeedXY*Velocity.GetSafeNormal();
 	if (IsMovingOnGround())
 	{
 		Velocity.Z = DodgeImpulseVertical;
@@ -708,7 +708,7 @@ bool UUTCharacterMovement::CanSprint() const
 		// must be movin mostly forward
 		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
 		FVector X = FRotationMatrix(TurnRot).GetScaledAxis(EAxis::X);
-		return ((X | Velocity.SafeNormal()) > 0.6f);
+		return ((X | Velocity.GetSafeNormal()) > 0.6f);
 	}
 	return false;
 }
@@ -801,7 +801,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		if (bIsDodgeRolling)
 		{
 			DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
-			Acceleration = DodgeRollAcceleration * Velocity.SafeNormal2D();
+			Acceleration = DodgeRollAcceleration * Velocity.GetSafeNormal2D();
 			//UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
 			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging)
@@ -937,7 +937,7 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 		AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 		if (UTCharacterOwner)
 		{
-			UTCharacterOwner->Dodge((DodgeDirX*X + DodgeDirY*Y).SafeNormal(), (DodgeCrossX*X + DodgeCrossY*Y).SafeNormal());
+			UTCharacterOwner->Dodge((DodgeDirX*X + DodgeDirY*Y).GetSafeNormal(), (DodgeCrossX*X + DodgeCrossY*Y).GetSafeNormal());
 		}
 	}
 
@@ -1007,7 +1007,7 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 
 				// Make remaining portion of original result horizontal and parallel to impact normal.
 				const FVector RemainderXY = (SlideResult - Result) * FVector(1.f, 1.f, 0.f);
-				const FVector NormalXY = Normal.SafeNormal2D();
+				const FVector NormalXY = Normal.GetSafeNormal2D();
 				const FVector Adjust = Super::ComputeSlideVector(RemainderXY, 1.f, NormalXY, Hit);
 				Result += Adjust;
 			}
@@ -1029,7 +1029,7 @@ bool UUTCharacterMovement::CanCrouchInCurrentState() const
 void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 {
 	bApplyWallSlide = false;
-	if ((bWantsSlideRoll || bAutoSlide) && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.SafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
+	if ((bWantsSlideRoll || bAutoSlide) && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
 	{
 		FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 		bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
@@ -1097,7 +1097,7 @@ void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 {
 	if (Velocity.Size() > MaxWaterSpeed)
 	{
-		FVector VelDir = Velocity.SafeNormal();
+		FVector VelDir = Velocity.GetSafeNormal();
 		if ((VelDir | Acceleration) > 0.f)
 		{
 			Acceleration = Acceleration - (VelDir | Acceleration)*VelDir; 
@@ -1130,7 +1130,7 @@ bool UUTCharacterMovement::ShouldJumpOutOfWater(FVector& JumpDir)
 	// only consider velocity, not view dir
 	if (Velocity.Z > 0.f)
 	{
-		JumpDir = Acceleration.SafeNormal();
+		JumpDir = Acceleration.GetSafeNormal();
 		return true;
 	}
 	return false;
@@ -1207,11 +1207,11 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	FVector FallAcceleration = Acceleration;
 	FallAcceleration.Z = 0.f;
 
-	if ((CurrentWallDodgeCount > 0) && (Velocity.Z > 0.f) && ((FallAcceleration | LastWallDodgeNormal) < 0.f) && ((FallAcceleration.SafeNormal() | LastWallDodgeNormal) < -1.f*WallDodgeMinNormal))
+	if ((CurrentWallDodgeCount > 0) && (Velocity.Z > 0.f) && ((FallAcceleration | LastWallDodgeNormal) < 0.f) && ((FallAcceleration.GetSafeNormal() | LastWallDodgeNormal) < -1.f*WallDodgeMinNormal))
 	{
 		// don't air control back into wall you just dodged from  
 		FallAcceleration = FallAcceleration - (FallAcceleration | LastWallDodgeNormal) * LastWallDodgeNormal;
-		FallAcceleration = FallAcceleration.SafeNormal();
+		FallAcceleration = FallAcceleration.GetSafeNormal();
 	}
 	bool bSkipLandingAssist = true;
 	bApplyWallSlide = false;
@@ -1228,7 +1228,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
 		{
 			const float TestWalkTime = FMath::Max(deltaTime, 0.05f);
-			const FVector TestWalk = ((TickAirControl * GetMaxAcceleration() * FallAcceleration.SafeNormal() + FVector(0.f, 0.f, GetGravityZ())) * TestWalkTime + Velocity) * TestWalkTime;
+			const FVector TestWalk = ((TickAirControl * GetMaxAcceleration() * FallAcceleration.GetSafeNormal() + FVector(0.f, 0.f, GetGravityZ())) * TestWalkTime + Velocity) * TestWalkTime;
 			if (!TestWalk.IsZero())
 			{
 				static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
@@ -1266,7 +1266,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 		float MaxAccel = GetMaxAcceleration() * TickAirControl;				
 
-		FallAcceleration = FallAcceleration.ClampMaxSize(MaxAccel);
+		FallAcceleration = FallAcceleration.GetClampedToMaxSize(MaxAccel);
 	}
 
 	float remainingTime = deltaTime;
@@ -1322,7 +1322,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		if (!HasRootMotion())
 		{
 			// make sure not exceeding acceptable speed
-			Velocity = Velocity.ClampMaxSize2D(BoundSpeed);
+			Velocity = Velocity.GetClampedToMaxSize2D(BoundSpeed);
 		}
 
 		FVector Adjusted = 0.5f*(OldVelocity + Velocity) * timeTick;
@@ -1411,10 +1411,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						if (Hit.Time == 0)
 						{
 							// if we are stuck then try to side step
-							FVector SideDelta = (OldHitNormal + Hit.ImpactNormal).SafeNormal2D();
+							FVector SideDelta = (OldHitNormal + Hit.ImpactNormal).GetSafeNormal2D();
 							if (SideDelta.IsNearlyZero())
 							{
-								SideDelta = FVector(OldHitNormal.Y, -OldHitNormal.X, 0).SafeNormal();
+								SideDelta = FVector(OldHitNormal.Y, -OldHitNormal.X, 0).GetSafeNormal();
 							}
 							SafeMoveUpdatedComponent(SideDelta, PawnRotation, true, Hit);
 						}
@@ -1471,7 +1471,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 				Velocity.Y = 0.f;
 			}
 
-			Velocity = Velocity.ClampMaxSize(GetPhysicsVolume()->TerminalVelocity);
+			Velocity = Velocity.GetClampedToMaxSize(GetPhysicsVolume()->TerminalVelocity);
 		}
 /*
 		FVector Loc = CharacterOwner->GetActorLocation();
@@ -1519,7 +1519,7 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 	bool bHit = GetWorld()->SweepSingle(Result, PawnLocation, PawnLocation + FVector(0.f, 0.f,LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 	FVector HorizontalStart = bHit ? Result.Location : PawnLocation + FVector(0.f, 0.f, LandingStepUp);
 	float ElapsedTime = 0.05f; // FMath::Min(0.05f, remainingTime);
-	FVector HorizontalDir = Acceleration.SafeNormal2D() * MaxWalkSpeed * 0.05f;;
+	FVector HorizontalDir = Acceleration.GetSafeNormal2D() * MaxWalkSpeed * 0.05f;;
 	bHit = GetWorld()->SweepSingle(Result, HorizontalStart, HorizontalStart + HorizontalDir, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 	FVector LandingStart = bHit ? Result.Location : HorizontalStart + HorizontalDir;
 	bHit = GetWorld()->SweepSingle(Result, LandingStart, LandingStart - FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);

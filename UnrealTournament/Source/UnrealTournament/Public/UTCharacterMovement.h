@@ -17,7 +17,7 @@ public:
 	virtual void ClientAckGoodMove_Implementation(float TimeStamp) override;
 
 	/** Return true if it is OK to delay sending this player movement to the server to conserve bandwidth. */
-	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove, const FSavedMovePtr& PreviousMove);
+	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove) override;
 
 	virtual void UTCallServerMove();
 

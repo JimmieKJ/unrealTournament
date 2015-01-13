@@ -17,9 +17,7 @@ public:
 
 	UPROPERTY()
 	class AUTLobbyHUD* UTLobbyHUD;
-
-	virtual void PostInitializeComponents();
-	
+		
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
 

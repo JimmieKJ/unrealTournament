@@ -44,7 +44,7 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 		if (RadialEvent.ComponentHits.Num() == 0)
 		{
 			// don't think this can happen but doesn't hurt to be safe
-			return (HitActor->GetActorLocation() - RadialEvent.Origin).SafeNormal() * Magnitude;
+			return (HitActor->GetActorLocation() - RadialEvent.Origin).GetSafeNormal() * Magnitude;
 		}
 		// accommodate origin being same as hit location
 		else if (RadialEvent.ComponentHits.Num() == 1 && (RadialEvent.ComponentHits[0].Location - RadialEvent.Origin).IsNearlyZero())
@@ -53,11 +53,11 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 			{
 				// 'fake' hit generated because no component trace succeeded even though radius check worked
 				// in this case, use direction to component center
-				return (RadialEvent.ComponentHits[0].Component->GetComponentLocation() - RadialEvent.Origin).SafeNormal() * Magnitude;
+				return (RadialEvent.ComponentHits[0].Component->GetComponentLocation() - RadialEvent.Origin).GetSafeNormal() * Magnitude;
 			}
 			else
 			{
-				return (RadialEvent.ComponentHits[0].TraceEnd - RadialEvent.ComponentHits[0].TraceStart).SafeNormal() * Magnitude;
+				return (RadialEvent.ComponentHits[0].TraceEnd - RadialEvent.ComponentHits[0].TraceStart).GetSafeNormal() * Magnitude;
 			}
 		}
 		else
@@ -68,7 +68,7 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 				Avg += RadialEvent.ComponentHits[i].Location;
 			}
 
-			return (Avg / RadialEvent.ComponentHits.Num() - RadialEvent.Origin).SafeNormal() * Magnitude;
+			return (Avg / RadialEvent.ComponentHits.Num() - RadialEvent.Origin).GetSafeNormal() * Magnitude;
 		}
 	}
 	else

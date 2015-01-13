@@ -15,6 +15,8 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
                     "Engine",
                     "UnrealTournament",
+					"InputCore",
+					"SlateCore",
 				}
 				);
 		}

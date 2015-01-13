@@ -52,13 +52,13 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 	if (OnlineIdentityInterface.IsValid())
 	{
 		OnLoginCompleteDelegate = FOnLoginCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnLoginComplete);
-		OnlineIdentityInterface->AddOnLoginCompleteDelegate(ControllerId, OnLoginCompleteDelegate);
+		OnlineIdentityInterface->AddOnLoginCompleteDelegate(GetControllerId(), OnLoginCompleteDelegate);
 
 		OnLoginStatusChangedDelegate = FOnLoginStatusChangedDelegate::CreateUObject(this, &UUTLocalPlayer::OnLoginStatusChanged);
-		OnlineIdentityInterface->AddOnLoginStatusChangedDelegate(ControllerId, OnLoginStatusChangedDelegate);
+		OnlineIdentityInterface->AddOnLoginStatusChangedDelegate(GetControllerId(), OnLoginStatusChangedDelegate);
 
 		OnLogoutCompleteDelegate = FOnLogoutCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnLogoutComplete);
-		OnlineIdentityInterface->AddOnLogoutCompleteDelegate(ControllerId, OnLogoutCompleteDelegate);
+		OnlineIdentityInterface->AddOnLogoutCompleteDelegate(GetControllerId(), OnLogoutCompleteDelegate);
 	}
 
 	if (OnlineUserCloudInterface.IsValid())
@@ -87,7 +87,7 @@ FText UUTLocalPlayer::GetAccountDisplayName() const
 	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
 	{
 
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserId.IsValid())
 		{
 			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
@@ -106,7 +106,7 @@ FText UUTLocalPlayer::GetAccountSummary() const
 	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
 	{
 
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserId.IsValid())
 		{
 			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
@@ -153,7 +153,7 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 		if (OnlineIdentityInterface.IsValid())
 		{
 			// Attempt to Auto-Login to MCP
-			if ( !OnlineIdentityInterface->AutoLogin(ControllerId) )
+			if (!OnlineIdentityInterface->AutoLogin(GetControllerId()))
 			{
 				bInitialSignInAttempt = false;
 			}
@@ -364,7 +364,7 @@ void UUTLocalPlayer::HideHUDSettings()
 
 bool UUTLocalPlayer::IsLoggedIn() 
 { 
-	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(ControllerId);
+	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId());
 }
 
 
@@ -407,7 +407,7 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 		}
 
 		// Begin the Login Process...
-		if (!OnlineIdentityInterface->Login(ControllerId, AccountCreds))
+		if (!OnlineIdentityInterface->Login(GetControllerId(), AccountCreds))
 		{
 #if !UE_SERVER
 			// We should never fail here unless something has gone horribly wrong
@@ -430,7 +430,7 @@ void UUTLocalPlayer::Logout()
 	if (IsLoggedIn() && OnlineIdentityInterface.IsValid())
 	{
 		// Begin the Login Process....
-		if (!OnlineIdentityInterface->Logout(ControllerId))
+		if (!OnlineIdentityInterface->Logout(GetControllerId()))
 		{
 #if !UE_SERVER
 			// We should never fail here unless something has gone horribly wrong
@@ -448,9 +448,9 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 	{
 		if (OnlineIdentityInterface.IsValid())
 		{
-			OnlineIdentityInterface->ClearOnLoginCompleteDelegate(ControllerId, OnLoginCompleteDelegate);
-			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate(ControllerId, OnLoginStatusChangedDelegate);
-			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate(ControllerId, OnLogoutCompleteDelegate);
+			OnlineIdentityInterface->ClearOnLoginCompleteDelegate(GetControllerId(), OnLoginCompleteDelegate);
+			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate(GetControllerId(), OnLoginStatusChangedDelegate);
+			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate(GetControllerId(), OnLogoutCompleteDelegate);
 		}
 	}
 }
@@ -634,7 +634,7 @@ FString UUTLocalPlayer::GetProfileFilename()
 {
 	if (IsLoggedIn())
 	{
-		FString AccountUserName = OnlineIdentityInterface->GetPlayerNickname(ControllerId);
+		FString AccountUserName = OnlineIdentityInterface->GetPlayerNickname(GetControllerId());
 		FString ProfileFilename = FString::Printf(TEXT("%s.user.profile"), *AccountUserName);
 		return ProfileFilename;
 	}
@@ -649,7 +649,7 @@ void UUTLocalPlayer::LoadProfileSettings()
 {
 	if (IsLoggedIn())
 	{
-		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename() );
 	}
 }
@@ -668,7 +668,7 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 {
 	if (IsLoggedIn() && ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		OnlineUserCloudInterface->DeleteUserFile(*UserID, GetProfileFilename(), true, true);
 	}
 }
@@ -764,7 +764,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 		CurrentProfileSettings->Serialize(Ar);
 
 		// Save the blob to the cloud
-		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(ControllerId);
+		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
 	}
 }

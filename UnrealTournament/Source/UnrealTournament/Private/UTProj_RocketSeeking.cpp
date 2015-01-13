@@ -17,10 +17,10 @@ void AUTProj_RocketSeeking::Tick(float DeltaTime)
 
 	if (TargetActor != NULL)
 	{
-		FVector WantedDir = (TargetActor->GetActorLocation() - GetActorLocation()).SafeNormal();
+		FVector WantedDir = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 
 		ProjectileMovement->Velocity += WantedDir * AdjustmentSpeed * DeltaTime;
-		ProjectileMovement->Velocity = ProjectileMovement->Velocity.SafeNormal() * ProjectileMovement->MaxSpeed;
+		ProjectileMovement->Velocity = ProjectileMovement->Velocity.GetSafeNormal() * ProjectileMovement->MaxSpeed;
 
 		//If the rocket has passed the target stop following
 		if (FVector::DotProduct(WantedDir, ProjectileMovement->Velocity) < 0.0f)

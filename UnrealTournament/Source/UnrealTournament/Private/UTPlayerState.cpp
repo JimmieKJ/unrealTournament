@@ -326,9 +326,9 @@ void AUTPlayerState::BeginPlay()
 		if (OnlineIdentityInterface.IsValid() && PC != nullptr)
 		{
 			ULocalPlayer* LP = Cast<ULocalPlayer>(PC->Player);
-			if (LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->ControllerId))
+			if (LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 			{
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->ControllerId);
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
 				if (UserId.IsValid())
 				{
 					ServerReceiveStatsID(UserId->ToString());

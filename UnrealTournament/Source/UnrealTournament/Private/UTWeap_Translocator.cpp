@@ -110,7 +110,7 @@ void AUTWeap_Translocator::FireShot()
 				Event.Damage = TelefragDamage;
 				Event.DamageTypeClass = TransFailDamageType;
 				Event.HitInfo = FHitResult(UTOwner, UTOwner->GetCapsuleComponent(), UTOwner->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
-				Event.ShotDirection = GetVelocity().SafeNormal();
+				Event.ShotDirection = GetVelocity().GetSafeNormal();
 				Event.Momentum = Event.ShotDirection * AdjustedMomentum;
 
 				UTOwner->TakeDamage(TelefragDamage, Event, TransDisk->DisruptedController, UTOwner);
@@ -336,7 +336,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 					float EffectiveSpeed = DefaultProj->ProjectileMovement->InitialSpeed;
 					if (DefaultProj->TossZ > 0.0f)
 					{
-						EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - StartLoc).SafeNormal().Z * DefaultProj->TossZ);
+						EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - StartLoc).GetSafeNormal().Z * DefaultProj->TossZ);
 					}
 					FVector TossVel;
 					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, EffectiveSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
@@ -351,8 +351,8 @@ bool AUTWeap_Translocator::DoAssistedJump()
 				{
 					const FVector TestLoc = bAddedFallbackTarget ? PotentialTargets.Last() : BaseMoveTarget;
 					// see if there's a better throw by strafing to the side
-					const FVector Side = 500.0f * ((TestLoc - UTOwner->GetActorLocation()).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f));
-					const FVector TestPoints[] = { UTOwner->GetNavAgentLocation() + Side, UTOwner->GetNavAgentLocation() - Side, UTOwner->GetNavAgentLocation() + (UTOwner->GetNavAgentLocation() - TestLoc).SafeNormal2D() * 500.0f };
+					const FVector Side = 500.0f * ((TestLoc - UTOwner->GetActorLocation()).GetSafeNormal() ^ FVector(0.0f, 0.0f, 1.0f));
+					const FVector TestPoints[] = { UTOwner->GetNavAgentLocation() + Side, UTOwner->GetNavAgentLocation() - Side, UTOwner->GetNavAgentLocation() + (UTOwner->GetNavAgentLocation() - TestLoc).GetSafeNormal2D() * 500.0f };
 					for (FVector NewStart : TestPoints)
 					{
 						NavNodeRef EndPoly = INVALID_NAVNODEREF;
@@ -367,7 +367,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 							float EffectiveSpeed = DefaultProj->ProjectileMovement->InitialSpeed;
 							if (DefaultProj->TossZ > 0.0f)
 							{
-								EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - NewStart).SafeNormal().Z * DefaultProj->TossZ);
+								EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - NewStart).GetSafeNormal().Z * DefaultProj->TossZ);
 							}
 							FVector TossVel;
 							if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, NewStart, TestLoc, EffectiveSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
@@ -398,7 +398,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 		B->ApplyWeaponAimAdjust(LookPoint, LookPoint);
 		if (B->NeedToTurn(LookPoint, true))
 		{
-			B->SetFocalPoint(B->TranslocTarget, true, SCRIPTEDMOVE_FOCUS_PRIORITY);
+			B->SetFocalPoint(B->TranslocTarget, SCRIPTEDMOVE_FOCUS_PRIORITY);
 			return false; // not ready yet
 		}
 		else

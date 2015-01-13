@@ -73,7 +73,7 @@ bool FUTPathLink::GetJumpMovePoints(const FVector& StartLoc, APawn* Asker, const
 			for (int32 i = 0; i < Walls.Num(); i++)
 			{
 				FVector WallCenter = (Walls[i].A + Walls[i].B) * 0.5f;
-				float TestAngle = (DirectLoc - WallCenter).SafeNormal() | (WallCenter - PolyCenter).SafeNormal();
+				float TestAngle = (DirectLoc - WallCenter).GetSafeNormal() | (WallCenter - PolyCenter).GetSafeNormal();
 				if (TestAngle > BestAngle)
 				{
 					BestIndex = i;

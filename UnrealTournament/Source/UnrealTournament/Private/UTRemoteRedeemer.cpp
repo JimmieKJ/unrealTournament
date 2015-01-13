@@ -44,7 +44,6 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 
 	SetReplicates(true);
 	bNetTemporary = false;
-	bReplicateInstigator = true;
 
 	AccelRate = 4000.f;
 	RedeemerMouseSensitivity = 700.0f;
@@ -340,7 +339,7 @@ void AUTRemoteRedeemer::FaceRotation(FRotator NewControlRotation, float DeltaTim
 			ProjectileMovement->Acceleration = ProjectileMovement->Velocity;
 		}
 		
-		ProjectileMovement->Acceleration = ProjectileMovement->Acceleration.SafeNormal() * AccelRate;
+		ProjectileMovement->Acceleration = ProjectileMovement->Acceleration.GetSafeNormal() * AccelRate;
 /*
 		if (Controller->GetPawn() == this)
 		{

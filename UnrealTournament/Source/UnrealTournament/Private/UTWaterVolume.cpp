@@ -67,7 +67,7 @@ void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 
 FVector AUTWaterVolume::GetCurrentFor_Implementation(AActor* Actor) const
 {
-	return WaterCurrentDirection.SafeNormal() * WaterCurrentSpeed;
+	return WaterCurrentDirection.GetSafeNormal() * WaterCurrentSpeed;
 }
 
 void AUTPainVolume::ActorEnteredVolume(class AActor* Other)

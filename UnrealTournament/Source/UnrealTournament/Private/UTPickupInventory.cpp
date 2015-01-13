@@ -166,7 +166,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 		{
 			USkeletalMeshComponent* SkelTemplate = Cast<USkeletalMeshComponent>(NewMesh);
 			UStaticMeshComponent* StaticTemplate = Cast<UStaticMeshComponent>(NewMesh);
-			if (PickupMesh == NULL || PickupMesh->GetClass() != NewMesh->GetClass() || PickupMesh->Materials != NewMesh->Materials ||
+			if (PickupMesh == NULL || PickupMesh->GetClass() != NewMesh->GetClass() || PickupMesh->GetMaterials() != NewMesh->GetMaterials() ||
 				(SkelTemplate != NULL && ((USkeletalMeshComponent*)PickupMesh)->SkeletalMesh != SkelTemplate->SkeletalMesh) ||
 				(StaticTemplate != NULL && ((UStaticMeshComponent*)PickupMesh)->StaticMesh != StaticTemplate->StaticMesh))
 			{

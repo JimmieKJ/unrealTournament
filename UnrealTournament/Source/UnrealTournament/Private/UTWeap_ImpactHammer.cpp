@@ -105,10 +105,10 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 						UUTWeaponStateFiringCharged* EnemyWeaponState = Cast<UUTWeaponStateFiringCharged>(C->GetWeapon()->GetCurrentState());
 						if (EnemyWeaponState != NULL && EnemyWeaponState->bCharging && ChargedMode->ChargeTime >= FullChargeTime * MinAutoChargePct)
 						{
-							float MyAim = FireDir | (C->GetActorLocation() - SpawnLocation).SafeNormal();
+							float MyAim = FireDir | (C->GetActorLocation() - SpawnLocation).GetSafeNormal();
 							const FVector EnemyFireStart = C->GetWeapon()->GetFireStartLoc();
 							const FVector EnemyFireDir = C->GetWeapon()->GetAdjustedAim(EnemyFireStart).Vector();
-							float EnemyAim = EnemyFireDir | (UTOwner->GetActorLocation() - EnemyFireStart).SafeNormal();
+							float EnemyAim = EnemyFireDir | (UTOwner->GetActorLocation() - EnemyFireStart).GetSafeNormal();
 							if (EnemyAim > MyAim)
 							{
 								// allow enemy to shoot first...
@@ -339,10 +339,10 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 	else
 	{
 		// look at ground
-		FVector LookPoint = UTOwner->GetActorLocation() + (B->GetMovePoint() - UTOwner->GetActorLocation()).SafeNormal2D() - FVector(0.0f, 0.0f, 1000.0f);
+		FVector LookPoint = UTOwner->GetActorLocation() + (B->GetMovePoint() - UTOwner->GetActorLocation()).GetSafeNormal2D() - FVector(0.0f, 0.0f, 1000.0f);
 		if (B->NeedToTurn(LookPoint))
 		{
-			B->SetFocalPoint(LookPoint, true, SCRIPTEDMOVE_FOCUS_PRIORITY);
+			B->SetFocalPoint(LookPoint, SCRIPTEDMOVE_FOCUS_PRIORITY);
 			return false; // not ready yet
 		}
 		else if (!UTOwner->CanJump())
@@ -383,14 +383,14 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 					{
 						// forward dodge for more XY speed
 						FRotationMatrix YawMat(FRotator(0.f, (B->GetMovePoint() - UTOwner->GetActorLocation()).Rotation().Yaw, 0.f));
-						FVector X = YawMat.GetScaledAxis(EAxis::X).SafeNormal();
-						FVector Y = YawMat.GetScaledAxis(EAxis::Y).SafeNormal();
+						FVector X = YawMat.GetScaledAxis(EAxis::X).GetSafeNormal();
+						FVector Y = YawMat.GetScaledAxis(EAxis::Y).GetSafeNormal();
 						UTOwner->Dodge(X, Y);
 					}
 				}
 				else
 				{
-					UTOwner->UTCharacterMovement->Velocity = (B->GetMovePoint() - UTOwner->GetActorLocation()).SafeNormal2D() * UTOwner->UTCharacterMovement->GetMaxSpeed();
+					UTOwner->UTCharacterMovement->Velocity = (B->GetMovePoint() - UTOwner->GetActorLocation()).GetSafeNormal2D() * UTOwner->UTCharacterMovement->GetMaxSpeed();
 				}
 				UTOwner->StopFire(0);
 				return true;

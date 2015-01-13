@@ -140,7 +140,7 @@ FVector AUTJumpPad::CalculateJumpVelocity(AActor* JumpActor)
 	float SizeZ = Target.Z / JumpTime + 0.5f * -GetWorld()->GetGravityZ() * JumpTime;
 	float SizeXY = Target.Size2D() / JumpTime;
 
-	FVector Velocity = Target.SafeNormal2D() * SizeXY + FVector(0.0f, 0.0f, SizeZ);
+	FVector Velocity = Target.GetSafeNormal2D() * SizeXY + FVector(0.0f, 0.0f, SizeZ);
 
 	// Scale the velocity if Character has gravity scaled
 	ACharacter* Char = Cast<ACharacter>(JumpActor);

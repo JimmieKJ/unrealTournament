@@ -3,18 +3,18 @@
 #include "TAttributeProperty.h"
 #include "SlateBasics.h"
 
-ESlateCheckBoxState::Type TAttributePropertyBool::GetAsCheckBox() const
+ECheckBoxState TAttributePropertyBool::GetAsCheckBox() const
 {
-	return Get() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked;
+	return Get() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
-void TAttributePropertyBool::SetFromCheckBox(ESlateCheckBoxState::Type CheckedState)
+void TAttributePropertyBool::SetFromCheckBox(ECheckBoxState CheckedState)
 {
-	if (CheckedState == ESlateCheckBoxState::Checked)
+	if (CheckedState == ECheckBoxState::Checked)
 	{
 		Set(true);
 	}
-	else if (CheckedState == ESlateCheckBoxState::Unchecked)
+	else if (CheckedState == ECheckBoxState::Unchecked)
 	{
 		Set(false);
 	}

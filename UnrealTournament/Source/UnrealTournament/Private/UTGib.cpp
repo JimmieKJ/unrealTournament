@@ -55,7 +55,7 @@ void AUTGib::CheckGibVisibility()
 	}
 }
 
-void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* HitComponent, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 #if !UE_SERVER
 	// if we landed on a mover, attach to it

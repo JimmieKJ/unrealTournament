@@ -81,7 +81,7 @@ void SUWStatsViewer::DownloadStats()
 
 	if (OnlineIdentityInterface.IsValid())
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->ControllerId);
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
 		if (UserId.IsValid())
 		{
 			StatsID = UserId->ToString();

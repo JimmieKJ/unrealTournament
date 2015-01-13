@@ -61,7 +61,6 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 
 	SetReplicates(true);
 	bNetTemporary = false;
-	bReplicateInstigator = true;
 
 	InitialReplicationTick.bCanEverTick = true;
 	InitialReplicationTick.bTickEvenWhenPaused = true;
@@ -162,7 +161,7 @@ void AUTProjectile::BeginPlay()
 
 			// look for associated fake client projectile
 			AUTProjectile* BestMatch = NULL;
-			FVector VelDir = GetVelocity().SafeNormal();
+			FVector VelDir = GetVelocity().GetSafeNormal();
 			int32 BestMatchIndex = 0;
 			float BestDist = 0.f;
 			for (int32 i = 0; i < MyPlayer->FakeProjectiles.Num(); i++)
@@ -176,7 +175,7 @@ void AUTProjectile::BeginPlay()
 				else if (Fake->GetClass() == GetClass())
 				{
 					// must share direction unless falling! 
-					if ((ProjectileMovement->ProjectileGravityScale > 0.f) || ((Fake->GetVelocity().SafeNormal() | VelDir) > 0.95f))
+					if ((ProjectileMovement->ProjectileGravityScale > 0.f) || ((Fake->GetVelocity().GetSafeNormal() | VelDir) > 0.95f))
 					{
 						if (BestMatch)
 						{
@@ -212,7 +211,7 @@ void AUTProjectile::BeginPlay()
 					AUTProjectile* Fake = MyPlayer->FakeProjectiles[i];
 					if (Fake)
 					{
-						UE_LOG(UT, Warning, TEXT("     - REJECTED potential match %s DP %f"), *Fake->GetName(), (Fake->GetVelocity().SafeNormal() | VelDir));
+						UE_LOG(UT, Warning, TEXT("     - REJECTED potential match %s DP %f"), *Fake->GetName(), (Fake->GetVelocity().GetSafeNormal() | VelDir));
 					}
 				}
 			}
@@ -651,7 +650,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 		Event.Damage = GetDamageParams(OtherActor, HitLocation, AdjustedMomentum).BaseDamage;
 		Event.DamageTypeClass = ResolvedDamageType;
 		Event.HitInfo = FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
-		Event.ShotDirection = GetVelocity().SafeNormal();
+		Event.ShotDirection = GetVelocity().GetSafeNormal();
 		Event.Momentum = Event.ShotDirection * AdjustedMomentum;
 		OtherActor->TakeDamage(Event.Damage, Event, ResolvedInstigator, this);
 	}

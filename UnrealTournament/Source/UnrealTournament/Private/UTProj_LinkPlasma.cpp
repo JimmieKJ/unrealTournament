@@ -27,7 +27,7 @@ void AUTProj_LinkPlasma::LinksUpdated_Implementation()
 	// if no accel projectile then apply to velocity immediately
 	if (Cast<UUTProjectileMovementComponent>(ProjectileMovement) == NULL || ((UUTProjectileMovementComponent*)ProjectileMovement)->AccelRate <= 0.0f)
 	{
-		ProjectileMovement->Velocity = ProjectileMovement->Velocity.SafeNormal() * ProjectileMovement->InitialSpeed;
+		ProjectileMovement->Velocity = ProjectileMovement->Velocity.GetSafeNormal() * ProjectileMovement->InitialSpeed;
 	}
 	RootComponent->SetWorldScale3D(GetClass()->GetDefaultObject<AUTProj_LinkPlasma>()->RootComponent->RelativeScale3D * (1.0f + ExtraScalePerLink));
 }

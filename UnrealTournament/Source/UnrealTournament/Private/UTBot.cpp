@@ -445,7 +445,7 @@ void AUTBot::Tick(float DeltaTime)
 
 		if (MoveTarget.IsValid())
 		{
-			if (NavData->HasReachedTarget(MyPawn, *MyPawn->GetNavAgentProperties(), MoveTarget))
+			if (NavData->HasReachedTarget(MyPawn, MyPawn->GetNavAgentProperties(), MoveTarget))
 			{
 				// reached
 				ClearMoveTarget();
@@ -649,7 +649,7 @@ void AUTBot::Tick(float DeltaTime)
 				{
 					// TODO: raycast for direct reachability?
 					float TotalDistance = 0.0f;
-					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, *MyPawn->GetNavAgentProperties(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
+					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, MyPawn->GetNavAgentProperties(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
 					{
 						ConsiderTranslocation();
 						MoveTimer = TotalDistance / FMath::Max<float>(100.0f, MyPawn->GetMovementComponent()->GetMaxSpeed()) + 1.0f;
@@ -679,12 +679,12 @@ void AUTBot::Tick(float DeltaTime)
 					{
 						FVector NewAccel = (DesiredVel2D - GetCharacter()->GetCharacterMovement()->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->GetCharacterMovement()->AirControl;
 						NewAccel.Z = 0.0f;
-						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.SafeNormal() * (NewAccel.Size() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed));
+						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed));
 					}
 					else
 					{
 						// just assume max, get as close as we can and maybe we get lucky
-						MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).SafeNormal2D());
+						MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D());
 					}
 				}
 				// do nothing if path says we need to wait
@@ -692,7 +692,7 @@ void AUTBot::Tick(float DeltaTime)
 				{
 					if (GetCharacter() != NULL && (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Flying || GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming))
 					{
-						const FVector Dir = (TargetLoc - MyPawn->GetActorLocation()).SafeNormal();
+						const FVector Dir = (TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal();
 						MyPawn->GetMovementComponent()->AddInputVector(Dir);
 						if (Dir.Z > 0.25f && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming && UTChar != NULL)
 						{
@@ -701,7 +701,7 @@ void AUTBot::Tick(float DeltaTime)
 					}
 					else
 					{
-						MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).SafeNormal2D());
+						MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D());
 					}
 				}
 			}
@@ -763,7 +763,7 @@ void AUTBot::ConsiderTranslocation()
 				UTChar->StopFiring();
 			}
 			SwitchToBestWeapon();
-			SetFocalPoint(TranslocTarget, false, SCRIPTEDMOVE_FOCUS_PRIORITY);
+			SetFocalPoint(TranslocTarget, SCRIPTEDMOVE_FOCUS_PRIORITY);
 			// force immediate full aim update so bot doesn't throw to wrong location initially
 			LastTacticalAimUpdateTime = -1.0f;
 		}
@@ -869,13 +869,13 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 							if (GetWorld()->LineTraceSingle(Hit, (GetTarget() == Enemy) ? GetEnemyLocation(Enemy, false) : GetTarget()->GetActorLocation(), FocalPoint, COLLISION_TRACE_WEAPON, Params))
 							{
 								BlockedAimTarget = GetTarget();
-								FocalPoint = Hit.Location - 24.f * TrackedVelocity.SafeNormal();
+								FocalPoint = Hit.Location - 24.f * TrackedVelocity.GetSafeNormal();
 							}
 
 							// make sure have a clean shot at where I think he's going
 							FVector ProjStart = GetPawn()->GetActorLocation();
 							ProjStart.Z += GetPawn()->BaseEyeHeight;
-							ProjStart += (FocalPoint - ProjStart).SafeNormal() * MyWeap->FireOffset.X;
+							ProjStart += (FocalPoint - ProjStart).GetSafeNormal() * MyWeap->FireOffset.X;
 							if (GetWorld()->LineTraceSingle(Hit, ProjStart, FocalPoint, COLLISION_TRACE_WEAPON, Params))
 							{
 								BlockedAimTarget = GetTarget();
@@ -933,7 +933,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					// if firing upward, add minimum possible TossZ contribution to effective speed to improve toss prediction
 					if (DefaultProj->TossZ > 0.0f)
 					{
-						ProjSpeed += FMath::Max<float>(0.0f, (FocalPoint - StartLoc).SafeNormal().Z * DefaultProj->TossZ);
+						ProjSpeed += FMath::Max<float>(0.0f, (FocalPoint - StartLoc).GetSafeNormal().Z * DefaultProj->TossZ);
 					}
 					TArray<AActor*> IgnoreActors;
 					IgnoreActors.Add(GetPawn());
@@ -945,7 +945,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, FocalPoint, ProjSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, ResponseParams, IgnoreActors))
 					{
 						TossVel.Z -= DefaultProj->TossZ;
-						TargetLoc = GetPawn()->GetActorLocation() + TossVel.SafeNormal() * 2000.0f;
+						TargetLoc = GetPawn()->GetActorLocation() + TossVel.GetSafeNormal() * 2000.0f;
 					}
 					// TODO: move this to a function called when preparing move, no need to do this repeatedly
 					else if (FocalPoint == TranslocTarget && Cast<UUTReachSpec_HighJump>(CurrentPath.Spec.Get()) != NULL)
@@ -980,9 +980,9 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 										UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, ProjSpeed, true, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::DoNotTrace))
 									{
 										TranslocTarget = TestLoc;
-										SetFocalPoint(TestLoc, false, SCRIPTEDMOVE_FOCUS_PRIORITY);
+										SetFocalPoint(TestLoc, SCRIPTEDMOVE_FOCUS_PRIORITY);
 										TossVel.Z -= DefaultProj->TossZ;
-										TargetLoc = GetPawn()->GetActorLocation() + TossVel.SafeNormal() * 2000.0f;
+										TargetLoc = GetPawn()->GetActorLocation() + TossVel.GetSafeNormal() * 2000.0f;
 									}
 								}
 							}
@@ -994,13 +994,13 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 						// besides better chance of hit anyway with aimerror, etc there's also a chance that the trace is a false positive because it's approximated for speed
 						// TODO: maybe take arc that gets farther before blocker is found?
 						TossVel.Z -= DefaultProj->TossZ;
-						TargetLoc = GetPawn()->GetActorLocation() + TossVel.SafeNormal() * 2000.0f;
+						TargetLoc = GetPawn()->GetActorLocation() + TossVel.GetSafeNormal() * 2000.0f;
 					}
 					else if (FocalPoint == TranslocTarget)
 					{
 						// use a generic high angle toss for translocation; disc might get close enough to be worth it
-						const FVector Dir = (TranslocTarget - GetPawn()->GetActorLocation()).SafeNormal();
-						TargetLoc = GetPawn()->GetActorLocation() + (Dir + 0.5f * (FVector(0.0f, 0.0f, 1.0f) - Dir)).SafeNormal() * 2000.0f;
+						const FVector Dir = (TranslocTarget - GetPawn()->GetActorLocation()).GetSafeNormal();
+						TargetLoc = GetPawn()->GetActorLocation() + (Dir + 0.5f * (FVector(0.0f, 0.0f, 1.0f) - Dir)).GetSafeNormal() * 2000.0f;
 					}
 				}
 				else
@@ -1159,7 +1159,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 				}
 			}
 			// check for aiming weapon at scripted target as part of a special movement action (translocator, impact jump, etc)
-			else if (FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) && !FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].GetLocation().IsZero())
+			else if (FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) && FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].Position != FAISystem::InvalidLocation)
 			{
 				// note: lack of CanAttack() here is intentional as the target location may be intentionally OOE (e.g. firing straight down for impact jump)
 				ApplyWeaponAimAdjust(FocalPoint, FocalPoint);
@@ -1173,7 +1173,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 			// Don't pitch view of walking pawns when simply traversing path and not looking at a target
 			// (make an exception for scripted move focus points since they may require pitch for weapon aiming)
 			if ( GetPawn()->GetMovementComponent() && GetPawn()->GetMovementComponent()->IsMovingOnGround() && GetFocusActor() == NULL &&
-				(!FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) || FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].GetLocation().IsZero()) )
+				(!FocusInformation.Priorities.IsValidIndex(SCRIPTEDMOVE_FOCUS_PRIORITY) || FocusInformation.Priorities[SCRIPTEDMOVE_FOCUS_PRIORITY].Position == FAISystem::InvalidLocation) )
 			{
 				DesiredRotation.Pitch = 0.f;
 			}
@@ -1216,8 +1216,8 @@ void AUTBot::NotifyWalkingOffLedge()
 					//FRotationMatrix YawMat(FRotator(0.f, GetUTChar()->GetActorRotation().Yaw, 0.f));
 					FRotationMatrix YawMat(FRotator(0.f, Diff.Rotation().Yaw, 0.f));
 					// forward dodge
-					FVector X = YawMat.GetScaledAxis(EAxis::X).SafeNormal();
-					FVector Y = YawMat.GetScaledAxis(EAxis::Y).SafeNormal();
+					FVector X = YawMat.GetScaledAxis(EAxis::X).GetSafeNormal();
+					FVector Y = YawMat.GetScaledAxis(EAxis::Y).GetSafeNormal();
 					GetUTChar()->Dodge(X, Y);
 					bDodged = true;
 				}
@@ -1231,7 +1231,7 @@ void AUTBot::NotifyWalkingOffLedge()
 				}
 				else
 				{
-					GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
+					GetCharacter()->GetCharacterMovement()->Velocity = Diff.GetSafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
 				}
 				GetCharacter()->GetCharacterMovement()->DoJump(false);
 			}
@@ -1240,7 +1240,7 @@ void AUTBot::NotifyWalkingOffLedge()
 		{
 			// clamp initial XY speed if target is directly below
 			float ZTime = FMath::Sqrt(Diff.Z / (0.5f * GetCharacter()->GetCharacterMovement()->GetGravityZ()));
-			GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * FMath::Min<float>(GetCharacter()->GetCharacterMovement()->MaxWalkSpeed, Diff.Size2D() / ZTime);
+			GetCharacter()->GetCharacterMovement()->Velocity = Diff.GetSafeNormal2D() * FMath::Min<float>(GetCharacter()->GetCharacterMovement()->MaxWalkSpeed, Diff.Size2D() / ZTime);
 		}
 	}
 }
@@ -1311,7 +1311,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 						if (!GetCharacter()->CanJump() || GetWorld()->LineTraceTest(LastReachedMovePoint + FVector(0.0f, 0.0f, JumpHeight), MovePoint, ECC_Pawn, Params))
 						{
 							// test opposite hit direction, then sides of movement dir
-							const FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+							const FVector Side = (MovePoint - MyLoc).GetSafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
 							const float AdjustDist = GetPawn()->GetSimpleCollisionRadius() * 1.5f;
 							FVector TestLocs[] = { MyLoc + Impact.Normal * AdjustDist, MyLoc + Side * AdjustDist, MyLoc - Side * AdjustDist };
 							for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
@@ -1339,12 +1339,12 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 							// set Z of closest point to match the XY that was previously determined
 							ClosestPoint.Z = (ClosestPoint - LastPointNoZ).Size() / (CurrentPointNoZ - LastPointNoZ).Size() * (MovePoint.Z - LastReachedMovePoint.Z) + LastReachedMovePoint.Z;
 							// try directly back to path center, then try backing up a bit towards path start
-							FVector Side = (MovePoint - MyLoc).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
-							if ((Side | (ClosestPoint - MyLoc).SafeNormal()) < 0.0f)
+							FVector Side = (MovePoint - MyLoc).GetSafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+							if ((Side | (ClosestPoint - MyLoc).GetSafeNormal()) < 0.0f)
 							{
 								Side *= -1.0f;
 							}
-							FVector TestLocs[] = { ClosestPoint, ClosestPoint + (LastReachedMovePoint - ClosestPoint).SafeNormal() * GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f,
+							FVector TestLocs[] = { ClosestPoint, ClosestPoint + (LastReachedMovePoint - ClosestPoint).GetSafeNormal() * GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f,
 								MyLoc + Side * (ClosestPoint - MyLoc).Size() };
 							for (int32 i = 0; i < ARRAY_COUNT(TestLocs); i++)
 							{
@@ -1365,13 +1365,13 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 					{
 						FVector Diff = MovePoint - MyLoc;
 						// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
-						if (((Impact.Normal * -1.0f) | Diff.SafeNormal()) > 0.0f)
+						if (((Impact.Normal * -1.0f) | Diff.GetSafeNormal()) > 0.0f)
 						{
 							float XYTime = Diff.Size2D() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed;
 							float DesiredJumpZ = Diff.Z / XYTime - 0.5 * GetCharacter()->GetCharacterMovement()->GetGravityZ() * XYTime;
 							if (DesiredJumpZ > 0.0f)
 							{
-								GetCharacter()->GetCharacterMovement()->Velocity = Diff.SafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
+								GetCharacter()->GetCharacterMovement()->Velocity = Diff.GetSafeNormal2D() * (GetCharacter()->GetCharacterMovement()->MaxWalkSpeed * FMath::Min<float>(1.0f, DesiredJumpZ / FMath::Max<float>(GetCharacter()->GetCharacterMovement()->JumpZVelocity, 1.0f)));
 							}
 							GetCharacter()->GetCharacterMovement()->DoJump(false);
 						}
@@ -1390,7 +1390,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				if (bPlannedWallDodge)
 				{
 					// dodge already checked, just do it
-					UTChar->Dodge(Impact.Normal, (Impact.Normal ^ FVector(0.0f, 0.0f, 1.0f)).SafeNormal());
+					UTChar->Dodge(Impact.Normal, (Impact.Normal ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
 					// possibly maintain readiness for a second wall dodge if we hit another wall
 					bPlannedWallDodge = FMath::FRand() < Personality.Jumpiness || (Personality.Jumpiness >= 0.0 && FMath::FRand() < (Skill + Personality.Tactics) * 0.1f);
 				}
@@ -1625,7 +1625,7 @@ bool AUTBot::NeedToTurn(const FVector& TargetLoc, bool bForcePrecise)
 		// we're intentionally disregarding the weapon's start position here, since it may change based on its firing offset, nearby geometry if that offset is outside the cylinder, etc
 		// we'll correct for the discrepancy in GetAdjustedAim() while firing
 		const FVector StartLoc = GetPawn()->GetActorLocation();
-		return ((TargetLoc - StartLoc).SafeNormal() | GetControlRotation().Vector()) < (bForcePrecise ? 0.997f : (0.93f + 0.0085 * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f)));
+		return ((TargetLoc - StartLoc).GetSafeNormal() | GetControlRotation().Vector()) < (bForcePrecise ? 0.997f : (0.93f + 0.0085 * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f)));
 	}
 }
 
@@ -1671,7 +1671,7 @@ bool AUTBot::CheckFutureSight(float DeltaTime)
 	{
 		if (!GetCharacter()->GetCharacterMovement()->GetCurrentAcceleration().IsZero())
 		{
-			FutureLoc += GetCharacter()->GetCharacterMovement()->GetMaxSpeed() * DeltaTime * GetCharacter()->GetCharacterMovement()->GetCurrentAcceleration().SafeNormal();
+			FutureLoc += GetCharacter()->GetCharacterMovement()->GetMaxSpeed() * DeltaTime * GetCharacter()->GetCharacterMovement()->GetCurrentAcceleration().GetSafeNormal();
 		}
 
 		if (GetCharacter()->GetMovementBase() != NULL)
@@ -1717,7 +1717,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 		LastFindInventoryWeight = MinWeight;
 
 		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, (MinWeight > 0.0f) ? FMath::TruncToInt(5.0f / MinWeight) : 0);
-		return NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
+		return NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
 	}
 }
 
@@ -1725,7 +1725,7 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 {
 	FSingleEndpointEval NodeEval(Goal);
 	float Weight = 0.0f;
-	if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
+	if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
 	{
 		GoalString = SuccessGoalString;
 		SetMoveTarget(RouteCache[0]);
@@ -1967,7 +1967,7 @@ void AUTBot::ExecuteWhatToDoNext()
 			{
 				FRandomDestEval NodeEval;
 				float Weight = 0.0f;
-				if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+				if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
 				{
 					SetMoveTarget(RouteCache[0]);
 					StartNewAction(WaitForMoveAction);
@@ -2105,7 +2105,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 		// TODO: used to use CombatStyle here... seems almost the same as Aggressiveness, maybe don't need both
 		float AdjustedCombatStyle = Personality.Aggressiveness + MyWeap->SuggestAttackStyle();
 		CurrentAggression = 1.5f * FMath::FRand() - 0.8f + 2.0f * AdjustedCombatStyle - 0.5 * EnemyStrength
-								+ FMath::FRand() * ((Enemy->GetVelocity() - GetPawn()->GetVelocity()).SafeNormal() | (EnemyLoc - GetPawn()->GetActorLocation()).SafeNormal());
+								+ FMath::FRand() * ((Enemy->GetVelocity() - GetPawn()->GetVelocity()).GetSafeNormal() | (EnemyLoc - GetPawn()->GetActorLocation()).GetSafeNormal());
 		AUTWeapon* EnemyWeap = (Cast<AUTCharacter>(Enemy) != NULL) ? ((AUTCharacter*)Enemy)->GetWeapon() : NULL;
 		if (EnemyWeap != NULL)
 		{
@@ -2279,7 +2279,7 @@ void AUTBot::DoCharge()
 		{
 			float Weight = 0.0f;
 			FSingleEndpointEval NodeEval(GetTarget());
-			NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
+			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
 			if (RouteCache.Num() > 0)
 			{
 				SetMoveTarget(RouteCache[0]);
@@ -2336,7 +2336,7 @@ void AUTBot::DoHunt()
 		// TODO: guess future destination, intercept path, try to find high ground, etc
 		FSingleEndpointEval NodeEval(GetEnemyLocation(Enemy, true));
 		float Weight = 0.0f;
-		if (NavData->FindBestPath(GetPawn(), *GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
 		{
 			SetMoveTarget(RouteCache[0]);
 			StartNewAction(ChargeAction); // TODO: hunting action
@@ -2443,7 +2443,7 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 						if (DestPoly != INVALID_NAVNODEREF)
 						{
 							FRouteCacheItem Target(NavData->GetNodeFromPoly(DestPoly), AdjustedDest, DestPoly);
-							return (Target.Node.IsValid() && Node->GetBestLinkTo(TeleportPoly, Target, GetPawn(), *GetPawn()->GetNavAgentProperties(), NavData) != INDEX_NONE);
+							return (Target.Node.IsValid() && Node->GetBestLinkTo(TeleportPoly, Target, GetPawn(), GetPawn()->GetNavAgentProperties(), NavData) != INDEX_NONE);
 						}
 					}
 				}
@@ -2464,7 +2464,7 @@ EBotMonitoringStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDe
 			// translocate!
 			return BMS_Activate;
 		}
-		else if ((Diff.SafeNormal2D() | DestVelocity.SafeNormal2D()) <= 0.0f || (Diff.Z > 0.0f && DestVelocity.Z <= 0.0f))
+		else if ((Diff.GetSafeNormal2D() | DestVelocity.GetSafeNormal2D()) <= 0.0f || (Diff.Z > 0.0f && DestVelocity.Z <= 0.0f))
 		{
 			// check if disk ended up further along bot's path even though not at desired destination
 			if ((GetMovePoint() - CurrentDest).Size() < (GetMovePoint() - GetPawn()->GetActorLocation()).Size() * 0.75f && IsAcceptableTranslocation(CurrentDest, GetMovePoint()))
@@ -2594,7 +2594,7 @@ EBotMonitoringStatus AUTBot::ShouldTriggerCombo(const FVector& CurrentLoc, const
 					return BMS_Activate;
 				}
 			}
-			if (FMath::PointDistToLine(EnemyLoc, ProjVelocity.SafeNormal(), CurrentLoc) < DamageParams.OuterRadius + FMath::Max<float>((EnemyInfo.GetUTChar() != NULL) ? EnemyInfo.GetUTChar()->GetCharacterMovement()->GetMaxSpeed() : 0.0f, EnemyInfo.GetPawn()->GetVelocity().Size()))
+			if (FMath::PointDistToLine(EnemyLoc, ProjVelocity.GetSafeNormal(), CurrentLoc) < DamageParams.OuterRadius + FMath::Max<float>((EnemyInfo.GetUTChar() != NULL) ? EnemyInfo.GetUTChar()->GetCharacterMovement()->GetMaxSpeed() : 0.0f, EnemyInfo.GetPawn()->GetVelocity().Size()))
 			{
 				bPastAllEnemies = false;
 			}
@@ -2721,7 +2721,7 @@ void AUTBot::ReceiveProjWarning(AUTProjectile* Incoming)
 				FRotationMatrix R(GetControlRotation());
 				FVector X = R.GetScaledAxis(EAxis::X);
 				X.Z = 0;
-				if ((EnemyDir.SafeNormal() | X.SafeNormal()) < PeripheralVision)
+				if ((EnemyDir.GetSafeNormal() | X.GetSafeNormal()) < PeripheralVision)
 				{
 					bShouldDodge = false;
 				}
@@ -2749,7 +2749,7 @@ void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir
 			FRotationMatrix R(GetControlRotation());
 			FVector X = R.GetScaledAxis(EAxis::X);
 			X.Z = 0;
-			if ((EnemyDir.SafeNormal() | X.SafeNormal()) >= PeripheralVision)
+			if ((EnemyDir.GetSafeNormal() | X.GetSafeNormal()) >= PeripheralVision)
 			{
 				//LastUnderFire = WorldInfo.TimeSeconds;
 				//if (WorldInfo.TimeSeconds - LastWarningTime < 0.5)
@@ -2805,7 +2805,7 @@ void AUTBot::ProcessIncomingWarning()
 				FVector ProjVel = WarningProj->GetVelocity();
 				if (!ProjVel.IsZero())
 				{
-					FVector Dir = ProjVel.SafeNormal();
+					FVector Dir = ProjVel.GetSafeNormal();
 					const float TimeToTarget = WarningProj->GetTimeToLocation(GetPawn()->GetActorLocation());
 					FVector FuturePos = GetPawn()->GetActorLocation() + GetPawn()->GetVelocity() * TimeToTarget;
 					FVector LineDist = FuturePos - (WarningProj->GetActorLocation() + (Dir | (FuturePos - WarningProj->GetActorLocation())) * Dir);
@@ -2858,7 +2858,7 @@ void AUTBot::ProcessIncomingWarning()
 		else if (WarningShooter != NULL && !WarningShooter->bPendingKillPending && !WarningShooter->IsDead() && (WarningShooter == Enemy || Personality.Tactics >= 0.5f || Skill + Personality.Tactics >= 5.0f) && LineOfSightTo(WarningShooter))
 		{
 			// dodge perpendicular to shooter
-			FVector Dir = (WarningShooter->GetActorLocation() - GetPawn()->GetActorLocation()).SafeNormal();
+			FVector Dir = (WarningShooter->GetActorLocation() - GetPawn()->GetActorLocation()).GetSafeNormal();
 
 			FRotationMatrix R(GetControlRotation());
 			FVector X = R.GetScaledAxis(EAxis::X);
@@ -2966,11 +2966,11 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 			return true;
 		}
 		else if ( bWallHit && Personality.Jumpiness > 0.0f && GetCharacter()->CanJump() && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking &&
-				(GetCharacter()->GetCharacterMovement()->Velocity.Size() < 0.1f * GetCharacter()->GetCharacterMovement()->MaxWalkSpeed || (GetCharacter()->GetCharacterMovement()->Velocity.SafeNormal2D() | (WallHitLoc - Start).SafeNormal2D()) >= 0.0f) &&
+				(GetCharacter()->GetCharacterMovement()->Velocity.Size() < 0.1f * GetCharacter()->GetCharacterMovement()->MaxWalkSpeed || (GetCharacter()->GetCharacterMovement()->Velocity.GetSafeNormal2D() | (WallHitLoc - Start).GetSafeNormal2D()) >= 0.0f) &&
 				FMath::FRand() < Personality.Jumpiness * 0.5f )
 		{
 			// jump towards wall for wall dodge
-			GetCharacter()->GetCharacterMovement()->Velocity = (GetCharacter()->GetCharacterMovement()->Velocity + (WallHitLoc - Start)).ClampMaxSize(GetCharacter()->GetCharacterMovement()->MaxWalkSpeed);
+			GetCharacter()->GetCharacterMovement()->Velocity = (GetCharacter()->GetCharacterMovement()->Velocity + (WallHitLoc - Start)).GetClampedToMaxSize(GetCharacter()->GetCharacterMovement()->MaxWalkSpeed);
 			GetCharacter()->GetCharacterMovement()->DoJump(false);
 			MoveTargetPoints.Insert(FComponentBasedPosition(WallHitLoc), 0);
 			bPlannedWallDodge = true;
@@ -2981,7 +2981,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 			//bInDodgeMove = true;
 			//DodgeLandZ = GetPawn()->GetActorLocation().Z;
 			DuckDir.Normalize();
-			GetUTChar()->Dodge(DuckDir, (DuckDir ^ FVector(0.0f, 0.0f, 1.0f)).SafeNormal());
+			GetUTChar()->Dodge(DuckDir, (DuckDir ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
 			return true;
 		}
 	}
@@ -3295,7 +3295,7 @@ bool AUTBot::CanSee(APawn* Other, bool bMaySkipChecks)
 			else
 			{
 				// check field of view
-				FVector SightDir = (OtherLoc - MyLoc).SafeNormal();
+				FVector SightDir = (OtherLoc - MyLoc).GetSafeNormal();
 				const FVector LookDir = GetPawn()->GetViewRotation().Vector();
 				if ((SightDir | LookDir) < PeripheralVision)
 				{

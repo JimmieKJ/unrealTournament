@@ -65,13 +65,13 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		if (!GetWorld()->LineTraceTest(HitLocation, OtherActor->GetActorLocation(), ECC_Visibility, Params))
 		{
 			HitPawns.Add((APawn*)OtherActor);
-			FVector MomentumDir = GetVelocity().SafeNormal();
+			FVector MomentumDir = GetVelocity().GetSafeNormal();
 			if (MomentumDir.IsZero())
 			{
 				MomentumDir = GetActorRotation().Vector();
 			}
 			const float Radius = FMath::Max<float>(1.0f, CollisionBox->Bounds.SphereRadius);
-			const float OtherDist = FMath::PointDistToLine(OtherComp->GetComponentLocation(), GetVelocity().SafeNormal(), GetActorLocation() - GetVelocity());
+			const float OtherDist = FMath::PointDistToLine(OtherComp->GetComponentLocation(), GetVelocity().GetSafeNormal(), GetActorLocation() - GetVelocity());
 			float MomentumScale = (Momentum * (1.0f - FMath::Clamp<float>(OtherDist / Radius, 0.0f, 0.8f)));
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS != NULL && GS->OnSameTeam(OtherActor, InstigatorController))

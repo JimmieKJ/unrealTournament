@@ -146,7 +146,7 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 							}
 							for (int32 i = 0; i < (bDrawPingAdjust ? 2 : 1); i++)
 							{
-								FVector Perpendicular = (HeadLoc - FireStart).SafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
+								FVector Perpendicular = (HeadLoc - FireStart).GetSafeNormal() ^ FVector(0.0f, 0.0f, 1.0f);
 								FVector PointA = C->Project(HeadLoc + Perpendicular * (EnemyChar->HeadRadius * EnemyChar->HeadScale * HeadScale));
 								FVector PointB = C->Project(HeadLoc - Perpendicular * (EnemyChar->HeadRadius * EnemyChar->HeadScale * HeadScale));
 								FVector2D UpperLeft(FMath::Min<float>(PointA.X, PointB.X), FMath::Min<float>(PointA.Y, PointB.Y));

@@ -216,11 +216,11 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 				{
 					if (Speed > SprintSpeed)
 					{
-						SimulatedVelocity = DodgeLandingSpeedFactor * Velocity.SafeNormal2D();
+						SimulatedVelocity = DodgeLandingSpeedFactor * Velocity.GetSafeNormal2D();
 					}
 					else
 					{
-						SimulatedVelocity = MaxWalkSpeed * Velocity.SafeNormal2D();
+						SimulatedVelocity = MaxWalkSpeed * Velocity.GetSafeNormal2D();
 					}
 				}
 				else if (Speed > 0.5f * MaxWalkSpeed)
@@ -294,7 +294,7 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 			return;
 		}
 
-		Acceleration = Velocity.SafeNormal();	// Not currently used for simulated movement
+		Acceleration = Velocity.GetSafeNormal();	// Not currently used for simulated movement
 		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
 
 		MaybeUpdateBasedMovement(DeltaSeconds);
@@ -489,9 +489,10 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 	UTCallServerMove();
 }
 
-bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove, const FSavedMovePtr& PreviousMove)
+bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
 {
-	if (NewMove->IsImportantMove(PreviousMove))
+	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+	if (ClientData && NewMove->IsImportantMove(ClientData->LastAckedMove))
 	{
 		//UE_LOG(UT, Warning, TEXT("NO CanDelaySendingMove %f"), NewMove->TimeStamp);
 		return false;
@@ -556,8 +557,7 @@ void UUTCharacterMovement::UTCallServerMove()
 	const FSavedMovePtr& NewMove = ClientData->SavedMoves.Last();
 	if (ClientData->SavedMoves.Num() >= 2)
 	{
-		const FSavedMovePtr& PreviousMove = ClientData->SavedMoves.Last(1);
-		if (PreviousMove.IsValid() && CanDelaySendingMove(NewMove, PreviousMove))
+		if (CanDelaySendingMove(NewMove))
 		{
 			// send moves more frequently in small games where server isn't likely to be saturated
 			float NetMoveDelta = 0.02f;

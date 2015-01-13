@@ -122,7 +122,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 				// if firing upward, add minimum possible TossZ contribution to effective speed to improve toss prediction
 				if (ProjTemplate->TossZ > 0.0f)
 				{
-					TossSpeed += FMath::Max<float>(0.0f, (JumpEnd - JumpStart).SafeNormal().Z * ProjTemplate->TossZ);
+					TossSpeed += FMath::Max<float>(0.0f, (JumpEnd - JumpStart).GetSafeNormal().Z * ProjTemplate->TossZ);
 				}
 				GravityZ = -GravityZ;
 				const FVector FlightDelta = JumpEnd - JumpStart;

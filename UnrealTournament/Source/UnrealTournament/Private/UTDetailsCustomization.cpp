@@ -149,7 +149,7 @@ public:
 			MFEntries[ChildIndex] = NewEntry;
 			
 			TSharedRef<IPropertyHandle> ElementHandle = MyArrayProperty->GetElement(ChildIndex);
-			ChildrenBuilder.AddChildContent(TEXT("MuzzleFlash"))
+			ChildrenBuilder.AddChildContent(FText::FromString(TEXT("MuzzleFlash")))
 			.NameContent()
 			[
 				ElementHandle->CreatePropertyNameWidget()
