@@ -5,6 +5,8 @@
 #include "SUWBotConfigDialog.h"
 #include "SUWInputBox.h"
 
+#if !UE_SERVER
+
 SVerticalBox::FSlot& SUWBotConfigDialog::CreateBotSlider(const FText& Desc, TSharedPtr<SSlider>& Slider)
 {
 	return SVerticalBox::Slot()
@@ -442,3 +444,5 @@ FReply SUWBotConfigDialog::OKClick()
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
 }
+
+#endif
