@@ -39,7 +39,7 @@ struct FSimpleBind
 		bHeader = true;
 		return this;
 	}
-	void WriteBind() const;
+	void WriteBind();
 };
 
 class SUWControlSettingsDialog : public SUWDialog

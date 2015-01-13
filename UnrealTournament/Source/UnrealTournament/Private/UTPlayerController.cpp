@@ -2012,3 +2012,52 @@ void AUTPlayerController::HUDSettings()
 		LP->ShowHUDSettings();	
 	}
 }
+
+void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys)
+{
+	Keys.Empty();
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
+	//Look though ActionMappings
+	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
+	{
+		if (InputSettings->ActionMappings[i].ActionName.ToString() == Command)
+		{
+			Keys.Add(InputSettings->ActionMappings[i].Key.ToString());
+		}
+	}
+	
+	// Look at my Custom Keybinds
+
+	UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PlayerInput);
+	if (UTPlayerInput)
+	{
+		for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
+		{
+			if (UTPlayerInput->CustomBinds[i].Command == Command)
+			{
+				Keys.Add(UTPlayerInput->CustomBinds[i].KeyName.ToString());
+			}
+		}
+	}
+}
+
+void AUTPlayerController::DebugTest(FString TestCommand)
+{
+	TArray<FString> Keys;
+	ResolveKeybind(TestCommand, Keys);
+	if (Keys.Num() > 0)
+	{
+		FString AllKeys = Keys[0];
+		for (int32 i=1;i<Keys.Num();i++)
+		{
+			AllKeys += TEXT(",") + Keys[i];
+		}
+		UE_LOG(UT,Log,TEXT("Command %s = %s"), *TestCommand, *AllKeys);		
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Command %s = [NONE]"), *TestCommand);		
+	}
+	
+}
