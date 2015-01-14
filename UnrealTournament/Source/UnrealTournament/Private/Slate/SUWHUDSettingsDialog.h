@@ -82,7 +82,7 @@ protected:
 	void OnWeaponBarEmptyOpacityChanged(float NewValue);
 	void OnWeaponBarScaleChanged(float NewValue);
 
-	void OnUseWeaponColorChanged(ESlateCheckBoxState::Type NewState);
+	void OnUseWeaponColorChanged(ECheckBoxState NewState);
 
 };
 

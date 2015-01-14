@@ -438,11 +438,11 @@ void SUWHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
 	}
 }
 
-void SUWHUDSettingsDialog::OnUseWeaponColorChanged(ESlateCheckBoxState::Type NewState)
+void SUWHUDSettingsDialog::OnUseWeaponColorChanged(ECheckBoxState NewState)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->bUseWeaponColors = NewState == ESlateCheckBoxState::Checked;
+		TargetHUD->bUseWeaponColors = NewState == ECheckBoxState::Checked;
 	}
 }
 
