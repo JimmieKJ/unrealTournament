@@ -27,7 +27,6 @@ class SUTComboButton : public SMenuAnchor
 		, _ContentPadding(FMargin(5))
 		, _HAlign(HAlign_Fill)
 		, _VAlign(VAlign_Center)
-		, _Method( SMenuAnchor::UseCurrentWindow )
 		{}
 
 		// Styles
@@ -81,10 +80,7 @@ class SUTComboButton : public SMenuAnchor
 
 		/** Comma separated list of menu items */
 		SLATE_ARGUMENT( FString, DefaultMenuItems)
-
-		/** Spawn a new window or reuse current window for this combo*/
-		SLATE_ARGUMENT( SMenuAnchor::EMethod, Method )
-
+		
 	SLATE_END_ARGS()
 
 public:

@@ -152,7 +152,6 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 					.AutoWidth()
 					[
 						SAssignNew(GameFilter, SComboButton)
-						.Method(SMenuAnchor::UseCurrentWindow)
 						.HasDownArrow(false)
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Button")
 						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0))

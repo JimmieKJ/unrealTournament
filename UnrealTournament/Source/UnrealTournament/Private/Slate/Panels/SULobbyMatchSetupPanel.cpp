@@ -76,7 +76,6 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 		.WidthOverride(300)
 		[
 			SNew(SComboBox< TSharedPtr<FAllowedGameModeData> >)
-			.Method(SMenuAnchor::UseCurrentWindow)
 			.InitiallySelectedItem(CurrentGameModeData)
 			.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")

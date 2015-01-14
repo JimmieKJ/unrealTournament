@@ -215,7 +215,6 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 							.OnButtonSubMenuSelect(this, &SULobbyGameSettingsPanel::OnSubMenuSelect)
 							.bRightClickOpensMenu(true)
 							.MenuPlacement(MenuPlacement_MenuRight)
-							.Method(SMenuAnchor::UseCurrentWindow)
 							.DefaultMenuItems(MenuOptions)
 							.ButtonContent()
 							[

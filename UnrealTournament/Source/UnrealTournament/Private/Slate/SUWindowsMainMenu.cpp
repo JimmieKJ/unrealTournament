@@ -169,7 +169,6 @@ void SUWindowsMainMenu::BuildFileSubMenu()
 	TSharedPtr<SComboButton> DropDownButton = NULL;
 
 	SAssignNew(DropDownButton, SComboButton)
-	.Method(SMenuAnchor::UseCurrentWindow)
 	.HasDownArrow(false)
 	.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
 	.ButtonContent()
@@ -309,7 +308,6 @@ void SUWindowsMainMenu::BuildGameSubMenu()
 	TSharedPtr<SComboButton> DropDownButton = NULL;
 
 	SAssignNew(DropDownButton, SComboButton)
-	.Method(SMenuAnchor::UseCurrentWindow)
 	.HasDownArrow(false)
 	.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
 	.ButtonContent()
@@ -392,7 +390,6 @@ void SUWindowsMainMenu::BuildOptionsSubMenu()
 	TSharedPtr<SComboButton> DropDownButton = NULL;
 
 	SAssignNew(DropDownButton, SComboButton)
-		.Method(SMenuAnchor::UseCurrentWindow)
 		.HasDownArrow(false)
 		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
 		.ButtonContent()
@@ -465,7 +462,6 @@ void SUWindowsMainMenu::BuildAboutSubMenu()
 	TSharedPtr<SComboButton> DropDownButton = NULL;
 
 	SAssignNew(DropDownButton, SComboButton)
-	.Method(SMenuAnchor::UseCurrentWindow)
 	.HasDownArrow(false)
 	.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
 	.ButtonContent()

@@ -37,7 +37,6 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 
 	SMenuAnchor::Construct( SMenuAnchor::FArguments()
 		.Placement( InArgs._MenuPlacement )
-		.Method( InArgs._Method )
 		[
 			SAssignNew( MyButton, SUTButton )
 			.ContentPadding( FMargin( 1, 0 ) )
