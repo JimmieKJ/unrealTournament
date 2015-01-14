@@ -764,7 +764,6 @@ class UnrealTournament_PromoteBuild : BuildCommand
 
 public class MakeUTDLC : BuildCommand
 {
-    public bool bSingleMap;
     public string DLCName;
     public string DLCMaps;
     public string AssetRegistry;
@@ -797,85 +796,40 @@ public class MakeUTDLC : BuildCommand
 
     public void Cook(DeploymentContext SC, ProjectParams Params)
     {
-        if (bSingleMap)
-        {
-            // Cook with -newcook
-            CookCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", new[] { DLCName }, null, "", null, SC.CookPlatform, "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed");
-        }
-        else
-        {
-            string Parameters = "-newcook -SHIPPEDASSETREGISTRY=" + AssetRegistry + " -Compressed";
+        string Parameters = "-newcook -BasedOnReleaseVersion=" + AssetRegistry + " -Compressed";
 
-            if (DLCMaps.Length > 0)
-            {
-                Parameters += " -map=" + DLCMaps;
-            }
-
-            string CookDir = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Plugins", DLCName, "Content");
-            RunCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2}", CookDir, SC.CookPlatform, Parameters));
+        if (DLCMaps.Length > 0)
+        {
+            Parameters += " -map=" + DLCMaps;
         }
+
+        string CookDir = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Plugins", DLCName, "Content");
+        RunCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2} -DLCName={3}", CookDir, SC.CookPlatform, Parameters, DLCName));
     }
 
     public void Stage(DeploymentContext SC, ProjectParams Params)
     {
-        if (!bSingleMap)
-        {
-            // Making a plugin, grab the binaries too
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName), "*.uplugin", true, null, null, true);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4-*.so", true, null, null, true);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4-*.dll", true, null, null, true);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4Server-*.so", true, null, null, true);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4Server-*.dll", true, null, null, true);
-        }
-
         // Put all of the cooked dir into the staged dir
-        if (SC.DedicatedServer)
-        {
-            // Dedicated server cook doesn't save shaders so no Engine dir is created
-            SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin" }, "", true, !Params.UsePak(SC.StageTargetPlatform));
-        }
-        else
-        {
-            SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin", CommandUtils.CombinePaths("Engine", "*") }, "", true, !Params.UsePak(SC.StageTargetPlatform));
-        }
+        SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin", "CookedAssetRegistry.json", "CookedIniVersion.txt" }, "", true, !Params.UsePak(SC.StageTargetPlatform));
+        
 
         // Stage and pak it all
         Project.ApplyStagingManifest(Params, SC);
 
-        if (bSingleMap)
-        {
-            // Move the buried pak file to a better place, probably a nicer way to do this
-            CommandUtils.DeleteFile(true, CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
-            CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, DLCName + "-" + SC.CookPlatform + ".pak"));
-            CommandUtils.DeleteDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform) });
-        }
-        else
-        {
-            // Move the buried pak file to a better place, probably a nicer way to do this
-            CommandUtils.CreateDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content", "Paks", SC.CookPlatform) });
-            CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"), CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Plugins", DLCName, "Content", "Paks", SC.CookPlatform, DLCName + "-" + SC.CookPlatform + ".pak"));
-            CommandUtils.DeleteDirectory_NoExceptions(new[] { CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content") });
-        }
+        // Rename the pak file to DLC name
+        CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"),
+                                CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", DLCName + "-" + SC.CookPlatform + ".pak"));
     }
 
     public override void ExecuteBuild()
     {
-        DLCName = ParseParamValue("MapName", "");
-        if (DLCName.Length > 0)
-        {
-            bSingleMap = true;
-        }        
-        else
-        {
-            DLCName = ParseParamValue("PluginName", "PeteGameMode");
+        DLCName = ParseParamValue("DLCName", "PeteGameMode");
 
-            // Maps should be in format -maps=DM-DLCMap1+DM-DLCMap2+DM-DLCMap3
-            DLCMaps = ParseParamValue("Maps", "");
-            bSingleMap = false;
-        }
+        // Maps should be in format -maps=DM-DLCMap1+DM-DLCMap2+DM-DLCMap3
+        DLCMaps = ParseParamValue("Maps", "");
 
         // Right now all platform asset registries seem to be the exact same, this may change in the future
-        AssetRegistry = ParseParamValue("AssetRegistry", "WindowsNoEditor-AssetRegistry.bin");
+        AssetRegistry = ParseParamValue("ReleaseVersion", "UTVersion0");
 
         var Params = GetParams(this, DLCName);
 
