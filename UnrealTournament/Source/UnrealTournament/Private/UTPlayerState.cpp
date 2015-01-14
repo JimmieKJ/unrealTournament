@@ -135,7 +135,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				{
 					AnnounceWeaponSpree(SpreeIndex, UTDamage);
 				}
-				// more likely to kill again with same weapon
+				// more likely to kill again with same weapon, so shorten search through array by swapping
 				WeaponSprees.Swap(0, SpreeIndex);
 			}
 		}
@@ -148,8 +148,6 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 void AUTPlayerState::AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<UUTDamageType> UTDamage)
 {
-	// FIXMESTEVE ADD TO STATS
-	
 	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (MyPC && GS)

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTAnnouncer.h"
+#include "UTDamageType.h"
 
 #include "UTSpreeMessage.generated.h"
 
@@ -13,18 +14,26 @@ class UUTSpreeMessage : public UUTLocalMessage
 	/** text displayed for player who's on the spree */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	TArray<FText> OwnerAnnouncementText;
+
 	/** text displayed for others */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	TArray<FText> OtherAnnouncementText;
+
 	/** text displayed when the spree ends */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	TArray<FText> EndedAnnouncementText;
+
 	/** text displayed when the spree ends via suicide */
 	TArray<FText> EndedSuicideMaleAnnouncementText;
 	TArray<FText> EndedSuicideFemaleAnnouncementText;
+
 	/** announcement heard by the player who's on the spree */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	TArray<FName> AnnouncementNames;
+
+	/** weapon spree announcement heard by the player who's on the spree */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		TArray<FName> WeaponAnnouncementNames;
 
 	UUTSpreeMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
@@ -42,6 +51,17 @@ class UUTSpreeMessage : public UUTLocalMessage
 		AnnouncementNames.Add(TEXT("Dominating"));
 		AnnouncementNames.Add(TEXT("Unstoppable"));
 		AnnouncementNames.Add(TEXT("Godlike"));
+		WeaponAnnouncementNames.Add(TEXT("RocketScience"));
+		/*BrainSurgen
+			Bullseye
+			ChainLightning
+			ComboWhore - change to combo king
+			FlakMonkey
+			HeadHunter
+			JackHammer
+			SharpShooter
+			RocketScience
+			ShockTherapy */
 		
 		OtherAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OtherAnnouncementText[0]", "{Player1Name} is on a killing spree!"));
 		OtherAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OtherAnnouncementText[1]", "{Player1Name} is on a rampage!"));
@@ -73,9 +93,18 @@ class UUTSpreeMessage : public UUTLocalMessage
 			}
 		}
 	}
+
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
-		if (Switch > 0)
+		if (Switch == 99)
+		{
+			const UClass* DmgClass = Cast<UClass>(OptionalObject);
+			if (DmgClass && DmgClass->IsChildOf(UUTDamageType::StaticClass()))
+			{
+				return NAME_None; // Cast<UUTDamageType>(DmgClass->GetDefaultObject())->SpreeSoundName;
+			}
+		}
+		else if (Switch > 0)
 		{
 			// Switch is spree level + 1
 			return AnnouncementNames.Num() > 0 ? AnnouncementNames[FMath::Clamp<int32>(Switch - 1, 0, AnnouncementNames.Num() - 1)] : NAME_None;
@@ -84,7 +113,9 @@ class UUTSpreeMessage : public UUTLocalMessage
 		{
 			return NAME_None;
 		}
+		return NAME_None;
 	}
+
 	virtual void PrecacheAnnouncements_Implementation(class UUTAnnouncer* Announcer) const
 	{
 		// switch 0 has no announcement, skip it
@@ -100,7 +131,14 @@ class UUTSpreeMessage : public UUTLocalMessage
 				break;
 			}
 		}
+
+		// precache weapon spree announcements
+		for (int32 i = 0; i < WeaponAnnouncementNames.Num(); i++)
+		{
+			Announcer->PrecacheAnnouncement(WeaponAnnouncementNames[i]);
+		}
 	}
+
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
 		// positive switch is spree level + 1

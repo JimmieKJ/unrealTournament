@@ -130,6 +130,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;
 
+	//UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnWeaponSpreeDamage, Category = PlayerState)
+	//class UTDamageType* WeaponSpreeDamage;
+
 	virtual void AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<class UUTDamageType> UTDamage);
 
 	UFUNCTION()
