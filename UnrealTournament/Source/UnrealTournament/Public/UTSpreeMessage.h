@@ -52,16 +52,11 @@ class UUTSpreeMessage : public UUTLocalMessage
 		AnnouncementNames.Add(TEXT("Unstoppable"));
 		AnnouncementNames.Add(TEXT("Godlike"));
 		WeaponAnnouncementNames.Add(TEXT("RocketScience"));
-		/*BrainSurgen
-			Bullseye
-			ChainLightning
-			ComboWhore - change to combo king
-			FlakMonkey
-			HeadHunter
-			JackHammer
-			SharpShooter
-			RocketScience
-			ShockTherapy */
+		WeaponAnnouncementNames.Add(TEXT("ShockTherapy"));
+		WeaponAnnouncementNames.Add(TEXT("SharpShooter"));
+		WeaponAnnouncementNames.Add(TEXT("JackHammer"));
+		WeaponAnnouncementNames.Add(TEXT("HeadHunter"));
+		WeaponAnnouncementNames.Add(TEXT("ChainLightning"));
 		
 		OtherAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OtherAnnouncementText[0]", "{Player1Name} is on a killing spree!"));
 		OtherAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "OtherAnnouncementText[1]", "{Player1Name} is on a rampage!"));

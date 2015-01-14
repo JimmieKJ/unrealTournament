@@ -154,7 +154,7 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	FString StatsName;
 
 	/** Reward announcement when kill with this damagetype (e.g. headshot). */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
 	TSubclassOf<class UUTRewardMessage> RewardAnnouncementClass;
 
 	/* If set, will play as weapon spree announcement when WeaponSpreeCount is reached. */
