@@ -15,11 +15,14 @@ private:
 	void Initialize();
 
 
-	void OpenPackageContentWindow();
+	void OpenPackageLevelWindow();
+	void OpenPackageWeaponWindow();
+	void OpenPackageHatWindow();
 
 	void CreatePackageContentMenu(FToolBarBuilder& Builder);
 	TSharedRef<FExtender> OnExtendLevelEditorViewMenu(const TSharedRef<FUICommandList> CommandList);
-	
+	TSharedRef< SWidget > GenerateOpenPackageMenuContent();
+
 	TSharedRef< FUICommandList > ActionList;
 
 	TSharedPtr< FExtender > MenuExtender;

@@ -51,19 +51,48 @@ void FPackageContent::Initialize()
 
 		FPackageContentCommands::Register();
 		const FPackageContentCommands& Commands = FPackageContentCommands::Get();
-		ActionList->MapAction(Commands.OpenPackageContent, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageContentWindow));
+		ActionList->MapAction(Commands.PackageLevel, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageLevelWindow));
+		ActionList->MapAction(Commands.PackageWeapon, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageWeaponWindow));
+		ActionList->MapAction(Commands.PackageHat, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageHatWindow));
 	}
 }
 
-void FPackageContent::OpenPackageContentWindow()
+void FPackageContent::OpenPackageLevelWindow()
+{
+	UE_LOG(LogPackageContent, Log, TEXT("Thanks for pressing that button, this feature coming soon!"));
+}
+
+void FPackageContent::OpenPackageWeaponWindow()
+{
+	UE_LOG(LogPackageContent, Log, TEXT("Thanks for pressing that button, this feature coming soon!"));
+}
+
+void FPackageContent::OpenPackageHatWindow()
 {
 	UE_LOG(LogPackageContent, Log, TEXT("Thanks for pressing that button, this feature coming soon!"));
 }
 
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
 {
-	Builder.AddToolBarButton(FPackageContentCommands::Get().OpenPackageContent, NAME_None, LOCTEXT("PackageContent", "Package"), TAttribute<FText>(), FSlateIcon(FPackageContentStyle::GetStyleSetName(), "PackageContent.PackageContent"), "LevelToolbarContent");
+	Builder.AddComboButton(FUIAction(),	FOnGetContent::CreateSP(this, &FPackageContent::GenerateOpenPackageMenuContent),
+						   LOCTEXT("PackageContent_Label", "Package"), LOCTEXT("PackageContent_ToolTip", "Put your custom content into a package file to get it ready for marketplace."),
+		                   FSlateIcon(FPackageContentStyle::GetStyleSetName(), "PackageContent.PackageContent"));
 }
 
+TSharedRef<SWidget> FPackageContent::GenerateOpenPackageMenuContent()
+{
+	const bool bShouldCloseWindowAfterMenuSelection = true;
+	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, ActionList);
+
+	MenuBuilder.BeginSection(NAME_None, LOCTEXT("Package Content", "Package Content"));
+	{
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageLevel);
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageWeapon);
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageHat);
+	}
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+}
 
 #undef LOCTEXT_NAMESPACE

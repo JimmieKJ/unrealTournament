@@ -10,5 +10,7 @@ public:
 
 public:
 
-	TSharedPtr< FUICommandInfo > OpenPackageContent;
+	TSharedPtr< FUICommandInfo > PackageLevel;
+	TSharedPtr< FUICommandInfo > PackageWeapon;
+	TSharedPtr< FUICommandInfo > PackageHat;
 };

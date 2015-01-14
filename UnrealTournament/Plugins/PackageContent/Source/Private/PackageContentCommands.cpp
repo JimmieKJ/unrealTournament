@@ -17,7 +17,9 @@ FEditorStyle::GetStyleSetName() // Icon Style Set
 
 void FPackageContentCommands::RegisterCommands()
 {
-	UI_COMMAND(OpenPackageContent, "Open Package Content", "Put your custom content into a package file to get it ready for marketplace.", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(PackageLevel, "Package This Level", "Cook and package up this level.", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(PackageWeapon, "Package A Weapon", "Cook and package up a weapon.", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(PackageHat, "Package A Hat", "Cook and package up a hat.", EUserInterfaceActionType::Button, FInputGesture());
 }
 
 #undef LOCTEXT_NAMESPACE
