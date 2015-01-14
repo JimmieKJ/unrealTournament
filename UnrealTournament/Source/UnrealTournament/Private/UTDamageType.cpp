@@ -19,6 +19,7 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	bCausesBlood = true;
 	bBlockedByArmor = true;
 	RewardAnnouncementClass = NULL;
+	WeaponSpreeCount = 15;
 
 	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> DefaultFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/RedHitFlash.RedHitFlash'"));
 	BodyDamageColor = DefaultFlash.Object;

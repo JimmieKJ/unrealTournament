@@ -107,14 +107,54 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 		ModifyStat(FName(TEXT("Kills")), 1, EStatMod::Delta);
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
-		if (UTDamage && !UTDamage.GetDefaultObject()->StatsName.IsEmpty())
+		if (UTDamage)
 		{
-			ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1, EStatMod::Delta);
+			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
+			{
+				ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1, EStatMod::Delta);
+			}
+			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
+			{
+				int32 SpreeIndex = -1;
+				for (int32 i = 0; i < WeaponSprees.Num(); i++)
+				{
+					if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
+					{
+						SpreeIndex = i;
+						break;
+					}
+				}
+				if (SpreeIndex == -1)
+				{
+					new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
+					SpreeIndex = WeaponSprees.Num() - 1;
+				}
+
+				WeaponSprees[SpreeIndex].Kills++;
+				if (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount)
+				{
+					AnnounceWeaponSpree(SpreeIndex, UTDamage);
+				}
+				// more likely to kill again with same weapon
+				WeaponSprees.Swap(0, SpreeIndex);
+			}
 		}
 	}
 	else
 	{
 		ModifyStat(FName(TEXT("Suicides")), 1, EStatMod::Delta);
+	}
+}
+
+void AUTPlayerState::AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<UUTDamageType> UTDamage)
+{
+	// FIXMESTEVE ADD TO STATS
+	
+	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (MyPC && GS)
+	{
+		MyPC->ClientReceiveLocalizedMessage(GS->SpreeMessageClass, 99, this, NULL, UTDamage.GetDefaultObject()->GetClass());
 	}
 }
 

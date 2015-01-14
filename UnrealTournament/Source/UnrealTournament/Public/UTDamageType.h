@@ -146,16 +146,23 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText FemaleSuicideMessage;
 
-	/** Reward announcement when kill with this damagetype. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
-	TSubclassOf<class UUTRewardMessage> RewardAnnouncementClass;
-
 	/** this is the name that will be used for the {WeaponName} message option*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText AssociatedWeaponName;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Stats)
 	FString StatsName;
+
+	/** Reward announcement when kill with this damagetype (e.g. headshot). */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+	TSubclassOf<class UUTRewardMessage> RewardAnnouncementClass;
+
+	/* If set, will play as weapon spree announcement when WeaponSpreeCount is reached. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
+		FName SpreeSoundName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
+		int32 WeaponSpreeCount;
 };
 
 /** return the base momentum for the given damage event (before radial damage and any other modifiers) */

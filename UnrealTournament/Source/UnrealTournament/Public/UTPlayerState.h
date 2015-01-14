@@ -8,6 +8,25 @@
 #include "OnlineSubsystemTypes.h"
 #include "UTPlayerState.generated.h"
 
+
+USTRUCT(BlueprintType)
+struct FWeaponSpree
+{
+	GENERATED_USTRUCT_BODY()
+
+	FWeaponSpree() : SpreeSoundName(NAME_None), Kills(0) {};
+
+	FWeaponSpree(FName InSpreeSoundName) : SpreeSoundName(InSpreeSoundName), Kills(0) {};
+
+	/** Position of player at time Time. */
+	UPROPERTY()
+		FName SpreeSoundName;
+
+	/** Rotation of player at time Time. */
+	UPROPERTY()
+		int32 Kills;
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
 {
@@ -107,6 +126,11 @@ public:
 	/** The currently held object */
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnCarriedObjectChanged, Category = PlayerState)
 	class AUTCarriedObject* CarriedObject;
+
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	TArray<FWeaponSpree> WeaponSprees;
+
+	virtual void AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<class UUTDamageType> UTDamage);
 
 	UFUNCTION()
 	void OnDeathsReceived();
