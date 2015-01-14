@@ -54,6 +54,26 @@ void AUTWorldSettings::CreateLevelSummary()
 	}
 }
 
+void AUTWorldSettings::NotifyBeginPlay()
+{
+	UWorld* World = GetWorld();
+	if (!World->bBegunPlay)
+	{
+		World->bBegunPlay = true;
+		// in order to avoid double calls to newly added actors we need to track what we started with
+		TArray<AActor*> FullActorList;
+		FullActorList.Reserve(World->PersistentLevel->Actors.Num());
+		for (FActorIterator It(World); It; ++It)
+		{
+			FullActorList.Add(*It);
+		}
+		for (AActor* Actor : FullActorList)
+		{
+			Actor->BeginPlay();
+		}
+	}
+}
+
 void AUTWorldSettings::BeginPlay()
 {
 	if (GEngineNetVersion == 0)

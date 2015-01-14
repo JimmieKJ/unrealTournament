@@ -92,6 +92,11 @@ public:
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
 
+	/** overridden to set bBeginPlay to true BEFORE calling BeginPlay() events, which maintains the historical behavior when an Actor spawns another from within BeginPlay(),
+	  * specifically that said second Actor's BeginPlay() is called immediately as part of SpawnActor()
+	  */
+	virtual void NotifyBeginPlay() override;
+
 	virtual void BeginPlay() override;
 	
 	/** add an impact effect that will be managed by the timing system */
