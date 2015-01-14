@@ -436,7 +436,7 @@ void AUTPlayerState::ReadStatsFromCloud()
 	}
 
 	// Don't read stats from cloud if we've already written them, consider memory to be a valid representation of the stats
-	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator)
+	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator && StatManager && !GetWorld()->IsPlayInEditor())
 	{
 		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
 	}
@@ -445,7 +445,7 @@ void AUTPlayerState::ReadStatsFromCloud()
 void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	// this notification is for us
-	if (bWasSuccessful && InUserId.ToString() == StatsID && FileName == GetStatsFilename())
+	if (bWasSuccessful && InUserId.ToString() == StatsID && FileName == GetStatsFilename() && StatManager)
 	{
 		UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
 
