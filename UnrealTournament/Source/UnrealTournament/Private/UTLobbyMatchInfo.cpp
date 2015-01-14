@@ -218,7 +218,7 @@ FText AUTLobbyMatchInfo::GetActionText()
 
 void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy)
 {
-	CurrentState == ELobbyMatchState::Setup;
+	CurrentState = ELobbyMatchState::Setup;
 
 	if (MatchToCopy)
 	{
