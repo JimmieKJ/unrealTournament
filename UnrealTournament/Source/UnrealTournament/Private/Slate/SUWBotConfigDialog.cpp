@@ -445,4 +445,54 @@ FReply SUWBotConfigDialog::OKClick()
 	return FReply::Handled();
 }
 
+template<typename ItemType> FReply SSimpleMultiSelectTableRow<ItemType>::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = this->OwnerTablePtr.Pin();
+	if (OwnerWidget->Private_GetSelectionMode() != ESelectionMode::Multi)
+	{
+		return STableRow<ItemType>::OnMouseButtonDown(MyGeometry, MouseEvent);
+	}
+	else
+	{
+		this->ChangedSelectionOnMouseDown = false;
+
+		checkSlow(OwnerWidget.IsValid());
+
+		if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+		{
+			const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget(this);
+			const bool bIsSelected = OwnerWidget->Private_IsItemSelected(*MyItem);
+
+			check(MyItem != nullptr);
+
+			if (MouseEvent.IsShiftDown())
+			{
+				OwnerWidget->Private_SelectRangeFromCurrentTo(*MyItem);
+				this->ChangedSelectionOnMouseDown = true;
+			}
+			else
+			{
+				OwnerWidget->Private_SetItemSelection(*MyItem, !bIsSelected, true);
+				this->ChangedSelectionOnMouseDown = true;
+			}
+
+			return FReply::Handled()
+				.DetectDrag(this->AsShared(), EKeys::LeftMouseButton)
+				.SetUserFocus(OwnerWidget->AsWidget(), EFocusCause::Mouse)
+				.CaptureMouse(this->AsShared());
+		}
+		else
+		{
+			return FReply::Unhandled();
+		}
+	}
+}
+
+template<typename ItemType> void SSimpleMultiSelectTableRow<ItemType>::Construct(const typename SSimpleMultiSelectTableRow<ItemType>::FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
+{
+	FSuperRowType::Construct( FTableRowArgs()
+		.Style(InArgs._Style).OnDragDetected(InArgs._OnDragDetected).OnDragEnter(InArgs._OnDragEnter).OnDragLeave(InArgs._OnDragLeave).OnDrop(InArgs._OnDrop).Padding(InArgs._Padding).ShowSelection(InArgs._ShowSelection).Content()[InArgs._Content.Widget],
+		InOwnerTableView);
+}
+
 #endif

@@ -34,55 +34,14 @@ public:
 
 	SLATE_END_ARGS()
 
-	void Construct(const typename SSimpleMultiSelectTableRow<ItemType>::FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
-	{
-		STableRow<ItemType>::Construct( STableRow<ItemType>::FArguments()
-			.Style(InArgs._Style).OnDragDetected(InArgs._OnDragDetected).OnDragEnter(InArgs._OnDragEnter).OnDragLeave(InArgs._OnDragLeave).OnDrop(InArgs._OnDrop).Padding(InArgs._Padding).ShowSelection(InArgs._ShowSelection).Content()[InArgs._Content.Widget],
-			InOwnerTableView );
-	}
+	/** Required for Clang to properly understand the template */
+	typedef STableRow< ItemType > FSuperRowType;
 
-	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
-	{
-		TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
-		if (OwnerWidget->Private_GetSelectionMode() != ESelectionMode::Multi)
-		{
-			return STableRow<ItemType>::OnMouseButtonDown(MyGeometry, MouseEvent);
-		}
-		else
-		{
-			ChangedSelectionOnMouseDown = false;
+	/** Required for Clang to properly understand the template */
+	typedef typename STableRow<ItemType>::FArguments FTableRowArgs;
 
-			checkSlow(OwnerWidget.IsValid());
-
-			if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
-			{
-				const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget(this);
-				const bool bIsSelected = OwnerWidget->Private_IsItemSelected(*MyItem);
-
-				check(MyItem != nullptr);
-
-				if (MouseEvent.IsShiftDown())
-				{
-					OwnerWidget->Private_SelectRangeFromCurrentTo(*MyItem);
-					ChangedSelectionOnMouseDown = true;
-				}
-				else
-				{
-					OwnerWidget->Private_SetItemSelection(*MyItem, !bIsSelected, true);
-					ChangedSelectionOnMouseDown = true;
-				}
-
-				return FReply::Handled()
-					.DetectDrag(SharedThis(this), EKeys::LeftMouseButton)
-					.SetUserFocus(OwnerWidget->AsWidget(), EFocusCause::Mouse)
-					.CaptureMouse(SharedThis(this));
-			}
-			else
-			{
-				return FReply::Unhandled();
-			}
-		}
-	}
+	void Construct(const typename SSimpleMultiSelectTableRow<ItemType>::FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView);
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 };
 
 class SUWBotConfigDialog : public SUWDialog, public FGCObject
