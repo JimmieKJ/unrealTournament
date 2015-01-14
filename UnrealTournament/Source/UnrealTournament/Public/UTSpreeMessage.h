@@ -98,10 +98,10 @@ class UUTSpreeMessage : public UUTLocalMessage
 	{
 		if (Switch == 99)
 		{
-			const UClass* DmgClass = Cast<UClass>(OptionalObject);
-			if (DmgClass && DmgClass->IsChildOf(UUTDamageType::StaticClass()))
+			const AUTPlayerState* UTPS = Cast<AUTPlayerState>(OptionalObject);
+			if (UTPS && UTPS->WeaponSpreeDamage)
 			{
-				return NAME_None; // Cast<UUTDamageType>(DmgClass->GetDefaultObject())->SpreeSoundName;
+				return Cast<UUTDamageType>(UTPS->WeaponSpreeDamage->GetDefaultObject())->SpreeSoundName;
 			}
 		}
 		else if (Switch > 0)
@@ -145,7 +145,15 @@ class UUTSpreeMessage : public UUTLocalMessage
 		// negative switch is ended spree level - 1
 		// zero is not used
 		const TArray<FText>* TextArray = NULL;
-		if (Switch > 0)
+		if (Switch == 99)
+		{
+			const AUTPlayerState* UTPS = Cast<AUTPlayerState>(OptionalObject);
+			if (UTPS && UTPS->WeaponSpreeDamage)
+			{
+				return FText::FromString(Cast<UUTDamageType>(UTPS->WeaponSpreeDamage->GetDefaultObject())->SpreeString);
+			}
+		}
+		else  if (Switch > 0)
 		{
 			TextArray = bTargetsPlayerState1 ? &OwnerAnnouncementText : &OtherAnnouncementText;
 		}

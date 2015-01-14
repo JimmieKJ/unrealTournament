@@ -6,6 +6,7 @@
 #include "Stat.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
+#include "UTDamageType.h"
 #include "UTPlayerState.generated.h"
 
 
@@ -130,8 +131,11 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;
 
-	//UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnWeaponSpreeDamage, Category = PlayerState)
-	//class UTDamageType* WeaponSpreeDamage;
+	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnWeaponSpreeDamage, Category = PlayerState)
+	TSubclassOf<UUTDamageType> WeaponSpreeDamage;
+
+	UFUNCTION()
+		void OnWeaponSpreeDamage();
 
 	virtual void AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<class UUTDamageType> UTDamage);
 

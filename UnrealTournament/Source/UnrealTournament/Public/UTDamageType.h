@@ -161,6 +161,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
 		FName SpreeSoundName;
 
+	/* String displayed when weapon spree sound is played. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
+		FString SpreeString;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
 		int32 WeaponSpreeCount;
 };

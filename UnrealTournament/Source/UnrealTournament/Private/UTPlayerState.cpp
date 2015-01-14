@@ -49,6 +49,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
 }
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()
@@ -148,11 +149,25 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 void AUTPlayerState::AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<UUTDamageType> UTDamage)
 {
+	// will be replicated to owning player, causing OnWeaponSpreeDamage()  // FIXMESTEVE back to replicated function not property?
+	WeaponSpreeDamage = UTDamage;
+	
+	// for standalone
+	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+	if (MyPC && MyPC->IsLocalPlayerController())
+	{
+		OnWeaponSpreeDamage();
+	}
+}
+
+void AUTPlayerState::OnWeaponSpreeDamage()
+{
+	// received replicated 
 	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (MyPC && GS)
+	if (MyPC && GS && WeaponSpreeDamage)
 	{
-		MyPC->ClientReceiveLocalizedMessage(GS->SpreeMessageClass, 99, this, NULL, UTDamage.GetDefaultObject()->GetClass());
+		MyPC->ClientReceiveLocalizedMessage(GS->SpreeMessageClass, 99, this, NULL, this);
 	}
 }
 
