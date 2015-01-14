@@ -1495,9 +1495,12 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 			{
 				// make sure no one else has this start as a pending choice
 				AUTPlayerState* UTPS = Cast<AUTPlayerState>(OtherController->PlayerState);
-				if (UTPS && (P == UTPS->RespawnChoiceA) || (P == UTPS->RespawnChoiceB))
+				if (UTPS)
 				{
-					return -5.f;
+					if (P == UTPS->RespawnChoiceA || P == UTPS->RespawnChoiceB)
+					{
+						return -5.f;
+					}
 				}
 			}
 

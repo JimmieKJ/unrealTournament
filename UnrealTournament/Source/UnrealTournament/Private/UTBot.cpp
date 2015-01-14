@@ -2685,9 +2685,12 @@ void AUTBot::NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius
 					bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
 				}
 			}
-			if (bCanUpdateEnemyInfo && (Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
+			if (bCanUpdateEnemyInfo)
 			{
-				UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
+				if ((Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
+				{
+					UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
+				}
 			}
 		}
 	}

@@ -627,7 +627,7 @@ void AUTProj_BioShot::FindWebLink()
 		if (!NextBio->IsPendingKillPending() && ((NextBio->SurfaceNormal | SurfaceNormal) < 0.98f))
 		{
 			float Dist = (NextBio->GetActorLocation() - GetActorLocation()).SizeSquared();
-			if (!FurthestBio || (Dist > FurthestDist) && CanWebLinkTo(NextBio))
+			if (!FurthestBio || ((Dist > FurthestDist) && CanWebLinkTo(NextBio)))
 			{
 				FurthestBio = NextBio;
 				FurthestDist = Dist;
