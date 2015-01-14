@@ -141,13 +141,7 @@ void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 FString SUWStatsViewer::GetStatsFilename()
 {
-	if (!StatsID.IsEmpty())
-	{
-		FString ProfileFilename = FString::Printf(TEXT("%s.user.stats"), *StatsID);
-		return ProfileFilename;
-	}
-
-	return TEXT("local.user.stats");
+	return TEXT("stats.json");
 }
 
 #endif

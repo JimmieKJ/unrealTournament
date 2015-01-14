@@ -481,13 +481,7 @@ void AUTPlayerState::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 
 FString AUTPlayerState::GetStatsFilename()
 {
-	if (!StatsID.IsEmpty())
-	{
-		FString ProfileFilename = FString::Printf(TEXT("%s.user.stats"), *StatsID);
-		return ProfileFilename;
-	}
-
-	return TEXT("local.user.stats");
+	return TEXT("stats.json");
 }
 
 void AUTPlayerState::WriteStatsToCloud()
