@@ -57,6 +57,10 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
 				}
 			}
+			else if (UTGameState->PlayersNeeded > 0)
+			{
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForPlayers", "Waiting for players to join.");
+			}
 			else if (UTPS != NULL && UTPS->bReadyToPlay)
 			{
 				if (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)

@@ -37,7 +37,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, bViewKillerOnDeath);  // @TODO FIXMESTEVE why not initial only
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME(AUTGameState, bIsInstanceServer);  // @TODO FIXMESTEVE why not initial only
-	
+	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
+
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);

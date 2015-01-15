@@ -111,8 +111,19 @@ public:
 	UPROPERTY()
 	bool bFirstBloodOccurred;
 
+	/** Minimum number of players that must have joined match before it will start. */
 	UPROPERTY()
 	int32 MinPlayersToStart;
+
+	/** After this wait, add bots to min players level */
+	UPROPERTY()
+	float MaxWaitForPlayers;
+
+	/** World time when match was first ready to start. */
+	UPROPERTY()
+	float StartPlayTime;
+
+	virtual void StartPlay() override;
 
 	/** add bots until NumPlayers + NumBots is this number */
 	UPROPERTY(GlobalConfig)

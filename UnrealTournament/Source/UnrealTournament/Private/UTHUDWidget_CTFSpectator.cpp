@@ -83,6 +83,10 @@ void UUTHUDWidget_CTFSpectator::Draw_Implementation(float DeltaTime)
 				DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start"), DeltaTime);
 			}
 		}
+		else if (UTGameState->PlayersNeeded > 0)
+		{
+			DrawSimpleMessage(NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForPlayers", "Waiting for players to join."), DeltaTime);
+		}
 		else if (UTPS != NULL && UTPS->bReadyToPlay)
 		{
 			if (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)

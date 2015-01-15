@@ -58,6 +58,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MaxReadyWaitTime = 20;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 1;
+	MaxWaitForPlayers = 120.f;
 	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
 	GameDifficulty = 3.0f;
@@ -126,6 +127,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	InOpt = ParseOption(Options, TEXT("OnlyStrong"));
 	bOnlyTheStrongSurvive = EvalBoolOptions(InOpt, bOnlyTheStrongSurvive);
 
+	MaxWaitForPlayers = GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
 	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
 	InOpt = ParseOption(Options, TEXT("HasRespawnChoices"));
 	bHasRespawnChoices = EvalBoolOptions(InOpt, bHasRespawnChoices);
@@ -1544,6 +1546,12 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	}
 }
 
+void AUTGameMode::StartPlay()
+{
+	Super::StartPlay();
+	StartPlayTime = GetWorld()->GetTimeSeconds();
+}
+
 bool AUTGameMode::ReadyToStartMatch()
 {
 	// If bDelayed Start is set, wait for a manual match start
@@ -1557,7 +1565,8 @@ bool AUTGameMode::ReadyToStartMatch()
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
-		if (NumPlayers + NumBots >= MinPlayersToStart && NumPlayers + NumSpectators > 0)
+		UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
+		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
 			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0))
 			{
@@ -1573,10 +1582,17 @@ bool AUTGameMode::ReadyToStartMatch()
 
 			return true;
 		}
-		else if (MaxReadyWaitTime > 0)
+		else
 		{
-			// reset max wait for players to ready up
-			UTGameState->SetTimeLimit(MaxReadyWaitTime);
+			if ((MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
+			{
+				BotFillCount = MinPlayersToStart;
+			}
+			if (MaxReadyWaitTime > 0)
+			{
+				// reset max wait for players to ready up
+				UTGameState->SetTimeLimit(MaxReadyWaitTime);
+			}
 		}
 	}
 	return false;
