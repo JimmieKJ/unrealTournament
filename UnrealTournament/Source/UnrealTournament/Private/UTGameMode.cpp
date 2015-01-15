@@ -1736,6 +1736,22 @@ void AUTGameMode::HandleEnteringOvertime()
 				KillPlayer = NULL;
 			}
 		}
+		
+		// force respawn any players that are applicable for overtime but are currently dead
+		if (BestPlayer != NULL)
+		{
+			for (APlayerState* TestPlayer : UTGameState->PlayerArray)
+			{
+				if (TestPlayer->Score == BestPlayer->Score && !TestPlayer->bOnlySpectator)
+				{
+					AController* C = Cast<AController>(TestPlayer->GetOwner());
+					if (C != NULL && C->GetPawn() == NULL)
+					{
+						RestartPlayer(C);
+					}
+				}
+			}
+		}
 	}
 
 	SetMatchState(MatchState::MatchIsInOvertime);
