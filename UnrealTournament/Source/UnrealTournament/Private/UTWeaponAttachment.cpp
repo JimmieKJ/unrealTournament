@@ -20,6 +20,8 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitial
 	WeaponStance = 0;
 
 	bCopyWeaponImpactEffect = true;
+
+	MaxBulletWhipDist = 200.0f;
 }
 
 void AUTWeaponAttachment::BeginPlay()
@@ -168,6 +170,38 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		}
 		LastImpactEffectLocation = UTOwner->FlashLocation;
 		LastImpactEffectTime = GetWorld()->TimeSeconds;
+	}
+
+	PlayBulletWhip();
+}
+
+void AUTWeaponAttachment::PlayBulletWhip()
+{
+	if (BulletWhip != NULL && !UTOwner->FlashLocation.IsZero())
+	{
+		const FVector BulletSrc = UTOwner->GetActorLocation();
+		const FVector Dir = (UTOwner->FlashLocation - BulletSrc).GetSafeNormal();
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+			if (PC != NULL && PC->GetViewTarget() != UTOwner)
+			{
+				FVector ViewLoc;
+				FRotator ViewRot;
+				PC->GetPlayerViewPoint(ViewLoc, ViewRot);
+				const FVector ClosestPt = FMath::ClosestPointOnSegment(ViewLoc, BulletSrc, UTOwner->FlashLocation);
+				if (ClosestPt != BulletSrc && ClosestPt != UTOwner->FlashLocation && (ClosestPt - ViewLoc).Size() <= MaxBulletWhipDist)
+				{
+					// trace to make sure missed shot isn't on the other side of a wall
+					FCollisionQueryParams Params(FName(TEXT("BulletWhip")), false, UTOwner);
+					Params.AddIgnoredActor(PC->GetPawn());
+					if (!GetWorld()->LineTraceTest(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
+					{
+						PC->ClientHearSound(BulletWhip, this, ClosestPt, false, false, false);
+					}
+				}
+			}
+		}
 	}
 }
 

@@ -111,15 +111,15 @@ void AUTWeapAttachment_Enforcer::PlayFiringEffects()
 			LastImpactEffectTime = GetWorld()->TimeSeconds;
 		}
 
+		PlayBulletWhip();
+
 		AlternateCount++;
 
 		if (UTOwner->FireMode == 1 && AlternateCount == BurstSize * 2)
 		{
 			AlternateCount = 0;
 		}
-
 	}
-
 }
 
 void AUTWeapAttachment_Enforcer::StopFiringEffects(bool bIgnoreCurrentMode)

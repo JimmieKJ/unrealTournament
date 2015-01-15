@@ -45,11 +45,11 @@ public:
 
 	/** third person mesh attach point */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-		FName HolsterSocket;
+	FName HolsterSocket;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-		FVector HolsterOffset;
+	FVector HolsterOffset;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-		FRotator HolsterRotation;
+	FRotator HolsterRotation;
 
 	/** particle system for firing effects (instant hit beam and such)
 	* particles will be sourced at FireOffset and a parameter HitLocation will be set for the target, if applicable
@@ -75,6 +75,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	bool bCopyWeaponImpactEffect;
 
+	/** optional bullet whip sound when instant hit shots pass close by a local player without hitting */
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	USoundBase* BulletWhip;
+	/** maximum distance from fire line player can be and still get the bullet whip sound */
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	float MaxBulletWhipDist;
+
 	virtual void BeginPlay() override;
 	virtual void RegisterAllComponents() override;
 	virtual void Destroyed() override;
@@ -85,7 +92,7 @@ public:
 	void DetachFromOwner();
 
 	UFUNCTION(BlueprintNativeEvent)
-		void HolsterToOwner();
+	void HolsterToOwner();
 
 	/** play firing effects (both muzzle flash and any tracers/beams/impact effects)
 	 * use UTOwner's FlashLocation and FireMode to determine firing data
@@ -106,6 +113,9 @@ public:
 
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void PlayBulletWhip();
 
 #if WITH_EDITORONLY_DATA
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
