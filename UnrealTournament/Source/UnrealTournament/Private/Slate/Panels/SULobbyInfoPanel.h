@@ -25,8 +25,6 @@ public:
 	{
 		return MakeShareable( new FMatchData( inInfo, inPanel ) );
 	}
-
-
 };
 
 class SULobbyInfoPanel : public SUChatPanel
@@ -50,6 +48,10 @@ protected:
 	void OwnerCurrentMatchChanged(AUTLobbyPlayerState* LobbyPlayerState);
 	bool AlreadyTrackingMatch(AUTLobbyMatchInfo* TestMatch);
 	bool MatchStillValid(FMatchData* Match);
+
+	void ShowMatchSetupPanel();
+	void ShowMatchDock();
+
 };
 
 #endif

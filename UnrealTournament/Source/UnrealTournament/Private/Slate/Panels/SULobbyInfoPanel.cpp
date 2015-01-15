@@ -78,68 +78,34 @@ void SULobbyInfoPanel::BuildNonChatPanel()
 		// We need to show the match setup panel.  Hosts will have an interactive panel, non-hosts will just get an info dump
 
 		{
-			if (PlayerState->CurrentMatch->CurrentState == ELobbyMatchState::Initializing || PlayerState->CurrentMatch->CurrentState == ELobbyMatchState::Setup)
-			{
-				NonChatPanel->AddSlot()
+			NonChatPanel->AddSlot()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()		
+					.AutoHeight()
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Fill)
 					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()		
-						.AutoHeight()
-						.VAlign(VAlign_Top)
-						.HAlign(HAlign_Fill)
+						SNew(SOverlay)
+						+SOverlay::Slot()
 						[
-							SNew(SOverlay)
-							+SOverlay::Slot()
-							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("Blue.UWindows.MidGameMenu.Bar.Top"))
-							]
-							+SOverlay::Slot()
-							[
-								SNew(SVerticalBox)
-								+SVerticalBox::Slot()		
-								.AutoHeight()
-								[
-									SNew(STextBlock)
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
-									.Text(NSLOCTEXT("LobbyMessages","Initializing","Recieving Match Settings from Server..."))
-								]
-							]
-						]			
-					];
-			}
-			else
-			{
-				NonChatPanel->AddSlot()
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()		
-						.AutoHeight()
-						.VAlign(VAlign_Top)
-						.HAlign(HAlign_Fill)
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("Blue.UWindows.MidGameMenu.Bar.Top"))
+						]
+						+SOverlay::Slot()
 						[
-							SNew(SOverlay)
-							+SOverlay::Slot()
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()		
+							.AutoHeight()
 							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("Blue.UWindows.MidGameMenu.Bar.Top"))
+								SNew(SULobbyMatchSetupPanel)
+								.PlayerOwner(PlayerOwner)
+								.MatchInfo(PlayerState->CurrentMatch)
+								.bIsHost(PlayerState->CurrentMatch->OwnerId == PlayerState->UniqueId)
 							]
-							+SOverlay::Slot()
-							[
-								SNew(SVerticalBox)
-								+SVerticalBox::Slot()		
-								.AutoHeight()
-								[
-									SNew(SULobbyMatchSetupPanel)
-									.PlayerOwner(PlayerOwner)
-									.MatchInfo(PlayerState->CurrentMatch)
-									.bIsHost(PlayerState->CurrentMatch->OwnerId == PlayerState->UniqueId)
-								]
-							]
-						]			
-					];
-
-			}
+						]
+					]			
+				];
 		}
 	}
 }
@@ -160,15 +126,23 @@ bool SULobbyInfoPanel::AlreadyTrackingMatch(AUTLobbyMatchInfo* TestMatch)
 
 void SULobbyInfoPanel::TickNonChatPanel(float DeltaTime)
 {
+	AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
+
 	if (bShowingMatchDock)
 	{
+		// Look to see if we have been waiting for a valid GameModeData to replicate.  If we have, open the right panel.
+		if (PlayerState && PlayerState->CurrentMatch && PlayerState->CurrentMatch->MatchIsReadyToJoin(PlayerState))
+		{
+			ShowMatchSetupPanel();
+			return;
+		}
+
 		// We are showing the dock, look to see if new matches to join have been added to the queue and if they
 		// have, add them
 
 		AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
 		if (LobbyGameState)
 		{
-
 			bool bDockRequiresUpdate = false;
 
 			// Expire out any old matches that are no longer useful.
@@ -228,16 +202,6 @@ void SULobbyInfoPanel::TickNonChatPanel(float DeltaTime)
 			}
 		}
 	}
-	else
-	{
-		AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
-		if (PlayerState && PlayerState->CurrentMatch->CurrentState != LastMatchState)
-		{
-			BuildNonChatPanel();
-			LastMatchState = PlayerState->CurrentMatch->CurrentState;
-		}
-	
-	}
 }
 
 void SULobbyInfoPanel::BuildEmptyMatchMessage()
@@ -256,26 +220,34 @@ void SULobbyInfoPanel::BuildEmptyMatchMessage()
 }
 void SULobbyInfoPanel::OwnerCurrentMatchChanged(AUTLobbyPlayerState* LobbyPlayerState)
 {
-	if (LobbyPlayerState->CurrentMatch)
+	if (LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->MatchIsReadyToJoin(LobbyPlayerState))
 	{
-		// We are in a match, either hosting or via a join, so hide the match doc.
-
 		if (bShowingMatchDock)
 		{
-			bShowingMatchDock = false;
-			BuildNonChatPanel();
+			ShowMatchSetupPanel();
 		}
 	}
 	else
 	{
 		if (!bShowingMatchDock)
 		{
-			bShowingMatchDock = true;
-			MatchData.Empty();
-			BuildNonChatPanel();
-			BuildEmptyMatchMessage();
+			ShowMatchDock();		
 		}
 	}
+}
+
+void SULobbyInfoPanel::ShowMatchSetupPanel()
+{
+	bShowingMatchDock = false;
+	BuildNonChatPanel();
+}
+
+void SULobbyInfoPanel::ShowMatchDock()
+{
+	bShowingMatchDock = true;
+	MatchData.Empty();
+	BuildNonChatPanel();
+	BuildEmptyMatchMessage();
 }
 
 #endif

@@ -246,7 +246,7 @@ FReply SUMatchPanel::ButtonClicked()
 			{
 				if(PS)
 				{
-					PS->JoinMatch(MatchInfo.Get());
+					PS->ServerJoinMatch(MatchInfo.Get());
 				}
 			}
 		}

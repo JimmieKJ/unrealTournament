@@ -23,10 +23,7 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 
 #if !UE_SERVER
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
-	virtual TSharedRef<SWidget> CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const;
 #endif
-
-	virtual FString GetDefaultLobbyOptions() const;
 
 protected:
 	virtual void UpdateLobbyMatchStats();

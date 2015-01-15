@@ -221,22 +221,6 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 
 #endif
 
-#if !UE_SERVER
-TSharedRef<SWidget> AUTDuelGame::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const
-{
-	// Return just an empty panel
-	return SNew(SUDuelSettings)
-		.bIsHost(inIsHost)
-		.PlayerOwner(inPlayerOwner)
-		.MatchInfo(inMatchInfo);
-}
-#endif		
-
-FString AUTDuelGame::GetDefaultLobbyOptions() const
-{
-	return TEXT("GoalScore=0?TimeLimit=15");
-}
-
 void AUTDuelGame::UpdateLobbyMatchStats()
 {
 	if (LobbyBeacon)

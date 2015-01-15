@@ -2283,17 +2283,9 @@ bool AUTGameMode::RestrictPlayerSpawns()
 	return (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime());
 }
 
-#if !UE_SERVER
-TSharedRef<SWidget> AUTGameMode::CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo) const
-{
-	// Return just an empty panel
-	return SNew(SCanvas);
-}
-#endif
-
 FString AUTGameMode::GetDefaultLobbyOptions() const
 {
-	return TEXT("");
+	return DefaultLobbyOptions;
 }
 
 void AUTGameMode::NotifyLobbyGameIsReady()

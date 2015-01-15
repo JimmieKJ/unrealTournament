@@ -196,12 +196,18 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		// Append the InstanceID so that we know who to talk about to.  TODO: We have to add the server's accessible address (or the iC's address) here once we support
 		// instances on a machines.  NOTE: All communication that comes from the instance server to the lobby will need this id.
 
+		// Apply additional options.
+		if (!ForcedInstanceGameOptions.IsEmpty()) ServerURLOptions += ForcedInstanceGameOptions;
+
 		FString GameOptions = FString::Printf(TEXT("%s?Game=%s?%s?InstanceID=%i?HostPort=%i"), *MatchOwner->MatchMap, *MatchOwner->MatchGameMode, *ServerURLOptions, GameInstanceID, GameInstanceListenPort);
 
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
 		FString Options = FString::Printf(TEXT("UnrealTournament %s -server -port=%i -log"), *GameOptions, InstancePort);
+		
+		// Add in additional command line params
+		if (!AdditionalInstanceCommandLine.IsEmpty()) Options += TEXT(" ") + AdditionalInstanceCommandLine;
 
 		FString ConnectionString = FString::Printf(TEXT("%s:%i"), *GetWorld()->GetNetDriver()->LowLevelGetNetworkNumber(), InstancePort);
 
@@ -339,3 +345,55 @@ bool AUTLobbyGameState::IsMatchStillValid(AUTLobbyMatchInfo* TestMatch)
 
 	return false;
 }
+
+// A New Client has joined.. Send them all of the server side settings
+void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
+{
+	for (int32 i = 0; i < AllowedGameModeClasses.Num(); i++)
+	{
+		FString Option = FString::Printf(TEXT("game=%s"), *AllowedGameModeClasses[i]);
+		NewPlayer->AddHostData(Option);
+	}
+
+	for (int32 i = 0; i < AllowedMaps.Num(); i++)
+	{
+		FString Option = FString::Printf(TEXT("map=%s"), *AllowedMaps[i]);
+		NewPlayer->AddHostData(Option);
+	}
+
+
+	NewPlayer->StartServerToClientDataPush();
+}
+
+AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(FString ClassName)
+{
+	// Try to load the native class
+
+	UClass* GameModeClass = LoadClass<AUTGameMode>(NULL, *ClassName, NULL, LOAD_None, NULL);
+	if (GameModeClass == NULL)
+	{
+		FString BlueprintName = FString::Printf(TEXT("%s_C"), *ClassName);
+		GameModeClass = LoadClass<UUTHUDWidget>(NULL, *BlueprintName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	}
+
+	if (GameModeClass != NULL)
+	{
+		return GameModeClass->GetDefaultObject<AUTGameMode>();
+	}
+
+	return NULL;
+}
+
+TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString GameModeClass)
+{
+	for (int32 i=0; i<ClientAvailbleGameModes.Num();i++)
+	{
+		if (ClientAvailbleGameModes[i]->ClassName == GameModeClass)
+		{
+			return ClientAvailbleGameModes[i];
+		}
+	}
+
+	return NULL;
+}
+

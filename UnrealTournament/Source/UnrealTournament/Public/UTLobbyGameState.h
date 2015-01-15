@@ -37,17 +37,58 @@ struct FGameInstanceData
 
 };
 
+// Holds information about what maps are allowed in the game.
+class FAllowedMapData
+{
+public:
+	FString MapName;
+
+	FAllowedMapData(FString inMapName)
+		: MapName(inMapName)
+	{
+	};
+
+	static TSharedRef<FAllowedMapData> Make(FString inMapName)
+	{
+		return MakeShareable(new FAllowedMapData(inMapName));
+	}
+};
+
+class AUTGameMode;
+
+// Holds information about what Gametypes are allowed in the game
+class FAllowedGameModeData
+{
+public:
+	FString ClassName;
+	FString DisplayName;
+	TWeakObjectPtr<AUTGameMode> DefaultObject;
+
+	FAllowedGameModeData(FString inClassName, FString inDisplayName, TWeakObjectPtr<AUTGameMode> inDefaultObject)
+		: ClassName(inClassName)
+		, DisplayName(inDisplayName)
+		, DefaultObject(inDefaultObject)
+	{
+	};
+
+	static TSharedRef<FAllowedGameModeData> Make(FString inClassName, FString inDisplayName, TWeakObjectPtr<AUTGameMode> inDefaultObject)
+	{
+		return MakeShareable(new FAllowedGameModeData(inClassName, inDisplayName, inDefaultObject));
+	}
+};
+
+
+
 UCLASS(notplaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 {
 	GENERATED_UCLASS_BODY()
 
+	// Convert a Classname string in to a default object
+	static AUTGameMode* GetGameModeDefaultObject(FString ClassName);
+
 	// Holds a list of running Game Instances.
 	TArray<FGameInstanceData> GameInstances;
-
-	/** Holds a list of GameMode classes that can be configured for this lobby.  In BeginPlay() these classes will be loaded and  */
-	UPROPERTY(Config)
-	TArray<FString> AllowedGameModeClasses;
 
 	/** server settings */
 	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
@@ -58,11 +99,34 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	TArray<AUTLobbyMatchInfo*> AvailableMatches;
 
+	/** Holds a list of GameMode classes that can be configured for this lobby.  In BeginPlay() these classes will be loaded and  */
+	UPROPERTY(Config)
+	TArray<FString> AllowedGameModeClasses;
+
 	// A list of all maps that are allow the be chosen from.  We might want to consider auto-filling this but I want the
 	// admin to be able to select which maps he wants to offer.  The Client will then filter the list by what maps they have installed.
 	// We can at some point add a button or some mechanism  to allow players to pull missing maps from the marketplace.
 	UPROPERTY(Config)
 	TArray<FString> AllowedMaps;
+
+	// These Game Options will be forced on ALL games instanced regardless of their GameMdoe
+	UPROPERTY(Config)
+	FString ForcedInstanceGameOptions;
+
+	// These additional commandline parameters will be added to all instances that run.
+	UPROPERTY(Config)
+	FString AdditionalInstanceCommandLine;
+
+	// Holds a list of all Game modes available to both the server and this client.  The HOST will replicate it's AllowedGameModeClasses 
+	// data and it will be resolved client-side to fill out this array.  IT is only available client-side.
+	TArray<TSharedPtr<FAllowedGameModeData>> ClientAvailbleGameModes;
+
+	// CLIENT-ONLY - finds a GameModeClass in the ClientAvailableGameModes array anda returns it.
+	TSharedPtr<FAllowedGameModeData> ResolveGameMode(FString GameModeClass);
+
+	// Holds a list of all maps available to both the server and this client.  The HOST will replicate it's AllowedMaps
+	// data and it will be resolved client-side to fill out this array.  IT is only available client-side.
+	TArray<TSharedPtr<FAllowedMapData>> ClientAvailableMaps;
 
 	virtual void BroadcastChat(AUTLobbyPlayerState* SenderPS, FName Destination, const FString& Message);
 
@@ -140,6 +204,9 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 
 	bool IsMatchStillValid(AUTLobbyMatchInfo* TestMatch);
 
+	// Called when a new player enters the game.  This causes all of the allowed gametypes and maps to be replicated to that player
+	void InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer);
+
 protected:
 
 	// The instance ID of the game running in this lobby.  This ID will be used to identify any incoming data from the game server instance.  It's incremented each time a 
@@ -150,6 +217,7 @@ protected:
 
 	AUTServerBeaconLobbyHostListener* LobbyBeacon_Listener;
 	AUTServerBeaconLobbyHostObject* LobbyBeacon_Object;
+
 
 };
 

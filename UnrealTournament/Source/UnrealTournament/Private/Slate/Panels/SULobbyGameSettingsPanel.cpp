@@ -24,7 +24,10 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 	BlinkyTimer = 0.0f;
 	Dots=0;
 
-	OnMatchOptionsChangedDelegate.BindSP(this, &SULobbyGameSettingsPanel::RefreshOptions);
+	OnMatchMapChangedDelegate.BindSP(this, &SULobbyGameSettingsPanel::MapChanged);
+	MatchInfo->OnMatchMapChanged = OnMatchMapChangedDelegate;
+
+	OnMatchOptionsChangedDelegate.BindSP(this, &SULobbyGameSettingsPanel::OptionsChanged);
 	MatchInfo->OnMatchOptionsChanged = OnMatchOptionsChangedDelegate;
 
 	ChildSlot
@@ -41,7 +44,7 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 			SAssignNew(PanelContents, SOverlay)
 			+SOverlay::Slot()
 			[
-				ConstructContents()
+				BuildGamePanel()
 			]
 		]
 
@@ -138,7 +141,6 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 		]
 	];
 
-	RefreshOptions();
 }
 
 void SULobbyGameSettingsPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
@@ -155,7 +157,73 @@ void SULobbyGameSettingsPanel::Tick( const FGeometry& AllottedGeometry, const do
 			BlinkyTimer = 0.0f;
 		}
 	}
+}
 
+
+TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildGamePanel()
+{
+
+	// Build the slate framework to hold everything.
+	TSharedPtr<SWidget> Panel;
+
+	SAssignNew(Panel, SBox)
+		[	
+			SNew(SHorizontalBox)	
+			+SHorizontalBox::Slot()
+			.FillWidth(0.5)
+			.Padding(0.0,5.0,0.0,5.0)
+			[
+				SAssignNew(OptionsPanel, SVerticalBox)
+			]
+			+SHorizontalBox::Slot()
+			.FillWidth(0.5)
+			[
+				SAssignNew(MapPanel, SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					BuildMapsPanel()
+				]
+			]
+		];
+
+
+	BuildOptionsFromData();
+
+		// We are the host, say that this match is ready to go.
+	if (bIsHost)
+	{
+		MatchInfo->ServerSetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
+	}
+
+	return Panel.ToSharedRef();
+
+}
+
+void SULobbyGameSettingsPanel::BuildOptionsFromData()
+{
+	if (OptionsPanel.IsValid())
+	{
+		// Parse the options	
+		TArray<FString> Options;
+		MatchInfo->MatchOptions.ParseIntoArray(&Options, TEXT("?"), true);
+		for (int32 i=0; i<Options.Num();i++)
+		{
+			TSharedPtr<FGameOption> Opt = MakeShareable(new FGameOption()); 
+			GameOptionData.Add(Opt);
+			Opt->ToOption(Options[i], bIsHost);
+			Opt->OnChangeDelegate.BindRaw(this, &SULobbyGameSettingsPanel::OnGameOptionChanged);
+
+			if (Opt->HostControl.IsValid())
+			{
+				OptionsPanel->AddSlot()
+				.AutoHeight()
+				[
+					GameOptionData[i]->HostControl.ToSharedRef()
+				];
+			}
+		}
+	}
 }
 
 void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
@@ -278,11 +346,27 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 
 TSharedRef<SWidget> SULobbyGameSettingsPanel::ConstructContents()
 {
+	BuildGamePanel();
 	return SNew(SCanvas);
 }
 
-void SULobbyGameSettingsPanel::RefreshOptions()
+void SULobbyGameSettingsPanel::MapChanged()
 {
+}
+
+void SULobbyGameSettingsPanel::OptionsChanged()
+{
+	if (!bIsHost)
+	{
+		// Remove what was already theere.
+		if (GameOptionData.Num() > 0)
+		{
+			GameOptionData.Empty();
+			OptionsPanel->ClearChildren();
+		}
+
+		BuildOptionsFromData();
+	}
 }
 
 void SULobbyGameSettingsPanel::CommitOptions()
@@ -320,7 +404,7 @@ FReply SULobbyGameSettingsPanel::Ready()
 							}
 						}
 					}
-
+					 
 					if (!bAllReady)
 					{
 						PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","NotEveryoneReadyCaption","Not Ready"),NSLOCTEXT("LobbyMessages","NotEveryoneReadyMsg","Everone isn't ready to play.  Please wait for everyone before starting the match!"), UTDIALOG_BUTTON_OK);
@@ -329,6 +413,12 @@ FReply SULobbyGameSettingsPanel::Ready()
 
 					if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 					{
+						if (MatchInfo->Players.Num() > MatchInfo->CurrentGameModeData->DefaultObject->MaxLobbyPlayers)
+						{
+							PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","TooManyPlayersTitle","Too many players"),NSLOCTEXT("LobbyMessages","TooManyPlayersMsg","There are too many players in this Lobby to start the match!"), UTDIALOG_BUTTON_OK);
+							return FReply::Handled();
+						}
+
 						MatchInfo->ServerStartMatch();	
 					}
 					else
@@ -382,31 +472,159 @@ void SULobbyGameSettingsPanel::OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTCo
 
 FText SULobbyGameSettingsPanel::GetMatchMessage() const
 {
-	if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
+	if (MatchInfo.IsValid())
 	{
-		if (bIsHost)
+		if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
-			return NSLOCTEXT("LobbyMessages","WaitingForPlayers","Setup your match and press PLAY when ready.");
-		}
+			if (bIsHost)
+			{
+				return NSLOCTEXT("LobbyMessages","WaitingForPlayers","Setup your match and press PLAY when ready.");
+			}
 
-		return NSLOCTEXT("LobbyMessages","WaitingForHost","Waiting for the host to start...");
-	}
-	else if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
-	{
-		FString Text = TEXT("");
-		for (int32 i=0;i<Dots;i++)
+			return NSLOCTEXT("LobbyMessages","WaitingForHost","Waiting for the host to start...");
+		}
+		else if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 		{
-			Text = Text + TEXT(".");
-		}
+			FString Text = TEXT("");
+			for (int32 i=0;i<Dots;i++)
+			{
+				Text = Text + TEXT(".");
+			}
 
-		return FText::Format(NSLOCTEXT("LobbyMessages","Launching","Launching Match, please wait..{0}"), FText::FromString(Text));
-	}
-	else if (MatchInfo->CurrentState == ELobbyMatchState::Aborting)
-	{
-		return NSLOCTEXT("LobbyMessages","Aborting","Aborting... please wait!");
+			return FText::Format(NSLOCTEXT("LobbyMessages","Launching","Launching Match, please wait..{0}"), FText::FromString(Text));
+		}
+		else if (MatchInfo->CurrentState == ELobbyMatchState::Aborting)
+		{
+			return NSLOCTEXT("LobbyMessages","Aborting","Aborting... please wait!");
+		}
 	}
 
 	return NSLOCTEXT("LobbyMessages","Setup","Initializing....");
 }
+
+void SULobbyGameSettingsPanel::OnGameOptionChanged()
+{
+	if (GameOptionData.Num() > 0)
+	{
+		FString NewOptions = GameOptionData[0]->ToString();
+		for (int32 i=1; i < GameOptionData.Num(); i++)
+		{
+			NewOptions += TEXT("?") + GameOptionData[i]->ToString();
+		}
+
+		MatchInfo->ServerMatchOptionsChanged(NewOptions);
+	}
+}
+
+TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsPanel()
+{
+	return SNew(SHorizontalBox)
+	+SHorizontalBox::Slot()
+	.AutoWidth()
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.Padding(5.0f,0.0f,0.0f,0.0f)
+		.AutoHeight()
+		.HAlign(HAlign_Left)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("GameSettings","CurrentMap","- Map to Play -"))
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+		]
+		+SVerticalBox::Slot()
+		[
+			SNew(SBox)
+			.HeightOverride(200)
+			[
+				BuildMapsList()
+			]
+		]
+	]
+	+SHorizontalBox::Slot()
+	.AutoWidth()
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBox)
+			.WidthOverride(400)
+			.HeightOverride(214)							
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("Testing.TestMapShot"))
+			]
+		]
+	];
+
+
+	if (MapList.IsValid())
+	{
+		MapList->SetSelection(MatchInfo->AvailableMaps[0]);
+	}
+
+}
+
+TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsList()
+{
+	if (bIsHost)
+	{
+		return SNew(SBox)
+		.WidthOverride(200)
+		[
+			SAssignNew( MapList, SListView< TSharedPtr<FAllowedMapData> > )
+			// List view items are this tall
+			.ItemHeight(24)
+			// Tell the list view where to get its source data
+			.ListItemsSource(&MatchInfo->AvailableMaps)
+			// When the list view needs to generate a widget for some data item, use this method
+			.OnGenerateRow(this, &SULobbyGameSettingsPanel::GenerateMapListWidget)
+			.OnSelectionChanged(this, &SULobbyGameSettingsPanel::OnMapListChanged)
+			.SelectionMode(ESelectionMode::Single)
+		];
+
+
+
+	}
+	else
+	{
+		return SNew(STextBlock)
+		.Text(this, &SULobbyGameSettingsPanel::GetMapText)
+		.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText");
+	}
+}
+
+TSharedRef<ITableRow> SULobbyGameSettingsPanel::GenerateMapListWidget(TSharedPtr<FAllowedMapData> InItem, const TSharedRef<STableViewBase>& OwningList)
+{
+	return SNew(STableRow<TSharedPtr<FAllowedMapData>>, OwningList)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::White)
+			.Text(FText::FromString(InItem.Get()->MapName))
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.SmallText")
+		];
+}
+
+void SULobbyGameSettingsPanel::OnMapListChanged(TSharedPtr<FAllowedMapData> SelectedItem, ESelectInfo::Type SelectInfo)
+{
+
+	if (MatchInfo.IsValid() && bIsHost)
+	{
+		MatchInfo->ServerMatchMapChanged(SelectedItem->MapName);
+	}
+}
+
+
+FString SULobbyGameSettingsPanel::GetMapText() const
+{
+	if (MatchInfo.IsValid())
+	{
+		return MatchInfo->MatchMap;
+	}
+	return TEXT("None");
+}
+
 
 #endif

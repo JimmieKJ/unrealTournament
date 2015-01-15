@@ -23,6 +23,9 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 	OnMatchInfoGameModeChangedDelegate.BindSP(this, &SULobbyMatchSetupPanel::OnMatchGameModeChanged); 
 	MatchInfo->OnMatchGameModeChanged = OnMatchInfoGameModeChangedDelegate;
 
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+	MatchInfo->CurrentGameModeData = LobbyGameState->ResolveGameMode(MatchInfo->MatchGameMode);
+
 	ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
@@ -47,45 +50,47 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 			.AutoWidth()
 			[
 				BuildGameModeWidget()
-			]			
+			]		
+			+SHorizontalBox::Slot()
+			.Padding(0.0f,10.0f, 10.0f, 0.0f)
+			.AutoWidth()
+			[
+				BuildHostOptionWidgets()
+			]
 		]
 		+SVerticalBox::Slot()
 		.AutoHeight()
 		.VAlign(VAlign_Fill)
 		[
-			SAssignNew(SettingsPanel, SVerticalBox)
+			SAssignNew(GamePanel, SVerticalBox)
 		]
 	];
 
-	OnGameModeChanged(CurrentGameModeData, ESelectInfo::Direct);
+	// Trigger the first build.
+	ChangeGameModePanel();
+
 }
 
 TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 {
-	if (bIsHost)
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+
+	if (LobbyGameState && bIsHost)
 	{
-
-		FString FirstDisplayText = TEXT("None");
-		if (MatchInfo.Get()->HostAvailbleGameModes.Num() > 0)
-		{
-			CurrentGameModeData =  MatchInfo.Get()->HostAvailbleGameModes[0];
-			FirstDisplayText = MatchInfo.Get()->HostAvailbleGameModes[0]->DisplayName;
-		}
-
 		return SNew(SBox)
 		.WidthOverride(300)
 		[
 			SNew(SComboBox< TSharedPtr<FAllowedGameModeData> >)
-			.InitiallySelectedItem(CurrentGameModeData)
+			.InitiallySelectedItem(MatchInfo.Get()->CurrentGameModeData)
 			.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-			.OptionsSource(&MatchInfo.Get()->HostAvailbleGameModes)
+			.OptionsSource(&LobbyGameState->ClientAvailbleGameModes)
 			.OnGenerateWidget(this, &SULobbyMatchSetupPanel::GenerateGameModeListWidget)
 			.OnSelectionChanged(this, &SULobbyMatchSetupPanel::OnGameModeChanged)
 			.Content()
 			[
 				SAssignNew(CurrentGameMode, STextBlock)
-				.Text(FText::FromString(FirstDisplayText))
+				//.Text(FText::FromString(MatchInfo.Get()->CurrentGameModeData->DisplayName))
 				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
 			]
 		];
@@ -98,9 +103,42 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 	}
 }
 
+TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
+{
+	TSharedPtr<SHorizontalBox> Container;
+	SAssignNew(Container, SHorizontalBox);
+
+	if (Container.IsValid())
+	{
+		Container->AddSlot()
+		.AutoWidth()
+		.Padding(0.0,0.0,0.0,10.0)
+		[
+			SNew(SCheckBox)
+			.IsChecked( (MatchInfo->CurrentGameModeData->DefaultObject->bLobbyDefaultsToAllowJoinInProgress ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
+			//.OnCheckStateChanged(this, &FGameOption::CheckBoxChanged)
+			.Content()
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress").ToString())
+			]
+		];
+
+		Container->AddSlot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+		];
+	}
+
+	return Container.ToSharedRef();
+}
+
 FString SULobbyMatchSetupPanel::GetGameModeText() const
 {
-	return GameModeDisplayName;
+
+	return (MatchInfo->CurrentGameModeData.IsValid() ? MatchInfo->CurrentGameModeData->DisplayName : TEXT("None"));
 }
 
 TSharedRef<SWidget> SULobbyMatchSetupPanel::GenerateGameModeListWidget(TSharedPtr<FAllowedGameModeData> InItem)
@@ -116,44 +154,61 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::GenerateGameModeListWidget(TSharedPt
 
 void SULobbyMatchSetupPanel::OnGameModeChanged(TSharedPtr<FAllowedGameModeData> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	if (bIsHost)
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
 	{
-		if ( NewSelection->DefaultObject.IsValid() )
-		{
-			MatchInfo->SetMatchGameMode(NewSelection->ClassName);
-			ChangeGameModePanel(NewSelection->DefaultObject.Get());
-		}
-	}
-	else
-	{
-		OnMatchGameModeChanged();
+		MatchInfo->MatchGameMode = NewSelection->ClassName;
+		MatchInfo->ServerMatchGameModeChanged(MatchInfo->MatchGameMode);
+
+		MatchInfo->CurrentGameModeData = LobbyGameState->ResolveGameMode(MatchInfo->MatchGameMode);
+		// Reseed the local match info.
+	
+		MatchInfo->UpdateGameMode();
+		ChangeGameModePanel();
 	}
 }
 
-void SULobbyMatchSetupPanel::ChangeGameModePanel(AUTGameMode* DefaultGameMode)
+
+void SULobbyMatchSetupPanel::ChangeGameModePanel()
 {
-	if (SettingsPanel.IsValid() && DefaultGameMode)
+
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
 	{
-		SettingsPanel->ClearChildren();
-		SettingsPanel->AddSlot()
-			.HAlign(HAlign_Fill)
-			.AutoHeight()
-			[
-				DefaultGameMode->CreateLobbyPanel(bIsHost, PlayerOwner, MatchInfo)
-			];
+		if (GamePanel.IsValid())
+		{
+			MatchInfo->BuildAllowedMapsList();
+			if (bIsHost)
+			{
+				MatchInfo->ClientGetDefaultGameOptions();
+			}
+
+			if (CurrentGameMode.IsValid())
+			{
+				CurrentGameMode->SetText(MatchInfo->CurrentGameModeData->DisplayName);
+			}
+
+			GamePanel->ClearChildren();
+			GamePanel->AddSlot()
+				.HAlign(HAlign_Fill)
+				.AutoHeight()
+				[
+					SNew(SULobbyGameSettingsPanel)
+					.PlayerOwner(PlayerOwner)
+					.MatchInfo(MatchInfo)
+					.DefaultGameMode(MatchInfo.Get()->CurrentGameModeData->DefaultObject)
+					.bIsHost(bIsHost)
+				];
+		}
 	}
 }
+
 
 void SULobbyMatchSetupPanel::OnMatchGameModeChanged()
 {
 	if (!bIsHost && MatchInfo.IsValid())
 	{
-		AUTGameMode* DefaultGame = MatchInfo->GetGameModeDefaultObject(MatchInfo->MatchGameMode);
-		if (DefaultGame)	
-		{
-			GameModeDisplayName = DefaultGame->DisplayName.ToString();
-			ChangeGameModePanel(DefaultGame);
-		}
+		ChangeGameModePanel();
 	}
 }
 

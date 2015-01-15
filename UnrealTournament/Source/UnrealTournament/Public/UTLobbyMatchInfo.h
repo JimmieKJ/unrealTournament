@@ -22,44 +22,6 @@ namespace ELobbyMatchState
 	extern const FName Returning;					// the instance server has said the game is over and players should be returning to this server
 }
 
-class FAllowedMapData
-{
-public:
-	FString MapName;
-
-	FAllowedMapData(FString inMapName)
-		: MapName(inMapName)
-	{
-	};
-
-	static TSharedRef<FAllowedMapData> Make(FString inMapName)
-	{
-		return MakeShareable( new FAllowedMapData( inMapName) );
-	}
-};
-
-class AUTGameMode;
-
-class FAllowedGameModeData
-{
-public:
-	FString ClassName;
-	FString DisplayName;
-	TWeakObjectPtr<AUTGameMode> DefaultObject;
-
-	FAllowedGameModeData(FString inClassName, FString inDisplayName, TWeakObjectPtr<AUTGameMode> inDefaultObject)
-		: ClassName(inClassName)
-		, DisplayName(inDisplayName)
-		, DefaultObject(inDefaultObject)
-	{
-	};
-
-	static TSharedRef<FAllowedGameModeData> Make(FString inClassName, FString inDisplayName, TWeakObjectPtr<AUTGameMode> inDefaultObject)
-	{
-		return MakeShareable(new FAllowedGameModeData(inClassName, inDisplayName, inDefaultObject));
-	}
-};
-
 DECLARE_DELEGATE(FOnMatchInfoGameModeChanged);
 DECLARE_DELEGATE(FOnMatchInfoMapChanged);
 DECLARE_DELEGATE(FOnMatchInfoOptionsChanged);
@@ -84,6 +46,8 @@ struct FPlayerListInfo
 	// The current score for this player
 	UPROPERTY()
 	float PlayerScore;
+	
+	TArray<TSharedPtr<FAllowedMapData>> AvailableMaps;
 
 	FPlayerListInfo() {};
 
@@ -105,9 +69,8 @@ class UNREALTOURNAMENT_API AUTLobbyMatchInfo : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 public:
-
 	// We use  the FUniqueNetID of the owner to be the Anchor point for this object.  This way we can reassociated the MatchInfo with the player when they reenter a server from travel.
-	UPROPERTY(Replicated, replicatedUsing = OnRep_OwnerId)
+	UPROPERTY(Replicated)
 	FUniqueNetIdRepl OwnerId;
 
 	// The current state of this match.  
@@ -121,6 +84,10 @@ public:
 	// if true (defaults to true) then this match can be joined as a spectator.
 	UPROPERTY(Replicated)
 	uint32 bSpectatable:1;
+
+	// if true (defaults to true) then people can join this match at any time
+	UPROPERTY(Replicated)
+	uint32 bJoinAnytime:1;
 
 	// Holds data about the match.  In matches that are not started yet, it holds the description of the match.  In matches in progress, it's 
 	// replicated data from the instance about the state of the match.  NOTE: Player information is not replicated from the instance to the server here
@@ -157,27 +124,16 @@ public:
 	FProcHandle GameInstanceProcessHandle;
 
 	// This is the lobby server generated instance id
+	UPROPERTY()
 	uint32 GameInstanceID;
 
 	// The GUID for this game instance for spectating and join in progress
+	UPROPERTY()
 	FString GameInstanceGUID;
-
-	// Holds a list of all Game modes available to both the server and the host.  This list
-	// is only replicated to the host.  Clients receive just MatchGameMode string
-	TArray<TSharedPtr<FAllowedGameModeData>> HostAvailbleGameModes;
-
-	// Holds a list of map available to this match.  This list is only replicated to the
-	// host.  Clients receive just MatchMatch string.
-	TArray<TSharedPtr<FAllowedMapData>> HostAvailableMaps;
 
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
 	UPROPERTY(Replicated)
 	TArray<FPlayerListInfo> PlayersInMatchInstance;
-
-	/**
-	 *	Start sending the allowed list of maps to the client/host
-	 **/
-	virtual void StartServerToClientDataPush();
 	
 	// Cache some data
 	virtual void PreInitializeComponents() override;
@@ -189,24 +145,23 @@ public:
 	// The GameState needs to tell this MatchInfo what settings should be made available
 	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy = NULL);
 
-	virtual void SetMatchGameMode(const FString NewGameMode);
-	virtual void SetMatchOptions(const FString NewMatchOptions);
-	virtual void SetMatchMap(const FString NewMatchMap);
-
+	// Called when the Host needs to tell the server that a GameMode has changed.
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchGameModeChanged(const FString& NewMatchGameMode);
 
+	// Called when the Host needs to tell the server that the selected map has changed
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchMapChanged(const FString& NewMatchMap);
 
+	// Called when the Host changes an option.  
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchOptionsChanged(const FString& NewMatchOptions);
 
+	// Allows the current panel to trigger when something has changed
 	FOnMatchInfoGameModeChanged OnMatchGameModeChanged;
 	FOnMatchInfoMapChanged OnMatchMapChanged;
 	FOnMatchInfoOptionsChanged OnMatchOptionsChanged;
 
-	AUTGameMode* GetGameModeDefaultObject(FString ClassName);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerManageUser(int32 CommandID, AUTLobbyPlayerState* Target);
@@ -243,10 +198,27 @@ public:
 	virtual bool IsInProgress();
 	virtual bool ShouldShowInDock();
 
+	// This will hold a referece to the CurrentGameModeData in the GameState or be invalid if not yet set
+	TSharedPtr<FAllowedGameModeData> CurrentGameModeData;
+
+	virtual void UpdateGameMode();
+
+	virtual void ClientGetDefaultGameOptions();
+
+	// Called from clients.  This will check to make sure all of the needed replicated information has arrived and that the player is ready to join.
+	virtual bool MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner);
+
+	// Builds a list of maps based on the current game
+	virtual void BuildAllowedMapsList();
+	
+	TArray<TSharedPtr<FAllowedMapData>> AvailableMaps;
+
 protected:
 
 	// Only available on the server, this holds a cached reference to the GameState.
+	UPROPERTY()
 	AUTLobbyGameState* LobbyGameState;
+
 
 	// Called when Match Options change.  This should funnel the new options string to the UI and update everyone.
 	UFUNCTION()
@@ -258,41 +230,9 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_MatchMap();
 
-	UFUNCTION()
-	virtual void OnRep_OwnerId();
-
-	// This holds the bulk match data that has to be sent to the host.  Servers can contain a large number of possible
-	// game modes and maps available for hosting.  So we have a system to bulk send them.
-	TArray<FString> HostMatchData;
-
-	// Send the next set of maps
-	virtual void SendNextBulkBlock();
-
-	/**
-	 *	Receive a map in a given block of maps being sent to the client.
-	 **/
-	UFUNCTION(client, reliable)
-	virtual void ClientReceiveMatchData(uint8 BulkSendCount, uint16 BulkSendID, const FString& MatchData);
-
-	/**
-	 *	Event function called from the server when it has finished sending all data.
-	 **/
-	UFUNCTION(client, reliable)
-	virtual void ClientReceivedAllData();
-
-	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerACKBulkCompletion(uint16 BuildSendID);
-
-	// The current bulk id that is being sent to the client
-	uint16 CurrentBulkID;
-	uint8 CurrentBlockCount;
-	uint8 ExpectedBlockCount;
-
-	// The current index in to the GameState's AllowedMaps array.
-	int32 DataIndex;
-
+	// The client has received the OwnerID so we are good to go
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetDefaults(const FString& NewMatchGameMode,const FString& NewMatchOptions, const FString& NewMatchMap);
+	virtual void ServerMatchIsReadyForPlayers();
 
 	/**
 	 *	Returns the Owner's UTLobbyPlayerState
@@ -312,13 +252,6 @@ protected:
 
 	// This match info is done.  Kill it.
 	void RecycleMatchInfo();
-
-	// Will be true if the host is waiting for the owner id to replicate before switching to waiting for players.
-	bool bWaitingForOwnerId;
-
-	// Holds a link to MatchSettings that should be used instead of the defaults.  This will be filled out
-	// when the users return from a match.
-	AUTLobbyMatchInfo* PriorMatchToCopy;
 
 };
 

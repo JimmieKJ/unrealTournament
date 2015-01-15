@@ -380,10 +380,6 @@ public:
 	 */
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
 
-	/**
-	 *	returns the widget that defines the lobby.
-	 **/
-	virtual TSharedRef<SWidget> CreateLobbyPanel(bool inIsHost, TWeakObjectPtr<class UUTLocalPlayer> inPlayerOwner, TWeakObjectPtr<AUTLobbyMatchInfo>) const;
 #endif
 
 	/**
@@ -491,6 +487,26 @@ public:
 	UPROPERTY(Config)
 	bool bDisableCloudStats;
 
+	// This is the map that will start as "selected" by default in the lobby
+	UPROPERTY(Config)
+	FString DefaultLobbyMap;
+
+	// The options that are available for a given game mode
+	UPROPERTY(Config)
+	FString DefaultLobbyOptions;
+
+	// These options will be forced on the game when played on an instance server using this game mode
+	UPROPERTY(Config)
+	FString ForcedInstanceGameOptions;
+
+	// The maximum number of players allowed in this lobby.
+	UPROPERTY(Config)
+	int32 MaxLobbyPlayers;
+
+	UPROPERTY(Config)
+	bool bLobbyDefaultsToAllowJoinInProgress;
+
+
 protected:
 	// A Beacon for communicating back to the lobby
 	AUTServerBeaconLobbyClient* LobbyBeacon;
@@ -503,4 +519,8 @@ protected:
 	virtual void SendEveryoneBackToLobby();
 
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
+
+
+
+
 };

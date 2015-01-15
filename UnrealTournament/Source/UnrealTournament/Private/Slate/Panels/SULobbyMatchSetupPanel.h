@@ -52,36 +52,42 @@ protected:
 	UPROPERTY()
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 
+	// Pointer to the MatchInfo governing this panel
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo;
 
-	TSharedPtr<SVerticalBox> SettingsPanel;
-
+	// Holds the current Settings data.
+	TSharedPtr<SVerticalBox> GamePanel;
+	
 	// Holds the display name for a list of game types
 	TArray<TSharedPtr<FAllowedGameModeData>> AvailableGameModes;
 
+	// Holds the name of the current Game Mode if not the host
 	TSharedPtr<STextBlock> CurrentGameMode;
 
+	// Used by the list code for the Game list
 	TSharedRef<SWidget> GenerateGameModeListWidget(TSharedPtr<FAllowedGameModeData> InItem);
 
-	TSharedPtr<FAllowedGameModeData> CurrentGameModeData;
 	void OnGameModeChanged(TSharedPtr<FAllowedGameModeData> NewSelection, ESelectInfo::Type SelectInfo);
+
+	void ChangeGameModePanel();
 
 	TSharedRef<SWidget> BuildGameModeWidget();
 
 	FString GetGameModeText() const;
 	FString GameModeDisplayName;
 
-	/**
-	 *	Given a default GameMode object, create the game mode panel
-	 **/
-	void ChangeGameModePanel(AUTGameMode* DefaultGameMode);
+	// Builds the current GameOptions panel for the current game type.  
+	void BuildGameOptionsPanel();
 
 	FOnMatchInfoGameModeChanged OnMatchInfoGameModeChangedDelegate;
+	
+	// When the host changes the game mode and the data is replicated, non-hosts use this function to rebuild their settings/map panel.
 	void OnMatchGameModeChanged();
 
 	TSharedPtr<SWidget> Settings;
-
+	
+	TSharedRef<SWidget> BuildHostOptionWidgets();
 };
 
 #endif

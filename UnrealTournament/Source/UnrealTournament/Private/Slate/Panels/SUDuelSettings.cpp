@@ -190,6 +190,9 @@ TSharedRef<SWidget> SUDuelSettings::ConstructContents()
 
 TSharedRef<SWidget> SUDuelSettings::CreateMapsWidget()
 {
+	return SNew(SBox);
+
+/*
 	if (bIsHost)
 	{
 		TSharedPtr<FAllowedMapData> MapData =  MatchInfo->HostAvailableMaps[0];
@@ -214,14 +217,17 @@ TSharedRef<SWidget> SUDuelSettings::CreateMapsWidget()
 		.Text(this, &SUDuelSettings::GetMapText)
 		.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText");
 	}
+*/
 }
 
 void SUDuelSettings::OnMapListChanged(TSharedPtr<FAllowedMapData> SelectedItem, ESelectInfo::Type SelectInfo)
 {
+/*
 	if (MatchInfo.IsValid() && bIsHost)
 	{
 		MatchInfo->SetMatchMap(SelectedItem->MapName);
 	}
+*/
 }
 
 FString SUDuelSettings::GetMapText() const

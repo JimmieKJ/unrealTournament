@@ -154,7 +154,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(NewPlayer->PlayerState);
 	if (LPS)
 	{
-		UTLobbyGameState->CheckForExistingMatch(LPS);
+		UTLobbyGameState->InitializeNewPlayer(LPS);
 	}
 
 }

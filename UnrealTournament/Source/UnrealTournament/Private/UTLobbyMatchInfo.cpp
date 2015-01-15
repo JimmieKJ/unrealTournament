@@ -69,11 +69,19 @@ void AUTLobbyMatchInfo::OnRep_MatchOptions()
 	OnMatchOptionsChanged.ExecuteIfBound();	
 }
 
-void AUTLobbyMatchInfo::OnRep_MatchGameMode()
+void AUTLobbyMatchInfo::UpdateGameMode()
 {
-	OnMatchGameModeChanged.ExecuteIfBound();	
+ 	if (MatchGameMode == TEXT(""))
+	{
+		CurrentGameModeData.Reset();
+	}
 }
 
+void AUTLobbyMatchInfo::OnRep_MatchGameMode()
+{
+	UpdateGameMode();
+	OnMatchGameModeChanged.ExecuteIfBound();	
+}
 
 void AUTLobbyMatchInfo::OnRep_MatchMap()
 {
@@ -109,12 +117,6 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 	}
 	else
 	{
-		if (Players.Num() >= 2)	// TODO: Make this a feature of the match itself
-		{
-			PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));
-			return;
-		}
-
 		for (int32 i=0;i<BannedIDs.Num();i++)
 		{
 			if (PlayerToAdd->UniqueId == BannedIDs[i])
@@ -128,9 +130,7 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 	
 	Players.Add(PlayerToAdd);
 	PlayerToAdd->AddedToMatch(this);
-
 	PlayerToAdd->ChatDestination = ChatDestinations::Match;
-
 }
 
 bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
@@ -165,6 +165,19 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 	return false;
 
 }
+
+bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
+{
+	if (Joiner)
+	{
+		if (LobbyGameState && CurrentState == ELobbyMatchState::WaitingForPlayers || (CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId ))
+		{
+			return (MatchGameMode != TEXT("") && MatchMap != TEXT("") && MatchOptions != TEXT("") && OwnerId.IsValid() && LobbyGameState->GetGameModeDefaultObject(MatchGameMode) );
+		}
+	}
+	return false;
+}
+
 
 FText AUTLobbyMatchInfo::GetActionText()
 {
@@ -220,172 +233,26 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchI
 {
 	CurrentState = ELobbyMatchState::Setup;
 
+	// If we have a match to copy then copy it's values here
 	if (MatchToCopy)
 	{
-		// Copy the options that were already built
-		for (int32 i=0;i<MatchToCopy->HostMatchData.Num();i++)
-		{
-			HostMatchData.Add(MatchToCopy->HostMatchData[i]);
-		}
-
-		// Set this for later.  When the client is done replicating all of the match data, it will call
-		// ServerSetDefaults.  Since this is a returning match we can assume this info is already valid on the 
-		// client-host so we will be able to copy the default settings.
-		PriorMatchToCopy = MatchToCopy;
+		MatchGameMode = MatchToCopy->MatchGameMode;
+		MatchOptions = MatchToCopy->MatchOptions;
+		MatchMap = MatchToCopy->MatchMap;
 	}
 	else
 	{
-		for (int32 i=0;i<GameState->AllowedGameModeClasses.Num();i++)
-		{
-			FString Option = FString::Printf(TEXT("game=%s"), *GameState->AllowedGameModeClasses[i]);
-			HostMatchData.Add(Option);
-		}
+		// Set the defaults for this match...
 
-		for (int32 i=0;i<GameState->AllowedMaps.Num();i++)
+		MatchGameMode = GameState->AllowedGameModeClasses[0];
+		AUTGameMode* StartingGameMode = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
+		if (StartingGameMode)
 		{
-			FString Option = FString::Printf(TEXT("map=%s"), *GameState->AllowedMaps[i]);
-			HostMatchData.Add(Option);
+			 MatchMap = StartingGameMode->DefaultLobbyMap;
+			 MatchOptions = StartingGameMode->DefaultLobbyOptions;
 		}
 	}
-
-	StartServerToClientDataPush();
 }
-
-void AUTLobbyMatchInfo::StartServerToClientDataPush()
-{
-	CurrentBulkID = 1;
-	DataIndex = 0;
-	SendNextBulkBlock();
-}
-
-void AUTLobbyMatchInfo::SendNextBulkBlock()
-{
-	uint8 SendCount = FMath::Clamp<int>( HostMatchData.Num() - DataIndex, 0, 10);
-
-	if (SendCount > 0)
-	{
-		for (int i = 0; i < SendCount; i++)	// Send 10 maps at time.. make this configurable.
-		{
-			ClientReceiveMatchData(SendCount, CurrentBulkID, HostMatchData[DataIndex++]);
-		}
-	}
-	else
-	{
-		ClientReceivedAllData();
-	}
-
-}
-
-void AUTLobbyMatchInfo::ClientReceivedAllData_Implementation()
-{
-	// TODO: Add code that detects the host has no usuable gamemodes or maps installed and both warns the host and
-	// tells the server to clean up this broken match.
-
-	// Set the hosts defaults.
-
-	MatchGameMode = HostAvailbleGameModes[0]->DisplayName;
-	MatchOptions = HostAvailbleGameModes[0]->DefaultObject->GetDefaultLobbyOptions();
-	MatchMap = HostAvailableMaps[0]->MapName;
-
-	// Ok, we have all of the default data set now.  Tell the server.
-
-	if (OwnerId.IsValid())
-	{
-		ServerSetDefaults(MatchGameMode, MatchOptions, MatchMap);
-	}
-	else
-	{
-		bWaitingForOwnerId = true;
-	}
-}
-
-void AUTLobbyMatchInfo::OnRep_OwnerId()
-{
-	if (bWaitingForOwnerId && OwnerId.IsValid())
-	{
-		ServerSetDefaults(MatchGameMode, MatchOptions, MatchMap);
-	}
-}
-
-AUTGameMode* AUTLobbyMatchInfo::GetGameModeDefaultObject(FString ClassName)
-{
-	// Try to load the native class
-
-	UClass* GameModeClass = LoadClass<AUTGameMode>(NULL, *ClassName, NULL, LOAD_None, NULL);
-
-	if (GameModeClass == NULL)
-	{
-		// Try the blueprinted class
-		UBlueprint* Blueprint = LoadObject<UBlueprint>(NULL, *ClassName, NULL, LOAD_None, NULL);
-		if (Blueprint != NULL)
-		{
-			GameModeClass = Blueprint->GeneratedClass;
-		}
-	}
-
-	if (GameModeClass != NULL)
-	{
-		return GameModeClass->GetDefaultObject<AUTGameMode>();
-	}
-
-	return NULL;
-}
-
-void AUTLobbyMatchInfo::ClientReceiveMatchData_Implementation(uint8 BulkSendCount, uint16 BulkSendID, const FString& MatchData)
-{
-	// Look to see if this is a new block.
-	if (BulkSendID != CurrentBulkID)
-	{
-		if (CurrentBlockCount != ExpectedBlockCount)
-		{
-			UE_LOG(UT,Log,TEXT("ERROR: Didn't receive everything in the block %i %i %i"), BulkSendID, CurrentBlockCount, ExpectedBlockCount);
-		}
-
-		CurrentBulkID = BulkSendID;
-		CurrentBlockCount = 0;
-		ExpectedBlockCount = BulkSendCount;
-	}
-
-	// Parse the Match data.
-
-	FString DataType;
-	FString Data;
-	if ( MatchData.Split(TEXT("="), &DataType, &Data) )
-	{
-		if (DataType.ToLower() == TEXT("game"))	
-		{
-			AUTGameMode* DefaultGame = GetGameModeDefaultObject(Data);
-			if (DefaultGame)
-			{
-				HostAvailbleGameModes.Add( FAllowedGameModeData::Make(Data, DefaultGame->DisplayName.ToString(), DefaultGame));
-			}
-		}
-		else if (DataType.ToLower() == TEXT("map"))
-		{
-			// Add code to check if the map exists..
-			HostAvailableMaps.Add( FAllowedMapData::Make(Data));
-		}
-	}
-
-	CurrentBlockCount++;
-	if (CurrentBlockCount == ExpectedBlockCount)
-	{
-		ServerACKBulkCompletion(CurrentBulkID);
-	}
-}
-
-bool AUTLobbyMatchInfo::ServerACKBulkCompletion_Validate(uint16 BuildSendID) { return true;}
-void AUTLobbyMatchInfo::ServerACKBulkCompletion_Implementation(uint16 BuildSendID) 
-{
-	// Pause a slight bit before the next block is sent
-	GetWorldTimerManager().SetTimer(this, &AUTLobbyMatchInfo::SendNextBulkBlock, 0.1);
-}
-
-void AUTLobbyMatchInfo::SetMatchGameMode(const FString NewGameMode)
-{
-	ServerMatchGameModeChanged(NewGameMode);
-}
-
 
 bool AUTLobbyMatchInfo::ServerMatchGameModeChanged_Validate(const FString& NewMatchGameMode) { return true; }
 void AUTLobbyMatchInfo::ServerMatchGameModeChanged_Implementation(const FString& NewMatchGameMode)
@@ -393,10 +260,6 @@ void AUTLobbyMatchInfo::ServerMatchGameModeChanged_Implementation(const FString&
 	MatchGameMode = NewMatchGameMode;
 }
 
-void AUTLobbyMatchInfo::SetMatchMap(const FString NewMatchMap)
-{
-	ServerMatchMapChanged(NewMatchMap);
-}
 
 bool AUTLobbyMatchInfo::ServerMatchMapChanged_Validate(const FString& NewMatchMap) { return true; }
 void AUTLobbyMatchInfo::ServerMatchMapChanged_Implementation(const FString& NewMatchMap)
@@ -404,37 +267,15 @@ void AUTLobbyMatchInfo::ServerMatchMapChanged_Implementation(const FString& NewM
 	MatchMap = NewMatchMap;
 }
 
-void AUTLobbyMatchInfo::SetMatchOptions(const FString NewMatchOptions)
-{
-	ServerMatchOptionsChanged(NewMatchOptions);
-}
-
-
 bool AUTLobbyMatchInfo::ServerMatchOptionsChanged_Validate(const FString& NewMatchOptions) { return true; }
 void AUTLobbyMatchInfo::ServerMatchOptionsChanged_Implementation(const FString& NewMatchOptions)
 {
 	MatchOptions = NewMatchOptions;
 }
 
-bool AUTLobbyMatchInfo::ServerSetDefaults_Validate(const FString& NewMatchGameMode, const FString& NewMatchOptions, const FString& NewMatchMap) { return true; }
-void AUTLobbyMatchInfo::ServerSetDefaults_Implementation(const FString& NewMatchGameMode, const FString& NewMatchOptions, const FString& NewMatchMap)
+bool AUTLobbyMatchInfo::ServerMatchIsReadyForPlayers_Validate() { return true; }
+void AUTLobbyMatchInfo::ServerMatchIsReadyForPlayers_Implementation()
 {
-
-	// If we are the settings from a prior match then copy them instead of using the client's defaults.
-	if (PriorMatchToCopy)
-	{
-		MatchGameMode = PriorMatchToCopy->MatchGameMode;
-		MatchOptions = PriorMatchToCopy->MatchOptions;
-		MatchMap = PriorMatchToCopy->MatchMap;
-		PriorMatchToCopy = NULL;
-	}
-	else
-	{
-		MatchGameMode = NewMatchGameMode;
-		MatchOptions = NewMatchOptions;
-		MatchMap = NewMatchMap;
-	}
-
 	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
 }
 
@@ -474,7 +315,30 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 			Players[i]->bReadyToPlay = true;
 		}
 
-		LobbyGameState->LaunchGameInstance(this, MatchOptions);
+		// Remove out the [Min/Max] info...
+
+		FString FinalOptions = MatchOptions;
+
+		int32 LeftBracket = FinalOptions.Find(TEXT("["));
+		while (LeftBracket >=0)
+		{
+			FString Left = LeftBracket > 0 ? FinalOptions.Left(LeftBracket) : TEXT("");
+			int32 RightBracket = FinalOptions.Find(TEXT("]"));
+			FString Right = RightBracket >= 0 ? FinalOptions.Right(FinalOptions.Len() - RightBracket -1) : FinalOptions.Right(FinalOptions.Len() - LeftBracket);
+			FinalOptions = Left + Right;
+			LeftBracket = FinalOptions.Find(TEXT("["));
+		}
+
+		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
+		if (DefaultGame)
+		{
+			if (!DefaultGame->ForcedInstanceGameOptions.IsEmpty())
+			{
+				FinalOptions += DefaultGame->ForcedInstanceGameOptions;
+			}
+		}
+
+		LobbyGameState->LaunchGameInstance(this, FinalOptions);
 	}
 }
 
@@ -482,6 +346,7 @@ bool AUTLobbyMatchInfo::ServerAbortMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 {
 	LobbyGameState->TerminateGameInstance(this);
+	
 	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
 	AUTLobbyPlayerState* OwnerPS = GetOwnerPlayerState();
 	if (OwnerPS) OwnerPS->bReadyToPlay = false;
@@ -544,4 +409,29 @@ bool AUTLobbyMatchInfo::ServerSetLobbyMatchState_Validate(FName NewMatchState) {
 void AUTLobbyMatchInfo::ServerSetLobbyMatchState_Implementation(FName NewMatchState)
 {
 	SetLobbyMatchState(NewMatchState);
+}
+
+
+void AUTLobbyMatchInfo::ClientGetDefaultGameOptions()
+{
+	if (CurrentGameModeData.IsValid())
+	{
+		MatchOptions = CurrentGameModeData->DefaultObject->GetDefaultLobbyOptions();
+		ServerMatchOptionsChanged(MatchOptions);
+	}
+}
+
+void AUTLobbyMatchInfo::BuildAllowedMapsList()
+{
+	if (LobbyGameState)
+	{
+		AvailableMaps.Empty();
+		for (int32 i=0; i<LobbyGameState->ClientAvailableMaps.Num();i++)
+		{
+			if (CurrentGameModeData->DefaultObject->SupportsMap(LobbyGameState->ClientAvailableMaps[i]->MapName))
+			{
+				AvailableMaps.Add(LobbyGameState->ClientAvailableMaps[i]);
+			}
+		}
+	}
 }
