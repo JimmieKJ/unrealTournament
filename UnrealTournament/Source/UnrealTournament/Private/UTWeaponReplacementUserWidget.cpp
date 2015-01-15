@@ -7,8 +7,6 @@
 #include "UTGameMode.h"
 #include "AssetData.h"
 
-#if !UE_SERVER
-
 #include "UTWeaponReplacementUserWidget.h"
 
 UUTWeaponReplacementUserWidget::UUTWeaponReplacementUserWidget(const FObjectInitializer& ObjectInitializer)
@@ -92,5 +90,3 @@ FString UUTWeaponReplacementUserWidget::DisplayNameToPathName(const FString& Dis
 	}
 	return TEXT("None");
 }
-
-#endif
