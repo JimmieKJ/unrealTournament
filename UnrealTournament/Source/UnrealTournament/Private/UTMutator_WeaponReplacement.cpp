@@ -6,13 +6,18 @@
 #include "UTPickupAmmo.h"
 #include "UTGameMode.h"
 #include "AssetData.h"
+
+#if !UE_SERVER
 #include "UserWidget.h"
+#endif
 
 AUTMutator_WeaponReplacement::AUTMutator_WeaponReplacement(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	DisplayName = NSLOCTEXT("Mutator_WeaponReplacement","Display Name", "Weapon Replacement");
+#if !UE_SERVER
 	ConfigMenu = LoadClass<UUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/Mutator_WeaponReplacementUI.Mutator_WeaponReplacementUI_C"), NULL, LOAD_None, NULL);
+#endif
 }
 
 void AUTMutator_WeaponReplacement::BeginPlay()

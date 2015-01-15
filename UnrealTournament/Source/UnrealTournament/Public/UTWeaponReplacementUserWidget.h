@@ -1,11 +1,14 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTWeaponReplacementUserWidget.generated.h"
+
+#if !UE_SERVER
+
 #include "UserWidget.h"
+
 #include "AssetData.h"
 #include "UTWeapon.h"
-
-#include "UTWeaponReplacementUserWidget.generated.h"
 
 UCLASS()
 class UUTWeaponReplacementUserWidget : public UUserWidget
@@ -25,3 +28,5 @@ class UUTWeaponReplacementUserWidget : public UUserWidget
 	UFUNCTION(BlueprintCallable, Category = "UI Runnables")
 	FString DisplayNameToPathName(const FString& DisplayName);
 };
+
+#endif

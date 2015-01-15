@@ -2,11 +2,14 @@
 #include "UnrealTournament.h"
 
 #include "UTMutator_WeaponReplacement.h"
-#include "UTWeaponReplacementUserWidget.h"
 #include "UTWeapon.h"
 #include "UTPickupAmmo.h"
 #include "UTGameMode.h"
 #include "AssetData.h"
+
+#if !UE_SERVER
+
+#include "UTWeaponReplacementUserWidget.h"
 
 UUTWeaponReplacementUserWidget::UUTWeaponReplacementUserWidget(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -89,3 +92,5 @@ FString UUTWeaponReplacementUserWidget::DisplayNameToPathName(const FString& Dis
 	}
 	return TEXT("None");
 }
+
+#endif
