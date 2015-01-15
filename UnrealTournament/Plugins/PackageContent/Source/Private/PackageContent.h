@@ -2,6 +2,10 @@
 #pragma once
 
 #include "LevelEditor.h"
+#include "Editor/ClassViewer/Public/ClassViewerModule.h"
+#include "Editor/ClassViewer/Public/ClassViewerFilter.h"
+#include "UTWeapon.h"
+#include "UTHat.h"
 
 class FPackageContent : public TSharedFromThis< FPackageContent >
 {
@@ -9,6 +13,9 @@ public:
 	~FPackageContent();
 
 	static TSharedRef< FPackageContent > Create();
+
+	void PackageWeapon(UClass* WeaponClass);
+	void PackageHat(UClass* HatClass);
 
 private:
 	FPackageContent(const TSharedRef< FUICommandList >& InActionList);
@@ -49,4 +56,83 @@ private:
 
 	// Handles packager process output.
 	static void HandleUatProcessOutput(FString Output, TWeakPtr<class SNotificationItem> NotificationItemPtr, FText TaskName);
+
+	/** A default window size for the package dialog */
+	static const FVector2D DEFAULT_WINDOW_SIZE;
+
+	TAttribute<FText> PackageDialogTitle;
+};
+
+class SPackageContentDialog : public SCompoundWidget
+{
+public:
+	enum EPackageContentDialogMode
+	{
+		PACKAGE_Weapon,
+		PACKAGE_Hat,
+	};
+
+	SLATE_BEGIN_ARGS(SPackageContentDialog)
+		: _PackageContent(),
+		_DialogMode(PACKAGE_Weapon)
+		{}
+		SLATE_ARGUMENT(TSharedPtr<FPackageContent>, PackageContent)
+		SLATE_ARGUMENT(EPackageContentDialogMode, DialogMode)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, TSharedPtr<SWindow> InParentWindow);
+
+	void ClassChosen(UClass* ChosenClass);
+
+protected:
+	TSharedPtr<FPackageContent> PackageContent;
+
+	TSharedPtr<SWindow> ParentWindow;
+	EPackageContentDialogMode DialogMode;
+};
+
+class FHatClassFilter : public IClassViewerFilter
+{
+public:
+
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		if (NULL != InClass)
+		{
+			const bool bWeaponBased = InClass->IsChildOf(AUTHat::StaticClass());
+			const bool bBlueprintType = InClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+			return bWeaponBased && bBlueprintType;
+		}
+		return false;
+	}
+
+	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		const bool bWeaponBased = InUnloadedClassData->IsChildOf(AUTHat::StaticClass());
+		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+		return bWeaponBased && bBlueprintType;
+	}
+};
+
+class FWeaponClassFilter : public IClassViewerFilter
+{
+public:
+
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		if (NULL != InClass)
+		{
+			const bool bWeaponBased = InClass->IsChildOf(AUTWeapon::StaticClass());
+			const bool bBlueprintType = InClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+			return bWeaponBased && bBlueprintType;
+		}
+		return false;
+	}
+
+	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		const bool bWeaponBased = InUnloadedClassData->IsChildOf(AUTWeapon::StaticClass());
+		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+		return bWeaponBased && bBlueprintType;
+	}
 };

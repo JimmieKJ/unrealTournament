@@ -7,10 +7,13 @@
 #include "PackageContentStyle.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
+#include "EdGraphSchema_K2.h"
 
 #define LOCTEXT_NAMESPACE "PackageContent"
 
 DEFINE_LOG_CATEGORY(LogPackageContent);
+
+const FVector2D FPackageContent::DEFAULT_WINDOW_SIZE = FVector2D(600, 400);
 
 TSharedRef< FPackageContent > FPackageContent::Create()
 {
@@ -249,24 +252,68 @@ void FPackageContent::HandleUatProcessOutput(FString Output, TWeakPtr<class SNot
 	}
 }
 
-void FPackageContent::OpenPackageWeaponWindow()
+void FPackageContent::PackageWeapon(UClass* WeaponClass)
 {
-	UE_LOG(LogPackageContent, Log, TEXT("Thanks for pressing that button, this feature coming soon!"));
+	UBlueprintGeneratedClass* UBGC = Cast<UBlueprintGeneratedClass>(WeaponClass);
+	if (UBGC && UBGC->ClassGeneratedBy)
+	{
+		FString WeaponName = UBGC->ClassGeneratedBy->GetName();
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *WeaponName);
 
-	FString WeaponName = TEXT("PeteGun");
-	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *WeaponName);
+		CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	}
+}
 
-	CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+void FPackageContent::PackageHat(UClass* HatClass)
+{
+	UBlueprintGeneratedClass* UBGC = Cast<UBlueprintGeneratedClass>(HatClass);
+	if (UBGC && UBGC->ClassGeneratedBy)
+	{
+		FString HatName = UBGC->ClassGeneratedBy->GetName();
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *HatName);
+
+		CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Hat"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	}
+}
+
+void FPackageContent::OpenPackageWeaponWindow()
+{	
+	PackageDialogTitle = LOCTEXT("PackageWeaponDialogTitle", "Package A Weapon");
+
+	/** Create the window to host our package dialog widget */
+	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
+		.Title(PackageDialogTitle)
+		.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
+	
+	TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageWeaponDialogWindowRef)
+																  .PackageContent(SharedThis(this))
+																  .DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Weapon);
+	
+	// Set the content of the window to our package dialog widget
+	EditorPackageWeaponDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+	
+	// Show the package dialog window as a modal window
+	GEditor->EditorAddModalWindow(EditorPackageWeaponDialogWindowRef);
 }
 
 void FPackageContent::OpenPackageHatWindow()
 {
-	UE_LOG(LogPackageContent, Log, TEXT("Thanks for pressing that button, this feature coming soon!"));
+	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Package A Hat");
 
-	FString HatName = TEXT("PeteHat");
-	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *HatName);
+	/** Create the window to host our package dialog widget */
+	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
+		.Title(PackageDialogTitle)
+		.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
 
-	CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Hat"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageWeaponDialogWindowRef)
+		.PackageContent(SharedThis(this))
+		.DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Hat);
+
+	// Set the content of the window to our package dialog widget
+	EditorPackageWeaponDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+
+	// Show the package dialog window as a modal window
+	GEditor->EditorAddModalWindow(EditorPackageWeaponDialogWindowRef);
 }
 
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
@@ -292,4 +339,59 @@ TSharedRef<SWidget> FPackageContent::GenerateOpenPackageMenuContent()
 	return MenuBuilder.MakeWidget();
 }
 
+void SPackageContentDialog::Construct(const FArguments& InArgs, TSharedPtr<SWindow> InParentWindow)
+{
+	ParentWindow = InParentWindow;
+	PackageContent = InArgs._PackageContent;
+	DialogMode = InArgs._DialogMode;
+
+	FClassViewerInitializationOptions Options;
+	Options.Mode = EClassViewerMode::ClassPicker;
+			
+	if (DialogMode == PACKAGE_Weapon)
+	{
+		TSharedPtr<FWeaponClassFilter> Filter = MakeShareable(new FWeaponClassFilter);
+		Options.ClassFilter = Filter;
+		Options.ViewerTitleString = LOCTEXT("WeaponClassSelect", "Select Weapon Blueprint").ToString();
+	}
+	else if (DialogMode == PACKAGE_Hat)
+	{
+		TSharedPtr<FHatClassFilter> Filter = MakeShareable(new FHatClassFilter);
+		Options.ClassFilter = Filter;
+		Options.ViewerTitleString = LOCTEXT("HatClassSelect", "Select Hat Blueprint").ToString();
+	}
+	else
+	{
+		UE_LOG(LogPackageContent, Warning, TEXT("Dialog mode not set for SPackageContentDialog!!"));
+	}
+
+
+	TSharedRef<SWidget> ClassPicker = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, FOnClassPicked::CreateSP(this, &SPackageContentDialog::ClassChosen));
+	
+	TSharedRef<SBorder> ClassPickerBorder =
+		SNew(SBorder)
+		.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+		[
+			ClassPicker
+		];
+
+	this->ChildSlot
+		[
+			ClassPickerBorder
+		];
+}
+
+void SPackageContentDialog::ClassChosen(UClass* ChosenClass)
+{
+	if (DialogMode == PACKAGE_Weapon)
+	{
+		PackageContent->PackageWeapon(ChosenClass);
+	}
+	else if (DialogMode == PACKAGE_Hat)
+	{
+		PackageContent->PackageHat(ChosenClass);
+	}
+
+	ParentWindow->RequestDestroyWindow();
+}
 #undef LOCTEXT_NAMESPACE

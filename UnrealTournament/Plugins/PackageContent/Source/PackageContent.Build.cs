@@ -10,6 +10,7 @@ namespace UnrealBuildTool.Rules
 				new string[]
 				{
 					"Core",
+				    "BlueprintGraph",
 					"CoreUObject",
 					"Engine",
                     "InputCore",
