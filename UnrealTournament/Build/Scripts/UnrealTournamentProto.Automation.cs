@@ -809,8 +809,12 @@ public class MakeUTDLC : BuildCommand
 
     public void Stage(DeploymentContext SC, ProjectParams Params)
     {
+        // Rename the asset registry file to DLC name
+        CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", "AssetRegistry.bin"),
+                                CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", DLCName + "-" + "AssetRegistry.bin"));
+
         // Put all of the cooked dir into the staged dir
-        SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform), "*", true, null, "", true, !Params.UsePak(SC.StageTargetPlatform));
+        SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform), "*", true, new[] { "CookedAssetRegistry.json", "CookedIniVersion.txt" }, "", true, !Params.UsePak(SC.StageTargetPlatform));
         
 
         // Stage and pak it all
