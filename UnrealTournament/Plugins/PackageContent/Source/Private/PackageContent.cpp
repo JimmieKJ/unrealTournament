@@ -252,11 +252,21 @@ void FPackageContent::HandleUatProcessOutput(FString Output, TWeakPtr<class SNot
 void FPackageContent::OpenPackageWeaponWindow()
 {
 	UE_LOG(LogPackageContent, Log, TEXT("Thanks for pressing that button, this feature coming soon!"));
+
+	FString WeaponName = TEXT("PeteGun");
+	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *WeaponName);
+
+	CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
 void FPackageContent::OpenPackageHatWindow()
 {
 	UE_LOG(LogPackageContent, Log, TEXT("Thanks for pressing that button, this feature coming soon!"));
+
+	FString HatName = TEXT("PeteHat");
+	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *HatName);
+
+	CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Hat"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
