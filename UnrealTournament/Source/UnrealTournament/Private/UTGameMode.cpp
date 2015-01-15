@@ -229,7 +229,7 @@ void AUTGameMode::AddMutator(const FString& MutatorPath)
 			}
 		}
 	}
-	TSubclassOf<AUTMutator> MutClass = LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, 0, NULL);
+	TSubclassOf<AUTMutator> MutClass = LoadClass<AUTMutator>(NULL, *MutatorPath, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 	if (MutClass == NULL && !MutatorPath.Contains(TEXT(".")))
 	{
 		// use asset registry to try to find shorthand name
@@ -267,7 +267,14 @@ void AUTGameMode::AddMutator(const FString& MutatorPath)
 			}
 		}
 	}
-	AddMutatorClass(MutClass);
+	if (MutClass == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Failed to find or load mutator '%s'"), *MutatorPath);
+	}
+	else
+	{
+		AddMutatorClass(MutClass);
+	}
 }
 
 void AUTGameMode::AddMutatorClass(TSubclassOf<AUTMutator> MutClass)
