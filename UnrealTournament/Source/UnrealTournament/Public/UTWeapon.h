@@ -122,28 +122,6 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual	float GetImpartedMomentumMag(AActor* HitActor);
 
-#if WITH_EDITORONLY_DATA
-protected:
-	/** class of firing state to use (workaround for editor limitations - editinlinenew doesn't work) */
-	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	TArray< TSubclassOf<class UUTWeaponStateFiring> > FiringStateType;
-public:
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PreSave() override
-	{
-		Super::PreSave();
-		ValidateFiringStates();
-	}
-	virtual void PostLoad() override
-	{
-		Super::PostLoad();
-		ValidateFiringStates();
-	}
-	virtual void PostDuplicate(bool bDuplicateForPIE) override;
-	void WeaponBPChanged(UBlueprint* BP);
-	void ValidateFiringStates();
-#endif
-
 	virtual void Serialize(FArchive& Ar) override
 	{
 		// prevent AutoSwitchPriority from being serialized using non-config paths

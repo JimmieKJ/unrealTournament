@@ -9,12 +9,6 @@
 AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState1")))
 {
-	if (FiringState.Num() > 1)
-	{
-#if WITH_EDITORONLY_DATA
-		FiringStateType[1] = UUTWeaponStateFiringCharged::StaticClass();
-#endif
-	}
 	ClassicGroup = 3;
 	Ammo = 40;
 	MaxAmmo = 100;

@@ -10,9 +10,6 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 {
 	if (FiringState.Num() > 0)
 	{
-#if WITH_EDITORONLY_DATA
-		FiringStateType[0] = UUTWeaponStateFiringSpinUp::StaticClass();
-#endif
 		FireInterval[0] = 0.091f;
 		Spread.Add(0.0675f);
 		InstantHitInfo.AddZeroed();

@@ -11,9 +11,6 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 {
 	if (FiringState.Num() > 0)
 	{
-#if WITH_EDITORONLY_DATA
-		FiringStateType[0] = UUTWeaponStateFiringCharged::StaticClass();
-#endif
 		UUTWeaponStateFiringCharged* ChargedState = Cast<UUTWeaponStateFiringCharged>(FiringState[0]);
 		if (ChargedState != NULL)
 		{

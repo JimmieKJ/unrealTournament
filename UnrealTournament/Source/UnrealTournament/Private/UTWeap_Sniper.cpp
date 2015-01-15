@@ -19,12 +19,6 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	RunningHeadshotScale = 0.0f;
 	HeadshotDamageMult = 2.0f;
 	ProjClass.Insert(AUTProj_Sniper::StaticClass(), 0);
-	if (FiringState.Num() > 1)
-	{
-#if WITH_EDITORONLY_DATA
-		FiringStateType[1] = UUTWeaponStateZooming::StaticClass();
-#endif
-	}
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 726, 532, 165, 51);
 

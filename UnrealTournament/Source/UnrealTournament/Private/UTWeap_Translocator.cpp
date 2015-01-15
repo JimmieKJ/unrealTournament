@@ -10,13 +10,6 @@
 AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
 {
-	if (FiringState.Num() > 1)
-	{
-#if WITH_EDITORONLY_DATA
-		FiringStateType[0] = UUTWeaponStateFiringOnce::StaticClass();
-		FiringStateType[1] = UUTWeaponStateFiringOnce::StaticClass();
-#endif
-	}
 	TelefragDamage = 1337.0f;
 
 	BringUpTime = 0.32f;
