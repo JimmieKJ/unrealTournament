@@ -105,6 +105,7 @@ void FSimpleBind::WriteBind()
 	{
 		return;
 	}
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 
 	// Collapse the keys if the main key is missing.
 	if (*Key == FKey() && *AltKey != FKey())
@@ -112,8 +113,6 @@ void FSimpleBind::WriteBind()
 		Key = AltKey;
 		AltKey = MakeShareable(new FKey());
 	}
-
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 
 	//Remove the original bindings
 	for (auto& Bind : ActionMappings)
@@ -140,9 +139,9 @@ void FSimpleBind::WriteBind()
 			}
 		}
 	}
-	if (ActionMappings.Num() > 0)
+	//Set our new keys and readd them
+	for (auto Bind : ActionMappings)
 	{
-		FInputActionKeyMapping Bind = ActionMappings[0];
 		Bind.Key = *Key;
 		InputSettings->AddActionMapping(Bind);
 		if (*AltKey != FKey())
@@ -151,9 +150,8 @@ void FSimpleBind::WriteBind()
 			InputSettings->AddActionMapping(Bind);
 		}
 	}
-	else if (AxisMappings.Num() > 0)
+	for (auto Bind : AxisMappings)
 	{
-		FInputAxisKeyMapping Bind = AxisMappings[0];
 		Bind.Key = *Key;
 		InputSettings->AddAxisMapping(Bind);
 		if (*AltKey != FKey())
@@ -162,26 +160,20 @@ void FSimpleBind::WriteBind()
 			InputSettings->AddAxisMapping(Bind);
 		}
 	}
-	else if (CustomBindings.Num() > 0)
+
+	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
 	{
-		for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
+		UUTPlayerInput* UTPlayerInput = *It;
+		for (auto Bind : CustomBindings)
 		{
-			UUTPlayerInput* UTPlayerInput = *It;
-
-			FCustomKeyBinding Bind = CustomBindings[0];
 			Bind.KeyName = FName(*Key->ToString());
-			It->CustomBinds.Add(Bind);
-
+			UTPlayerInput->CustomBinds.Add(Bind);
 			if (*AltKey != FKey())
 			{
 				Bind.KeyName = FName(*AltKey->ToString());
-				It->CustomBinds.Add(Bind);
+				UTPlayerInput->CustomBinds.Add(Bind);
 			}
 		}
-	}
-	else
-	{
-		UE_LOG(UT,Log,TEXT("Error: Attempting to write a Keybind that has no actual binding."));
 	}
 
 	//Special Console case
