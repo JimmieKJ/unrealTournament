@@ -13,7 +13,19 @@ class AUTWeap_Redeemer : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category=Weapon)
 	TSubclassOf<AUTRemoteRedeemer> RemoteRedeemerClass;
 
+	/** Sound to play on bring up - temp here because we don't have really Redeemer bringup anim */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		USoundBase* BringupSound;
+
+	/** Sound to play on bring up - temp here because we don't have really Redeemer bringup anim */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		USoundBase* PutDownSound;
+
 	virtual AUTProjectile* FireProjectile() override;
+
+	virtual void BringUp(float OverflowTime) override;
+
+	virtual bool PutDown() override;
 
 	virtual float SuggestAttackStyle_Implementation() override;
 	virtual float SuggestDefenseStyle_Implementation() override;

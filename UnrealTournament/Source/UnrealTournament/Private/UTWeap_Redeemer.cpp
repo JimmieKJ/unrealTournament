@@ -81,6 +81,22 @@ float AUTWeap_Redeemer::SuggestDefenseStyle_Implementation()
 	return -1.0f;
 }
 
+void AUTWeap_Redeemer::BringUp(float OverflowTime)
+{
+	Super::BringUp(OverflowTime);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), BringupSound, this, SRT_AllButOwner);
+}
+
+bool AUTWeap_Redeemer::PutDown()
+{
+	if (Super::PutDown())
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), PutDownSound, this, SRT_AllButOwner);
+		return true;
+	}
+	return false;
+}
+
 float AUTWeap_Redeemer::GetAISelectRating_Implementation()
 {
 	AUTBot* B = Cast<AUTBot>(GetUTOwner()->Controller);
