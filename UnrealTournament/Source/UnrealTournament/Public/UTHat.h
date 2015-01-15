@@ -5,8 +5,8 @@
 #include "Engine/StaticMeshActor.h"
 #include "UTHat.generated.h"
 
-UCLASS()
-class AUTHat : public AStaticMeshActor
+UCLASS(Blueprintable)
+class UNREALTOURNAMENT_API AUTHat : public AStaticMeshActor
 {
 	GENERATED_UCLASS_BODY()
 };

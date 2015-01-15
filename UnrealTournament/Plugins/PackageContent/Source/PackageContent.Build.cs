@@ -17,6 +17,8 @@ namespace UnrealBuildTool.Rules
 					"LevelEditor",
 					"Slate",
                     "EditorStyle",
+				    "AssetTools",
+                    "UnrealTournament",
 				}
 			);	// @todo Mac: for some reason CoreUObject and Engine are needed to link in debug on Mac
 
