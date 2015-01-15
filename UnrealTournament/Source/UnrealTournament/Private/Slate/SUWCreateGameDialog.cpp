@@ -82,6 +82,23 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
+	TArray<FString> LastMutators;
+	if (GConfig->GetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni))
+	{
+		for (const FString& MutPath : LastMutators)
+		{
+			for (UClass* MutClass : MutatorListAvailable)
+			{
+				if (MutClass->GetPathName() == MutPath)
+				{
+					MutatorListEnabled.Add(MutClass);
+					MutatorListAvailable.Remove(MutClass);
+					break;
+				}
+			}
+		}
+	}
+
 	TSharedPtr<SVerticalBox> MainBox;
 	TSharedPtr<SUniformGridPanel> ButtonRow;
 
@@ -445,6 +462,7 @@ void SUWCreateGameDialog::OnMapSelected(TSharedPtr<FString> NewSelection, ESelec
 							//GObjLoaded.Add(Export.Object);
 							Linker->Preload(Export.Object);
 							Export.Object->ConditionalPostLoad();
+							Summary = Cast<UUTLevelSummary>(Export.Object);
 							break;
 						}
 					}
@@ -552,15 +570,19 @@ FReply SUWCreateGameDialog::StartClick(EServerStartMode Mode)
 	AUTGameState::StaticClass()->GetDefaultObject()->SaveConfig();
 
 	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMap->GetText().ToString(), *SelectedGameClass->GetPathName());
+	TArray<FString> LastMutators;
 	if (MutatorListEnabled.Num() > 0)
 	{
+		LastMutators.Add(MutatorListEnabled[0]->GetPathName());
 		NewURL += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
 		for (int32 i = 1; i < MutatorListEnabled.Num(); i++)
 		{
 			NewURL += TEXT(",");
 			NewURL += MutatorListEnabled[i]->GetPathName();
+			LastMutators.Add(MutatorListEnabled[i]->GetPathName());
 		}
 	}
+	GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
 
 	if (Mode == SERVER_Dedicated)
 	{

@@ -392,9 +392,9 @@ void AUTGameMode::PreInitializeComponents()
 	}
 
 	// init startup bots
-	for (const FSelectedBot& Bot : SelectedBots)
+	for (int32 i = 0; i < SelectedBots.Num() && NumPlayers + NumBots < BotFillCount; i++)
 	{
-		AddNamedBot(Bot.BotName, Bot.Team);
+		AddNamedBot(SelectedBots[i].BotName, SelectedBots[i].Team);
 	}
 }
 

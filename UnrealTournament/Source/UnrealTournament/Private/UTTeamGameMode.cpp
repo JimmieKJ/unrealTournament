@@ -361,7 +361,7 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 	.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
-	.HAlign(HAlign_Center)
+	.HAlign(HAlign_Left)
 	[
 		SNew(SCheckBox)
 		.IsChecked(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
@@ -370,7 +370,7 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 		.Content()
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.ColorAndOpacity(FLinearColor::White)
 			.Text(NSLOCTEXT("UTTeamGameMode", "BalanceTeams", "Balance Teams").ToString())
 		]
 	];
