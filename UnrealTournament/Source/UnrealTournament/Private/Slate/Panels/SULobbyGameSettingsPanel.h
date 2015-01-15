@@ -264,7 +264,7 @@ struct FGameOption : public TSharedFromThis<FGameOption>
 										.Value(iValue.ToSharedRef(), &TGameOption<int32>::GetOptional)
 										.OnValueChanged(iValue.ToSharedRef(), &TGameOption<int32>::Set)
 										.AllowSpin(true)
-										.Delta(0.05)
+										.Delta(1)
 										.MinValue(fMin)
 										.MaxValue(fMax)
 										.MinSliderValue(fMin)
