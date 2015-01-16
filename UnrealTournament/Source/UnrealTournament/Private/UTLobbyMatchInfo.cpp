@@ -168,13 +168,14 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 
 bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
 {
-	if (Joiner)
+	if (Joiner && LobbyGameState)
 	{
-		if (LobbyGameState && CurrentState == ELobbyMatchState::WaitingForPlayers || (CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId ))
+		if (CurrentState == ELobbyMatchState::WaitingForPlayers || (CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId))
 		{
 			return (MatchGameMode != TEXT("") && MatchMap != TEXT("") && MatchOptions != TEXT("") && OwnerId.IsValid() && LobbyGameState->GetGameModeDefaultObject(MatchGameMode) );
 		}
 	}
+
 	return false;
 }
 
