@@ -39,6 +39,12 @@ protected:
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
 	FLinearColor SelectedPlayerColor;
 
+	TArray<TSharedPtr<FString>> HatList;
+	TArray<FString> HatPathList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatComboBox;
+	TSharedPtr<STextBlock> SelectedHat;
+	void OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	int32 Emote1Index;
 	int32 Emote2Index;
 	int32 Emote3Index;

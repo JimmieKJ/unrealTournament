@@ -4,8 +4,14 @@
 
 #include "UTHat.generated.h"
 
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, Abstract)
 class UNREALTOURNAMENT_API AUTHat : public AActor
 {
 	GENERATED_UCLASS_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	FString HatName;
+
+	UPROPERTY(EditDefaultsOnly)
+	FString HatAuthor;
 };

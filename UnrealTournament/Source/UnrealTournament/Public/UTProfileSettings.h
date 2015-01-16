@@ -55,6 +55,7 @@ class UUTProfileSettings : public UObject
 	FString GetPlayerName() { return PlayerName; };
 
 	FString GetHatPath() { return Hat; }
+	void SetHatPath(const FString& NewHatPath) { Hat = NewHatPath; }
 
 	/**
 	 *	Apply any settings stored in this profile object

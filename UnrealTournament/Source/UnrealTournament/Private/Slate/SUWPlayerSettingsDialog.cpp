@@ -59,6 +59,28 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
+	{
+		HatList.Add(MakeShareable(new FString(TEXT("No Hat"))));
+		HatPathList.Add(TEXT(""));
+
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTHat::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTHat::StaticClass()))
+				{
+					HatList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTHat>()->HatName)));
+					HatPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
+				}
+			}
+		}
+	}
+
 	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
 	if (ProfileSettings)
 	{
@@ -377,9 +399,73 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.OnMouseButtonDown(this, &SUWPlayerSettingsDialog::PlayerColorClicked)
 				]
 			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(SBox)
+					.HAlign(HAlign_Center)
+					.Content()
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FLinearColor::White)
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "HatSelectionLabel", "Hat").ToString())
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(HatComboBox, SComboBox< TSharedPtr<FString> >)
+					.InitiallySelectedItem(0)
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.OptionsSource(&HatList)
+					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+					.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnHatSelected)
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						[
+							SAssignNew(SelectedHat, STextBlock)
+							.Text(FString(TEXT("No Hats Available")))
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+						]
+					]
+				]
+			]
 		];
 
 		WeaponPriorities->SetSelection(WeaponList[0]);
+
+		bool bFoundSelectedHat = false;
+		if (ProfileSettings)
+		{
+			for (int32 i = 0; i < HatPathList.Num(); i++)
+			{
+				if (HatPathList[i] == ProfileSettings->GetHatPath())
+				{
+					SelectedHat->SetText(*HatList[i]);
+					bFoundSelectedHat = true;
+					break;
+				}
+			}
+		}
+		if (!bFoundSelectedHat && HatPathList.Num() > 0)
+		{
+			SelectedHat->SetText(*HatList[0]);
+		}
 	}
 }
 
@@ -495,6 +581,18 @@ FReply SUWPlayerSettingsDialog::OKClick()
 		}
 	}
 
+
+	if (ProfileSettings != NULL)
+	{
+		for (int32 i = 0; i < HatPathList.Num(); i++)
+		{
+			if (*HatList[i] == SelectedHat->GetText().ToString())
+			{
+				ProfileSettings->SetHatPath(HatPathList[i]);
+			}
+		}
+	}
+
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	Settings->SetEmoteIndex1(Emote1Index);
 	Settings->SetEmoteIndex2(Emote2Index);
@@ -547,6 +645,11 @@ TOptional<int32> SUWPlayerSettingsDialog::GetEmote2Value() const
 TOptional<int32> SUWPlayerSettingsDialog::GetEmote3Value() const
 {
 	return Emote3Index;
+}
+
+void SUWPlayerSettingsDialog::OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedHat->SetText(*NewSelection.Get());
 }
 
 #endif
