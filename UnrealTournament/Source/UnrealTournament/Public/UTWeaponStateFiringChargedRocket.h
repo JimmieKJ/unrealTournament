@@ -57,6 +57,11 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		//If we are fully loaded or out of ammo start the grace timer
 		if (RocketLauncher->NumLoadedRockets >= RocketLauncher->MaxLoadedRockets || !RocketLauncher->HasAmmo(GetFireMode()))
 		{
+			// since ammo consumption is not locally simulated the client won't know if it needs to stop loading rockets early and thus we need to tell it
+			if (!GetUTOwner()->IsLocallyControlled() && GetWorld()->GetNetMode() != NM_Client)
+			{
+				RocketLauncher->ClientAbortLoad();
+			}
 			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer, RocketLauncher->GracePeriod, false);
 		}
 		//Fire delay for shooting one alternate rocket

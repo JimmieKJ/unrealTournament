@@ -117,6 +117,9 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	virtual void BeginLoadRocket();
 	virtual void EndLoadRocket();
 	virtual void ClearLoadedRockets();
+	/** called by server to tell client to stop loading rockets early, generally because we're out of ammo */
+	UFUNCTION(Reliable, Client)
+	virtual void ClientAbortLoad();
 	virtual float GetSpread(int32 ModeIndex);
 	virtual void FireShot() override;
 	virtual AUTProjectile* FireProjectile() override;

@@ -121,6 +121,27 @@ void AUTWeap_RocketLauncher::ClearLoadedRockets()
 	LastLoadTime = 0.0f;
 }
 
+void AUTWeap_RocketLauncher::ClientAbortLoad_Implementation()
+{
+	UUTWeaponStateFiringChargedRocket* LoadState = Cast<UUTWeaponStateFiringChargedRocket>(CurrentState);
+	if (LoadState != NULL)
+	{
+		// abort loading anim if it was playing
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets) && LoadingAnimation[NumLoadedRockets] != NULL)
+		{
+			AnimInstance->Montage_SetPlayRate(LoadingAnimation[NumLoadedRockets], 0.0f);
+		}
+		// set grace timer
+		float AdjustedGraceTime = GracePeriod;
+		if (UTOwner != NULL && UTOwner->PlayerState != NULL)
+		{
+			AdjustedGraceTime = FMath::Max<float>(0.01f, AdjustedGraceTime - UTOwner->PlayerState->ExactPing * 0.0005f); // one way trip so half ping
+		}
+		GetWorldTimerManager().SetTimer(LoadState, &UUTWeaponStateFiringChargedRocket::GraceTimer, AdjustedGraceTime, false);
+	}
+}
+
 float AUTWeap_RocketLauncher::GetLoadTime()
 {
 	return ((NumLoadedRockets > 0) ? RocketLoadTime : FirstRocketLoadTime) / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f);
