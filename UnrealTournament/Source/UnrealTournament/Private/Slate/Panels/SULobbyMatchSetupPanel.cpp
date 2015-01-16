@@ -221,7 +221,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 
 FText SULobbyMatchSetupPanel::GetMaxPlayerLabel() const
 {
-	return FText::Format(NSLOCTEXT("LobbyMatchPanel","MaxPlayerFormat","Max Players: {0}  "), FText::AsNumber(MatchInfo->MaxPlayers));
+	return FText::Format(NSLOCTEXT("LobbyMatchPanel","MaxPlayerFormat","Max Players: {0}  "), FText::AsNumber(MatchInfo.IsValid() ? MatchInfo->MaxPlayers : 0));
 }
 
 void SULobbyMatchSetupPanel::OnMaxPlayersChanged(float NewValue)
@@ -232,7 +232,6 @@ void SULobbyMatchSetupPanel::OnMaxPlayersChanged(float NewValue)
 
 FString SULobbyMatchSetupPanel::GetGameModeText() const
 {
-
 	return (MatchInfo->CurrentGameModeData.IsValid() ? MatchInfo->CurrentGameModeData->DisplayName : TEXT("None"));
 }
 
