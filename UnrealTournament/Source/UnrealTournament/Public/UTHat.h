@@ -14,4 +14,7 @@ class UNREALTOURNAMENT_API AUTHat : public AActor
 
 	UPROPERTY(EditDefaultsOnly)
 	FString HatAuthor;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	virtual void OnFlashCountIncremented();
 };

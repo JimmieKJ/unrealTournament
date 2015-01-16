@@ -3410,6 +3410,14 @@ void AUTCharacter::OnRepHat()
 	}
 }
 
+void AUTCharacter::OnRepHatFlashCount()
+{
+	if (Hat)
+	{
+		Hat->OnFlashCountIncremented();
+	}
+}
+
 bool AUTCharacter::ServerFasterEmote_Validate()
 {
 	return true;
@@ -3645,6 +3653,8 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 	}
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
+
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, HatFlashCount, GetWorld()->TimeSeconds - LastHatFlashTime < 1.0f);
 
 	// @TODO FIXMESTEVE - just don't want this ever replicated
 	DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RemoteViewPitch, false);

@@ -77,6 +77,15 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 	if (bEnemyKill)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		AController* Controller = Cast<AController>(GetOwner());
+		APawn* Pawn = nullptr;
+		AUTCharacter* UTChar = nullptr;
+		if (Controller)
+		{
+			Pawn = Controller->GetPawn();
+			UTChar = Cast<AUTCharacter>(Pawn);
+		}
+
 		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
 		{
 			ModifyStat(FName(*(TEXT("MultiKillLevel") + FString::FromInt(FMath::Min(MultiKillLevel, 3)))), 1, EStatMod::Delta);
@@ -91,7 +100,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		{
 			MultiKillLevel = 0;
 		}
-		if (Cast<AController>(GetOwner()) != NULL && ((AController*)GetOwner())->GetPawn() != NULL)
+		if (Pawn != NULL)
 		{
 			Spree++;
 			if (Spree % 5 == 0)
@@ -104,6 +113,13 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				}
 			}
 		}
+		if (UTChar != NULL)
+		{
+			UTChar->LastHatFlashTime = GetWorld()->TimeSeconds;
+			UTChar->HatFlashCount++;
+			UTChar->OnRepHatFlashCount();
+		}
+
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 

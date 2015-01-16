@@ -283,12 +283,21 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(replicatedUsing=OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	AUTHat* Hat;
 
 	UFUNCTION()
 	virtual void OnRepHat();
-	
+
+	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated, ReplicatedUsing = OnRepHatFlashCount)
+	int32 HatFlashCount;
+
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	float LastHatFlashTime;
+
+	UFUNCTION()
+	virtual void OnRepHatFlashCount();
+
 	UPROPERTY(replicatedUsing=OnRepEmote)
 	FEmoteRepInfo EmoteReplicationInfo;
 	
@@ -571,7 +580,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** time of last SetLastTakeHitInfo() - authority only */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitTime;
-
+	
 protected:
 	/** indicates character is (mostly) invisible so AI only sees at short range, homing effects can't target the character, etc */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Invisible, Category = Pawn)
