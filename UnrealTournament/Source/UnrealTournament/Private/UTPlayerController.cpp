@@ -246,7 +246,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("PrevWeapon", IE_Pressed, this, &AUTPlayerController::PrevWeapon);
 	InputComponent->BindAction("NextWeapon", IE_Released, this, &AUTPlayerController::NextWeapon);
 	InputComponent->BindAction("ThrowWeapon", IE_Released, this, &AUTPlayerController::ThrowWeapon);
-	InputComponent->BindAction("ToggleTranslocator", IE_Pressed, this, &AUTPlayerController::ToggleTranslocator);
 
 	InputComponent->BindAction("StartFire", IE_Pressed, this, &AUTPlayerController::OnFire);
 	InputComponent->BindAction("StopFire", IE_Released, this, &AUTPlayerController::OnStopFire);
@@ -478,21 +477,6 @@ void AUTPlayerController::PrevWeapon()
 void AUTPlayerController::NextWeapon()
 {
 	SwitchWeaponInSequence(false);
-}
-void AUTPlayerController::ToggleTranslocator()
-{
-	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
-	{
-		if (UTCharacter->GetWeapon()->Group == 0)
-		{
-			SwitchWeapon(PreviousWeaponGroup);
-		}
-		else
-		{
-			PreviousWeaponGroup = UTCharacter->GetWeapon()->Group;
-			SwitchWeapon(0);
-		}
-	}
 }
 
 void AUTPlayerController::ThrowWeapon()

@@ -433,7 +433,6 @@ protected:
 	/** weapon selection */
 	void PrevWeapon();
 	void NextWeapon();
-	void ToggleTranslocator();
 	
 	void ThrowWeapon();
 	
