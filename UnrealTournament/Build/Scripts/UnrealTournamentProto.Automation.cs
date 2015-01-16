@@ -325,15 +325,15 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             if (AssetRegCL > 0)
             {
                 var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
+                var SavedPath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "Cooked", Params.CreateReleaseVersion);
 
-                var Filenames = new string[] { CombinePaths(ReleasePath, "WindowsNoEditor", "AssetRegistry.bin"),
-                                               CombinePaths(ReleasePath, "MacNoEditor", "AssetRegistry.bin"),
-                                               CombinePaths(ReleasePath, "LinuxServer", "AssetRegistry.bin"), 
-                                               CombinePaths(ReleasePath, "WindowsServer", "AssetRegistry.bin"),  
-                                               CombinePaths(ReleasePath, "LinuxNoEditor", "AssetRegistry.bin") };
+                var Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
 
-                foreach (string Filename in Filenames)
+                foreach (string Platform in Platforms)
                 {
+                    string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
+                    CommandUtils.RenameFile(CombinePaths(SavedPath, Platform, "AssetRegistry.bin"), Filename);
+
                     P4.Sync("-f -k " + Filename + "#head"); // sync the file without overwriting local one
 
                     if (!FileExists(Filename))
