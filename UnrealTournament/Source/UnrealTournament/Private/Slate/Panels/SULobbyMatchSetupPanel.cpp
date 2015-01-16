@@ -35,27 +35,37 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 		.HAlign(HAlign_Fill)
 		.AutoHeight()
 		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			.Padding(0.0f,0.0f,10.0f,0.0f)
+			SNew(SOverlay)
+			+SOverlay::Slot()
 			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SULobbySetup","GameMode","GAME MODE:"))
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DarkBackground"))
 			]
-			+SHorizontalBox::Slot()
-			.Padding(0.0f,0.0f,10.0f,0.0f)
-			.AutoWidth()
+			+SOverlay::Slot()
 			[
-				BuildGameModeWidget()
-			]		
-			+SHorizontalBox::Slot()
-			.Padding(0.0f,10.0f, 10.0f, 0.0f)
-			.AutoWidth()
-			[
-				BuildHostOptionWidgets()
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				.Padding(10.0f,0.0f,10.0f,0.0f)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("SULobbySetup","GameMode","GAME MODE:"))
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+				]
+				+SHorizontalBox::Slot()
+				.Padding(5.0f,0.0f,10.0f,0.0f)
+				.AutoWidth()
+				[
+					BuildGameModeWidget()
+				]		
+				+SHorizontalBox::Slot()
+				.Padding(5.0f,10.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				[
+					BuildHostOptionWidgets()
+				]
+
 			]
 		]
 		+SVerticalBox::Slot()
@@ -78,7 +88,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 	if (LobbyGameState && bIsHost)
 	{
 		return SNew(SBox)
-		.WidthOverride(300)
+		.WidthOverride(200)
 		[
 			SNew(SComboBox< TSharedPtr<FAllowedGameModeData> >)
 			.InitiallySelectedItem(MatchInfo.Get()->CurrentGameModeData)
@@ -97,24 +107,66 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 	}
 	else
 	{
-		return SNew(STextBlock)
-		.Text(this, &SULobbyMatchSetupPanel::GetGameModeText)
-		.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle");
+		return SNew(SBox)
+		.WidthOverride(200)
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(this, &SULobbyMatchSetupPanel::GetGameModeText)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+			]
+		];
 	}
 }
 
 TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 {
 	TSharedPtr<SHorizontalBox> Container;
-	SAssignNew(Container, SHorizontalBox);
+
+	if (!bIsHost)
+	{
+		return SNew(SCanvas);
+	}
+
+	SNew(SVerticalBox)
+	+SVerticalBox::Slot()
+	.VAlign(VAlign_Center)
+	[
+		SAssignNew(Container, SHorizontalBox)
+	];
+
 
 	if (Container.IsValid())
 	{
+		float MaxPlayerValue = (float(MatchInfo->MaxPlayers) - 2.0f) / 30.0f;
+
 		Container->AddSlot()
 		.AutoWidth()
-		.Padding(0.0, 0.0, 0.0, 10.0)
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 20.0f, 0.0f )
 		[
 			SNew(SCheckBox)
+			.IsChecked((MatchInfo->bSpectatable ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
+			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::AllowSpectatorChanged)
+			.Content()
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+				.Text(NSLOCTEXT("SULobbySetup", "AllowSpectators", "Allow Spectating").ToString())
+			]
+		];
+
+		// MUST BE LAST -- SLATE NO LIKEY THE HIDEY
+
+		Container->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 20.0f, 0.0f )
+		[
+			SAssignNew(JIPCheckBox, SCheckBox)
 			.IsChecked((MatchInfo->bJoinAnytime ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
 			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::JoinAnyTimeChanged)
 			.Content()
@@ -125,26 +177,31 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			]
 		];
 
-		float MaxPlayerValue = (float(MatchInfo->MaxPlayers) - 2.0f) / 30.0f;
 
 		Container->AddSlot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 20.0f, 0.0f )
 		[
-			SNew(SHorizontalBox)
+			SAssignNew(MaxPlayersBox, SHorizontalBox)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
+			.VAlign(VAlign_Center)
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-				.Text(this, &SULobbyMatchSetupPanel::GetMaxPlayerLabel)
+				SNew(SBox)
+				.WidthOverride(120)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+					.Text(this, &SULobbyMatchSetupPanel::GetMaxPlayerLabel)
+				]
 			]
 			+ SHorizontalBox::Slot()
 			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Right)
 			[
 				SNew(SBox)
-				.WidthOverride(100.0f)
+				.WidthOverride(75.0f)
 				.Content()
 				[
 					SNew(SSlider)
@@ -154,6 +211,9 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 				]
 			]
 		];
+
+		JIPCheckBox->SetVisibility(MatchInfo->CurrentGameModeData->DefaultObject->bLobbyAllowJoinInProgress ? EVisibility::Visible : EVisibility::Hidden );
+		MaxPlayersBox->SetVisibility(MatchInfo->CurrentGameModeData->DefaultObject->MaxLobbyPlayers <= 2 ? EVisibility::Hidden : EVisibility::Visible);
 	}
 
 	return Container.ToSharedRef();
@@ -196,6 +256,8 @@ void SULobbyMatchSetupPanel::OnGameModeChanged(TSharedPtr<FAllowedGameModeData> 
 		MatchInfo->ServerMatchGameModeChanged(MatchInfo->MatchGameMode);
 
 		MatchInfo->CurrentGameModeData = LobbyGameState->ResolveGameMode(MatchInfo->MatchGameMode);
+		JIPCheckBox->SetVisibility(MatchInfo->CurrentGameModeData->DefaultObject->bLobbyAllowJoinInProgress ? EVisibility::Visible : EVisibility::Hidden );
+		MaxPlayersBox->SetVisibility(MatchInfo->CurrentGameModeData->DefaultObject->MaxLobbyPlayers <= 2 ? EVisibility::Hidden : EVisibility::Visible);
 		// Reseed the local match info.
 	
 		MatchInfo->UpdateGameMode();
@@ -251,8 +313,18 @@ void SULobbyMatchSetupPanel::JoinAnyTimeChanged(ECheckBoxState NewState)
 {
 	if (MatchInfo.IsValid())
 	{
-		MatchInfo->bJoinAnytime = NewState == ESlateCheckBoxState::Checked;
+		MatchInfo->SetAllowJoinInProgress(NewState == ESlateCheckBoxState::Checked);
 	}
 }
+
+void SULobbyMatchSetupPanel::AllowSpectatorChanged(ECheckBoxState NewState)
+{
+	if (MatchInfo.IsValid())
+	{
+		MatchInfo->SetAllowSpectating(NewState == ESlateCheckBoxState::Checked);
+	}
+
+}
+
 
 #endif

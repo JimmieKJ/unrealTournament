@@ -37,7 +37,8 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	bNetLoadOnClient = false;
 
 	MaxPlayers = 2;
-
+	bSpectatable = true;
+	bJoinAnytime = false;
 }
 
 
@@ -62,8 +63,13 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 	Super::PreInitializeComponents();
 
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
-	LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	MinPlayers = 2; // TODO: This should be pulled from the game type at some point
+}
+
+bool AUTLobbyMatchInfo::CheckLobbyGameState()
+{
+	LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	return LobbyGameState != NULL;
 }
 
 void AUTLobbyMatchInfo::OnRep_MatchOptions()
@@ -104,7 +110,7 @@ void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 
 void AUTLobbyMatchInfo::RecycleMatchInfo()
 {
-	if (LobbyGameState)
+	if (CheckLobbyGameState())
 	{
 		LobbyGameState->RemoveMatch(this);
 	}
@@ -170,7 +176,7 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 
 bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
 {
-	if (Joiner && LobbyGameState)
+	if (Joiner && CheckLobbyGameState())
 	{
 		if (CurrentState == ELobbyMatchState::WaitingForPlayers || (CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId))
 		{
@@ -261,6 +267,12 @@ bool AUTLobbyMatchInfo::ServerMatchGameModeChanged_Validate(const FString& NewMa
 void AUTLobbyMatchInfo::ServerMatchGameModeChanged_Implementation(const FString& NewMatchGameMode)
 {
 	MatchGameMode = NewMatchGameMode;
+	AUTGameMode* StartingGameMode = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
+	if (StartingGameMode)
+	{
+			MatchMap = StartingGameMode->DefaultLobbyMap;
+			MatchOptions = StartingGameMode->DefaultLobbyOptions;
+	}
 }
 
 
@@ -341,15 +353,21 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 			}
 		}
 
-		LobbyGameState->LaunchGameInstance(this, FinalOptions);
+		if (CheckLobbyGameState())
+		{
+			LobbyGameState->LaunchGameInstance(this, FinalOptions);
+		}
 	}
 }
 
 bool AUTLobbyMatchInfo::ServerAbortMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 {
-	LobbyGameState->TerminateGameInstance(this);
-	
+	if (CheckLobbyGameState())
+	{
+		LobbyGameState->TerminateGameInstance(this);
+	}
+
 	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
 	AUTLobbyPlayerState* OwnerPS = GetOwnerPlayerState();
 	if (OwnerPS) OwnerPS->bReadyToPlay = false;
@@ -426,7 +444,7 @@ void AUTLobbyMatchInfo::ClientGetDefaultGameOptions()
 
 void AUTLobbyMatchInfo::BuildAllowedMapsList()
 {
-	if (LobbyGameState)
+	if (CheckLobbyGameState())
 	{
 		AvailableMaps.Empty();
 		for (int32 i=0; i<LobbyGameState->ClientAvailableMaps.Num();i++)
@@ -443,4 +461,17 @@ bool AUTLobbyMatchInfo::ServerSetMaxPlayers_Validate(int32 NewMaxPlayers) { retu
 void AUTLobbyMatchInfo::ServerSetMaxPlayers_Implementation(int32 NewMaxPlayers)
 {
 	MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2, 32);
+}
+
+
+bool AUTLobbyMatchInfo::ServerSetAllowJoinInProgress_Validate(bool bAllow) { return true; }
+void AUTLobbyMatchInfo::ServerSetAllowJoinInProgress_Implementation(bool bAllow)
+{
+	bJoinAnytime = bAllow;
+}
+
+bool AUTLobbyMatchInfo::ServerSetAllowSpectating_Validate(bool bAllow) { return true; }
+void AUTLobbyMatchInfo::ServerSetAllowSpectating_Implementation(bool bAllow)
+{
+	bSpectatable = bAllow;
 }

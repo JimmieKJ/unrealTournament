@@ -138,8 +138,9 @@ void AUTLobbyPlayerState::StartServerToClientDataPush_Implementation()
 bool AUTLobbyPlayerState::ServerBeginDataPush_Validate() { return true; }
 void AUTLobbyPlayerState::ServerBeginDataPush_Implementation()
 {
-	UE_LOG(UT,Log,TEXT("HERE"));
-	CurrentBulkID = 1;
+	//UE_LOG(UT,Log,TEXT("Beginning Datapush to %s"), *PlayerName);
+
+	CurrentBulkID = 0;
 	DataIndex = 0;
 	SendNextBulkBlock();
 }
@@ -147,7 +148,9 @@ void AUTLobbyPlayerState::ServerBeginDataPush_Implementation()
 void AUTLobbyPlayerState::SendNextBulkBlock()
 {
 	uint8 SendCount = FMath::Clamp<int>(HostMatchData.Num() - DataIndex, 0, 10);
+	//UE_LOG(UT,Log,TEXT("Sending next Block to %s (%i)"), *PlayerName, SendCount);
 
+	CurrentBulkID++;
 	if (SendCount > 0)
 	{
 		for (int i = 0; i < SendCount; i++)	// Send 10 maps at time.. make this configurable.
@@ -164,6 +167,8 @@ void AUTLobbyPlayerState::SendNextBulkBlock()
 
 void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCount, uint16 BulkSendID, const FString& MatchData)
 {
+	//UE_LOG(UT,Log,TEXT("Client %s has recieved data %i %i"), *PlayerName, BulkSendCount, BulkSendID);
+
 	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GS)
 	{
@@ -201,7 +206,9 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 			}
 		}
 
+
 		CurrentBlockCount++;
+		//UE_LOG(UT,Log,TEXT("----- Client %s %i %i"), *PlayerName, CurrentBlockCount, ExpectedBlockCount);
 		if (CurrentBlockCount == ExpectedBlockCount)
 		{
 			ServerACKBulkCompletion(CurrentBulkID);
@@ -216,11 +223,13 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 bool AUTLobbyPlayerState::ServerACKBulkCompletion_Validate(uint16 BuildSendID) { return true; }
 void AUTLobbyPlayerState::ServerACKBulkCompletion_Implementation(uint16 BuildSendID)
 {
+	//UE_LOG(UT,Log,TEXT("Server recieved Bulk ACK from %s"), *PlayerName);
 	SendNextBulkBlock();
 }
 
 void AUTLobbyPlayerState::ClientReceivedAllData_Implementation()
 {
+	//UE_LOG(UT,Log,TEXT("Client %s has Received All Data"), *PlayerName);
 	bHostInitializationComplete = true;
 	ServerACKReceivedAllData();
 }
@@ -228,6 +237,8 @@ void AUTLobbyPlayerState::ClientReceivedAllData_Implementation()
 bool AUTLobbyPlayerState::ServerACKReceivedAllData_Validate() { return true; }
 void AUTLobbyPlayerState::ServerACKReceivedAllData_Implementation()
 {
+	//UE_LOG(UT,Log,TEXT("######### [Initial Player Replication is Completed for %s"), *PlayerName);
+
 	// This client is now ready with all of the information it needs to start a match.  Look to see if they were previously in a match
 	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GS)

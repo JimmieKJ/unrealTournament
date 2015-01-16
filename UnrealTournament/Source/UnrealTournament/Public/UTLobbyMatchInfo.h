@@ -167,6 +167,26 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetMaxPlayers(int32 NewMaxPlayers);
 
+
+	virtual void SetAllowJoinInProgress(bool bAllow)
+	{
+		bJoinAnytime = bAllow;
+		ServerSetAllowJoinInProgress(bAllow);
+	}
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetAllowJoinInProgress(bool bAllow);
+
+	virtual void SetAllowSpectating(bool bAllow)
+	{
+		bSpectatable = bAllow;
+		ServerSetAllowSpectating(bAllow);
+	}
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetAllowSpectating(bool bAllow);
+
+
 	// Allows the current panel to trigger when something has changed
 	FOnMatchInfoGameModeChanged OnMatchGameModeChanged;
 	FOnMatchInfoMapChanged OnMatchMapChanged;
@@ -262,6 +282,8 @@ protected:
 
 	// This match info is done.  Kill it.
 	void RecycleMatchInfo();
+
+	bool CheckLobbyGameState();
 
 };
 

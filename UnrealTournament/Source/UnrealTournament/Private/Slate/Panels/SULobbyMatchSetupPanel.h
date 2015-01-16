@@ -65,6 +65,9 @@ protected:
 	// Holds the name of the current Game Mode if not the host
 	TSharedPtr<STextBlock> CurrentGameMode;
 
+	TSharedPtr<SCheckBox> JIPCheckBox;
+	TSharedPtr<SHorizontalBox> MaxPlayersBox;
+
 	// Used by the list code for the Game list
 	TSharedRef<SWidget> GenerateGameModeListWidget(TSharedPtr<FAllowedGameModeData> InItem);
 
@@ -89,6 +92,7 @@ protected:
 	
 	TSharedRef<SWidget> BuildHostOptionWidgets();
 	void JoinAnyTimeChanged(ECheckBoxState NewState);
+	void AllowSpectatorChanged(ECheckBoxState NewState);
 
 	FText GetMaxPlayerLabel() const;
 	void OnMaxPlayersChanged(float NewValue);

@@ -16,7 +16,6 @@ AUTLobbyHUD::AUTLobbyHUD(const class FObjectInitializer& ObjectInitializer) : Su
 void AUTLobbyHUD::PostRender()
 {
 	AHUD::PostRender();
-
 	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GS)
 	{
@@ -29,16 +28,14 @@ void AUTLobbyHUD::PostRender()
 				Y+= 20;
 				for (int32 j=0; j < GS->AvailableMatches[i]->Players.Num(); j++)
 				{
-					if (GS->AvailableMatches[i]->Players[j])
-					{
-						FText Name = GS->AvailableMatches[i]->Players[i] ? FText::FromString(GS->AvailableMatches[i]->Players[j]->PlayerName) : NSLOCTEXT("Generic","None","None");
-						DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD","LobbyDebugB","Player {0} - {1}"), FText::AsNumber(j), Name), 40,Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
-						Y+= 20;
-					}
+					AUTLobbyPlayerState* PS = GS->AvailableMatches[i]->Players[j];
+					FText Name = PS ? FText::FromString(PS->PlayerName) : NSLOCTEXT("Generic","None","None");
+					DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD","LobbyDebugB","Player {0} - {1}"), FText::AsNumber(j), Name), 40,Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+					Y+= 20;
 				}
 			}
 		}
-
+/*
 		for (int32 i=0;i < GS->ClientAvailbleGameModes.Num();i++)
 		{
 			DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugC", " Available Game Mode {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailbleGameModes[i]->DisplayName)), 10, Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
@@ -49,8 +46,7 @@ void AUTLobbyHUD::PostRender()
 			DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugD", " Available Maps {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailableMaps[i]->MapName)), 10, Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
 			Y += 20;
 		}
+*/
 
 	}
-
-	return;
 }
