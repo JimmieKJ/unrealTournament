@@ -55,7 +55,6 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 		GConfig->Flush(false);
 	}
 
-	LoadDownloadedPakFiles();
 	LoadDownloadedAssetRegistries();
 
 	FUTAnalytics::Initialize();
@@ -397,52 +396,10 @@ void UUTGameEngine::UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFr
 	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
 }
 
-void UUTGameEngine::LoadDownloadedPakFiles()
-{
-	// Helper class to find all pak files.
-	class FPakFileSearchVisitor : public IPlatformFile::FDirectoryVisitor
-	{
-		TArray<FString>& FoundFiles;
-	public:
-		FPakFileSearchVisitor(TArray<FString>& InFoundFiles)
-			: FoundFiles(InFoundFiles)
-		{}
-		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
-		{
-			if (bIsDirectory == false)
-			{
-				FString Filename(FilenameOrDirectory);
-				if (Filename.MatchesWildcard(TEXT("*.pak")))
-				{
-					FoundFiles.Add(Filename);
-				}
-			}
-			return true;
-		}
-	};
-
-	// Search for pak files that were downloaded through redirects
-	TArray<FString>	FoundPaks;
-	FPakFileSearchVisitor PakVisitor(FoundPaks);
-	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-	if (FPlatformProperties::RequiresCookedData())
-	{
-		FoundPaks.Reset();
-		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks")), PakVisitor);
-		for (const auto& PakPath : FoundPaks)
-		{
-			if (FCoreDelegates::OnMountPak.IsBound())
-			{
-				FCoreDelegates::OnMountPak.Execute(PakPath, 0);
-			}
-		}
-	}
-}
-
 void UUTGameEngine::LoadDownloadedAssetRegistries()
 {
 	// Plugin manager should handle this instead of us, but we're not using plugin-based dlc just yet
-
+	// Maybe this should just traverse FPaths::GameSavedDir() / Paks instead of querying the platform file, then we don't have a pak file dependency
 	if (FPlatformProperties::RequiresCookedData())
 	{
 		FPakPlatformFile* PakFileService = (FPakPlatformFile*)FPlatformFileManager::Get().GetPlatformFile(TEXT("PakFile"));
