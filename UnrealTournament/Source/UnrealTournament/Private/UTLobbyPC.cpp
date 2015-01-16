@@ -116,3 +116,9 @@ void AUTLobbyPC::ServerSetReady_Implementation(uint32 bNewReadyToPlay)
 {
 	UTLobbyPlayerState->bReadyToPlay = bNewReadyToPlay;
 }
+
+void AUTLobbyPC::SetLobbyDebugLevel(int32 NewLevel)
+{
+	AUTLobbyHUD* H = Cast<AUTLobbyHUD>(MyHUD);
+	if (H) H->LobbyDebugLevel = NewLevel;
+}

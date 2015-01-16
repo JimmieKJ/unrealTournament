@@ -45,6 +45,10 @@ public:
 	virtual void ServerSetReady(uint32 bNewReadyToPlay);
 
 	virtual void PlayerTick( float DeltaTime );
+
+	UFUNCTION(exec)
+	virtual void SetLobbyDebugLevel(int32 NewLevel);
+
 protected:
 	// Will be true when the initial player replication is completed.  At that point it's safe to bring up the menu
 	bool bInitialReplicationCompleted;

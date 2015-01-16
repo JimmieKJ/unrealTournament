@@ -2002,8 +2002,7 @@ void AUTPlayerController::HUDSettings()
 		LP->ShowHUDSettings();	
 	}
 }
-
-void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys)
+void AUTPlayerController::ResolveKeybindToFKey(FString Command, TArray<FKey>& Keys, bool bIncludeGamepad, bool bIncludeAxis)
 {
 	Keys.Empty();
 	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
@@ -2013,10 +2012,27 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys)
 	{
 		if (InputSettings->ActionMappings[i].ActionName.ToString() == Command)
 		{
-			Keys.Add(InputSettings->ActionMappings[i].Key.ToString());
+			if (!InputSettings->ActionMappings[i].Key.IsGamepadKey() || bIncludeGamepad)
+			{
+				Keys.Add(InputSettings->ActionMappings[i].Key);
+			}
 		}
 	}
 	
+	if (bIncludeAxis)
+	{
+		for (int32 i = 0; i < InputSettings->AxisMappings.Num(); i++)
+		{
+			if (InputSettings->AxisMappings[i].AxisName.ToString() == Command)
+			{
+				if (!InputSettings->AxisMappings[i].Key.IsGamepadKey() || bIncludeGamepad)
+				{
+					Keys.Add(InputSettings->AxisMappings[i].Key);
+				}
+			}
+		}
+	}
+
 	// Look at my Custom Keybinds
 
 	UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PlayerInput);
@@ -2026,10 +2042,23 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys)
 		{
 			if (UTPlayerInput->CustomBinds[i].Command == Command)
 			{
-				Keys.Add(UTPlayerInput->CustomBinds[i].KeyName.ToString());
+				if (!FKey(UTPlayerInput->CustomBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
+				Keys.Add(FKey(UTPlayerInput->CustomBinds[i].KeyName));
 			}
 		}
 	}
+}
+
+void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad, bool bIncludeAxis)
+{
+	TArray<FKey> BoundKeys;
+	ResolveKeybindToFKey(Command, BoundKeys, bIncludeGamepad, bIncludeAxis);
+
+	for (int32 i=0;i<BoundKeys.Num(); i++)
+	{
+		Keys.Add(BoundKeys[i].ToString());
+	}
+
 }
 
 void AUTPlayerController::DebugTest(FString TestCommand)

@@ -323,6 +323,13 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 		return;
 	}
 
+	if (Players.Num() > MaxPlayers)
+	{
+		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyPlayers","There are too many players in this match to start."));
+		return;
+	}
+
+
 	if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
 		for (int32 i=0;i<Players.Num();i++)

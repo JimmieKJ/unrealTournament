@@ -9,6 +9,7 @@ class UNREALTOURNAMENT_API AUTLobbyHUD : public AUTHUD
 	GENERATED_UCLASS_BODY()
 
 public:
+	int32 LobbyDebugLevel;
 	void PostRender();
 };
 

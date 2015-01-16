@@ -543,8 +543,16 @@ public:
 
 	// Will query the input system and return the FText with the name of the key to perform a command.  NOTE: it returns the version binding for that command 
 	// that is found.
-	UFUNCTION()
-	void ResolveKeybind(FString Command, TArray<FString>& Keys);
+	UFUNCTION(BlueprintCallable, Category = Input)
+	void ResolveKeybindToFKey(FString Command, TArray<FKey>& Keys, bool bIncludeGamepad=false, bool bIncludeAxis=true);
+
+	// Will query the input system and return the FText with the name of the key to perform a command.  NOTE: it returns the version binding for that command 
+	// that is found.
+	UFUNCTION(BlueprintCallable, Category = Input)
+	void ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad=false, bool bIncludeAxis=true);
+
+
+
 	virtual void DebugTest(FString TestCommand) override;
 };
 
