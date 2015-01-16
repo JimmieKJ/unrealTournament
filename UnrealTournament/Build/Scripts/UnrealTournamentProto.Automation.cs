@@ -344,7 +344,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
                     P4.ReconcileNoDeletes(AssetRegCL, Filename);
                 }
             }
-            var Pending;
+            bool Pending;
             if (P4.ChangeFiles(AssetRegCL, out Pending).Count == 0)
             {
                 Log("************************* No files to submit.");
