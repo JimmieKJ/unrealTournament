@@ -271,6 +271,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             NoDebugInfo: Cmd.ParseParam("NoDebugInfo"),
             CrashReporter: !Cmd.ParseParam("mac"), // @todo Mac: change to true when Mac implementation is ready
             StageNonMonolithic: true,
+            CreateReleaseVersion: "UTVersion0",
 			// if we are running, we assume this is a local test and don't chunk
 			Run: Cmd.ParseParam("Run"),
             StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
@@ -313,8 +314,31 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
                 P4.Submit(WorkingCL, out SubmittedCL, true, true);
             }
 
-			P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
+            P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
 		}
+
+        // Submit release version assetregistry.bin
+        if (P4Enabled && !String.IsNullOrEmpty(Params.CreateReleaseVersion))
+        {
+            int AssetRegCL = P4.CreateChange(P4Env.Client, String.Format("UnrealTournamentBuild AssetRegistry build built from changelist {0}", P4Env.Changelist));
+            if (AssetRegCL > 0)
+            {
+                var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
+
+                var Filename = CombinePaths(ReleasePath, "WindowsNoEditor", "AssetRegistry.bin");
+
+                P4.Sync("-f -k " + Filename + "#head"); // sync the file without overwriting local one
+
+                if (!FileExists(Filename))
+                {
+                    throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", Filename);
+                }
+
+                P4.ReconcileNoDeletes(WorkingCL, Filename);
+            }
+            int SubmittedCL;
+            P4.Submit(AssetRegCL, out SubmittedCL, true, true);
+        }
 	}
 }
 
