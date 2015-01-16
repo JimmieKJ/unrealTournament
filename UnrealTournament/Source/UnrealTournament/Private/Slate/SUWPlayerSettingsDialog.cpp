@@ -48,10 +48,10 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		{
 			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
 			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if (ClassPath != NULL)
+			if (ClassPath != NULL && !ClassPath->Contains(TEXT("/EpicInternal/"))) // exclude debug/test weapons
 			{
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()) && !TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
 				{
 					WeaponList.Add(TestClass);
 				}

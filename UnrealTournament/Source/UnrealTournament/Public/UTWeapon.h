@@ -181,6 +181,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	bool bCanThrowWeapon;
 
+	/** if true, don't display in menus like the weapon priority menu (generally because the weapon's use is outside the user's control, e.g. instagib) */
+	UPROPERTY(EditDefaultsOnly, Category = UI)
+	bool bHideInMenus;
+
 	UFUNCTION()
 	virtual void AttachToHolster(USkeletalMeshComponent* AttachToMesh);
 
