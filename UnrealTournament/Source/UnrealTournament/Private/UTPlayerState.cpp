@@ -113,7 +113,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				}
 			}
 		}
-		if (UTChar != NULL)
+		if (UTChar != NULL && UTChar->HatClass != nullptr)
 		{
 			UTChar->LastHatFlashTime = GetWorld()->TimeSeconds;
 			UTChar->HatFlashCount++;
