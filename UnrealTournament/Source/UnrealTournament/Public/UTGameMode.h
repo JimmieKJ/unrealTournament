@@ -403,9 +403,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Messaging)
 	virtual void BlueprintSendLocalized( AActor* Sender, AUTPlayerController* Receiver, TSubclassOf<ULocalMessage> Message, int32 Switch = 0, APlayerState* RelatedPlayerState_1 = NULL, APlayerState* RelatedPlayerState_2 = NULL, UObject* OptionalObject = NULL );
 
-	// Returns true if the game wants to restrict all player spawns
-	virtual bool RestrictPlayerSpawns();
-
 	/** called on the default object of the game class being played to precache announcer sounds
 	 * needed because announcers are dynamically loaded for convenience of user announcer packs, so we need to load up the audio we think we'll use at game time
 	 */

@@ -1960,8 +1960,10 @@ bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 	{
 		return false;
 	}
-
-	return Super::PlayerCanRestart(Player);
+	else
+	{
+		return Super::PlayerCanRestart(Player);
+	}
 }
 
 void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
@@ -2283,11 +2285,6 @@ void AUTGameMode::AssignDefaultSquadFor(AController* C)
 			}
 		}
 	}
-}
-
-bool AUTGameMode::RestrictPlayerSpawns()
-{
-	return (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime());
 }
 
 FString AUTGameMode::GetDefaultLobbyOptions() const

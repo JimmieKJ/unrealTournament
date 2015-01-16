@@ -1235,7 +1235,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	}
 
 	// If we can't restart this player, try to view a new player
-	if (!CanRestartPlayer())
+	if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
 		ServerViewNextPlayer();
 		return;
@@ -1262,7 +1262,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	}
 
 	// If we can't restart this player, try to view a new player
-	if (!CanRestartPlayer())
+	if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
 		ServerViewNextPlayer();
 		return;
@@ -1273,12 +1273,8 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 
 bool AUTPlayerController::CanRestartPlayer()
 {
-	AUTGameMode* GM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
-	if (GM && GM->RestrictPlayerSpawns()) return false;
-
-	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f;
+	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f && (bShortConnectTimeOut || GetWorld()->TimeSeconds - CreationTime > 15.0f);
 }
-
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
 {
