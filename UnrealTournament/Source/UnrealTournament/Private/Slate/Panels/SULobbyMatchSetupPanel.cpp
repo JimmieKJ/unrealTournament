@@ -112,27 +112,62 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 	{
 		Container->AddSlot()
 		.AutoWidth()
-		.Padding(0.0,0.0,0.0,10.0)
+		.Padding(0.0, 0.0, 0.0, 10.0)
 		[
 			SNew(SCheckBox)
-			.IsChecked( (MatchInfo->CurrentGameModeData->DefaultObject->bLobbyDefaultsToAllowJoinInProgress ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
-			//.OnCheckStateChanged(this, &FGameOption::CheckBoxChanged)
+			.IsChecked((MatchInfo->bJoinAnytime ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
+			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::JoinAnyTimeChanged)
 			.Content()
 			[
 				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
 				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress").ToString())
 			]
 		];
 
+		float MaxPlayerValue = (float(MatchInfo->MaxPlayers) - 2.0f) / 30.0f;
+
 		Container->AddSlot()
 		.AutoWidth()
 		[
-			SNew(SBox)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+				.Text(this, &SULobbyMatchSetupPanel::GetMaxPlayerLabel)
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(100.0f)
+				.Content()
+				[
+					SNew(SSlider)
+					.Orientation(Orient_Horizontal)
+					.Value(MaxPlayerValue)
+					.OnValueChanged(this, &SULobbyMatchSetupPanel::OnMaxPlayersChanged)
+				]
+			]
 		];
 	}
 
 	return Container.ToSharedRef();
+}
+
+FText SULobbyMatchSetupPanel::GetMaxPlayerLabel() const
+{
+	return FText::Format(NSLOCTEXT("LobbyMatchPanel","MaxPlayerFormat","Max Players: {0}  "), FText::AsNumber(MatchInfo->MaxPlayers));
+}
+
+void SULobbyMatchSetupPanel::OnMaxPlayersChanged(float NewValue)
+{
+	float NoPlayers = (30.0f * NewValue) + 2.0f;
+	MatchInfo->SetMaxPlayers(int32(NoPlayers));
 }
 
 FString SULobbyMatchSetupPanel::GetGameModeText() const
@@ -209,6 +244,14 @@ void SULobbyMatchSetupPanel::OnMatchGameModeChanged()
 	if (!bIsHost && MatchInfo.IsValid())
 	{
 		ChangeGameModePanel();
+	}
+}
+
+void SULobbyMatchSetupPanel::JoinAnyTimeChanged(ECheckBoxState NewState)
+{
+	if (MatchInfo.IsValid())
+	{
+		MatchInfo->bJoinAnytime = NewState == ESlateCheckBoxState::Checked;
 	}
 }
 

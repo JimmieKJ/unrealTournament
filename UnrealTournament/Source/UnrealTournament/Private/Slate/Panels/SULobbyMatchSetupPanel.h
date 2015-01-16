@@ -88,6 +88,10 @@ protected:
 	TSharedPtr<SWidget> Settings;
 	
 	TSharedRef<SWidget> BuildHostOptionWidgets();
+	void JoinAnyTimeChanged(ECheckBoxState NewState);
+
+	FText GetMaxPlayerLabel() const;
+	void OnMaxPlayersChanged(float NewValue);
 };
 
 #endif

@@ -171,7 +171,7 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildGamePanel()
 			SNew(SHorizontalBox)	
 			+SHorizontalBox::Slot()
 			.FillWidth(0.5)
-			.Padding(0.0,5.0,0.0,5.0)
+			.Padding(0.0,5.0,25.0,5.0)
 			[
 				SAssignNew(OptionsPanel, SVerticalBox)
 			]

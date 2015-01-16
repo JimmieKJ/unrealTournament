@@ -504,7 +504,7 @@ public:
 	int32 MaxLobbyPlayers;
 
 	UPROPERTY(Config)
-	bool bLobbyDefaultsToAllowJoinInProgress;
+	bool bLobbyAllowJoinInProgress;
 
 
 protected:

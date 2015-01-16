@@ -35,6 +35,9 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	// and given static NetGUIDs. This also causes their deletions to be recorded and sent to new clients, which if unlucky due to name conflicts,
 	// may end up deleting the new PlayerStates they had just spaned.
 	bNetLoadOnClient = false;
+
+	MaxPlayers = 2;
+
 }
 
 
@@ -50,7 +53,6 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchGameMode);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchMap);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchOptions);
-	DOREPLIFETIME(AUTLobbyMatchInfo, MaxPlayers);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Players);
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
 }
@@ -435,4 +437,10 @@ void AUTLobbyMatchInfo::BuildAllowedMapsList()
 			}
 		}
 	}
+}
+
+bool AUTLobbyMatchInfo::ServerSetMaxPlayers_Validate(int32 NewMaxPlayers) { return true; }
+void AUTLobbyMatchInfo::ServerSetMaxPlayers_Implementation(int32 NewMaxPlayers)
+{
+	MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2, 32);
 }

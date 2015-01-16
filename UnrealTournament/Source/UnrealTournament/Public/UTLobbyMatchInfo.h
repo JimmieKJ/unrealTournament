@@ -112,8 +112,8 @@ public:
 	UPROPERTY(Replicated)
 	int32 MinPlayers;
 
-	// Number of players in this Match Lobby
-	UPROPERTY(Replicated)
+	// Number of players in this Match Lobby.  This valie us set on the Host and replicated to the server
+	// via a function call.  It is NOT replicated to clients.
 	int32 MaxPlayers;
 
 	// A list of players in this lobby
@@ -156,6 +156,16 @@ public:
 	// Called when the Host changes an option.  
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchOptionsChanged(const FString& NewMatchOptions);
+
+	virtual void SetMaxPlayers(int32 NewMaxPlayers)
+	{
+		MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2 , 32);
+		ServerSetMaxPlayers(MaxPlayers);
+	}
+
+	// Called when the Host wants to set the MAX # of players in this match
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetMaxPlayers(int32 NewMaxPlayers);
 
 	// Allows the current panel to trigger when something has changed
 	FOnMatchInfoGameModeChanged OnMatchGameModeChanged;
