@@ -7,8 +7,8 @@
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
 #include "UTDamageType.h"
+#include "UTHat.h"
 #include "UTPlayerState.generated.h"
-
 
 USTRUCT(BlueprintType)
 struct FWeaponSpree
@@ -185,7 +185,7 @@ public:
 	TSubclassOf<AUTHat> HatClass;
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveHatClass(TSubclassOf<AUTHat> NewHatClass);
+	virtual void ServerReceiveHatClass(const FString& NewHatClass);
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;

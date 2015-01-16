@@ -251,22 +251,23 @@ void AUTPlayerState::Tick(float DeltaTime)
 	}
 }
 
-void AUTPlayerState::ServerReceiveHatClass_Implementation(TSubclassOf<AUTHat> NewHatClass)
+void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
-	HatClass = NewHatClass;
+	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
+	
 	AController* Controller = Cast<AController>(GetOwner());
 	if (Controller != NULL)
 	{
 		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
 		if (Pawn != NULL)
 		{
-			Pawn->HatClass = NewHatClass;
+			Pawn->HatClass = HatClass;
 			Pawn->OnRepHat();
 		}
 	}
 }
 
-bool AUTPlayerState::ServerReceiveHatClass_Validate(TSubclassOf<AUTHat> NewHatClass)
+bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 {
 	return true;
 }
@@ -454,7 +455,7 @@ void AUTPlayerState::BeginPlay()
 			UClass* HatClass = LoadClass<AUTHat>(NULL, *ProfileSettings->GetHatPath(), NULL, LOAD_NoWarn, NULL);
 			if (HatClass)
 			{
-				ServerReceiveHatClass(HatClass);
+				ServerReceiveHatClass(ProfileSettings->GetHatPath());
 			}
 		}
 	}

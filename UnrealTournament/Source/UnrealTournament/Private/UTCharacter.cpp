@@ -1341,6 +1341,12 @@ void AUTCharacter::Destroyed()
 		HolsteredWeaponAttachment = NULL;
 	}
 
+	if (Hat != NULL)
+	{
+		Hat->Destroy();
+		Hat = NULL;
+	}
+
 	if (GetWorld()->GetNetMode() != NM_DedicatedServer && GEngine->GetWorldContextFromWorld(GetWorld()) != NULL) // might not be able to get world context when exiting PIE
 	{
 		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
@@ -2154,6 +2160,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HatFlashCount, COND_Custom);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
