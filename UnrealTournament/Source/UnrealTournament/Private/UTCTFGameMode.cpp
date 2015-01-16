@@ -77,7 +77,7 @@ void AUTCTFGameMode::InitGameState()
 
 void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
-	if (Holder != NULL && Holder->Team != NULL)
+	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchAtHalftime() && GetMatchState() != MatchState::MatchEnteringHalftime)
 	{
 		float DistanceFromHome = (GameObject->GetActorLocation() - CTFGameState->FlagBases[GameObject->GetTeamNum()]->GetActorLocation()).SizeSquared();
 		float DistanceFromScore = (GameObject->GetActorLocation() - CTFGameState->FlagBases[1 - GameObject->GetTeamNum()]->GetActorLocation()).SizeSquared();
@@ -115,13 +115,29 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 						{
 							UE_LOG(UT,Verbose,TEXT("    Player %s received %i"), *PS->PlayerName, ProximityReturnBonus);
 							PS->AdjustScore(ProximityReturnBonus);
-							PS->Assists++;
+							//PS->Assists++; // TODO: some other stat? people expect an assist implies a scoring play
 						}
 					}
 				}
 			}
+			// if all flags are returned, end advantage time right away
+			if (CTFGameState->bPlayingAdvantage)
+			{
+				bool bAllHome = true;
+				for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
+				{
+					if (Base != NULL && Base->GetCarriedObjectState() != CarriedObjectState::Home)
+					{
+						bAllHome = false;
+						break;
+					}
+				}
+				if (bAllHome)
+				{
+					EndOfHalf();
+				}
+			}
 		}
-
 		else if (Reason == FName("FlagCapture"))
 		{
 			FCTFScoringPlay NewScoringPlay;
@@ -212,14 +228,21 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			else
 			{
 				CheckScore(Holder);
+				// any cap ends advantage time immediately
+				// warning: CheckScore() could have ended the match already
+				if (CTFGameState->bPlayingAdvantage && !CTFGameState->HasMatchEnded())
+				{
+					EndOfHalf();
+				}
 			}
 		}
 
 		UE_LOG(UT,Verbose,TEXT("========================================="));
-	}
-	if (BaseMutator != NULL)
-	{
-		BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+		
+		if (BaseMutator != NULL)
+		{
+			BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+		}
 	}
 }
 
