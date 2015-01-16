@@ -821,18 +821,6 @@ void AUTGameMode::FindAndMarkHighScorer()
 		AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (PS != nullptr)
 		{
-			// Clear previous high scores
-			PS->bHasHighScore = false;
-			AController *C = Cast<AController>(PS->GetOwner());
-			if (C != nullptr)
-			{
-				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
-				if (UTChar)
-				{
-					UTChar->bHasHighScore = false;
-				}
-			}
-
 			if (BestScore == 0 || PS->Score > BestScore)
 			{
 				BestScore = PS->Score;
@@ -843,16 +831,31 @@ void AUTGameMode::FindAndMarkHighScorer()
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AController *C = Cast<AController>(PS->GetOwner());
 		if (PS != nullptr && PS->Score == BestScore)
 		{
 			PS->bHasHighScore = true;
-			AController *C = Cast<AController>(PS->GetOwner());
 			if (C != nullptr)
 			{
 				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
-				if (UTChar)
+				if (UTChar && !UTChar->bHasHighScore)
 				{
 					UTChar->bHasHighScore = true;
+					UTChar->HasHighScoreChanged();
+				}
+			}
+		}
+		else
+		{
+			// Clear previous high scores
+			PS->bHasHighScore = false;
+			if (C != nullptr)
+			{
+				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
+				if (UTChar && UTChar->bHasHighScore)
+				{
+					UTChar->bHasHighScore = false;
+					UTChar->HasHighScoreChanged();
 				}
 			}
 		}
