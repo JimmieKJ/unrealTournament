@@ -83,6 +83,14 @@ void AUTWorldSettings::BeginPlay()
 		UE_LOG(UT, Warning, TEXT("************************************Set Net Version %d"), GEngineNetVersion);
 	}
 
+	if (Music != NULL && GetNetMode() != NM_DedicatedServer)
+	{
+		MusicComp = ConstructObject<UAudioComponent>(UAudioComponent::StaticClass(), this);
+		MusicComp->bAllowSpatialization = false;
+		MusicComp->SetSound(Music);
+		MusicComp->Play();
+	}
+
 	Super::BeginPlay();
 
 	if (!bPendingKillPending)

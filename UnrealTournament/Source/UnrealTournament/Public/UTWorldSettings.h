@@ -89,6 +89,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameSettings)
 	bool bAllowSideSwitching;
 
+	/** level music */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
+	USoundBase* Music;
+
+	UPROPERTY()
+	UAudioComponent* MusicComp;
+
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
 
