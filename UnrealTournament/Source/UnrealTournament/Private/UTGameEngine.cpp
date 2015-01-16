@@ -3,7 +3,6 @@
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
 #include "AssetRegistryModule.h"
-#include "IPlatformFilePak.h"
 
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -399,36 +398,56 @@ void UUTGameEngine::UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFr
 void UUTGameEngine::LoadDownloadedAssetRegistries()
 {
 	// Plugin manager should handle this instead of us, but we're not using plugin-based dlc just yet
-	// Maybe this should just traverse FPaths::GameSavedDir() / Paks instead of querying the platform file, then we don't have a pak file dependency
 	if (FPlatformProperties::RequiresCookedData())
 	{
-		FPakPlatformFile* PakFileService = (FPakPlatformFile*)FPlatformFileManager::Get().GetPlatformFile(TEXT("PakFile"));
-		if (PakFileService)
+		// Helper class to find all pak files.
+		class FPakFileSearchVisitor : public IPlatformFile::FDirectoryVisitor
 		{
-			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-			TArray<FString> Paks;
-			PakFileService->GetPakFilenames(Paks);
-
-			for (auto PakFilename : Paks)
+			TArray<FString>& FoundFiles;
+		public:
+			FPakFileSearchVisitor(TArray<FString>& InFoundFiles)
+				: FoundFiles(InFoundFiles)
+			{}
+			virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
 			{
-				PakFilename = FPaths::GetBaseFilename(PakFilename);
-				FArrayReader SerializedAssetData;
-				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-				if (DashPosition != -1)
+				if (bIsDirectory == false)
 				{
-					PakFilename = PakFilename.Left(DashPosition);
-					if (!PakFilename.Equals(TEXT("UnrealTournament"), ESearchCase::IgnoreCase))
+					FString Filename(FilenameOrDirectory);
+					if (Filename.MatchesWildcard(TEXT("*.pak")))
 					{
-						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
-						{
-							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-							AssetRegistryModule.Get().Serialize(SerializedAssetData);
-						}
-						else
-						{
-							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
-						}
+						FoundFiles.Add(Filename);
+					}
+				}
+				return true;
+			}
+		};
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+
+		// Search for pak files that were downloaded through redirects
+		TArray<FString>	FoundPaks;
+		FPakFileSearchVisitor PakVisitor(FoundPaks);
+		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks")), PakVisitor);
+		for (const auto& PakPath : FoundPaks)
+		{
+			FString PakFilename = FPaths::GetBaseFilename(PakPath);
+			FArrayReader SerializedAssetData;
+			int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+			if (DashPosition != -1)
+			{
+				PakFilename = PakFilename.Left(DashPosition);
+				if (!PakFilename.Equals(TEXT("UnrealTournament"), ESearchCase::IgnoreCase))
+				{
+					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+					{
+						// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+						AssetRegistryModule.Get().Serialize(SerializedAssetData);
+					}
+					else
+					{
+						UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
 					}
 				}
 			}
