@@ -54,6 +54,8 @@ class UUTProfileSettings : public UObject
 	 **/
 	FString GetPlayerName() { return PlayerName; };
 
+	FString GetHatPath() { return Hat; }
+
 	/**
 	 *	Apply any settings stored in this profile object
 	 **/
@@ -122,10 +124,10 @@ protected:
 	uint32 bTapCrouchToSlide : 1;
 
 	UPROPERTY()
-		uint32 bAutoSlide : 1;
+	uint32 bAutoSlide : 1;
 
 	UPROPERTY()
-		uint32 bSingleTapAfterJump : 1;
+	uint32 bSingleTapAfterJump : 1;
 
 	UPROPERTY()
 	FKey ConsoleKey;
@@ -149,4 +151,6 @@ protected:
 	UPROPERTY()
 	float PlayerFOV;
 
+	UPROPERTY()
+	FString Hat;
 };

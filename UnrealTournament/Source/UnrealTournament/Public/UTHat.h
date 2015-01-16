@@ -2,11 +2,10 @@
 
 #pragma once
 
-#include "Engine/StaticMeshActor.h"
 #include "UTHat.generated.h"
 
 UCLASS(Blueprintable)
-class UNREALTOURNAMENT_API AUTHat : public AStaticMeshActor
+class UNREALTOURNAMENT_API AUTHat : public AActor
 {
 	GENERATED_UCLASS_BODY()
 };

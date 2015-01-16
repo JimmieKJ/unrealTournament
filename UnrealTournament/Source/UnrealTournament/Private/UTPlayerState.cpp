@@ -6,6 +6,7 @@
 #include "Engine/LocalPlayer.h"
 #include "Net/UnrealNetwork.h"
 #include "UTGameMessage.h"
+#include "UTHat.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -234,6 +235,26 @@ void AUTPlayerState::Tick(float DeltaTime)
 	}
 }
 
+void AUTPlayerState::ServerReceiveHatClass_Implementation(TSubclassOf<AUTHat> NewHatClass)
+{
+	HatClass = NewHatClass;
+	AController* Controller = Cast<AController>(GetOwner());
+	if (Controller != NULL)
+	{
+		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+		if (Pawn != NULL)
+		{
+			Pawn->HatClass = NewHatClass;
+			Pawn->OnRepHat();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveHatClass_Validate(TSubclassOf<AUTHat> NewHatClass)
+{
+	return true;
+}
+
 /** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have 
     have a proper ID available.  */
 void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
@@ -367,6 +388,13 @@ void AUTPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
 
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	UUTLocalPlayer* LP = nullptr;
+	if (PC != nullptr)
+	{
+		LP = Cast<UUTLocalPlayer>(PC->Player);
+	}
+
 	bool bFoundStatsId = false;
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
@@ -383,20 +411,15 @@ void AUTPlayerState::BeginPlay()
 			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate(OnWriteUserFileCompleteDelegate);
 		}
 
-		APlayerController* PC = Cast<APlayerController>(GetOwner());
-		if (OnlineIdentityInterface.IsValid() && PC != nullptr)
+		if (OnlineIdentityInterface.IsValid() && LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 		{
-			ULocalPlayer* LP = Cast<ULocalPlayer>(PC->Player);
-			if (LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
+			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+			if (UserId.IsValid())
 			{
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-				if (UserId.IsValid())
-				{
-					ServerReceiveStatsID(UserId->ToString());
-					bFoundStatsId = true;
-				}
+				ServerReceiveStatsID(UserId->ToString());
+				bFoundStatsId = true;
 			}
-		}
+		}		
 	}
 		
 	if (Role == ROLE_Authority && StatManager == nullptr)
@@ -404,6 +427,20 @@ void AUTPlayerState::BeginPlay()
 		//Make me a statmanager
 		StatManager = ConstructObject<UStatManager>(UStatManager::StaticClass(), this);
 		StatManager->InitializeManager(this);
+	}
+
+	// Use the chosen hat
+	if (LP != nullptr)
+	{
+		UUTProfileSettings* ProfileSettings = LP->GetProfileSettings();
+		if (ProfileSettings)
+		{
+			UClass* HatClass = LoadClass<AUTHat>(NULL, *ProfileSettings->GetHatPath(), NULL, LOAD_NoWarn, NULL);
+			if (HatClass)
+			{
+				ServerReceiveHatClass(HatClass);
+			}
+		}
 	}
 }
 

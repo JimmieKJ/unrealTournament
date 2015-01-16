@@ -181,6 +181,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveStatsID(const FString& NewStatsID);
 
+	UPROPERTY()
+	TSubclassOf<AUTHat> HatClass;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveHatClass(TSubclassOf<AUTHat> NewHatClass);
+
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;
 

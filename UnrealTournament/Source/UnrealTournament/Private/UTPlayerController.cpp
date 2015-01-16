@@ -1411,6 +1411,16 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 			UTChar->HasHighScoreChanged();
 		}
 	}
+
+	if (UTPlayerState->HatClass)
+	{
+		AUTCharacter *UTChar = Cast<AUTCharacter>(GetPawn());
+		if (UTChar != nullptr)
+		{
+			UTChar->HatClass = UTPlayerState->HatClass;
+			UTChar->OnRepHat();
+		}
+	}
 }
 
 void AUTPlayerController::PawnLeavingGame()

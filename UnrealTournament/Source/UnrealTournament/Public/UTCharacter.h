@@ -4,6 +4,7 @@
 #include "UTCarriedObject.h"
 #include "UTCharacterMovement.h"
 #include "UTRecastNavMesh.h"
+#include "UTHat.h"
 
 #include "UTCharacter.generated.h"
 
@@ -279,6 +280,15 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly)
 	class UUTCharacterMovement* UTCharacterMovement;
 
+	UPROPERTY(replicatedUsing=OnRepHat)
+	TSubclassOf<AUTHat> HatClass;
+
+	UPROPERTY()
+	AUTHat* Hat;
+
+	UFUNCTION()
+	virtual void OnRepHat();
+	
 	UPROPERTY(replicatedUsing=OnRepEmote)
 	FEmoteRepInfo EmoteReplicationInfo;
 	
