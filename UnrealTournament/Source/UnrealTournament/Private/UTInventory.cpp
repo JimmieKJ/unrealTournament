@@ -257,6 +257,11 @@ void AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 {
 }
 
+bool AUTInventory::HandleArmorEffects(AUTCharacter* HitPawn) const
+{
+	return PlayArmorEffects(HitPawn);
+}
+
 bool AUTInventory::PlayArmorEffects_Implementation(AUTCharacter* HitPawn) const
 {
 	return false;

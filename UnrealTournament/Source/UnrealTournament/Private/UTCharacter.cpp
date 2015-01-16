@@ -816,7 +816,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		bool bPlayedArmorEffect = (LastTakeHitInfo.HitArmor != NULL) ? LastTakeHitInfo.HitArmor.GetDefaultObject()->PlayArmorEffects(this) : false;
+		bool bPlayedArmorEffect = (LastTakeHitInfo.HitArmor != NULL) ? LastTakeHitInfo.HitArmor.GetDefaultObject()->HandleArmorEffects(this) : false;
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
 		if (UTDmg != NULL)
 		{

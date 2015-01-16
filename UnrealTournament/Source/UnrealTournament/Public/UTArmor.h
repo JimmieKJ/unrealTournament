@@ -1,7 +1,6 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
 #include "UTArmor.generated.h"
 
 UCLASS(MinimalAPI, Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
@@ -12,12 +11,15 @@ class AUTArmor : public AUTInventory
 	/** armor amount remaining */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Armor)
 	int32 ArmorAmount;
+
 	/** percentage of incoming damage redirected to armor */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Armor, Meta = (UIMin = 0.0, UIMax = 1.0))
 	float AbsorptionPct;
+
 	/** whether to also absorb momentum by the same percentage that damage is absorbed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Armor)
 	bool bAbsorbMomentum;
+
 	/** character overlay applied while this armor is equipped */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
@@ -26,10 +28,17 @@ class AUTArmor : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Armor)
 	FName ArmorType;
 
+	/** Effect to spawn on armor hit. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Armor)
+	UParticleSystem* ArmorImpactEffect;
+
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{
 		GS->AddOverlayMaterial(OverlayMaterial);
 	}
+
+	/** Handles any C++ generated effects, calls blueprint PlayArmorEffects */
+	bool HandleArmorEffects(AUTCharacter* HitPawn) const override;
 
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual void Removed() override;

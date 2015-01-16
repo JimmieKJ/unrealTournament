@@ -132,3 +132,21 @@ float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, fl
 		return Desire;
 	}
 }
+
+bool AUTArmor::HandleArmorEffects(AUTCharacter* HitPawn) const
+{
+	bool bResult = false;
+	if (ArmorImpactEffect && HitPawn && !HitPawn->IsPendingKillPending())
+	{
+		bResult = true;
+		FVector WorldHitLocation = HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation;
+		FVector CenterLocation = HitPawn->GetActorLocation();
+		CenterLocation.Z = WorldHitLocation.Z;  
+		UGameplayStatics::SpawnEmitterAtLocation(HitPawn->GetWorld(), ArmorImpactEffect, WorldHitLocation, FRotationMatrix::MakeFromZ(WorldHitLocation - CenterLocation).Rotator(), true);
+	}
+	if (PlayArmorEffects(HitPawn))
+	{
+		return true;
+	}
+	return bResult;
+}

@@ -127,6 +127,10 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	bool PlayArmorEffects(AUTCharacter* HitPawn) const;
+
+	/** Handles any C++ generated effects, calls blueprint PlayArmorEffects */
+	virtual bool HandleArmorEffects(AUTCharacter* HitPawn) const;
+
 	/** return true to prevent an incoming head shot
 	* if bConsumeArmor is true, prevention should also consume the item (or a charge or whatever mechanic of degradation is being used)
 	*/
