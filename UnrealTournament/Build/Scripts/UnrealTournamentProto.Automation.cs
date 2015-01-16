@@ -344,8 +344,17 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
                     P4.ReconcileNoDeletes(AssetRegCL, Filename);
                 }
             }
-            int SubmittedCL;
-            P4.Submit(AssetRegCL, out SubmittedCL, true, true);
+            var Pending;
+            if (P4.ChangeFiles(AssetRegCL, out Pending).Count == 0)
+            {
+                Log("************************* No files to submit.");
+                P4.DeleteChange(WorkingCL);
+            }
+            else
+            {
+                int SubmittedCL;
+                P4.Submit(AssetRegCL, out SubmittedCL, true, true);
+            }
         }
 	}
 }
