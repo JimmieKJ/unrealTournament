@@ -74,6 +74,7 @@ class UUTGameEngine : public UGameEngine
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const override;
 	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true) override;
 	virtual void LoadDownloadedPakFiles();
+	virtual void LoadDownloadedAssetRegistries();
 
 	UT_LOADMAP_DEFINITION()
 };

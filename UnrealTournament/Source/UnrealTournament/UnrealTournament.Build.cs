@@ -23,7 +23,7 @@ public class UnrealTournament : ModuleRules
         }
 
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "OnlineSubsystem", "OnlineSubsystemUtils", "RenderCore", "Navmesh", "WebBrowser", "Json", "HTTP", "UMG" });
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "PakFile" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer" });

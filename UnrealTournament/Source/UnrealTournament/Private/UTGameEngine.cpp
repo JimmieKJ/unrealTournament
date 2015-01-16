@@ -2,6 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
+#include "AssetRegistryModule.h"
+#include "IPlatformFilePak.h"
 
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -54,6 +56,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	}
 
 	LoadDownloadedPakFiles();
+	LoadDownloadedAssetRegistries();
 
 	FUTAnalytics::Initialize();
 	Super::Init(InEngineLoop);
@@ -431,6 +434,46 @@ void UUTGameEngine::LoadDownloadedPakFiles()
 			if (FCoreDelegates::OnMountPak.IsBound())
 			{
 				FCoreDelegates::OnMountPak.Execute(PakPath, 0);
+			}
+		}
+	}
+}
+
+void UUTGameEngine::LoadDownloadedAssetRegistries()
+{
+	// Plugin manager should handle this instead of us, but we're not using plugin-based dlc just yet
+
+	if (FPlatformProperties::RequiresCookedData())
+	{
+		FPakPlatformFile* PakFileService = (FPakPlatformFile*)FPlatformFileManager::Get().GetPlatformFile(TEXT("PakFile"));
+		if (PakFileService)
+		{
+			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+			TArray<FString> Paks;
+			PakFileService->GetPakFilenames(Paks);
+
+			for (auto PakFilename : Paks)
+			{
+				PakFilename = FPaths::GetBaseFilename(PakFilename);
+				FArrayReader SerializedAssetData;
+				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+				if (DashPosition != -1)
+				{
+					PakFilename = PakFilename.Left(DashPosition);
+					if (!PakFilename.Equals(TEXT("UnrealTournament"), ESearchCase::IgnoreCase))
+					{
+						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+						{
+							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+							AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						}
+					}
+				}
 			}
 		}
 	}
