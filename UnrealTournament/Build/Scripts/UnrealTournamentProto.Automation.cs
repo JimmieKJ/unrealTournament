@@ -320,21 +320,29 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         // Submit release version assetregistry.bin
         if (P4Enabled && !String.IsNullOrEmpty(Params.CreateReleaseVersion))
         {
+            Log("************************* Submitting AssetRegistry.bin files");
             int AssetRegCL = P4.CreateChange(P4Env.Client, String.Format("UnrealTournamentBuild AssetRegistry build built from changelist {0}", P4Env.Changelist));
             if (AssetRegCL > 0)
             {
                 var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
 
-                var Filename = CombinePaths(ReleasePath, "WindowsNoEditor", "AssetRegistry.bin");
+                var Filenames = new string[] { CombinePaths(ReleasePath, "WindowsNoEditor", "AssetRegistry.bin"),
+                                               CombinePaths(ReleasePath, "MacNoEditor", "AssetRegistry.bin"),
+                                               CombinePaths(ReleasePath, "LinuxServer", "AssetRegistry.bin"), 
+                                               CombinePaths(ReleasePath, "WindowsServer", "AssetRegistry.bin"),  
+                                               CombinePaths(ReleasePath, "LinuxNoEditor", "AssetRegistry.bin") };
 
-                P4.Sync("-f -k " + Filename + "#head"); // sync the file without overwriting local one
-
-                if (!FileExists(Filename))
+                foreach (string Filename in Filenames)
                 {
-                    throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", Filename);
-                }
+                    P4.Sync("-f -k " + Filename + "#head"); // sync the file without overwriting local one
 
-                P4.ReconcileNoDeletes(WorkingCL, Filename);
+                    if (!FileExists(Filename))
+                    {
+                        throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", Filename);
+                    }
+
+                    P4.ReconcileNoDeletes(AssetRegCL, Filename);
+                }
             }
             int SubmittedCL;
             P4.Submit(AssetRegCL, out SubmittedCL, true, true);
