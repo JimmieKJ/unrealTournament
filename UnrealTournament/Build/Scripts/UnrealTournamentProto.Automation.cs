@@ -332,7 +332,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
                 foreach (string Platform in Platforms)
                 {
                     string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
-                    CommandUtils.RenameFile(CombinePaths(SavedPath, Platform, "Releases", Params.CreateReleaseVersion, "AssetRegistry.bin"), Filename);
+                    CommandUtils.CopyFile_NoExceptions(CombinePaths(SavedPath, Platform, "Releases", Params.CreateReleaseVersion, "AssetRegistry.bin"), Filename);
 
                     P4.Sync("-f -k " + Filename + "#head"); // sync the file without overwriting local one
 
