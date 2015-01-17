@@ -18,6 +18,7 @@
 #include "UTGameEngine.h"
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
+#include "Panels/SUWCreditsPanel.h"
 
 #if !UE_SERVER
 
@@ -654,13 +655,12 @@ FReply SUWindowsMainMenu::OpenTPSReport(TSharedPtr<SComboButton> MenuButton)
 FReply SUWindowsMainMenu::OpenCredits(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	PlayerOwner->OpenDialog(
-							SNew(SUWMessageBox)
-							.PlayerOwner(PlayerOwner)
-							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "CreditsTitle", "Credits"))
-							.MessageText(NSLOCTEXT("SUWindowsDesktop", "CreditsText", "Coming Soon!"))
-							.ButtonMask(UTDIALOG_BUTTON_OK)
-							);
+
+	TSharedPtr<class SUWCreditsPanel> CreditsPanel = PlayerOwner->GetCreditsPanel();
+	if (CreditsPanel.IsValid())
+	{
+		ActivatePanel(CreditsPanel);
+	}
 	return FReply::Handled();
 }
 

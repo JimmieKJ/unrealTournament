@@ -69,6 +69,7 @@ public:
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
 	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
+	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
 	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
 	{
@@ -89,6 +90,7 @@ protected:
 	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
 
 	TSharedPtr<class SUWStatsViewer> StatsViewerWidget;
+	TSharedPtr<class SUWCreditsPanel> CreditsPanelWidget;
 
 	/** stores a reference to open dialogs so they don't get destroyed */
 	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;

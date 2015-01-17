@@ -12,6 +12,7 @@
 #include "Slate/SUWindowsMidGame.h"
 #include "Slate/Panels/SUWServerBrowser.h"
 #include "Slate/Panels/SUWStatsViewer.h"
+#include "Slate/Panels/SUWCreditsPanel.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SUWDialog.h"
@@ -315,6 +316,17 @@ TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
 	}
 
 	return StatsViewerWidget;
+}
+
+TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
+{
+	if (!CreditsPanelWidget.IsValid())
+	{
+		SAssignNew(CreditsPanelWidget, SUWCreditsPanel)
+			.PlayerOwner(this);
+	}
+
+	return CreditsPanelWidget;
 }
 
 #endif
