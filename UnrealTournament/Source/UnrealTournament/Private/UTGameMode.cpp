@@ -1335,7 +1335,7 @@ FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const
 	FString ErrorMessage = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 
 	AUTPlayerState* NewPlayerState = Cast<AUTPlayerState>(NewPlayerController->PlayerState);
-	if (bHasRespawnChoices && NewPlayerState)
+	if (bHasRespawnChoices && NewPlayerState && !NewPlayerState->bIsSpectator)
 	{
 		NewPlayerState->RespawnChoiceA = nullptr;
 		NewPlayerState->RespawnChoiceB = nullptr;
