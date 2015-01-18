@@ -312,11 +312,6 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon, bool bUseClassicGroups)
 	}
 }
 
-float AUTWeapon::GetAutoSwitchPriority()
-{
-	return (AutoSwitchPriority > 0.0f) ? AutoSwitchPriority : (float(Group) + float(GroupSlot) * 0.01f);
-}
-
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
 	if (!UTOwner->IsFiringDisabled())

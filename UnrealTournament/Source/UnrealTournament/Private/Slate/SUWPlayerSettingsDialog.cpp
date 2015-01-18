@@ -86,7 +86,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	{
 		for (int32 i=0;i<WeaponList.Num();i++)
 		{
-			float Pri = ProfileSettings->GetWeaponPriority(GetNameSafe(WeaponList[i]), WeaponList[i]->GetDefaultObject<AUTWeapon>()->GetAutoSwitchPriority());
+			float Pri = ProfileSettings->GetWeaponPriority(GetNameSafe(WeaponList[i]), WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
 			WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = Pri;
 		}
 	}
@@ -95,7 +95,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	{
 		bool operator()(UClass& A, UClass& B) const
 		{
-			return (A.GetDefaultObject<AUTWeapon>()->GetAutoSwitchPriority() > B.GetDefaultObject<AUTWeapon>()->GetAutoSwitchPriority());
+			return (A.GetDefaultObject<AUTWeapon>()->AutoSwitchPriority > B.GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
 		}
 	};
 	WeaponList.Sort(FWeaponListSort());

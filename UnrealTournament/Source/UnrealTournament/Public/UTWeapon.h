@@ -297,11 +297,6 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, Config, Transient, BlueprintReadOnly, Category = "Selection")
 	float AutoSwitchPriority;
 
-	/** return priority for human player auto weapon switch (on pickup if enabled, or switch to best weapon key)
-	 * highest value weapon is selected
-	 */
-	float GetAutoSwitchPriority();
-
 	/** Deactivate any owner spawn protection */
 	virtual void DeactivateSpawnProtection();
 
