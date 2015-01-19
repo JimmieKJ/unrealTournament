@@ -34,10 +34,17 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	virtual void Lobby_NotifyInstanceIsReady(uint32 InstanceID, FGuid InstanceGUID);
 
 	/**
-	 * Tells the Lobby to update it's description on the panel
+	 * Tells the Lobby to update it's description on the stats
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void Lobby_UpdateMatch(uint32 InstanceID, const FString& Update);
+
+	/**
+	 * Tells the Lobby to update it's badge
+	 **/
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void Lobby_UpdateBadge(uint32 InstanceID, const FString& Update);
+
 
 	/**
 	 *	Allows the instance to update the lobby regarding a given player.

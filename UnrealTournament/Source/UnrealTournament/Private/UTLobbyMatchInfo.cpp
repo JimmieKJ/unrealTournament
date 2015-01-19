@@ -41,6 +41,7 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchMap);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchOptions);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Players);
+	DOREPLIFETIME(AUTLobbyMatchInfo, MatchBadge);
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
 }
 
@@ -61,6 +62,7 @@ bool AUTLobbyMatchInfo::CheckLobbyGameState()
 
 void AUTLobbyMatchInfo::OnRep_MatchBadge()
 {
+
 }
 
 void AUTLobbyMatchInfo::OnRep_MatchOptions()
@@ -73,6 +75,14 @@ void AUTLobbyMatchInfo::UpdateGameMode()
  	if (MatchGameMode == TEXT(""))
 	{
 		CurrentGameModeData.Reset();
+	}
+	else
+	{
+		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
+		if (DefaultGame)
+		{
+			MatchBadge = DefaultGame->GetHUBPregameFormatString();
+		}
 	}
 }
 

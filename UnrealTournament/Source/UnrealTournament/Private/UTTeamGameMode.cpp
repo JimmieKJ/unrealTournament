@@ -540,3 +540,15 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 		}
 	}
 }
+
+void AUTTeamGameMode::UpdateLobbyBadge()
+{
+	TArray<int32> Scores;
+	Scores.Add( UTGameState->Teams.Num() > 0 ? UTGameState->Teams[0]->Score : 0);
+	Scores.Add( UTGameState->Teams.Num() > 1 ? UTGameState->Teams[1]->Score : 0);
+
+	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - <UWindows.Standard.MatchBadge.Blue>%i</>"), *DisplayName.ToString(), Scores[0], Scores[1]);
+
+	LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+
+}

@@ -27,4 +27,6 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 
 protected:
 	virtual void UpdateLobbyMatchStats();
+	virtual void UpdateLobbyBadge();
+
 };

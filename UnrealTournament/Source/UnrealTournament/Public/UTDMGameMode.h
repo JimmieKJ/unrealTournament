@@ -21,6 +21,10 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 
 	UPROPERTY()
 	uint32 bPlayedOneKillRemains:1;
+
+protected:
+	virtual void UpdateLobbyBadge();
+
 };
 
 

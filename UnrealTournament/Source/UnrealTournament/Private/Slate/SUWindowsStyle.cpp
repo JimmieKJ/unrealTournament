@@ -663,14 +663,35 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	}
 
 	{ // Match Badge Styles
+
 		Style.Set("UWindows.Standard.MatchBadge", FTextBlockStyle()
 		.SetFont(TTF_FONT("Exo2-Medium", 14))
-		.SetColorAndOpacity(FLinearColor::White)
+		.SetColorAndOpacity(FLinearColor::Yellow)
 		);
 
 		Style.Set("UWindows.Standard.MatchBadge.Bold", FTextBlockStyle()
 		.SetFont(TTF_FONT("Exo2-Medium", 14))
-		.SetColorAndOpacity(FLinearColor::Yellow)
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+		Style.Set("UWindows.Standard.MatchBadge.Red", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetColorAndOpacity(FLinearColor::Red)
+		);
+
+		Style.Set("UWindows.Standard.MatchBadge.Blue", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetColorAndOpacity(FLinearColor(0.7, 0.7, 1.0, 1.0))
+		);
+
+		Style.Set("UWindows.Standard.MatchBadge.Header", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 18))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+		Style.Set("UWindows.Standard.MatchBadge.Small", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetColorAndOpacity(FLinearColor::White)
 		);
 	}
 

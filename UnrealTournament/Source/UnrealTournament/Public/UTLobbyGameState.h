@@ -185,6 +185,12 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	void GameInstance_MatchUpdate(uint32 GameInstanceID, const FString& NewDescription);
 
 	/**
+	 *	Called when an instance needs to update it's badge information
+	 **/
+	void GameInstance_MatchBadgeUpdate(uint32 GameInstanceID, const FString& NewDescription);
+
+
+	/**
 	 *	Called when an instance needs to update a player in a match's info
 	 **/
 	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore);

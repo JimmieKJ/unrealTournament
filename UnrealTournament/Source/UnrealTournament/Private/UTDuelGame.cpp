@@ -223,23 +223,11 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 
 void AUTDuelGame::UpdateLobbyMatchStats()
 {
+	Super::UpdateLobbyMatchStats();
 	if (LobbyBeacon)
 	{
 		FString MatchStats = FString::Printf(TEXT("ElpasedTime=%i"), GetWorld()->GetGameState()->ElapsedTime);
 		LobbyBeacon->UpdateMatch(MatchStats);
-
-		// Update the players
-
-		for (int i=0;i<UTGameState->PlayerArray.Num();i++)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PS && !PS->bIsSpectator)
-			{
-				int32 Score = int(PS->Score);
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
-			}
-		}
-
 	}
 }
 
@@ -254,4 +242,45 @@ void AUTDuelGame::UpdateSkillRating()
 		}
 	}
 }
+
+void AUTDuelGame::UpdateLobbyBadge()
+{
+	AUTPlayerState* RedPlayer = NULL;
+	AUTPlayerState* BluePlayer = NULL;
+	AUTPlayerState* P;
+
+	for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+	{
+		P = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (P && !P->bIsSpectator && !P->bOnlySpectator)
+		{
+			if (P->GetTeamNum() == 0) RedPlayer = P;
+			else if (P->GetTeamNum() == 1) BluePlayer = P;
+		}
+	}
+
+	if (RedPlayer && BluePlayer)
+	{
+		FString Update = TEXT("");
+		if (RedPlayer->Score >= BluePlayer->Score)
+		{
+			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%s\n(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Blue>%s\n(%i)</>\n"), *DisplayName.ToString(), 
+				*RedPlayer->PlayerName, 	int(RedPlayer->Score),
+				*BluePlayer->PlayerName,	int(BluePlayer->Score));
+		}
+		else
+		{
+			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Blue>%s\n(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Red>%s\n(%i)</>\n"), *DisplayName.ToString(), 
+				*BluePlayer->PlayerName, 	int(RedPlayer->Score),
+				*RedPlayer->PlayerName,	int(BluePlayer->Score));
+		}
+
+		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+
+
+	}
+
+
+}
+
 

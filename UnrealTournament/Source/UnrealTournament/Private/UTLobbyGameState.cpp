@@ -132,7 +132,27 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 		if (GM)
 		{
-			NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), true);
+			if (MatchInfo->bJoinAnytime)
+			{
+				 if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers)
+				 {
+					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), false);
+					return;
+				 }
+				 else
+				 {
+					NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
+					return;
+				 }
+			}
+
+			if (MatchInfo->bSpectatable)
+			{
+				NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), true);
+				return;
+			}
+
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchNoSpectate","This match doesn't allow spectating."));	
 			return;
 		}
 	}
@@ -280,6 +300,19 @@ void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 GameInstanceID, const FS
 		}
 	}
 }
+
+void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 GameInstanceID, const FString& Update)
+{
+	for (int32 i = 0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			GameInstances[i].MatchInfo->MatchBadge = Update;
+			break;
+		}
+	}
+}
+
 
 void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
 {

@@ -379,6 +379,7 @@ public:
 	 * add any such to the ConfigProps array so the menu maintains the shared pointer
 	 */
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
+	virtual FString GetHUBPregameFormatString();
 #endif
 
 	/**
@@ -506,10 +507,16 @@ protected:
 	// A Beacon for communicating back to the lobby
 	AUTServerBeaconLobbyClient* LobbyBeacon;
 
+	float LastLobbyUpdateTime;
+	virtual void ForceLobbyUpdate();
+
 	uint32 HostLobbyListenPort;
 
 	// Update the Lobby with the current stats of the game
 	virtual void UpdateLobbyMatchStats();
+
+	// Updates the badge for the Lobby.  This is called from UpdateLobbyMatchStats() and should be gametype specific
+	virtual void UpdateLobbyBadge();
 
 	virtual void SendEveryoneBackToLobby();
 
@@ -519,3 +526,4 @@ protected:
 
 
 };
+

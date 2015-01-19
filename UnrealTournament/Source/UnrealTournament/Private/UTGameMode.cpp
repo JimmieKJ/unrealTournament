@@ -579,7 +579,12 @@ void AUTGameMode::DefaultTimer()
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		UpdateLobbyMatchStats();
+
+		UE_LOG(UT,Log,TEXT("HERE %f vs %f"), GetWorld()->GetTimeSeconds(), LastLobbyUpdateTime);
+		if (GetWorld()->GetTimeSeconds() - LastLobbyUpdateTime >= 10.0f) // MAKE ME CONIFG!!!!
+		{
+			UpdateLobbyMatchStats();
+		}
 
 		// Look to see if we should time out this instance servers
 		if (!HasMatchStarted())
@@ -618,6 +623,12 @@ void AUTGameMode::DefaultTimer()
 		}
 	}
 }
+
+void AUTGameMode::ForceLobbyUpdate()
+{
+	LastLobbyUpdateTime = -10.0;
+}
+
 
 void AUTGameMode::Reset()
 {
@@ -2318,7 +2329,29 @@ FString AUTGameMode::GetRedirectURL(const FString& MapName) const
 
 void AUTGameMode::UpdateLobbyMatchStats()
 {
+	// Update the players
+
+	UE_LOG(UT,Log,TEXT("Sending update to the Lobby"));
+
+	for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && !PS->bIsSpectator)
+		{
+			int32 Score = int(PS->Score);
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
+		}
+	}
+
+	UpdateLobbyBadge();
+	LastLobbyUpdateTime = GetWorld()->GetTimeSeconds();
 }
+
+void AUTGameMode::UpdateLobbyBadge()
+{
+}
+
+
 
 void AUTGameMode::SendEveryoneBackToLobby()
 {
@@ -2351,3 +2384,7 @@ void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController
 	}
 }
 
+FString AUTGameMode::GetHUBPregameFormatString()
+{
+	return FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Small>Host</>\n<UWindows.Standard.MatchBadge>{Player0Name}</>\n\n<UWindows.Standard.MatchBadge.Small>({NumPlayers} Players)</>"), *DisplayName.ToString());
+}

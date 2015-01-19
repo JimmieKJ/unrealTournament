@@ -47,10 +47,9 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 						.HeightOverride(145)
 						.WidthOverride(145)
 						[
-
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
-							.Padding(5.0,5.0,5.0,0.0)
+							.Padding(5.0,0.0,5.0,0.0)
 							.VAlign(VAlign_Fill)
 							.HAlign(HAlign_Center)
 							[
@@ -150,7 +149,35 @@ FText SUMatchPanel::GetMatchBadgeText() const
 {
 	if (MatchInfo.IsValid())
 	{
-		return FText::FromString(MatchInfo->MatchBadge);
+		// Build the Args...
+
+		FFormatNamedArguments Args;
+
+		if (MatchInfo->CurrentState != ELobbyMatchState::InProgress)
+		{
+			for (int32 i = 0; i < MatchInfo->Players.Num(); i++)
+			{
+				if (MatchInfo->Players[i])
+				{
+					const FString Tag = FString::Printf(TEXT("Player%iName"), i);
+					Args.Add(Tag, FText::FromString(MatchInfo->Players[i]->PlayerName));
+				}
+			}
+	
+			Args.Add(TEXT("NumPlayers"), FText::AsNumber(MatchInfo->Players.Num()));
+		}
+		else
+		{
+			for (int32 i = 0; i < MatchInfo->PlayersInMatchInstance.Num(); i++)
+			{
+				const FString Tag = FString::Printf(TEXT("Player%iName"), i);
+				Args.Add(Tag, FText::FromString(MatchInfo->PlayersInMatchInstance[i].PlayerName));
+			}
+	
+			Args.Add(TEXT("NumPlayers"), FText::AsNumber(MatchInfo->PlayersInMatchInstance.Num()));
+		
+		}
+		return FText::Format(FText::FromString(MatchInfo->MatchBadge), Args);
 	}
 
 	return FText::GetEmpty();
