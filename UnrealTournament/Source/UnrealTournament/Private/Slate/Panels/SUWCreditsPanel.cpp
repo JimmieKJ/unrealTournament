@@ -25,7 +25,7 @@ void SUWCreditsPanel::ConstructPanel(FVector2D ViewportSize)
 				.HAlign(HAlign_Fill)
 				[
 					SAssignNew(CreditsWebBrowser, SWebBrowser)
-					.InitialURL(TEXT("http://epic.gm/launchercontribs"))
+					.InitialURL(TEXT("http://epic.gm/utcontrib"))
 					.ShowControls(false)
 				]
 			]
@@ -40,7 +40,7 @@ void SUWCreditsPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 	WebBrowserBox->AddSlot()
 	[
 		SAssignNew(CreditsWebBrowser, SWebBrowser)
-		.InitialURL(TEXT("http://epic.gm/launchercontribs"))
+		.InitialURL(TEXT("http://epic.gm/utcontrib"))
 		.ShowControls(false)
 	];
 }
