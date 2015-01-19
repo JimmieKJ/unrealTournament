@@ -388,6 +388,29 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 		NewPlayer->AddHostData(Option);
 	}
 
+	// if server .ini didn't define allowed maps, assume all maps are acceptable
+	if (AllowedMaps.Num() == 0)
+	{
+		TArray<FString> Paths;
+		FPackageName::QueryRootContentPaths(Paths);
+		int32 MapExtLen = FPackageName::GetMapPackageExtension().Len();
+		for (int32 i = 0; i < Paths.Num(); i++)
+		{
+			// ignore /Engine/ as those aren't real gameplay maps
+			if (!Paths[i].StartsWith(TEXT("/Engine/")))
+			{
+				TArray<FString> List;
+				FPackageName::FindPackagesInDirectory(List, *FPackageName::LongPackageNameToFilename(Paths[i]));
+				for (int32 j = 0; j < List.Num(); j++)
+				{
+					if (List[j].Right(MapExtLen) == FPackageName::GetMapPackageExtension())
+					{
+						AllowedMaps.Add(FPaths::GetBaseFilename(List[j]));
+					}
+				}
+			}
+		}
+	}
 	for (int32 i = 0; i < AllowedMaps.Num(); i++)
 	{
 		FString Option = FString::Printf(TEXT("map=%s"), *AllowedMaps[i]);

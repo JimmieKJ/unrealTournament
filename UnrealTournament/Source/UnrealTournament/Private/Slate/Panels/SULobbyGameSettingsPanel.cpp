@@ -204,23 +204,32 @@ void SULobbyGameSettingsPanel::BuildOptionsFromData()
 {
 	if (OptionsPanel.IsValid())
 	{
-		// Parse the options	
-		TArray<FString> Options;
-		MatchInfo->MatchOptions.ParseIntoArray(&Options, TEXT("?"), true);
-		for (int32 i=0; i<Options.Num();i++)
+		GameConfigProps.Empty();
+		if (MatchInfo.IsValid() && MatchInfo->CurrentGameModeData.IsValid() && MatchInfo->CurrentGameModeData->DefaultObject.IsValid())
 		{
-			TSharedPtr<FGameOption> Opt = MakeShareable(new FGameOption()); 
-			GameOptionData.Add(Opt);
-			Opt->ToOption(Options[i], bIsHost);
-			Opt->OnChangeDelegate.BindRaw(this, &SULobbyGameSettingsPanel::OnGameOptionChanged);
-
-			if (Opt->HostControl.IsValid())
+			MatchInfo->CurrentGameModeData->DefaultObject->CreateConfigWidgets(OptionsPanel, !bIsHost, GameConfigProps);
+			// parse options data
+			TArray<FString> Options;
+			MatchInfo->MatchOptions.ParseIntoArray(&Options, TEXT("?"), true);
+			for (const FString& Opt : Options)
 			{
-				OptionsPanel->AddSlot()
-				.AutoHeight()
-				[
-					GameOptionData[i]->HostControl.ToSharedRef()
-				];
+				FString Key, Value;
+				Opt.Split(TEXT("="), &Key, &Value);
+				for (TSharedPtr<TAttributePropertyBase> Prop : GameConfigProps)
+				{
+					if (Prop->GetURLKey() == Key)
+					{
+						Prop->SetFromString(Value);
+					}
+				}
+			}
+			if (bIsHost)
+			{
+				// set change delegates
+				for (TSharedPtr<TAttributePropertyBase> Prop : GameConfigProps)
+				{
+					Prop->OnChange.BindSP(SharedThis(this), &SULobbyGameSettingsPanel::OnGameOptionChanged);
+				}
 			}
 		}
 	}
@@ -358,13 +367,8 @@ void SULobbyGameSettingsPanel::OptionsChanged()
 {
 	if (!bIsHost)
 	{
-		// Remove what was already theere.
-		if (GameOptionData.Num() > 0)
-		{
-			GameOptionData.Empty();
-			OptionsPanel->ClearChildren();
-		}
-
+		// Remove what was already there and rebuild
+		OptionsPanel->ClearChildren();
 		BuildOptionsFromData();
 	}
 }
@@ -504,12 +508,12 @@ FText SULobbyGameSettingsPanel::GetMatchMessage() const
 
 void SULobbyGameSettingsPanel::OnGameOptionChanged()
 {
-	if (GameOptionData.Num() > 0)
+	if (GameConfigProps.Num() > 0)
 	{
-		FString NewOptions = GameOptionData[0]->ToString();
-		for (int32 i=1; i < GameOptionData.Num(); i++)
+		FString NewOptions = GameConfigProps[0]->GetURLString();
+		for (int32 i = 1; i < GameConfigProps.Num(); i++)
 		{
-			NewOptions += TEXT("?") + GameOptionData[i]->ToString();
+			NewOptions += TEXT("?") + GameConfigProps[i]->GetURLString();
 		}
 
 		MatchInfo->ServerMatchOptionsChanged(NewOptions);

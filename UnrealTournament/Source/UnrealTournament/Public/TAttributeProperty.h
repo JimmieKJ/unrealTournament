@@ -6,17 +6,33 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+DECLARE_DELEGATE(FAttributePropertyChangedDelegate);
+
+Expose_TFormatSpecifier(bool, "%d")
+
+// base class so we can store a TArray of the below without regard for template parameter
 struct TAttributePropertyBase
 {
-	// base class so we can store a TArray of the below without regard for template parameter
+	FAttributePropertyChangedDelegate OnChange;
+
+	// accessors used when the UI interacts with the URL instead of a config file (e.g. hub)
+	virtual FString GetURLString() const = 0;
+	virtual FString GetURLKey() const = 0;
+	virtual void SetFromString(const FString& InValue) = 0;
+
+	virtual ~TAttributePropertyBase()
+	{}
 };
 template<typename T>
 struct TAttributeProperty : public TAttributePropertyBase
 {
+protected:
 	TWeakObjectPtr<UObject> Obj;
 	T* Data;
-	TAttributeProperty(UObject* InObj, T* InData)
-		: Obj(InObj), Data(InData)
+	const TCHAR* URLKey;
+public:
+	TAttributeProperty(UObject* InObj, T* InData, const TCHAR* InURLKey = NULL)
+		: Obj(InObj), Data(InData), URLKey((InURLKey != NULL) ? InURLKey : TEXT("UNKNOWN"))
 	{
 		checkSlow(InObj != NULL);
 		checkSlow(InData != NULL);
@@ -44,6 +60,33 @@ struct TAttributeProperty : public TAttributePropertyBase
 			return T(0);
 		}
 	}
+	FText GetAsText() const
+	{
+		if (Obj.IsValid())
+		{
+			return FText::FromString(TTypeToString<T>::ToSanitizedString(*Data));
+		}
+		else
+		{
+			return FText();
+		}
+	}
+
+	/** returns key=value pair for use in travel URLs */
+	virtual FString GetURLString() const override
+	{
+		return GetURLKey() + TEXT("=") + (Obj.IsValid() ? TTypeToString<T>::ToSanitizedString(*Data).Replace(TEXT("?"), TEXT("-")) : FString(TEXT("0")));
+	}
+	virtual FString GetURLKey() const override
+	{
+		return FString(URLKey);
+	}
+	virtual void SetFromString(const FString& InValue) override
+	{
+		TTypeFromString<T>::FromString(*Data, *InValue);
+		OnChange.ExecuteIfBound();
+	}
+
 	void Set(T NewValue)
 	{
 		SetConstRef(NewValue);
@@ -54,22 +97,27 @@ struct TAttributeProperty : public TAttributePropertyBase
 		{
 			(*Data) = NewValue;
 		}
+		OnChange.ExecuteIfBound();
 	}
 };
 // extras for bools to convert to check box type
 struct TAttributePropertyBool : public TAttributeProperty<bool>
 {
-	TAttributePropertyBool(UObject* InObj, bool* InData)
-	: TAttributeProperty<bool>(InObj, InData)
+	TAttributePropertyBool(UObject* InObj, bool* InData, const TCHAR* InURLKey = NULL)
+	: TAttributeProperty<bool>(InObj, InData, InURLKey)
 	{}
 	ECheckBoxState GetAsCheckBox() const;
 	void SetFromCheckBox(ECheckBoxState CheckedState);
+	virtual FString GetURLString() const override
+	{
+		return GetURLKey() + TEXT("=") + ((Obj.IsValid() && *Data) ? TEXT("true") : TEXT("false"));
+	}
 };
 // extras for FStrings for FText conversion
 struct TAttributePropertyString : public TAttributeProperty<FString>
 {
-	TAttributePropertyString(UObject* InObj, FString* InData)
-	: TAttributeProperty<FString>(InObj, InData)
+	TAttributePropertyString(UObject* InObj, FString* InData, const TCHAR* InURLKey = NULL)
+	: TAttributeProperty<FString>(InObj, InData, InURLKey)
 	{}
 	FText GetAsText() const
 	{

@@ -508,7 +508,27 @@ void SUWCreateGameDialog::OnGameSelected(UClass* NewSelection, ESelectInfo::Type
 		}
 
 		SelectedGameClass = NewSelection;
-		SelectedGameClass.GetDefaultObject()->CreateConfigWidgets(GameConfigPanel, GameConfigProps);
+		SelectedGameClass.GetDefaultObject()->CreateConfigWidgets(GameConfigPanel, false, GameConfigProps);
+
+		TSharedPtr< TAttributePropertyBool > DemoRecAttr = MakeShareable(new TAttributePropertyBool(SelectedGameClass.GetDefaultObject(), &SelectedGameClass.GetDefaultObject()->bRecordDemo));
+		GameConfigProps.Add(DemoRecAttr);
+		GameConfigPanel->AddSlot()
+		.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Left)
+		[
+			SNew(SCheckBox)
+			.IsChecked(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+			.OnCheckStateChanged(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+			.Type(ESlateCheckBoxType::CheckBox)
+			.Content()
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::White)
+				.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
+			]
+		];
 
 		SelectedGameName->SetText(SelectedGameClass.GetDefaultObject()->DisplayName.ToString());
 
