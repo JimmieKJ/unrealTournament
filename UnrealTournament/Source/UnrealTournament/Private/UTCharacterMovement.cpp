@@ -117,6 +117,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	OutofWaterZ = 700.f;
 	JumpOutOfWaterPitch = -90.f;
 	bFallingInWater = false;
+
+	MaxPositionErrorSquared = 5.f;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
@@ -518,6 +520,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
 		{
+			//UE_LOG(UT, Warning, TEXT("Exceeded max wall dodges"));
 			return false;
 		}
 		// if falling/swimming, check if can perform wall dodge
@@ -535,6 +538,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		const bool bBlockingHit = GetWorld()->SweepSingle(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
 		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 		{
+			//UE_LOG(UT, Warning, TEXT("No wall to dodge"));
 			return false;
 		}
 		if ((Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal)
@@ -564,6 +568,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 
 	// perform the dodge
+	//UE_LOG(UT, Warning, TEXT("Imparted velocity"));
 	float VelocityZ = Velocity.Z;
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
@@ -651,15 +656,13 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	float CurrentMoveTime = GetCurrentSynchTime();
 	if (CharacterOwner->Role < ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f from %f %f %f vel %f %f %f wants to crouch %d sliding %d"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, bWantsToCrouch, bIsDodgeRolling);
+		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d"), CurrentMoveTime, DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling);
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("SERVER Move at %f from %f %f %f vel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), CurrentMoveTime, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
+		UE_LOG(UT, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), CurrentMoveTime, DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
 	}
 */
-	//UE_LOG(UT, Warning, TEXT("PerformMovement %f saved sprint start %f bIsSprinting %d"), GetCurrentMovementTime(), SprintStartTime, bIsSprinting);
-
 	Super::PerformMovement(DeltaSeconds);
 	bWantsToCrouch = bSavedWantsToCrouch;
 	GroundFriction = RealGroundFriction;
@@ -904,6 +907,7 @@ bool UUTCharacterMovement::CanMultiJump()
 
 void UUTCharacterMovement::ClearDodgeInput()
 {
+	//UE_LOG(UT, Warning, TEXT("ClearDodgeInput"));
 	bPressedDodgeForward = false;
 	bPressedDodgeBack = false;
 	bPressedDodgeLeft = false;
@@ -1271,19 +1275,17 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 	float remainingTime = deltaTime;
 	float timeTick = 0.1f;
-
-/*
+	/*
 	FVector Loc = CharacterOwner->GetActorLocation();
-	float CurrentMoveTime = GetCurrentSynchTime();
 	if (CharacterOwner->Role < ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("CLIENT Fall at %f from %f %f %f vel %f %f %f delta %f"), ClientData->CurrentTimeStamp, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
+		UE_LOG(UT, Warning, TEXT("CLIENT Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("SERVER Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentMovementTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
+		UE_LOG(UT, Warning, TEXT("SERVER Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
 	}
-*/
+	*/
 	while ((remainingTime > 0.f) && (Iterations < 8))
 	{
 		Iterations++;
@@ -1474,17 +1476,8 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			Velocity = Velocity.GetClampedToMaxSize(GetPhysicsVolume()->TerminalVelocity);
 		}
 /*
-		FVector Loc = CharacterOwner->GetActorLocation();
 		float CurrentMoveTime = GetCurrentSynchTime();
-		if (CharacterOwner->Role < ROLE_Authority)
-		{
-			UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), CurrentMoveTime, Velocity.X, Velocity.Y, Velocity.Z);
-		}
-		else
-		{
-			UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), CurrentMoveTime, Velocity.X, Velocity.Y, Velocity.Z);
-
-		}
+		UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), CurrentMoveTime, Velocity.X, Velocity.Y, Velocity.Z);
 */
 	}
 }

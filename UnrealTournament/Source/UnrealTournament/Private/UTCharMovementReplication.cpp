@@ -27,7 +27,6 @@ float UUTCharacterMovement::GetCurrentSynchTime() const
 	return GetCurrentMovementTime();
 }
 
-
 void UUTCharacterMovement::MoveAutonomous
 (
 float ClientTimeStamp,
@@ -100,6 +99,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 
 void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode)
 {
+	//UE_LOG(UT, Warning, TEXT("Received client adjust position for %f"), TimeStamp);
 	// use normal replication when simulating physics
 	if (CharacterOwner == NULL || CharacterOwner->GetRootComponent() == NULL || !CharacterOwner->GetRootComponent()->IsSimulatingPhysics())
 	{
@@ -412,10 +412,8 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 		if (bHit)
 		{
 			bIsAgainstWall = true;
-
 			FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0, 0, 1));
 			WallDirection = FVector::DotProduct(Lat, Hit.Normal);
-
 		}
 	}
 }
@@ -491,21 +489,8 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 
 bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
 {
-	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-	if (ClientData && NewMove->IsImportantMove(ClientData->LastAckedMove))
-	{
-		//UE_LOG(UT, Warning, TEXT("NO CanDelaySendingMove %f"), NewMove->TimeStamp);
-		return false;
-	}
-
-	// don't delay if just pressed fire
-	AUTPlayerController * PC = CharacterOwner ? Cast<AUTPlayerController>(CharacterOwner->GetController()) : NULL;
-	if (PC && (PC->HasDeferredFireInputs()))
-	{
-		//UE_LOG(UT, Warning, TEXT("CanDelaySendingMove Firing %f"), NewMove->TimeStamp);
-		return false;
-	}
-	return true;
+	// don't delay if just spawned shot or dodged 
+	return (NewMove.IsValid() && ((FSavedMove_UTCharacter*)(NewMove.Get()))->NeedsRotationSent());
 }
 
 bool FSavedMove_UTCharacter::NeedsRotationSent() const
@@ -560,28 +545,26 @@ void UUTCharacterMovement::UTCallServerMove()
 	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
 
 	// Decide whether to hold off on move
+	// @TODO FIXMESTEVE - send important moves right away (have some slack built in)
+	// @TODO FIXMESTEVE - base netmovedeltas on CurrentNetSpeed
+	// @TODO FIXMESTEVE -force send move if about to run out of space? && (ClientData->SavedMoves.Num() < ClientData->MaxSavedMoveCount - 4)
+	// never delay if spawning shot must sync
 	const FSavedMovePtr& NewMove = ClientData->SavedMoves.Last();
-	if (ClientData->SavedMoves.Num() >= 2)
+	if (CanDelaySendingMove(NewMove))
 	{
-		if (CanDelaySendingMove(NewMove))
-		{
-			// send moves more frequently in small games where server isn't likely to be saturated
-			float NetMoveDelta = 0.02f;
-			UPlayer* Player = (PC ? PC->Player : NULL);
-			if (Player && (Player->CurrentNetSpeed > 10000) && (GetWorld()->GameState != NULL) && (GetWorld()->GameState->PlayerArray.Num() <= 10))
-			{
-				NetMoveDelta = 0.011f;
-			}
+		UPlayer* Player = (PC ? PC->Player : NULL);
+		int32 CurrentNetSpeed = Player ? Player->CurrentNetSpeed : 0;
+		float NetMoveDelta = NewMove->IsImportantMove(ClientData->LastAckedMove) ? 0.017f : 0.033f;
 
-			if ((NewMove->TimeStamp - ClientData->ClientUpdateTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta)
-			{
-				//UE_LOG(UT, Warning, TEXT("Delay sending %f"), NewMove->TimeStamp);
-				return;
-			}
+		if (((NewMove->TimeStamp - ClientData->ClientUpdateTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta))
+		{
+			//UE_LOG(UT, Warning, TEXT("Delay sending %f flags %d netspeed %d"), NewMove->TimeStamp, NewMove->GetCompressedFlags(), CurrentNetSpeed);
+			return;
 		}
 	}
-	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s"),
-		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString());
+
+	/*UE_LOG(LogNetPlayerMovement, Warning, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s flags %d"),
+		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString(), NewMove->GetCompressedFlags());*/
 
 	// Find the oldest unacknowledged sent important move (OldMove).
 	// Don't include the last move because it may be combined with the next new move.
@@ -600,10 +583,10 @@ void UUTCharacterMovement::UTCallServerMove()
 			else if (CurrentMove->IsImportantMove(ClientData->LastAckedMove))
 			{
 				OldMovePtr = CurrentMove;
-				break;
 			}
 		}
 	}
+
 	// send old move if it exists
 	if (OldMovePtr.IsValid())
 	{
@@ -617,9 +600,9 @@ void UUTCharacterMovement::UTCallServerMove()
 		const FSavedMovePtr& MoveToSend = ClientData->SavedMoves[i];
 		if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > ClientData->ClientUpdateTime))
 		{
-			//UE_LOG(UT, Warning, TEXT("Sending pending %f"), MoveToSend->TimeStamp);
+			//UE_LOG(UT, Warning, TEXT("Sending pending %f  flags %d"), MoveToSend->TimeStamp, MoveToSend->GetCompressedFlags());
 			ClientData->ClientUpdateTime = MoveToSend->TimeStamp;
-			if (((FSavedMove_UTCharacter*)(MoveToSend.Get()))->NeedsRotationSent())
+			if (true) // @TODO FIXMESTEVE bandwidth optimization ((FSavedMove_UTCharacter*)(MoveToSend.Get()))->NeedsRotationSent())
 			{
 				UTCharacterOwner->UTServerMoveSaved(MoveToSend->TimeStamp, MoveToSend->Acceleration, MoveToSend->GetCompressedFlags(), MoveToSend->SavedControlRotation.Yaw, MoveToSend->SavedControlRotation.Pitch);
 			}
@@ -634,8 +617,15 @@ void UUTCharacterMovement::UTCallServerMove()
 	{
 		// Determine if we send absolute or relative location
 		UPrimitiveComponent* ClientMovementBase = NewMove->EndBase.Get();
-		const FVector SendLocation = MovementBaseUtility::UseRelativeLocation(ClientMovementBase) ? NewMove->SavedRelativeLocation : NewMove->SavedLocation;
-		//UE_LOG(UT, Warning, TEXT("Sending last move %f"), MoveToSend->TimeStamp);
+		bool bUseRelativeLocation = MovementBaseUtility::UseRelativeLocation(ClientMovementBase);
+		const FVector SendLocation = bUseRelativeLocation ? NewMove->SavedRelativeLocation : NewMove->SavedLocation;
+		if (!bUseRelativeLocation)
+		{
+			// location isn't relative, don't need to replicate base
+			ClientMovementBase = NULL;
+			NewMove->EndBoneName = NAME_None;
+		}
+		//UE_LOG(UT, Warning, TEXT("Sending current move %f relative %d flags %d  dodge %d sprint %d shotspawned %d"), NewMove->TimeStamp, bUseRelativeLocation, NewMove->GetCompressedFlags(), (((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward || ((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward || ((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward), ((const FSavedMove_UTCharacter*)NewMove.Get())->bSavedIsSprinting, ((const FSavedMove_UTCharacter*)NewMove.Get())->bShotSpawned);
 		ClientData->ClientUpdateTime = NewMove->TimeStamp;
 		UTCharacterOwner->UTServerMove
 			(
@@ -654,7 +644,7 @@ void UUTCharacterMovement::UTCallServerMove()
 	APlayerCameraManager* PlayerCameraManager = (PC ? PC->PlayerCameraManager : NULL);
 	if (PlayerCameraManager != NULL && PlayerCameraManager->bUseClientSideCameraUpdates)
 	{
-		//UE_LOG(UT, Warning, TEXT("WTF WTF WTF WTF!!!!!!!!!!!!!!!!"));
+		UE_LOG(UT, Warning, TEXT("WTF WTF WTF WTF!!!!!!!!!!!!!!!!"));
 		PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;
 	}
 }
@@ -663,6 +653,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 {
 	if (!HasValidData() || !IsComponentTickEnabled())
 	{
+		//UE_LOG(UT, Warning, TEXT("Out of ProcessServerMove 1"));
 		return;
 	}
 
@@ -671,6 +662,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 
 	if (!UTVerifyClientTimeStamp(TimeStamp, *ServerData))
 	{
+		//UE_LOG(UT, Warning, TEXT("Failed UTVerifyClientTimeStamp"));
 		return;
 	}
 
@@ -681,8 +673,8 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	// Save move parameters.
 	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
 	ServerData->CurrentClientTimeStamp = TimeStamp;
-	ServerData->ServerTimeStamp = GetWorld()->TimeSeconds;
-
+	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
+	//UE_LOG(UT, Warning, TEXT("1ServerTimeStamp to %f InAccel %f %f %f"), ServerData->ServerTimeStamp, InAccel.X, InAccel.Y, InAccel.Z);
 	if (PC)
 	{
 		FRotator ViewRot;
@@ -693,6 +685,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	}
 	if (!bServerReadyForClient)
 	{
+		//UE_LOG(UT, Warning, TEXT("Failed bServerReadyForClient"));
 		return;
 	}
 
@@ -708,8 +701,89 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("ServerMove Time %f Acceleration %s Position %s DeltaTime %f"),
 		TimeStamp, *Accel.ToString(), *CharacterOwner->GetActorLocation().ToString(), DeltaTime);
 
-	ServerMoveHandleClientError(TimeStamp, DeltaTime, Accel, ClientLoc, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
+	UTServerMoveHandleClientError(TimeStamp, DeltaTime, Accel, ClientLoc, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
 }
+
+void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLoc, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
+{
+	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
+	check(ServerData);
+
+	// Don't prevent more recent updates from being sent if received this frame.
+	// We're going to send out an update anyway, might as well be the most recent one.
+	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
+	if ((ServerData->LastUpdateTime != GetWorld()->TimeSeconds) && GetDefault<AGameNetworkManager>()->WithinUpdateDelayBounds(PC, ServerData->LastUpdateTime))
+	{
+		return;
+	}
+
+	// Offset may be relative to base component
+	FVector ClientLoc = RelativeClientLoc;
+	if (MovementBaseUtility::UseRelativeLocation(ClientMovementBase))
+	{
+		FVector BaseLocation;
+		FQuat BaseRotation;
+		MovementBaseUtility::GetMovementBaseTransform(ClientMovementBase, ClientBaseBoneName, BaseLocation, BaseRotation);
+		ClientLoc += BaseLocation;
+	}
+
+	// Compute the client error from the server's position
+	const FVector LocDiff = CharacterOwner->GetActorLocation() - ClientLoc;
+	const uint8 CurrentPackedMovementMode = PackNetworkMovementMode();
+
+	// If client has accumulated a noticeable positional error, correct him.
+	if (ExceedsAllowablePositionError(LocDiff) || (CurrentPackedMovementMode != ClientMovementMode))
+	{
+		UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
+		ServerData->PendingAdjustment.NewVel = Velocity;
+		ServerData->PendingAdjustment.NewBase = MovementBase;
+		ServerData->PendingAdjustment.NewBaseBoneName = CharacterOwner->GetBasedMovement().BoneName;
+		ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetActorLocation();
+		ServerData->PendingAdjustment.NewRot = CharacterOwner->GetActorRotation();
+
+		ServerData->PendingAdjustment.bBaseRelativePosition = MovementBaseUtility::UseRelativeLocation(MovementBase);
+		if (ServerData->PendingAdjustment.bBaseRelativePosition)
+		{
+			// Relative location
+			ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetBasedMovement().Location;
+
+			// TODO: this could be a relative rotation, but all client corrections ignore rotation right now except the root motion one, which would need to be updated.
+			//ServerData->PendingAdjustment.NewRot = CharacterOwner->GetBasedMovement().Rotation;
+		}
+/*		if (CurrentPackedMovementMode != ClientMovementMode)
+		{
+			UE_LOG(LogNetPlayerMovement, Warning, TEXT("******** MOVEMENTMODE Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d actual %d"),
+				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), *GetNameSafe(MovementBase), int32(CurrentPackedMovementMode), int32(ClientMovementMode), int32(MovementMode));
+		}
+		else
+		{
+			UE_LOG(LogNetPlayerMovement, Warning, TEXT("******** Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s"),
+				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), *GetNameSafe(MovementBase));
+		}
+*/
+		ServerData->LastUpdateTime = GetWorld()->TimeSeconds;
+		ServerData->PendingAdjustment.DeltaTime = DeltaTime;
+		ServerData->PendingAdjustment.TimeStamp = TimeStamp;
+		ServerData->PendingAdjustment.bAckGoodMove = false;
+		ServerData->PendingAdjustment.MovementMode = CurrentPackedMovementMode;
+	}
+	else
+	{
+	/*	UE_LOG(LogNetPlayerMovement, Warning, TEXT("NO Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d"),
+			TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), CurrentPackedMovementMode, ClientMovementMode);
+*/
+		// acknowledge receipt of this successful servermove()
+		ServerData->PendingAdjustment.TimeStamp = TimeStamp;
+		ServerData->PendingAdjustment.bAckGoodMove = true;
+	}
+}
+
+
+bool UUTCharacterMovement::ExceedsAllowablePositionError(FVector LocDiff) const
+{
+	return (LocDiff | LocDiff) > MaxPositionErrorSquared;
+}
+
 
 void UUTCharacterMovement::ProcessQuickServerMove(float TimeStamp, FVector InAccel, uint8 MoveFlags)
 {
@@ -733,7 +807,8 @@ void UUTCharacterMovement::ProcessQuickServerMove(float TimeStamp, FVector InAcc
 	// Save move parameters.
 	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
 	ServerData->CurrentClientTimeStamp = TimeStamp;
-	ServerData->ServerTimeStamp = GetWorld()->TimeSeconds;
+	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
+	//UE_LOG(UT, Warning, TEXT("2ServerTimeStamp to %f"), ServerData->ServerTimeStamp);
 
 	if (!bServerReadyForClient)
 	{
@@ -743,16 +818,15 @@ void UUTCharacterMovement::ProcessQuickServerMove(float TimeStamp, FVector InAcc
 	// Perform actual movement
 	if ((CharacterOwner->GetWorldSettings()->Pauser == NULL) && (DeltaTime > 0.f))
 	{
-		if (PC)
+		/*  FIXMESTEVE NOT NEEDED? if (PC)
 		{
 			PC->UpdateRotation(DeltaTime);
-		}
+		}*/
 		MoveAutonomous(TimeStamp, DeltaTime, MoveFlags, Accel);
 	}
 	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("QuickServerMove Time %f Acceleration %s Position %s DeltaTime %f"),
 		TimeStamp, *Accel.ToString(), *CharacterOwner->GetActorLocation().ToString(), DeltaTime);
 }
-
 
 void UUTCharacterMovement::ProcessSavedServerMove(float TimeStamp, FVector InAccel, uint8 MoveFlags, float ViewYaw, float ViewPitch)
 {
@@ -776,7 +850,8 @@ void UUTCharacterMovement::ProcessSavedServerMove(float TimeStamp, FVector InAcc
 	// Save move parameters.
 	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
 	ServerData->CurrentClientTimeStamp = TimeStamp;
-	ServerData->ServerTimeStamp = GetWorld()->TimeSeconds;
+	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
+	//UE_LOG(UT, Warning, TEXT("3ServerTimeStamp to %f"), ServerData->ServerTimeStamp);
 
 	if (PC)
 	{
@@ -1028,7 +1103,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bSavedJumpAssisted = UTCharMov->bJumpAssisted;
 		bSavedIsDodging = UTCharMov->bIsDodging;
 		bPressedSlide = UTCharMov->bPressedSlide;
-		//UE_LOG(UT, Warning, TEXT("set move %f saved sprint start %f"), TimeStamp, SavedSprintStartTime);
+		//UE_LOG(UT, Warning, TEXT("set move %f Dodge %d Sprint %d saved sprint start %f"), TimeStamp, (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight), bSavedIsSprinting, SavedSprintStartTime);
 	}
 
 	// Round acceleration, so sent version and locally used version always match
@@ -1110,6 +1185,7 @@ void FSavedMove_UTCharacter::PostUpdate(ACharacter* Character, FSavedMove_Charac
 	// set flag if weapon is shooting on client this frame not from new fire press/release (to keep client and server synchronized)
 	UUTCharacterMovement* UTCharMovement = Character ? Cast<UUTCharacterMovement>(Character->GetCharacterMovement()) : NULL;
 	bShotSpawned = UTCharMovement->bShotSpawned;
+	MovementMode = UTCharMovement->MovementMode; // @TODO FIXMESTEVE SHOULD BE IN Engine version as well
 	Super::PostUpdate(Character, PostUpdateMode);
 }
 

@@ -2211,9 +2211,11 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		else
 		{
 			// clear all bPressedDodge, so it doesn't get replicated or saved
+			//UE_LOG(UT, Warning, TEXT("Didnt really dodge"));
 			UTCharacterMovement->ClearDodgeInput();
 		}
 	}
+	//UE_LOG(UT, Warning,TEXT("CAN DODGE FAILED"));
 	return false;
 }
 
@@ -2248,6 +2250,7 @@ void AUTCharacter::ClearJumpInput()
 	Super::ClearJumpInput();
 	if (UTCharacterMovement)
 	{
+		//UE_LOG(UT, Warning, TEXT("Clear jump input"));
 		UTCharacterMovement->ClearDodgeInput();
 	}
 }
@@ -3798,10 +3801,11 @@ void AUTCharacter::TurnOff()
 	Super::TurnOff();
 }
 
+// @TODO FIXMESTEVE NetQuantize100 ClientLoc for verification of perfect synchronization
 void AUTCharacter::UTServerMove_Implementation(
 	float TimeStamp,
 	FVector_NetQuantize InAccel,
-	FVector_NetQuantize100 ClientLoc,
+	FVector_NetQuantize ClientLoc,
 	uint8 MoveFlags,
 	float ViewYaw,
 	float ViewPitch,
@@ -3809,14 +3813,14 @@ void AUTCharacter::UTServerMove_Implementation(
 	FName ClientBaseBoneName,
 	uint8 ClientMovementMode)
 {
+	//UE_LOG(UT, Warning, TEXT("------------------------ServerMove timestamp %f moveflags %d acceleration %f %f %f"), TimeStamp, MoveFlags, InAccel.X, InAccel.Y, InAccel.Z);
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->ProcessServerMove(TimeStamp, InAccel, ClientLoc, MoveFlags, ViewYaw, ViewPitch, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
 	}
-	//UE_LOG(UT, Warning, TEXT("ServerMove timestamp %f"), TimeStamp);
 }
 
-bool AUTCharacter::UTServerMove_Validate(float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize100 ClientLoc, uint8 MoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
+bool AUTCharacter::UTServerMove_Validate(float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize ClientLoc, uint8 MoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
 {
 	return true;
 }
@@ -3829,6 +3833,7 @@ float OldYaw,
 uint8 OldMoveFlags
 )
 {
+	//UE_LOG(UT, Warning, TEXT("======================OLDServerMove timestamp %f moveflags %d"), OldTimeStamp, OldMoveFlags);
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->ProcessOldServerMove(OldTimeStamp, OldAccel, OldYaw, OldMoveFlags);
@@ -3842,11 +3847,11 @@ bool AUTCharacter::UTServerMoveOld_Validate(float OldTimeStamp, FVector_NetQuant
 
 void AUTCharacter::UTServerMoveSaved_Implementation(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags, float ViewYaw, float ViewPitch)
 {
+	//UE_LOG(UT, Warning, TEXT("---------------------ServerMoveSaved timestamp %f flags %d acceleration %f %f %f"), TimeStamp, PendingFlags, InAccel.X, InAccel.Y, InAccel.Z);
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->ProcessSavedServerMove(TimeStamp, InAccel, PendingFlags, ViewYaw, ViewPitch);
 	}
-	//UE_LOG(UT, Warning, TEXT("ServerMoveSaved timestamp %f"), TimeStamp);
 }
 
 bool AUTCharacter::UTServerMoveSaved_Validate(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags, float ViewYaw, float ViewPitch)
@@ -3856,11 +3861,11 @@ bool AUTCharacter::UTServerMoveSaved_Validate(float TimeStamp, FVector_NetQuanti
 
 void AUTCharacter::UTServerMoveQuick_Implementation(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags)
 {
+	//UE_LOG(UT, Warning, TEXT("----------------------ServerMoveQuick timestamp %f flags %d"), TimeStamp, PendingFlags);
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->ProcessQuickServerMove(TimeStamp, InAccel, PendingFlags);
 	}
-	//UE_LOG(UT, Warning, TEXT("ServerMoveQuick timestamp %f"), TimeStamp);
 }
 
 bool AUTCharacter::UTServerMoveQuick_Validate(float TimeStamp, FVector_NetQuantize InAccel, uint8 PendingFlags)

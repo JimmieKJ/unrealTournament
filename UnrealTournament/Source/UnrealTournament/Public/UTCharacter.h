@@ -252,7 +252,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	/** Replicated function sent by client to server - contains client movement and view info. */
 	UFUNCTION(unreliable, server, WithValidation)
-	virtual void UTServerMove(float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize100 ClientLoc, uint8 CompressedMoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
+	virtual void UTServerMove(float TimeStamp, FVector_NetQuantize InAccel, FVector_NetQuantize ClientLoc, uint8 CompressedMoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
 
 	/* Resending an (important) old move. Process it if not already processed. */
 	UFUNCTION(unreliable, server, WithValidation)

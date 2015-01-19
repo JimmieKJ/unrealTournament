@@ -19,7 +19,15 @@ public:
 	/** Return true if it is OK to delay sending this player movement to the server to conserve bandwidth. */
 	virtual bool CanDelaySendingMove(const FSavedMovePtr& NewMove) override;
 
+	virtual void UTServerMoveHandleClientError(float TimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLoc, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
+
 	virtual void UTCallServerMove();
+
+	UPROPERTY(Category = "Character Movement", BlueprintReadOnly)
+		float MaxPositionErrorSquared;
+
+	/** @return true if position error exceeds max allowable amount */
+	virtual bool ExceedsAllowablePositionError(FVector LocDiff) const;
 
 	/** Process servermove forwarded by character */
 	virtual void ProcessServerMove(float TimeStamp, FVector Accel, FVector ClientLoc, uint8 CompressedMoveFlags, float ViewYaw, float ViewPitch, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode);
