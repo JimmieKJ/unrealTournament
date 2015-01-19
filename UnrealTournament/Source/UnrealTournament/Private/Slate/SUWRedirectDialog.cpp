@@ -23,6 +23,13 @@ void SUWRedirectDialog::Construct(const FArguments& InArgs)
 
 	bDownloadCanceled = false;
 	RedirectToURL = InArgs._RedirectToURL;
+	RedirectURLs = InArgs._RedirectURLs;
+
+	if (RedirectToURL.IsEmpty() && RedirectURLs.Num() > 0)
+	{
+		RedirectToURL = RedirectURLs[0];
+		RedirectURLs.RemoveAt(0);
+	}
 
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
@@ -120,8 +127,17 @@ void SUWRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double In
 		}
 		else
 		{
-			OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
-			GetPlayerOwner()->CloseDialog(SharedThis(this));
+			if (RedirectURLs.Num() > 0)
+			{
+				RedirectToURL = RedirectURLs[0];
+				RedirectURLs.RemoveAt(0);
+				DownloadFile(RedirectToURL);
+			}
+			else
+			{
+				OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+				GetPlayerOwner()->CloseDialog(SharedThis(this));
+			}
 		}
 	}
 	else
@@ -151,7 +167,7 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 		{
 			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		
-			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"));
+			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads"));
 			if (!PlatformFile.DirectoryExists(*Path))
 			{
 				PlatformFile.CreateDirectoryTree(*Path);

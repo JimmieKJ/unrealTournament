@@ -30,6 +30,7 @@ public:
 		SLATE_ARGUMENT(uint16, ButtonMask)
 		SLATE_EVENT(FDialogResultDelegate, OnDialogResult)
 		SLATE_ARGUMENT(FString, RedirectToURL)
+		SLATE_ARGUMENT(TArray<FString>, RedirectURLs)
 		SLATE_END_ARGS()
 
 		void Construct(const FArguments& InArgs);
@@ -72,6 +73,7 @@ protected:
 	FHttpRequestPtr HttpRequest;
 
 	FString RedirectToURL;
+	TArray<FString> RedirectURLs;
 	
 	int32 AssetsTotalSize;
 	int32 AssetsDownloadedAmount;
