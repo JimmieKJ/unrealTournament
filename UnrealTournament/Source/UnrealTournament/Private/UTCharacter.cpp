@@ -1068,7 +1068,14 @@ void AUTCharacter::StartRagdoll()
 	{
 		OnRep_ReplicatedMovement();
 		// OnRep_ReplicatedMovement() will only apply to the root body but in this case we want to apply to all bodies
-		GetMesh()->SetAllPhysicsLinearVelocity(GetMesh()->GetBodyInstance()->GetUnrealWorldVelocity());
+		if (GetMesh()->GetBodyInstance())
+		{
+			GetMesh()->SetAllPhysicsLinearVelocity(GetMesh()->GetBodyInstance()->GetUnrealWorldVelocity());
+		}
+		else
+		{
+			UE_LOG(LogUTCharacter, Warning, TEXT("UTCharacter does not have a body instance!"));
+		}
 		bDeferredReplicatedMovement = false;
 	}
 	else
