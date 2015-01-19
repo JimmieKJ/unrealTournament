@@ -25,7 +25,7 @@ private:
 	void OpenPackageLevelWindow();
 	void OpenPackageWeaponWindow();
 	void OpenPackageHatWindow();
-
+	
 	void CreatePackageContentMenu(FToolBarBuilder& Builder);
 	TSharedRef<FExtender> OnExtendLevelEditorViewMenu(const TSharedRef<FUICommandList> CommandList);
 	TSharedRef< SWidget > GenerateOpenPackageMenuContent();
@@ -34,11 +34,12 @@ private:
 
 	TSharedPtr< FExtender > MenuExtender;
 
-	void CreateUATTask(const FString& CommandLine, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon);
+	void CreateUATTask(const FString& CommandLine, const FString& DLCName, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon);
 
 	struct EventData
 	{
 		FString EventName;
+		FString DLCName;
 		double StartTime;
 	};
 

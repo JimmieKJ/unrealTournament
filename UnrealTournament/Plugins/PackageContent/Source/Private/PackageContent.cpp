@@ -8,6 +8,7 @@
 #include "NotificationManager.h"
 #include "SNotificationList.h"
 #include "EdGraphSchema_K2.h"
+#include "DesktopPlatformModule.h"
 
 #define LOCTEXT_NAMESPACE "PackageContent"
 
@@ -69,7 +70,7 @@ void FPackageContent::OpenPackageLevelWindow()
 	FString MapName = GWorld->GetMapName();
 	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Win64"), *MapName, *MapName);
 
-	CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
 class FPackageContentNotificationTask
@@ -116,7 +117,60 @@ private:
 	FText Text;
 };
 
-void FPackageContent::CreateUATTask(const FString& CommandLine, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon)
+
+class FPackageContentCompleteTask
+{
+public:
+
+	FPackageContentCompleteTask(const FString& InDLCName)
+		: DLCName(InDLCName)
+	{ }
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+
+		if (DesktopPlatform != nullptr)
+		{
+			FString PakPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() / TEXT("StagedBuilds") / DLCName / TEXT("WindowsNoEditor") / TEXT("UnrealTournament") / TEXT("Content") / TEXT("Paks") / DLCName + TEXT("-WindowsNoEditor.pak"));
+			
+			// Copy to game directory for now, launcher may do this for us later
+			FString DestinationPath = FPaths::ConvertRelativePathToFull(FString(FPlatformProcess::UserDir()) / FApp::GetGameName() / TEXT("Saved") / TEXT("Paks") / TEXT("MyContent") / DLCName + "-WindowsNoEditor.pak");
+			if (IFileManager::Get().Copy(*DestinationPath, *PakPath, true) == COPY_OK)
+			{
+
+			}
+
+			FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
+			if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine))
+			{
+
+			}
+			else
+			{
+				if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallMarketplacePrompt", "The Marketplace requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
+				{
+					if (!DesktopPlatform->OpenLauncher(true, LauncherCommandLine))
+					{
+					}
+				}
+			}
+		}
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+	ENamedThreads::Type GetDesiredThread() { return ENamedThreads::GameThread; }
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FPackageContentCompleteTask, STATGROUP_TaskGraphTasks);
+	}
+
+private:
+
+	FString DLCName;
+};
+
+void FPackageContent::CreateUATTask(const FString& CommandLine, const FString& DLCName, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon)
 {
 	// make sure that the UAT batch file is in place
 #if PLATFORM_WINDOWS
@@ -173,6 +227,7 @@ void FPackageContent::CreateUATTask(const FString& CommandLine, const FText& Tas
 	EventData Data;
 	Data.StartTime = FPlatformTime::Seconds();
 	Data.EventName = TaskName.ToString();
+	Data.DLCName = DLCName;
 	UatProcess->OnCanceled().BindStatic(&FPackageContent::HandleUatProcessCanceled, NotificationItemPtr, TaskShortName, Data);
 	UatProcess->OnCompleted().BindStatic(&FPackageContent::HandleUatProcessCompleted, NotificationItemPtr, TaskShortName, Data);
 	UatProcess->OnOutput().BindStatic(&FPackageContent::HandleUatProcessOutput, NotificationItemPtr, TaskShortName);
@@ -232,6 +287,9 @@ void FPackageContent::HandleUatProcessCompleted(int32 ReturnCode, TWeakPtr<class
 			SNotificationItem::CS_Success,
 			FText::Format(LOCTEXT("UatProcessSucceededNotification", "{TaskName} complete!"), Arguments)
 			);
+
+		// Run this on the main thread
+		TGraphTask<FPackageContentCompleteTask>::CreateTask().ConstructAndDispatchWhenReady(Event.DLCName);		
 	}
 	else
 	{
@@ -260,7 +318,7 @@ void FPackageContent::PackageWeapon(UClass* WeaponClass)
 		FString WeaponName = UBGC->ClassGeneratedBy->GetName();
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *WeaponName);
 
-		CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageLevelTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
@@ -272,7 +330,7 @@ void FPackageContent::PackageHat(UClass* HatClass)
 		FString HatName = UBGC->ClassGeneratedBy->GetName();
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *HatName);
 
-		CreateUATTask(CommandLine, LOCTEXT("PackageLevelTaskName", "Packaging Hat"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageLevelTaskName", "Packaging Hat"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 

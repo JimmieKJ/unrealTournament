@@ -15,6 +15,7 @@ namespace UnrealBuildTool.Rules
 					"Engine",
                     "InputCore",
 					"ImageWrapper",
+					"DesktopPlatform",
 					"LevelEditor",
 					"Slate",
                     "EditorStyle",
