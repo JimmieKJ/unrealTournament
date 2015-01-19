@@ -5,22 +5,9 @@
 #include "UTLobbyGameState.h"
 #include "UTLobbyPlayerState.h"
 #include "OnlineSubsystemTypes.h"
+#include "TAttributeProperty.h"
 #include "UTGameMode.h"
 #include "UTLobbyMatchInfo.generated.h"
-
-namespace ELobbyMatchState
-{
-	extern const FName Dead;						// this match is dead and watching to be cleaned up.
-	extern const FName Initializing;				// this match info is being initialized and waiting for a host to be assigned
-	extern const FName Setup;						// the host has been assigned and the match is replicating all relevant data
-	extern const FName WaitingForPlayers;			// The match is waiting for players to join and for the match to begin
-	extern const FName Launching;					// The match is in the process of launching the instanced server
-	extern const FName Aborting;					// The match is aborting the setup of a server...
-	extern const FName InProgress;					// The match is in progress, the instanced server has ack'd the lobby server and everything is good to go.
-	extern const FName Completed;					// The match is over and the instance has signaled it's been completed.  Spectators cant join at this point
-	extern const FName Recycling;					// The match is over and the host has returned and create a new match.  It's sitting here waiting other others to return or for it to timeout.
-	extern const FName Returning;					// the instance server has said the game is over and players should be returning to this server
-}
 
 DECLARE_DELEGATE(FOnMatchInfoGameModeChanged);
 DECLARE_DELEGATE(FOnMatchInfoMapChanged);
@@ -93,7 +80,7 @@ public:
 	// replicated data from the instance about the state of the match.  NOTE: Player information is not replicated from the instance to the server here
 	// it's replicated in the PlayersInMatchInstance array.
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchStats)
 	FString MatchStats;
 
 	// The options for this match
@@ -117,7 +104,7 @@ public:
 	int32 MaxPlayers;
 
 	// A list of players in this lobby
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, replicatedUsing = OnRep_Players)
 	TArray<AUTLobbyPlayerState*> Players;
 
 	// This is the process handle of the game instance that is running.
@@ -260,6 +247,12 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_MatchMap();
 
+	UFUNCTION()
+	virtual void OnRep_MatchStats();
+
+	UFUNCTION()
+	virtual void OnRep_Players();
+
 	// The client has received the OwnerID so we are good to go
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchIsReadyForPlayers();
@@ -285,6 +278,24 @@ protected:
 
 	bool CheckLobbyGameState();
 
+public:
+	// The MatchAttributesDatastore map holds a list of information about the current map including direct references to the MatchGameMode, MatchMap and MatchOptions 
+	// variables.  
+	TMap< FName, TSharedPtr<TAttributePropertyBase>> MatchAttributesDatastore;
+
+	// Call via the PreInitializeComponents function on clients, this will fill out the MAtchAttributesDatastore with attribute referecnes
+	// to all of the data need by the MatchPanel or other menus.
+	virtual void InitializeMatchAttributes();
+
+protected:
+	// These are datadumps for the various match attributes.  When data is received on the client, it's often placed here 
+	// so that menus and other objects have a simple way to pull the data.
+	FString MatchAttr_HostName;
+	FString MatchAttr_FirstOpponent;
+	FString MatchAttr_PlayTime;
+	FString MatchAttr_RedScore;
+	FString MatchAttr_BlueScore;
+	int32 dummy;
 };
 
 

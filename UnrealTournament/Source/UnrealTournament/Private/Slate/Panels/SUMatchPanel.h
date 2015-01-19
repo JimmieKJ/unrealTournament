@@ -3,6 +3,7 @@
 
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
+#include "TAttributeProperty.h"
 #include "UTLobbyMatchInfo.h"
 
 #if !UE_SERVER
@@ -27,10 +28,16 @@ public:
 	void Construct(const FArguments& InArgs);
 	
 protected:
-	// Holds the match info associated with this match...
 
+	// Holds the match info associated with this match...
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo;
+
+	// The GameMode which this match panel represents.  If it changes, it will destroy the surface of the button and start over.
+	FString CurrentGameModeClass;
+
+	// holds the current match state.  If it changes, then destroy the surface and recreate.
+	FName CurrentMatchState;
 
 	TSharedPtr<SVerticalBox> ButtonSurface;
 
@@ -39,16 +46,14 @@ protected:
 	bool bIsFeatured;
 	
 	FOnClicked OnClicked;
-	TSharedPtr<STextBlock> ActionText;
-	TSharedPtr<STextBlock> MatchTitle;
 
 	// Every frame check the status of the match and update.
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
-	virtual void UpdateMatchInfo();
-	FReply ButtonClicked();
 
-	FText GetPlayerOneText() const;
-	FText GetPlayerTwoText() const;
+	// Update/Create the panel
+	void UpdateMatchInfo();
+
+	FReply ButtonClicked();
 };
 
 #endif

@@ -2204,6 +2204,51 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		];
 }
+
+void AUTGameMode::CreateMatchPanel(TSharedPtr<class SVerticalBox> WidgetSpace, TMap< FName, TSharedPtr<TAttributePropertyBase> >& GameData, FName MatchState)
+{
+	TSharedPtr<TAttributePropertyString> HostAttr = StaticCastSharedPtr<TAttributePropertyString>(GameData.FindRef(EMatchAttributeTags::Host));
+
+	WidgetSpace->AddSlot()
+		.Padding(5.0,0.0,5.0,5.0)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(HostAttr.ToSharedRef(), &TAttributePropertyString::GetAsText)
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.Action.TextStyle")
+		];
+
+	WidgetSpace->AddSlot()
+		.Padding(5.0,0.0,5.0,5.0)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(DisplayName)
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.Action.TextStyle")
+		];
+
+	
+	/*
+	UE_LOG(UT,Log,TEXT("FOUND: %s"), *MatchMapAttr->GetAsText().ToString())
+	TSharedPtr<TAttributePropertyString> 
+	WidgetSpace->AddSlot()
+		.Padding(5.0f,0.0f,0.0f,5.0f)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(MatchOwnerAttr.ToSharedRef(), &TAttributePropertyString::GetAsText);
+		]
+*/
+}
+
+
+
 #endif
 
 void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)

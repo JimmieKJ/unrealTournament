@@ -6,20 +6,6 @@
 #include "UTLobbyMatchInfo.h"
 #include "Net/UnrealNetwork.h"
 
-namespace ELobbyMatchState
-{
-	const FName Dead				= TEXT("Dead");
-	const FName Initializing		= TEXT("Initializing");
-	const FName Setup				= TEXT("Setup");
-	const FName WaitingForPlayers	= TEXT("WaitingForPlayers");
-	const FName Launching			= TEXT("Launching");
-	const FName Aborting			= TEXT("Aborting");
-	const FName InProgress			= TEXT("InProgress");
-	const FName Completed			= TEXT("Completed");
-	const FName Recycling			= TEXT("Recycling");
-	const FName Returning			= TEXT("Returning");
-}
-
 
 AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer
@@ -61,9 +47,20 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 void AUTLobbyMatchInfo::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
-
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
 	MinPlayers = 2; // TODO: This should be pulled from the game type at some point
+
+	MatchAttr_HostName = TEXT("?");
+	MatchAttr_FirstOpponent = TEXT("?");
+	MatchAttr_PlayTime = TEXT("00:00:00");
+	MatchAttr_RedScore = TEXT("0");
+	MatchAttr_BlueScore = TEXT("0");
+
+
+	if (GetWorld()->GetNetMode() == ENetMode::NM_Client)
+	{
+		InitializeMatchAttributes();	
+	}
 }
 
 bool AUTLobbyMatchInfo::CheckLobbyGameState()
@@ -84,6 +81,59 @@ void AUTLobbyMatchInfo::UpdateGameMode()
 		CurrentGameModeData.Reset();
 	}
 }
+
+void AUTLobbyMatchInfo::OnRep_Players()
+{
+	if (Players.Num() > 0)
+	{
+		if (Players[0]) MatchAttr_HostName = Players[0]->PlayerName;
+		if (Players.Num() > 1 && Players[1]) MatchAttr_FirstOpponent = Players[1]->PlayerName;
+	}
+	else
+	{
+		MatchAttr_HostName = TEXT("");
+		MatchAttr_FirstOpponent = TEXT("");
+	}
+}
+
+void AUTLobbyMatchInfo::OnRep_MatchStats()
+{
+	int32 Seconds;
+	if (FParse::Value(*MatchStats, TEXT("ElpasedTime="), Seconds))
+	{
+		int32 Hours = Seconds / 3600;
+		Seconds -= Hours * 3600;
+		int32 Mins = Seconds / 60;
+		Seconds -= Mins * 60;
+
+		FFormatNamedArguments Args;
+		FNumberFormattingOptions Options;
+
+		Options.MinimumIntegralDigits = 2;
+		Options.MaximumIntegralDigits = 2;
+
+		Args.Add(TEXT("Hours"), FText::AsNumber(Hours, &Options));
+		Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
+		Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
+
+		MatchAttr_PlayTime = FText::Format(NSLOCTEXT("SUWindowsMidGame", "ClockFormat", "{Hours}:{Minutes}:{Seconds}"), Args).ToString();
+	}
+
+	// Pull the scores out of the match stats
+	FString ScoreString;
+	if (FParse::Value(*MatchStats, TEXT("TeamScores="), ScoreString))
+	{
+		TArray<FString> Scores;
+		ScoreString.ParseIntoArray(&Scores, TEXT(","), true);
+		if (Scores.Num() >= 2)
+		{
+			MatchAttr_RedScore = Scores[0];
+			MatchAttr_BlueScore = Scores[1];
+		}
+	}
+
+}
+
 
 void AUTLobbyMatchInfo::OnRep_MatchGameMode()
 {
@@ -208,27 +258,14 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
-		int32 Seconds;
-		if ( FParse::Value(*MatchStats,TEXT("ElpasedTime="),Seconds) )
+		if (MatchAttr_PlayTime.IsEmpty())
 		{
-			int32 Hours = Seconds / 3600;
-			Seconds -= Hours * 3600;
-			int32 Mins = Seconds / 60;
-			Seconds -= Mins * 60;
-
-			FFormatNamedArguments Args;
-			FNumberFormattingOptions Options;
-
-			Options.MinimumIntegralDigits = 2;
-			Options.MaximumIntegralDigits = 2;
-
-			Args.Add(TEXT("Hours"), FText::AsNumber(Hours, &Options));
-			Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
-			Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
-
-			return FText::Format( NSLOCTEXT("SUWindowsMidGame","ClockFormat", "{Hours}:{Minutes}:{Seconds}"),Args);
+			return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
 		}
-		return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
+		else
+		{
+			return FText::FromString(*MatchAttr_PlayTime);
+		}
 	}
 	else if (CurrentState == ELobbyMatchState::Returning)
 	{
@@ -481,4 +518,18 @@ bool AUTLobbyMatchInfo::ServerSetAllowSpectating_Validate(bool bAllow) { return 
 void AUTLobbyMatchInfo::ServerSetAllowSpectating_Implementation(bool bAllow)
 {
 	bSpectatable = bAllow;
+}
+
+void AUTLobbyMatchInfo::InitializeMatchAttributes()
+{
+	MatchAttributesDatastore.Add(EMatchAttributeTags::GameMode, MakeShareable(new TAttributePropertyString(this, &MatchGameMode)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::Map, MakeShareable(new TAttributePropertyString(this, &MatchMap)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::Options, MakeShareable(new TAttributePropertyString(this, &MatchOptions)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::Stats, MakeShareable(new TAttributePropertyString(this, &MatchStats)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::Host, MakeShareable(new TAttributePropertyString(this, &MatchAttr_HostName)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::FirstOpponent, MakeShareable(new TAttributePropertyString(this, &MatchAttr_FirstOpponent)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::PlayTime, MakeShareable(new TAttributePropertyString(this, &MatchAttr_PlayTime)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::RedScore, MakeShareable(new TAttributePropertyString(this, &MatchAttr_RedScore)));
+	MatchAttributesDatastore.Add(EMatchAttributeTags::BlueScore, MakeShareable(new TAttributePropertyString(this, &MatchAttr_BlueScore)));
+	//MatchAttributesDatastore.Add(EMatchAttributeTags::BlueScore, MakeShareable(new TAttributePropertyString(this, &MatchAttr_BlueScore)));
 }

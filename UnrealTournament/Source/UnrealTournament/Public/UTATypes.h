@@ -292,3 +292,30 @@ public:
 
 DECLARE_DELEGATE(FGameOptionChangedDelegate);
 
+// These are attribute tags that can be used to look up data in the MatchAttributesDatastore
+namespace EMatchAttributeTags
+{
+	const FName GameMode = FName(TEXT("GameMode"));
+	const FName Map = FName(TEXT("Map"));
+	const FName Options = FName(TEXT("Options"));
+	const FName Stats = FName(TEXT("Stats"));
+	const FName Host = FName(TEXT("Host"));
+	const FName FirstOpponent = FName(TEXT("FirstOpponent"));
+	const FName PlayTime = FName(TEXT("PlayTime"));
+	const FName RedScore = FName(TEXT("RedScore"));
+	const FName BlueScore = FName(TEXT("BlueScore"));
+}
+
+namespace ELobbyMatchState
+{
+	const FName Dead = TEXT("Dead");
+	const FName Initializing = TEXT("Initializing");
+	const FName Setup = TEXT("Setup");
+	const FName WaitingForPlayers = TEXT("WaitingForPlayers");
+	const FName Launching = TEXT("Launching");
+	const FName Aborting = TEXT("Aborting");
+	const FName InProgress = TEXT("InProgress");
+	const FName Completed = TEXT("Completed");
+	const FName Recycling = TEXT("Recycling");
+	const FName Returning = TEXT("Returning");
+}

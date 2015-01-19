@@ -380,6 +380,9 @@ public:
 	 */
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps);
 
+	/** called by the hosting MatchPanel when it's created, this function will create the match panel. */
+	virtual void CreateMatchPanel(TSharedPtr<class SVerticalBox> WidgetSpace, TMap< FName, TSharedPtr<TAttributePropertyBase> >& GameData, FName MatchState);
+
 #endif
 
 	/**
@@ -502,7 +505,6 @@ public:
 
 	UPROPERTY(Config)
 	bool bLobbyAllowJoinInProgress;
-
 
 protected:
 	// A Beacon for communicating back to the lobby
