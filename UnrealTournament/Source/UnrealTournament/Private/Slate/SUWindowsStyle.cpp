@@ -662,6 +662,17 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UWindows.Chat.Text.Admin", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
 	}
 
+	{ // Match Badge Styles
+		Style.Set("UWindows.Standard.MatchBadge", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+		Style.Set("UWindows.Standard.MatchBadge.Bold", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetColorAndOpacity(FLinearColor::Yellow)
+		);
+	}
 
 	return StyleRef;
 }

@@ -50,23 +50,17 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
 	MinPlayers = 2; // TODO: This should be pulled from the game type at some point
 
-	MatchAttr_HostName = TEXT("?");
-	MatchAttr_FirstOpponent = TEXT("?");
-	MatchAttr_PlayTime = TEXT("00:00:00");
-	MatchAttr_RedScore = TEXT("0");
-	MatchAttr_BlueScore = TEXT("0");
-
-
-	if (GetWorld()->GetNetMode() == ENetMode::NM_Client)
-	{
-		InitializeMatchAttributes();	
-	}
+	MatchBadge = TEXT("This\nIs A\nTest");
 }
 
 bool AUTLobbyMatchInfo::CheckLobbyGameState()
 {
 	LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	return LobbyGameState != NULL;
+}
+
+void AUTLobbyMatchInfo::OnRep_MatchBadge()
+{
 }
 
 void AUTLobbyMatchInfo::OnRep_MatchOptions()
@@ -84,17 +78,12 @@ void AUTLobbyMatchInfo::UpdateGameMode()
 
 void AUTLobbyMatchInfo::OnRep_Players()
 {
-	if (Players.Num() > 0)
-	{
-		if (Players[0]) MatchAttr_HostName = Players[0]->PlayerName;
-		if (Players.Num() > 1 && Players[1]) MatchAttr_FirstOpponent = Players[1]->PlayerName;
-	}
-	else
-	{
-		MatchAttr_HostName = TEXT("");
-		MatchAttr_FirstOpponent = TEXT("");
-	}
 }
+
+void AUTLobbyMatchInfo::OnRep_PlayersInMatch()
+{
+}
+
 
 void AUTLobbyMatchInfo::OnRep_MatchStats()
 {
@@ -116,22 +105,8 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 		Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
 		Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
 
-		MatchAttr_PlayTime = FText::Format(NSLOCTEXT("SUWindowsMidGame", "ClockFormat", "{Hours}:{Minutes}:{Seconds}"), Args).ToString();
+		MatchElapsedTime = FText::Format(NSLOCTEXT("SUWindowsMidGame", "ClockFormat", "{Hours}:{Minutes}:{Seconds}"), Args);
 	}
-
-	// Pull the scores out of the match stats
-	FString ScoreString;
-	if (FParse::Value(*MatchStats, TEXT("TeamScores="), ScoreString))
-	{
-		TArray<FString> Scores;
-		ScoreString.ParseIntoArray(&Scores, TEXT(","), true);
-		if (Scores.Num() >= 2)
-		{
-			MatchAttr_RedScore = Scores[0];
-			MatchAttr_BlueScore = Scores[1];
-		}
-	}
-
 }
 
 
@@ -258,13 +233,13 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
-		if (MatchAttr_PlayTime.IsEmpty())
+		if (MatchElapsedTime.IsEmpty())
 		{
 			return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
 		}
 		else
 		{
-			return FText::FromString(*MatchAttr_PlayTime);
+			return MatchElapsedTime;
 		}
 	}
 	else if (CurrentState == ELobbyMatchState::Returning)
@@ -518,18 +493,4 @@ bool AUTLobbyMatchInfo::ServerSetAllowSpectating_Validate(bool bAllow) { return 
 void AUTLobbyMatchInfo::ServerSetAllowSpectating_Implementation(bool bAllow)
 {
 	bSpectatable = bAllow;
-}
-
-void AUTLobbyMatchInfo::InitializeMatchAttributes()
-{
-	MatchAttributesDatastore.Add(EMatchAttributeTags::GameMode, MakeShareable(new TAttributePropertyString(this, &MatchGameMode)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::Map, MakeShareable(new TAttributePropertyString(this, &MatchMap)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::Options, MakeShareable(new TAttributePropertyString(this, &MatchOptions)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::Stats, MakeShareable(new TAttributePropertyString(this, &MatchStats)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::Host, MakeShareable(new TAttributePropertyString(this, &MatchAttr_HostName)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::FirstOpponent, MakeShareable(new TAttributePropertyString(this, &MatchAttr_FirstOpponent)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::PlayTime, MakeShareable(new TAttributePropertyString(this, &MatchAttr_PlayTime)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::RedScore, MakeShareable(new TAttributePropertyString(this, &MatchAttr_RedScore)));
-	MatchAttributesDatastore.Add(EMatchAttributeTags::BlueScore, MakeShareable(new TAttributePropertyString(this, &MatchAttr_BlueScore)));
-	//MatchAttributesDatastore.Add(EMatchAttributeTags::BlueScore, MakeShareable(new TAttributePropertyString(this, &MatchAttr_BlueScore)));
 }

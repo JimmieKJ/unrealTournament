@@ -83,6 +83,9 @@ public:
 	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchStats)
 	FString MatchStats;
 
+	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchBadge)
+	FString MatchBadge;
+
 	// The options for this match
 	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchGameMode)
 	FString MatchGameMode;
@@ -119,7 +122,7 @@ public:
 	FString GameInstanceGUID;
 
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, replicatedUsing = OnRep_PlayersInMatch)
 	TArray<FPlayerListInfo> PlayersInMatchInstance;
 	
 	// Cache some data
@@ -236,6 +239,7 @@ protected:
 	UPROPERTY()
 	AUTLobbyGameState* LobbyGameState;
 
+	FText MatchElapsedTime;
 
 	// Called when Match Options change.  This should funnel the new options string to the UI and update everyone.
 	UFUNCTION()
@@ -252,6 +256,13 @@ protected:
 
 	UFUNCTION()
 	virtual void OnRep_Players();
+
+	UFUNCTION()
+	virtual void OnRep_PlayersInMatch();
+
+	UFUNCTION()
+	virtual void OnRep_MatchBadge();
+
 
 	// The client has received the OwnerID so we are good to go
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -277,25 +288,6 @@ protected:
 	void RecycleMatchInfo();
 
 	bool CheckLobbyGameState();
-
-public:
-	// The MatchAttributesDatastore map holds a list of information about the current map including direct references to the MatchGameMode, MatchMap and MatchOptions 
-	// variables.  
-	TMap< FName, TSharedPtr<TAttributePropertyBase>> MatchAttributesDatastore;
-
-	// Call via the PreInitializeComponents function on clients, this will fill out the MAtchAttributesDatastore with attribute referecnes
-	// to all of the data need by the MatchPanel or other menus.
-	virtual void InitializeMatchAttributes();
-
-protected:
-	// These are datadumps for the various match attributes.  When data is received on the client, it's often placed here 
-	// so that menus and other objects have a simple way to pull the data.
-	FString MatchAttr_HostName;
-	FString MatchAttr_FirstOpponent;
-	FString MatchAttr_PlayTime;
-	FString MatchAttr_RedScore;
-	FString MatchAttr_BlueScore;
-	int32 dummy;
 };
 
 

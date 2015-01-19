@@ -296,14 +296,15 @@ DECLARE_DELEGATE(FGameOptionChangedDelegate);
 namespace EMatchAttributeTags
 {
 	const FName GameMode = FName(TEXT("GameMode"));
+	const FName GameName = FName(TEXT("GameName"));
 	const FName Map = FName(TEXT("Map"));
 	const FName Options = FName(TEXT("Options"));
 	const FName Stats = FName(TEXT("Stats"));
 	const FName Host = FName(TEXT("Host"));
-	const FName FirstOpponent = FName(TEXT("FirstOpponent"));
 	const FName PlayTime = FName(TEXT("PlayTime"));
 	const FName RedScore = FName(TEXT("RedScore"));
 	const FName BlueScore = FName(TEXT("BlueScore"));
+	const FName PlayerCount = FName(TEXT("PlayerCount"));
 }
 
 namespace ELobbyMatchState

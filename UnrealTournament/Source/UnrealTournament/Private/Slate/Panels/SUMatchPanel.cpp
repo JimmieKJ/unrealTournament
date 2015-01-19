@@ -37,7 +37,32 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Fill)
 				[
-					SAssignNew(ButtonSurface, SVerticalBox)
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.Padding(5.0,5.0,5.0,0.0)
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
+					[
+						SNew(SBox)						// First the overlaid box that controls everything....
+						.HeightOverride(145)
+						.WidthOverride(145)
+						[
+
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.Padding(5.0,5.0,5.0,0.0)
+							.VAlign(VAlign_Fill)
+							.HAlign(HAlign_Center)
+							[
+								SNew(SRichTextBlock)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
+								.Justification(ETextJustify::Center)
+								.DecoratorStyleSet( &SUWindowsStyle::Get() )
+								.AutoWrapText( true )
+								.Text(this, &SUMatchPanel::GetMatchBadgeText)
+							]
+						]
+					]
 				]
 				+SVerticalBox::Slot()
 				.VAlign(VAlign_Bottom)
@@ -93,22 +118,6 @@ void SUMatchPanel::UpdateMatchInfo()
 {
 	if (MatchInfo.IsValid())
 	{
-		// The CurrentGameModeclass has changed... update the button's surface.
-		if  (MatchInfo->MatchGameMode != CurrentGameModeClass || MatchInfo->CurrentState != CurrentMatchState)
-		{
-			ButtonSurface->ClearChildren();
-			AUTGameMode* DefaultGameMode = AUTLobbyGameState::GetGameModeDefaultObject(MatchInfo->MatchGameMode);
-			if (DefaultGameMode)
-			{
-				CurrentGameModeClass = MatchInfo->MatchGameMode;
-				DefaultGameMode->CreateMatchPanel(ButtonSurface, MatchInfo->MatchAttributesDatastore, MatchInfo->CurrentState);
-			}
-
-			CurrentMatchState = MatchInfo->CurrentState;
-			CurrentGameModeClass = MatchInfo->MatchGameMode;
-
-		}
-
 		SetVisibility(EVisibility::All);
 	}
 	else
@@ -136,4 +145,16 @@ FReply SUMatchPanel::ButtonClicked()
 	}
 	return FReply::Handled();
 }
+
+FText SUMatchPanel::GetMatchBadgeText() const
+{
+	if (MatchInfo.IsValid())
+	{
+		return FText::FromString(MatchInfo->MatchBadge);
+	}
+
+	return FText::GetEmpty();
+}
+
+
 #endif

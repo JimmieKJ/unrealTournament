@@ -29,9 +29,15 @@ public:
 	
 protected:
 
+	// Used to store all of the attributes to be displayed.
+	TArray<TSharedPtr<TAttributePropertyBase>> DataStore;
+
 	// Holds the match info associated with this match...
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo;
+
+	// Name of the host of this panel
+	FString HostName;
 
 	// The GameMode which this match panel represents.  If it changes, it will destroy the surface of the button and start over.
 	FString CurrentGameModeClass;
@@ -54,6 +60,9 @@ protected:
 	void UpdateMatchInfo();
 
 	FReply ButtonClicked();
+
+	FText GetMatchBadgeText() const;
+
 };
 
 #endif

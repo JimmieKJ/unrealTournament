@@ -254,3 +254,4 @@ void AUTDuelGame::UpdateSkillRating()
 		}
 	}
 }
+
