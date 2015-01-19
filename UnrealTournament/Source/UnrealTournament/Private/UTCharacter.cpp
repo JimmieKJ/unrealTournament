@@ -2161,6 +2161,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatFlashCount, COND_Custom);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HatSpreeCount, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3422,6 +3423,14 @@ void AUTCharacter::OnRepHatFlashCount()
 	if (Hat)
 	{
 		Hat->OnFlashCountIncremented();
+	}
+}
+
+void AUTCharacter::OnRepHatSpreeCount()
+{
+	if (Hat)
+	{
+		Hat->OnSpreeLevelChanged(HatSpreeCount);
 	}
 }
 

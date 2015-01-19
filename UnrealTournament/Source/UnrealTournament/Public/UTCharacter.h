@@ -289,7 +289,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRepHat();
 
-	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated, ReplicatedUsing = OnRepHatFlashCount)
+	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepHatFlashCount)
 	int32 HatFlashCount;
 
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
@@ -297,6 +297,12 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UFUNCTION()
 	virtual void OnRepHatFlashCount();
+
+	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepHatSpreeCount)
+	int32 HatSpreeCount;
+
+	UFUNCTION()
+	virtual void OnRepHatSpreeCount();
 
 	UPROPERTY(replicatedUsing=OnRepEmote)
 	FEmoteRepInfo EmoteReplicationInfo;

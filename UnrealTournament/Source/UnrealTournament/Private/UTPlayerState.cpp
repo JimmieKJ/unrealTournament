@@ -111,6 +111,13 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				{
 					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / 5, this);
 				}
+
+
+				if (UTChar != NULL && UTChar->HatClass != nullptr)
+				{
+					UTChar->HatSpreeCount = FMath::Min(Spree / 5, 4);
+					UTChar->OnRepHatSpreeCount();
+				}
 			}
 		}
 		if (UTChar != NULL && UTChar->HatClass != nullptr)

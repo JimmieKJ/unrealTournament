@@ -17,4 +17,7 @@ class UNREALTOURNAMENT_API AUTHat : public AActor
 
 	UFUNCTION(BlueprintImplementableEvent)
 	virtual void OnFlashCountIncremented();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	virtual void OnSpreeLevelChanged(int32 NewSpreeLevel);
 };
