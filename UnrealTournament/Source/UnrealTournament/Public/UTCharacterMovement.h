@@ -41,6 +41,17 @@ public:
 	/** Process old servermove forwarded by character */
 	virtual void ProcessOldServerMove(float OldTimeStamp, FVector OldAccel, float OldYaw, uint8 OldMoveFlags);
 
+	/** Sets LastClientAdjustmentTime so there will be no delay in sending any needed adjustment. */
+	virtual void NeedsClientAdjustment();
+
+	/** Last time a client adjustment was sent.  Used to limit frequency (for when client hasn't had a chance to respond yet. */
+	UPROPERTY()
+	float LastClientAdjustmentTime;
+
+	/** Used to control minimum frequency of client adjustment replication. */
+	UPROPERTY()
+	float MinTimeBetweenClientAdjustments;
+
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual FVector GetImpartedMovementBaseVelocity() const override;
 	virtual bool CanCrouchInCurrentState() const override;

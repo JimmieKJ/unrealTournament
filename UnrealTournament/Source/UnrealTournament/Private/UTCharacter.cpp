@@ -2220,6 +2220,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		if (UTCharacterMovement->WantsSlideRoll() && UTCharacterMovement->IsMovingOnGround())
 		{
 			UTCharacterMovement->PerformRoll(DodgeDir);
+			return true;
 		}
 		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
@@ -2227,14 +2228,11 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			OnDodge(DodgeDir);
 			return true;
 		}
-		else
-		{
-			// clear all bPressedDodge, so it doesn't get replicated or saved
-			//UE_LOG(UT, Warning, TEXT("Didnt really dodge"));
-			UTCharacterMovement->ClearDodgeInput();
-		}
 	}
-	//UE_LOG(UT, Warning,TEXT("CAN DODGE FAILED"));
+	// clear all bPressedDodge, so it doesn't get replicated or saved
+	//UE_LOG(UT, Warning, TEXT("Didnt really dodge"));
+	UTCharacterMovement->ClearDodgeInput();
+	UTCharacterMovement->NeedsClientAdjustment();
 	return false;
 }
 
@@ -2248,6 +2246,7 @@ bool AUTCharacter::Roll(FVector RollDir)
 			return true;
 		}
 	}
+	UTCharacterMovement->NeedsClientAdjustment();
 	return false;
 }
 
@@ -3820,7 +3819,7 @@ void AUTCharacter::TurnOff()
 	Super::TurnOff();
 }
 
-// @TODO FIXMESTEVE NetQuantize100 ClientLoc for verification of perfect synchronization
+// @TODO FIXMESTEVE no NetQuantize ClientLoc for verification of perfect synchronization
 void AUTCharacter::UTServerMove_Implementation(
 	float TimeStamp,
 	FVector_NetQuantize InAccel,

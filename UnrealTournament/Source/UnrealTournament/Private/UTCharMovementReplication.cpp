@@ -456,15 +456,6 @@ void UUTCharacterMovement::SendClientAdjustment()
 		}
 		else
 		{
-			/* FIXMESTEVE TODO 
-			bool bUseRelativeLocation = MovementBaseUtility::UseRelativeLocation(ServerData->PendingAdjustment.NewBas);
-			if (!bUseRelativeLocation)
-			{
-			// location isn't relative, don't need to replicate base
-			ServerData->PendingAdjustment.NewBase = NULL;
-			ServerData->PendingAdjustment.NewBaseBoneName = NAME_None;
-			}
-			*/
 			if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
 			{
 				FRotator Rotation = ServerData->PendingAdjustment.NewRot.GetNormalized();
@@ -777,6 +768,12 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 
 void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLoc, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
 {
+	// limit client error update frequency
+	if (GetWorld()->GetTimeSeconds() - LastClientAdjustmentTime < MinTimeBetweenClientAdjustments)
+	{
+		return;
+	}
+	LastClientAdjustmentTime = GetWorld()->GetTimeSeconds();
 	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 	check(ServerData);
 
@@ -821,9 +818,6 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 	{
 		UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
 		ServerData->PendingAdjustment.NewVel = Velocity;
-		ServerData->PendingAdjustment.NewBase = MovementBase;
-		ServerData->PendingAdjustment.NewBaseBoneName = CharacterOwner->GetBasedMovement().BoneName;
-		ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetActorLocation();
 		ServerData->PendingAdjustment.NewRot = CharacterOwner->GetActorRotation();
 
 		ServerData->PendingAdjustment.bBaseRelativePosition = MovementBaseUtility::UseRelativeLocation(MovementBase);
@@ -831,9 +825,17 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 		{
 			// Relative location
 			ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetBasedMovement().Location;
+			ServerData->PendingAdjustment.NewBase = MovementBase;
+			ServerData->PendingAdjustment.NewBaseBoneName = CharacterOwner->GetBasedMovement().BoneName;
 
 			// TODO: this could be a relative rotation, but all client corrections ignore rotation right now except the root motion one, which would need to be updated.
 			//ServerData->PendingAdjustment.NewRot = CharacterOwner->GetBasedMovement().Rotation;
+		}
+		else
+		{
+			ServerData->PendingAdjustment.NewLoc = CharacterOwner->GetActorLocation();
+			ServerData->PendingAdjustment.NewBase = NULL;
+			ServerData->PendingAdjustment.NewBaseBoneName = NAME_None;
 		}
 /*		if (bMovementModeDiffers)
 		{
@@ -865,6 +867,10 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 	}
 }
 
+void UUTCharacterMovement::NeedsClientAdjustment()
+{
+	LastClientAdjustmentTime = -1.f;
+}
 
 bool UUTCharacterMovement::ExceedsAllowablePositionError(FVector LocDiff) const
 {

@@ -119,6 +119,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bFallingInWater = false;
 
 	MaxPositionErrorSquared = 5.f;
+	LastClientAdjustmentTime = -1.f;
+	MinTimeBetweenClientAdjustments = 0.1f;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
@@ -211,6 +213,7 @@ void UUTCharacterMovement::ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpa
 	Velocity = NewVelocity;
 	SetMovementMode(MOVE_Falling);
 	bNotifyApex = true;
+	NeedsClientAdjustment();
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
@@ -430,6 +433,7 @@ void UUTCharacterMovement::AddDampedImpulse(FVector Impulse, bool bSelfInflicted
 		}
 
 		PendingImpulseToApply += FinalImpulse;
+		NeedsClientAdjustment();
 	}
 }
 
@@ -454,10 +458,15 @@ FVector UUTCharacterMovement::GetImpartedMovementBaseVelocity() const
 
 bool UUTCharacterMovement::CanDodge()
 {
-	//if (GetCurrentMovementTime() < DodgeResetTime)
+/*	if (GetCurrentMovementTime() < DodgeResetTime)
 	{
-		//UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+		UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("SUCCEEDED candodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+	}
+*/
 	return !bIsDodgeRolling && CanEverJump() && (GetCurrentMovementTime() > DodgeResetTime);
 }
 
@@ -521,6 +530,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
 		{
 			//UE_LOG(UT, Warning, TEXT("Exceeded max wall dodges"));
+			NeedsClientAdjustment();
 			return false;
 		}
 		// if falling/swimming, check if can perform wall dodge
@@ -539,6 +549,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 		{
 			//UE_LOG(UT, Warning, TEXT("No wall to dodge"));
+			NeedsClientAdjustment();
 			return false;
 		}
 		if ((Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal)
@@ -1065,6 +1076,12 @@ void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlic
 	{
 		CheckWallSlide(Impact);
 	}
+	AActor* ImpactActor = Impact.GetActor();
+	if (ImpactActor && ImpactActor->GetRootComponent() && (ImpactActor->GetRootComponent()->Mobility == EComponentMobility::Movable))
+	{
+		NeedsClientAdjustment();
+	}
+
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }
 
