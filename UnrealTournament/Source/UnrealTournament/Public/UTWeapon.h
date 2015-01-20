@@ -36,10 +36,10 @@ struct FDelayedProjectileInfo
 	TSubclassOf<AUTProjectile> ProjectileClass;
 
 	UPROPERTY()
-		FVector SpawnLocation;
+	FVector SpawnLocation;
 
 	UPROPERTY()
-		FRotator SpawnRotation;
+	FRotator SpawnRotation;
 
 	FDelayedProjectileInfo()
 		: ProjectileClass(NULL), SpawnLocation(ForceInit), SpawnRotation(ForceInit)
@@ -52,16 +52,16 @@ struct FDelayedHitScanInfo
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FVector ImpactLocation;
+	FVector ImpactLocation;
 
 	UPROPERTY()
-		uint8 FireMode;
+	uint8 FireMode;
 
 	UPROPERTY()
-		FVector SpawnLocation;
+	FVector SpawnLocation;
 
 	UPROPERTY()
-		FRotator SpawnRotation;
+	FRotator SpawnRotation;
 
 	FDelayedHitScanInfo()
 		: ImpactLocation(ForceInit), FireMode(0), SpawnLocation(ForceInit), SpawnRotation(ForceInit)
@@ -172,6 +172,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** last time an impact effect was played */
 	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
 	float LastImpactEffectTime;
+	/** materials on weapon mesh first time we change its skin, used to preserve any runtime blueprint changes */
+	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
+	TArray<UMaterialInterface*> SavedMeshMaterials;
 
 	/** If true, weapon is visibly holstered when not active.  There can only be one holstered weapon in inventory at a time. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")

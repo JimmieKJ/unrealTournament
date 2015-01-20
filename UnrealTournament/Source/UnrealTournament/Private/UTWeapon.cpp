@@ -1567,6 +1567,11 @@ void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
 	{
 		NumMats = FMath::Max<int32>(NumMats, Mesh->SkeletalMesh->Materials.Num());
 	}
+	// save off existing materials if we haven't yet done so
+	while (SavedMeshMaterials.Num() < NumMats)
+	{
+		SavedMeshMaterials.Add(Mesh->GetMaterial(SavedMeshMaterials.Num()));
+	}
 	if (NewSkin != NULL)
 	{
 		for (int32 i = 0; i < NumMats; i++)
@@ -1578,7 +1583,7 @@ void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
 	{
 		for (int32 i = 0; i < NumMats; i++)
 		{
-			Mesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTWeapon>()->Mesh->GetMaterial(i));
+			Mesh->SetMaterial(i, SavedMeshMaterials[i]);
 		}
 	}
 }
