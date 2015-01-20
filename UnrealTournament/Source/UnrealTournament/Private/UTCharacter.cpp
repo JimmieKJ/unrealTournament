@@ -407,6 +407,16 @@ bool AUTCharacter::IsSpawnProtected()
 
 void AUTCharacter::SetHeadScale(float NewHeadScale)
 {
+	// Head being detached
+	if (NewHeadScale == 0.0f)
+	{
+		if (Hat)
+		{
+			Hat->DetachRootComponentFromParent(true);
+			Hat->Destroy();
+		}
+	}
+
 	HeadScale = NewHeadScale;
 	if (GetNetMode() != NM_DedicatedServer)
 	{
