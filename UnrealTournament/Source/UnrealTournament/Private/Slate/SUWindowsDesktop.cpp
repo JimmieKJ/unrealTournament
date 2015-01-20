@@ -44,8 +44,8 @@ void SUWindowsDesktop::OnMenuClosed()
 		DeactivatePanel(ActivePanel);
 	}
 
-	TSharedPtr<SViewport> VP = StaticCastSharedPtr<SViewport>(GameViewportWidget);
-	FSlateApplication::Get().SetKeyboardFocus(GameViewportWidget);
+	FSlateApplication::Get().ClearUserFocus(0);
+	FSlateApplication::Get().ClearKeyboardFocus();
 }
 
 bool SUWindowsDesktop::SupportsKeyboardFocus() const
