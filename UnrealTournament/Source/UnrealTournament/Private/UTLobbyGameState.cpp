@@ -388,32 +388,42 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 		NewPlayer->AddHostData(Option);
 	}
 
-	// if server .ini didn't define allowed maps, assume all maps are acceptable
+	// determine GUID for installed maps if we haven't already
 	if (AllowedMaps.Num() == 0)
 	{
-		TArray<FString> Paths;
-		FPackageName::QueryRootContentPaths(Paths);
-		int32 MapExtLen = FPackageName::GetMapPackageExtension().Len();
-		for (int32 i = 0; i < Paths.Num(); i++)
+		// if server .ini didn't define allowed maps, assume all maps are acceptable
+		if (AllowedMapNames.Num() == 0)
 		{
-			// ignore /Engine/ as those aren't real gameplay maps
-			if (!Paths[i].StartsWith(TEXT("/Engine/")))
+			TArray<FString> Paths;
+			FPackageName::QueryRootContentPaths(Paths);
+			int32 MapExtLen = FPackageName::GetMapPackageExtension().Len();
+			for (int32 i = 0; i < Paths.Num(); i++)
 			{
-				TArray<FString> List;
-				FPackageName::FindPackagesInDirectory(List, *FPackageName::LongPackageNameToFilename(Paths[i]));
-				for (int32 j = 0; j < List.Num(); j++)
+				// ignore /Engine/ as those aren't real gameplay maps
+				if (!Paths[i].StartsWith(TEXT("/Engine/")))
 				{
-					if (List[j].Right(MapExtLen) == FPackageName::GetMapPackageExtension())
+					TArray<FString> List;
+					FPackageName::FindPackagesInDirectory(List, *FPackageName::LongPackageNameToFilename(Paths[i]));
+					for (int32 j = 0; j < List.Num(); j++)
 					{
-						AllowedMaps.Add(FPaths::GetBaseFilename(List[j]));
+						if (List[j].Right(MapExtLen) == FPackageName::GetMapPackageExtension())
+						{
+							AllowedMapNames.Add(FPaths::GetBaseFilename(List[j]));
+						}
 					}
 				}
 			}
 		}
+		for (const FString& MapName : AllowedMapNames)
+		{
+			FString MapFullName;
+			FPackageName::SearchForPackageOnDisk(FString(MapName) + FPackageName::GetMapPackageExtension(), &MapFullName);
+			new(AllowedMaps) FAllowedMapData(MapName, GEngine->GetPackageGuid(FName(*MapFullName)));
+		}
 	}
 	for (int32 i = 0; i < AllowedMaps.Num(); i++)
 	{
-		FString Option = FString::Printf(TEXT("map=%s"), *AllowedMaps[i]);
+		FString Option = FString::Printf(TEXT("map=%s:%s"), *AllowedMaps[i].MapName, *AllowedMaps[i].MapGuid.ToString());
 		NewPlayer->AddHostData(Option);
 	}
 

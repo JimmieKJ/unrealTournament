@@ -42,15 +42,17 @@ class FAllowedMapData
 {
 public:
 	FString MapName;
+	FGuid MapGuid;
 
-	FAllowedMapData(FString inMapName)
-		: MapName(inMapName)
-	{
-	};
+	FAllowedMapData(const FString& InName, const FGuid& InGuid)
+		: MapName(InName), MapGuid(InGuid)
+	{}
 
-	static TSharedRef<FAllowedMapData> Make(FString inMapName)
+	static inline TSharedRef<FAllowedMapData> MakeShared(const FString& InMapName, const FString& InGuid)
 	{
-		return MakeShareable(new FAllowedMapData(inMapName));
+		FGuid RealGuid;
+		FGuid::Parse(InGuid, RealGuid);
+		return MakeShareable(new FAllowedMapData(InMapName, RealGuid));
 	}
 };
 
@@ -77,8 +79,6 @@ public:
 	}
 };
 
-
-
 UCLASS(notplaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 {
@@ -103,11 +103,14 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	UPROPERTY(Config)
 	TArray<FString> AllowedGameModeClasses;
 
-	// A list of all maps that are allow the be chosen from.  We might want to consider auto-filling this but I want the
-	// admin to be able to select which maps he wants to offer.  The Client will then filter the list by what maps they have installed.
-	// We can at some point add a button or some mechanism  to allow players to pull missing maps from the marketplace.
+	/** A list of all maps that are allow the be chosen from. The Client will then filter the list by what maps they have installed.
+	 * We can at some point add a button or some mechanism  to allow players to pull missing maps from the marketplace.
+	 */
 	UPROPERTY(Config)
-	TArray<FString> AllowedMaps;
+	TArray<FString> AllowedMapNames;
+
+	/** name/GUID pairs for allowed maps (this is what is actually sent; build from AllowedMapNames if specified and otherwise from the list of all maps installed on the server) */
+	TArray<FAllowedMapData> AllowedMaps;
 
 	// These Game Options will be forced on ALL games instanced regardless of their GameMdoe
 	UPROPERTY(Config)
