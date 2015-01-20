@@ -651,16 +651,15 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	bool bSavedWantsToCrouch = bWantsToCrouch;
 	bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
 	bForceMaxAccel = bIsDodgeRolling;
-/*
 	FVector Loc = CharacterOwner->GetActorLocation();
-	float CurrentMoveTime = GetCurrentSynchTime();
+/*
 	if (CharacterOwner->Role < ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d"), CurrentMoveTime, DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling);
+		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), CurrentMoveTime, DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
+		UE_LOG(UT, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
 	}
 */
 	Super::PerformMovement(DeltaSeconds);
@@ -695,6 +694,14 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 	}
 	else
 	{
+		Result = Super::GetMaxAcceleration();
+		if (bIsSprinting && Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed))
+		{
+			// smooth transition to sprinting accel to avoid client/server synch issues
+			const float CurrentSpeed = Velocity.Size();
+			const float Transition = FMath::Min(1.f, 0.1f*(CurrentSpeed - MaxWalkSpeed));
+			Result = SprintAccel*Transition + Result*(1.f - Transition);
+		}
 		Result = (bIsSprinting && Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed)) ? SprintAccel : Super::GetMaxAcceleration();
 	}
 	if (MovementMode == MOVE_Walking && Cast<AUTCharacter>(CharacterOwner) != NULL)
@@ -763,6 +770,7 @@ void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bF
 		}
 	}
 	Super::CalcVelocity(DeltaTime, Friction, bFluid, BrakingDeceleration);
+	//UE_LOG(UT, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z);
 }
 
 void UUTCharacterMovement::ResetTimers()
@@ -817,6 +825,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		{
 			Velocity *= ((CurrentMultiJumpCount > 0) ? DodgeJumpLandingSpeedFactor : DodgeLandingSpeedFactor);
 			DodgeResetTime = GetCurrentMovementTime() + ((CurrentMultiJumpCount > 0) ? DodgeJumpResetInterval : DodgeResetInterval);
+			//UE_LOG(UT, Warning, TEXT("bIsDodging cut velocity to %f %f %f"),Velocity.X, Velocity.Y, Velocity.Z);
 		}
 		bIsDodging = false;
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
@@ -951,7 +960,12 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 		if (CharacterOwner->IsLocallyControlled())
 		{
 			bIsDodgeRolling = bIsDodgeRolling && (GetCurrentMovementTime() < DodgeRollEndTime);
+			//bool bWasSprinting = bIsSprinting;
 			bIsSprinting = CanSprint();
+			/*if (bWasSprinting != bIsSprinting)
+			{
+				UE_LOG(UT, Warning, TEXT("SPRINTING NOW %d"), bIsSprinting);
+			}*/
 		}
 
 		if (!bIsDodgeRolling && bWasDodgeRolling)
@@ -1223,7 +1237,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	bIsAgainstWall = false;
 	if (!HasRootMotion())
 	{
-	// test for slope to avoid using air control to climb walls 
+		// test for slope to avoid using air control to climb walls 
 		float TickAirControl = (CurrentMultiJumpCount < 1) ? AirControl : MultiJumpAirControl;
 		if (bRestrictedJump)
 		{
@@ -1475,10 +1489,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 
 			Velocity = Velocity.GetClampedToMaxSize(GetPhysicsVolume()->TerminalVelocity);
 		}
-/*
-		float CurrentMoveTime = GetCurrentSynchTime();
-		UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), CurrentMoveTime, Velocity.X, Velocity.Y, Velocity.Z);
-*/
+		//UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), GetCurrentSynchTime(), Velocity.X, Velocity.Y, Velocity.Z);
 	}
 }
 

@@ -441,7 +441,79 @@ void UUTCharacterMovement::SendClientAdjustment()
 	}
 	else
 	{
-		Super::SendClientAdjustment();
+		FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
+		check(ServerData);
+
+		if (ServerData->PendingAdjustment.TimeStamp <= 0.f)
+		{
+			return;
+		}
+
+		if (ServerData->PendingAdjustment.bAckGoodMove == true)
+		{
+			// just notify client this move was received
+			ClientAckGoodMove(ServerData->PendingAdjustment.TimeStamp);
+		}
+		else
+		{
+			/* FIXMESTEVE TODO 
+			bool bUseRelativeLocation = MovementBaseUtility::UseRelativeLocation(ServerData->PendingAdjustment.NewBas);
+			if (!bUseRelativeLocation)
+			{
+			// location isn't relative, don't need to replicate base
+			ServerData->PendingAdjustment.NewBase = NULL;
+			ServerData->PendingAdjustment.NewBaseBoneName = NAME_None;
+			}
+			*/
+			if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
+			{
+				FRotator Rotation = ServerData->PendingAdjustment.NewRot.GetNormalized();
+				FVector_NetQuantizeNormal CompressedRotation(Rotation.Pitch / 180.f, Rotation.Yaw / 180.f, Rotation.Roll / 180.f);
+				ClientAdjustRootMotionPosition
+					(
+					ServerData->PendingAdjustment.TimeStamp,
+					CharacterOwner->GetRootMotionAnimMontageInstance()->GetPosition(),
+					ServerData->PendingAdjustment.NewLoc,
+					CompressedRotation,
+					ServerData->PendingAdjustment.NewVel.Z,
+					ServerData->PendingAdjustment.NewBase,
+					ServerData->PendingAdjustment.NewBaseBoneName,
+					ServerData->PendingAdjustment.NewBase != NULL,
+					ServerData->PendingAdjustment.bBaseRelativePosition,
+					ServerData->PendingAdjustment.MovementMode
+					);
+			}
+			else if (ServerData->PendingAdjustment.NewVel.IsZero())
+			{
+				ClientVeryShortAdjustPosition
+					(
+					ServerData->PendingAdjustment.TimeStamp,
+					ServerData->PendingAdjustment.NewLoc,
+					ServerData->PendingAdjustment.NewBase,
+					ServerData->PendingAdjustment.NewBaseBoneName,
+					ServerData->PendingAdjustment.NewBase != NULL,
+					ServerData->PendingAdjustment.bBaseRelativePosition,
+					ServerData->PendingAdjustment.MovementMode
+					);
+			}
+			else
+			{
+				ClientAdjustPosition
+					(
+					ServerData->PendingAdjustment.TimeStamp,
+					ServerData->PendingAdjustment.NewLoc,
+					ServerData->PendingAdjustment.NewVel,
+					ServerData->PendingAdjustment.NewBase,
+					ServerData->PendingAdjustment.NewBaseBoneName,
+					ServerData->PendingAdjustment.NewBase != NULL,
+					ServerData->PendingAdjustment.bBaseRelativePosition,
+					ServerData->PendingAdjustment.MovementMode
+					);
+			}
+		}
+
+		ServerData->PendingAdjustment.TimeStamp = 0;
+		ServerData->PendingAdjustment.bAckGoodMove = false;
 	}
 }
 
@@ -563,9 +635,9 @@ void UUTCharacterMovement::UTCallServerMove()
 		}
 	}
 
-	/*UE_LOG(LogNetPlayerMovement, Warning, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s flags %d"),
-		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString(), NewMove->GetCompressedFlags());*/
-
+/*	UE_LOG(LogNetPlayerMovement, Warning, TEXT("Client ReplicateMove Time %f Acceleration %s Position %s flags %d movementmode %d"),
+		NewMove->TimeStamp, *NewMove->Acceleration.ToString(), *CharacterOwner->GetActorLocation().ToString(), NewMove->GetCompressedFlags(), int32(NewMove->MovementMode));
+*/
 	// Find the oldest unacknowledged sent important move (OldMove).
 	// Don't include the last move because it may be combined with the next new move.
 	// A saved move is interesting if it differs significantly from the last acknowledged move
@@ -637,7 +709,7 @@ void UUTCharacterMovement::UTCallServerMove()
 			NewMove->SavedControlRotation.Pitch,
 			ClientMovementBase,
 			NewMove->EndBoneName,
-			PackNetworkMovementMode()
+			NewMove->MovementMode
 			);
 	}
 
@@ -674,7 +746,6 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp) * CharacterOwner->CustomTimeDilation;
 	ServerData->CurrentClientTimeStamp = TimeStamp;
 	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
-	//UE_LOG(UT, Warning, TEXT("1ServerTimeStamp to %f InAccel %f %f %f"), ServerData->ServerTimeStamp, InAccel.X, InAccel.Y, InAccel.Z);
 	if (PC)
 	{
 		FRotator ViewRot;
@@ -730,9 +801,23 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 	// Compute the client error from the server's position
 	const FVector LocDiff = CharacterOwner->GetActorLocation() - ClientLoc;
 	const uint8 CurrentPackedMovementMode = PackNetworkMovementMode();
+	bool bMovementModeDiffers = (CurrentPackedMovementMode != ClientMovementMode);
+	if (bMovementModeDiffers)
+	{
+		// don't differentiate between falling and walking for this check
+		// @TODO FIXMESTEVE maybe make sure the transition isn't more than 1 frame off?
+		if (CurrentPackedMovementMode == 2)
+		{
+			bMovementModeDiffers = (ClientMovementMode != 1);
+		}
+		else if (CurrentPackedMovementMode == 1)
+		{
+			bMovementModeDiffers = (ClientMovementMode != 2);
+		}
+	}
 
 	// If client has accumulated a noticeable positional error, correct him.
-	if (ExceedsAllowablePositionError(LocDiff) || (CurrentPackedMovementMode != ClientMovementMode))
+	if (ExceedsAllowablePositionError(LocDiff) || bMovementModeDiffers)
 	{
 		UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
 		ServerData->PendingAdjustment.NewVel = Velocity;
@@ -750,14 +835,14 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 			// TODO: this could be a relative rotation, but all client corrections ignore rotation right now except the root motion one, which would need to be updated.
 			//ServerData->PendingAdjustment.NewRot = CharacterOwner->GetBasedMovement().Rotation;
 		}
-/*		if (CurrentPackedMovementMode != ClientMovementMode)
+/*		if (bMovementModeDiffers)
 		{
-			UE_LOG(LogNetPlayerMovement, Warning, TEXT("******** MOVEMENTMODE Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d actual %d"),
-				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), *GetNameSafe(MovementBase), int32(CurrentPackedMovementMode), int32(ClientMovementMode), int32(MovementMode));
+			UE_LOG(UT, Warning, TEXT("******** MOVEMENTMODE Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d actual %d"),
+				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), int32(CurrentPackedMovementMode), int32(ClientMovementMode), int32(MovementMode));
 		}
 		else
 		{
-			UE_LOG(LogNetPlayerMovement, Warning, TEXT("******** Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s"),
+			UE_LOG(UT, Warning, TEXT("******** Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s"),
 				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), *GetNameSafe(MovementBase));
 		}
 */
@@ -769,9 +854,11 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 	}
 	else
 	{
-	/*	UE_LOG(LogNetPlayerMovement, Warning, TEXT("NO Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d"),
-			TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), CurrentPackedMovementMode, ClientMovementMode);
-*/
+		/*if (!LocDiff.IsZero())
+		{
+			UE_LOG(LogNetPlayerMovement, Warning, TEXT("+++++++++++++++++++++++ SMALL Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d"),
+				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), CurrentPackedMovementMode, ClientMovementMode);
+		}*/
 		// acknowledge receipt of this successful servermove()
 		ServerData->PendingAdjustment.TimeStamp = TimeStamp;
 		ServerData->PendingAdjustment.bAckGoodMove = true;
@@ -1128,7 +1215,7 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			UTCharMov->DodgeRollEndTime = SavedDodgeRollEndTime;
 			UTCharMov->bJumpAssisted = bSavedJumpAssisted;
 			UTCharMov->bIsDodging = bSavedIsDodging;
-			//UE_LOG(UT, Warning, TEXT("First move %f saved sprint start %f"), TimeStamp, UTCharMov->SprintStartTime);
+			//UE_LOG(UT, Warning, TEXT("First move %f bIsDodging %d"), TimeStamp, UTCharMov->bIsDodging);
 		}
 		else
 		{
@@ -1185,7 +1272,7 @@ void FSavedMove_UTCharacter::PostUpdate(ACharacter* Character, FSavedMove_Charac
 	// set flag if weapon is shooting on client this frame not from new fire press/release (to keep client and server synchronized)
 	UUTCharacterMovement* UTCharMovement = Character ? Cast<UUTCharacterMovement>(Character->GetCharacterMovement()) : NULL;
 	bShotSpawned = UTCharMovement->bShotSpawned;
-	MovementMode = UTCharMovement->MovementMode; // @TODO FIXMESTEVE SHOULD BE IN Engine version as well
+	MovementMode = UTCharMovement->PackNetworkMovementMode(); // @TODO FIXMESTEVE SHOULD BE IN Engine version as well
 	Super::PostUpdate(Character, PostUpdateMode);
 }
 
