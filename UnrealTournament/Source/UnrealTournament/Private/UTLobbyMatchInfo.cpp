@@ -81,11 +81,14 @@ void AUTLobbyMatchInfo::UpdateGameMode()
 	}
 	else
 	{
+#if !UE_SERVER
 		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
 		if (DefaultGame && CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
 			MatchBadge = DefaultGame->GetHUBPregameFormatString();
 		}
+#endif
+
 	}
 }
 
