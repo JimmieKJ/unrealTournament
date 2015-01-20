@@ -12,11 +12,14 @@
 #endif
 
 AUTMutator_WeaponReplacement::AUTMutator_WeaponReplacement(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+: Super(ObjectInitializer)
 {
-	DisplayName = NSLOCTEXT("Mutator_WeaponReplacement","Display Name", "Weapon Replacement");
+	DisplayName = NSLOCTEXT("Mutator_WeaponReplacement", "Display Name", "Weapon Replacement");
 #if !UE_SERVER
-	ConfigMenu = LoadClass<UUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/Mutator_WeaponReplacementUI.Mutator_WeaponReplacementUI_C"), NULL, LOAD_None, NULL);
+	if (!IsRunningDedicatedServer())
+	{
+		ConfigMenu = LoadClass<UUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/Mutator_WeaponReplacementUI.Mutator_WeaponReplacementUI_C"), NULL, LOAD_None, NULL);
+	}
 #endif
 }
 
