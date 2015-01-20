@@ -115,7 +115,6 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateBadge_Implementation(uint32 Instanc
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		UE_LOG(UT,Log,TEXT("Updating Badge"));
 		LobbyGameState->GameInstance_MatchBadgeUpdate(InstanceID, Update);
 	}
 }

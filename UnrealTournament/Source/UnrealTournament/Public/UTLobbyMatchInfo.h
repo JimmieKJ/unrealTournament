@@ -104,6 +104,7 @@ public:
 
 	// Number of players in this Match Lobby.  This valie us set on the Host and replicated to the server
 	// via a function call.  It is NOT replicated to clients.
+	UPROPERTY(Replicated)
 	int32 MaxPlayers;
 
 	// A list of players in this lobby

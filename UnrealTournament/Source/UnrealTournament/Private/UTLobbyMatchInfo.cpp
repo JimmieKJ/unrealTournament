@@ -43,6 +43,10 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, Players);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchBadge);
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
+	DOREPLIFETIME(AUTLobbyMatchInfo, MaxPlayers);
+	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime)
+	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable)
+
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -51,7 +55,7 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
 	MinPlayers = 2; // TODO: This should be pulled from the game type at some point
 
-	MatchBadge = TEXT("This\nIs A\nTest");
+	MatchBadge = TEXT("Loading...");
 }
 
 bool AUTLobbyMatchInfo::CheckLobbyGameState()
@@ -62,7 +66,6 @@ bool AUTLobbyMatchInfo::CheckLobbyGameState()
 
 void AUTLobbyMatchInfo::OnRep_MatchBadge()
 {
-
 }
 
 void AUTLobbyMatchInfo::OnRep_MatchOptions()
@@ -79,7 +82,7 @@ void AUTLobbyMatchInfo::UpdateGameMode()
 	else
 	{
 		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-		if (DefaultGame)
+		if (DefaultGame && CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
 			MatchBadge = DefaultGame->GetHUBPregameFormatString();
 		}
@@ -235,7 +238,14 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 	else if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
-		return NSLOCTEXT("SUMatchPanel","WaitingForPlayers","Click to Join");
+		if (Players.Num() < MaxPlayers)
+		{
+			return NSLOCTEXT("SUMatchPanel","ClickToJoin","Click to Join");
+		}
+		else
+		{
+			return NSLOCTEXT("SUMatchPanel","Full","Match is Full");
+		}
 	}
 	else if (CurrentState == ELobbyMatchState::Launching)
 	{
@@ -243,7 +253,15 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
-		if (MatchElapsedTime.IsEmpty())
+		if (bJoinAnytime)
+		{
+			return NSLOCTEXT("SUMatchPanel","ClickToJoin","Click to Join");
+		}
+		else if (bSpectatable)
+		{
+			return NSLOCTEXT("SUMatchPanel","Spectate","Click to Spectate");
+		}
+		else if (MatchElapsedTime.IsEmpty())
 		{
 			return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
 		}
@@ -270,6 +288,9 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchI
 		MatchGameMode = MatchToCopy->MatchGameMode;
 		MatchOptions = MatchToCopy->MatchOptions;
 		MatchMap = MatchToCopy->MatchMap;
+		bJoinAnytime = MatchToCopy->bJoinAnytime;
+		bSpectatable = MatchToCopy->bSpectatable;
+		MaxPlayers = MatchToCopy->MaxPlayers;
 	}
 	else
 	{
