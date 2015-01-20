@@ -178,6 +178,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	// Matches
 	{
 
+		Style.Set("UWindows.BadgeBackground", new IMAGE_BRUSH( "UWindows.Lobby.MatchButton.Normal", FVector2D(256,256)));
+
+
 		Style.Set("UWindows.Lobby.MatchButton", FButtonStyle()
 			.SetNormal ( IMAGE_BRUSH( "UWindows.Lobby.MatchButton.Normal", FVector2D(256,256)))
 			.SetHovered( IMAGE_BRUSH( "UWindows.Lobby.MatchButton.Focused", FVector2D(256,256)))
@@ -397,6 +400,35 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetBackgroundImageReadOnly( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.DarkBorder", FMargin(22.0f / 64.0f, 8.0f / 32.0f, 6.0f / 64.0f, 8.0f / 32.0f)))
 			);
 
+
+
+		Style.Set("UWindows.Standard.HUBBrowser.TitleText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 28))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("UWindows.Standard.HUBBrowser.TitleText.Selected", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 28))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+			);
+
+		Style.Set("UWindows.Standard.HUBBrowser.NormalText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 14))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+
+		Style.Set( "UWindows.Standard.HUBBrowser.Row", FTableRowStyle()
+			.SetEvenRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetEvenRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal) )
+			.SetOddRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetOddRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal ) )
+			.SetSelectorFocusedBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetActiveBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetActiveHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetTextColor( FLinearColor::White)
+			.SetSelectedTextColor( FLinearColor::Black)
+			);
 
 
 	}

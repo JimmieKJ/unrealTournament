@@ -233,6 +233,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 			// The Server Browser itself
 			+SVerticalBox::Slot()
 			.FillHeight(1)
+			.HAlign(HAlign_Fill)
 			[
 				SNew(SOverlay)
 				+SOverlay::Slot()
@@ -322,30 +323,25 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	// Create some fake servers until I can hook up the server list
 	InternetServers.Empty();
 	LanServers.Empty();
-/*
+
 	for( int32 ItemIndex = 0; ItemIndex < 200; ++ItemIndex )
 	{
 		FString ServerName = FString::Printf(TEXT("Server %i"), ItemIndex);
 		FString ServerIP = FString::Printf(TEXT("%i.%i.%i.%i"), FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255));
 		int32 R = FMath::Rand() % 3;
 
-		FString ServerGame = TEXT("Capture the Flag");
-		switch (R)
-		{
-			case 0 : ServerGame = TEXT("Deathmatch"); break;
-			case 1 : ServerGame = TEXT("Team DM"); break;
-			default : ServerGame = TEXT("Capture the Flag"); break;
-		}
+		FString ServerGame = TEXT("HUB");
 
-		FString ServerMap = TEXT("CTF-Face");
-		FString ServerVer = TEXT("Alpha");
+		FString ServerMap = TEXT("UT-Entry");
+		FString ServerVer = TEXT("1234");
+		FString BeaconIP = TEXT("10.0.0.1");
+		FString ServerGamePath = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
+		FString ServerGameName = TEXT("HUB");
 		uint32 ServerPing = FMath::RandRange(35,1024);
-		TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, ServerGame, ServerMap, 8,8,32, ServerVer, ServerPing);
-		InternetServers.Add( NewServer );
+		TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, TEXT("10.0.0.0"), ServerGamePath, ServerGameName, ServerMap, FMath::RandRange(0,16), FMath::RandRange(0,16), FMath::RandRange(0,16), TEXT("1.0.0.0"), FMath::RandRange(10,500), 0x00);
+		HUBServers.Add( NewServer );
 	}
-	FilterServers();
 
-*/
 	InternetServerList->RequestListRefresh();
 
 	if (PlayerOwner->IsLoggedIn())
@@ -400,6 +396,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	}	
 
 	AddGameFilters();
+	BrowserTypeChanged();
 }
 
 TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
@@ -685,16 +682,21 @@ TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 				SNew(SVerticalBox)
 				+SVerticalBox::Slot()
 				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Center)
+				.HAlign(HAlign_Fill)
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
+					.FillWidth(1.0)
 					.VAlign(VAlign_Center)
-					.AutoWidth()
 					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWServerBrowser","LobbyComingSoon", "!! Coming Soon !!"))
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.HugeText")
+						// The list view being tested
+						SAssignNew( HUBServerList, SListView< TSharedPtr<FServerData> > )
+						// List view items are this tall
+						.ItemHeight(206)
+						// When the list view needs to generate a widget for some data item, use this method
+						.OnGenerateRow( this, &SUWServerBrowser::OnGenerateWidgetForHUBList )
+						.SelectionMode(ESelectionMode::Single)
+						.ListItemsSource( &HUBServers)
 					]
 				]
 			];
@@ -1326,5 +1328,56 @@ FReply SUWServerBrowser::BrowserTypeChanged()
 
 	return FReply::Handled();
 }
+
+TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
+{
+	bool bSelected = HUBServerList->IsItemSelected(InItem);
+	return SNew(STableRow<TSharedPtr<FServerData>>, OwnerTable)
+		.Style(SUWindowsStyle::Get(),PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.UserList.Row"))
+		[
+			SNew(SBox)
+			.HeightOverride(206)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.Padding(10.0, 5.0, 10.0, 5.0)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(0.0,0.0,5.0,0.0)
+					[
+						AddHUBBadge(InItem)
+					]
+					
+					+SHorizontalBox::Slot()
+					.FillWidth(1)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(STextBlock)
+							.Text(InItem->Name)
+							.TextStyle(SUWindowsStyle::Get(), (bSelected ? "UWindows.Standard.HUBBrowser.TitleText" : "UWindows.Standard.HUBBrowser.TitleText.Selected"))
+						]
+					]
+
+				]
+			]
+		];
+}
+
+TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
+{
+	return 	SNew(SBox)						// First the overlaid box that controls everything....
+		.HeightOverride(196)
+		.WidthOverride(196)
+		[
+			SNew(SImage)
+			.Image(SUWindowsStyle::Get().GetBrush("UWindows.BadgeBackground"))
+		];
+}
+
 
 #endif

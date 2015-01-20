@@ -330,6 +330,7 @@ private:
 	TSharedPtr<FServerData> ServerData;
 };
 
+
 struct FServerPingTracker 
 {
 	TSharedPtr<FServerData> Server;
@@ -374,6 +375,8 @@ protected:
 
 	// The Slate widget that displays the current list
 	TSharedPtr< SListView< TSharedPtr<FServerData> > > InternetServerList;
+	TSharedPtr< SListView< TSharedPtr<FServerData> > > HUBServerList;
+
 	TSharedPtr< SListView< TSharedPtr<FServerRuleData> > > RulesList;
 	TSharedPtr< SListView< TSharedPtr<FServerPlayerData> > > PlayersList;
 	
@@ -392,6 +395,8 @@ protected:
 	// The whole list of servers
 	TArray< TSharedPtr< FServerData > > InternetServers;
 
+	TArray< TSharedPtr< FServerData > > HUBServers;
+
 	// The list of lan servers
 	TArray< TSharedPtr< FServerData > > LanServers;
 
@@ -401,7 +406,8 @@ protected:
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 	TSharedRef<ITableRow> OnGenerateWidgetForRulesList( TSharedPtr<FServerRuleData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 	TSharedRef<ITableRow> OnGenerateWidgetForPlayersList( TSharedPtr<FServerPlayerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
-	
+	TSharedRef<ITableRow> OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
+
 	virtual FReply OnRefreshClick();
 	virtual void RefreshServers();
 
@@ -457,6 +463,9 @@ protected:
 
 	virtual void OnQuickFilterTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 	virtual FReply BrowserTypeChanged();
+
+	virtual TSharedRef<SWidget> AddHUBBadge(TSharedPtr<FServerData> HUB);
+
 private:
 	bool bAutoRefresh;
 
