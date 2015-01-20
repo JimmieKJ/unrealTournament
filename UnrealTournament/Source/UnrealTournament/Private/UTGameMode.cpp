@@ -2451,7 +2451,10 @@ void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController
 		}
 	}
 }
+
+#if !UE_SERVER
 FString AUTGameMode::GetHUBPregameFormatString()
 {
 	return FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Small>Host</>\n<UWindows.Standard.MatchBadge>{Player0Name}</>\n\n<UWindows.Standard.MatchBadge.Small>({NumPlayers} Players)</>"), *DisplayName.ToString());
 }
+#endif
