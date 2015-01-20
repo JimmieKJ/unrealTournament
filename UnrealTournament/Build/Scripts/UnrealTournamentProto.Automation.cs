@@ -903,3 +903,157 @@ public class MakeUTDLC : BuildCommand
         }
     }
 }
+
+public class StageUTEditor : BuildCommand
+{
+    static public ProjectParams GetParams(BuildCommand Cmd)
+    {
+        string P4Change = "Unknown";
+        string P4Branch = "Unknown";
+        if (P4Enabled)
+        {
+            P4Change = P4Env.ChangelistString;
+            P4Branch = P4Env.BuildRootEscaped;
+        }
+
+        var Params = new ProjectParams
+        (
+            Command: Cmd,
+            // Shared
+            Cook: true,
+            Stage: true,
+            Pak: true,
+            StageNonMonolithic: true,
+            RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
+            StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", "WindowsEditor")
+        );
+
+        Params.ValidateAndLog();
+        return Params;
+    }
+
+    public override void ExecuteBuild()
+    {
+        var Params = GetParams(this);
+
+        EditorProject.CopyEditorBuildToStagingDirectory(Params);
+    }
+}
+
+public partial class EditorProject : Project
+{
+        public static void CopyEditorBuildToStagingDirectory(ProjectParams Params)
+        {
+            if (Params.Stage && !Params.SkipStage)
+            {
+                var DeployContextList = CreateEditorDeploymentContext(Params, false, true);
+                foreach (var SC in DeployContextList)
+                {
+                    CreateEditorStagingManifest(Params, SC);
+                    ApplyStagingManifest(Params, SC);
+                }
+            }
+        }
+
+        public static List<DeploymentContext> CreateEditorDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false)
+        {
+            ParamList<string> ListToProcess = new ParamList<string>("UnrealTournament");
+            var ConfigsToProcess = new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development };
+
+            List<UnrealTargetPlatform> PlatformsToStage = new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64 };
+            
+            List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
+            foreach (var StagePlatform in PlatformsToStage)
+            {
+                // Get the platform to get cooked data from, may differ from the stage platform
+                UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
+
+                List<string> ExecutablesToStage = new List<string>();
+
+                string PlatformName = StagePlatform.ToString();
+                foreach (var Target in ListToProcess)
+                {
+                    foreach (var Config in ConfigsToProcess)
+                    {
+                        string Exe = Target;
+                        if (Config != UnrealTargetConfiguration.Development)
+                        {
+                            Exe = Target + "-" + PlatformName + "-" + Config.ToString();
+                        }
+                        ExecutablesToStage.Add(Exe);
+                    }
+                }
+
+                string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
+                string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
+
+                //@todo should pull StageExecutables from somewhere else if not cooked
+                var SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
+                    StageDirectory,
+                    ArchiveDirectory,
+                    Params.CookFlavor,
+                    Params.GetTargetPlatformInstance(CookedDataPlatform),
+                    Params.GetTargetPlatformInstance(StagePlatform),
+                    ConfigsToProcess,
+                    ExecutablesToStage,
+                    InDedicatedServer,
+                    false,
+                    Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
+                    Params.Stage,
+                    Params.CookOnTheFly,
+                    Params.Archive,
+                    false,
+                    Params.HasDedicatedServerAndClient
+                    );
+                LogDeploymentContext(SC);
+
+                // If we're a derived platform make sure we're at the end, otherwise make sure we're at the front
+
+                //DeploymentContexts.Add(SC);
+                DeploymentContexts.Insert(0, SC);
+            }
+
+            return DeploymentContexts;
+        }
+
+        public static void CreateEditorStagingManifest(ProjectParams Params, DeploymentContext SC)
+        {
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "libfbxsdk.dll", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "ShaderCompileWorker*", true, new string[] { "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "CrashReportClient*", true, new string[] { "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealPak*", true, new string[] { "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealLightmass*", true, new string[] { "*.pdb" }, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet"), "*", true, new string[] { "*.pdb" }, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.dll", true, null, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Ogg", SC.PlatformDir), "*.dll", true, null, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Vorbis", SC.PlatformDir), "*.dll", true, null, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/nvTextureTools", SC.PlatformDir), "*.dll", true, null, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders"), "*", true, new string[] {  }, null, false, false);
+
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament"), "*.uproject", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Binaries/Win64"), "UE4Editor-*", true, new string[] { "", "*-Debug.dll", "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Plugins"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Maps"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases"), "*", true, new string[] { }, null, false, false);
+        }
+}
