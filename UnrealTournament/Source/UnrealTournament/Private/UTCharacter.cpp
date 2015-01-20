@@ -2020,6 +2020,7 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 	else
 	{
 		WeaponClass = NULL;
+		WeaponAttachmentClass = NULL;
 		UpdateWeaponAttachment();
 	}
 }
@@ -2044,6 +2045,7 @@ void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
 				else
 				{
 					WeaponClass = NULL;
+					WeaponAttachmentClass = NULL;
 					UpdateWeaponAttachment();
 				}
 			}
