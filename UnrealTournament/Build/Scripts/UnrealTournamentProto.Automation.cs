@@ -43,20 +43,7 @@ public class UnrealTournamentBuild
 		{
 			AppName = UnrealTournamentAppName.UnrealTournamentTest;
 		}
-
-        /*
-        // If a release has been promoted to public then continue pushing builds to public
-        List<string> PublicBranches = new List<string>(new string[]
-        {
-            "//depot/UE4-UT-Release-0.4"
-        });
-
-        if (PublicBranches.Contains(BranchName))
-        {
-            AppName = UnrealTournamentAppName.UnrealTournament;
-        }
-        */
-		
+        		
 		return AppName;
 	}
 
@@ -75,20 +62,42 @@ public class UnrealTournamentBuild
 		UnrealTournamentDev,
 	}
 
+
+    public static UnrealTournamentEditorAppName EditorBranchNameToAppName(string BranchName)
+    {
+        UnrealTournamentEditorAppName AppName = UnrealTournamentEditorAppName.UnrealTournamentEditor;
+
+        if (BranchName.Equals("UE4-UT"))
+        {
+            AppName = UnrealTournamentEditorAppName.UnrealTournamentEditor;
+        }
+
+        return AppName;
+    }
+
+    /// <summary>
+    /// Enum that defines the MCP backend-compatible platform
+    /// </summary>
+    public enum UnrealTournamentEditorAppName
+    {
+        /// Public app
+        UnrealTournamentEditor,
+    }
+
 	// Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
     public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, MCPPlatform InPlatform, UnrealTournamentAppName AppName)
 	{
 		// Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
 		return new BuildPatchToolStagingInfo(InOwnerCommand, AppName.ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
 	}
-
+    
 	// Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
 	public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, MCPPlatform InPlatform, string BranchName)
 	{
 		// Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
 		return new BuildPatchToolStagingInfo(InOwnerCommand, BranchNameToAppName(BranchName).ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
 	}
-
+     
 	// Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
 	public static BuildPatchToolStagingInfo GetUTBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, UnrealTargetPlatform InPlatform, string BranchName)
 	{
@@ -101,6 +110,34 @@ public class UnrealTournamentBuild
 	{
 		return GetUTBuildPatchToolStagingInfo(InOwnerCommand, CreateBuildVersion(), InPlatform, BranchName);
 	}
+
+
+    // Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
+    public static BuildPatchToolStagingInfo GetUTEditorBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, MCPPlatform InPlatform, UnrealTournamentEditorAppName AppName)
+    {
+        // Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
+        return new BuildPatchToolStagingInfo(InOwnerCommand, AppName.ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
+    }
+
+    // Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
+    public static BuildPatchToolStagingInfo GetUTEditorBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, MCPPlatform InPlatform, string BranchName)
+    {
+        // Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
+        return new BuildPatchToolStagingInfo(InOwnerCommand, EditorBranchNameToAppName(BranchName).ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
+    }
+
+    // Construct a buildpatchtool for a given buildversion that may be unrelated to the executing UAT job
+    public static BuildPatchToolStagingInfo GetUTEditorBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, string BuildVersion, UnrealTargetPlatform InPlatform, string BranchName)
+    {
+        // Pass in a blank staging dir suffix in place of platform, we want \WindowsClient not \Windows\WindowsClient
+        return new BuildPatchToolStagingInfo(InOwnerCommand, EditorBranchNameToAppName(BranchName).ToString(), "McpConfigUnused", 1, BuildVersion, InPlatform, "UnrealTournament");
+    }
+
+    // Get a basic StagingInfo based on buildversion of command currently running
+    public static BuildPatchToolStagingInfo GetUTEditorBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, UnrealTargetPlatform InPlatform, string BranchName)
+    {
+        return GetUTBuildPatchToolStagingInfo(InOwnerCommand, CreateBuildVersion(), InPlatform, BranchName);
+    }
 
 	public static string GetArchiveDir()
 	{
@@ -159,6 +196,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
         }
         else
         {
+            // GAME BUILD
             // verify the files we need exist first
             string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win64", "WindowsNoEditor");
             string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
@@ -188,6 +226,42 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
             CommandUtils.Log("Labeling new build as Latest in MCP.");
             string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
+            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+            // For backwards compatibility, also label as Production-Latest
+            LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
+            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+
+
+            // EDITOR BUILD
+
+            // verify the files we need exist first
+            RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsEditor");
+            RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
+
+            if (!FileExists(RawImageManifest))
+            {
+                throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
+            }
+
+            StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
+
+            // run the patch tool
+            BuildPatchToolBase.Get().Execute(
+            new BuildPatchToolBase.PatchGenerationOptions
+            {
+                StagingInfo = StagingInfo,
+                BuildRoot = RawImagePath,
+                AppLaunchCmd = @".\Engine\Binaries\Win64\UE4Editor.exe",
+                AppLaunchCmdArgs = "UnrealTournament",
+                AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+            });
+
+            // post the Editor build to build info service on gamedev
+            McpConfigName = "MainGameDevNet";
+            CommandUtils.Log("Posting UnrealTournament Editor for Windows to MCP.");
+            BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+            CommandUtils.Log("Labeling new build as Latest in MCP.");
+            LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
             BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             // For backwards compatibility, also label as Production-Latest
             LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
@@ -295,6 +369,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 		Project.Build(this, Params, WorkingCL);
 		Project.Cook(Params);
 		Project.CopyBuildToStagingDirectory(Params);
+        EditorProject.CopyEditorBuildToStagingDirectory(Params);
 		PrintRunTime();
 		Project.Deploy(Params);
 		Project.Run(Params);
@@ -803,6 +878,279 @@ class UnrealTournament_PromoteBuild : BuildCommand
 	}
 }
 
+
+// Performs the appropriate labeling and other actions for a given promotion
+// See the EC job for an up-to-date description of all parameters
+[Help("PromotionStep", "New label for build.  Dropdown with Latest, Testing, Approved, Staged, Live")]
+[Help("CustomLabel", "Custom label to apply to this build.  Requires a custom label step be selected for PromotionStep")]
+[Help("BuildVersion", "Non-platform-specific BuildVersion to promote.")]
+[Help("Platforms", "Optional.  Comma-separated list of platforms to promote.  Default is all platforms.")]
+[Help("SkipLabeling", "Optional.  Perform the promotion step but don't apply the new label to the build.")]
+[Help("OnlyLabel", "Optional.  Perform the labeling step but don't perform any additional promotion actions.")]
+[Help("TestLivePromotion", "Optional.  Use fake production labels and don't perform any actions that would go out to the public, eg. installer redirect.")]
+// NOTE: PROMOTION JOB IS ONLY EVER RUN OUT OF UE4-UT, REGARDLESS OF WHICH BRANCH'S BUILD IS BEING PROMOTED
+class UnrealTournamentEditor_PromoteBuild : BuildCommand
+{
+    public override void ExecuteBuild()
+    {
+        Log("************************* UnrealTournamentEditor_PromoteBuild");
+        string BuildVersion = ParseParamValue("BuildVersion");
+        if (String.IsNullOrEmpty(BuildVersion))
+        {
+            throw new AutomationException("BuildVersion is a required parameter");
+        }
+
+        UnrealTournamentBuild.UnrealTournamentEditorAppName FromApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditor;
+        UnrealTournamentBuild.UnrealTournamentEditorAppName ToApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditor;
+        {
+            string FromAppName = ParseParamValue("FromAppName");
+            if (String.IsNullOrEmpty(FromAppName))
+            {
+                throw new AutomationException("FromAppName is a required parameter");
+            }
+            Enum.TryParse(FromAppName, out FromApp);
+
+            // evaluate ToApp param if promoting cross app
+            bool bShouldPromoteCrossApp = false;
+            Boolean.TryParse(ParseParamValue("PromoteCrossApp"), out bShouldPromoteCrossApp);
+            if (!bShouldPromoteCrossApp)
+            {
+                // normal case is promoting within same app
+                ToApp = FromApp;
+            }
+            else
+            {
+                string ToAppName = ParseParamValue("ToAppName");
+                if (String.IsNullOrEmpty(ToAppName))
+                {
+                    throw new AutomationException("ToAppName is a required parameter when PromoteCrossApp is checked");
+                }
+                if (FromApp == ToApp)
+                {
+                    throw new AutomationException("ToAppName is the same as FromAppName.  This doesn't make sense with PromoteCrossApp checked.");
+                }
+                else
+                {
+                    throw new AutomationException("Promoting from FromApp: {0} to ToApp: {1} has not been implemented yet.", FromApp.ToString(), ToApp.ToString());
+                }
+            }
+        }
+
+        // Pull promotion step parameter
+        string DestinationLabel = ParseParamValue("PromotionStep");
+        bool bUseProdCustomLabel = false;
+        // Check for custom labels, and scope out extra temp vars
+        {
+            bool bUseDevCustomLabel = (DestinationLabel == "DevCustomLabel");
+            bUseProdCustomLabel = (DestinationLabel == "ProdCustomLabel");
+            string CustomLabel = ParseParamValue("CustomLabel");
+            if (!bUseDevCustomLabel && !bUseProdCustomLabel && !String.IsNullOrEmpty(CustomLabel))
+            {
+                throw new AutomationException("Custom label was filled out, but promotion step for custom label was not selected.");
+            }
+            if ((bUseDevCustomLabel || bUseProdCustomLabel) && String.IsNullOrEmpty(CustomLabel))
+            {
+                throw new AutomationException("Custom label promotion step was selected, but custom label textbox was empty.");
+            }
+            if (bUseDevCustomLabel || bUseProdCustomLabel)
+            {
+                DestinationLabel = CustomLabel;
+            }
+        }
+
+        // OPTIONAL PARAMETERS
+        string PlatformParam = ParseParamValue("Platforms");
+        if (String.IsNullOrEmpty(PlatformParam))
+        {
+            PlatformParam = "Windows";
+        }
+        List<MCPPlatform> Platforms = PlatformParam.Split(',').Select(PlatformStr => (MCPPlatform)Enum.Parse(typeof(MCPPlatform), PlatformStr)).ToList<MCPPlatform>();
+        bool SkipLabeling = ParseParam("SkipLabeling");
+        bool OnlyLabel = ParseParam("OnlyLabel");
+        bool TestLivePromotion = ParseParam("TestLivePromotion");
+        if (TestLivePromotion == true && DestinationLabel.Equals("Live"))
+        {
+            throw new AutomationException("You attempted to promote to Live without toggling off TestLivePromotion in EC.  Did you mean to promote to Live?");
+        }
+
+        // Map which labels are GameDev-only vs. also being in Prod
+        List<string> ProdLabels = new List<string>();
+        ProdLabels.Add("Staged");
+        ProdLabels.Add("InternalTest");
+        ProdLabels.Add("PatchTestProd");
+        ProdLabels.Add("QFE1");
+        ProdLabels.Add("QFE2");
+        ProdLabels.Add("QFE3");
+        ProdLabels.Add("Rollback");
+        ProdLabels.Add("Live");
+
+        // Strings for dev and prod mcp BuildInfo list
+        string GameDevMcpConfigString = "MainGameDevNet";
+        string StagingMcpConfigString = "StageNet";
+        string ProdMcpConfigString = "ProdNet";
+        string ProdAndStagingMcpConfigString = StagingMcpConfigString + "," + ProdMcpConfigString;
+        string ProdStagingAndGameDevMcpConfigString = ProdMcpConfigString + "," + GameDevMcpConfigString;
+
+        // Verify build meets prior state criteria for this promotion
+        // If this label will go to Prod, then make sure the build manifests are all staged to the Prod CDN already
+        if (DestinationLabel != "Staged" && (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel))
+        {
+            // Look for each build's manifest
+            foreach (var Platform in Platforms)
+            {
+                BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+
+                // Check for the manifest on the prod CDN
+                Log("Verifying manifest for prod promotion of Unreal Tournament Editor {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
+                bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
+                if (!bWasManifestFound)
+                {
+                    string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
+                    throw new AutomationException("Promotion to Prod requires the build first be staged to the Prod CDN. Manifest {0} not found for promotion to label {1}"
+                        , StagingInfo.ManifestFilename
+                        , DestinationLabelWithPlatform);
+                }
+            }
+        }
+
+        // Execute any additional logic required for each promotion
+        if (OnlyLabel == true)
+        {
+            Log("Not performing promotion logic due to -OnlyLabel parameter");
+        }
+        else
+        {
+            Log("Performing build promotion actions for promoting to label {0}.", DestinationLabel);
+            if (DestinationLabel == "Staged")
+            {
+                // Copy chunks and installer to production CDN
+                foreach (var Platform in Platforms)
+                {
+                    BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+                    // Publish staging info up to production BuildInfo service
+                    {
+                        CommandUtils.Log("Posting {0} to MCP.", FromApp);
+                        foreach (var McpConfigString in ProdAndStagingMcpConfigString.Split(','))
+                        {
+                            BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo, McpConfigString);
+                        }
+                    }
+                    // Copy chunks to production CDN
+                    {
+                        Log("Promoting chunks to production CDN");
+                        BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
+                        Log("DONE Promoting chunks to production CDN");
+                    }
+                }
+            }
+            else if (DestinationLabel == "Live")
+            {
+                // Apply rollback label to the build currently labeled Live
+                foreach (var Platform in Platforms)
+                {
+                    BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+                    string LiveLabelWithPlatform = "Live" + "-" + Platform;
+                    // Request Live-[platform] label for this app (actually Production-[platform] until deprecated)
+                    string LiveBuildVersionString = BuildInfoPublisherBase.Get().GetLabeledBuildVersion(StagingInfo.AppName, LiveLabelWithPlatform, ProdMcpConfigString);
+                    if (String.IsNullOrEmpty(LiveBuildVersionString))
+                    {
+                        Log("No current Live build found for {0}, continuing without applying a Rollback label.", LiveLabelWithPlatform);
+                    }
+                    else if (LiveBuildVersionString.EndsWith("-" + Platform))
+                    {
+                        Log("Identified current Live build as {0}", LiveBuildVersionString);
+                        // Take off platform so it can fit in the FEngineVersion struct
+                        string LiveBuildVersionStringWithoutPlatform = LiveBuildVersionString.Remove(LiveBuildVersionString.IndexOf("-" + Platform));
+                        if (LiveBuildVersionStringWithoutPlatform != BuildVersion)
+                        {
+                            // Label the old Live build as "Rollback"
+                            LabelBuildForBackwardsCompat(LiveBuildVersionStringWithoutPlatform, "Rollback", new List<MCPPlatform>() { Platform }, ProdStagingAndGameDevMcpConfigString, FromApp);
+                        }
+                        else
+                        {
+                            Log("Would relabel current Live {0} build as {1} again.  Not applying a Rollback label to avoid losing track of current Rollback build.", StagingInfo.AppName, LiveLabelWithPlatform);
+                        }
+                    }
+                    else
+                    {
+                        throw new AutomationException("Current live buildversion: {0} doesn't appear to end with platform: {1} as it should!", LiveBuildVersionString, Platform);
+                    }
+                }
+            }
+        }
+
+        // Apply the label
+        if (SkipLabeling == true)
+        {
+            Log("Not labeling build due to -SkipLabeling parameter");
+        }
+        else
+        {
+            Log("Labeling build {0} with label {1} across all platforms", BuildVersion, DestinationLabel);
+
+            // For non-prod builds, do gamedev only
+            string LabelInMcpConfigs = GameDevMcpConfigString;
+            if (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel)
+            {
+                // For prod labels, do both BI services and also dual-label with the entitlement prefix
+                LabelInMcpConfigs = ProdStagingAndGameDevMcpConfigString;
+            }
+            LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, Platforms, LabelInMcpConfigs, FromApp);
+            // If labeling as the Live build, also create a new archive label based on the date
+            if (DestinationLabel == "Live")
+            {
+                string DateFormatString = "yyyy.MM.dd.HH.mm";
+                string ArchiveDateString = DateTime.Now.ToString(DateFormatString);
+                string ArchiveLabel = "Archived" + ArchiveDateString;
+                LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, Platforms, LabelInMcpConfigs, FromApp);
+            }
+        }
+
+        Log("************************* UnrealTournament_PromoteBuild completed");
+    }
+
+
+    private void LabelBuildForBackwardsCompat(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentEditorAppName FromApp)
+    {
+        // Label it normally
+        LabelBuild(BuildVersion, DestinationLabel, Platforms, McpConfigNames, FromApp);
+
+        // Apply the label again with entitlement prefix for backwards-compat until this can be deprecated
+        string Label = "Production-" + DestinationLabel;
+        // Don't do backwards compat labeling until/unless we determine this is still needed
+        //LabelBuild(BuildVersion, Label, Platforms, McpConfigNames);
+
+        // If the label is Live, also apply the empty label for backwards-compat until this can be deprecated in favor of "Live"
+        if (DestinationLabel.Equals("Live"))
+        {
+            Label = "Production";
+            LabelBuild(BuildVersion, Label, Platforms, McpConfigNames, FromApp);
+        }
+    }
+
+    /// <summary>
+    /// Apply the requested label to the requested build in the BuildInfo backend for the requested MCP environment
+    /// Repeat for each passed platform, adding the platform to the end of the label that is applied
+    /// </summary>
+    /// <param name="BuildVersion">Build version to label builds for, WITHOUT a platform string embedded.</param>
+    /// <param name="DestinationLabel">Label, WITHOUT platform embedded, to apply</param>
+    /// <param name="Platforms">Array of platform strings to post labels for</param>
+    /// <param name="McpConfigNames">Which BuildInfo backends to label the build in.</param>
+    /// <param name="FromApp">Which appname is associated with this build</param>
+    private void LabelBuild(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentEditorAppName FromApp)
+    {
+        foreach (string McpConfigName in McpConfigNames.Split(','))
+        {
+            foreach (var Platform in Platforms)
+            {
+                BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+                string LabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
+                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelWithPlatform, McpConfigName);
+            }
+        }
+    }
+}
+
 public class MakeUTDLC : BuildCommand
 {
     public string DLCName;
@@ -925,7 +1273,7 @@ public class StageUTEditor : BuildCommand
             Pak: true,
             StageNonMonolithic: true,
             RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
-            StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", "WindowsEditor")
+            StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
         );
 
         Params.ValidateAndLog();
@@ -942,118 +1290,121 @@ public class StageUTEditor : BuildCommand
 
 public partial class EditorProject : Project
 {
-        public static void CopyEditorBuildToStagingDirectory(ProjectParams Params)
+    public static void CopyEditorBuildToStagingDirectory(ProjectParams Params)
+    {
+        if (Params.Stage && !Params.SkipStage)
         {
-            if (Params.Stage && !Params.SkipStage)
+            var DeployContextList = CreateEditorDeploymentContext(Params, false, true);
+            foreach (var SC in DeployContextList)
             {
-                var DeployContextList = CreateEditorDeploymentContext(Params, false, true);
-                foreach (var SC in DeployContextList)
-                {
-                    CreateEditorStagingManifest(Params, SC);
-                    ApplyStagingManifest(Params, SC);
-                }
+                CreateEditorStagingManifest(Params, SC);
+                ApplyStagingManifest(Params, SC);
             }
         }
+    }
 
-        public static List<DeploymentContext> CreateEditorDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false)
-        {
-            ParamList<string> ListToProcess = new ParamList<string>("UnrealTournament");
-            var ConfigsToProcess = new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development };
+    public static List<DeploymentContext> CreateEditorDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false)
+    {
+        ParamList<string> ListToProcess = new ParamList<string>("UnrealTournament");
+        var ConfigsToProcess = new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development };
 
-            List<UnrealTargetPlatform> PlatformsToStage = new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64 };
+        List<UnrealTargetPlatform> PlatformsToStage = new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64 };
             
-            List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
-            foreach (var StagePlatform in PlatformsToStage)
+        List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
+        foreach (var StagePlatform in PlatformsToStage)
+        {
+            // Get the platform to get cooked data from, may differ from the stage platform
+            UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
+
+            List<string> ExecutablesToStage = new List<string>();
+
+            string PlatformName = StagePlatform.ToString();
+            foreach (var Target in ListToProcess)
             {
-                // Get the platform to get cooked data from, may differ from the stage platform
-                UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
-
-                List<string> ExecutablesToStage = new List<string>();
-
-                string PlatformName = StagePlatform.ToString();
-                foreach (var Target in ListToProcess)
+                foreach (var Config in ConfigsToProcess)
                 {
-                    foreach (var Config in ConfigsToProcess)
+                    string Exe = Target;
+                    if (Config != UnrealTargetConfiguration.Development)
                     {
-                        string Exe = Target;
-                        if (Config != UnrealTargetConfiguration.Development)
-                        {
-                            Exe = Target + "-" + PlatformName + "-" + Config.ToString();
-                        }
-                        ExecutablesToStage.Add(Exe);
+                        Exe = Target + "-" + PlatformName + "-" + Config.ToString();
                     }
+                    ExecutablesToStage.Add(Exe);
                 }
-
-                string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
-                string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
-
-                //@todo should pull StageExecutables from somewhere else if not cooked
-                var SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
-                    StageDirectory,
-                    ArchiveDirectory,
-                    Params.CookFlavor,
-                    Params.GetTargetPlatformInstance(CookedDataPlatform),
-                    Params.GetTargetPlatformInstance(StagePlatform),
-                    ConfigsToProcess,
-                    ExecutablesToStage,
-                    InDedicatedServer,
-                    false,
-                    Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
-                    Params.Stage,
-                    Params.CookOnTheFly,
-                    Params.Archive,
-                    false,
-                    Params.HasDedicatedServerAndClient
-                    );
-                LogDeploymentContext(SC);
-
-                // If we're a derived platform make sure we're at the end, otherwise make sure we're at the front
-
-                //DeploymentContexts.Add(SC);
-                DeploymentContexts.Insert(0, SC);
             }
 
-            return DeploymentContexts;
+            string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
+            string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
+
+            StageDirectory = CommandUtils.CombinePaths(StageDirectory, "WindowsEditor");
+
+            //@todo should pull StageExecutables from somewhere else if not cooked
+            var SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
+                StageDirectory,
+                ArchiveDirectory,
+                Params.CookFlavor,
+                Params.GetTargetPlatformInstance(CookedDataPlatform),
+                Params.GetTargetPlatformInstance(StagePlatform),
+                ConfigsToProcess,
+                ExecutablesToStage,
+                InDedicatedServer,
+                false,
+                Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
+                Params.Stage,
+                Params.CookOnTheFly,
+                Params.Archive,
+                false,
+                Params.HasDedicatedServerAndClient
+                );
+            LogDeploymentContext(SC);
+
+            // If we're a derived platform make sure we're at the end, otherwise make sure we're at the front
+
+            //DeploymentContexts.Add(SC);
+            DeploymentContexts.Insert(0, SC);
         }
 
-        public static void CreateEditorStagingManifest(ProjectParams Params, DeploymentContext SC)
-        {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "libfbxsdk.dll", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "ShaderCompileWorker*", true, new string[] { "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "CrashReportClient*", true, new string[] { "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealPak*", true, new string[] { "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealLightmass*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+        return DeploymentContexts;
+    }
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet"), "*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+    public static void CreateEditorStagingManifest(ProjectParams Params, DeploymentContext SC)
+    {
+        
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "libfbxsdk.dll", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "ShaderCompileWorker*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "CrashReportClient*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealPak*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealLightmass*", true, new string[] { "*.pdb" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.dll", true, null, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet"), "*", true, new string[] { "*.pdb" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.dll", true, null, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Ogg", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Vorbis", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/nvTextureTools", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Ogg", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Vorbis", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/nvTextureTools", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament"), "*.uproject", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Binaries/Win64"), "UE4Editor-*", true, new string[] { "", "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Plugins"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Maps"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases"), "*", true, new string[] { }, null, false, false, null, false);
-        }
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders"), "*", true, new string[] { }, null, false, false, null, false);
+        
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/"), "*.uproject", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Binaries/Win64/"), "UE4Editor-*", true, new string[] { "", "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Plugins/"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build/"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config/"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization/"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Maps/"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets/"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash/"), "*", true, new string[] { }, null, false, false, null, false);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases/"), "*", true, new string[] { }, null, false, false, null, false);
+    }
 }
