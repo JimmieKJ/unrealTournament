@@ -22,6 +22,7 @@
 #include "Slate/SUWPlayerSettingsDialog.h"
 #include "Slate/SUWHUDSettingsDialog.h"
 #include "UTAnalytics.h"
+#include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
@@ -489,7 +490,11 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*OnlineIdentityInterface->GetPlayerNickname(0)));
 		ShowToast(WelcomeToast);
 
-
+		// Init the Friends And Chat system
+		if (FParse::Param(FCommandLine::Get(), TEXT("EnableFriendsAndChat")))
+		{
+			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login();
+		}
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.

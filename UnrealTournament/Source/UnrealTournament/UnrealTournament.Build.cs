@@ -15,7 +15,7 @@ public class UnrealTournament : ModuleRules
 				"AnalyticsET",
 			}
 		);
-        
+
         if (Target.Platform == UnrealTargetPlatform.Linux)
         {
             // Hack for LINUXMessageBoxExt
@@ -23,7 +23,7 @@ public class UnrealTournament : ModuleRules
         }
 
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "OnlineSubsystem", "OnlineSubsystemUtils", "RenderCore", "Navmesh", "WebBrowser", "Json", "HTTP", "UMG" });
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer" });
@@ -31,6 +31,16 @@ public class UnrealTournament : ModuleRules
         if (Target.Type == TargetRules.TargetType.Editor)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "PropertyEditor" });
+        }
+
+        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        {
+            PublicDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "OnlineSubsystemMcp",
+                }
+            );
         }
     }
 }
