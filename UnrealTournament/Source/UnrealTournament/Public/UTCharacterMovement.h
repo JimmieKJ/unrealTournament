@@ -506,6 +506,7 @@ public:
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
 	float MaxSlideAccelNormal;
 
+	// @TODO FIXMESTEVE REMOVE OBSOLETE - moved to UTCharacter so can be replicated
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bApplyWallSlide;
 
@@ -517,9 +518,13 @@ public:
 	UPROPERTY()
 	bool bHasCheckedAgainstWall;
 
-	/** Holds the direction of the wall.  < 0 for left, >0 for right. */
+	/** @TODO FIXMESTEVE REMOVE OBSOLETE Holds the direction of the wall.  < 0 for left, >0 for right. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	float WallDirection;
+
+	/** Normal of the wall we are sliding against. */
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
+	FVector WallSlideNormal;
 
 	virtual void HandleImpact(FHitResult const& Impact, float TimeSlice, const FVector& MoveDelta) override;
 

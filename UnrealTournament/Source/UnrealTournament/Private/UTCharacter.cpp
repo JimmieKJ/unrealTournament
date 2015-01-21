@@ -98,6 +98,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FullEyeOffsetLandBobVelZ = 750.f;
 	WeaponDirChangeDeflection = 4.f;
 	RagdollBlendOutTime = 0.75f;
+	bApplyWallSlide = false;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -2181,6 +2182,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatSpreeCount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bApplyWallSlide, COND_SkipOwner);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3747,7 +3749,6 @@ void AUTCharacter::OnRep_UTReplicatedMovement()
 {
 	if (Role == ROLE_SimulatedProxy)
 	{
-		//ReplicatedAccel = UTReplicatedMovement.Acceleration;
 		ReplicatedMovement.Location = UTReplicatedMovement.Location;
 		ReplicatedMovement.Rotation = UTReplicatedMovement.Rotation;
 		RemoteViewPitch = (uint8)(ReplicatedMovement.Rotation.Pitch * 255.f / 360.f);

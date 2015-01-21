@@ -401,7 +401,7 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 		bIsAgainstWall = true;
 		FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0, 0, 1));
 		WallDirection = FVector::DotProduct(Lat, Hit.Normal);
-
+		WallSlideNormal = Hit.Normal;
 		SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, false);
 	}
 	else if (!bHasCheckedAgainstWall)
@@ -421,6 +421,7 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 			bIsAgainstWall = true;
 			FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0, 0, 1));
 			WallDirection = FVector::DotProduct(Lat, Hit.Normal);
+			WallSlideNormal = Hit.Normal;
 		}
 	}
 }

@@ -233,9 +233,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	virtual void PostNetReceiveLocationAndRotation();
 
-	/** @TODO FIXMESTEVE USE IT OR LOSE IT! */
-	UPROPERTY(BluePrintReadOnly, Category = Network)
-	FVector ReplicatedAccel;
+	/** True if character is currently wall sliding. */
+	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly, Replicated)
+		bool bApplyWallSlide;
 
 	/** UTReplicatedMovement struct replication event */
 	UFUNCTION()

@@ -102,7 +102,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bExplicitJump = false;
 	CurrentWallDodgeCount = 0;				
 	bWantsSlideRoll = false;				
-	bApplyWallSlide = false;			
 	bHasCheckedAgainstWall = false;			
 	bIsSettingUpFirstReplayMove = false;
 
@@ -523,7 +522,12 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f from yaw %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z, CharacterOwner->GetActorRotation().Yaw);
 */
 	float HorizontalImpulse = DodgeImpulseHorizontal;
-	bool bIsLowGrav = !bApplyWallSlide && (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
+	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
+	{
+		bIsLowGrav = !UTCharOwner->bApplyWallSlide && bIsLowGrav;
+	}
 
 	if (!IsMovingOnGround())
 	{
@@ -842,7 +846,11 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	}
 	bJumpAssisted = false;
-	bApplyWallSlide = false;
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
+	{
+		UTCharOwner->bApplyWallSlide = false;
+	}
 	bExplicitJump = false;
 	ClearRestrictedJump();
 	CurrentMultiJumpCount = 0;
@@ -1057,15 +1065,19 @@ bool UUTCharacterMovement::CanCrouchInCurrentState() const
 
 void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 {
-	bApplyWallSlide = false;
-	if ((bWantsSlideRoll || bAutoSlide) && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
 	{
-		FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
-		bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
-		if (bApplyWallSlide && Cast<AUTCharacter>(CharacterOwner) && Cast<AUTCharacter>(CharacterOwner)->bCanPlayWallHitSound)
+		UTCharOwner->bApplyWallSlide = false;
+		if ((bWantsSlideRoll || bAutoSlide) && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), Cast<AUTCharacter>(CharacterOwner)->WallHitSound, CharacterOwner, SRT_None);
-			Cast<AUTCharacter>(CharacterOwner)->bCanPlayWallHitSound = false;
+			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
+			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
+			if (UTCharOwner->bApplyWallSlide && UTCharOwner->bCanPlayWallHitSound)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharOwner->WallHitSound, CharacterOwner, SRT_None);
+				UTCharOwner->bCanPlayWallHitSound = false;
+			}
 		}
 	}
 }
@@ -1125,7 +1137,12 @@ bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FV
 
 float UUTCharacterMovement::GetGravityZ() const
 {
-	return Super::GetGravityZ() * (bApplyWallSlide ? SlideGravityScaling : 1.f);
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
+	{
+		return Super::GetGravityZ() * (UTCharOwner->bApplyWallSlide ? SlideGravityScaling : 1.f);
+	}
+	return Super::GetGravityZ();
 }
 
 void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
@@ -1249,7 +1266,11 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		FallAcceleration = FallAcceleration.GetSafeNormal();
 	}
 	bool bSkipLandingAssist = true;
-	bApplyWallSlide = false;
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner)
+	{
+		UTCharOwner->bApplyWallSlide = false;
+	}
 	FHitResult Hit(1.f);
 	bIsAgainstWall = false;
 	if (!HasRootMotion())
@@ -1285,6 +1306,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						
 						FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0,0,1));
 						WallDirection = FVector::DotProduct(Lat, Result.Normal);
+						WallSlideNormal = Result.Normal;
 
 						TickAirControl = 0.f;
 						CheckWallSlide(Result);
@@ -1369,7 +1391,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		if (IsSwimming()) //just entered water
 		{
 			remainingTime = remainingTime + timeTick * (1.f - Hit.Time);
-			bApplyWallSlide = false;
+			if (UTCharOwner)
+			{
+				UTCharOwner->bApplyWallSlide = false;
+			}
 			StartSwimming(OldLocation, OldVelocity, timeTick, remainingTime, Iterations);
 			return;
 		}
@@ -1406,7 +1431,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 				// If we've changed physics mode, abort.
 				if (!HasValidData() || !IsFalling())
 				{
-					bApplyWallSlide = false;
+					if (UTCharOwner)
+					{
+						UTCharOwner->bApplyWallSlide = false;
+					}
 					return;
 				}
 
@@ -1432,7 +1460,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						// If we've changed physics mode, abort.
 						if (!HasValidData() || !IsFalling())
 						{
-							bApplyWallSlide = false;
+							if (UTCharOwner)
+							{
+								UTCharOwner->bApplyWallSlide = false;
+							}
 							return;
 						}
 
@@ -1486,7 +1517,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 				}
 			}
 		}
-		bApplyWallSlide = false;
+		if (UTCharOwner)
+		{
+			UTCharOwner->bApplyWallSlide = false;
+		}
 
 		if (!HasRootMotion() && !bJustTeleported && MovementMode != MOVE_None)
 		{
