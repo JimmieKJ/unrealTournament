@@ -9,6 +9,8 @@
 #define CHAT_BOX_PADDING 20.0f
 #define MAX_CHAT_MESSAGES 10
 
+#if !UE_SERVER
+
 void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
 {
 	LastVisibility = EVisibility::Visible;
@@ -100,3 +102,5 @@ FReply SUTChatWidget::OnFocusReceived( const FGeometry& MyGeometry, const FFocus
 {
 	return FReply::Handled().ReleaseMouseCapture().LockMouseToWidget( SharedThis( this ) );
 }
+
+#endif
