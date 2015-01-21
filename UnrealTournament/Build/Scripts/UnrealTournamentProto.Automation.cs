@@ -1018,42 +1018,42 @@ public partial class EditorProject : Project
 
         public static void CreateEditorStagingManifest(ProjectParams Params, DeploymentContext SC)
         {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "libfbxsdk.dll", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "ShaderCompileWorker*", true, new string[] { "*.pdb" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "CrashReportClient*", true, new string[] { "*.pdb" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealPak*", true, new string[] { "*.pdb" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealLightmass*", true, new string[] { "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "libfbxsdk.dll", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "ShaderCompileWorker*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "CrashReportClient*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealPak*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealLightmass*", true, new string[] { "*.pdb" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet"), "*", true, new string[] { "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet"), "*", true, new string[] { "*.pdb" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.dll", true, null, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.dll", true, null, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Ogg", SC.PlatformDir), "*.dll", true, null, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Vorbis", SC.PlatformDir), "*.dll", true, null, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Ogg", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Vorbis", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/nvTextureTools", SC.PlatformDir), "*.dll", true, null, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/nvTextureTools", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders"), "*", true, new string[] {  }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders"), "*", true, new string[] { }, null, false, false, null, false);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament"), "*.uproject", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Binaries/Win64"), "UE4Editor-*", true, new string[] { "", "*-Debug.dll", "*.pdb" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Plugins"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Maps"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash"), "*", true, new string[] { }, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases"), "*", true, new string[] { }, null, false, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament"), "*.uproject", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Binaries/Win64"), "UE4Editor-*", true, new string[] { "", "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Plugins"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Maps"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases"), "*", true, new string[] { }, null, false, false, null, false);
         }
 }
