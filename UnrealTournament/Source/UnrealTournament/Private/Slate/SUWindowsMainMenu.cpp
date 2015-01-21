@@ -16,6 +16,7 @@
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
+#include "Widgets/SUTChatWidget.h"
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
@@ -125,10 +126,26 @@ void SUWindowsMainMenu::CreateDesktop()
 								SNew(SImage)
 								.Image(SUWindowsStyle::Get().GetBrush("UT15.Logo.Overlay"))
 							]
-								
 						]
 					]
 				];
+
+			if (FParse::Param(FCommandLine::Get(), TEXT("EnableFriendsAndChat")))
+			{
+				Desktop->AddSlot()
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Bottom)
+					[
+						SNew(SBorder)
+						.Padding(0)
+						.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
+						.Visibility(EVisibility::Visible) //this, &SUWindowsMainMenu::GetChatWidgetVisibility)
+						[
+							// SAssignNew(ChatWidget, SUTChatWidget, PlayerOwner->PlayerController)
+							SNew(SUTChatWidget, PlayerOwner->PlayerController)
+						]
+					];
+			}
 		}
 }
 

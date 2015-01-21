@@ -4,6 +4,7 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "FriendsAndChatStyle.h"
 #include "SUWindowsStyle.h"
 
 #if !UE_SERVER
@@ -692,6 +693,185 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UWindows.Chat.Text.Team.Blue", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor(0.25,0.25,1.0,1.0)));
 		Style.Set("UWindows.Chat.Text.Local", FTextBlockStyle(NormalChatStyle));
 		Style.Set("UWindows.Chat.Text.Admin", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("EnableFriendsAndChat")))
+	{
+		// Friends chat styles
+		const FSlateFontInfo RobotoRegular10    = TTF_FONT("Social-WIP/Font/Lato-Regular", 10);
+		const FSlateFontInfo RobotoRegular12    = TTF_FONT("Social-WIP/Font/Lato-Regular", 12);
+		const FSlateFontInfo RobotoBold10       = TTF_FONT("Social-WIP/Font/Lato-Bold", 10 );
+		const FSlateFontInfo RobotoBold12       = TTF_FONT("Social-WIP/Font/Lato-Bold", 12);
+
+		const FScrollBarStyle ScrollBar = FScrollBarStyle()
+			.SetVerticalBackgroundImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f), FLinearColor(1.0f, 1.0f, 1.0f, 0.25f)))
+			.SetHorizontalBackgroundImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f), FLinearColor(1.0f, 1.0f, 1.0f, 0.25f)))
+			.SetNormalThumbImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f)))
+			.SetDraggedThumbImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f)))
+			.SetHoveredThumbImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f)));
+
+		const FTextBlockStyle DefaultText = FTextBlockStyle()
+			.SetFont(RobotoRegular12)
+			.SetColorAndOpacity(FSlateColor::UseForeground())
+			.SetShadowOffset(FVector2D::ZeroVector)
+			.SetShadowColorAndOpacity(FLinearColor::Black);
+
+		const FButtonStyle DefaultButton = FButtonStyle()
+			.SetNormalPadding(0)
+			.SetPressedPadding(0);
+
+		const FButtonStyle FriendsListClosedButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(IMAGE_BRUSH("Social-WIP/SocialExpander_normal", Icon16x16))
+			.SetPressed(IMAGE_BRUSH("Social-WIP/SocialExpander_normal", Icon16x16))
+			.SetHovered(IMAGE_BRUSH("Social-WIP/SocialExpander_over", Icon16x16));
+		Style.Set("FriendsListOpen", FriendsListClosedButtonStyle);
+
+		const FButtonStyle FriendsListOpenButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(IMAGE_BRUSH("Social-WIP/SocialExpanderOpen_normal", Icon16x16))
+			.SetPressed(IMAGE_BRUSH("Social-WIP/SocialExpanderOpen_normal", Icon16x16))
+			.SetHovered(IMAGE_BRUSH("Social-WIP/SocialExpanderOpen_over", Icon16x16));
+		Style.Set("FriendsListClosed", FriendsListOpenButtonStyle);
+
+		static const FVector2D FriendButtonSize(60.0f, 60.0f);
+
+		const FButtonStyle FriendsListActionButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(BOX_BRUSH("Social-WIP/SocialDefaultButton_normal", FriendButtonSize, FMargin(0.5)))
+			.SetPressed(BOX_BRUSH("Social-WIP/SocialDefaultButton_down", FriendButtonSize, FMargin(0.5)))
+			.SetHovered(BOX_BRUSH("Social-WIP/SocialDefaultButton_over", FriendButtonSize, FMargin(0.5)))
+			.SetNormalPadding(FMargin(5,2))
+			.SetPressedPadding(FMargin(5,2));
+		Style.Set("FriendsListActionButton", FriendsListActionButtonStyle);
+
+		FComboButtonStyle FriendListComboButtonStyle = FComboButtonStyle()
+			.SetButtonStyle(FriendsListActionButtonStyle)
+			.SetDownArrowImage(FSlateNoResource())
+			.SetMenuBorderBrush(FSlateNoResource())
+			.SetMenuBorderPadding(FMargin(0.0f));
+	 
+		const FButtonStyle FriendActionDropdownStyle = FButtonStyle(DefaultButton)
+			.SetNormal(IMAGE_BRUSH("Social-WIP/SocialDropdownButton_normal", Icon24x24))
+			.SetPressed(IMAGE_BRUSH("Social-WIP/SocialDropdownButton_down", Icon24x24))
+			.SetHovered(IMAGE_BRUSH("Social-WIP/SocialDropdownButton_over", Icon24x24));
+		Style.Set("FriendActionDropdown", FriendActionDropdownStyle);
+
+		const FButtonStyle FriendsListEmphasisButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(BOX_BRUSH("Social-WIP/SocialEmphasisButton_normal", FriendButtonSize, FMargin(0.5)))
+			.SetPressed(BOX_BRUSH("Social-WIP/SocialEmphasisButton_down", FriendButtonSize, FMargin(0.5)))
+			.SetHovered(BOX_BRUSH("Social-WIP/SocialEmphasisButton_over", FriendButtonSize, FMargin(0.5)))
+			.SetNormalPadding(FMargin(5,2))
+			.SetPressedPadding(FMargin(5,2));
+		Style.Set("FriendsListEmphasisButton", FriendsListEmphasisButtonStyle);
+
+		const FButtonStyle FriendsListCriticalButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(BOX_BRUSH("Social-WIP/SocialCriticalButton_normal", FriendButtonSize, FMargin(0.5)))
+			.SetPressed(BOX_BRUSH("Social-WIP/SocialCriticalButton_down", FriendButtonSize, FMargin(0.5)))
+			.SetHovered(BOX_BRUSH("Social-WIP/SocialCriticalButton_over", FriendButtonSize, FMargin(0.5)))
+			.SetNormalPadding(FMargin(5,2))
+			.SetPressedPadding(FMargin(5,2));
+		Style.Set("FriendsListCriticalButton", FriendsListCriticalButtonStyle);
+
+		const FButtonStyle FriendsListAddFriendButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(BOX_BRUSH("Social-WIP/SocialDefaultButton_normal", FriendButtonSize, FMargin(0.5)))
+			.SetPressed(BOX_BRUSH("Social-WIP/SocialDefaultButton_down", FriendButtonSize, FMargin(0.5)))
+			.SetHovered(BOX_BRUSH("Social-WIP/SocialDefaultButton_over", FriendButtonSize, FMargin(0.5)));
+		Style.Set("FriendsListActionButton", FriendsListAddFriendButtonStyle);
+
+		Style.Set("FriendsList.AddFriendContent", new IMAGE_BRUSH("Social-WIP/FriendsAddIcon", FVector2D(14, 14)));
+
+		const FButtonStyle FriendsListCloseAddFriendButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(IMAGE_BRUSH("Social-WIP/SocialCloseButton_normal", Icon24x24))
+			.SetPressed(IMAGE_BRUSH("Social-WIP/SocialCloseButton_down", Icon24x24))
+			.SetHovered(IMAGE_BRUSH("Social-WIP/SocialCloseButton_over", Icon24x24));
+		Style.Set("FriendsListCloseAddFriendButton", FriendsListCloseAddFriendButtonStyle);
+
+		Style.Set("FriendList.AddFriendEditableText.NoBackground", new FSlateNoResource(FVector2D(8, 8)));
+		const FEditableTextBoxStyle AddFriendEditableTextStyle = FEditableTextBoxStyle()
+			.SetBackgroundImageNormal(*Style.GetBrush(TEXT("FriendList.AddFriendEditableText.NoBackground")))
+			.SetBackgroundImageHovered(*Style.GetBrush(TEXT("FriendList.AddFriendEditableText.NoBackground")))
+			.SetBackgroundImageFocused(*Style.GetBrush(TEXT("FriendList.AddFriendEditableText.NoBackground")))
+			.SetBackgroundImageReadOnly(*Style.GetBrush(TEXT("FriendList.AddFriendEditableText.NoBackground")))
+			.SetPadding(FMargin(5.0f))
+			.SetFont(RobotoRegular10);
+		Style.Set("FriendList.AddFriendEditableTextStyle", AddFriendEditableTextStyle);
+
+		Style.Set("FriendsList.AddFriendEditBorder", new BOX_BRUSH("Social-WIP/OutlinedWhiteBox_OpenTop", FVector2D(8.0f, 8.0f), FMargin(0.5), FLinearColor::White));
+
+		const FButtonStyle FriendsListItemButtonStyle = FButtonStyle(DefaultButton)
+			.SetNormal(IMAGE_BRUSH("Social-WIP/White", FVector2D(8, 8), FLinearColor::Transparent))
+			.SetHovered(IMAGE_BRUSH("Social-WIP/White", FVector2D(8, 8), FLinearColor(0.1f,0.05f,0.05f)))
+			.SetPressed(IMAGE_BRUSH("Social-WIP/White", FVector2D(8, 8), FLinearColor(0.1f,0.05f,0.05f)));
+		Style.Set("FriendsListItemButtonStyle", FriendsListItemButtonStyle);
+
+		const FTextBlockStyle FriendsTextStyle = FTextBlockStyle(DefaultText)
+			.SetFont(RobotoRegular10)
+			.SetColorAndOpacity(FLinearColor(FColor::White));
+		Style.Set("FriendsTextStyle", FriendsTextStyle);
+
+		Style.Set("OnlineState", new IMAGE_BRUSH("Social-WIP/FriendOnlineState", FVector2D(16, 16)));
+		Style.Set("OfflineState", new IMAGE_BRUSH("Social-WIP/FriendOfflineStatus", FVector2D(16, 16)));
+		Style.Set("AwayState", new IMAGE_BRUSH("Social-WIP/FriendAwayStatus", FVector2D(16, 16)));
+
+		Style.Set("GlobalChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatGlobal-XS", Icon16x16));
+		Style.Set("WhisperChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatWhisper-XS", Icon16x16));
+		Style.Set("PartyChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatParty-XS", Icon16x16));
+
+		//Chat Window Style
+		Style.Set("FriendsStyle", FFriendsAndChatStyle()
+			.SetOnlineBrush(*Style.GetBrush("OnlineState"))
+			.SetOfflineBrush(*Style.GetBrush("OfflineState"))
+			.SetAwayBrush(*Style.GetBrush("AwayState"))
+			// .SetAwayBrush(*Style.GetBrush("AwayState"))
+			.SetFriendsListClosedButtonStyle(FriendsListClosedButtonStyle)
+			.SetFriendsListOpenButtonStyle(FriendsListOpenButtonStyle)
+			// .SetFriendsListStatusButtonStyle(FriendsListActionButtonStyle)
+			// .SetFriendGeneralButtonStyle(FriendsListActionButtonStyle)
+			// .SetFriendListActionButtonStyle(FriendsListActionButtonStyle)
+			.SetFriendsListEmphasisButtonStyle(FriendsListEmphasisButtonStyle)
+			.SetFriendsListCriticalButtonStyle(FriendsListCriticalButtonStyle)
+			.SetAddFriendButtonStyle(FriendsListAddFriendButtonStyle)
+			// .SetFriendActionDropdownButtonStyle(FriendActionDropdownStyle)
+			// .SetFriendsListComboButtonStyle(FriendListComboButtonStyle)
+			// .SetFriendComboBackgroundLeftBrush(*FriendsDefaultBackgroundBrush)
+			// .SetFriendComboBackgroundRightBrush(*FriendsDefaultBackgroundBrush)
+			.SetAddFriendButtonContentBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
+			.SetAddFriendCloseButtonStyle(FriendsListCloseAddFriendButtonStyle)
+			.SetFriendsListItemButtonStyle(FriendsListItemButtonStyle)
+			.SetFriendsCalloutBrush(*Style.GetBrush("FriendComboDropdownBrush"))
+			// .SetBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			// .SetTitleBarBrush(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+			// .SetFriendContainerHeader(*FriendContainerHeader)
+			// .SetFriendListHeader(*FriendsListHeaderBrush)
+			// .SetFriendItemSelected(*FriendsDefaultBackgroundBrush)
+			// .SetChatContainerBackground(*FriendsDefaultBackgroundBrush)
+			// .SetFriendContainerBackground(*FriendsDefaultBackgroundBrush)
+			// .SetAddFriendEditBorder(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+			// .SetFriendsComboDropdownImageBrush(*Style.GetBrush("FriendComboDropdownBrush"))
+			// .SetFriendsListItemButtonSimpleStyle(FriendsListItemButtonStyle)
+			.SetTextStyle(FriendsTextStyle)
+			.SetFontStyle(RobotoRegular12)
+			.SetFontStyleBold(RobotoBold12)
+			.SetFontStyleSmall(RobotoRegular10)
+			.SetFontStyleSmallBold(RobotoBold10)
+			// .SetDefaultFontColor(DefaultChatColor)
+			// .SetDefaultChatColor(DefaultChatColor)
+			// .SetWhisplerChatColor(WhisplerChatColor)
+			// .SetPartyChatColor(PartyChatColor)
+			// .SetChatGlobalBrush(*Style.GetBrush("GlobalChatIcon"))
+			.SetChatWhisperBrush(*Style.GetBrush("WhisperChatIcon"))
+			// .SetChatPartyBrush(*Style.GetBrush("PartyChatIcon"))
+			.SetAddFriendEditableTextStyle(AddFriendEditableTextStyle)
+			.SetStatusButtonSize(FVector2D(108, 24))
+			.SetBorderPadding(FMargin(5,5))
+			.SetFriendsListWidth(600.f)
+			// .SetChatListPadding(130.f)
+			// .SetChatBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			.SetFriendCheckboxStyle(FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("Checkbox"))
+			// .SetChatChannelsBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			// .SetChatOptionsBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			.SetScrollbarStyle(ScrollBar)
+			.SetWindowStyle(Style.GetWidgetStyle<FWindowStyle>("Window"))
+		);
+
 	}
 
 	{ // Match Badge Styles
