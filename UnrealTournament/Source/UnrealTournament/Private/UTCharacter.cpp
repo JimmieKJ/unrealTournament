@@ -3904,6 +3904,10 @@ void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
 
 void AUTCharacter::OnRep_Invisible_Implementation()
 {
+	if (Hat)
+	{
+		Hat->SetActorHiddenInGame(bInvisible);
+	}
 }
 
 void AUTCharacter::SetInvisible(bool bNowInvisible)

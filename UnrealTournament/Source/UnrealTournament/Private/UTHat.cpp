@@ -14,4 +14,30 @@ AUTHat::AUTHat(const class FObjectInitializer& ObjectInitializer)
 	bReplicates = false;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+
+}
+
+void AUTHat::PreInitializeComponents()
+{
+	Super::PreInitializeComponents();
+
+	if (GetRootComponent())
+	{
+		UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
+		if (PrimComponent)
+		{
+			PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+		}
+
+		TArray<USceneComponent*> Children;
+		GetRootComponent()->GetChildrenComponents(true, Children);
+		for (auto Child : Children)
+		{
+			PrimComponent = Cast<UPrimitiveComponent>(Child);
+			if (PrimComponent)
+			{
+				PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+			}
+		}
+	}
 }

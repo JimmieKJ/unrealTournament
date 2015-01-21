@@ -20,4 +20,8 @@ class UUTCheatManager : public UCheatManager
 	// Alias to UnlimitedAmmo
 	UFUNCTION(exec)
 	virtual void ua();
+
+	UFUNCTION(exec)
+	virtual void SetHat(const FString& Hat);
+
 };

@@ -20,4 +20,6 @@ class UNREALTOURNAMENT_API AUTHat : public AActor
 
 	UFUNCTION(BlueprintImplementableEvent)
 	virtual void OnSpreeLevelChanged(int32 NewSpreeLevel);
+
+	virtual void PreInitializeComponents();
 };

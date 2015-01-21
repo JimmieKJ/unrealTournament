@@ -67,3 +67,17 @@ void UUTCheatManager::ua()
 {
 	UnlimitedAmmo();
 }
+
+void UUTCheatManager::SetHat(const FString& Hat)
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(GetOuterAPlayerController()->PlayerState);
+	if (PS)
+	{
+		FString HatPackageName;
+		if (FPackageName::SearchForPackageOnDisk(Hat, &HatPackageName))
+		{
+			HatPackageName += TEXT(".") + Hat + TEXT("_C");
+			PS->ServerReceiveHatClass(HatPackageName);
+		}
+	}
+}
