@@ -61,6 +61,37 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	}
 }
 
+void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		CameraStyle = NAME_Default;
+
+		LastThirdPersonCameraLoc = FVector(0);
+		ViewTarget.CheckViewTarget(PCOwner);
+		// our camera is now viewing there
+		FMinimalViewInfo NewPOV;
+		NewPOV.FOV = DefaultFOV;
+		NewPOV.OrthoWidth = DefaultOrthoWidth;
+		NewPOV.bConstrainAspectRatio = false;
+		NewPOV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+		NewPOV.PostProcessBlendWeight = 1.0f;
+
+		const bool bK2Camera = BlueprintUpdateCamera(ViewTarget.Target, NewPOV.Location, NewPOV.Rotation,NewPOV.FOV);
+		if (!bK2Camera)
+		{
+			ViewTarget.Target->CalcCamera(DeltaTime, NewPOV);
+		}
+
+		// Cache results
+		FillCameraCache(NewPOV);
+	}
+	else
+	{
+		Super::UpdateCamera(DeltaTime);
+	}
+}
+
 void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));

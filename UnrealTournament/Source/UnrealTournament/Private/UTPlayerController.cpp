@@ -366,6 +366,13 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 
 void AUTPlayerController::SpawnPlayerCameraManager()
 {
+	/** @TODO FIXMESTEVE  - engine crashes, but shouldn't need camera manager on server
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		// no camera manager on dedicated server
+		return;
+	}
+	*/
 	Super::SpawnPlayerCameraManager();
 	// init configured FOV angle
 	if (PlayerCameraManager != NULL)
@@ -1230,14 +1237,17 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		UTPlayerState->bChosePrimaryRespawnChoice = true;
 	}
 
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted() && UTPlayerState != NULL)
+	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 	{
-		UTPlayerState->bReadyToPlay = true;
+		if (UTPlayerState)
+		{
+			UTPlayerState->bReadyToPlay = true;
+		}
 	}
 
-	// If we can't restart this player, try to view a new player
-	if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
+	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
+		// If we can't restart this player, try to view a new player
 		ServerViewNextPlayer();
 		return;
 	}
@@ -1257,14 +1267,16 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 		UTPlayerState->bChosePrimaryRespawnChoice = false;
 	}
 
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted() && UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
+	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 	{
-		ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+		if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
+		{
+			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+		}
 	}
-
-	// If we can't restart this player, try to view a new player
-	if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
+	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
+		// If we can't restart this player, try to view a new player
 		ServerViewNextPlayer();
 		return;
 	}

@@ -218,6 +218,8 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	//====================================
 	// Networking
 
+	virtual void PawnClientRestart() override;
+
 	/** Used for replication of our RootComponent's position and velocity */
 	UPROPERTY(ReplicatedUsing = OnRep_UTReplicatedMovement)
 	struct FRepUTMovement UTReplicatedMovement;

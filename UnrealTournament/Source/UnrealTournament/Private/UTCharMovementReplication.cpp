@@ -27,6 +27,13 @@ float UUTCharacterMovement::GetCurrentSynchTime() const
 	return GetCurrentMovementTime();
 }
 
+/* @TODO FIXMESTEVE when virtual
+void UUTCharacterMovement::ResetPredictionData_Client()
+{
+	Super::ResetPredictionData_Client();
+	ResetTimers();
+}
+*/
 void UUTCharacterMovement::MoveAutonomous
 (
 float ClientTimeStamp,

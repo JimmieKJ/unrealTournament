@@ -3073,6 +3073,16 @@ FLinearColor AUTCharacter::GetTeamColor() const
 	return FLinearColor::White;
 }
 
+void AUTCharacter::PawnClientRestart()
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->ResetTimers();
+	}
+
+	Super::PawnClientRestart();
+}
+
 void AUTCharacter::PossessedBy(AController* NewController)
 {
 	// TODO: shouldn't base class do this? APawn::Unpossessed() still does SetOwner(NULL)...

@@ -32,8 +32,8 @@ class AUTPlayerCameraManager : public APlayerCameraManager
 	 */
 	virtual FName GetCameraStyleWithOverrides() const;
 
+	virtual void UpdateCamera(float DeltaTime) override;
 	virtual void UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime) override;
-
 	virtual void ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV) override;
 };
 
