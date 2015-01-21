@@ -141,17 +141,20 @@ public:
 
 			}
 
-			FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
-			if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine))
+			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContent", "Content packaged successfully. Would you like to publish it now?")))
 			{
-
-			}
-			else
-			{
-				if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallMarketplacePrompt", "The Marketplace requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
+				FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
+				if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine))
 				{
-					if (!DesktopPlatform->OpenLauncher(true, LauncherCommandLine))
+
+				}
+				else
+				{
+					if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallLauncherPrompt", "Publishing content requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
 					{
+						if (!DesktopPlatform->OpenLauncher(true, LauncherCommandLine))
+						{
+						}
 					}
 				}
 			}
