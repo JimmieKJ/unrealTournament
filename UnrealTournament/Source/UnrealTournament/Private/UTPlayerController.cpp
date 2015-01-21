@@ -86,6 +86,7 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
 }
 
 void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)
@@ -1278,6 +1279,10 @@ bool AUTPlayerController::CanRestartPlayer()
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
 {
+	if (GetPawn() != NULL && !GetPawn()->bTearOff && !bAllowPlayingBehindView && GetNetMode() != NM_Standalone)
+	{
+		bWantBehindView = false;
+	}
 	if (IsInState(NAME_Spectating))
 	{
 		bSpectateBehindView = bWantBehindView;

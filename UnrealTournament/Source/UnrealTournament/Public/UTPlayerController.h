@@ -131,6 +131,9 @@ public:
 
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
 
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = Camera)
+	bool bAllowPlayingBehindView;
+
 	UFUNCTION(exec)
 	virtual void BehindView(bool bWantBehindView);
 
@@ -196,7 +199,7 @@ public:
 
 	/** If true, tapping crouch will cause a slide. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-		bool bTapCrouchToSlide;
+	bool bTapCrouchToSlide;
 
 	/** Toggles bSingleTapWallDodge */
 	UFUNCTION(exec)
