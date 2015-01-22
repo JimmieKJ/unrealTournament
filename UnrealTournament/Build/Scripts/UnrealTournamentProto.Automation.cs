@@ -1410,6 +1410,6 @@ public partial class EditorProject : Project
         SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases/"), "*", true, new string[] { }, null, false, false, null, false);
 
         // THIS IS THE ONE EXCEPTION TO NO REDIST AND NOT FOR LICENSEES
-        SC.StageFiles(StagedFileType.NonUFS, CombnePaths(SC.LocalRoot, "Engine/Binaries/DotNet/AutomationScript/NoRedist/UnrealTournament.Automation.dll"), "*", true, new string[] { "*.pdb" }, null, false, false, null, true);
+        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet/AutomationScript/NoRedist/UnrealTournament.Automation.dll"), "*", true, new string[] { "*.pdb" }, null, false, false, null, true);
     }
 }
