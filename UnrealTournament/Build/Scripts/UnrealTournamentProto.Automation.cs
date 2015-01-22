@@ -1379,7 +1379,7 @@ public partial class EditorProject : Project
         SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealLightmass*", true, new string[] { "*.pdb" }, null, false, false, null, false);
 
         SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet"), "*", true, new string[] { "*.pdb" }, null, false, false, null, false);
-
+        
         SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.dll", true, null, null, false, false, null, false);
 
         SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
@@ -1408,5 +1408,8 @@ public partial class EditorProject : Project
         SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets/"), "*", true, new string[] { }, null, false, false, null, false);
         SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash/"), "*", true, new string[] { }, null, false, false, null, false);
         SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases/"), "*", true, new string[] { }, null, false, false, null, false);
+
+        // THIS IS THE ONE EXCEPTION TO NO REDIST AND NOT FOR LICENSEES
+        SC.StageFiles(StagedFileType.NonUFS, CombnePaths(SC.LocalRoot, "Engine/Binaries/DotNet/AutomationScript/NoRedist/UnrealTournament.Automation.dll"), "*", true, new string[] { "*.pdb" }, null, false, false, null, true);
     }
 }
