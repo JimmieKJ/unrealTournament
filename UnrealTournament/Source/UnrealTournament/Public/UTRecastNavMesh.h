@@ -426,11 +426,6 @@ public:
 		}
 	}
 
-	virtual void SetConfig(const FNavDataConfig& Src) override
-	{
-		// we have set the proper values already, ignore this redundant and convoluted stuff
-	}
-
 #if WITH_EDITOR
 	class FUTNavMeshEditorTick* EditorTick;
 	~AUTRecastNavMesh();
