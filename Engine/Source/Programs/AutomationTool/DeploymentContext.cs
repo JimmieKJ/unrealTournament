@@ -333,7 +333,7 @@ public class DeploymentContext //: ProjectParams
 					continue;
 				}
 
-                if (!bAllowNotForLicenseesFiles && FileToCopy.Contains("NotForLicensees"))
+                if (!bAllowNotForLicenseesFiles && (FileToCopy.Contains("NotForLicensees") || FileToCopy.Contains("NoRedist"))
                 {
                     continue;
                 }
