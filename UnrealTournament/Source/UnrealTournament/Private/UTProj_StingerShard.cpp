@@ -60,6 +60,7 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 					}
 					UTMove->Velocity.Z = CurrentVelZ;
 					UTMove->ClearPendingImpulse();
+					UTMove->NeedsClientAdjustment();
 				}
 			}
 			

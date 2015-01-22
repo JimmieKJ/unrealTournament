@@ -459,7 +459,7 @@ void UUTCharacterMovement::SendClientAdjustment()
 		}
 		else
 		{
-			// @TODO FIXMESTEVE separate client adjust position for relative to base, rather than zero velocity
+			// @TODO FIXMESTEVE separate client adjust position for relative to base, rather than zero velocity also want to not do good move acks every frame
 			bool bHasBase = (ServerData->PendingAdjustment.NewBase != NULL) || (ServerData->PendingAdjustment.MovementMode == MOVE_Walking);
 			if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
 			{
