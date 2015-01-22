@@ -506,21 +506,13 @@ public:
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
 	float MaxSlideAccelNormal;
 
-	// @TODO FIXMESTEVE REMOVE OBSOLETE - moved to UTCharacter so can be replicated
-	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
-	bool bApplyWallSlide;
-
-	/** If true, the player is against the wall and WallDirection will describe the touch. */
+	/** If true, the player is against the wall and WallSlideNormal will describe the touch. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
 	bool bIsAgainstWall;
 
 	/** Used to gate client=side checking whether other characters are falling against a wall. */
 	UPROPERTY()
 	bool bHasCheckedAgainstWall;
-
-	/** @TODO FIXMESTEVE REMOVE OBSOLETE Holds the direction of the wall.  < 0 for left, >0 for right. */
-	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
-	float WallDirection;
 
 	/** Normal of the wall we are sliding against. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)

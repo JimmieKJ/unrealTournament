@@ -1303,11 +1303,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					{
 						// We are against the wall, store info about it
 						bIsAgainstWall = true;
-						
-						FVector Lat = FVector::CrossProduct(CharacterOwner->GetActorRotation().Vector(), FVector(0,0,1));
-						WallDirection = FVector::DotProduct(Lat, Result.Normal);
 						WallSlideNormal = Result.Normal;
-
 						TickAirControl = 0.f;
 						CheckWallSlide(Result);
 					}
