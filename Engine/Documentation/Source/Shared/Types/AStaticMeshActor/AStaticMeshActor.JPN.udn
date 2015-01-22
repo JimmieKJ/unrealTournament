@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2281204
+Availability:NoPublish
+Title:AStaticMeshActor
+Crumbs:
+Description:
+
+[EXCERPT:AStaticMeshActor]
+
+AStaticMeshActor は、スタティックメッシュ アセットをレベル内に簡単に置くために使用します。
+
+[VAR:ToolTipFullLink]
+Engine/Actors/StaticMeshActor
+[/VAR]
+[/EXCERPT:AStaticMeshActor]

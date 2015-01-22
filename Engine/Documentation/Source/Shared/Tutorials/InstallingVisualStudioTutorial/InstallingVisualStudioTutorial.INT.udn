@@ -1,0 +1,26 @@
+Availability:NoPublish
+Title:Install Visual Studio
+Crumbs:
+Description: The contents of all introductory tutorials for Unreal Engine 4
+
+[EXCERPT:Stage1]
+##Installing Visual Studio
+
+It appears that Visual Studio 2013 is not installed. 
+
+Installing Visual Studio 2013 will allow you to view Unreal header files, as well as create and compile your own code projects.
+
+You can install Visual Studio 2013 Express from Microsoft for free using the following link:
+
+
+
+[Download Visual Studio 2013](http://www.microsoft.com/en-us/download/details.aspx?id=40787)
+
+
+[![](DownloadVSHighlight.png)](http://www.microsoft.com/en-us/download/details.aspx?id=40787)
+
+---
+
+**For ease of installation, select wdexpress_full.exe for the download.**
+
+[/EXCERPT:Stage1]

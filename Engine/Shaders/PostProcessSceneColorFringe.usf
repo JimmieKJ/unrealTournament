@@ -1,0 +1,67 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessSceneColorFringe.usf: PostProcessing scene color fringe shader
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+// can be optimized
+float2 ScreenPosToUV(float2 ScreenPos)
+{
+	return (ScreenPos * ScreenPosToPixel.xy + ScreenPosToPixel.zw) * PostprocessInput0Size.zw;
+}
+
+float2 UVToScreenPos(float2 UV)
+{
+	return (UV * PostprocessInput0Size.xy - ScreenPosToPixel.zw) / ScreenPosToPixel.xy;
+}
+
+// .rgb:SceneFringeIntensity for RGB, .a:unused
+float4 FringeUVParams;
+
+// vertex shader
+void MainVS(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 InTexCoord : ATTRIBUTE1,
+	out float4 OutUV01 : TEXCOORD0,
+	out float2 OutUV2 : TEXCOORD1,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	DrawRectangle(InPosition, InTexCoord, OutPosition, InTexCoord);
+
+	float2 ScreenPos = UVToScreenPos(InTexCoord);
+	 
+	float2 UV0 = ScreenPosToUV(ScreenPos * FringeUVParams.r);
+	float2 UV1 = ScreenPosToUV(ScreenPos * FringeUVParams.g);
+	float2 UV2 = ScreenPosToUV(ScreenPos * FringeUVParams.b);
+
+	// pack in float4
+	OutUV01 = float4(UV0, UV1);
+	OutUV2 = UV2;
+}
+
+// .rgb:color multiplier, .a:unused
+float4 FringeColorParams[3];
+
+// pixel shader
+void MainPS(
+	in float4 UV01 : TEXCOORD0,
+	in float2 UV2 : TEXCOORD1,
+	out float4 OutColor : SV_Target0
+	)
+{
+
+	// unpack from float4
+	float2 UV0 = UV01.xy;
+	float2 UV1 = UV01.zw;
+
+	// combine 3 samples with a different RGB shift
+	OutColor = 0;
+	OutColor.rgb += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV0).rgb * FringeColorParams[0].rgb;
+	OutColor.rgb += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV1).rgb * FringeColorParams[1].rgb;
+	OutColor.rgb += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV2).rgb * FringeColorParams[2].rgb;
+}
+

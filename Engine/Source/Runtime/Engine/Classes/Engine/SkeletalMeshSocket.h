@@ -1,0 +1,85 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+
+#pragma once
+#include "SkeletalMeshSocket.generated.h"
+
+UCLASS(hidecategories=Object, hidecategories=Actor, MinimalAPI)
+class USkeletalMeshSocket : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+	/** 
+	 *	Defines a named attachment location on the USkeletalMesh. 
+	 *	These are set up in editor and used as a shortcut instead of specifying 
+	 *	everything explicitly to AttachComponent in the SkeletalMeshComponent.
+	 *	The Outer of a SkeletalMeshSocket should always be the USkeletalMesh.
+	 */
+	UPROPERTY(Category=SkeletalMeshSocket, VisibleAnywhere, BlueprintReadOnly)
+	FName SocketName;
+
+	UPROPERTY(Category=SkeletalMeshSocket, VisibleAnywhere, BlueprintReadOnly)
+	FName BoneName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=SkeletalMeshSocket)
+	FVector RelativeLocation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=SkeletalMeshSocket)
+	FRotator RelativeRotation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=SkeletalMeshSocket)
+	FVector RelativeScale;
+
+	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	ENGINE_API FVector GetSocketLocation(const class USkeletalMeshComponent* SkelComp) const;
+
+	/** Sets BoneName, RelativeLocation and RelativeRotation based on closest bone to WorldLocation and WorldNormal */
+	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
+	ENGINE_API void InitializeSocketFromLocation(const class USkeletalMeshComponent* SkelComp, FVector WorldLocation, FVector WorldNormal);
+
+	/** Utility that returns the current matrix for this socket. Returns false if socket was not valid (bone not found etc) */
+	ENGINE_API bool GetSocketMatrix(FMatrix& OutMatrix, const class USkeletalMeshComponent* SkelComp) const;
+
+	/** returns FTransform of Socket local transform */
+	FTransform GetSocketLocalTransform() const;
+
+	/** Utility that returns the current transform for this socket. */
+	ENGINE_API FTransform GetSocketTransform( const class USkeletalMeshComponent* SkelComp ) const;
+
+	/** 
+	 *	Utility that returns the current matrix for this socket with an offset. Returns false if socket was not valid (bone not found etc) 
+	 *	
+	 *	@param	OutMatrix		The resulting socket matrix
+	 *	@param	SkelComp		The skeletal mesh component that the socket comes from
+	 *	@param	InOffset		The additional offset to apply to the socket location
+	 *	@param	InRotation		The additional rotation to apply to the socket rotation
+	 *
+	 *	@return	bool			true if successful, false if not
+	 */
+	bool GetSocketMatrixWithOffset(FMatrix& OutMatrix, class USkeletalMeshComponent* SkelComp, const FVector& InOffset, const FRotator& InRotation) const;
+
+	/** 
+	 *	Utility that returns the current position of this socket with an offset. Returns false if socket was not valid (bone not found etc)
+	 *	
+	 *	@param	OutPosition		The resulting position
+	 *	@param	SkelComp		The skeletal mesh component that the socket comes from
+	 *	@param	InOffset		The additional offset to apply to the socket location
+	 *	@param	InRotation		The additional rotation to apply to the socket rotation
+	 *
+	 *	@return	bool			true if successful, false if not
+	 */
+	bool GetSocketPositionWithOffset(FVector& OutPosition, class USkeletalMeshComponent* SkelComp, const FVector& InOffset, const FRotator& InRotation) const;
+
+	/** 
+	 *	Utility to associate an actor with a socket
+	 *	
+	 *	@param	Actor			The actor to attach to the socket
+	 *	@param	SkelComp		The skeletal mesh component associated with this socket.
+	 *
+	 *	@return	bool			true if successful, false if not
+	 */
+	ENGINE_API bool AttachActor (class AActor* Actor, class USkeletalMeshComponent* SkelComp) const;
+};
+
+
+

@@ -1,0 +1,385 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		90FD4FE81613473C00EF8CA3 /* AutoGeometry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FD51613473C00EF8CA3 /* AutoGeometry.cpp */; };
+		90FD4FE91613473C00EF8CA3 /* ConvexDecomposition.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FD61613473C00EF8CA3 /* ConvexDecomposition.cpp */; };
+		90FD4FEA1613473C00EF8CA3 /* ConvexHull.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FD71613473C00EF8CA3 /* ConvexHull.cpp */; };
+		90FD4FEB1613473C00EF8CA3 /* dgAABBPolygonSoup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FD81613473C00EF8CA3 /* dgAABBPolygonSoup.cpp */; };
+		90FD4FEC1613473C00EF8CA3 /* dgConvexHull3d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FD91613473C00EF8CA3 /* dgConvexHull3d.cpp */; };
+		90FD4FED1613473C00EF8CA3 /* dgGoogol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FDA1613473C00EF8CA3 /* dgGoogol.cpp */; };
+		90FD4FEE1613473C00EF8CA3 /* dgIntersections.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FDB1613473C00EF8CA3 /* dgIntersections.cpp */; };
+		90FD4FEF1613473C00EF8CA3 /* dgMatrix.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FDC1613473C00EF8CA3 /* dgMatrix.cpp */; };
+		90FD4FF01613473C00EF8CA3 /* dgMeshEffect.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FDD1613473C00EF8CA3 /* dgMeshEffect.cpp */; };
+		90FD4FF11613473C00EF8CA3 /* dgPolygonSoupBuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FDE1613473C00EF8CA3 /* dgPolygonSoupBuilder.cpp */; };
+		90FD4FF21613473C00EF8CA3 /* dgPolyhedra.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FDF1613473C00EF8CA3 /* dgPolyhedra.cpp */; };
+		90FD4FF31613473C00EF8CA3 /* dgQuaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE01613473C00EF8CA3 /* dgQuaternion.cpp */; };
+		90FD4FF41613473C00EF8CA3 /* dgSmallDeterminant.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE11613473C00EF8CA3 /* dgSmallDeterminant.cpp */; };
+		90FD4FF51613473C00EF8CA3 /* dgSphere.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE21613473C00EF8CA3 /* dgSphere.cpp */; };
+		90FD4FF61613473C00EF8CA3 /* dgTree.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE31613473C00EF8CA3 /* dgTree.cpp */; };
+		90FD4FF71613473C00EF8CA3 /* dgTypes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE41613473C00EF8CA3 /* dgTypes.cpp */; };
+		90FD4FF81613473C00EF8CA3 /* HACD.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE51613473C00EF8CA3 /* HACD.cpp */; };
+		90FD4FF91613473C00EF8CA3 /* MergeHulls.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE61613473C00EF8CA3 /* MergeHulls.cpp */; };
+		90FD4FFA1613473C00EF8CA3 /* WuQuantizer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 90FD4FE71613473C00EF8CA3 /* WuQuantizer.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		90D36FBC17E9C2F100575FE7 /* AutoGeometry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AutoGeometry.h; sourceTree = "<group>"; };
+		90D36FBD17E9C2F100575FE7 /* ConvexDecomposition.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ConvexDecomposition.h; sourceTree = "<group>"; };
+		90D36FBE17E9C2F100575FE7 /* dgAABBPolygonSoup.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgAABBPolygonSoup.h; sourceTree = "<group>"; };
+		90D36FBF17E9C2F100575FE7 /* dgArray.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgArray.h; sourceTree = "<group>"; };
+		90D36FC017E9C2F100575FE7 /* dgConvexHull3d.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgConvexHull3d.h; sourceTree = "<group>"; };
+		90D36FC117E9C2F100575FE7 /* dgGoogol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgGoogol.h; sourceTree = "<group>"; };
+		90D36FC217E9C2F100575FE7 /* dgGraph.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgGraph.h; sourceTree = "<group>"; };
+		90D36FC317E9C2F100575FE7 /* dgHeap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgHeap.h; sourceTree = "<group>"; };
+		90D36FC417E9C2F100575FE7 /* dgIntersections.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgIntersections.h; sourceTree = "<group>"; };
+		90D36FC517E9C2F100575FE7 /* dgList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgList.h; sourceTree = "<group>"; };
+		90D36FC617E9C2F100575FE7 /* dgMatrix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgMatrix.h; sourceTree = "<group>"; };
+		90D36FC717E9C2F100575FE7 /* dgMeshEffect.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgMeshEffect.h; sourceTree = "<group>"; };
+		90D36FC817E9C2F100575FE7 /* dgPlane.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgPlane.h; sourceTree = "<group>"; };
+		90D36FC917E9C2F100575FE7 /* dgPolygonSoupBuilder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgPolygonSoupBuilder.h; sourceTree = "<group>"; };
+		90D36FCA17E9C2F100575FE7 /* dgPolygonSoupDatabase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgPolygonSoupDatabase.h; sourceTree = "<group>"; };
+		90D36FCB17E9C2F100575FE7 /* dgPolyhedra.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgPolyhedra.h; sourceTree = "<group>"; };
+		90D36FCC17E9C2F100575FE7 /* dgQuaternion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgQuaternion.h; sourceTree = "<group>"; };
+		90D36FCD17E9C2F100575FE7 /* dgRefCounter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgRefCounter.h; sourceTree = "<group>"; };
+		90D36FCE17E9C2F100575FE7 /* dgSimD_Instrutions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgSimD_Instrutions.h; sourceTree = "<group>"; };
+		90D36FCF17E9C2F100575FE7 /* dgSmallDeterminant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgSmallDeterminant.h; sourceTree = "<group>"; };
+		90D36FD017E9C2F100575FE7 /* dgSphere.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgSphere.h; sourceTree = "<group>"; };
+		90D36FD117E9C2F100575FE7 /* dgStack.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgStack.h; sourceTree = "<group>"; };
+		90D36FD217E9C2F100575FE7 /* dgTree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgTree.h; sourceTree = "<group>"; };
+		90D36FD317E9C2F100575FE7 /* dgTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgTypes.h; sourceTree = "<group>"; };
+		90D36FD417E9C2F100575FE7 /* dgVector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dgVector.h; sourceTree = "<group>"; };
+		90D36FD617E9C2F100575FE7 /* ConvexHull.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ConvexHull.h; sourceTree = "<group>"; };
+		90D36FD717E9C2F100575FE7 /* HACD.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HACD.h; sourceTree = "<group>"; };
+		90D36FD817E9C2F100575FE7 /* JobSwarm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JobSwarm.h; sourceTree = "<group>"; };
+		90D36FD917E9C2F100575FE7 /* MergeHulls.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MergeHulls.h; sourceTree = "<group>"; };
+		90D36FDA17E9C2F100575FE7 /* PlatformConfigHACD.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PlatformConfigHACD.h; sourceTree = "<group>"; };
+		90D36FDB17E9C2F100575FE7 /* PxVector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PxVector.h; sourceTree = "<group>"; };
+		90D36FDC17E9C2F100575FE7 /* SparseArray.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SparseArray.h; sourceTree = "<group>"; };
+		90D36FDD17E9C2F100575FE7 /* WuQuantizer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WuQuantizer.h; sourceTree = "<group>"; };
+		90FD4FC9161346D600EF8CA3 /* libhacd_debug.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libhacd_debug.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		90FD4FD51613473C00EF8CA3 /* AutoGeometry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AutoGeometry.cpp; path = src/AutoGeometry.cpp; sourceTree = "<group>"; };
+		90FD4FD61613473C00EF8CA3 /* ConvexDecomposition.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ConvexDecomposition.cpp; path = src/ConvexDecomposition.cpp; sourceTree = "<group>"; };
+		90FD4FD71613473C00EF8CA3 /* ConvexHull.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ConvexHull.cpp; path = src/ConvexHull.cpp; sourceTree = "<group>"; };
+		90FD4FD81613473C00EF8CA3 /* dgAABBPolygonSoup.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgAABBPolygonSoup.cpp; path = src/dgAABBPolygonSoup.cpp; sourceTree = "<group>"; };
+		90FD4FD91613473C00EF8CA3 /* dgConvexHull3d.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgConvexHull3d.cpp; path = src/dgConvexHull3d.cpp; sourceTree = "<group>"; };
+		90FD4FDA1613473C00EF8CA3 /* dgGoogol.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgGoogol.cpp; path = src/dgGoogol.cpp; sourceTree = "<group>"; };
+		90FD4FDB1613473C00EF8CA3 /* dgIntersections.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgIntersections.cpp; path = src/dgIntersections.cpp; sourceTree = "<group>"; };
+		90FD4FDC1613473C00EF8CA3 /* dgMatrix.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgMatrix.cpp; path = src/dgMatrix.cpp; sourceTree = "<group>"; };
+		90FD4FDD1613473C00EF8CA3 /* dgMeshEffect.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgMeshEffect.cpp; path = src/dgMeshEffect.cpp; sourceTree = "<group>"; };
+		90FD4FDE1613473C00EF8CA3 /* dgPolygonSoupBuilder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgPolygonSoupBuilder.cpp; path = src/dgPolygonSoupBuilder.cpp; sourceTree = "<group>"; };
+		90FD4FDF1613473C00EF8CA3 /* dgPolyhedra.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgPolyhedra.cpp; path = src/dgPolyhedra.cpp; sourceTree = "<group>"; };
+		90FD4FE01613473C00EF8CA3 /* dgQuaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgQuaternion.cpp; path = src/dgQuaternion.cpp; sourceTree = "<group>"; };
+		90FD4FE11613473C00EF8CA3 /* dgSmallDeterminant.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgSmallDeterminant.cpp; path = src/dgSmallDeterminant.cpp; sourceTree = "<group>"; };
+		90FD4FE21613473C00EF8CA3 /* dgSphere.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgSphere.cpp; path = src/dgSphere.cpp; sourceTree = "<group>"; };
+		90FD4FE31613473C00EF8CA3 /* dgTree.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgTree.cpp; path = src/dgTree.cpp; sourceTree = "<group>"; };
+		90FD4FE41613473C00EF8CA3 /* dgTypes.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dgTypes.cpp; path = src/dgTypes.cpp; sourceTree = "<group>"; };
+		90FD4FE51613473C00EF8CA3 /* HACD.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = HACD.cpp; path = src/HACD.cpp; sourceTree = "<group>"; };
+		90FD4FE61613473C00EF8CA3 /* MergeHulls.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MergeHulls.cpp; path = src/MergeHulls.cpp; sourceTree = "<group>"; };
+		90FD4FE71613473C00EF8CA3 /* WuQuantizer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = WuQuantizer.cpp; path = src/WuQuantizer.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		90FD4FC6161346D600EF8CA3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		90D36FBB17E9C2F100575FE7 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				90D36FBC17E9C2F100575FE7 /* AutoGeometry.h */,
+				90D36FBD17E9C2F100575FE7 /* ConvexDecomposition.h */,
+				90D36FBE17E9C2F100575FE7 /* dgAABBPolygonSoup.h */,
+				90D36FBF17E9C2F100575FE7 /* dgArray.h */,
+				90D36FC017E9C2F100575FE7 /* dgConvexHull3d.h */,
+				90D36FC117E9C2F100575FE7 /* dgGoogol.h */,
+				90D36FC217E9C2F100575FE7 /* dgGraph.h */,
+				90D36FC317E9C2F100575FE7 /* dgHeap.h */,
+				90D36FC417E9C2F100575FE7 /* dgIntersections.h */,
+				90D36FC517E9C2F100575FE7 /* dgList.h */,
+				90D36FC617E9C2F100575FE7 /* dgMatrix.h */,
+				90D36FC717E9C2F100575FE7 /* dgMeshEffect.h */,
+				90D36FC817E9C2F100575FE7 /* dgPlane.h */,
+				90D36FC917E9C2F100575FE7 /* dgPolygonSoupBuilder.h */,
+				90D36FCA17E9C2F100575FE7 /* dgPolygonSoupDatabase.h */,
+				90D36FCB17E9C2F100575FE7 /* dgPolyhedra.h */,
+				90D36FCC17E9C2F100575FE7 /* dgQuaternion.h */,
+				90D36FCD17E9C2F100575FE7 /* dgRefCounter.h */,
+				90D36FCE17E9C2F100575FE7 /* dgSimD_Instrutions.h */,
+				90D36FCF17E9C2F100575FE7 /* dgSmallDeterminant.h */,
+				90D36FD017E9C2F100575FE7 /* dgSphere.h */,
+				90D36FD117E9C2F100575FE7 /* dgStack.h */,
+				90D36FD217E9C2F100575FE7 /* dgTree.h */,
+				90D36FD317E9C2F100575FE7 /* dgTypes.h */,
+				90D36FD417E9C2F100575FE7 /* dgVector.h */,
+			);
+			name = include;
+			path = ../../include;
+			sourceTree = "<group>";
+		};
+		90D36FD517E9C2F100575FE7 /* public */ = {
+			isa = PBXGroup;
+			children = (
+				90D36FD617E9C2F100575FE7 /* ConvexHull.h */,
+				90D36FD717E9C2F100575FE7 /* HACD.h */,
+				90D36FD817E9C2F100575FE7 /* JobSwarm.h */,
+				90D36FD917E9C2F100575FE7 /* MergeHulls.h */,
+				90D36FDA17E9C2F100575FE7 /* PlatformConfigHACD.h */,
+				90D36FDB17E9C2F100575FE7 /* PxVector.h */,
+				90D36FDC17E9C2F100575FE7 /* SparseArray.h */,
+				90D36FDD17E9C2F100575FE7 /* WuQuantizer.h */,
+			);
+			name = public;
+			path = ../../public;
+			sourceTree = "<group>";
+		};
+		90FD4FBE161346D600EF8CA3 = {
+			isa = PBXGroup;
+			children = (
+				90FD4FD41613473100EF8CA3 /* src */,
+				90D36FBB17E9C2F100575FE7 /* include */,
+				90D36FD517E9C2F100575FE7 /* public */,
+				90FD4FCA161346D600EF8CA3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		90FD4FCA161346D600EF8CA3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				90FD4FC9161346D600EF8CA3 /* libhacd_debug.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		90FD4FD41613473100EF8CA3 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				90FD4FD51613473C00EF8CA3 /* AutoGeometry.cpp */,
+				90FD4FD61613473C00EF8CA3 /* ConvexDecomposition.cpp */,
+				90FD4FD71613473C00EF8CA3 /* ConvexHull.cpp */,
+				90FD4FD81613473C00EF8CA3 /* dgAABBPolygonSoup.cpp */,
+				90FD4FD91613473C00EF8CA3 /* dgConvexHull3d.cpp */,
+				90FD4FDA1613473C00EF8CA3 /* dgGoogol.cpp */,
+				90FD4FDB1613473C00EF8CA3 /* dgIntersections.cpp */,
+				90FD4FDC1613473C00EF8CA3 /* dgMatrix.cpp */,
+				90FD4FDD1613473C00EF8CA3 /* dgMeshEffect.cpp */,
+				90FD4FDE1613473C00EF8CA3 /* dgPolygonSoupBuilder.cpp */,
+				90FD4FDF1613473C00EF8CA3 /* dgPolyhedra.cpp */,
+				90FD4FE01613473C00EF8CA3 /* dgQuaternion.cpp */,
+				90FD4FE11613473C00EF8CA3 /* dgSmallDeterminant.cpp */,
+				90FD4FE21613473C00EF8CA3 /* dgSphere.cpp */,
+				90FD4FE31613473C00EF8CA3 /* dgTree.cpp */,
+				90FD4FE41613473C00EF8CA3 /* dgTypes.cpp */,
+				90FD4FE51613473C00EF8CA3 /* HACD.cpp */,
+				90FD4FE61613473C00EF8CA3 /* MergeHulls.cpp */,
+				90FD4FE71613473C00EF8CA3 /* WuQuantizer.cpp */,
+			);
+			name = src;
+			path = ../..;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		90FD4FC7161346D600EF8CA3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		90FD4FC8161346D600EF8CA3 /* HACD */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 90FD4FCD161346D600EF8CA3 /* Build configuration list for PBXNativeTarget "HACD" */;
+			buildPhases = (
+				90FD4FC5161346D600EF8CA3 /* Sources */,
+				90FD4FC6161346D600EF8CA3 /* Frameworks */,
+				90FD4FC7161346D600EF8CA3 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HACD;
+			productName = HACD;
+			productReference = 90FD4FC9161346D600EF8CA3 /* libhacd_debug.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		90FD4FC0161346D600EF8CA3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0450;
+				ORGANIZATIONNAME = Epic;
+			};
+			buildConfigurationList = 90FD4FC3161346D600EF8CA3 /* Build configuration list for PBXProject "HACD" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 90FD4FBE161346D600EF8CA3;
+			productRefGroup = 90FD4FCA161346D600EF8CA3 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				90FD4FC8161346D600EF8CA3 /* HACD */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		90FD4FC5161346D600EF8CA3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				90FD4FE81613473C00EF8CA3 /* AutoGeometry.cpp in Sources */,
+				90FD4FE91613473C00EF8CA3 /* ConvexDecomposition.cpp in Sources */,
+				90FD4FEA1613473C00EF8CA3 /* ConvexHull.cpp in Sources */,
+				90FD4FEB1613473C00EF8CA3 /* dgAABBPolygonSoup.cpp in Sources */,
+				90FD4FEC1613473C00EF8CA3 /* dgConvexHull3d.cpp in Sources */,
+				90FD4FED1613473C00EF8CA3 /* dgGoogol.cpp in Sources */,
+				90FD4FEE1613473C00EF8CA3 /* dgIntersections.cpp in Sources */,
+				90FD4FEF1613473C00EF8CA3 /* dgMatrix.cpp in Sources */,
+				90FD4FF01613473C00EF8CA3 /* dgMeshEffect.cpp in Sources */,
+				90FD4FF11613473C00EF8CA3 /* dgPolygonSoupBuilder.cpp in Sources */,
+				90FD4FF21613473C00EF8CA3 /* dgPolyhedra.cpp in Sources */,
+				90FD4FF31613473C00EF8CA3 /* dgQuaternion.cpp in Sources */,
+				90FD4FF41613473C00EF8CA3 /* dgSmallDeterminant.cpp in Sources */,
+				90FD4FF51613473C00EF8CA3 /* dgSphere.cpp in Sources */,
+				90FD4FF61613473C00EF8CA3 /* dgTree.cpp in Sources */,
+				90FD4FF71613473C00EF8CA3 /* dgTypes.cpp in Sources */,
+				90FD4FF81613473C00EF8CA3 /* HACD.cpp in Sources */,
+				90FD4FF91613473C00EF8CA3 /* MergeHulls.cpp in Sources */,
+				90FD4FFA1613473C00EF8CA3 /* WuQuantizer.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		90FD4FCB161346D600EF8CA3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		90FD4FCC161346D600EF8CA3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		90FD4FCE161346D600EF8CA3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../../lib/Mac;
+				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					_DEBUG,
+					"DEBUG=1",
+					"PLATFORM_MAC=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_NAME = hacd_debug;
+				USER_HEADER_SEARCH_PATHS = "../../include ../../public";
+			};
+			name = Debug;
+		};
+		90FD4FCF161346D600EF8CA3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../../lib/Mac;
+				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					NDEBUG,
+					"PLATFORM_MAC=1",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_NAME = hacd;
+				USER_HEADER_SEARCH_PATHS = "../../include ../../public";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		90FD4FC3161346D600EF8CA3 /* Build configuration list for PBXProject "HACD" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				90FD4FCB161346D600EF8CA3 /* Debug */,
+				90FD4FCC161346D600EF8CA3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		90FD4FCD161346D600EF8CA3 /* Build configuration list for PBXNativeTarget "HACD" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				90FD4FCE161346D600EF8CA3 /* Debug */,
+				90FD4FCF161346D600EF8CA3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 90FD4FC0161346D600EF8CA3 /* Project object */;
+}

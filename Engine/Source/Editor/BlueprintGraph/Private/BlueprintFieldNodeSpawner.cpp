@@ -1,0 +1,57 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "BlueprintGraphPrivatePCH.h"
+#include "BlueprintFieldNodeSpawner.h"
+
+#define LOCTEXT_NAMESPACE "BlueprintFieldNodeSpawner"
+
+//------------------------------------------------------------------------------
+UBlueprintFieldNodeSpawner* UBlueprintFieldNodeSpawner::Create(TSubclassOf<UK2Node> NodeClass, UField const* const Field, UObject* Outer/* = nullptr*/)
+{
+	if (Outer == nullptr)
+	{
+		Outer = GetTransientPackage();
+	}
+	UBlueprintFieldNodeSpawner* NodeSpawner = NewObject<UBlueprintFieldNodeSpawner>(Outer);
+	NodeSpawner->Field     = Field;
+	NodeSpawner->NodeClass = NodeClass;
+	
+	return NodeSpawner;
+}
+
+//------------------------------------------------------------------------------
+UBlueprintFieldNodeSpawner::UBlueprintFieldNodeSpawner(FObjectInitializer const& ObjectInitializer)
+	: Super(ObjectInitializer)
+	, Field(nullptr)
+{
+}
+
+//------------------------------------------------------------------------------
+FBlueprintNodeSignature UBlueprintFieldNodeSpawner::GetSpawnerSignature() const
+{
+	FBlueprintNodeSignature SpawnerSignature(NodeClass);
+	SpawnerSignature.AddSubObject(Field);
+
+	return SpawnerSignature;
+}
+
+//------------------------------------------------------------------------------
+UEdGraphNode* UBlueprintFieldNodeSpawner::Invoke(UEdGraph* ParentGraph, FBindingSet const& Bindings, FVector2D const Location) const
+{
+	auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, UField const* Field, FSetNodeFieldDelegate SetFieldDelegate, FCustomizeNodeDelegate UserDelegate)
+	{
+		SetFieldDelegate.ExecuteIfBound(NewNode, Field);
+		UserDelegate.ExecuteIfBound(NewNode, bIsTemplateNode);
+	};
+
+	FCustomizeNodeDelegate PostSpawnSetupDelegate = FCustomizeNodeDelegate::CreateStatic(PostSpawnSetupLambda, GetField(), SetNodeFieldDelegate, CustomizeNodeDelegate);
+	return Super::SpawnNode<UEdGraphNode>(NodeClass, ParentGraph, Bindings, Location, PostSpawnSetupDelegate);
+}
+
+//------------------------------------------------------------------------------
+UField const* UBlueprintFieldNodeSpawner::GetField() const
+{
+	return Field;
+}
+
+#undef LOCTEXT_NAMESPACE

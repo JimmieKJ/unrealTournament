@@ -1,0 +1,52 @@
+﻿Title:G
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_G]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+GameMode(游戏模式）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_GameMode]
+**GameMode** （游戏模式）类定义了游戏的一系列规则。 这些规则包括了玩家如何加入游戏，游戏如何暂停，以及关卡如何转变和任何游戏特定行为，如胜利条件等。 每个关卡中都设置了游戏模式，游戏模式可以在多个关卡中进行重复使用。 
+[/EXCERPT:Glossary_GameMode]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Graph Mode（图表模式）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Graph_Mode]
+**Graph Mode** (图表模式）显示节点特定图表的可视化内容，正如它在图表中显示所有包含的节点以及两者间的联系那样。 它提供各种编辑功能，包括添加及删除节点、调整节点及创建节点间连接。 您还可以通过在 **Graph Mode** （图表模式）中设置断点来辅助[调试](Engine/Blueprints\UserGuide\Debugging) _蓝图_ 。
+[/EXCERPT:Glossary_Graph_Mode]
+
+**Graph Mode** （图表模式）是三个蓝图编辑器模式之一；其余两个分别是 **Components Mode** （组件模式）和 **Defaults Mode** （默认模式）。
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+group（组）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_group]
+在Matinee中， **group** （组）是特定Actor动画和视觉特效的容器。 在关卡编辑器中， **group** （组）是一个组织性的对象，在其中选定Actor可被组合到一起，这样它们可被作为单个单位来进行转变。
+[/EXCERPT:Glossary_group]
+
+	[/PARAM]
+[/OBJECT]
+
+[/EXCERPT:Glossary_G]

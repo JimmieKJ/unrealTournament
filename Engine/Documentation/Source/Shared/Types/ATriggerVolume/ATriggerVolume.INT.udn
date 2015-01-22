@@ -1,0 +1,13 @@
+Availability:NoPublish
+Title:ATriggerVolume
+Crumbs:
+Description:Overview of the TriggerVolume class
+
+[EXCERPT:ATriggerVolume]
+
+Trigger Volumes are used as a way to cause events when a Player or other object enters or exits them.
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Volumes#Volume Types
+[/VAR]
+[/EXCERPT:ATriggerVolume]

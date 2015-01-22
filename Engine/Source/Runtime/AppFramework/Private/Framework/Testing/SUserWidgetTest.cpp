@@ -1,0 +1,31 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "AppFrameworkPrivatePCH.h"
+#include "SUserWidgetTest.h"
+
+
+class SUserWidgetExampleImpl
+	: public SUserWidgetExample
+{
+public:
+
+	void Construct( const FArguments& InArgs )
+	{
+		SUserWidget::Construct( SUserWidget::FArguments()
+		[
+			SNew(STextBlock)
+				.Text( FText::Format( NSLOCTEXT("SlateTestSuite","UserWidgetExampleTitle"," Implemented in the .cpp : {0}"), InArgs._Title ) )
+		]);
+	}
+
+	virtual void DoStuff() override
+	{
+
+	}
+};
+
+
+TSharedRef<SUserWidgetExample> SUserWidgetExample::New()
+{
+	return MakeShareable(new SUserWidgetExampleImpl()); 
+}

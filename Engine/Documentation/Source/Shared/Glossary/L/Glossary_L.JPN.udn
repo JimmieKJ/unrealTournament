@@ -1,0 +1,17 @@
+﻿Title:L
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_L]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Level（レベル）
+	[/PARAM]
+	[PARAM:Definition]
+ゲームプレイの一定の範囲です。マップとしても知られています。レベルはアクタのプロパティを配置、変換、そして編集することによって作成、表示または修正されます。UE4の各レベルは個別の「.umap」ファイルに保存されます。このファイルはプロジェクトファイル（「.uproject」）とは異なります。
+	[/PARAM]
+[/OBJECT]
+
+[/EXCERPT:Glossary_L]

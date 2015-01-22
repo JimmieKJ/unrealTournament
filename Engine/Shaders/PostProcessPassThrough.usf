@@ -1,0 +1,14 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessPassThrough.usf: PostProcessing Pass Through
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+// pixel shader
+void MainPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, InUV.xy);
+}

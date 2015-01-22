@@ -1,0 +1,15 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ShaderComplexityAccumulatePixelShader.usf: Outputs complexity
+=============================================================================*/
+
+#include "Common.usf"
+
+float NormalizedComplexity;
+
+void Main(out float4 OutColor : SV_Target0)
+{
+	//use the maximum range allowed for scene color
+	OutColor = RETURN_COLOR(float4(NormalizedComplexity.xxx, 0));
+}

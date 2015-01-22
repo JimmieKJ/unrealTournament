@@ -1,0 +1,61 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DistortApplyScreenPixelShader.usf: Pixel shader for rendering screen distortion pass
+=============================================================================*/
+
+#include "Common.usf"
+
+static const half InvDistortionScaleBias = 1 / 4.0f;
+
+/** 
+ * contains accumulated distortion values as 
+ * R=positive horizontal offset
+ * G=positive vertical offset
+ * B=negative horizontal offset
+ * A=negative vertical offset 
+ */
+Texture2D		DistortionTexture;
+SamplerState	DistortionTextureSampler;
+
+
+/**
+ * Contains the valid region in the scenecolor texture (in UV space).
+ * Trying to sample outside this region will yield garbage colors.
+ * X,Y = Upper-left corner
+ * Z,W = Lower-left corner
+ */
+float4		SceneColorRect;
+
+/** distorts screen texture using accumulated distortion offsets */
+void Main(
+	in float4 TexCoord: TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	// hack
+//	OutColor = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, TexCoord) * float4(1,0,0,0);
+//	return;
+
+	// sample accumulated distortion and apply inverse scale
+	half4 AccumDist = Texture2DSample(DistortionTexture,DistortionTextureSampler,TexCoord.xy);
+
+	// offset = [R-B,G-A] 
+	half2 DistOffset = (AccumDist.rg - AccumDist.ba);
+	//Scale by the screen size and a fudge factor to come close to the offset values we would have had under normal circumstances before my changes. Also flip Y and invert the precision bias scale.
+	DistOffset *= InvDistortionScaleBias;
+	
+	
+	float2 NewTexCoord = TexCoord.xy + DistOffset;
+
+	// If we're about to sample outside the valid SceneColorRect, set to 0 distortion.
+	FLATTEN if ( NewTexCoord.x < SceneColorRect.x || NewTexCoord.x > SceneColorRect.z ||
+				 NewTexCoord.y < SceneColorRect.y || NewTexCoord.y > SceneColorRect.w )
+	{
+		NewTexCoord = TexCoord.xy;
+	}
+
+	// sample screen using offset coords
+	half4 DistColor = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, NewTexCoord);
+	OutColor = DistColor;
+}

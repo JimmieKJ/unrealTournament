@@ -1,0 +1,18 @@
+﻿Title:V
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_V]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Viewport（ビューポート）
+	[/PARAM]
+	[PARAM:Definition]
+レベルエディタのユーザーのレベルをビジュアル表現します。レベルの作業中に、3Dビューポートまたは2Dビューポート、もしくはこれらの組み合わせを使用することができます。
+	[/PARAM]
+[/OBJECT]
+
+
+[/EXCERPT:Glossary_V]

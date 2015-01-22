@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2284947
+Availability:NoPublish
+Title:USoundAttenuation
+Crumbs:
+Description:SoundAttenuation クラスの概要
+
+[EXCERPT:USoundAttenuation]
+
+サウンド減衰 アセットは、減衰プロパティを再利用可能な方式で定義することができます。一度限りの減衰プロパティを指定する場所のどこでも、かわりに サウンド減衰 アセットを指定することができます。これにより、各サウンドの場所に個別に行かなくても減衰プロパティを調整することができます。 
+
+[VAR:ToolTipFullLink]
+Engine/Audio/Overview#soundattenuation
+[/VAR]
+[/EXCERPT:USoundAttenuation]

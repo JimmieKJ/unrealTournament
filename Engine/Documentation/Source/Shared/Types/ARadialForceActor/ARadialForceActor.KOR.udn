@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ARadialForceActor
+Crumbs:
+Description:RadialForceActor 클래스 개요입니다.
+
+[EXCERPT:ARadialForceActor]
+
+Radial Force Actor 액터를 사용하면 (에디터에 Force Strength 로 나열된) Constant Force 또는 Impulse 를 적용할 수 있습니다.
+
+[VAR:ToolTipFullLink]
+Resources/ContentExamples/Physics/1_3
+[/VAR]
+[/EXCERPT:ARadialForceActor]

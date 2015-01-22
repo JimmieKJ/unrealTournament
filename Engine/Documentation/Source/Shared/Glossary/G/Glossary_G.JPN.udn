@@ -1,0 +1,55 @@
+﻿Title:G
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_G]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+GameMode (ゲーム モード) 
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_GameMode]
+**GameMode** クラスは、ゲームのルール セットを定義します。このルールには、プレイヤーがどのようにゲームに参加するか、ゲームの一時停止、レベルの移行、勝利条件などのゲーム固有のビヘイビアなどが含まれます。ゲーム モードは、各レベルに対して設定され、複数のレベルで再利用できます。 
+[/EXCERPT:Glossary_GameMode]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Graph Mode (グラフ モード) 
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Graph_Mode]
+**グラフモード** は、グラフに含まれる全ノードに加えてノード間の接続を表示する、 
+ノードの特定グラフをビジュアル表現したものです。ノードの追加や削除、 
+ノードの配置、そしてノード間のリンクの作成などの 
+編集機能を提供します。**グラフモード** では、ブレークポイントを設定し、[debugging](Engine/Blueprints\UserGuide\Debugging) _Blueprints_ を支援することができます。
+[/EXCERPT:Glossary_Graph_Mode]
+
+**Graph モード** はブループリント エディタにある 3 つのモードのうちの 1 つです。他の 2 つは、**Defaults モード** と **Components モード** です。
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Group (グループ)
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_group]
+マチネでは、**グループ** は固有アクタのアニメーションとビジュアル効果のためのコンテナです。レベル エディタでは、**グループ** は選択したアクタをまとめて結合し、単一ユニットとして変換できるようにする構成オブジェクトです。
+[/EXCERPT:Glossary_group]
+
+	[/PARAM]
+[/OBJECT]
+
+[/EXCERPT:Glossary_G]

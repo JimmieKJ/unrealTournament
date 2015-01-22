@@ -1,0 +1,27 @@
+﻿INTSourceChangelist:2006803
+Availability:NoPublish
+Title:Visual Studio 설치
+Crumbs:
+Description: 언리얼 엔진 4 의 모든 입문 튜토리얼 콘텐츠입니다.
+
+[EXCERPT:Stage1]
+##Visual Studio 설치하기
+
+Visual Studio 2013 이 설치되지 않은 것 같습니다.
+
+Visual Studio 2013 을 설치하면 언리얼 헤더 파일을 볼 수 있을 뿐만 아니라, 자체 코드 프로젝트를 만들고 컴파일할 수도 있습니다.
+
+Visual Studio 2013 Express 의 설치는 다음의 마이크로소프트사 링크에서 가능합니다:
+
+
+
+[Visual Studio 2013 다운로드](http://www.microsoft.com/ko-kr/download/details.aspx?id=40787)
+
+
+[![](DownloadVSHighlight.png)](http://www.microsoft.com/ko-kr/download/details.aspx?id=40787)
+
+---
+
+**쉬운 설치를 위해서는, wdexpress_full.exe 를 다운로드해 주세요.**
+
+[/EXCERPT:Stage1]

@@ -1,0 +1,85 @@
+----------------------------------------------------------------------
+../../../tests/vs_function_overloads.hlsl(61): warning: implicit truncation from `uvec4' to `ivec2'
+../../../tests/vs_function_overloads.hlsl(66): warning: implicit truncation from `vec3' to `float'
+../../../tests/vs_function_overloads.hlsl(68): warning: implicit truncation from `vec4' to `float'
+../../../tests/vs_function_overloads.hlsl(70): warning: implicit truncation from `vec4' to `vec2'
+../../../tests/vs_function_overloads.hlsl(70): warning: implicit truncation from `vec4' to `float'
+../../../tests/vs_function_overloads.hlsl(71): warning: implicit truncation from `vec2' to `float'
+
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: f2:in_ATTRIBUTE0,f2:in_ATTRIBUTE1
+// @Outputs: f4:gl_Position
+// @PackedGlobals: UniformMatrix(h:0,16)
+#version 150
+uniform vec4 _vu_h[4];
+in vec2 in_ATTRIBUTE0;
+in vec2 in_ATTRIBUTE1;
+out TEXCOORD0 { vec4 Data; } out_TEXCOORD0;
+out TEXCOORD1 { vec4 Data; } out_TEXCOORD1;
+out ONEPARAM0 { int Data; } out_ONEPARAM0;
+out ONEPARAM1 { int Data; } out_ONEPARAM1;
+out ONEPARAM2 { int Data; } out_ONEPARAM2;
+out ONEPARAM3 { int Data; } out_ONEPARAM3;
+out ONEPARAM4 { int Data; } out_ONEPARAM4;
+out ONEPARAM5 { int Data; } out_ONEPARAM5;
+out ONEPARAM6 { int Data; } out_ONEPARAM6;
+out TWOPARAM0 { int Data; } out_TWOPARAM0;
+out TWOPARAM1 { int Data; } out_TWOPARAM1;
+out TWOPARAM2 { int Data; } out_TWOPARAM2;
+out THREEPARAM0 { int Data; } out_THREEPARAM0;
+out THREEPARAM1 { int Data; } out_THREEPARAM1;
+out THREEPARAM2 { int Data; } out_THREEPARAM2;
+out THREEPARAM3 { int Data; } out_THREEPARAM3;
+out THREEPARAM4 { int Data; } out_THREEPARAM4;
+out THREEPARAM5 { int Data; } out_THREEPARAM5;
+out THREEPARAM6 { int Data; } out_THREEPARAM6;
+out THREEPARAM7 { int Data; } out_THREEPARAM7;
+void main()
+{
+	vec4 t0;
+	t0.xyzw = _vu_h[2];
+	vec4 t1;
+	int t2;
+	int t3;
+	int t4;
+	int t5;
+	int t6;
+	vec4 t7;
+	vec2 t8;
+	vec4 t9;
+	t9.xy = in_ATTRIBUTE0;
+	t9.z = sin(in_ATTRIBUTE1.x);
+	t9.w = dot(in_ATTRIBUTE0,in_ATTRIBUTE0);
+	t7.xyzw = t9;
+	vec2 t10;
+	t10 = modf(in_ATTRIBUTE1,t8);
+	vec4 t11;
+	t11.xy = t8;
+	t11.zw = t10;
+	t1.xyzw = t7;
+	out_TEXCOORD0.Data.xyzw = t11;
+	out_TEXCOORD1.Data.xyzw = clamp(abs(t0),vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0));
+	out_ONEPARAM0.Data = 1;
+	out_ONEPARAM1.Data = 0;
+	out_ONEPARAM2.Data = 1;
+	out_ONEPARAM3.Data = 4;
+	out_ONEPARAM4.Data = t2;
+	out_ONEPARAM5.Data = 2;
+	out_ONEPARAM6.Data = t3;
+	out_TWOPARAM0.Data = 0;
+	out_TWOPARAM1.Data = t4;
+	out_TWOPARAM2.Data = 3;
+	out_THREEPARAM0.Data = 4;
+	out_THREEPARAM1.Data = t5;
+	out_THREEPARAM2.Data = 0;
+	out_THREEPARAM3.Data = 2;
+	out_THREEPARAM4.Data = 3;
+	out_THREEPARAM5.Data = 2;
+	out_THREEPARAM6.Data = 4;
+	out_THREEPARAM7.Data = t6;
+	t1.y = (-t7.y);
+	t1.z = ((2.0*t7.z)+(-t7.w));
+	gl_Position.xyzw = t1;
+}
+

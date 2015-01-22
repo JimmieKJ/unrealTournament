@@ -1,0 +1,84 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	BasePassForForwardShadingVertexShader.usf: Base pass vertex shader used with forward shading
+=============================================================================*/
+
+#define IS_FORWARD_BASEPASS_VERTEX_SHADER 1
+
+// @todo urban: branch was: #define FORCE_FLOATS 1
+#define FORCE_FLOATS METAL_PROFILE
+
+#include "Common.usf"
+#include "BasePassForForwardShadingCommon.usf"
+#include "Material.usf"
+#include "VertexFactory.usf"
+#include "HeightFogCommon.usf"
+
+struct FForwardShadingBasePassVSToPS
+{
+	FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
+	FForwardShadingBasePassInterpolantsVSToPS BasePassInterpolants;
+	float4 Position : SV_POSITION;
+};
+
+#define FForwardShadingBasePassVSOutput FForwardShadingBasePassVSToPS
+#define VertexFactoryGetInterpolants VertexFactoryGetInterpolantsVSToPS
+
+/** Entry point for the base pass vertex shader. */
+void Main(
+	FVertexFactoryInput Input,
+	out FForwardShadingBasePassVSOutput Output
+	)
+{
+#if PACK_INTERPOLANTS
+	float4 PackedInterps[NUM_VF_PACKED_INTERPOLANTS];
+	UNROLL 
+	for(int i = 0; i < NUM_VF_PACKED_INTERPOLANTS; ++i)
+	{
+		PackedInterps[i] = 0;
+	}
+#endif
+
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	float4 WorldPositionExcludingWPO = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float4 WorldPosition = WorldPositionExcludingWPO;
+
+	half3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);	
+	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPosition.xyz, TangentToLocal);
+
+	half3 WorldPositionOffset = GetMaterialWorldPositionOffset(VertexParameters);
+	
+	WorldPosition.xyz += WorldPositionOffset;
+	float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPosition);
+	Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
+	Output.BasePassInterpolants.PixelPosition = WorldPosition;
+
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	Output.BasePassInterpolants.PixelPositionExcludingWPO = WorldPositionExcludingWPO;
+#endif
+
+#if USE_VERTEX_FOG
+#if PACK_INTERPOLANTS
+	PackedInterps[0] = CalculateVertexHeightFog(WorldPosition.xyz, View.TranslatedViewOrigin);
+#else
+	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz, View.TranslatedViewOrigin);
+#endif // PACK_INTERPOLANTS
+#endif
+
+#if LANDSCAPE_BUG_WORKAROUND
+	Output.BasePassInterpolants.DummyInterp = 0;
+#endif
+
+	Output.FactoryInterpolants = VertexFactoryGetInterpolants(Input, VFIntermediates, VertexParameters);
+
+	Output.BasePassInterpolants.PixelPosition.w = Output.Position.w;
+
+#if PACK_INTERPOLANTS
+	VertexFactoryPackInterpolants(Output.FactoryInterpolants, PackedInterps);
+#endif // PACK_INTERPOLANTS
+
+#if OUTPUT_GAMMA_SPACE && COMPILER_GLSL_ES2
+	Output.Position.y *= -1;
+#endif
+}

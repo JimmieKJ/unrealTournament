@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "P4ChangeParser", "P4ChangeParser\P4ChangeParser.csproj", "{040CFDC0-DDD7-4AAB-9251-9B708D9B9295}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "P4Inquiry", "P4Inquiry\P4Inquiry.csproj", "{16B66224-0BB5-4CDD-B5AF-1FB3FD391D83}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "P4ChangeParserConsoleApp", "P4ChangeParserConsoleApp\P4ChangeParserConsoleApp.csproj", "{F0C8BBD1-BF89-4C55-9828-38812BC4FE58}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{040CFDC0-DDD7-4AAB-9251-9B708D9B9295}.Debug|x86.ActiveCfg = Debug|x86
+		{040CFDC0-DDD7-4AAB-9251-9B708D9B9295}.Debug|x86.Build.0 = Debug|x86
+		{040CFDC0-DDD7-4AAB-9251-9B708D9B9295}.Release|x86.ActiveCfg = Release|x86
+		{040CFDC0-DDD7-4AAB-9251-9B708D9B9295}.Release|x86.Build.0 = Release|x86
+		{16B66224-0BB5-4CDD-B5AF-1FB3FD391D83}.Debug|x86.ActiveCfg = Debug|x86
+		{16B66224-0BB5-4CDD-B5AF-1FB3FD391D83}.Debug|x86.Build.0 = Debug|x86
+		{16B66224-0BB5-4CDD-B5AF-1FB3FD391D83}.Release|x86.ActiveCfg = Release|x86
+		{16B66224-0BB5-4CDD-B5AF-1FB3FD391D83}.Release|x86.Build.0 = Release|x86
+		{F0C8BBD1-BF89-4C55-9828-38812BC4FE58}.Debug|x86.ActiveCfg = Debug|x86
+		{F0C8BBD1-BF89-4C55-9828-38812BC4FE58}.Debug|x86.Build.0 = Debug|x86
+		{F0C8BBD1-BF89-4C55-9828-38812BC4FE58}.Release|x86.ActiveCfg = Release|x86
+		{F0C8BBD1-BF89-4C55-9828-38812BC4FE58}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

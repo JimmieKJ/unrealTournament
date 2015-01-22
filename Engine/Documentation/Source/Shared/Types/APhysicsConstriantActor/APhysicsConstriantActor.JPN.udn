@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:APhysicsConstriantActor
+Crumbs:
+Description: PhysicsConstriantActor クラスの概要
+
+[EXCERPT:APhysicsConstriantActor]
+
+コンストレイントは基本的にジョイントのタイプです。2 つのアクタを一緒に接続し (恐らく 1 つは物理的にシミュレーションします) 、制限や力を適用することも可能になります。
+
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsUserGuide
+[/VAR]
+[/EXCERPT:APhysicsConstriantActor]

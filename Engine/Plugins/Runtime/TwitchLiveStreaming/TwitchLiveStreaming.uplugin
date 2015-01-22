@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Twitch Live Streaming",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.4.0",
+	"Description" : "[EARLY ACCESS PREVIEW] Live video broadcasting to Twitch for games and the editor",
+	"Category" : "Live Streaming",
+	"EnabledByDefault" : false,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "TwitchLiveStreaming",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win32", "Win64" ]
+		}
+	]
+}

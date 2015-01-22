@@ -1,0 +1,293 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessUpscale.usf: PostProcessing shader to upscale
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+// only for MainPS
+float UpscaleSoftness;
+
+// only for MainVS()
+// .x:HalfFOV .y:tan(HalfFov) .z:CylinderDistortion(0=none, 1:full) .w:Correction to scale Y the same as X is scaled in the center
+float4 DistortionParams;
+
+// to avoid compiler errors on the PS
+#ifndef TESS_RECT_X
+	#define TESS_RECT_X 1
+#endif
+#ifndef TESS_RECT_Y
+	#define TESS_RECT_Y 1
+#endif
+
+
+float Luma(float3 Color) 
+{
+	// Rec 709 function for luma.
+	return dot(Color, float3(0.2126, 0.7152, 0.0722));
+}
+
+float Gaussian(float Scale, float2 Offset) 
+{
+	return exp2(Scale * dot(Offset, Offset));
+}
+
+// @param In -1 .. 1 range
+// @return In -1 .. 1 range
+float2 CylindricalDistortPos(float2 In)
+{
+	float HalfFov = DistortionParams.x;
+	float TanHalfFov = DistortionParams.y;
+	float InvHalfFov = 1.0f / HalfFov;
+	float CylinderDistortion = DistortionParams.z;
+	float Correction = DistortionParams.w;
+
+	float X = In.x * TanHalfFov;
+	float AngleX = atan(X);
+
+	float2 Ret = float2(AngleX * InvHalfFov, In.y * cos(AngleX) * Correction);
+
+	return lerp(In, Ret, CylinderDistortion);
+}
+
+
+// vertex shader entry point
+void MainVS(
+	in uint VertexId : SV_VertexID,
+	out float4 OutTexCoord : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	// amount of Quads in X and Y, from GTesselatedScreenRectangleIndexBuffer
+	uint2 RectangleTessellation = uint2(TESS_RECT_X, TESS_RECT_Y);
+
+	float2 TexCoord = float2((uint)fmod(VertexId, (RectangleTessellation.x + 1)), VertexId / (RectangleTessellation.x + 1)) / float2(RectangleTessellation);
+
+	// still in 0..1 range
+	float4 Position = float4(TexCoord.x, TexCoord.y, 0, 1);
+
+	float2 PlanarScreenPos = TexCoord * 2 - 1;
+
+	// distort pos
+	Position.xy = CylindricalDistortPos(PlanarScreenPos) * 0.5f + 0.5f;
+
+	DrawRectangle(Position, TexCoord, OutPosition, OutTexCoord.xy);
+	OutTexCoord.zw =  OutPosition.xy;
+}
+
+
+void MainPS(float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
+{
+#if METHOD == 0
+	// Nearest sampling (not blurry but blocky, more for testing)
+	OutColor = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UVAndScreenPos.xy, 0, int2(0, 0));
+#endif
+
+#if METHOD == 1
+	// Bilinear (fast, aliasing)
+	float2 UV = UVAndScreenPos.xy;
+	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
+#endif
+
+#if METHOD == 2
+	// 4 Bilinear samples (good quality)
+	float2 UV = UVAndScreenPos.xy;
+	float r = UpscaleSoftness;
+	OutColor = 0;
+	OutColor += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + float2( -r, -r) * PostprocessInput0Size.zw);
+	OutColor += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + float2( +r, -r) * PostprocessInput0Size.zw);
+	OutColor += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + float2( -r, +r) * PostprocessInput0Size.zw);
+	OutColor += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + float2( +r, +r) * PostprocessInput0Size.zw);
+	OutColor /= 4;
+#endif
+
+#if METHOD == 3
+	// Directional blur with unsharp mask upsample.
+	float2 UV = UVAndScreenPos.xy;
+	float X = 0.5;
+	float3 ColorNW = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV + float2(-X, -X) * PostprocessInput0Size.zw, 0).rgb;
+	float3 ColorNE = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV + float2( X, -X) * PostprocessInput0Size.zw, 0).rgb;
+	float3 ColorSW = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV + float2(-X,  X) * PostprocessInput0Size.zw, 0).rgb;
+	float3 ColorSE = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV + float2( X,  X) * PostprocessInput0Size.zw, 0).rgb;
+	OutColor.rgb = (ColorNW * 0.25) + (ColorNE * 0.25) + (ColorSW * 0.25) + (ColorSE * 0.25);
+	
+	float LumaNW = Luma(ColorNW);
+	float LumaNE = Luma(ColorNE);
+	float LumaSW = Luma(ColorSW);
+	float LumaSE = Luma(ColorSE);
+    LumaNE += 1.0/65536.0;
+	
+	float LumaCC = Luma(OutColor.rgb);
+	float UVShift = saturate(LumaCC) * 2.0 - 1.0;
+	
+    float DirSWMinusNE = LumaSW - LumaNE;
+    float DirSEMinusNW = LumaSE - LumaNW;
+    float2 Dir;
+    Dir.x = DirSWMinusNE + DirSEMinusNW;
+    Dir.y = DirSWMinusNE - DirSEMinusNW;
+
+	{
+		// minor rendering artifacts when using the distortion feature
+		//Dir = normalize(Dir);
+
+		// fixed these problems
+		Dir = Dir * rsqrt(dot(Dir, Dir) + 0.0001f);
+	}
+
+	float2 Dir90 = float2(-Dir.y, Dir.x);
+
+	UVShift = 1.0 - UVShift;
+	UVShift *= UVShift;
+	UVShift = 1.0 - UVShift;
+
+	float2 UVShifted = UV + Dir90 * PostprocessInput0Size.zw * (abs(UVShift) * (-0.125));
+
+	Dir *= 0.125;
+	float3 ColorN = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UVShifted - Dir * PostprocessInput0Size.zw, 0).rgb;
+	float3 ColorP = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UVShifted + Dir * PostprocessInput0Size.zw, 0).rgb;
+
+	float UnsharpMask = 0.25;
+	OutColor.rgb = (ColorN + ColorP) * ((UnsharpMask + 1.0) * 0.5) - (OutColor.rgb * UnsharpMask);
+#endif
+
+#if 0
+    // Traditional gaussian resampling, assuming uniform scaling.
+    // This can be sharper and higher quality than the default for minor amounts of up sampling.
+    // This can also be used for high quality down-sampling.
+    // This is here for future usage.
+
+	// Find nearest texel manually to work around interpolation problems, then floating point offset.
+	float2 TexelUV = UVAndScreenPos.xy * PostprocessInput1Size.xy;
+	float2 Texel = floor(TexelUV);
+	float2 UV = (Texel + 0.5) * PostprocessInput1Size.zw;
+	float2 Offset = (TexelUV - Texel) - 0.5;
+
+	// Sample pattern (different number of samples are used based on quality level)
+	//    abc 
+	//   defgh
+	//   ijklm
+	//   nopqr
+	//    stu
+	float3 OutColorA = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-1, -2)).rgb;
+	float3 OutColorB = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 0, -2)).rgb;
+	float3 OutColorC = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 1, -2)).rgb;
+	float3 OutColorD = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-2, -1)).rgb;
+	float3 OutColorE = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-1, -1)).rgb;
+	float3 OutColorF = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 0, -1)).rgb;
+	float3 OutColorG = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 1, -1)).rgb;
+	float3 OutColorH = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 2, -1)).rgb;
+	float3 OutColorI = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-2,  0)).rgb;
+	float3 OutColorJ = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-1,  0)).rgb;
+	float3 OutColorK = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 0,  0)).rgb;
+	float3 OutColorL = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 1,  0)).rgb;
+	float3 OutColorM = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 2,  0)).rgb;
+	float3 OutColorN = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-2,  1)).rgb;
+	float3 OutColorO = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-1,  1)).rgb;
+	float3 OutColorP = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 0,  1)).rgb;
+	float3 OutColorQ = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 1,  1)).rgb;
+	float3 OutColorR = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 2,  1)).rgb;
+	float3 OutColorS = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2(-1,  2)).rgb;
+	float3 OutColorT = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 0,  2)).rgb;
+	float3 OutColorU = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, UV, 0, int2( 1,  2)).rgb;
+
+	// Sharpness
+	float Scale = rcp(UpscaleSoftness);
+	Scale = rcp(0.25);
+	Scale = -0.25 * Scale * Scale;
+	
+	// Filter weights
+	float WeightA = Gaussian(Scale, Offset - float2(-1.0, -2.0));
+	float WeightB = Gaussian(Scale, Offset - float2( 0.0, -2.0));
+	float WeightC = Gaussian(Scale, Offset - float2( 1.0, -2.0));
+	float WeightD = Gaussian(Scale, Offset - float2(-2.0, -1.0));
+	float WeightE = Gaussian(Scale, Offset - float2(-1.0, -1.0));
+	float WeightF = Gaussian(Scale, Offset - float2( 0.0, -1.0));
+	float WeightG = Gaussian(Scale, Offset - float2( 1.0, -1.0));
+	float WeightH = Gaussian(Scale, Offset - float2( 2.0, -1.0));
+	float WeightI = Gaussian(Scale, Offset - float2(-2.0,  0.0));
+	float WeightJ = Gaussian(Scale, Offset - float2(-1.0,  0.0));
+	float WeightK = Gaussian(Scale, Offset - float2( 0.0,  0.0));
+	float WeightL = Gaussian(Scale, Offset - float2( 1.0,  0.0));
+	float WeightM = Gaussian(Scale, Offset - float2( 2.0,  0.0));
+	float WeightN = Gaussian(Scale, Offset - float2(-2.0,  1.0));
+	float WeightO = Gaussian(Scale, Offset - float2(-1.0,  1.0));
+	float WeightP = Gaussian(Scale, Offset - float2( 0.0,  1.0));
+	float WeightQ = Gaussian(Scale, Offset - float2( 1.0,  1.0));
+	float WeightR = Gaussian(Scale, Offset - float2( 2.0,  1.0));
+	float WeightS = Gaussian(Scale, Offset - float2(-1.0,  2.0));
+	float WeightT = Gaussian(Scale, Offset - float2( 0.0,  2.0));
+	float WeightU = Gaussian(Scale, Offset - float2( 1.0,  2.0));
+	
+	#define UPSCALE_QUALITY 2
+	
+	// Filtering at different quality levels
+	// 9 taps
+	#if (UPSCALE_QUALITY == 1)
+		OutColor.rgb = (
+			                      OutColorE * WeightE + OutColorF * WeightF + OutColorG * WeightG +
+			                      OutColorJ * WeightJ + OutColorK * WeightK + OutColorL * WeightL + 
+			                      OutColorO * WeightO + OutColorP * WeightP + OutColorQ * WeightQ
+			) * rcp(
+			          WeightE + WeightF + WeightG + 
+			          WeightJ + WeightK + WeightL + 
+			          WeightO + WeightP + WeightQ
+			);
+	#endif
+
+	// 13 taps
+	#if (UPSCALE_QUALITY == 2)
+		OutColor.rgb = (
+			                                            OutColorB * WeightB + 
+			                      OutColorE * WeightE + OutColorF * WeightF + OutColorG * WeightG +
+			OutColorI * WeightI + OutColorJ * WeightJ + OutColorK * WeightK + OutColorL * WeightL + OutColorM * WeightM +
+			                      OutColorO * WeightO + OutColorP * WeightP + OutColorQ * WeightQ +
+			                                            OutColorT * WeightT  
+			) * rcp(
+			                    WeightB + 
+			          WeightE + WeightF + WeightG + 
+			WeightI + WeightJ + WeightK + WeightL + WeightM +
+			          WeightO + WeightP + WeightQ + 
+			                    WeightT
+			);
+	#endif
+	
+	// 21 taps
+	#if (UPSCALE_QUALITY == 3)
+		OutColor.rgb = (
+			                      OutColorA * WeightA + OutColorB * WeightB + OutColorC * WeightC +
+			OutColorD * WeightD + OutColorE * WeightE + OutColorF * WeightF + OutColorG * WeightG + OutColorH * WeightH +
+			OutColorI * WeightI + OutColorJ * WeightJ + OutColorK * WeightK + OutColorL * WeightL + OutColorM * WeightM +
+			OutColorN * WeightN + OutColorO * WeightO + OutColorP * WeightP + OutColorQ * WeightQ + OutColorR * WeightR +
+			                      OutColorS * WeightS + OutColorT * WeightT + OutColorU * WeightU
+			) * rcp(
+			          WeightA + WeightB + WeightC +
+			WeightD + WeightE + WeightF + WeightG + WeightH +
+			WeightI + WeightJ + WeightK + WeightL + WeightM +
+			WeightN + WeightO + WeightP + WeightQ + WeightR +
+			          WeightS + WeightT + WeightU
+			);
+	#endif
+
+#endif
+
+#if 0
+	// Horz scan line pattern.
+	float Base = 0.25;
+	OutColor.rgb *= Base + frac(SvPosition.y * 0.5);
+#endif
+
+#if 0
+	// TV pattern.
+	float T;
+	float Base = 0.25;
+	T = frac((SvPosition.x + 0.0) * 0.5 + (SvPosition.y + 0.0) * 0.25);
+	OutColor.r *= Base + T;
+	T = frac((SvPosition.x + 0.0) * 0.5 + (SvPosition.y + 1.0) * 0.25);
+	OutColor.g *= Base + T;
+	T = frac((SvPosition.x + 0.0) * 0.5 + (SvPosition.y + 2.0) * 0.25);
+	OutColor.b *= Base + T;
+#endif
+
+}

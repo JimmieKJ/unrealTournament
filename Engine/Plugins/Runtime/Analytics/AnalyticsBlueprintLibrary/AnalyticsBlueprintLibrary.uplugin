@@ -1,0 +1,21 @@
+{
+    "FileVersion": 3,
+
+    "FriendlyName": "Analytics Blueprint Library",
+    "Version": 1,
+    "VersionName": "1.0",
+    "CreatedBy": "Epic Games, Inc.",
+    "CreatedByURL": "http://epicgames.com",
+	"DocsURL" : "https://docs.unrealengine.com/latest/INT/Gameplay/Analytics/Blueprints/index.html",
+    "EngineVersion": "4.2.0",
+    "Description": "Blueprint Library for using an analytic event provider",
+    "Category": "Analytics.BlueprintLibrary",
+
+    "Modules": [
+        {
+            "Name": "AnalyticsBlueprintLibrary",
+            "LoadingPhase": "PreDefault",
+            "Type": "Runtime"
+        }
+    ]
+}

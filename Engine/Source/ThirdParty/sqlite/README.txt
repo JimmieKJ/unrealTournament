@@ -1,0 +1,2 @@
+SQLite database support requires the 'amalgamated' source code for sqlite, obtainable at http://www.sqlite.org/download.html.
+Extract the contents (*.cpp, *.h) into Engine/Source/ThirdParty/sqlite/sqlite and build it using VisualStudio.

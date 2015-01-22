@@ -1,0 +1,48 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="UnrealDocTool.Properties" GeneratedClassName="User">
+  <Profiles />
+  <Settings>
+    <Setting Name="SupportedAvailability" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Licensee,Rocket,Epic</Value>
+    </Setting>
+    <Setting Name="SourceDirectory" Type="System.String" Scope="User">
+      <Value Profile="(Default)">../../Documentation/Source</Value>
+    </Setting>
+    <Setting Name="OutputDirectory" Type="System.String" Scope="User">
+      <Value Profile="(Default)">../../Documentation/HTML</Value>
+    </Setting>
+    <Setting Name="SupportedLanguages" Type="System.String" Scope="User">
+      <Value Profile="(Default)">INT,CHN,JPN,KOR</Value>
+    </Setting>
+    <Setting Name="HasRun" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="LogVerbosityParam" Type="System.String" Scope="User">
+      <Value Profile="(Default)">INFO</Value>
+    </Setting>
+    <Setting Name="HelpFlag" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="LogOnlyFlag" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="PreviewFlag" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="CleanFlag" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="PathsSpec" Type="System.String" Scope="User">
+      <Value Profile="(Default)">.</Value>
+    </Setting>
+    <Setting Name="DefaultTemplate" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Default.html</Value>
+    </Setting>
+    <Setting Name="OutputFormat" Type="System.String" Scope="User">
+      <Value Profile="(Default)">HTML</Value>
+    </Setting>
+    <Setting Name="PathPrefix" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+  </Settings>
+</SettingsFile>

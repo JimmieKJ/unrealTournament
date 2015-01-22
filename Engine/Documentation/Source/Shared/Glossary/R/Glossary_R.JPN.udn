@@ -1,0 +1,17 @@
+﻿Title:R
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_R]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Rotate tool（回転ツール） 
+	[/PARAM]
+	[PARAM:Definition]
+シーン内のアクタをX、Y、Z軸と平行して回転させるウィジェットです。
+	[/PARAM]
+[/OBJECT]
+
+[/EXCERPT:Glossary_R]

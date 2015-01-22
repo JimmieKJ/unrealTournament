@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:tns="http://tempuri.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" targetNamespace="http://tempuri.org/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://tempuri.org/">
+      <s:element name="CreateNewCrash">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="AutoReporterId" type="s:int" />
+            <s:element minOccurs="0" maxOccurs="1" name="ComputerName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="UserName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="GameName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="PlatformName" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="LanguageExt" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="TimeOfCrash" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="BuildVer" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ChangelistVer" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="CommandLine" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="BaseDir" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="CallStack" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="EngineMode" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="CreateNewCrashResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="CreateNewCrashResult" type="s:int" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AddCrashDescription">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="rowID" type="s:int" />
+            <s:element minOccurs="0" maxOccurs="1" name="CrashDescription" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="Summary" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AddCrashDescriptionResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="AddCrashDescriptionResult" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AddCrashFiles">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="rowID" type="s:int" />
+            <s:element minOccurs="1" maxOccurs="1" name="bHasLog" type="s:boolean" />
+            <s:element minOccurs="1" maxOccurs="1" name="bHasMiniDump" type="s:boolean" />
+            <s:element minOccurs="1" maxOccurs="1" name="bHasVideo" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AddCrashFilesResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="AddCrashFilesResult" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+    </s:schema>
+  </wsdl:types>
+  <wsdl:message name="CreateNewCrashSoapIn">
+    <wsdl:part name="parameters" element="tns:CreateNewCrash" />
+  </wsdl:message>
+  <wsdl:message name="CreateNewCrashSoapOut">
+    <wsdl:part name="parameters" element="tns:CreateNewCrashResponse" />
+  </wsdl:message>
+  <wsdl:message name="AddCrashDescriptionSoapIn">
+    <wsdl:part name="parameters" element="tns:AddCrashDescription" />
+  </wsdl:message>
+  <wsdl:message name="AddCrashDescriptionSoapOut">
+    <wsdl:part name="parameters" element="tns:AddCrashDescriptionResponse" />
+  </wsdl:message>
+  <wsdl:message name="AddCrashFilesSoapIn">
+    <wsdl:part name="parameters" element="tns:AddCrashFiles" />
+  </wsdl:message>
+  <wsdl:message name="AddCrashFilesSoapOut">
+    <wsdl:part name="parameters" element="tns:AddCrashFilesResponse" />
+  </wsdl:message>
+  <wsdl:portType name="RegisterReportSoap">
+    <wsdl:operation name="CreateNewCrash">
+      <wsdl:input message="tns:CreateNewCrashSoapIn" />
+      <wsdl:output message="tns:CreateNewCrashSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="AddCrashDescription">
+      <wsdl:input message="tns:AddCrashDescriptionSoapIn" />
+      <wsdl:output message="tns:AddCrashDescriptionSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="AddCrashFiles">
+      <wsdl:input message="tns:AddCrashFilesSoapIn" />
+      <wsdl:output message="tns:AddCrashFilesSoapOut" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="RegisterReportSoap" type="tns:RegisterReportSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="CreateNewCrash">
+      <soap:operation soapAction="http://tempuri.org/CreateNewCrash" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddCrashDescription">
+      <soap:operation soapAction="http://tempuri.org/AddCrashDescription" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddCrashFiles">
+      <soap:operation soapAction="http://tempuri.org/AddCrashFiles" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:binding name="RegisterReportSoap12" type="tns:RegisterReportSoap">
+    <soap12:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="CreateNewCrash">
+      <soap12:operation soapAction="http://tempuri.org/CreateNewCrash" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddCrashDescription">
+      <soap12:operation soapAction="http://tempuri.org/AddCrashDescription" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddCrashFiles">
+      <soap12:operation soapAction="http://tempuri.org/AddCrashFiles" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="RegisterReport">
+    <wsdl:port name="RegisterReportSoap" binding="tns:RegisterReportSoap">
+      <soap:address location="http://autoreportservice/RegisterReport.asmx" />
+    </wsdl:port>
+    <wsdl:port name="RegisterReportSoap12" binding="tns:RegisterReportSoap12">
+      <soap12:address location="http://autoreportservice/RegisterReport.asmx" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

@@ -1,0 +1,37 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+#include "K2Node.h"
+#include "K2Node_PureAssignmentStatement.generated.h"
+
+UCLASS(MinimalAPI)
+class UK2Node_PureAssignmentStatement : public UK2Node
+{
+	GENERATED_UCLASS_BODY()
+
+	// Name of the Variable pin for this node
+	static FString VariablePinName;
+	// Name of the Value pin for this node
+	static FString ValuePinName;
+	// Name of the output pin for this node
+	static FString OutputPinName;
+
+	// Begin UEdGraphNode interface
+	virtual void AllocateDefaultPins() override;
+	// End UEdGraphNode interface
+
+	// Begin UK2Node interface
+	virtual bool IsNodePure() const { return true; }
+	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
+	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
+	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
+	// End UK2Node interface
+
+	/** Get the Then output pin */
+	BLUEPRINTGRAPH_API UEdGraphPin* GetOutputPin() const;
+	/** Get the Variable input pin */
+	BLUEPRINTGRAPH_API UEdGraphPin* GetVariablePin() const;
+	/** Get the Value input pin */
+	BLUEPRINTGRAPH_API UEdGraphPin* GetValuePin() const;
+};
+

@@ -1,0 +1,30 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	UpdateTextureShaders.usf: Compute shaders for copying and updating textures.
+=============================================================================*/
+
+#include "Common.usf"
+
+Buffer<int4> SrcBuffer;
+RWTexture2D<int4> DestTexture;
+int SrcPitch;
+
+uint4 DestPosSize; // xy = pos, zw = Size of the destination sub rect
+
+[numthreads(8,8,1)]
+void UpdateTexture2DSubresourceCS( uint2 ThreadId : SV_DispatchThreadID )
+{
+	if( all( ThreadId.xy < DestPosSize.zw ) )
+	{
+		DestTexture[ ThreadId.xy + DestPosSize.xy ] = SrcBuffer[ ThreadId.x + ThreadId.y * SrcPitch ];
+	}
+}
+
+Texture2D<int4> SrcTexture;
+
+[numthreads(8,8,1)]
+void CopyTexture2DCS( uint3 ThreadId : SV_DispatchThreadID )
+{
+	DestTexture[ ThreadId.xy ] = SrcTexture.Load( int3( ThreadId.x, ThreadId.y, 0 ) );
+}

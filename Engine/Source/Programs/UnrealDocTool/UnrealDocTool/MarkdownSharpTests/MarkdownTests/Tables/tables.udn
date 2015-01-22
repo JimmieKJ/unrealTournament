@@ -1,0 +1,26 @@
+﻿[Table 1 - Headers to top]
+|             | Grouping                      ||
+ First Header | Second Header  | Third Header  |
+ ------------ | :------------: | ------------: |
+ Content      |          *Long Cell*          ||
+ Content      |      **Cell**  |         Cell  |
+ New section  |     More       |         Data  |
+     ^        |            And more           || 
+
+
+
+[Table 2 - Headers to the right]
+| ------------ | :------------: | ------------: |
+|  Content      |          *Long Cell*          ||
+|  Content      |      **Cell**  |         [INCLUDE:#List]  |
+|  New section  |     More       |         Data  |
+|    ^        |            And more      || 
+
+
+<!--
+[EXCERPT:List]
+* Item 1
+* Item 2
+* Item 3
+[/EXCERPT]
+-->

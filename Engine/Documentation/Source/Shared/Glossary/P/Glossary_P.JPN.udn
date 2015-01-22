@@ -1,0 +1,148 @@
+﻿INTSourceChangelist:2220812
+Title:P
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_P]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+パネル
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_panel]
+**パネル** は、ユーザーのレベルに関する情報を格納する UI の一部です。別のウィンドウへ移動、ドッキング、またはドラッグすることができます。**[詳細]** パネルと **コンテンツブラウザ** が例として挙げられます。
+[/EXCERPT:Glossary_panel]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+ポーン 
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_pawn]
+**Pawn** は、ゲーム内のアバタ―やペルソナとして機能するアクタのサブクラスです。例えばゲームのキャラクターなどです。例えば、 NPC (ノンプレイヤー キャラクター) など、ポーンはプレイヤーやゲームの AI でコントロールすることができます。
+[/EXCERPT:Glossary_pawn]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+ペルソナ
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Persona]
+**ペルソナ** は、アンリアル内のアニメーション編集ツールセットです。スケルトン、スケルタルメッシュ、アニメーション ブループリント、またはさまざまなアニメーション アセットを編集する堅牢なシステムです。アンリアル内のアニメーション作業の大部分 (一部かもしれませんが) は、このエディタで行います。スケルタル [ソケット](Engine/Content\Types\SkeletalMeshes\Sockets) の編集、 [アニメーションシーケンス](Engine/Animation/Sequences) の編集、アニメーション [ブレンド空間](Engine/Animation/Blendspaces) や [モンタージュ](Engine/Animation/AnimMontage) の設定、 [アニメーションブループリント](Engine/Animation/AnimBlueprints) の編集などを行うパネルを含んだ多目的ツールです。
+[/EXCERPT:Glossary_Persona]
+
+スケルタルメッシュ、ブレンド空間、 Animation ブループリントなどアニメーション関連アセットを **ダブルクリック** するとペルソナ (Persona) が開きます。
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+PhAT
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_PhAT]
+アンリアル エディタの物理アセット編集ツールである **PhAT** は、スケルタルメッシュ アクタの物理およびコリジョン プロパティの編集に使用します。
+[/EXCERPT:Glossary_PhAT]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+物理マテリアル
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Physical_Material]
+**物理マテリアル** は、ワールドとの動的なインタラクション中に物理オブジェクトの応答を定義するために使用されます。物理マテリアルの使用は極めて簡単です。物理マテリアルを作成すると、全ての物理オブジェクトに適用されたデフォルトの物理マテリアルと同一の、一連のデフォルト値が与えられます。キャラクターの死体 (ラグドール物理演算) 、可動の木箱などが例として挙げられます。
+[/EXCERPT:Glossary_Physical_Material]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+ピン
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_pin]
+**ピン** は、ビジュアル スクリプティング ノードの一部です。ピンは、ワイヤー経由で他のノードと接続します。ノードを実行するには、実行ピンが接続されていなければいけません。データピンはタイプによって色分けされて、他のノードからデータを入力、もしくは他のノードへデータを出力します。
+[/EXCERPT:Glossary_pin]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+回転軸
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_pivot_point]
+回転軸 (または原点) は、 3D モデリング プログラムで定義されたスタティックメッシュまたはスケルタルメッシュ アクタの位置を示します。これらは、オブジェクトの基礎としてアライメントを目的に作成されました。回転軸はオブジェクト中央、オブジェクトのベース、またはオブジェクトの外側にも位置させることができます。
+[/EXCERPT:Glossary_pivot_point]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Play In Editor (プレイ・イン・エディタ、PIE)
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Play_In_Editor]
+**Play In Editor (PIE)** は、アンリアル エディタ ウィンドウでレベルを直接プレイできるモードです。テスト目的で指定した位置からプレイを開始することができます。このモードは、現在のレベルをゲーム内でのプレイと全く同じ動作でプレイできるため、プレイヤーのコントロールやプレイヤーのアクションにトリガーされるレベルイベントを含めたゲームプレイの機能をテストすることができます。
+[/EXCERPT:Glossary_Play_In_Editor]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+プロジェクト
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_project]
+アンリアル・エンジンで作成するそれぞれのゲームを、 **プロジェクト** と呼びます。プロジェクトは、個々のゲームを構成する全てのコンテンツや 
+コードを格納する内蔵ユニットです。いくつものプロジェクトを平行して作成、保存、また開発することが可能で、 
+エンジンとエディタはプロジェクト間で簡単に切り替えることができます。デベロッパーは複数ゲームの同時開発を容易に行うことができます。 
+主要ゲームプロジェクトに加えていくつかのテストプロジェクトも 
+作業できます。 
+[/EXCERPT:Glossary_project]
+
+	[/PARAM]
+[/OBJECT]
+
+[/EXCERPT:Glossary_P]

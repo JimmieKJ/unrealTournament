@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ASkyLight
+Crumbs:
+Description: SkyLight クラスの概要
+
+[EXCERPT:ASkyLight]
+
+スカイライトはレベルの遠い部分 (Sky Distance Threshold 以遠全て) をキャプチャし、それをライトとしてシーンに適用します。つまり、空の外観とライティング / 反射が一致します。
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/LightingAndShadows/LightTypes/SkyLight
+[/VAR]
+[/EXCERPT:ASkyLight]

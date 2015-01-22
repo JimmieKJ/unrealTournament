@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ALightmassImportanceVolume
+Crumbs:
+Description: LightmassImportanceVolume クラスの概要
+
+[EXCERPT:ALightmassImportanceVolume]
+
+ Lightmass Importance Volume は、 ライトマス が光子を放つ面積を調整し、詳細な間接ライティングが必要な領域だけに集中させることができます。現在はこのボリュームの外側には間接ライティングはありませんが、これを修正し、外側が低品質の間接ライティングになるようにする予定です。
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/LightingAndShadows/Lightmass/Basics
+[/VAR]
+[/EXCERPT:ALightmassImportanceVolume]

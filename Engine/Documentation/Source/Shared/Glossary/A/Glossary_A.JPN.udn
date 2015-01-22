@@ -1,0 +1,82 @@
+﻿INTSourceChangelist:2220769
+Title:A
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_A]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+アクタ
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Actor]
+**アクタ** は、レベル内へ配置可能な任意のオブジェクトです。技術的に言うならば、平行移動、回転、スケーリングなどの 3D データ変換の情報を持つ一般的なクラスです。配置可能な全オブジェクトはこのクラスから拡張されます。スタティックメッシュ アクタ、カメラ アクタ、そしてライト アクタをサンプルに取り入れています。
+[/EXCERPT:Glossary_Actor]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+AI
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_AI]
+**AI** (Artificial intelligence) は、人間による入力ではなくプログラムされた一連のインストラクションで制御されるビヘイビアです。例えば、 NPC (ノンプレイヤー キャラクター) は AI で操作されます。
+[/EXCERPT:Glossary_AI]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+アニメーション
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_animation]
+**アニメーション** は、時間経過と共に変化するプロパティ値です。サンプルには位置、回転、スケールでの変更が含まれていますが、他のプロパティ値への拡張も可能です。
+
+特にアンリアル マチネで作成されたシーケンス、あるいは外部の 3D モデリングおよびアニメーション アプリケーションでスケルタルメッシュ用に作成され、その後アンリアル・エディタにインポートされたものを「アニメーション」と呼びます。C++ コードまたはブループリントで作成されたアクタのプロパティ (複数可) における時間経過に伴う変化のことさえもアニメーションと呼びます。
+[/EXCERPT:Glossary_animation]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+アニメーション シーケンス
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_animation_sequence]
+**アニメーション シーケンス** または **AnimSequence** は、スケルタルメッシュ用の 3D モデリングとアニメーション アプリケーションで作成されるアニメーションで、後に UE4 へインポートされるアニメーション アセットです。ペルソナでアニメーション シーケンスを使用することができます。
+[/EXCERPT:Glossary_animation_sequence]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+アセット
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_asset]
+**アセット** は、ゲームを構築するエレメントです。   マテリアル、スタティックメッシュ、テクスチャ、パーティクル システム、ブループリント、サウンドキューなど、インポート先あるいは作成場所が **コンテンツ ブラウザ** であるコンテンツがサンプルとして入っています。それぞれのアセットは、「.uasset」ファイルへ個別に保存されます。
+[/EXCERPT:Glossary_asset]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[/EXCERPT:Glossary_A]
+

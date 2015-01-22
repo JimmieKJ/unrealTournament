@@ -1,0 +1,57 @@
+1. Item 1.
+[PUBLISH:Rocket]
+1. Item 2R.
+[/PUBLISH]
+[PUBLISH:Licensee]
+1. Item 2.
+[/PUBLISH]
+1. Item 3.
+
+
+1. Item 1.
+[PUBLISH:Licensee]
+1. Item 2.
+[/PUBLISH]
+[PUBLISH:Rocket]
+1. Item 2R.
+[/PUBLISH]
+1. Item 3.
+
+
+1. Item 1.
+[PUBLISH:Licensee]
+1. Item 2.
+[/PUBLISH]
+1. Item 3.
+
+
+    [PUBLISH:Licensee]
+    Licensee code block
+    [/PUBLISH]
+    [PUBLISH:Rocket]
+    Rocket code block
+    [/PUBLISH]
+    [PUBLISH:Licensee]
+    Licensee 2 code block
+    [/PUBLISH]
+
+
+[OBJECT:TopicList]
+    [PARAM:icon]
+        Test icon.
+    [/PARAM]
+    [PARAM:title]
+        Test title.
+    [/PARAM]
+    [PARAM:description]
+    [PUBLISH:Licensee]
+        Licensee paragraph fragment.
+    [/PUBLISH:Licensee]
+    [PUBLISH:Rocket]
+        Rocket paragraph fragment.
+    [/PUBLISH:Rocket]
+    [/PARAM]
+    [PARAM:links]
+        Test links.
+    [/PARAM]
+[/OBJECT]

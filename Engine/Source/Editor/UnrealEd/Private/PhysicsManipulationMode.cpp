@@ -1,0 +1,135 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "UnrealEd.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "Engine/Selection.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogEditorPhysMode, Log, All);
+
+void FPhysicsManipulationEdModeFactory::OnSelectionChanged(FEditorModeTools& Tools, UObject* ItemUndergoingChange) const
+{
+	USelection* Selection = GEditor->GetSelectedActors();
+
+	if (ItemUndergoingChange != NULL && ItemUndergoingChange->IsSelected())
+	{
+		AActor* SelectedActor = Cast<AActor>(ItemUndergoingChange);
+		if (SelectedActor != NULL)
+		{
+			UPrimitiveComponent* PC = Cast<UPrimitiveComponent>(SelectedActor->GetRootComponent());
+			if (PC != NULL && PC->BodyInstance.bSimulatePhysics)
+			{
+				Tools.ActivateMode(FBuiltinEditorModes::EM_Physics);
+				return;
+			}
+		}
+	}
+	else if (ItemUndergoingChange != NULL && !ItemUndergoingChange->IsA(USelection::StaticClass()))
+	{
+		Tools.DeactivateMode(FBuiltinEditorModes::EM_Physics);
+	}
+}
+
+FEditorModeInfo FPhysicsManipulationEdModeFactory::GetModeInfo() const
+{
+	return FEditorModeInfo(FBuiltinEditorModes::EM_Physics, NSLOCTEXT("EditorModes", "PhysicsMode", "Physics Mode"));
+}
+
+TSharedRef<FEdMode> FPhysicsManipulationEdModeFactory::CreateMode() const
+{
+	return MakeShareable( new FPhysicsManipulationEdMode );
+}
+
+FPhysicsManipulationEdMode::FPhysicsManipulationEdMode()
+{
+	HandleComp = ConstructObject<UPhysicsHandleComponent>(UPhysicsHandleComponent::StaticClass(), GetTransientPackage(), NAME_None, RF_NoFlags);
+}
+
+FPhysicsManipulationEdMode::~FPhysicsManipulationEdMode()
+{
+	HandleComp = NULL;
+}
+
+void FPhysicsManipulationEdMode::Enter()
+{
+	HandleComp->RegisterComponentWithWorld(GetWorld());
+}
+
+void FPhysicsManipulationEdMode::Exit()
+{
+	HandleComp->UnregisterComponent();
+}
+
+bool FPhysicsManipulationEdMode::InputDelta( FEditorViewportClient* InViewportClient,FViewport* InViewport,FVector& InDrag,FRotator& InRot,FVector& InScale )
+{
+	//UE_LOG(LogEditorPhysMode, Warning, TEXT("Mouse: %s InDrag: %s  InRot: %s"), *GEditor->MouseMovement.ToString(), *InDrag.ToString(), *InRot.ToString());
+
+	const float GrabMoveSpeed = 1.0f;
+	const float GrabRotateSpeed = 1.0f;
+
+	if (InViewportClient->GetCurrentWidgetAxis() != EAxisList::None)
+	{
+		HandleTargetLocation += InDrag * GrabMoveSpeed;
+		HandleTargetRotation += InRot;
+
+		HandleComp->SetTargetLocation(HandleTargetLocation);
+		HandleComp->SetTargetRotation(HandleTargetRotation);
+
+		return true;
+	}
+	else
+	{
+		return FEdMode::InputDelta(InViewportClient, InViewport, InDrag, InRot, InScale);
+	}
+}
+
+bool FPhysicsManipulationEdMode::StartTracking( FEditorViewportClient* InViewportClient, FViewport* InViewport )
+{
+	//UE_LOG(LogEditorPhysMode, Warning, TEXT("Start Tracking"));
+
+	FVector GrabLocation(0,0,0);
+	UPrimitiveComponent* ComponentToGrab = NULL;
+	
+	USelection* Selection = GEditor->GetSelectedActors();
+
+	for (int32 i=0; i<Selection->Num(); ++i)
+	{
+		AActor* SelectedActor = Cast<AActor>(Selection->GetSelectedObject(i));
+
+		if (SelectedActor != NULL)
+		{
+			UPrimitiveComponent* PC = Cast<UPrimitiveComponent>(SelectedActor->GetRootComponent());
+
+			if (PC != NULL && PC->BodyInstance.bSimulatePhysics)
+			{
+				ComponentToGrab = PC;
+				
+				HandleTargetLocation = SelectedActor->GetActorLocation();
+				HandleTargetRotation = SelectedActor->GetActorRotation();
+				break;
+			}
+
+			if (ComponentToGrab != NULL) { break; }
+		}
+	}
+
+	if (ComponentToGrab != NULL)
+	{
+		HandleComp->GrabComponent(ComponentToGrab, NAME_None, ComponentToGrab->GetOwner()->GetActorLocation(), true);
+	}
+
+	return FEdMode::StartTracking(InViewportClient, InViewport);
+}
+
+bool FPhysicsManipulationEdMode::EndTracking( FEditorViewportClient* InViewportClient, FViewport* InViewport )
+{
+	//UE_LOG(LogEditorPhysMode, Warning, TEXT("End Tracking"));
+
+	HandleComp->ReleaseComponent();
+
+	return FEdMode::EndTracking(InViewportClient, InViewport);
+}
+
+void FPhysicsManipulationEdMode::AddReferencedObjects( FReferenceCollector& Collector )
+{
+	Collector.AddReferencedObject(HandleComp);
+}

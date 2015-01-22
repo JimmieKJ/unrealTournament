@@ -1,0 +1,25 @@
+{
+    "FileVersion" : 1,
+	
+	"FriendlyName" : "Android Media",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : 1579795,
+	"Description" : "Android media player using the Android Media library.",
+	"Category" : "Media.Players",
+	"EnabledByDefault" : true,
+	
+    "Modules" :
+	[
+		{
+			"Name" : "AndroidMedia",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PreLoadingScreen",
+			"WhitelistPlatforms" : [ "Android" ]
+		}
+	],
+	
+	"CanContainContent" : false
+}

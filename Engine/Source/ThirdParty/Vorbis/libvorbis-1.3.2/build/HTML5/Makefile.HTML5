@@ -1,0 +1,61 @@
+CC=emcc
+LIBOGG=../../Ogg/libogg-1.2.2
+RM_F=del
+
+CFLAGS= -O2 -I../Include -I$(LIBOGG)/include -Iinclude -Wall  -DNDEBUG -D_WIN32 -D__MINGW32__  
+
+SOURCES = lib/analysis.c \
+		  lib/bitrate.c \
+		  lib/block.c \
+		  lib/codebook.c \
+		  lib/envelope.c \
+		  lib/floor0.c \
+		  lib/floor1.c \
+		  lib/info.c \
+		  lib/lookup.c \
+		  lib/lpc.c \
+		  lib/lsp.c \
+		  lib/mapping0.c \
+		  lib/mdct.c \
+		  lib/psy.c \
+		  lib/registry.c \
+		  lib/res0.c \
+		  lib/sharedbook.c \
+		  lib/smallft.c \
+		  lib/synthesis.c \
+		  lib/window.c \
+		  
+OBJECTS=$(SOURCES:.c=.bc)
+
+LIBVORBISFILE = libvorbisfile.bc
+LIBVORBIS = libvorbis.bc
+LIBVORBIS_JS = libvorbis.js
+
+libvorbis: $(SOURCES) $(LIBVORBIS) $(LIBVORBISFILE)
+
+.c.bc:
+	$(CC) $(CFLAGS) $< -o $@
+	
+$(LIBVORBIS): $(OBJECTS) 
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+
+$(LIBVORBISFILE): 
+	$(CC) $(CFLAGS) lib/vorbisfile.c -o $(LIBVORBISFILE)
+
+all: libvorbisfile.bc libvorbis.bc libvorbis.js
+
+install: $(LIBVORBIS) $(LIBVORBISFILE)
+	xcopy $(LIBVORBIS) Lib\HTML5\ /F /R /Y /I
+	xcopy $(LIBVORBISFILE) Lib\HTML5\ /F /R /Y /I
+
+uninstall:
+	del  Lib\HTML5\$(LIBVORBIS) /F /Q
+	del  Lib\HTML5\$(LIBVORBISFILE) /F /Q
+		
+libvorbis.js: $(LIBVORBIS) $(LIBVORBISFILE)
+	$(CC) -O3 -o $(LIBVORBIS_JS)  $(LIBVORBIS) $(LIBVORBISFILE)
+
+clean:
+	$(RM_F)  lib\*.bc  lib\*.js *.bc *.js
+
+	

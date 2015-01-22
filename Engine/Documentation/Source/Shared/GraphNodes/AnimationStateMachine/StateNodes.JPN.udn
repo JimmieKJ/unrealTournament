@@ -1,0 +1,85 @@
+﻿Availability:Public
+Title:ステートマシーン
+Crumbs: %ROOT%, Engine, Engine/Animation
+Description:ステートマシーンは、ステートの変化過程で発生するブレンドを完全制御しながら、スケルタルアニメーションをさまざまなステートへ分割します
+
+[EXCERPT:DummyExcerpt]
+
+[/EXCERPT:DummyExcerpt]
+
+
+
+[EXCERPT:UAnimStateNode]
+
+概念上、ステートは定期的にキャラクターまたはスケルタルメッシュが調和したり薄れていくことで知られる、AnimGraphを組織化した部分として考えます。その後グラフのこの部分へ移行することができます。例えばキャラクターのアニメーションの構成にIdleステートが含まれる場合、このステートには単一アニメーションのみが格納されていることがあります。 
+
+ステートマシーンから見ることができる上記の例がこちらです。
+
+![](State.png)
+
+ダブルクリックすると、Idleステート内にあるシンプルなグラフがこちらです。
+
+![](IdleStateInside.png)
+
+キャラクターが動作を開始すると、Movementステートへ移行します。歩いたり走る動作のように、表面上の横方向の移動を定義します。
+
+![](MoveState.png)
+
+このステートはキャラクターの速度と動作方向で定義されている [BlendSpace](Engine/Animation\Blendspaces) を格納している可能性があります。
+
+![](MovementInside.png)
+
+より自由形式なレイアウトを意図しているため、ステートへの入力ピンやステート自体にピンがありません。ステートを別のステートと接続するにはワイヤーを外縁から単にドラッグしてください。この操作は新ステートの作成も同様です。ブループリントで新ノードを作成する操作と同じです。
+
+![](DragWire.png)
+[/EXCERPT:UAnimStateNode]
+
+
+
+
+[EXCERPT:UAnimStateConduitNode]
+
+
+Conduitノードはより高度で共有可能な変形リソースとしての機能を果たします。Transition Ruleはステートから別のステートへ変形する単純な1対1の関係であるのに対して、Conduitノードは1対多数、多数対1、または多数対多数の関係です。 
+
+![](ConduitNode.png)
+
+例えば、キャラクターが殺されるとプレイが開始する複数のアニメーションがあるとします。キャラクターのヘルスが0以下となったら、Deathステートへ移行するといったようなシンプルなTransition Ruleから始めます。しかしStateの代わりに変形がConduitを使用すると、プレイヤーの一連の殺され方（打たれ方、刺され方、爆発、車による轢かれ方、頭のアンビルなど）のチェックを実行することができます。 
+
+若干簡素化されていますが、そのようなグラフは以下のように見えるかもしれません。
+
+![](ConduitGraph.png)(w:800)
+
+内部は、ConduitグラフはまるでTransition Ruleのように見えます。
+
+![](ConduitInside.png)
+
+Conduitノードを終了する実際の遷移ルールは、その後死のタイプを決定して適切なステートへブレンドします。
+[/EXCERPT:UAnimStateConduitNode]
+
+
+
+
+
+
+[EXCERPT:UAnimStateTransitionNode]
+
+
+一度ステートを定義したら、スケルタルメッシュのあるステートから別のステートへの変形方法を制御できなくてはいけません。ここでTransition Rulesが関わってきます。遷移ルールはステートを接続するワイヤーと一緒に自動的に作成されます。
+
+![](TransitionRule.png)
+
+変数に対していくつものチェックやテストを遷移ルールで実行することができます。出力は全てTrueまたはFalseになります。Boolean出力は遷移を経たアニメーションの移動が可能か否か決定します。 
+
+![](TransitionRuleInside.png)
+
+この例は、キャラクターの速度の値をテストしています。値が10以上になると遷移を有効にします。この場合、キャラクターはIdleステートからMovementステートへ移行します。その後完全に異なるルールを使用してIdleステートへ再度移行することができます。例えば、ここではMovementからIdleへ移動する遷移ルールを使用しています。
+
+![](TransitionRuleReturn.png)
+
+内部では、Movementステートへの遷移に使用した同値がもはやTrueではないことをチェックします。 
+
+![](TransitionRuleReturnInside.png)
+
+遷移ルールとこれらのプロパティに関する詳細は、 [Transition Rules documentation.](Engine/Animation\StateMachines\TransitionRules)　を参照してください。
+[/EXCERPT:UAnimStateTransitionNode]

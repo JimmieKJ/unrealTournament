@@ -1,0 +1,234 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		905FA5AF1546AA7F0067483C /* NvTriStrip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 905FA5AA1546AA7F0067483C /* NvTriStrip.cpp */; };
+		905FA5B01546AA7F0067483C /* NvTriStrip.h in Headers */ = {isa = PBXBuildFile; fileRef = 905FA5AB1546AA7F0067483C /* NvTriStrip.h */; };
+		905FA5B11546AA7F0067483C /* NvTriStripObjects.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 905FA5AC1546AA7F0067483C /* NvTriStripObjects.cpp */; };
+		905FA5B21546AA7F0067483C /* NvTriStripObjects.h in Headers */ = {isa = PBXBuildFile; fileRef = 905FA5AD1546AA7F0067483C /* NvTriStripObjects.h */; };
+		905FA5B31546AA7F0067483C /* VertexCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 905FA5AE1546AA7F0067483C /* VertexCache.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		905FA5A01546AA480067483C /* libnvtristripd.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libnvtristripd.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		905FA5AA1546AA7F0067483C /* NvTriStrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NvTriStrip.cpp; sourceTree = "<group>"; };
+		905FA5AB1546AA7F0067483C /* NvTriStrip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NvTriStrip.h; sourceTree = "<group>"; };
+		905FA5AC1546AA7F0067483C /* NvTriStripObjects.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NvTriStripObjects.cpp; sourceTree = "<group>"; };
+		905FA5AD1546AA7F0067483C /* NvTriStripObjects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NvTriStripObjects.h; sourceTree = "<group>"; };
+		905FA5AE1546AA7F0067483C /* VertexCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VertexCache.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		905FA59D1546AA480067483C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		905FA5951546AA480067483C = {
+			isa = PBXGroup;
+			children = (
+				905FA5AA1546AA7F0067483C /* NvTriStrip.cpp */,
+				905FA5AB1546AA7F0067483C /* NvTriStrip.h */,
+				905FA5AC1546AA7F0067483C /* NvTriStripObjects.cpp */,
+				905FA5AD1546AA7F0067483C /* NvTriStripObjects.h */,
+				905FA5AE1546AA7F0067483C /* VertexCache.h */,
+				905FA5A11546AA480067483C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		905FA5A11546AA480067483C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				905FA5A01546AA480067483C /* libnvtristripd.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		905FA59E1546AA480067483C /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				905FA5B01546AA7F0067483C /* NvTriStrip.h in Headers */,
+				905FA5B21546AA7F0067483C /* NvTriStripObjects.h in Headers */,
+				905FA5B31546AA7F0067483C /* VertexCache.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		905FA59F1546AA480067483C /* nvtristrip */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 905FA5A41546AA480067483C /* Build configuration list for PBXNativeTarget "nvtristrip" */;
+			buildPhases = (
+				905FA59C1546AA480067483C /* Sources */,
+				905FA59D1546AA480067483C /* Frameworks */,
+				905FA59E1546AA480067483C /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nvtristrip;
+			productName = nvtristrip;
+			productReference = 905FA5A01546AA480067483C /* libnvtristripd.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		905FA5971546AA480067483C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0510;
+			};
+			buildConfigurationList = 905FA59A1546AA480067483C /* Build configuration list for PBXProject "nvtristrip" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 905FA5951546AA480067483C;
+			productRefGroup = 905FA5A11546AA480067483C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				905FA59F1546AA480067483C /* nvtristrip */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		905FA59C1546AA480067483C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				905FA5AF1546AA7F0067483C /* NvTriStrip.cpp in Sources */,
+				905FA5B11546AA7F0067483C /* NvTriStripObjects.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		905FA5A21546AA480067483C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		905FA5A31546AA480067483C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		905FA5A51546AA480067483C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../Lib/Mac;
+				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					_DEBUG,
+					"$(inherited)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)d";
+			};
+			name = Debug;
+		};
+		905FA5A61546AA480067483C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../Lib/Mac;
+				EXECUTABLE_PREFIX = lib;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PREPROCESSOR_DEFINITIONS = NDEBUG;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		905FA59A1546AA480067483C /* Build configuration list for PBXProject "nvtristrip" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				905FA5A21546AA480067483C /* Debug */,
+				905FA5A31546AA480067483C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		905FA5A41546AA480067483C /* Build configuration list for PBXNativeTarget "nvtristrip" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				905FA5A51546AA480067483C /* Debug */,
+				905FA5A61546AA480067483C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 905FA5971546AA480067483C /* Project object */;
+}

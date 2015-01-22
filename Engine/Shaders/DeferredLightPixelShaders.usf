@@ -1,0 +1,95 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DeferredLightPixelShaders.usf: 
+=============================================================================*/
+
+#include "Common.usf"
+#include "DeferredShadingCommon.usf"
+#include "DeferredLightingCommon.usf"
+
+float4 GetPerPixelLightAttenuation(float2 UV)
+{
+	return Square(Texture2DSampleLevel(LightAttenuationTexture, LightAttenuationTextureSampler, UV, 0));
+}
+
+FDeferredLightData SetupLightDataForStandardDeferred()
+{
+	// Build the light data struct using the DeferredLightUniforms and light defines
+	// We are heavily relying on the shader compiler to optimize out constant subexpressions in GetDynamicLighting()
+	FDeferredLightData LightData;
+	LightData.LightPositionAndInvRadius = float4(DeferredLightUniforms.LightPosition, DeferredLightUniforms.LightInvRadius);
+	LightData.LightColorAndFalloffExponent = float4(DeferredLightUniforms.LightColor, DeferredLightUniforms.LightFalloffExponent);
+	LightData.LightDirection = DeferredLightUniforms.NormalizedLightDirection;
+	LightData.SpotAnglesAndSourceRadius = float4(DeferredLightUniforms.SpotAngles, DeferredLightUniforms.SourceRadius, DeferredLightUniforms.SourceLength);
+	LightData.MinRoughness = DeferredLightUniforms.MinRoughness;
+	LightData.DistanceFadeMAD = DeferredLightUniforms.DistanceFadeMAD;
+	LightData.ShadowMapChannelMask = DeferredLightUniforms.ShadowMapChannelMask;
+
+	LightData.bInverseSquared = INVERSE_SQUARED_FALLOFF;
+	LightData.bRadialLight = RADIAL_ATTENUATION;
+	//@todo - permutation opportunity
+	LightData.bSpotLight = RADIAL_ATTENUATION;
+	//@todo - permutation opportunity
+	LightData.bShadowed = DeferredLightUniforms.bShadowed;
+
+	return LightData;
+}
+
+/** 
+ * Pixel shader for rendering a directional light using a full screen quad. 
+ */
+void DirectionalPixelMain(
+	float2 InUV : TEXCOORD0,
+	float3 ScreenVector : TEXCOORD1,
+	out float4 OutColor : SV_Target0
+	)
+{
+	OutColor = 0;
+	float3 CameraVector = normalize(ScreenVector);
+
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(InUV);
+
+	// Only light pixels marked as using deferred shading
+	BRANCH if( ScreenSpaceData.GBuffer.ShadingModelID > 0 )
+	{
+		float SceneDepth = CalcSceneDepth(InUV);
+		float3 WorldPosition = ScreenVector * SceneDepth + View.ViewOrigin.xyz;
+
+		FDeferredLightData LightData = SetupLightDataForStandardDeferred();
+		OutColor = GetDynamicLighting(WorldPosition, CameraVector, InUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(InUV), uint2(0,0));
+	}
+}
+
+/** 
+ * Pixel shader for rendering a point or spot light using approximate bounding geometry. 
+ */
+void RadialPixelMain(
+	float4 InScreenPosition : TEXCOORD0,
+	float4 SVPos : SV_POSITION,
+	out float4 OutColor : SV_Target0
+	)
+{
+	OutColor = 0;
+	float2 ScreenUV = InScreenPosition.xy / InScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+	
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(ScreenUV);
+
+	// Only light pixels marked as using deferred shading
+	BRANCH if( ScreenSpaceData.GBuffer.ShadingModelID > 0 )
+	{
+		float SceneDepth = CalcSceneDepth(ScreenUV);
+		float4 HomogeneousWorldPosition = mul(float4(InScreenPosition.xy / InScreenPosition.w * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+		float3 CameraVector = normalize(WorldPosition - View.ViewOrigin.xyz);
+
+		FDeferredLightData LightData = SetupLightDataForStandardDeferred();
+
+		uint2 Random = ScrambleTEA( uint2( SVPos.xy ) );
+		Random.x ^= View.Random;
+		Random.y ^= View.Random;
+
+		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Random);
+		OutColor *= ComputeLightProfileMultiplier(WorldPosition, DeferredLightUniforms.LightPosition, DeferredLightUniforms.NormalizedLightDirection);
+	}
+}

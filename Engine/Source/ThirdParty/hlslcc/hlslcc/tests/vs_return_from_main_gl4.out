@@ -1,0 +1,21 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: f2:in_ATTRIBUTE0,i1:gl_VertexID
+// @Outputs: f4:gl_Position
+#version 430
+in vec2 in_ATTRIBUTE0;
+void main()
+{
+	vec4 t0;
+	vec4 t1;
+	t1.w = 1.0;
+	t1.xy = in_ATTRIBUTE0;
+	t1.z = float(uint(gl_VertexID));
+	t0.xyzw = t1;
+	t0.y = (-in_ATTRIBUTE0.y);
+	t0.z = ((2.0*t1.z)+-1.0);
+	gl_Position.xyzw = t0;
+}
+

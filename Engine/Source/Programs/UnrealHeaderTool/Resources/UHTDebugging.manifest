@@ -1,0 +1,44 @@
+{
+	"IsGameTarget": false,
+	"RootLocalPath": "..\\..\\..\\..",
+	"RootBuildPath": "..\\..\\..\\..",
+	"TargetName": "UHTDebugging",
+	"Modules":[{
+			"Name": "CoreUObject",
+			"ModuleType": "Runtime",
+			"BaseDirectory": "..\\..\\..\\Runtime\\CoreUObject",
+			"IncludeBase": "..\\..\\..\\Runtime\\CoreUObject",
+			"OutputDirectory": "..\\..\\..\\..\\Intermediate/Build/Inc\\CoreUObject\\",
+			"ClassesHeaders": [
+				"..\\..\\..\\Runtime\\CoreUObject\\Classes\\Object.h"
+			],
+			"PublicHeaders": [
+			],
+			"PrivateHeaders": [
+			],
+			"PCH": "",
+			"GeneratedCPPFilenameBase": "..\\..\\..\\..\\Intermediate/Build/Inc\\CoreUObject\\CoreUObject.generated",
+			"SaveExportedHeaders": true
+		}, {
+			"Name": "UHTDebugging",
+			"ModuleType": "Game",
+			"BaseDirectory": ".\\UHTDebugging",
+			"IncludeBase": ".\\UHTDebugging",
+			"OutputDirectory": "..\\..\\..\\..\\Intermediate/Build/Inc\\UHTDebugging\\",
+			"ClassesHeaders": [
+				".\\UHTDebugging\\TestObject.h",
+				".\\UHTDebugging\\TestInterface.h",
+				".\\UHTDebugging\\TestInterfaceObject.h",
+				".\\UHTDebugging\\StructOnlyHeader.h",
+				".\\UHTDebugging\\EnumOnlyHeader.h"
+			],
+			"PublicHeaders": [
+			],
+			"PrivateHeaders": [
+			],
+			"PCH": "",
+			"GeneratedCPPFilenameBase": "..\\..\\..\\..\\Intermediate/Build/Inc\\UHTDebugging\\UHTDebugging.generated",
+			"SaveExportedHeaders": true
+		}
+	]
+}

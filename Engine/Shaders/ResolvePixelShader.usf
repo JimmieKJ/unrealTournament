@@ -1,0 +1,66 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ResolvePixelShader.usf: Resolve pixel shader source.
+=============================================================================*/
+
+#include "Common.usf"
+
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+
+Texture2DMS<float4> UnresolvedSurface;
+
+void MainDepth(
+	float2 InUV : TEXCOORD0,
+	out float OutDepth : SV_DEPTH
+	)
+{
+	float2 SurfaceDimensions;
+	int NumSurfaceSamples;
+	UnresolvedSurface.GetDimensions(SurfaceDimensions.x,SurfaceDimensions.y,NumSurfaceSamples);
+
+	int2 IntUV = trunc(InUV);
+
+	// Compute the minimum depth of all samples.
+	// Note that minimum depth actually means farthest depth, since 1/depth is stored.
+	float MinDepth = 1000000;
+	for(int SampleIndex = 0;SampleIndex < NumSurfaceSamples;++SampleIndex)
+	{
+		float Sample = UnresolvedSurface.Load(IntUV,SampleIndex).r;
+		MinDepth = min(MinDepth,Sample);
+	}
+
+	OutDepth = MinDepth;
+}
+
+uint SingleSampleIndex;
+
+void MainSingleSample(
+	float2 InUV : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	float2 SurfaceDimensions;
+	int NumSurfaceSamples;
+	UnresolvedSurface.GetDimensions(SurfaceDimensions.x,SurfaceDimensions.y,NumSurfaceSamples);
+
+	int2 IntUV = trunc(InUV);
+
+	OutColor = UnresolvedSurface.Load(IntUV,SingleSampleIndex);
+}
+
+#else
+
+Texture2D UnresolvedSurfaceNonMS;
+void MainDepthNonMS(
+	float2 InUV : TEXCOORD0,
+	out float OutDepth : SV_DEPTH
+	)
+{
+	int3 IntUV = int3(trunc(InUV),0);
+	float Sample = UnresolvedSurfaceNonMS.Load(IntUV).r;
+	OutDepth = Sample;
+}
+
+#endif

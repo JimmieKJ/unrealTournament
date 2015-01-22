@@ -1,0 +1,82 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: 
+// @Outputs: f4:gl_Position,i1:gl_Layer
+// @PackedGlobals: CubeFace(i:0,1),TargetCaptureIndex(i:4,1)
+#version 430
+
+layout(triangles) in;
+layout(triangle_strip, max_vertices = 3) out;
+
+uniform ivec4 _gu_i[2];
+in TEXCOORD0 { vec2 Data; } in_TEXCOORD0[3];
+in TEXCOORD1 { vec3 Data; } in_TEXCOORD1[3];
+out TEXCOORD0 { vec2 Data; } out_TEXCOORD0;
+out TEXCOORD1 { vec3 Data; } out_TEXCOORD1;
+out HLSLCC_LAYER_INDEX { flat uint Data; } out_HLSLCC_LAYER_INDEX;
+void main()
+{
+	int t0;
+	t0 = _gu_i[0].x;
+	int t1;
+	t1 = _gu_i[1].x;
+	vec2 t2;
+	vec3 t3;
+	vec2 t4;
+	vec3 t5;
+	vec4 t6;
+	t6.xyzw = gl_in[0].gl_Position;
+	t6.y = (-t6.y);
+	t6.z = ((t6.z+t6.w)/2.0);
+	t2.xy = in_TEXCOORD0[1].Data;
+	t3.xyz = in_TEXCOORD1[1].Data;
+	vec4 t7;
+	t7.xyzw = gl_in[1].gl_Position;
+	t7.y = (-t7.y);
+	t7.z = ((t7.z+t7.w)/2.0);
+	t4.xy = in_TEXCOORD0[2].Data;
+	t5.xyz = in_TEXCOORD1[2].Data;
+	vec4 t8;
+	t8.xyzw = gl_in[2].gl_Position;
+	t8.y = (-t8.y);
+	t8.z = ((t8.z+t8.w)/2.0);
+	uint t9;
+	t9 = uint((t0+(6*t1)));
+	uint t10;
+	t10 = uint((t0+(6*t1)));
+	uint t11;
+	t11 = uint((t0+(6*t1)));
+	vec4 t12;
+	t12.xyzw = t6;
+	out_TEXCOORD0.Data.xy = in_TEXCOORD0[0].Data;
+	out_TEXCOORD1.Data.xyz = in_TEXCOORD1[0].Data;
+	t12.y = (-t6.y);
+	t12.z = ((2.0*t6.z)+(-t6.w));
+	gl_Position.xyzw = t12;
+	gl_Layer = int(t9);
+	out_HLSLCC_LAYER_INDEX.Data = t9;
+	EmitVertex();
+	vec4 t13;
+	t13.xyzw = t7;
+	out_TEXCOORD0.Data.xy = t2;
+	out_TEXCOORD1.Data.xyz = t3;
+	t13.y = (-t7.y);
+	t13.z = ((2.0*t7.z)+(-t7.w));
+	gl_Position.xyzw = t13;
+	gl_Layer = int(t10);
+	out_HLSLCC_LAYER_INDEX.Data = t10;
+	EmitVertex();
+	vec4 t14;
+	t14.xyzw = t8;
+	out_TEXCOORD0.Data.xy = t4;
+	out_TEXCOORD1.Data.xyz = t5;
+	t14.y = (-t8.y);
+	t14.z = ((2.0*t8.z)+(-t8.w));
+	gl_Position.xyzw = t14;
+	gl_Layer = int(t11);
+	out_HLSLCC_LAYER_INDEX.Data = t11;
+	EmitVertex();
+}
+

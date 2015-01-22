@@ -1,0 +1,92 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "UserDefinedStructEditorData.generated.h"
+
+USTRUCT()
+struct FStructVariableDescription
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName VarName;
+
+	UPROPERTY()
+	FGuid VarGuid;
+
+	UPROPERTY()
+	FString FriendlyName;
+
+	UPROPERTY()
+	FString DefaultValue;
+
+	// TYPE DATA
+	UPROPERTY()
+	FString Category;
+
+	UPROPERTY()
+	FString SubCategory;
+
+	UPROPERTY()
+	TAssetPtr<UObject> SubCategoryObject;
+
+	UPROPERTY()
+	bool bIsArray;
+
+	UPROPERTY(Transient)
+	bool bInvalidMember;
+
+	// CurrentDefaultValue stores the actual default value, after the DefaultValue was changed, and before the struct was recompiled
+	UPROPERTY()
+	FString CurrentDefaultValue;
+
+	UPROPERTY()
+	FString ToolTip;
+
+	UPROPERTY()
+	bool bDontEditoOnInstance;
+
+	UPROPERTY()
+	bool bEnable3dWidget;
+
+	UNREALED_API bool SetPinType(const struct FEdGraphPinType& VarType);
+
+	UNREALED_API FEdGraphPinType ToPinType() const;
+
+	FStructVariableDescription()
+		: bIsArray(false)
+		, bInvalidMember(false)
+		, bDontEditoOnInstance(false)
+		, bEnable3dWidget(false)
+	{ }
+};
+
+UCLASS()
+class UNREALED_API UUserDefinedStructEditorData : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+private:
+	// the property is used to generate an uniqe name id for member variable
+	UPROPERTY(NonTransactional) 
+	uint32 UniqueNameId;
+
+public:
+	UPROPERTY()
+	TArray<FStructVariableDescription> VariablesDescriptions;
+
+	UPROPERTY()
+	FString ToolTip;
+
+	UPROPERTY()
+	UScriptStruct* NativeBase;
+
+	// UObject interface.
+	virtual void PostEditUndo() override;
+	virtual void PostLoadSubobjects(struct FObjectInstancingGraph* OuterInstanceGraph) override;
+	// End of UObject interface.
+
+	uint32 GenerateUniqueNameIdForMemberVariable();
+	class UUserDefinedStruct* GetOwnerStruct() const;
+};

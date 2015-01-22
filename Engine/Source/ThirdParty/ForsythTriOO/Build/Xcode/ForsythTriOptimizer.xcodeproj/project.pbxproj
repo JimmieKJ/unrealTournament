@@ -1,0 +1,212 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		DA5BC81617E1D41000EEBB41 /* forsythtriangleorderoptimizer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DA5BC81417E1D41000EEBB41 /* forsythtriangleorderoptimizer.cpp */; };
+		DA5BC81717E1D41000EEBB41 /* forsythtriangleorderoptimizer.h in Headers */ = {isa = PBXBuildFile; fileRef = DA5BC81517E1D41000EEBB41 /* forsythtriangleorderoptimizer.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		DA5BC80D17E1D3DE00EEBB41 /* libForsythTriOptimizerd.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libForsythTriOptimizerd.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA5BC81417E1D41000EEBB41 /* forsythtriangleorderoptimizer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = forsythtriangleorderoptimizer.cpp; path = ../../Src/forsythtriangleorderoptimizer.cpp; sourceTree = "<group>"; };
+		DA5BC81517E1D41000EEBB41 /* forsythtriangleorderoptimizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = forsythtriangleorderoptimizer.h; path = ../../Src/forsythtriangleorderoptimizer.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DA5BC80A17E1D3DE00EEBB41 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DA5BC80417E1D3DD00EEBB41 = {
+			isa = PBXGroup;
+			children = (
+				DA5BC81417E1D41000EEBB41 /* forsythtriangleorderoptimizer.cpp */,
+				DA5BC81517E1D41000EEBB41 /* forsythtriangleorderoptimizer.h */,
+				DA5BC80E17E1D3DE00EEBB41 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DA5BC80E17E1D3DE00EEBB41 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DA5BC80D17E1D3DE00EEBB41 /* libForsythTriOptimizerd.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		DA5BC80B17E1D3DE00EEBB41 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA5BC81717E1D41000EEBB41 /* forsythtriangleorderoptimizer.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		DA5BC80C17E1D3DE00EEBB41 /* ForsythTriOptimizer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA5BC81117E1D3DE00EEBB41 /* Build configuration list for PBXNativeTarget "ForsythTriOptimizer" */;
+			buildPhases = (
+				DA5BC80917E1D3DE00EEBB41 /* Sources */,
+				DA5BC80A17E1D3DE00EEBB41 /* Frameworks */,
+				DA5BC80B17E1D3DE00EEBB41 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ForsythTriOptimizer;
+			productName = ForsythTriOptimizer;
+			productReference = DA5BC80D17E1D3DE00EEBB41 /* libForsythTriOptimizerd.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DA5BC80517E1D3DD00EEBB41 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0460;
+				ORGANIZATIONNAME = Epic;
+			};
+			buildConfigurationList = DA5BC80817E1D3DD00EEBB41 /* Build configuration list for PBXProject "ForsythTriOptimizer" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = DA5BC80417E1D3DD00EEBB41;
+			productRefGroup = DA5BC80E17E1D3DE00EEBB41 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DA5BC80C17E1D3DE00EEBB41 /* ForsythTriOptimizer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DA5BC80917E1D3DE00EEBB41 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA5BC81617E1D41000EEBB41 /* forsythtriangleorderoptimizer.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		DA5BC80F17E1D3DE00EEBB41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		DA5BC81017E1D3DE00EEBB41 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		DA5BC81217E1D3DE00EEBB41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../../lib/Mac;
+				EXECUTABLE_PREFIX = lib;
+				PRODUCT_NAME = "$(TARGET_NAME)d";
+			};
+			name = Debug;
+		};
+		DA5BC81317E1D3DE00EEBB41 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../../lib/Mac;
+				EXECUTABLE_PREFIX = lib;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DA5BC80817E1D3DD00EEBB41 /* Build configuration list for PBXProject "ForsythTriOptimizer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA5BC80F17E1D3DE00EEBB41 /* Debug */,
+				DA5BC81017E1D3DE00EEBB41 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DA5BC81117E1D3DE00EEBB41 /* Build configuration list for PBXNativeTarget "ForsythTriOptimizer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA5BC81217E1D3DE00EEBB41 /* Debug */,
+				DA5BC81317E1D3DE00EEBB41 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DA5BC80517E1D3DD00EEBB41 /* Project object */;
+}

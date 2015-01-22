@@ -1,0 +1,27 @@
+﻿Title:I
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_I]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Interface（インターフェース）
+	[/PARAM]
+	[PARAM:Definition]
+ゲームのビジュアル表現およびオンスクリーン上のエレメントです。またゲームのエレメントが相互にコミュニケーションを取るシステムでもあります。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Interpolation（補間）
+	[/PARAM]
+	[PARAM:Definition]
+自然なアニメーションを作成するためにポーズ間をブレンドします。
+	[/PARAM]
+[/OBJECT]
+
+
+[/EXCERPT:Glossary_I]

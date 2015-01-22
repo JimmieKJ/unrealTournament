@@ -1,0 +1,28 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	HeightFogPixelShader.usf: Scene fogging pixel shader.
+=============================================================================*/
+
+#include "Common.usf"
+#include "SHCommon.usf"
+#include "HeightFogCommon.usf"
+
+Texture2D OcclusionTexture;
+SamplerState OcclusionSampler;
+
+void ExponentialPixelMain(
+	float2 TexCoord : TEXCOORD0,
+	float4 ScreenVector : TEXCOORD1,
+	out float4 OutColor : SV_Target0
+	)
+{ 
+	float SceneDepth = CalcSceneDepth(TexCoord);
+
+	float3 CameraToReceiver = ScreenVector.xyz * SceneDepth;
+	float3 ReceiverPosition = CameraToReceiver + View.ViewOrigin.xyz; 
+
+	float LightShaftMask = Texture2DSample(OcclusionTexture, OcclusionSampler, TexCoord).x;
+	float4 ExponentialFog = GetExponentialHeightFog(ReceiverPosition, View.ViewOrigin.xyz);
+	OutColor = RETURN_COLOR(float4(ExponentialFog.rgb * LightShaftMask, ExponentialFog.w));
+}

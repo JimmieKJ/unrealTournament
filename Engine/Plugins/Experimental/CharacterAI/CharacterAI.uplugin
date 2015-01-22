@@ -1,0 +1,24 @@
+{
+	"FileVersion" : 1,
+	
+	"FriendlyName" : "CharacterAI",
+	"Version" : 1,
+	"VersionName" : "0.1",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.5.0",
+	"Description" : "[EARLY ACCESS PREVIEW] CharacterAI adds code and assets related to implementing AI in a character-based project.",
+	"Category" : "Framework.AI",
+	"EnabledByDefault" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "CharacterAI",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostEngineInit"
+		},
+	],
+
+	"CanContainContent" : true
+}

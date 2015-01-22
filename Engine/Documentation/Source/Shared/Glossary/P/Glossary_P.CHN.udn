@@ -1,0 +1,143 @@
+﻿Title:P
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_P]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+panel（面板）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_panel]
+**panel** （面板）是UI的一部分，包含了您关卡的信息，可以被移动，停靠，或拖曳到单独的窗口。 示例包括了细节面板和内容浏览器。
+[/EXCERPT:Glossary_panel]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Pawn 
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_pawn]
+**Pawn** 是Actor的子类，可作为游戏中的化身或人物，例如游戏中的角色。 Pawn可以由玩家控制或由游戏的AI控制，比如非玩家控制角色(NPCs)。
+[/EXCERPT:Glossary_pawn]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Persona（角色编辑器）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Persona]
+**Persona** （角色编辑器）是虚幻引擎中的动画编辑工具集。 这是一个强大的系统，可用来编辑骨架，骨架网格物体，动画蓝图以及多种其它动画资源。 在虚幻引擎中，您的大部分（即时不是全部）动画处理工作都在这个编辑器中进行。 这是一款多用途的工具，包含了用于编辑骨架[插槽](Engine/Content\Types\SkeletalMeshes\Sockets)、预览[动画序列](Engine/Animation/Sequences)、设置动画 [混合空间](Engine/Animation/Blendspaces)以及[蒙太奇](Engine/Animation/AnimMontage)、编辑[动画蓝图](Engine/Animation/AnimBlueprints)等的面板。
+[/EXCERPT:Glossary_Persona]
+
+您可以通过双击任何动画相关的资源来打开角色编辑器，例如骨架网格物体，混合空间，动画蓝图等等。
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+PhAT
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_PhAT]
+**PhAT** 是虚幻编辑器中的物理资源编辑工具，被用来修改Skeletal Mesh Actor（骨架网格物体Actor）的物理和碰撞属性。
+[/EXCERPT:Glossary_PhAT]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Physical Material（物理材质）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Physical_Material]
+**Physical Materials** （物理材质）用于定义当物理对象和世界进行动态交互时它所做出的反应。  物理材质的使用是相当容易的。  创建物理材质时将会给您一组默认值，这些默认值和应用到所有物理对象上的默认物理材质的值一样。  这种应用的例子有一具角色尸体(布娃娃)、一个可以移动的箱子等。
+[/EXCERPT:Glossary_Physical_Material]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+pin（引脚）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_pin]
+**pin** （引脚）是可视化脚本节点的一部分。 引脚通过连线连接到其它节点。 执行引脚必须被连接，这样可让节点得以执行。 数据引脚是根据不同的类型进行颜色标记的，并且被用来从其它节点输入数据或输出数据到其它节点。
+[/EXCERPT:Glossary_pin]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+pivot point（支点）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_pivot_point]
+**pivot point** （支点）（或原点）表示的是在3D建模程序中进行定义的、出于对齐目的而作为物体的底部所创建的静态网格物体Actor或骨架网格物体Actor上的位置。 支点可以在物体的中心，物体的底部，甚至在物体外部。
+[/EXCERPT:Glossary_pivot_point]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Play In Editor (PIE)在编辑器中播放
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Play_In_Editor]
+**Play In Editor (PIE)** (在编辑器中播放）是一个供您在虚幻编辑器窗口中直接游玩关卡的模式，起始的位置为您出于测试目的所指定的位置。 在此模式中，您可以像在游戏中一样游玩当前关卡，这样的话您可以测试游戏功能，包括玩家控制以及由玩家的动作触发的关卡事件。
+[/EXCERPT:Glossary_Play_In_Editor]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+project（项目）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_project]
+在虚幻引擎中，您创建的每个游戏都是一个 **project** （项目）。 项目是自包含的单位，存储了所有组成独立游戏的内容和代码。 您可以同时创建，保持和开发任意数量的项目，并且引擎和编辑器可以很容易地在项目间切换。 这样就使得开发商很容易就能同时开发多个游戏，或者除了主要游戏开发项目外，还能同时有多个测试项目。 
+[/EXCERPT:Glossary_project]
+
+	[/PARAM]
+[/OBJECT]
+
+[/EXCERPT:Glossary_P]

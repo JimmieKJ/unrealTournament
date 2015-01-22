@@ -1,0 +1,74 @@
+----------------------------------------------------------------------
+../../../tests/vs_matrix.hlsl(20): warning: implicit truncation from `mat4x3' to `mat2'
+
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.24
+// @Inputs: f2:in_ATTRIBUTE0,f2:in_ATTRIBUTE1
+// @Outputs: f4:gl_Position
+#version 430
+in vec2 in_ATTRIBUTE0;
+in vec2 in_ATTRIBUTE1;
+out TEXCOORD0 { vec2 Data; } out_TEXCOORD0;
+out MISC0 { vec4 Data; } out_MISC0;
+out MISC1 { vec4 Data; } out_MISC1;
+out MISC2 { vec4 Data; } out_MISC2;
+out MISC3 { vec4 Data; } out_MISC3;
+void main()
+{
+	vec4 t0;
+	mat3 t1;
+	mat4 t2;
+	t2[0].xyzw = vec4(1.0,1.0,1.0,1.0);
+	t2[1].xyzw = vec4(1.0,1.0,1.0,1.0);
+	t2[2].xyzw = vec4(1.0,1.0,1.0,1.0);
+	t2[3].xyzw = vec4(1.0,1.0,1.0,1.0);
+	mat3 t3;
+	t3[0].xyz = vec3(2.0,2.0,2.0);
+	t3[1].xyz = vec3(2.0,2.0,2.0);
+	t3[2].xyz = vec3(2.0,2.0,2.0);
+	t1 = t3;
+	mat4x3 t4;
+	t4[0].xyz = vec3(3.0,3.0,3.0);
+	t4[1].xyz = vec3(3.0,3.0,3.0);
+	t4[2].xyz = vec3(3.0,3.0,3.0);
+	t4[3].xyz = vec3(3.0,3.0,3.0);
+	mat3x4 t5;
+	t5[0].xyzw = vec4(4.0,4.0,4.0,4.0);
+	t5[1].xyzw = vec4(4.0,4.0,4.0,4.0);
+	t5[2].xyzw = vec4(4.0,4.0,4.0,4.0);
+	float t6;
+	t6 = determinant(t2);
+	float t7;
+	t7 = determinant(t1);
+	mat3 t8;
+	t8 = transpose(t3);
+	mat3x4 t9;
+	t9 = transpose(t4);
+	mat4x3 t10;
+	t10 = transpose(t5);
+	mat4x3 t11;
+	t11 = transpose(t5);
+	vec2 t12;
+	vec2 t13;
+	t12.xy = t11[0].xy;
+	t13.xy = t11[1].xy;
+	vec4 t14;
+	t14.x = t12.x;
+	t14.y = t12.y;
+	t14.z = t13.x;
+	t14.w = t13.y;
+	vec4 t15;
+	t15.z = 0.0;
+	t15.xy = in_ATTRIBUTE0;
+	t15.w = (t6+t7);
+	t0.xyzw = t15;
+	out_TEXCOORD0.Data.xy = in_ATTRIBUTE1;
+	t0.y = (-in_ATTRIBUTE0.y);
+	t0.z = (-t15.w);
+	gl_Position.xyzw = t0;
+	out_MISC0.Data.xyzw = t8[0].xyzz;
+	out_MISC1.Data.xyzw = t9[1];
+	out_MISC2.Data.xyzw = t10[2].xyzx;
+	out_MISC3.Data.xyzw = t14;
+}
+

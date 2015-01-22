@@ -1,0 +1,577 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	StaticMeshBuild.cpp: Static mesh building.
+=============================================================================*/
+
+#include "EnginePrivate.h"
+#include "StaticMeshResources.h"
+
+#if WITH_EDITOR
+#include "RawMesh.h"
+#include "MeshUtilities.h"
+#include "TargetPlatform.h"
+#include "GenericOctree.h"
+#endif // #if WITH_EDITOR
+
+#define LOCTEXT_NAMESPACE "StaticMeshEditor"
+
+#if WITH_EDITOR
+/**
+ * Check the render data for the provided mesh and return true if the mesh
+ * contains degenerate tangent bases.
+ */
+static bool HasBadTangents(UStaticMesh* Mesh)
+{
+	bool bHasBadTangents = false;
+	if (Mesh && Mesh->RenderData)
+	{
+		int32 NumLODs = Mesh->GetNumLODs();
+		for (int32 LODIndex = 0; !bHasBadTangents && LODIndex < NumLODs; ++LODIndex)
+		{
+			FStaticMeshLODResources& LOD = Mesh->RenderData->LODResources[LODIndex];
+			int32 NumVerts = LOD.VertexBuffer.GetNumVertices();
+			for (int32 VertIndex = 0; !bHasBadTangents && VertIndex < NumVerts; ++VertIndex)
+			{
+				FPackedNormal& TangentX = LOD.VertexBuffer.VertexTangentX(VertIndex);
+				FPackedNormal& TangentZ = LOD.VertexBuffer.VertexTangentZ(VertIndex);
+				if (FMath::Abs((int32)TangentX.Vector.X - (int32)TangentZ.Vector.X) <= 1
+					&& FMath::Abs((int32)TangentX.Vector.Y - (int32)TangentZ.Vector.Y) <= 1
+					&& FMath::Abs((int32)TangentX.Vector.Z - (int32)TangentZ.Vector.Z) <= 1)
+				{
+					bHasBadTangents = true;
+				}
+			}
+		}
+	}
+	return bHasBadTangents;
+}
+#endif // #if WITH_EDITOR
+
+void UStaticMesh::Build(bool bSilent)
+{
+#if WITH_EDITOR
+	if (IsTemplate())
+		return;
+
+	if (SourceModels.Num() <= 0)
+	{
+		UE_LOG(LogStaticMesh,Warning,TEXT("Static mesh has no source models: %s"),*GetPathName());
+		return;
+	}
+
+	if(!bSilent)
+	{
+		FFormatNamedArguments Args;
+		Args.Add( TEXT("Path"), FText::FromString( GetPathName() ) );
+		const FText StatusUpdate = FText::Format( LOCTEXT("BeginStaticMeshBuildingTask", "({Path}) Building"), Args );
+		GWarn->BeginSlowTask( StatusUpdate, true );	
+	}
+
+	// Detach all instances of this static mesh from the scene.
+	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(this,false);
+
+	// Release the static mesh's resources.
+	ReleaseResources();
+
+	// Flush the resource release commands to the rendering thread to ensure that the build doesn't occur while a resource is still
+	// allocated, and potentially accessing the UStaticMesh.
+	ReleaseResourcesFence.Wait();
+
+	// Remember the derived data key of our current render data if any.
+	FString ExistingDerivedDataKey = RenderData ? RenderData->DerivedDataKey : TEXT("");
+
+	// Free existing render data and recache.
+	CacheDerivedData();
+
+	// Reinitialize the static mesh's resources.
+	InitResources();
+
+	// Ensure we have a bodysetup.
+	CreateBodySetup();
+	check(BodySetup != NULL);
+
+#if WITH_EDITOR
+	if( SourceModels.Num() )
+	{
+		// Rescale simple collision if the user changed the mesh build scale
+		BodySetup->RescaleSimpleCollision( SourceModels[0].BuildSettings.BuildScale3D );
+	}
+
+	// Invalidate physics data if this has changed.
+	// TODO_STATICMESH: Not necessary any longer?
+	BodySetup->InvalidatePhysicsData();
+	BodySetup->CreatePhysicsMeshes();
+#endif
+
+	// Compare the derived data keys to see if renderable mesh data has actually changed.
+	check(RenderData);
+	bool bHasRenderDataChanged = RenderData->DerivedDataKey != ExistingDerivedDataKey;
+
+	if (bHasRenderDataChanged)
+	{
+		// Warn the user if the new mesh has degenerate tangent bases.
+		if (HasBadTangents(this))
+		{
+			// Only suggest Recompute Tangents if the import hasn't already tried it
+			FFormatNamedArguments Arguments;
+			Arguments.Add( TEXT("Meshname"), FText::FromString(GetName()) );
+			Arguments.Add( TEXT("Options"), SourceModels[0].BuildSettings.bRecomputeTangents ? FText::GetEmpty() : LOCTEXT("MeshRecomputeTangents", "Consider enabling Recompute Tangents in the mesh's Build Settings.") );
+			const FText WarningMsg = FText::Format( LOCTEXT("MeshHasDegenerateTangents", "{Meshname} has degenerate tangent bases which will result in incorrect shading. {Options}"), Arguments );
+			UE_LOG(LogStaticMesh,Warning,TEXT("%s"),*WarningMsg.ToString());
+			if (!bSilent)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, WarningMsg);
+			}
+		}
+
+		// Force the static mesh to re-export next time lighting is built
+		SetLightingGuid();
+
+		// Find any static mesh components that use this mesh and fixup their override colors if necessary.
+		// Also invalidate lighting. *** WARNING components may be reattached here! ***
+		for( TObjectIterator<UStaticMeshComponent> It; It; ++It )
+		{
+			if ( It->StaticMesh == this )
+			{
+				It->FixupOverrideColorsIfNecessary( true );
+				It->InvalidateLightingCache();
+			}
+		}
+
+	}
+
+	if(!bSilent)
+	{
+		GWarn->EndSlowTask();
+	}
+	
+#else
+	UE_LOG(LogStaticMesh,Fatal,TEXT("UStaticMesh::Build should not be called on non-editor builds."));
+#endif
+}
+
+/*------------------------------------------------------------------------------
+	Remapping of painted vertex colors.
+------------------------------------------------------------------------------*/
+
+#if WITH_EDITOR
+/** Helper struct for the mesh component vert position octree */
+struct FStaticMeshComponentVertPosOctreeSemantics
+{
+	enum { MaxElementsPerLeaf = 16 };
+	enum { MinInclusiveElementsPerNode = 7 };
+	enum { MaxNodeDepth = 12 };
+
+	typedef TInlineAllocator<MaxElementsPerLeaf> ElementAllocator;
+
+	/**
+	 * Get the bounding box of the provided octree element. In this case, the box
+	 * is merely the point specified by the element.
+	 *
+	 * @param	Element	Octree element to get the bounding box for
+	 *
+	 * @return	Bounding box of the provided octree element
+	 */
+	FORCEINLINE static FBoxCenterAndExtent GetBoundingBox( const FPaintedVertex& Element )
+	{
+		return FBoxCenterAndExtent( Element.Position, FVector::ZeroVector );
+	}
+
+	/**
+	 * Determine if two octree elements are equal
+	 *
+	 * @param	A	First octree element to check
+	 * @param	B	Second octree element to check
+	 *
+	 * @return	true if both octree elements are equal, false if they are not
+	 */
+	FORCEINLINE static bool AreElementsEqual( const FPaintedVertex& A, const FPaintedVertex& B )
+	{
+		return ( A.Position == B.Position && A.Normal == B.Normal && A.Color == B.Color );
+	}
+
+	/** Ignored for this implementation */
+	FORCEINLINE static void SetElementId( const FPaintedVertex& Element, FOctreeElementId Id )
+	{
+	}
+};
+typedef TOctree<FPaintedVertex, FStaticMeshComponentVertPosOctreeSemantics> TSMCVertPosOctree;
+
+void RemapPaintedVertexColors(
+	const TArray<FPaintedVertex>& InPaintedVertices,
+	const FColorVertexBuffer& InOverrideColors,
+	const FPositionVertexBuffer& NewPositions,
+	const FStaticMeshVertexBuffer* OptionalVertexBuffer,
+	TArray<FColor>& OutOverrideColors
+	)
+{
+
+	// Local copy of painted vertices we can scratch on.
+	TArray<FPaintedVertex> PaintedVertices(InPaintedVertices);
+
+	// Find the extents formed by the cached vertex positions in order to optimize the octree used later
+	FVector MinExtents( PaintedVertices[ 0 ].Position );
+	FVector MaxExtents( PaintedVertices[ 0 ].Position );
+
+	for (int32 VertIndex = 0; VertIndex < PaintedVertices.Num(); ++VertIndex)
+	{
+		FVector& CurVector = PaintedVertices[ VertIndex ].Position;
+
+		MinExtents.X = FMath::Min<float>( MinExtents.X, CurVector.X );
+		MinExtents.Y = FMath::Min<float>( MinExtents.Y, CurVector.Y );
+		MinExtents.Z = FMath::Min<float>( MinExtents.Z, CurVector.Z );
+
+		MaxExtents.X = FMath::Max<float>( MaxExtents.X, CurVector.X );
+		MaxExtents.Y = FMath::Max<float>( MaxExtents.Y, CurVector.Y );
+		MaxExtents.Z = FMath::Max<float>( MaxExtents.Z, CurVector.Z );
+	}
+
+	// Create an octree which spans the extreme extents of the old and new vertex positions in order to quickly query for the colors
+	// of the new vertex positions
+	for (int32 VertIndex = 0; VertIndex < (int32)NewPositions.GetNumVertices(); ++VertIndex)
+	{
+		FVector CurVector = NewPositions.VertexPosition(VertIndex);
+
+		MinExtents.X = FMath::Min<float>( MinExtents.X, CurVector.X );
+		MinExtents.Y = FMath::Min<float>( MinExtents.Y, CurVector.Y );
+		MinExtents.Z = FMath::Min<float>( MinExtents.Z, CurVector.Z );
+
+		MaxExtents.X = FMath::Max<float>( MaxExtents.X, CurVector.X );
+		MaxExtents.Y = FMath::Max<float>( MaxExtents.Y, CurVector.Y );
+		MaxExtents.Z = FMath::Max<float>( MaxExtents.Z, CurVector.Z );
+	}
+
+	FBox Bounds( MinExtents, MaxExtents );
+	TSMCVertPosOctree VertPosOctree( Bounds.GetCenter(), Bounds.GetExtent().GetMax() );
+
+	// Add each old vertex to the octree
+	for ( int32 PaintedVertexIndex = 0; PaintedVertexIndex < PaintedVertices.Num(); ++PaintedVertexIndex )
+	{
+		VertPosOctree.AddElement( PaintedVertices[ PaintedVertexIndex ] );
+	}
+
+
+	// Iterate over each new vertex position, attempting to find the old vertex it is closest to, applying
+	// the color of the old vertex to the new position if possible.
+	OutOverrideColors.Empty(NewPositions.GetNumVertices());
+	const float DistanceOverNormalThreshold = OptionalVertexBuffer ? KINDA_SMALL_NUMBER : 0.0f;
+	for ( uint32 NewVertIndex = 0; NewVertIndex < NewPositions.GetNumVertices(); ++NewVertIndex )
+	{
+		TArray<FPaintedVertex> PointsToConsider;
+		TSMCVertPosOctree::TConstIterator<> OctreeIter( VertPosOctree );
+		const FVector& CurPosition = NewPositions.VertexPosition( NewVertIndex );
+		FVector CurNormal = FVector::ZeroVector;
+		if (OptionalVertexBuffer)
+		{
+			CurNormal = OptionalVertexBuffer->VertexTangentZ( NewVertIndex );
+		}
+
+		// Iterate through the octree attempting to find the vertices closest to the current new point
+		while ( OctreeIter.HasPendingNodes() )
+		{
+			const TSMCVertPosOctree::FNode& CurNode = OctreeIter.GetCurrentNode();
+			const FOctreeNodeContext& CurContext = OctreeIter.GetCurrentContext();
+
+			// Find the child of the current node, if any, that contains the current new point
+			FOctreeChildNodeRef ChildRef = CurContext.GetContainingChild( FBoxCenterAndExtent( CurPosition, FVector::ZeroVector ) );
+
+			if ( !ChildRef.IsNULL() )
+			{
+				const TSMCVertPosOctree::FNode* ChildNode = CurNode.GetChild( ChildRef );
+
+				// If the specified child node exists and contains any of the old vertices, push it to the iterator for future consideration
+				if ( ChildNode && ChildNode->GetInclusiveElementCount() > 0 )
+				{
+					OctreeIter.PushChild( ChildRef );
+				}
+				// If the child node doesn't have any of the old vertices in it, it's not worth pursuing any further. In an attempt to find
+				// anything to match vs. the new point, add all of the children of the current octree node that have old points in them to the
+				// iterator for future consideration.
+				else
+				{
+					FOREACH_OCTREE_CHILD_NODE( ChildRef )
+					{
+						if( CurNode.HasChild( ChildRef ) && CurNode.GetChild( ChildRef )->GetInclusiveElementCount() > 0 )
+						{
+							OctreeIter.PushChild( ChildRef );
+						}
+					}
+				}
+			}
+
+			// Add all of the elements in the current node to the list of points to consider for closest point calculations
+			PointsToConsider.Append( CurNode.GetElements() );
+			OctreeIter.Advance();
+		}
+
+		// If any points to consider were found, iterate over each and find which one is the closest to the new point 
+		if ( PointsToConsider.Num() > 0 )
+		{
+			FPaintedVertex BestVertex = PointsToConsider[0];
+			float BestDistanceSquared = ( BestVertex.Position - CurPosition ).SizeSquared();
+			float BestNormalDot = FVector( BestVertex.Normal ) | CurNormal;
+
+			for ( int32 ConsiderationIndex = 1; ConsiderationIndex < PointsToConsider.Num(); ++ConsiderationIndex )
+			{
+				FPaintedVertex& Vertex = PointsToConsider[ ConsiderationIndex ];
+				const float DistSqrd = ( Vertex.Position - CurPosition ).SizeSquared();
+				const float NormalDot = FVector( Vertex.Normal ) | CurNormal;
+				if ( DistSqrd < BestDistanceSquared - DistanceOverNormalThreshold )
+				{
+					BestVertex = Vertex;
+					BestDistanceSquared = DistSqrd;
+					BestNormalDot = NormalDot;
+				}
+				else if ( OptionalVertexBuffer && DistSqrd < BestDistanceSquared + DistanceOverNormalThreshold && NormalDot > BestNormalDot )
+				{
+					BestVertex = Vertex;
+					BestDistanceSquared = DistSqrd;
+					BestNormalDot = NormalDot;
+				}
+			}
+
+			OutOverrideColors.Add(BestVertex.Color);
+		}
+	}
+}
+#endif // #if WITH_EDITOR
+
+/*------------------------------------------------------------------------------
+	Conversion of legacy source data.
+------------------------------------------------------------------------------*/
+
+#if WITH_EDITOR
+
+struct FStaticMeshTriangle
+{
+	FVector		Vertices[3];
+	FVector2D	UVs[3][8];
+	FColor		Colors[3];
+	int32			MaterialIndex;
+	int32			FragmentIndex;
+	uint32		SmoothingMask;
+	int32			NumUVs;
+
+	FVector		TangentX[3]; // Tangent, U-direction
+	FVector		TangentY[3]; // Binormal, V-direction
+	FVector		TangentZ[3]; // Normal
+
+	uint32		bOverrideTangentBasis;
+	uint32		bExplicitNormals;
+};
+
+struct FStaticMeshTriangleBulkData : public FUntypedBulkData
+{
+	virtual int32 GetElementSize() const
+	{
+		return sizeof(FStaticMeshTriangle);
+	}
+
+	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+	{
+		FStaticMeshTriangle& StaticMeshTriangle = *((FStaticMeshTriangle*)Data + ElementIndex);
+		Ar << StaticMeshTriangle.Vertices[0];
+		Ar << StaticMeshTriangle.Vertices[1];
+		Ar << StaticMeshTriangle.Vertices[2];
+		for( int32 VertexIndex=0; VertexIndex<3; VertexIndex++ )
+		{
+			for( int32 UVIndex=0; UVIndex<8; UVIndex++ )
+			{
+				Ar << StaticMeshTriangle.UVs[VertexIndex][UVIndex];
+			}
+        }
+		Ar << StaticMeshTriangle.Colors[0];
+		Ar << StaticMeshTriangle.Colors[1];
+		Ar << StaticMeshTriangle.Colors[2];
+		Ar << StaticMeshTriangle.MaterialIndex;
+		Ar << StaticMeshTriangle.FragmentIndex;
+		Ar << StaticMeshTriangle.SmoothingMask;
+		Ar << StaticMeshTriangle.NumUVs;
+		Ar << StaticMeshTriangle.TangentX[0];
+		Ar << StaticMeshTriangle.TangentX[1];
+		Ar << StaticMeshTriangle.TangentX[2];
+		Ar << StaticMeshTriangle.TangentY[0];
+		Ar << StaticMeshTriangle.TangentY[1];
+		Ar << StaticMeshTriangle.TangentY[2];
+		Ar << StaticMeshTriangle.TangentZ[0];
+		Ar << StaticMeshTriangle.TangentZ[1];
+		Ar << StaticMeshTriangle.TangentZ[2];
+		Ar << StaticMeshTriangle.bOverrideTangentBasis;
+		Ar << StaticMeshTriangle.bExplicitNormals;
+	}
+
+	virtual bool RequiresSingleElementSerialization( FArchive& Ar )
+	{
+		return false;
+	}
+};
+
+struct FFragmentRange
+{
+	int32 BaseIndex;
+	int32 NumPrimitives;
+
+	friend FArchive& operator<<(FArchive& Ar,FFragmentRange& FragmentRange)
+	{
+		Ar << FragmentRange.BaseIndex << FragmentRange.NumPrimitives;
+		return Ar;
+	}
+};
+
+void UStaticMesh::FixupZeroTriangleSections()
+{
+	if (RenderData->MaterialIndexToImportIndex.Num() > 0 && RenderData->LODResources.Num())
+	{
+		TArray<int32> MaterialMap;
+		FMeshSectionInfoMap NewSectionInfoMap;
+
+		// Iterate over all sections of all LODs and identify all material indices that need to be remapped.
+		for (int32 LODIndex = 0; LODIndex < RenderData->LODResources.Num(); ++ LODIndex)
+		{
+			FStaticMeshLODResources& LOD = RenderData->LODResources[LODIndex];
+			int32 NumSections = LOD.Sections.Num();
+
+			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+			{
+				FMeshSectionInfo DefaultSectionInfo(SectionIndex);
+				if (RenderData->MaterialIndexToImportIndex.IsValidIndex(SectionIndex))
+				{
+					int32 ImportIndex = RenderData->MaterialIndexToImportIndex[SectionIndex];
+					FMeshSectionInfo SectionInfo = SectionInfoMap.Get(LODIndex, ImportIndex);
+					int32 OriginalMaterialIndex = SectionInfo.MaterialIndex;
+
+					// If import index == material index, remap it.
+					if (SectionInfo.MaterialIndex == ImportIndex)
+					{
+						SectionInfo.MaterialIndex = SectionIndex;
+					}
+
+					// Update the material mapping table.
+					while (SectionInfo.MaterialIndex >= MaterialMap.Num())
+					{
+						MaterialMap.Add(INDEX_NONE);
+					}
+					if (SectionInfo.MaterialIndex >= 0)
+					{
+						MaterialMap[SectionInfo.MaterialIndex] = OriginalMaterialIndex;
+					}
+
+					// Update the new section info map if needed.
+					if (SectionInfo != DefaultSectionInfo)
+					{
+						NewSectionInfoMap.Set(LODIndex, SectionIndex, SectionInfo);
+					}
+				}
+			}
+		}
+
+		// Compact the materials array.
+		for (int32 i = RenderData->LODResources[0].Sections.Num(); i < MaterialMap.Num(); ++i)
+		{
+			if (MaterialMap[i] == INDEX_NONE)
+			{
+				int32 NextValidIndex = i+1;
+				for (; NextValidIndex < MaterialMap.Num(); ++NextValidIndex)
+				{
+					if (MaterialMap[NextValidIndex] != INDEX_NONE)
+					{
+						break;
+					}
+				}
+				if (MaterialMap.IsValidIndex(NextValidIndex))
+				{
+					MaterialMap[i] = MaterialMap[NextValidIndex];
+					for (TMap<uint32,FMeshSectionInfo>::TIterator It(NewSectionInfoMap.Map); It; ++It)
+					{
+						FMeshSectionInfo& SectionInfo = It.Value();
+						if (SectionInfo.MaterialIndex == NextValidIndex)
+						{
+							SectionInfo.MaterialIndex = i;
+						}
+					}
+				}
+				MaterialMap.RemoveAt(i, NextValidIndex - i);
+			}
+		}
+
+		SectionInfoMap.Clear();
+		SectionInfoMap.CopyFrom(NewSectionInfoMap);
+
+		// Check if we need to remap materials.
+		bool bRemapMaterials = false;
+		for (int32 MaterialIndex = 0; MaterialIndex < MaterialMap.Num(); ++MaterialIndex)
+		{
+			if (MaterialMap[MaterialIndex] != MaterialIndex)
+			{
+				bRemapMaterials = true;
+				break;
+			}
+		}
+
+		// Remap the materials array if needed.
+		if (bRemapMaterials)
+		{
+			TArray<UMaterialInterface*> OldMaterials;
+			Exchange(Materials,OldMaterials);
+			Materials.Empty(MaterialMap.Num());
+			for (int32 MaterialIndex = 0; MaterialIndex < MaterialMap.Num(); ++MaterialIndex)
+			{
+				UMaterialInterface* Material = NULL;
+				int32 OldMaterialIndex = MaterialMap[MaterialIndex];
+				if (OldMaterials.IsValidIndex(OldMaterialIndex))
+				{
+					Material = OldMaterials[OldMaterialIndex];
+				}
+				Materials.Add(Material);
+			}
+		}
+	}
+	else
+	{
+		int32 FoundMaxMaterialIndex = -1;
+		TSet<int32> DiscoveredMaterialIndices;
+		
+		// Find the maximum material index that is used by the mesh
+		// Also keep track of which materials are actually used in the array
+		for(int32 LODIndex = 0; LODIndex < RenderData->LODResources.Num(); ++LODIndex)
+		{
+			if (RenderData->LODResources.IsValidIndex(LODIndex))
+			{
+				FStaticMeshLODResources& LOD = RenderData->LODResources[LODIndex];
+				int32 NumSections = LOD.Sections.Num();
+				for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+				{
+					FMeshSectionInfo Info = SectionInfoMap.Get(LODIndex, SectionIndex);
+					if(Info.MaterialIndex > FoundMaxMaterialIndex)
+					{
+						FoundMaxMaterialIndex = Info.MaterialIndex;
+					}
+
+					DiscoveredMaterialIndices.Add(Info.MaterialIndex);
+				}
+			}
+		}
+
+		// NULL references to materials in indices that are not used by any LOD.
+		// This is to fix up an import bug which caused more materials to be added to this array than needed.
+		for ( int32 MaterialIdx = 0; MaterialIdx < Materials.Num(); ++MaterialIdx )
+		{
+			if ( !DiscoveredMaterialIndices.Contains(MaterialIdx) )
+			{
+				// Materials that are not used by any LOD resource should not be in this array.
+				Materials[MaterialIdx] = NULL;
+			}
+		}
+
+		// Remove entries at the end of the materials array.
+		if (Materials.Num() > (FoundMaxMaterialIndex + 1))
+		{
+			Materials.RemoveAt(FoundMaxMaterialIndex+1, Materials.Num() - FoundMaxMaterialIndex - 1);
+		}
+	}
+}
+
+#endif // #if WITH_EDITOR
+
+#undef LOCTEXT_NAMESPACE

@@ -1,0 +1,25 @@
+{
+    "PluginFileVersion" : 1,
+	
+	"FriendlyName" : "Sound Module Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"MinEngineVersion" : 1579795,
+	"Description" : "Supports playback of ProTracker (MOD),  Scream Tracker 3 (S3M), Fast Tracker II (XM), and Impulse Tracker (IT) files.",
+	"CategoryPath" : "Audio.Playback",
+	
+    "Modules" :
+	[
+		{
+			"Name" : "SoundMod",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64", "Win32", "Mac", "Android" ]
+		},
+		{
+			"Name" : "SoundModImporter",
+			"Type" : "Editor"
+		}
+	]
+}

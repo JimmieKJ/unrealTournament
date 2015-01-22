@@ -1,0 +1,82 @@
+﻿INTSourceChangelist:1950693
+Title:A
+Crumbs:Shared/Glossary
+Description:
+Availability:NoPublish
+
+[EXCERPT:Glossary_A]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Actor
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Actor]
+**Actor** 是可以放置在关卡中的任意对象。 从技术上来说，就是包含诸如平移，旋转和缩放的3D转换数据的通用类。 所有可放置的对象都继承于此类。 示例包括静态网格物体Actors, 相机Actors,以及光照Actors。
+[/EXCERPT:Glossary_Actor]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+AI
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_AI]
+**AI**,或者说人工智能，是由一系列程序化的指示来控制的操作，而不由人工输入来控制。  例如，非玩家控制的角色（NPCs）就是由AI控制的。
+[/EXCERPT:Glossary_AI]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+animation（动画）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_animation]
+**Animation** （动画）是随时间而变更的属性值。 示例包括位置，旋转，和/或缩放的变更，但也可以扩展到其它任意属性。
+
+"Animation" （动画）可以特指在虚幻Matinee中创建的序列，或是在外部3D建模和动画应用中为骨架网格物体创建的序列，然后被导入到虚幻编辑器中。 它甚至可以指由C++ 代码或蓝图创建的随时间变化的Actor的单个属性（或多个属性）。
+[/EXCERPT:Glossary_animation]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Animation Sequence（动画序列）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_animation_sequence]
+**Animation Sequence** （动画序列）, 或 **AnimSequence** （动画序列的缩写），是为骨架网格物体在3D建模和动画应用中创建的动画资源，它们被随后导入到虚幻编辑器中。 您可以在Persona中使用动画序列。
+[/EXCERPT:Glossary_animation_sequence]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+asset（资源）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_asset]
+**asset** （资源）是用来构建游戏的要素。   示例包含了在内容浏览器中导入或在内容浏览器中创建的内容，例如材质，静态网格物体，贴图，粒子系统，蓝图以及声音提示。  每个资源都被存储在单独的.uasset文件中。
+[/EXCERPT:Glossary_asset]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[/EXCERPT:Glossary_A]
+

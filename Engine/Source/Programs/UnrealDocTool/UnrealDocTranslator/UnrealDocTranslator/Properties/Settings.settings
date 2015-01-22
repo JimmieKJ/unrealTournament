@@ -1,0 +1,36 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="UnrealDocTranslator.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="TranslationLanguages" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">KOR,JPN,CHN</Value>
+    </Setting>
+    <Setting Name="SourceDirectoryName" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Source</Value>
+    </Setting>
+    <Setting Name="OutputDirectoryName" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">HTML</Value>
+    </Setting>
+    <Setting Name="DefaultDepotPath" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">//depot/UE4/Engine/Documentation/Source...udn</Value>
+    </Setting>
+    <Setting Name="DefaultAraxisPath" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">C:\Program Files\Araxis\Araxis Merge</Value>
+    </Setting>
+    <Setting Name="MoveDeleteChangelistDescription" Type="System.String" Scope="User">
+      <Value Profile="(Default)">#loc UE4Doc{0} moved or deleted</Value>
+    </Setting>
+    <Setting Name="DepotPathMustStartWith" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">//Depot</Value>
+    </Setting>
+    <Setting Name="DepotPathMustEndWith" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">...udn</Value>
+    </Setting>
+    <Setting Name="DefaultSearchBoxText" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Search Files</Value>
+    </Setting>
+    <Setting Name="SubmitChangelistDescription" Type="System.String" Scope="User">
+      <Value Profile="(Default)">#loc UE4Doc{0}</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

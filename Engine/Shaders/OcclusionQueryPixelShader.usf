@@ -1,0 +1,12 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	OcclusionQueryPixelShader.hlsl: Pixel shader for drawing occlusion queries.
+=============================================================================*/
+
+#include "Common.usf"
+
+void Main(out float4 OutColor : SV_Target0)
+{
+	OutColor = 0;
+}

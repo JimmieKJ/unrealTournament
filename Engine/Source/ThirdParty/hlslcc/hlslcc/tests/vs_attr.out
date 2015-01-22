@@ -1,0 +1,23 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: f2:in_ATTRIBUTE0,f2:in_ATTRIBUTE1
+// @Outputs: f4:gl_Position
+#version 150
+in vec2 in_ATTRIBUTE0;
+in vec2 in_ATTRIBUTE1;
+out TEXCOORD0 { vec2 Data; } out_TEXCOORD0;
+void main()
+{
+	vec4 t0;
+	vec4 t1;
+	t1.zw = vec2(0.0,1.0);
+	t1.xy = in_ATTRIBUTE0;
+	t0.xyzw = t1;
+	out_TEXCOORD0.Data.xy = in_ATTRIBUTE1;
+	t0.y = (-in_ATTRIBUTE0.y);
+	t0.z = -1.0;
+	gl_Position.xyzw = t0;
+}
+

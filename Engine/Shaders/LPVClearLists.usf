@@ -1,0 +1,36 @@
+//-----------------------------------------------------------------------------
+// File:		LPVClearLists.usf
+//
+// Summary:		Shader to clear LPV linked lists
+//
+// Created:		2013-12-08
+//
+// Author:		mailto:benwood@microsoft.com
+//
+//				Copyright (C) Microsoft. All rights reserved.
+//-----------------------------------------------------------------------------
+
+/*------------------------------------------------------------------------------
+	Compile time parameters:
+------------------------------------------------------------------------------*/
+
+#include "Common.usf"
+#include "LPVWriteCommon.usf" 
+#include "LPVGeometryVolumeCommon.usf"
+
+//------------------------------------------------------------------------------
+
+RWByteAddressBuffer								RWVplListHeadBuffer;
+RWByteAddressBuffer								RWGvListHeadBuffer;
+
+//------------------------------------------------------------------------------
+[numthreads(4,4,4)]
+void CSClearLists(uint3 DTid : SV_DispatchThreadID) 
+{
+	uint i = GetGridAddress( DTid );
+
+	RWVplListHeadBuffer.Store( i*4, -1 );
+	RWGvListHeadBuffer.Store( i*4, -1 );
+}
+
+//------------------------------------------------------------------------------

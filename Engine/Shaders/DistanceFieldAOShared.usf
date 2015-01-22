@@ -1,0 +1,140 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DistanceFieldAOShared.usf
+=============================================================================*/
+
+#ifndef SORTTHREADGROUP_SIZEX
+#define SORTTHREADGROUP_SIZEX 1
+#endif
+
+#ifndef SORTTHREADGROUP_SIZEY
+#define SORTTHREADGROUP_SIZEY 1
+#endif
+
+#ifndef NUM_CONE_DIRECTIONS
+#define NUM_CONE_DIRECTIONS 1
+#endif
+
+#ifndef CONE_TRACE_PHASE
+#define CONE_TRACE_PHASE -1
+#endif
+
+// Must match C++
+#define NUM_CONE_STEPS 10
+
+float AOMaxDistance;
+float AOStepScale;
+float AOStepExponentScale;
+float AOMaxViewDistance;
+
+#define NUM_CULLED_OBJECT_LISTS 3
+
+void GetPhaseParameters(uint Phase, out uint StartIndex, out uint EndIndex)
+{
+	if (Phase == 0)
+	{
+		StartIndex = 0;
+		EndIndex = 4;
+	}
+	else if (Phase == 1)
+	{
+		StartIndex = 5;
+		EndIndex = 7;
+	}
+	else
+	{
+		StartIndex = 8;
+		EndIndex = 9;
+	}
+}
+
+float GetStepOffset(float StepIndex)
+{
+	return AOStepScale * exp2(AOStepExponentScale * StepIndex);
+}
+
+Buffer<uint> TileHeadDataUnpacked;
+Buffer<uint4> TileHeadData;
+Buffer<uint> TileArrayData;
+uint2 TileListGroupSize;
+
+
+#define UNPACKED_TILE_HEAD 1
+#define COHERENT_OBJECT_LIST_WRITES 1
+ 
+uint4 GetTileHead(uint2 TileCoordinate) 
+{ 
+	uint TileIndex = TileCoordinate.y * TileListGroupSize.x + TileCoordinate.x;
+#if UNPACKED_TILE_HEAD
+	return uint4(
+		TileHeadDataUnpacked[TileIndex * 4 + 0], 
+		min(TileHeadDataUnpacked[TileIndex * 4 + 1], (uint)MAX_OBJECTS_PER_TILE),
+		min(TileHeadDataUnpacked[TileIndex * 4 + 2], (uint)MAX_OBJECTS_PER_TILE),
+		min(TileHeadDataUnpacked[TileIndex * 4 + 3], (uint)MAX_OBJECTS_PER_TILE));
+#else
+	return TileHeadData[TileIndex];
+#endif
+}
+
+Texture2D DistanceFieldNormalTexture;
+SamplerState DistanceFieldNormalSampler;
+
+int CurrentLevelDownsampleFactor;
+float2 AOBufferSize;
+
+int DownsampleFactorToBaseLevel;
+float2 BaseLevelTexelSize;
+
+float3 EncodeNormalForAO(float3 InNormal)
+{
+	return InNormal.xyz;
+}
+
+float3 DecodeNormalForAO(float3 InNormal)
+{
+	return InNormal.xyz;
+}
+
+bool SphereIntersectCone(float4 SphereCenterAndRadius, float3 ConeVertex, float3 ConeAxis, float ConeAngleCos, float ConeAngleSin)
+{
+	float3 U = ConeVertex - (SphereCenterAndRadius.w / ConeAngleSin) * ConeAxis;
+	float3 D = SphereCenterAndRadius.xyz - U;
+	float DSizeSq = dot(D, D);
+	float E = dot(ConeAxis, D);
+
+	if (E > 0 && E * E >= DSizeSq * ConeAngleCos * ConeAngleCos)
+	{
+		D = SphereCenterAndRadius.xyz - ConeVertex;
+		DSizeSq = dot(D, D);
+		E = -dot(ConeAxis, D);
+
+		if (E > 0 && E * E >= DSizeSq * ConeAngleSin * ConeAngleSin)
+		{
+			return DSizeSq <= SphereCenterAndRadius.w * SphereCenterAndRadius.w;
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool SphereIntersectConeWithDepthRanges(float4 SphereCenterAndRadius, float3 ConeVertex, float3 ConeAxis, float ConeAngleCos, float ConeAngleSin, float4 ConeAxisDepthRanges)
+{
+	if (SphereIntersectCone(SphereCenterAndRadius, ConeVertex, ConeAxis, ConeAngleCos, ConeAngleSin))
+	{
+		float ConeAxisDistance = dot(SphereCenterAndRadius.xyz - ConeVertex, ConeAxis);
+		float2 ConeAxisDistanceMinMax = float2(ConeAxisDistance + SphereCenterAndRadius.w, ConeAxisDistance - SphereCenterAndRadius.w);
+
+		if (ConeAxisDistanceMinMax.x > ConeAxisDepthRanges.x && ConeAxisDistanceMinMax.y < ConeAxisDepthRanges.y
+			|| ConeAxisDistanceMinMax.x > ConeAxisDepthRanges.z && ConeAxisDistanceMinMax.y < ConeAxisDepthRanges.w)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}

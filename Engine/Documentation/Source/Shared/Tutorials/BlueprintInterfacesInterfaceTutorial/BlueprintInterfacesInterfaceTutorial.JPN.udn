@@ -1,0 +1,123 @@
+﻿Availability:NoPublish
+Title:ブループリントインターフェースエディタの概要
+Crumbs:
+Description:アンリアル・エンジン 4 チュートリアル入門の内容
+
+[EXCERPT:Stage1]
+[VAR:StageTitle]
+ブループリントインターフェースの段階的な説明 
+[/VAR]
+
+ブループリントインターフェースの段階的な説明を開始します。ブループリントインターフェースはブループリントシステムの高度な機能で、さまざまなブループリントで呼び出したり実装することが可能な関数のコレクションを作成することができます。
+
+ブループリントエディタは、ユーザーが編集中のブループリントの種類に対応します。このチュートリアルは、ユーザーがレベルブループリントを編集時に利用可能なインターフェースエレメントについて段階的な説明をします。
+
+[Read more about Blueprint Interfaces](DOCLINK:Engine/Blueprints/UserGuide/Types/Interface)
+
+
+
+[/EXCERPT:Stage1]
+
+
+
+[EXCERPT:Stage2]
+[VAR:StageTitle]
+Graphモード
+[/VAR]
+
+ブループリントインターフェースは、インターフェース関数のコレクションです。インターフェースの作業中は、ブループリントエディタは [Graph] モードになります。
+
+しかし関数はブループリントインターフェース内で編集されていないため、パネルのサブセットのみが利用可能です。 
+
+
+
+[/EXCERPT:Stage2]
+
+
+
+[EXCERPT:Stage3]
+[VAR:StageTitle]
+マイブループリント
+[/VAR]
+
+[My Blueprint] パネルは、ブループリントインターフェースに格納された関数が表示されます。原則的には、既存関数を簡単に表示するだけでなく、新たな関数を作成することができるディレクトリです。
+
+[Read more about the My Blueprint panel.](DOCLINK:Engine/Blueprints/Editor/UIComponents/MyBlueprint)
+
+
+
+[/EXCERPT:Stage3]
+
+
+
+
+[EXCERPT:Stage4]
+[VAR:StageTitle]
+詳細
+[/VAR]
+
+[Details] パネルはコンテキスト依存領域で、ブループリントエディタ内で選択されたアイテムを編集するためのアクセス制御が行えます。特定のプロパティへ素早くアクセスができる検索バーや、収容されているプロパティを整理するために折りたたみ可能なカテゴリが通常は1つ以上含まれています。
+
+インターフェースの関数に入出力値を追加または削除するには、 [My Blueprint] パネルで関数名を選択してから、 [Details] パネルでプロパティを変更します。
+
+[Read more about the Details panel.](DOCLINK:Engine/Blueprints/Editor/UIComponents/Details)
+
+
+
+[/EXCERPT:Stage4]
+
+
+[EXCERPT:Stage5]
+[VAR:StageTitle]
+グラフ
+[/VAR]
+
+ブループリントインターフェースの[My Blueprint] パネルには、デフォルトで関数がありません。ここで、[My Blueprint] パネルの [Add Function] ボタンをクリックして関数を一つ作成してみましょう。
+
+** [Add Function] ボタンをクリックした後に [NEXT] をクリックして継続します。**
+
+[/EXCERPT:Stage5]
+
+
+
+[EXCERPT:Stage9]
+[VAR:StageTitle]
+グラフ
+[/VAR]
+
+ブループリントインターフェースで関数を作成すると、グラフが作成されて [Graph Editor] パネルが開きますが、ここにノードを追加したり、グラフを編集することはできません。 
+
+ブループリントインターフェースの関数を使用するそれぞれのブループリントは、個別のブループリントで設定された異なる実装方法を使用します。
+
+
+
+[/EXCERPT:Stage9]
+
+
+
+[EXCERPT:Stage10]
+[VAR:StageTitle]
+ツールバー
+[/VAR]
+ユーザーが編集中のブループリントの種類を採用するブループリントエディタとよく似て、ツールバーのボタンは、ユーザーが現在行っているタスクに対応します。
+
+ここでハイライトされている [Compile] ボタンはユーザーのブループリントをコンパイルして、対処しなくてはいけない問題が発生した時に警告またはエラーを表示します。 
+
+[Read more about the Toolbar.](DOCLINK:Engine/Blueprints/Editor/UIComponents/Toolbar)
+
+
+
+[/EXCERPT:Stage10]
+
+
+[EXCERPT:Stage11]
+[VAR:StageTitle]
+終了
+[/VAR]
+
+ブループリントインターフェースのエディタの概要に関するチュートリアルが終了です。
+
+ブループリントインターフェースを使用した作業の開始は、チュートリアルウィンドウを単に閉じるだけです。ブループリントに関するその他の文書を継続して読むには、以下のリンクをクリックしてください。
+
+[Blueprints](DOCLINK:Engine/Blueprints)
+[/EXCERPT:Stage11]

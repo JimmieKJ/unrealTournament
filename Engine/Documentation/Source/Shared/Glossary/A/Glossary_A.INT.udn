@@ -1,0 +1,81 @@
+Title:A
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_A]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Actor
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Actor]
+An **Actor** is any object that can be placed into a level. Technically, a generic class that contains 3D transform data such as translation, rotation, and scale. All placeable objects extend from this class. Examples include Static Mesh Actors, Camera Actors, and Light Actors.
+[/EXCERPT:Glossary_Actor]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+AI
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_AI]
+**AI**, or Artificial intelligence, is behavior controlled by a set of programmed instructions, instead of by human input.  For example, non-player characters (NPCs) are controlled with AI.
+[/EXCERPT:Glossary_AI]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+animation
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_animation]
+**Animation** is a change in a property value over time. Examples include changes in position, rotation, and/or scale, but can also extend to any other property value as well.
+
+"Animation" can refer specifically to sequences created in Unreal Matinee, or to sequences created for Skeletal Meshes in external 3D modeling and animation applications, and then imported into the Unreal Editor. It can even refer to a change over time in an Actor's property (or properties) created by C++ code or Blueprints.
+[/EXCERPT:Glossary_animation]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Animation Sequence
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_animation_sequence]
+An **Animation Sequence**, or **AnimSequence**, is an animation asset created in a 3D modeling and animation application for a Skeletal Mesh, and then imported into the Unreal Editor. You can work with Animation Sequences in Persona.
+[/EXCERPT:Glossary_animation_sequence]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+asset
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_asset]
+An **asset** is an element used to build a game.   Examples include content imported into or created in the **Content Browser**, such as Materials, Static Meshes, Textures, Particle Systems, Blueprints, and Sound Cues.  Each asset is saved in an individual .uasset file.
+[/EXCERPT:Glossary_asset]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[/EXCERPT:Glossary_A]
+

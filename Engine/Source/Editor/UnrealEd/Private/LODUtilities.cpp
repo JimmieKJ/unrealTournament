@@ -1,0 +1,141 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "UnrealEd.h"
+
+#include "LODUtilities.h"
+
+#include "MeshUtilities.h"
+
+#if WITH_APEX_CLOTHING
+	#include "ApexClothingUtils.h"
+#endif // #if WITH_APEX_CLOTHING
+
+#include "ComponentReregisterContext.h"
+
+void FLODUtilities::RemoveLOD(FSkeletalMeshUpdateContext& UpdateContext, int32 DesiredLOD )
+{
+	USkeletalMesh* SkeletalMesh = UpdateContext.SkeletalMesh;
+	FSkeletalMeshResource* SkelMeshResource = SkeletalMesh->GetImportedResource();
+
+	if( SkelMeshResource->LODModels.Num() == 1 )
+	{
+		FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "NoLODToRemove", "No LODs to remove!") );
+		return;
+	}
+
+	// Now display combo to choose which LOD to remove.
+	TArray<FString> LODStrings;
+	LODStrings.AddZeroed( SkelMeshResource->LODModels.Num()-1 );
+	for(int32 i=0; i<SkelMeshResource->LODModels.Num()-1; i++)
+	{
+		LODStrings[i] = FString::Printf( TEXT("%d"), i+1 );
+	}
+
+	check( SkeletalMesh->LODInfo.Num() == SkelMeshResource->LODModels.Num() );
+
+	// If its a valid LOD, kill it.
+	if( DesiredLOD > 0 && DesiredLOD < SkelMeshResource->LODModels.Num() )
+	{
+		//We'll be modifying the skel mesh data so reregister
+
+		//TODO - do we need to reregister something else instead?
+		FMultiComponentReregisterContext ReregisterContext(UpdateContext.AssociatedComponents);
+
+		// Release rendering resources before deleting LOD
+		SkelMeshResource->ReleaseResources();
+
+		// Block until this is done
+		FlushRenderingCommands();
+
+		SkelMeshResource->LODModels.RemoveAt(DesiredLOD);
+		SkeletalMesh->LODInfo.RemoveAt(DesiredLOD);
+		SkeletalMesh->InitResources();
+
+		RefreshLODChange(SkeletalMesh);
+
+		// Set the forced LOD to Auto.
+		for(auto Iter = UpdateContext.AssociatedComponents.CreateIterator(); Iter; ++Iter)
+		{
+			USkinnedMeshComponent* SkinnedComponent = Cast<USkinnedMeshComponent>(*Iter);
+			if(SkinnedComponent)
+			{
+				SkinnedComponent->ForcedLodModel = 0;
+			}
+		}
+		
+		//Notify calling system of change
+		UpdateContext.OnLODChanged.ExecuteIfBound();
+
+		// Mark things for saving.
+		SkeletalMesh->MarkPackageDirty();
+	}
+}
+
+void FLODUtilities::SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings )
+{
+	USkeletalMesh* SkeletalMesh = UpdateContext.SkeletalMesh;
+	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+	IMeshReduction* MeshReduction = MeshUtilities.GetMeshReductionInterface();
+
+	if ( MeshReduction && MeshReduction->IsSupported() && SkeletalMesh )
+	{
+		// Simplify each LOD
+		for (int32 SettingIndex = 0; SettingIndex < InSettings.Num(); ++SettingIndex)
+		{
+			uint32 DesiredLOD = SettingIndex + 1;
+
+			// check whether reduction settings are same or not
+			if (SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD) 
+			 && SkeletalMesh->LODInfo[DesiredLOD].ReductionSettings == InSettings[SettingIndex])
+			{
+				continue;
+			}
+
+			{
+				FFormatNamedArguments Args;
+				Args.Add( TEXT("DesiredLOD"), DesiredLOD );
+				Args.Add( TEXT("SkeletalMeshName"), FText::FromString(SkeletalMesh->GetName()) );
+				const FText StatusUpdate = FText::Format( NSLOCTEXT("UnrealEd", "MeshSimp_GeneratingLOD_F", "Generating LOD{DesiredLOD} for {SkeletalMeshName}..." ), Args );
+				GWarn->BeginSlowTask( StatusUpdate, true );
+			}
+
+			if (MeshReduction->ReduceSkeletalMesh(SkeletalMesh, DesiredLOD, InSettings[SettingIndex], true))
+			{
+				check( SkeletalMesh->LODInfo.Num() >= 2 );
+				SkeletalMesh->MarkPackageDirty();
+#if WITH_APEX_CLOTHING
+				ApexClothingUtils::ReImportClothingSectionsFromClothingAsset(SkeletalMesh);
+#endif// #if WITH_APEX_CLOTHING
+			}
+			else
+			{
+				// Simplification failed! Warn the user.
+				FFormatNamedArguments Args;
+				Args.Add( TEXT("SkeletalMeshName"), FText::FromString(SkeletalMesh->GetName()) );
+				const FText Message = FText::Format( NSLOCTEXT("UnrealEd", "MeshSimp_GenerateLODFailed_F", "An error occurred while simplifying the geometry for mesh '{SkeletalMeshName}'.  Consider adjusting simplification parameters and re-simplifying the mesh." ), Args );
+				FMessageDialog::Open( EAppMsgType::Ok, Message );
+			}
+			GWarn->EndSlowTask();
+		}
+
+		//Notify calling system of change
+		UpdateContext.OnLODChanged.ExecuteIfBound();
+	}
+}
+
+void FLODUtilities::RefreshLODChange(const USkeletalMesh* SkeletalMesh)
+{
+	for (FObjectIterator Iter(USkeletalMeshComponent::StaticClass()); Iter; ++Iter)
+	{
+		USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(*Iter);
+		if  (SkeletalMeshComponent->SkeletalMesh == SkeletalMesh)
+		{
+			// it needs to recreate IF it already has been created
+			if (SkeletalMeshComponent->IsRegistered())
+			{
+				SkeletalMeshComponent->UpdateLODStatus();
+				SkeletalMeshComponent->MarkRenderStateDirty();
+			}
+		}
+	}
+}

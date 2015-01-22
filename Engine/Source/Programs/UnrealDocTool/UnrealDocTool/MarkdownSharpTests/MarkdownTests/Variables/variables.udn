@@ -1,0 +1,75 @@
+﻿[VAR:Test]
+[OBJECT:Topic]
+    [PARAM:image]
+        ![%TestA%](Editor/editor_topic.png)
+    [/PARAM]
+    [PARAM:icon]
+        ![](%ROOT%/editor_icon.png)(convert:false)
+    [/PARAM]
+    [PARAM:title]
+        %TestA%
+    [/PARAM]
+    [PARAM:description]
+        %TestB%
+    [/PARAM]
+    [PARAM:path]
+        [RELATIVE:Editor]
+    [/PARAM]
+[/OBJECT]
+[/VAR]
+
+[VAR:TestA]
+Test A
+[/VAR]
+
+[VAR:TestB]
+Test B
+[/VAR]
+
+%Test%
+
+[VAR:TablePartVar]
+| cell A | cell B |
+[/VAR]
+
+[VAR:TestVar]
+Test Var
+[/VAR]
+
+| Table Col A | Table Col B |
+| ----------- | ----------- |
+%TablePartVar%
+
+Normal paragraph %TestVar%. Normal paragraph %TestVar%. Normal paragraph
+%TestVar%. Normal paragraph %TestVar%. Normal paragraph %TestVar%. Normal
+paragraph %TestVar%. Normal paragraph %TestVar%. Normal paragraph %TestVar%.
+Normal paragraph %TestVar%. Normal paragraph %TestVar%. Normal paragraph
+%TestVar%.
+
+    Code block test %TestVar%. Code block test. Code block test. Code block test
+    %TestVar%. Code block test. Code block test. Code block test %TestVar%.
+    Code block test. Code block test. Code block test %TestVar%. Code block
+    test. Code block test.
+
+1. List test %TestVar%. List test %TestVar%. List test %TestVar%. List test
+    %TestVar%. List test %TestVar%. List test %TestVar%. List test %TestVar%.
+    List test %TestVar%. List test %TestVar%. List test %TestVar%. 
+
+        Code block test %TestVar%. Code block test. Code block test. Code block test
+        %TestVar%. Code block test. Code block test. Code block test %TestVar%.
+        Code block test. Code block test. Code block test %TestVar%. Code block
+        test. Code block test.
+
+1. List test %TestVar%. List test %TestVar%. List test %TestVar%. List test
+    %TestVar%. List test %TestVar%. List test %TestVar%. List test %TestVar%.
+    List test %TestVar%. List test %TestVar%. List test %TestVar%. 
+
+
+
+[VAR:regionClassVar]
+testClass
+[/VAR]
+
+[REGION:%regionClassVar%]
+Test Region
+[/REGION]

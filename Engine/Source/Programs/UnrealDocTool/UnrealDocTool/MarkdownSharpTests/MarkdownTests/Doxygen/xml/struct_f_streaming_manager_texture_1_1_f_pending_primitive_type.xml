@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="1.8.4">
+  <compounddef id="struct_f_streaming_manager_texture_1_1_f_pending_primitive_type" kind="struct" prot="protected">
+    <compoundname>FStreamingManagerTexture::FPendingPrimitiveType</compoundname>
+    <includes local="no">ContentStreaming.h</includes>
+      <sectiondef kind="public-attrib">
+      <memberdef kind="variable" id="struct_f_streaming_manager_texture_1_1_f_pending_primitive_type_aba534c3a3c391ed2adc8f17155347f7f_1aba534c3a3c391ed2adc8f17155347f7f" prot="public" static="no" mutable="no">
+        <type>EDynamicPrimitiveType</type>
+        <definition>EDynamicPrimitiveType DynamicType</definition>
+        <argsstring></argsstring>
+        <name>DynamicType</name>
+        <briefdescription>
+        </briefdescription>
+        <detaileddescription>
+        </detaileddescription>
+        <inbodydescription>
+        </inbodydescription>
+        <location file="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" line="1158" column="1" bodyfile="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" bodystart="1158" bodyend="-1"/>
+      </memberdef>
+      <memberdef kind="variable" id="struct_f_streaming_manager_texture_1_1_f_pending_primitive_type_a4acc626795139fcda91d06a267f2d969_1a4acc626795139fcda91d06a267f2d969" prot="public" static="no" mutable="no">
+        <type>bool</type>
+        <definition>bool bShouldTrack</definition>
+        <argsstring></argsstring>
+        <name>bShouldTrack</name>
+        <briefdescription>
+        </briefdescription>
+        <detaileddescription>
+        </detaileddescription>
+        <inbodydescription>
+        </inbodydescription>
+        <location file="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" line="1159" column="1" bodyfile="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" bodystart="1159" bodyend="-1"/>
+      </memberdef>
+      </sectiondef>
+      <sectiondef kind="public-func">
+      <memberdef kind="function" id="struct_f_streaming_manager_texture_1_1_f_pending_primitive_type_aeabf359236b3710b5ce95e604e84548b_1aeabf359236b3710b5ce95e604e84548b" prot="public" static="no" const="no" explicit="no" inline="yes" virt="non-virtual">
+        <type></type>
+        <definition>FPendingPrimitiveType</definition>
+        <argsstring>(EDynamicPrimitiveType InDynamicType, bool bInShouldTrack)</argsstring>
+        <name>FPendingPrimitiveType</name>
+        <param>
+          <type>EDynamicPrimitiveType</type>
+          <declname>InDynamicType</declname>
+        </param>
+        <param>
+          <type>bool</type>
+          <declname>bInShouldTrack</declname>
+        </param>
+        <briefdescription>
+        </briefdescription>
+        <detaileddescription>
+        </detaileddescription>
+        <inbodydescription>
+        </inbodydescription>
+        <location file="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" line="1153" column="1" bodyfile="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" bodystart="1153" bodyend="1157"/>
+      </memberdef>
+      </sectiondef>
+    <briefdescription>
+      <para>First sentence.</para>
+    </briefdescription>
+    <detaileddescription>
+      <para>The rest of the comment.</para>
+    </detaileddescription>
+    <location file="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" line="1152" column="1" bodyfile="D:/Perforce/Epic/UE4/Engine/Source/Runtime/Engine/Public/ContentStreaming.h" bodystart="1151" bodyend="1160"/>
+    <listofallmembers>
+      <member refid="struct_f_streaming_manager_texture_1_1_f_pending_primitive_type_a4acc626795139fcda91d06a267f2d969_1a4acc626795139fcda91d06a267f2d969" prot="public" virt="non-virtual"><scope>FStreamingManagerTexture::FPendingPrimitiveType</scope><name>bShouldTrack</name></member>
+      <member refid="struct_f_streaming_manager_texture_1_1_f_pending_primitive_type_aba534c3a3c391ed2adc8f17155347f7f_1aba534c3a3c391ed2adc8f17155347f7f" prot="public" virt="non-virtual"><scope>FStreamingManagerTexture::FPendingPrimitiveType</scope><name>DynamicType</name></member>
+      <member refid="struct_f_streaming_manager_texture_1_1_f_pending_primitive_type_aeabf359236b3710b5ce95e604e84548b_1aeabf359236b3710b5ce95e604e84548b" prot="public" virt="non-virtual"><scope>FStreamingManagerTexture::FPendingPrimitiveType</scope><name>FPendingPrimitiveType</name></member>
+    </listofallmembers>
+  </compounddef>
+</doxygen>

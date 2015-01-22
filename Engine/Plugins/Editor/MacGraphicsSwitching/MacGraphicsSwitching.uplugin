@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Mac Graphics Switching",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.5.0",
+	"Description" : "Provides support for Mac OS X's automatic graphic switching and multiple graphics device configuration.",
+	"Category" : "Editor.Mac.Graphics",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "MacGraphicsSwitching",
+			"Type" : "Editor",
+			"WhitelistPlatforms" : [ "Mac" ]
+		}
+	]
+}

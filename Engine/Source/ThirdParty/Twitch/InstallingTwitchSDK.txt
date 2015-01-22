@@ -1,0 +1,30 @@
+SETTING UP THE TWITCH SDK WITH UNREAL ENGINE
+============================================
+
+
+The Twitch SDK is currently not included with Unreal Engine by default.  This means that the 
+TwitchLiveStreaming plugin will not be able to function, and Twitch features will not be available 
+in the game or editor.
+
+To use Twitch in your game, you'll need to contact Twitch and obtain a copy of the SDK along with permission
+to use it in your product.  We're currently using SDK version 6.17, so you'll want to get that version.
+After downloading the SDK, you can follow the instructions below to set it up with UE4.  Make sure to read 
+over Twitch's license as well as the Twitch SDK integration guide they will provide.  
+
+To install the SDK:
+
+	- Acquire the Twitch C++ SDK.  You'll need to contact Twitch to get access.
+		- Make sure you pull down the correct version of the SDK. (6.17)
+		- Also remember to read the Twitch SDK license agreement.
+
+	- Unzip the SDK to the /Engine/Source/ThirdParty/Twitch/Twitch-6.17/ folder (create the folder if it is missing)
+
+	- Copy the precompiled binary files in the Twitch SDK "lib" folder to a the /Engine/Binaries/ThirdParty/Twitch/Twitch-6.17/ folder (create the folder if it is missing)
+
+	- Recompile the engine.  The TwitchLiveStreaming plugin will see the SDK files, and activate support for Twitch broadcasting in the game and editor.
+	
+	- See the Unreal Engine manual for more about using the built-in Twitch integration for broadcasting your game or editor sessions
+	
+
+That's it!  Have fun!
+

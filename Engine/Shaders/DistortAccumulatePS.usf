@@ -1,0 +1,88 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DistortionAccumulatePixelShader.usf: Pixel shader for accumulating distortion offsets
+=============================================================================*/
+
+#include "Common.usf"
+#include "Material.usf"
+#include "VertexFactory.usf"
+
+//A fudge factor scale to bring values close to what they would have been under usual circumstances prior to this change.
+static const float OffsetFudgeFactor = 0.00023;
+
+static const half DistortionScaleBias = 4.0f;
+float4 DistortionParams;
+
+/** output distortion offsets as color so they can be accumulated (via blending) */
+void Main(
+	FVertexFactoryInterpolantsVSToPS Interpolants,
+	float4	PixelPosition	: TEXCOORD6,
+	in float4 SvPosition	: SV_Position,
+	OPTIONAL_IsFrontFace,
+	out float4 OutColor		: SV_Target0
+	)
+{
+	// material parameter inputs
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants,PixelPosition);
+	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, PixelPosition);
+	
+	// material distortion offset
+	half3 Normal = GetMaterialNormal(MaterialParameters);
+
+#if MATERIAL_TANGENTSPACENORMAL
+	half3 ViewNormal = normalize(TransformTangentVectorToView(MaterialParameters, Normal));
+#else
+	half3 ViewNormal = normalize(TransformWorldVectorToLocal(Normal));
+#endif
+
+	// X = IOR, Y = Refraction Bias
+	float2 Refraction = GetMaterialRefraction(MaterialParameters);
+	 	
+	// we assume the camera is in air
+	float AirIOR = 1.0f;
+
+	float2 Distortion = ViewNormal.xy * (Refraction.x - AirIOR);
+
+	//clip if the distortion distance (squared) is too small to be noticed
+	//this will result in a less expensive apply pass since the clipped pixels won't set stencil to pass
+	clip(dot(Distortion, Distortion) - .00001);
+
+	// Prevent silhouettes from geometry that is in front of distortion from being seen in the distortion 
+	float2 NDC = (MaterialParameters.ScreenPosition.xy / MaterialParameters.ScreenPosition.w);
+	float2 ScreenUV = NDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+
+	//Fix for Fov and aspect.
+	float InvTanHalfFov = DistortionParams.x;
+    float Ratio = DistortionParams.y;
+ 	float3 FovFix = float3(InvTanHalfFov,Ratio*InvTanHalfFov,1);
+	Distortion *= DistortionParams.zw * float2(OffsetFudgeFactor,-OffsetFudgeFactor) * FovFix;
+
+	// Sample depth at distortion offset
+	float2 DistortScreenUV = ScreenUV + Distortion;
+#if COMPILER_GLSL_ES2
+	float DistortSceneDepth = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, DistortScreenUV).w;
+#else
+	float DistortSceneDepth = CalcSceneDepth(DistortScreenUV);
+#endif
+
+	// Soft thresholding 
+	float Bias = -Refraction.y;
+	float Range = clamp(abs(Bias * 0.5f), 0, 50);
+	float Z = DistortSceneDepth;
+	float ZCompare = MaterialParameters.ScreenPosition.w;
+	float InvWidth = 1.0f / max(1.0f, Range );
+	Distortion *= saturate((Z - ZCompare) * InvWidth + Bias);
+
+	//Scale up for better precision in low/subtle refractions at the expense of artefacts at higher refraction.
+	Distortion*= DistortionScaleBias;
+
+	// store positive and negative offsets separately
+	float2 PosOffset = max(Distortion,0);
+	float2 NegOffset = abs(min(Distortion,0));
+
+	// output positives in R|G channels and negatives in B|A channels
+	OutColor = float4(PosOffset.x,PosOffset.y,NegOffset.x,NegOffset.y);
+}
+
+

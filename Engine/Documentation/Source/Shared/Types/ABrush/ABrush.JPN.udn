@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ABrush
+Crumbs:
+Description:Brush クラスの概要
+
+[EXCERPT:ABrush]
+
+ブラシ は、ジオメトリおよびゲームプレイ ボリュームの定義に使用する 3D ボリュームです。また、サーフェスやシーン上に (カラーなどの) 値のペイントに使用できるユーザー インターフェース ツールでもあります。
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Brushes
+[/VAR]
+[/EXCERPT:ABrush]

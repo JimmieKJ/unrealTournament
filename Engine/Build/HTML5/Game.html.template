@@ -1,0 +1,330 @@
+﻿<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>%GAME%</title>
+    <style type="text/css">
+body {
+  background: black;
+  color: gray;
+  font-family: Helvetica, sans-serif;
+}
+
+.emscripten {
+  padding-right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+div#status {
+  font-size: 70%;
+}
+
+textarea.emscripten {
+  font-family: consolas, "lucida sans console", monospace;
+  background: gray;
+  font-size: 80%;
+  width: 80%;
+  display: none;
+}
+
+div.emscripten {
+  text-align: center;
+}
+
+div#display_wrapper {
+  position: relative;
+  margin: 1em auto 10px auto;
+  text-align: center;
+  min-width: 640px;
+  max-width: 95%;
+  /*border: 1px solid red;*/
+}
+
+canvas.main {
+  border: none;
+  background: #444;
+  display: block;
+}
+
+canvas.main:not([fullscreen]) {
+  padding-right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+input[type=button] {
+  background: #444;
+  border: 2px solid #444;
+  border-radius: 2px;
+}
+
+input[type=button]:hover {
+  background: #777;
+  border-color: #777;
+}
+
+    </style>
+  </head>
+  <body>
+    <div class="emscripten" id="status">Downloading...</div>
+    <div class="emscripten">
+      <progress value="0" max="100" id="progress" hidden=1></progress>
+    </div>
+
+    <!-- Canvas resolution needs to be divisible by 8; default to 904x1600 for in-page resolution -->
+    <div id="display_wrapper">
+      <canvas class="main" id="canvas" oncontextmenu="event.preventDefault()" height="904" width="1600"></canvas>
+    </div>
+
+    <div class="emscripten">
+      <input type="button" value="Fullscreen" onclick="Module.requestFullScreen(false)">
+      <input type="button" value="Pause" onclick="Module['pauseMainLoop']();">
+      <input type="button" value="Resume" onclick="Module['resumeMainLoop']();">
+      <!--input type="button" value="Quit" onclick="__exit(0)" -->
+      <input type="button" value="ClearStoredGame" onclick="$.jStorage.flush()">
+    </div>
+
+    <textarea class="emscripten" id="output" rows="8"></textarea>
+
+    <script type="text/javascript">
+
+// http://stackoverflow.com/questions/4750015/regular-expression-to-find-urls-within-a-string
+function getHTMLGetParam(name){
+   if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
+      return decodeURIComponent(name[1]);
+}
+
+var filehostargument = "   "; 
+
+// we are serving via a server and it is unreal file server.
+if ( location.host != "" && getHTMLGetParam("cookonthefly") == "true" )
+{
+    filehostargument = "' -filehostIp=http://" + location.host + " '"; 
+}
+
+var UE4 = {
+  get resize_game() {
+    var fn = Module.cwrap('resize_game', null, ['number'],['number'] );
+    delete UE4["resize_game"];
+    UE4.resize_game = fn;
+    return fn;
+  }
+  ,
+  get on_fatal() {
+    var fn = Module.cwrap('on_fatal', null, ['string', 'string'])
+    delete UE4["on_fatal"];
+    UE4.on_fatal = fn;
+    return fn;
+  }
+};
+
+function resizeListener(width, height) {
+  console.log("resizeListener:", width, height);
+  UE4.resize_game(width,height);
+}
+
+var gWasFullScreen = false;
+var gOldWidth, gOldHeight;
+
+function fullScreenChange() {
+  var fsElem = document['fullScreenElement'] ||
+               document['mozFullScreenElement'] ||
+               document['webkitFullScreenElement'] ||
+               document['msFullScreenElement'] ||
+               document['webkitCurrentFullScreenElement'];
+  var canvas = document.getElementById("canvas");
+
+  if (fsElem == canvas || fsElem == canvas.parentNode) {
+    // we just went full screen
+    gWasFullScreen = true;
+
+    // update the canvas size
+    gOldWidth = canvas.width;
+    gOldHeight = canvas.height;
+
+    var width = window.screen.width;
+    var height = window.screen.height;
+
+    canvas.width = width;
+    canvas.height = height;
+    canvas.setAttribute("fullscreen", "true");
+
+    console.log("Resize: (to fullscreen)", canvas.width, canvas.height);
+    UE4.resize_game(canvas.width, canvas.height); 
+  } else if (gWasFullScreen) {
+    // we just left full screen
+    gWasFullScreen = false;
+
+    canvas.width = gOldWidth;
+    canvas.height = gOldHeight;
+    canvas.removeAttribute("fullscreen");
+
+    console.log("Resize: (to windowed) ", canvas.width, canvas.height);
+    UE4.resize_game(canvas.width, canvas.height); 
+  }
+}
+
+function preRunHandler() {
+  document.addEventListener('fullscreenchange', fullScreenChange, false);
+  document.addEventListener('mozfullscreenchange', fullScreenChange, false);
+  document.addEventListener('webkitfullscreenchange', fullScreenChange, false);
+  document.addEventListener('MSFullscreenChange', fullScreenChange, false);
+
+  // this needs to die
+  Browser.updateCanvasDimensions = function() { };
+
+}
+
+function loadJavaScriptFile(filename,isAsync){ 
+   // dynamically add script objects. 
+   var fileref=document.createElement('script');
+   fileref.setAttribute('type', 'text/javascript');
+   fileref.setAttribute('src', filename);
+   if(isAsync)
+     fileref.setAttribute('async','async');
+   document.body.appendChild(fileref);  
+}
+
+//http://www.browserleaks.com/webgl#howto-detect-webgl
+function webgl_detect()
+{
+    if (!!window.WebGLRenderingContext) {
+        var canvas = document.createElement("canvas"),
+             names = ["webgl", "experimental-webgl", "moz-webgl", "webkit-3d"],
+           context = false;
+ 
+        for(var i=0;i<4;i++) {
+            try {
+                context = canvas.getContext(names[i]);
+                if (context && typeof context.getParameter == "function") {
+                    // WebGL is enabled
+                    return true;
+                }
+            } catch(e) {}
+        }
+        // WebGL is supported, but disabled
+        return false;
+    }
+    // WebGL not supported
+    return false;
+}
+
+
+function isBrowser64Bit()  { 
+
+   var userAgent =  window.navigator.userAgent; 
+   
+   // if we are windows and runningas as WOW64 ( windows on windows 64 ) or Win32 we are a 32 bit browser. 
+   if ( userAgent.indexOf ("Windows") > -1 && ( userAgent.indexOf("WOW64") > -1 || userAgent.indexOf("Win32") > -1 ))
+        return false; 
+
+    // all other platforms and browsers - assume 64 bit. 
+    return true; 
+
+}
+
+// generated from game.template
+// note: Packaging process looks at HTML5Engine.ini to pick up values. 
+var TOTAL_GAME_MEMORY = %HEAPSIZE%;
+
+// check max memory usage, we need to clamp it down for 32 bit browsers. 
+if (!isBrowser64Bit()) { 
+
+      var max_32bit_browser_memory =  512 * 1024 * 1024 ; // using a reasonable number, this number can change depending on the memory pressure from the underlying OS and whether or not it can give a contigous block of 512 MB memory to a 32 bit process.
+
+      if ( TOTAL_GAME_MEMORY > max_32bit_browser_memory ){ 
+         console.log (" Current Browser : " + window.navigator.userAgent );
+         console.log ( "We are running in 32 bit browser, clamping requested memory size of " + TOTAL_GAME_MEMORY + " bytes to " + max_32bit_browser_memory 
+                        + " bytes or use a 64 bit browser "
+                     );
+        TOTAL_GAME_MEMORY = max_32bit_browser_memory; 
+      }
+}
+
+// setup global error handling. 
+// make exceptions more visible. 
+window.onerror  = function(msg, url, line, column, error) {
+  UE4.on_fatal(msg, error);
+  if ( msg.indexOf("memory") > -1 ) { 
+
+   var message = !isBrowser64Bit() ? " We are running on a 32 bit browser, please use a 64 bit browser to avoid memory constraints "
+          : " Looks like the game needs more than the allocated " + TOTAL_GAME_MEMORY + " bytes, please edit HTML5Engine.ini and repackage "; 
+
+   alert ( "We ran out of memory : " + message );
+  }
+  else
+  {
+   alert ( "Error: " + msg );
+  }
+};
+
+var Module;
+
+if (webgl_detect())
+{
+   Module = {
+  preRun: [preRunHandler],
+  postRun: [],
+  TOTAL_MEMORY: TOTAL_GAME_MEMORY,
+  noImageDecoding: true,
+  noAudioDecoding: true,
+      arguments: [%UE4CMDLINE% , filehostargument],
+  print: (function() {
+    var element = document.getElementById('output');
+    element.value = ''; // clear browser cache
+    return function(text) {
+      // show it if it's hidden first
+      element.style.display = "block";
+      element.value += text + "\n";
+      element.scrollTop = 99999; // focus on bottom
+    };
+  })(),
+  printErr: function(text) {
+    console.log(text);
+  },
+  canvas: document.getElementById('canvas'),
+  setStatus: function(text) {
+    if (Module.setStatus.interval) clearInterval(Module.setStatus.interval);
+    var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+    var statusElement = document.getElementById('status');
+    var progressElement = document.getElementById('progress');
+    if (m) {
+      text = m[1];
+      progressElement.value = parseInt(m[2])*100;
+      progressElement.max = parseInt(m[4])*100;
+      progressElement.hidden = false;
+    } else {
+      progressElement.value = null;
+      progressElement.max = null;
+      progressElement.hidden = true;
+    }
+    statusElement.innerHTML = text;
+  },
+  totalDependencies: 0,
+  monitorRunDependencies: function(left) {
+    this.totalDependencies = Math.max(this.totalDependencies, left);
+    Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+  }
+};
+Module.setStatus('Downloading...');
+
+  // add these scripts to the dom. 
+  loadJavaScriptFile("json2.js",false);
+  loadJavaScriptFile("moz_binarystring.js",false);
+  loadJavaScriptFile("jStorage.js",false);
+  loadJavaScriptFile("%GAME%.data.js",false);
+  loadJavaScriptFile("%CONFIG%.js",true);
+
+}
+else
+{
+  document.getElementById('display_wrapper').innerHTML ='<a href="http://get.webgl.com/">This Browser doesn\'t seem to support WebGL</a>'; 
+  document.getElementById('status').innerHTML = ""; 
+}
+    </script>
+  </body>
+</html>

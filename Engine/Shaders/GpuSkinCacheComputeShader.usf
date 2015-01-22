@@ -1,0 +1,190 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	GpuSkinCacheComputeShader.usf: Perform vertex skinning into a buffer to avoid skinning in the vertex shader.
+=============================================================================*/
+
+#include "Common.usf"
+#include "Definitions.usf"
+#include "VertexFactoryCommon.usf"
+#include "GpuSkinCacheCommon.usf"
+
+#define FBoneMatrix float3x4
+
+Buffer<float4> BoneMatrices;
+
+struct FVertexFactoryIntermediates
+{
+	// Blend Matrix (used for position/tangents)
+	FBoneMatrix BlendMatrix;
+
+	// Unpacked position
+	float3 UnpackedPosition;
+	
+	// Tangent Basis
+	float3x3 TangentToLocal; 
+
+	// Vertex Color
+	float4 Color;
+};
+
+struct FVertexUnpacked
+{
+	float3	TangentX;
+	float3	TangentZ;
+
+	int4	BlendIndices;
+#if GPUSKIN_USE_EXTRA_INFLUENCES
+	int4	BlendIndices2;
+#endif
+	float4	BlendWeights;
+#if GPUSKIN_USE_EXTRA_INFLUENCES
+	float4	BlendWeights2;
+#endif
+};
+
+FBoneMatrix CalcBoneMatrix( FVertexUnpacked VertexUnpacked )
+{
+	FBoneMatrix BoneMatrix = VertexUnpacked.BlendWeights.x * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices.x*3], BoneMatrices[VertexUnpacked.BlendIndices.x*3+1], BoneMatrices[VertexUnpacked.BlendIndices.x*3+2]);
+	BoneMatrix += VertexUnpacked.BlendWeights.y * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices.y*3], BoneMatrices[VertexUnpacked.BlendIndices.y*3+1], BoneMatrices[VertexUnpacked.BlendIndices.y*3+2]);
+	BoneMatrix += VertexUnpacked.BlendWeights.z * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices.z*3], BoneMatrices[VertexUnpacked.BlendIndices.z*3+1], BoneMatrices[VertexUnpacked.BlendIndices.z*3+2]);
+	BoneMatrix += VertexUnpacked.BlendWeights.w * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices.w*3], BoneMatrices[VertexUnpacked.BlendIndices.w*3+1], BoneMatrices[VertexUnpacked.BlendIndices.w*3+2]);
+	#if GPUSKIN_USE_EXTRA_INFLUENCES
+	BoneMatrix += VertexUnpacked.BlendWeights2.x * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.x*3], BoneMatrices[VertexUnpacked.BlendIndices2.x*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.x*3+2]);
+	BoneMatrix += VertexUnpacked.BlendWeights2.y * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.y*3], BoneMatrices[VertexUnpacked.BlendIndices2.y*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.y*3+2]);
+	BoneMatrix += VertexUnpacked.BlendWeights2.z * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.z*3], BoneMatrices[VertexUnpacked.BlendIndices2.z*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.z*3+2]);
+	BoneMatrix += VertexUnpacked.BlendWeights2.w * FBoneMatrix(BoneMatrices[VertexUnpacked.BlendIndices2.w*3], BoneMatrices[VertexUnpacked.BlendIndices2.w*3+1], BoneMatrices[VertexUnpacked.BlendIndices2.w*3+2]);
+	#endif
+	return BoneMatrix;
+}
+
+Buffer<float> SkinStreamUniformBuffer;
+Buffer<float> SkinStreamInputBuffer;
+
+RWBuffer<float> SkinCacheBuffer;
+
+float3 MeshOrigin;
+float3 MeshExtension;
+
+uint SkinCacheInputStreamFloatOffset;
+uint SkinCacheOutputBufferFloatOffset;
+
+uint SkinCacheVertexStride;
+uint SkinCacheVertexCount;
+
+FVertexUnpacked UnpackedVertex( uint Offset )
+{
+	FVertexUnpacked Unpacked;
+
+	uint Tangent = asuint(SkinStreamInputBuffer[Offset + GPUSKIN_VB_OFFSET_TANGENT_X]);
+	Unpacked.TangentX.x = (float((Tangent >> 0) & 0xff) / 128.0f) - 1.0f;
+	Unpacked.TangentX.y = (float((Tangent >> 8) & 0xff) / 128.0f) - 1.0f;
+	Unpacked.TangentX.z = (float((Tangent >> 16) & 0xff) / 128.0f) - 1.0f;
+
+	Tangent = asuint(SkinStreamInputBuffer[Offset + GPUSKIN_VB_OFFSET_TANGENT_Z]);
+	Unpacked.TangentZ.x = (float((Tangent >> 0) & 0xff) / 128.0f) - 1.0f;
+	Unpacked.TangentZ.y = (float((Tangent >> 8) & 0xff) / 128.0f) - 1.0f;
+	Unpacked.TangentZ.z = (float((Tangent >> 16) & 0xff) / 128.0f) - 1.0f;
+
+	uint BlendIndices = asuint(SkinStreamInputBuffer[Offset + GPUSKIN_VB_OFFSET_INFLUENCEBONES]);
+	Unpacked.BlendIndices.x = BlendIndices & 0xff;
+	Unpacked.BlendIndices.y = BlendIndices >> 8 & 0xff;
+	Unpacked.BlendIndices.z = BlendIndices >> 16 & 0xff;
+	Unpacked.BlendIndices.w = BlendIndices >> 24 & 0xff;
+#if GPUSKIN_USE_EXTRA_INFLUENCES
+	BlendIndices = asuint(SkinStreamInputBuffer[Offset + GPUSKIN_VB_OFFSET_INFLUENCEBONES + 1]);
+	Unpacked.BlendIndices2.x = BlendIndices & 0xff;
+	Unpacked.BlendIndices2.y = BlendIndices >> 8 & 0xff;
+	Unpacked.BlendIndices2.z = BlendIndices >> 16 & 0xff;
+	Unpacked.BlendIndices2.w = BlendIndices >> 24 & 0xff;
+#endif
+	uint BlendWeights = asuint(SkinStreamInputBuffer[Offset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS]);
+	Unpacked.BlendWeights.x = float(BlendWeights & 0xff) / 255.0f;
+	Unpacked.BlendWeights.y = float(BlendWeights >> 8 & 0xff) / 255.0f;
+	Unpacked.BlendWeights.z = float(BlendWeights >> 16 & 0xff) / 255.0f;
+	Unpacked.BlendWeights.w = float(BlendWeights >> 24 & 0xff) / 255.0f;
+#if GPUSKIN_USE_EXTRA_INFLUENCES
+	BlendWeights = asuint(SkinStreamInputBuffer[Offset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS + 1]);
+	Unpacked.BlendWeights2.x = float(BlendWeights & 0xff) / 255.0f;
+	Unpacked.BlendWeights2.y = float(BlendWeights >> 8 & 0xff) / 255.0f;
+	Unpacked.BlendWeights2.z = float(BlendWeights >> 16 & 0xff) / 255.0f;
+	Unpacked.BlendWeights2.w = float(BlendWeights >> 24 & 0xff) / 255.0f;
+#endif
+	return Unpacked;
+}
+
+/** transform position by weighted sum of skinning matrices */
+float3 SkinPosition( FVertexFactoryIntermediates Intermediates )
+{
+	float4 Position = float4(Intermediates.UnpackedPosition,1);
+
+	// Note the use of mul(Matrix,Vector), bone matrices are stored transposed
+	// for tighter packing.
+	return mul( Intermediates.BlendMatrix, Position );
+}
+
+[numthreads(64,1,1)]
+void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
+ uint3 DispatchThreadID : SV_DispatchThreadID,
+ uint3 GroupThreadID : SV_GroupThreadID)
+{
+#if !PS4_PROFILE	//@todo ps4: shader compiler issue, but this isn't currently used so just skip it on ps4 for now
+	uint ThreadId = DispatchThreadID.x;
+
+	if (ThreadId > SkinCacheVertexCount)
+	{
+		return;
+	}
+
+	uint FloatCount = SkinCacheVertexStride / 4;
+	uint Offset = ThreadId * FloatCount;
+	uint InputOffset = SkinCacheInputStreamFloatOffset + Offset;
+	uint OutputOffset = SkinCacheOutputBufferFloatOffset + Offset;
+
+	FVertexUnpacked	Unpacked = UnpackedVertex(InputOffset);
+
+	// Perform the skinning
+	FVertexFactoryIntermediates	Intermediates;
+	Intermediates.BlendMatrix = CalcBoneMatrix(Unpacked);
+	//Intermediates.BlendMatrix[0] = float4(1,0,0,0);
+	//Intermediates.BlendMatrix[1] = float4(0,1,0,0);
+	//Intermediates.BlendMatrix[2] = float4(0,0,1,0);
+
+	Intermediates.UnpackedPosition.x = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 0] * MeshExtension.x + MeshOrigin.x;
+	Intermediates.UnpackedPosition.y = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 1] * MeshExtension.y + MeshOrigin.y;
+	Intermediates.UnpackedPosition.z = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_POSITION + 2] * MeshExtension.z + MeshOrigin.z;
+
+	float3 SPos = SkinPosition(Intermediates);
+
+	float3 TangentX = mul((float3x3)Intermediates.BlendMatrix, Unpacked.TangentX);
+	float3 TangentZ = mul((float3x3)Intermediates.BlendMatrix, Unpacked.TangentZ);
+
+	// Write into output buffer
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_TANGENT_X] = asfloat(asuint((uint((TangentX.x + 1.0f) * 128.0f) << 0) | (uint((TangentX.y + 1.0f) * 128.0f) << 8) | (uint((TangentX.z + 1.0f) * 128.0f) << 16) | (asuint(SkinStreamInputBuffer[ InputOffset + GPUSKIN_VB_OFFSET_TANGENT_X]) & 0xff000000)));
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z] = asfloat(asuint((uint((TangentZ.x + 1.0f) * 128.0f) << 0) | (uint((TangentZ.y + 1.0f) * 128.0f) << 8) | (uint((TangentZ.z + 1.0f) * 128.0f) << 16) | (asuint(SkinStreamInputBuffer[ InputOffset + GPUSKIN_VB_OFFSET_TANGENT_Z]) & 0xff000000)));
+	 
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES];
+#if GPUSKIN_USE_EXTRA_INFLUENCES
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES + 1] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES + 1];
+#endif
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS];
+#if GPUSKIN_USE_EXTRA_INFLUENCES
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS + 1] = SkinStreamInputBuffer[InputOffset + GPUSKIN_VB_OFFSET_INFLUENCEWEIGHTS + 1];
+#endif
+ 
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_POSITION + 0] = SPos.x;
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_POSITION + 1] = SPos.y;
+	SkinCacheBuffer[OutputOffset + GPUSKIN_VB_OFFSET_POSITION + 2] = SPos.z;
+
+	// Passthrough any extra info
+	for (uint i = GPUSKIN_VB_OFFSET_UVS; i < FloatCount; i++)
+	{
+		SkinCacheBuffer[OutputOffset + i] = SkinStreamInputBuffer[InputOffset + i];
+	}
+
+	//for (uint i = 0; i < FloatCount; i++)
+	//{
+	//	SkinCacheBuffer[OutputOffset + i] = SkinStreamInputBuffer[InputOffset + i];
+	//}
+#endif
+}

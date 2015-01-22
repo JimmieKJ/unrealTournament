@@ -1,0 +1,68 @@
+----------------------------------------------------------------------
+../../../tests/vs_type_conversions.hlsl(48): warning: implicit truncation from `mat4' to `float'
+../../../tests/vs_type_conversions.hlsl(49): warning: implicit truncation from `mat4' to `mat3'
+../../../tests/vs_type_conversions.hlsl(51): warning: implicit truncation from `mat4' to `float'
+../../../tests/vs_type_conversions.hlsl(63): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_type_conversions.hlsl(64): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_type_conversions.hlsl(64): warning: implicit truncation from `vec3' to `vec2'
+../../../tests/vs_type_conversions.hlsl(65): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_type_conversions.hlsl(66): warning: implicit truncation from `vec4' to `ivec3'
+../../../tests/vs_type_conversions.hlsl(67): warning: implicit truncation from `ivec4' to `vec3'
+../../../tests/vs_type_conversions.hlsl(150): warning: implicit truncation from `vec3' to `vec2'
+../../../tests/vs_type_conversions.hlsl(151): warning: implicit truncation from `vec3' to `ivec2'
+../../../tests/vs_type_conversions.hlsl(152): warning: implicit truncation from `vec3' to `uvec2'
+../../../tests/vs_type_conversions.hlsl(153): warning: implicit truncation from `vec3' to `bvec2'
+../../../tests/vs_type_conversions.hlsl(155): warning: implicit truncation from `ivec3' to `vec2'
+../../../tests/vs_type_conversions.hlsl(156): warning: implicit truncation from `ivec3' to `ivec2'
+../../../tests/vs_type_conversions.hlsl(157): warning: implicit truncation from `ivec3' to `uvec2'
+../../../tests/vs_type_conversions.hlsl(158): warning: implicit truncation from `ivec3' to `bvec2'
+../../../tests/vs_type_conversions.hlsl(160): warning: implicit truncation from `uvec3' to `vec2'
+../../../tests/vs_type_conversions.hlsl(161): warning: implicit truncation from `uvec3' to `ivec2'
+../../../tests/vs_type_conversions.hlsl(162): warning: implicit truncation from `uvec3' to `uvec2'
+../../../tests/vs_type_conversions.hlsl(163): warning: implicit truncation from `uvec3' to `bvec2'
+../../../tests/vs_type_conversions.hlsl(165): warning: implicit truncation from `bvec3' to `vec2'
+../../../tests/vs_type_conversions.hlsl(166): warning: implicit truncation from `bvec3' to `ivec2'
+../../../tests/vs_type_conversions.hlsl(167): warning: implicit truncation from `bvec3' to `uvec2'
+../../../tests/vs_type_conversions.hlsl(168): warning: implicit truncation from `bvec3' to `bvec2'
+../../../tests/vs_type_conversions.hlsl(192): warning: implicit truncation from `vec3' to `float'
+../../../tests/vs_type_conversions.hlsl(193): warning: implicit truncation from `vec3' to `int'
+../../../tests/vs_type_conversions.hlsl(194): warning: implicit truncation from `vec3' to `uint'
+../../../tests/vs_type_conversions.hlsl(195): warning: implicit truncation from `vec3' to `bool'
+../../../tests/vs_type_conversions.hlsl(197): warning: implicit truncation from `ivec3' to `float'
+../../../tests/vs_type_conversions.hlsl(198): warning: implicit truncation from `ivec3' to `int'
+../../../tests/vs_type_conversions.hlsl(199): warning: implicit truncation from `ivec3' to `uint'
+../../../tests/vs_type_conversions.hlsl(200): warning: implicit truncation from `ivec3' to `bool'
+../../../tests/vs_type_conversions.hlsl(202): warning: implicit truncation from `uvec3' to `float'
+../../../tests/vs_type_conversions.hlsl(203): warning: implicit truncation from `uvec3' to `int'
+../../../tests/vs_type_conversions.hlsl(204): warning: implicit truncation from `uvec3' to `uint'
+../../../tests/vs_type_conversions.hlsl(205): warning: implicit truncation from `uvec3' to `bool'
+../../../tests/vs_type_conversions.hlsl(207): warning: implicit truncation from `bvec3' to `float'
+../../../tests/vs_type_conversions.hlsl(208): warning: implicit truncation from `bvec3' to `int'
+../../../tests/vs_type_conversions.hlsl(209): warning: implicit truncation from `bvec3' to `uint'
+../../../tests/vs_type_conversions.hlsl(210): warning: implicit truncation from `bvec3' to `bool'
+
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: f2:in_ATTRIBUTE0
+// @Outputs: f4:gl_Position
+#version 430
+in vec2 in_ATTRIBUTE0;
+out INTERP0 { vec2 Data; } out_INTERP0;
+out INTERP1 { uvec3 Data; } out_INTERP1;
+out TEXCOORD0 { vec2 Data; } out_TEXCOORD0;
+void main()
+{
+	vec4 t0;
+	vec4 t1;
+	t1.xyzw = vec4(0.0,0.0,0.0,0.0);
+	t1.xy = in_ATTRIBUTE0;
+	t1.zw = vec2(1.0,1.0);
+	t0.xyzw = t1;
+	out_INTERP0.Data.xy = vec2(0.0,0.0);
+	out_INTERP1.Data.xyz = uvec3(0u,0u,0u);
+	out_TEXCOORD0.Data.xy = in_ATTRIBUTE0;
+	t0.y = (-in_ATTRIBUTE0.y);
+	t0.z = 1.0;
+	gl_Position.xyzw = t0;
+}
+

@@ -1,0 +1,198 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/** 
+ * This is the definition for a Rig that is used for retargeting animations
+ *
+ */
+
+#pragma once
+
+// @todo should I keep the hierarchy or not? - does it matter if hand is child of shoulder? - I think we should keep hierarchy
+// @todo should we support reset data 
+// @todo does it make sense to have "no constraint" on certain data? What does that mean? Just World? 
+
+#include "Rig.generated.h"
+
+/** Rig Controller for bone transform **/
+USTRUCT()
+struct FNode
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Name of the original node. We don't allow to change this. This is used for identity.**/
+	UPROPERTY(VisibleAnywhere, Category="FNode")
+	FName Name;
+
+	/** We save Parent Node but if the parent node is removed, it will reset to root */
+	UPROPERTY(VisibleAnywhere, Category="FNode")
+	FName ParentName;
+
+	/** Absolute transform of the node. Hoping to use this data in the future to render*/
+	UPROPERTY()
+	FTransform Transform;
+
+	/** This is Display Name where it will be used to display in Retarget Manager. This name has to be unique. */
+	UPROPERTY(EditAnywhere, Category="FNode")
+	FString DisplayName;
+
+	UPROPERTY(EditAnywhere, Category="FNode")
+	bool bAdvanced;
+
+	FNode()
+		: Name(NAME_None)
+		, ParentName(NAME_None)
+		, bAdvanced(false)
+	{
+	}
+
+	FNode(FName InNodeName, FName InParentName, const FTransform& InTransform)
+		: Name(InNodeName)
+		, ParentName(InParentName)
+		, Transform(InTransform)
+		, DisplayName(InNodeName.ToString())
+		, bAdvanced(false)
+	{
+	}
+};
+
+/** Control Constraint Type */
+UENUM()
+namespace EControlConstraint
+{
+	enum Type
+	{
+		/** Rotation constraint. */
+		Orientation,
+		/** Translation constraint. */
+		Translation,
+		/** Max Number */
+		Max
+	};
+}
+
+/** Constraint Transform Type. - currently unused*/
+UENUM()
+namespace EConstraintTransform
+{
+	enum Type
+	{
+		/** Absoluate value. */
+		Absoluate,
+		/** Apply relative transform from ref pose. */
+		Relative,
+	};
+}
+
+USTRUCT()
+struct FRigTransformConstraint
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** What transform type **/
+	UPROPERTY(/*EditAnywhere, Category="FTransformBaseConstraint"*/)
+	TEnumAsByte<EConstraintTransform::Type>	TranformType;
+
+	/** Parent space that are define **/
+	UPROPERTY(EditAnywhere, Category="FTransformBaseConstraint")
+	FName	ParentSpace;
+
+	/** Weight of the influence - for future*/
+	UPROPERTY(/*EditAnywhere, Category="FTransformBaseConstraint"*/)
+	float	Weight;
+};
+
+/** This defines what constraint it is defined */
+USTRUCT()
+struct FTransformBaseConstraint
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** What transform type **/
+	UPROPERTY(EditAnywhere, Category="FTransformBaseConstraint")
+	TArray<FRigTransformConstraint>			TransformConstraints;
+};
+
+
+/** This is a mapping table between bone in a particular skeletal mesh and bone of this skeleton set. */
+USTRUCT()
+struct FTransformBase
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, Category="FTransformBase")
+	FName					Node;
+
+	UPROPERTY(EditAnywhere, Category="FTransformBase")
+	FTransformBaseConstraint	Constraints[EControlConstraint::Type::Max];
+};
+
+DECLARE_DELEGATE_RetVal_OneParam(int32, FGetParentIndex, FName);
+
+/**
+ *	URig : that has rigging data for skeleton
+ *		- used for retargeting
+ *		- support to share different animations
+ */
+UCLASS(hidecategories=Object, MinimalAPI)
+class URig : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+private:
+
+	/** Skeleton bone tree - each contains name and parent index**/
+	UPROPERTY(EditAnywhere, Category = Rig, EditFixedSize)
+	TArray<FTransformBase> TransformBases;
+
+	/** Skeleton bone tree - each contains name and parent index**/
+	UPROPERTY(EditAnywhere, Category=Rig, EditFixedSize)
+	TArray<FNode> Nodes;
+
+public:
+
+#if WITH_EDITOR
+	// Begin UObject Interface
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	// End UObject Interface
+
+	// node related functions
+	int32 GetNodeNum() const;
+	const FNode* GetNode(int32 NodeIndex) const;
+	FName GetNodeName(int32 NodeIndex) const;
+	FName GetParentNode(FName& NodeName) const;
+	int32 FindNode(const FName& NodeName) const;
+	const TArray<FNode> & GetNodes() const { return Nodes; }
+
+	// create from skeleton
+	ENGINE_API void CreateFromSkeleton(const USkeleton* Skeleton, const TMap<int32, int32> & RequiredBones);
+	ENGINE_API void SetAllConstraintsToParents();
+	ENGINE_API void SetAllConstraintsToWorld();
+
+	// rig control related
+	int32 GetTransformBaseNum() const;
+	const TArray<FTransformBase> & GetTransformBases() const { return TransformBases; }
+	const FTransformBase* GetTransformBase(int32 TransformBaseIndex) const;
+	const FTransformBase* GetTransformBaseByNodeName(FName NodeName) const;
+	int32 FindTransformBaseByNodeName(FName NodeName) const;
+	int32 FindTransformParentNode(int32 NodeIndex, bool bTranslate, int32 Index=0) const;
+#endif
+
+	// not sure if we'd like to keep this
+	ENGINE_API static FName WorldNodeName;
+
+private:
+
+#if WITH_EDITOR
+	// for now these are privates since we don't have good control yet
+	bool AddNode(FName Name, FName ParentNode, FTransform Transform);
+	bool DeleteNode(FName Name);
+	// rig constraint 
+	bool AddRigConstraint(FName NodeName, EControlConstraint::Type	ConstraintType, EConstraintTransform::Type	TranformType, FName ParentSpace, float Weight = 1.f);
+
+#endif // WITH_EDITOR
+	
+	// not useful so far
+//	void CalculateComponentSpace(int32 NodeIndex, const FTransform& LocalTransform, const TArray<FTransform> & TransformBuffer, const FGetParentIndex& DelegateToGetParentIndex, FTransform& OutComponentSpaceTransform) const;
+//	void CalculateLocalSpace(int32 NodeIndex, const FTransform& ComponentTransform, const TArray<FTransform> & TransformBuffer, const FGetParentIndex& DelegateToGetParentIndex, FTransform& OutLocalSpaceTransform) const;
+};
+

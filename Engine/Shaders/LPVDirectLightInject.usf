@@ -1,0 +1,111 @@
+//-----------------------------------------------------------------------------
+// File:		LPVDirectLightInject.usf
+//
+// Summary:		Compute shaders for injecting light directly into an LPV
+//				without using an RSM
+//
+// Created:		2013-03-01
+//
+// Author:		mailto:benwood@microsoft.com
+//
+//				Copyright (C) Microsoft. All rights reserved.
+//-----------------------------------------------------------------------------
+
+/*------------------------------------------------------------------------------
+	Compile time parameters:
+------------------------------------------------------------------------------*/
+
+#include "Common.usf"
+#include "LpvWriteVplCommon.usf"
+#include "LPVGeometryVolumeCommon.usf"
+#include "DeferredLightingCommon.usf"
+
+//-------------------------------------------------------------------------------------------------
+
+#define DIRECT_LIGHT_INJECTION_STRENGTH 200.0f
+
+//-------------------------------------------------------------------------------------------------
+
+[numthreads(4,4,4)]
+void CSPointLightInject_ListGenCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID ) 
+{
+	int index = GetGridAddress( DTid );
+
+	// TODO: optimise this. Don't read/write unless we need to. Requires read/write access to UAV, which requires
+	// aliasing for the textures... 
+	LPVCell cell = ReadLpvCell( index ); 
+	float3 gridPos = float3( DTid );
+
+	float3 LightPos = LpvInject.LightPosition;
+	float3 worldPos = GridToWorld( gridPos+0.5  );
+	float3 LightVector = float3( LightPos-worldPos );
+
+	float len = length( LightVector );
+	if ( len < LpvInject.LightRadius )
+	{
+		int gvOffset = 0;
+
+		// Gv is at a half cell offset to the LPV. Offset GV Lookup based on Light direction to avoid bias artifacts
+		const int xStride = 1;
+		const int yStride = 32;
+		const int zStride = 32*32;
+		if ( LightVector.x < 0 ) gvOffset += xStride;
+		if ( LightVector.y < 0 ) gvOffset += yStride;
+		if ( LightVector.z < 0 ) gvOffset += zStride;
+
+		int gvIndex = index + gvOffset;
+#if FILTER
+		GeometryVolumeEntry gvCell = ReadFilteredGvCell( gvIndex );
+#else
+		GeometryVolumeEntry gvCell = ReadGvCell( gvIndex );
+#endif
+
+		if ( gvCell.SH[0] > 0.1f )
+		{
+			float3 LightDirection = LightVector/len;
+
+			// TODO: Not ideal for thin walls! Use SH directly rather than approximating the normal?
+			float3 normal = -SHGetDominantDirectionApproxScalar( gvCell.SH );
+
+			float nDotL = saturate( dot( normal, LightDirection ) );
+			
+			if ( nDotL > 0.0f )
+			{
+				float distance = len;
+				float shadowValue = 1.0f;
+#if SHADOW_CASTING
+				//TODO: Could use shadow map to avoid artifacts with shadow casters outside the LPV volume
+				if ( distance > 100.0f )
+				{
+					float3 inc = LightVector / 16.0f;
+					float3 pos = worldPos + inc*2;
+
+					for ( int i=0; i<15; i++ )
+					{
+						int traceGvIndex = GetGridIndex( pos ) + gvOffset;
+						GeometryVolumeEntry sCell = ReadGvCell( traceGvIndex );
+
+						float s = 1-SHLookupScalar( sCell.SH, -LightDirection );
+
+						shadowValue = min( shadowValue, s );
+						pos+=inc;
+					}
+					shadowValue = saturate( shadowValue );
+				}
+#endif
+
+				float3 flux = LpvInject.LightColor * gvCell.color * DIRECT_LIGHT_INJECTION_STRENGTH;
+				float Attenuation = nDotL*shadowValue;
+				float DistanceAttenuation = RadialAttenuation( LightVector/LpvInject.LightRadius, LpvInject.LightFalloffExponent );
+				Attenuation *= DistanceAttenuation;
+				flux *= Attenuation;
+
+				worldPos += normal * LpvWrite.VplInjectionBias;
+
+				float solidAngle = 3.14;
+				AccumulateLighting( flux, -normal, solidAngle, cell );
+			}
+		}
+	}
+	WriteLpvCell( cell, index );
+}

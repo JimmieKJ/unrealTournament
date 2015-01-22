@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ACullDistanceVolume
+Crumbs:
+Description:CullDistanceVolume クラスの概要
+
+[EXCERPT:ACullDistanceVolume]
+
+Cull Distance Volumes は、オブジェクトのカメラからの位置によって、オブジェクトがあるサイズまたはあるサイズ以下にカリング (またはスクリーンに描画されないように) できる最適化ツールです。
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Volumes#Volume Types
+[/VAR]
+[/EXCERPT:ACullDistanceVolume]

@@ -1,0 +1,110 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	LUTBlender.usf: Filter pixel shader source.
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+#include "TonemapCommon.usf"
+
+// ---------------------------------------------------
+
+// Texture0 is the neutral one and is computed in the shader
+Texture2D Texture1;
+SamplerState Texture1Sampler;
+Texture2D Texture2;
+SamplerState Texture2Sampler;
+Texture2D Texture3;
+SamplerState Texture3Sampler;
+Texture2D Texture4;
+SamplerState Texture4Sampler;
+// 0 is for neutral, 1 for Texture1, 2 for ...
+float LUTWeights[5];
+half3 ColorScale;
+half4 OverlayColor;
+
+
+
+// todo: Weight[0] should be used for neutral, Texture* name should start with 1, color correction should apply on top of that
+#if USE_VOLUME_LUT == 1
+void MainPS(FWriteToSliceGeometryOutput Input, out float4 OutColor : SV_Target0)
+{
+	// construct the neutral color from a 3d position volume texture	
+	float4 Neutral;
+	{
+		float2 UV = Input.Vertex.UV - float2(0.5f / 16.0f, 0.5f / 16.0f);
+
+		Neutral = float4(UV * (16.0f / 15.0f), Input.LayerIndex / 15.0f, 0);
+	}
+
+	// Transform Neutral color to 256x16 UV
+	float2 InUV;
+	{
+		float Scale = 15.0f / 16.0f; 
+
+		float IntB = floor(Neutral.b * 15.9999f) / 16.0f;
+
+		InUV = float2(Neutral.r * Scale / 16.0f + IntB, Neutral.g * Scale);
+		
+		InUV += float2(0.5f / 256.0f, 0.5f / 16.0f);
+	}
+#else
+void MainPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+	// construct the neutral color from a 2d position in 256x16
+	float4 Neutral;
+	{ 
+		float2 UV = InUV.xy;
+
+		UV -= float2(0.5f / 256.0f, 0.5f / 16.0f);
+
+		float Scale = 16.0f / 15.0f;
+
+		float3 RGB;
+		
+		RGB.r = frac(UV.x * 16.0f);
+		RGB.b = UV.x - RGB.r / 16.0f;
+		RGB.g = UV.y;
+
+		Neutral = float4(RGB * Scale, 0);
+	}
+#endif
+
+    OutColor = LUTWeights[0] * Neutral;
+
+	// BLENDCOUNT is the number of LUT that are blended together including the neutral one
+#if BLENDCOUNT >= 2
+	OutColor += LUTWeights[1] * Texture2DSample(Texture1, Texture1Sampler, InUV);
+#endif
+
+#if BLENDCOUNT >= 3
+	OutColor += LUTWeights[2] * Texture2DSample(Texture2, Texture2Sampler, InUV);
+#endif
+
+#if BLENDCOUNT >= 4
+	OutColor += LUTWeights[3] * Texture2DSample(Texture3, Texture3Sampler, InUV);
+#endif
+
+#if BLENDCOUNT >= 5
+	OutColor += LUTWeights[4] * Texture2DSample(Texture4, Texture4Sampler, InUV);
+#endif
+
+	// blend with custom LDR color, used for Fade track in Matinee
+	OutColor.rgb = lerp(OutColor.rgb * ColorScale, OverlayColor.rgb, OverlayColor.a);
+
+	// apply math color correction on top ot texture based solution
+	// (faster than doing it in the full screen pass)
+	OutColor.rgb = ColorCorrection(OutColor.rgb);
+
+//	static float SmallPowConst = 0.00000001f;
+
+	// needed for d3d11 and if custom gamma is specified
+	// could be integrated into the uberpostprocess but here it is much cheaper
+	// max() clamp to get nice behavior for negative colors (see level sm2test)
+//	OutColor = UnClampedPow(max(float4(SmallPowConst,SmallPowConst,SmallPowConst,SmallPowConst), OutColor), 2.2f * GammaInverse);
+//	OutColor = pow(max(float4(SmallPowConst,SmallPowConst,SmallPowConst,SmallPowConst), OutColor), 2.2f * GammaInverse);
+}
+
+
+

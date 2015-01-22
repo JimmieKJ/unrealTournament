@@ -1,0 +1,3891 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="CallGraphTreeView.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+  <data name="CallGraphTreeView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="CallGraphTreeView.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="CallGraphTreeView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 561</value>
+  </data>
+  <assembly alias="mscorlib" name="mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="CallGraphTreeView.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTreeView.Name" xml:space="preserve">
+    <value>CallGraphTreeView</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTreeView.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TreeView, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTreeView.Parent" xml:space="preserve">
+    <value>CallGraphViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTreeView.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <metadata name="MainMenu.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>0, 0</value>
+  </metadata>
+  <data name="OpenMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>F2</value>
+  </data>
+  <data name="OpenMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>179, 22</value>
+  </data>
+  <data name="OpenMenuItem.Text" xml:space="preserve">
+    <value>&amp;Open</value>
+  </data>
+  <data name="ExportToCSVMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>Ctrl+E</value>
+  </data>
+  <data name="ExportToCSVMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>179, 22</value>
+  </data>
+  <data name="ExportToCSVMenuItem.Text" xml:space="preserve">
+    <value>&amp;Export to CSV</value>
+  </data>
+  <data name="toolStripSeparator12.Size" type="System.Drawing.Size, System.Drawing">
+    <value>176, 6</value>
+  </data>
+  <data name="quitToolStripMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>Ctrl+X</value>
+  </data>
+  <data name="quitToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>179, 22</value>
+  </data>
+  <data name="quitToolStripMenuItem.Text" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="FileMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>35, 20</value>
+  </data>
+  <data name="FileMenuItem.Text" xml:space="preserve">
+    <value>&amp;File</value>
+  </data>
+  <data name="findToolStripMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>Ctrl+F</value>
+  </data>
+  <data name="findToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>216, 22</value>
+  </data>
+  <data name="findToolStripMenuItem.Text" xml:space="preserve">
+    <value>&amp;Find</value>
+  </data>
+  <data name="findNextToolStripMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>F3</value>
+  </data>
+  <data name="findNextToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>216, 22</value>
+  </data>
+  <data name="findNextToolStripMenuItem.Text" xml:space="preserve">
+    <value>Find &amp;Next</value>
+  </data>
+  <data name="copyHighlightedToClipboardToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>216, 22</value>
+  </data>
+  <data name="copyHighlightedToClipboardToolStripMenuItem.Text" xml:space="preserve">
+    <value>&amp;Copy Highlighted to Clipboard</value>
+  </data>
+  <data name="unhighlightAllToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>216, 22</value>
+  </data>
+  <data name="unhighlightAllToolStripMenuItem.Text" xml:space="preserve">
+    <value>&amp;Unhighlight All</value>
+  </data>
+  <data name="toolStripMenuItem1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>37, 20</value>
+  </data>
+  <data name="toolStripMenuItem1.Text" xml:space="preserve">
+    <value>&amp;Edit</value>
+  </data>
+  <data name="OptionsMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>Ctrl+O</value>
+  </data>
+  <data name="OptionsMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>258, 22</value>
+  </data>
+  <data name="OptionsMenuItem.Text" xml:space="preserve">
+    <value>Options</value>
+  </data>
+  <data name="InvertCallgraphViewMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>Ctrl+I</value>
+  </data>
+  <data name="InvertCallgraphViewMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>258, 22</value>
+  </data>
+  <data name="InvertCallgraphViewMenuItem.Text" xml:space="preserve">
+    <value>&amp;Invert Callgraph View</value>
+  </data>
+  <data name="FilterObjectVMFunctionsMenuItem.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAAAgAAAAQCAYAAAArij59AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADrwAAA68AZW8ckkAAAAZdEVYdFNvZnR3YXJlAFBhaW50Lk5FVCB2My41Ljg3O4Bd
+        AAAA3ElEQVQoU2NgIAWcMXX+f1ZW5z9WPfcN7f//u33t/79dG/5vF1fDVHSFkf//v/07/v8Ldfy/jFUc
+        U8FVRr7//yY0/f9nr/d/LosopoILjAL//+Un/P9nrPh/GqsMpoITokr//2ZG//+rLvZ/Cp8SpoLDGmb/
+        /9oa/P8rxvF/hrIppoJrEYn//0py/v/Gz/R/XXgSdq9eVZT7v0pAGbskKHCOqen8nyGqjl3BHQ6u///2
+        bgWGg9X/JYzCmIp2aZn8/xdi/v+fMuP/FcAwwRrcixkF/y8Dhgcp8UdYLQAn8WLaK4E9CAAAAABJRU5E
+        rkJggg==
+</value>
+  </data>
+  <data name="FilterObjectVMFunctionsMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>Ctrl+V</value>
+  </data>
+  <data name="FilterObjectVMFunctionsMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>258, 22</value>
+  </data>
+  <data name="FilterObjectVMFunctionsMenuItem.Text" xml:space="preserve">
+    <value>Filter Out Object VM Functions</value>
+  </data>
+  <data name="FilterObjectVMFunctionsMenuItem.ToolTipText" xml:space="preserve">
+    <value>Filter out all functions related to UObject VM. To apply the changes reload file.</value>
+  </data>
+  <data name="ToolMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>44, 20</value>
+  </data>
+  <data name="ToolMenuItem.Text" xml:space="preserve">
+    <value>&amp;Tools</value>
+  </data>
+  <data name="QuickStartMenuItem.ShortcutKeys" type="System.Windows.Forms.Keys, System.Windows.Forms">
+    <value>F1</value>
+  </data>
+  <data name="QuickStartMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>193, 22</value>
+  </data>
+  <data name="QuickStartMenuItem.Text" xml:space="preserve">
+    <value>&amp;Open UDN help page</value>
+  </data>
+  <data name="HelpMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>40, 20</value>
+  </data>
+  <data name="HelpMenuItem.Text" xml:space="preserve">
+    <value>&amp;Help</value>
+  </data>
+  <data name="MainMenu.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="MainMenu.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1272, 24</value>
+  </data>
+  <data name="MainMenu.TabIndex" type="System.Int32, mscorlib">
+    <value>9</value>
+  </data>
+  <data name="MainMenu.Text" xml:space="preserve">
+    <value>menuStrip1</value>
+  </data>
+  <data name="&gt;&gt;MainMenu.Name" xml:space="preserve">
+    <value>MainMenu</value>
+  </data>
+  <data name="&gt;&gt;MainMenu.Type" xml:space="preserve">
+    <value>System.Windows.Forms.MenuStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MainMenu.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;MainMenu.ZOrder" xml:space="preserve">
+    <value>5</value>
+  </data>
+  <metadata name="MainToolStrip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>0, 24</value>
+  </metadata>
+  <data name="MainToolStrip.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="DiffStartToolLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Segoe UI, 9pt</value>
+  </data>
+  <data name="DiffStartToolLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>59, 22</value>
+  </data>
+  <data name="DiffStartToolLabel.Text" xml:space="preserve">
+    <value>  Diff Start</value>
+  </data>
+  <data name="DiffStartToolLabel.ToolTipText" xml:space="preserve">
+    <value>Selects the beginning snapshot</value>
+  </data>
+  <data name="DiffStartComboBox.FlatStyle" type="System.Windows.Forms.FlatStyle, System.Windows.Forms">
+    <value>Standard</value>
+  </data>
+  <data name="DiffStartComboBox.Size" type="System.Drawing.Size, System.Drawing">
+    <value>121, 25</value>
+  </data>
+  <data name="DiffStartComboBox.ToolTipText" xml:space="preserve">
+    <value>Selects the beginning snapshot</value>
+  </data>
+  <data name="toolStripSeparator1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="DiffEndToolLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>51, 22</value>
+  </data>
+  <data name="DiffEndToolLabel.Text" xml:space="preserve">
+    <value>  Diff End</value>
+  </data>
+  <data name="DiffEndToolLabel.ToolTipText" xml:space="preserve">
+    <value>Selects the ending snapshot</value>
+  </data>
+  <data name="DiffEndComboBox.FlatStyle" type="System.Windows.Forms.FlatStyle, System.Windows.Forms">
+    <value>Standard</value>
+  </data>
+  <data name="DiffEndComboBox.Size" type="System.Drawing.Size, System.Drawing">
+    <value>121, 25</value>
+  </data>
+  <data name="DiffEndComboBox.ToolTipText" xml:space="preserve">
+    <value>Selects the ending snapshot</value>
+  </data>
+  <data name="toolStripSeparator2.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="SortBySizeMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>144, 22</value>
+  </data>
+  <data name="SortBySizeMenuItem.Text" xml:space="preserve">
+    <value> Sort by Size</value>
+  </data>
+  <data name="SortBySizeMenuItem.ToolTipText" xml:space="preserve">
+    <value>Sorts nodes by the size of allocations</value>
+  </data>
+  <data name="SortByCountMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>144, 22</value>
+  </data>
+  <data name="SortByCountMenuItem.Text" xml:space="preserve">
+    <value> Sort by Count</value>
+  </data>
+  <data name="SortByCountMenuItem.ToolTipText" xml:space="preserve">
+    <value>Sorts nodes by the number of allocations</value>
+  </data>
+  <data name="SortCriteriaSplitButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="SortCriteriaSplitButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>83, 22</value>
+  </data>
+  <data name="SortCriteriaSplitButton.Text" xml:space="preserve">
+    <value> Sort by Size</value>
+  </data>
+  <data name="SortCriteriaSplitButton.ToolTipText" xml:space="preserve">
+    <value>Sets sorting of nodes in callgraph view / exlusive view</value>
+  </data>
+  <data name="toolStripSeparator3.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="ActiveAllocsMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="ActiveAllocsMenuItem.Text" xml:space="preserve">
+    <value> Active Allocations</value>
+  </data>
+  <data name="ActiveAllocsMenuItem.ToolTipText" xml:space="preserve">
+    <value>Sets the active allocations list (this includes allocations 
+available only at the end of the snapshot)</value>
+  </data>
+  <data name="LifetimeAllocsMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>168, 22</value>
+  </data>
+  <data name="LifetimeAllocsMenuItem.Text" xml:space="preserve">
+    <value> Lifetime Allocations</value>
+  </data>
+  <data name="LifetimeAllocsMenuItem.ToolTipText" xml:space="preserve">
+    <value>Sets the lifetime allocations list (this includes all allocations between 
+the begin and the end of the snapshot even they have been freed)</value>
+  </data>
+  <data name="AllocationsTypeSplitButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="AllocationsTypeSplitButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>110, 22</value>
+  </data>
+  <data name="AllocationsTypeSplitButton.Text" xml:space="preserve">
+    <value> Active Allocations</value>
+  </data>
+  <data name="AllocationsTypeSplitButton.ToolTipText" xml:space="preserve">
+    <value>Sets specific callstack list that will be used to populated 
+data in callgraph view, exlusive view and histogram view</value>
+  </data>
+  <data name="toolStripSeparator4.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="HideTemplatesMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>158, 22</value>
+  </data>
+  <data name="HideTemplatesMenuItem.Text" xml:space="preserve">
+    <value> Hide Containers</value>
+  </data>
+  <data name="HideTemplatesMenuItem.ToolTipText" xml:space="preserve">
+    <value>Enables hiding the containers from the function names</value>
+  </data>
+  <data name="ShowTemplatesMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>158, 22</value>
+  </data>
+  <data name="ShowTemplatesMenuItem.Text" xml:space="preserve">
+    <value> Show Containers</value>
+  </data>
+  <data name="ShowTemplatesMenuItem.ToolTipText" xml:space="preserve">
+    <value>Disables hiding the containers from the function names</value>
+  </data>
+  <data name="ContainersSplitButton.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="ContainersSplitButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="ContainersSplitButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>102, 22</value>
+  </data>
+  <data name="ContainersSplitButton.Text" xml:space="preserve">
+    <value> Hide Containers</value>
+  </data>
+  <data name="ContainersSplitButton.ToolTipText" xml:space="preserve">
+    <value>Sets option used to hide the containers from the function name.
+Containers are defined as functions with following names
+
+operator new&lt;, operator&lt;&lt;, &gt;::,
+FString::operator=,
+FStringNoInit::operator=,
+FString::FString,
+FBestFitAllocator::,
+FHeapAllocator::</value>
+  </data>
+  <data name="toolStripSeparator9.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="FilterOutClassesMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>122, 22</value>
+  </data>
+  <data name="FilterOutClassesMenuItem.Text" xml:space="preserve">
+    <value> Filter Out</value>
+  </data>
+  <data name="FilterOutClassesMenuItem.ToolTipText" xml:space="preserve">
+    <value>Enables filtering out based on classes to filter, text filter and pool filter</value>
+  </data>
+  <data name="FilterInClassesMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>122, 22</value>
+  </data>
+  <data name="FilterInClassesMenuItem.Text" xml:space="preserve">
+    <value> Filter In</value>
+  </data>
+  <data name="FilterInClassesMenuItem.ToolTipText" xml:space="preserve">
+    <value>Enables filtering in based on classes to filter, text filter and pool filter</value>
+  </data>
+  <data name="FilterTypeSplitButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="FilterTypeSplitButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>63, 22</value>
+  </data>
+  <data name="FilterTypeSplitButton.Text" xml:space="preserve">
+    <value> Filter In</value>
+  </data>
+  <data name="FilterTypeSplitButton.ToolTipText" xml:space="preserve">
+    <value>Sets filtering type</value>
+  </data>
+  <data name="toolStripSeparator5.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="FilterClassesDropDownButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="FilterClassesDropDownButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>99, 22</value>
+  </data>
+  <data name="FilterClassesDropDownButton.Text" xml:space="preserve">
+    <value> Classes to Filter</value>
+  </data>
+  <data name="FilterClassesDropDownButton.ToolTipText" xml:space="preserve">
+    <value>List of common class groups used to narrow results. 
+This menu is updated every time user changes ClassGroups 
+collection in the options dialog.</value>
+  </data>
+  <data name="FilterLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>62, 22</value>
+  </data>
+  <data name="FilterLabel.Text" xml:space="preserve">
+    <value>  Text Filter</value>
+  </data>
+  <data name="FilterLabel.ToolTipText" xml:space="preserve">
+    <value>Enables filtering data by typed text</value>
+  </data>
+  <data name="FilterTextBox.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 25</value>
+  </data>
+  <data name="FilterTextBox.ToolTipText" xml:space="preserve">
+    <value>Type a text to enable text based filtering.
+Press enter to start processing.</value>
+  </data>
+  <data name="PoolMainItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>142, 22</value>
+  </data>
+  <data name="PoolMainItem.Text" xml:space="preserve">
+    <value>Main</value>
+  </data>
+  <data name="PoolMainItem.ToolTipText" xml:space="preserve">
+    <value>Main memory pool</value>
+  </data>
+  <data name="PoolLocalItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>142, 22</value>
+  </data>
+  <data name="PoolLocalItem.Text" xml:space="preserve">
+    <value>Local (GCM)</value>
+  </data>
+  <data name="PoolLocalItem.ToolTipText" xml:space="preserve">
+    <value>Local video memory pool (RSX memory)</value>
+  </data>
+  <data name="PoolHostDefaultItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>142, 22</value>
+  </data>
+  <data name="PoolHostDefaultItem.Text" xml:space="preserve">
+    <value>Host (Default)</value>
+  </data>
+  <data name="PoolHostDefaultItem.ToolTipText" xml:space="preserve">
+    <value>Host memory pool (memory accessible by RSX)</value>
+  </data>
+  <data name="PoolHostMoviesItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>142, 22</value>
+  </data>
+  <data name="PoolHostMoviesItem.Text" xml:space="preserve">
+    <value>Host (Movies)</value>
+  </data>
+  <data name="PoolHostMoviesItem.ToolTipText" xml:space="preserve">
+    <value>Host memory pool used to store movies</value>
+  </data>
+  <data name="PoolSeparator.Size" type="System.Drawing.Size, System.Drawing">
+    <value>139, 6</value>
+  </data>
+  <data name="PoolAllItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>142, 22</value>
+  </data>
+  <data name="PoolAllItem.Text" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="PoolAllItem.ToolTipText" xml:space="preserve">
+    <value>Selects all memory pools</value>
+  </data>
+  <data name="PoolNoneItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>142, 22</value>
+  </data>
+  <data name="PoolNoneItem.Text" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="PoolNoneItem.ToolTipText" xml:space="preserve">
+    <value>Selects none of memory pools</value>
+  </data>
+  <data name="MemoryPoolFilterButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="MemoryPoolFilterButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>70, 22</value>
+  </data>
+  <data name="MemoryPoolFilterButton.Text" xml:space="preserve">
+    <value> Pool Filter</value>
+  </data>
+  <data name="MemoryPoolFilterButton.ToolTipText" xml:space="preserve">
+    <value>Enables filtering by memory pool (PS3 only)</value>
+  </data>
+  <data name="toolStripSeparator10.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="GoButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAKPSURBVDhPY2DAAnzSGLh88hicw0u5SsPLuEp8cxicQgoZ
+        OLGpRRHzK2Xgze1Q61m2K/vT8Xt9/y++nvL//KsJ/w/eafq/cE/6h9x2rc6YYgZurAb55zMoTFwWeOPa
+        m7n/Dz7L+r/vafL//U9T4Hjf06T/R5+W/e9YYn/Vv4hBFsPmySvCrp9/3f9/z6MkIE7Gifc/zvzfvtjm
+        cmgWAw/ckJxOte5Lz2f/33kv8f+ue0kE8Z47mf8z2xRawQaA/ATy86476f+33U6A4zm7gv9vuRH/f/vt
+        RDBGlgOxJ29wfw8OWH9gaB+63gNWvOVGwv/N12P/r78a8j+lxPa/X4jD/9bFtv9XXnL7v+qS1/81l/3+
+        b7gWBlQX93/dmcT/fgXMLgzhpbylJ+5P+L/6YuD/JWec/i88bQXGiUVm/4OCgv57enr9D04w+d+zwQQo
+        bg2Vt/6/8qz//5AijmqwATuvlvyfe8wSiK3gOCbXGKjZ87+Hh8d//0Cv/12LAlDULD7uCjHAt4DBad2J
+        7P+zDlmg4PB0vf/29nb/K9qD/88/4oYhP3uP83//PGZnBp96Bq5pawM/Tttn9n/6PnMI3m/+v2qS3f8Z
+        232BfCRxmDyQrp9r8i6+noEDHBO5bZrtiw4H/p+y24woPHuf0/+0JulGeDoAJYr6ORZXpu+x/T9phyle
+        PH23zf+q6boXQS5HSY3AzCNXOV3nyoxdjv8nbDMBYlM0bPJ/OlCuaqrOBe9CBmls+YHR1JlXOLZcZmL9
+        fMNPkzYBw2CnExhP2mT7v36e4afYMpkJxvaSIvb29iwYBqioqLBr6OnpaGtrO2gZavlZe0mVeMWJ94Cw
+        lbtUqY6+TiBQzk1DV9dCQ0NDEmYAAMjM5gJ1mQTYAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="GoButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="GoButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>40, 22</value>
+  </data>
+  <data name="GoButton.Text" xml:space="preserve">
+    <value>Go</value>
+  </data>
+  <data name="GoButton.ToolTipText" xml:space="preserve">
+    <value>Starts processing data for selected snapshots and view</value>
+  </data>
+  <data name="MainToolStrip.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 24</value>
+  </data>
+  <data name="MainToolStrip.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1272, 25</value>
+  </data>
+  <data name="MainToolStrip.TabIndex" type="System.Int32, mscorlib">
+    <value>11</value>
+  </data>
+  <data name="&gt;&gt;MainToolStrip.Name" xml:space="preserve">
+    <value>MainToolStrip</value>
+  </data>
+  <data name="&gt;&gt;MainToolStrip.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MainToolStrip.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;MainToolStrip.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
+  <metadata name="MainStatusStrip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>0, 668</value>
+  </metadata>
+  <data name="StatusStripLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>0, 17</value>
+  </data>
+  <data name="SelectionSizeStatusLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>0, 17</value>
+  </data>
+  <data name="ToolStripProgressBar.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 16</value>
+  </data>
+  <data name="ToolStripProgressBar.Visible" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MainStatusStrip.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 668</value>
+  </data>
+  <data name="MainStatusStrip.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1272, 22</value>
+  </data>
+  <data name="MainStatusStrip.TabIndex" type="System.Int32, mscorlib">
+    <value>12</value>
+  </data>
+  <data name="&gt;&gt;MainStatusStrip.Name" xml:space="preserve">
+    <value>MainStatusStrip</value>
+  </data>
+  <data name="&gt;&gt;MainStatusStrip.Type" xml:space="preserve">
+    <value>System.Windows.Forms.StatusStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MainStatusStrip.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;MainStatusStrip.ZOrder" xml:space="preserve">
+    <value>3</value>
+  </data>
+  <data name="MainTabControl.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left, Right</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.IsSplitterFixed" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>2, 2, 2, 2</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.Orientation" type="System.Windows.Forms.Orientation, System.Windows.Forms">
+    <value>Horizontal</value>
+  </data>
+  <data name="ParentLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="ParentLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="ParentLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="ParentLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>139, 4</value>
+  </data>
+  <data name="ParentLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>55, 16</value>
+  </data>
+  <data name="ParentLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="ParentLabel.Text" xml:space="preserve">
+    <value>(not set)</value>
+  </data>
+  <data name="&gt;&gt;ParentLabel.Name" xml:space="preserve">
+    <value>ParentLabel</value>
+  </data>
+  <data name="&gt;&gt;ParentLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ParentLabel.Parent" xml:space="preserve">
+    <value>CallGraphViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;ParentLabel.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="label5.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="label5.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="label5.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="label5.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 4</value>
+  </data>
+  <data name="label5.Size" type="System.Drawing.Size, System.Drawing">
+    <value>132, 16</value>
+  </data>
+  <data name="label5.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="label5.Text" xml:space="preserve">
+    <value>Parent funcion name:</value>
+  </data>
+  <data name="&gt;&gt;label5.Name" xml:space="preserve">
+    <value>label5</value>
+  </data>
+  <data name="&gt;&gt;label5.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;label5.Parent" xml:space="preserve">
+    <value>CallGraphViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;label5.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel1.Name" xml:space="preserve">
+    <value>CallGraphViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel1.Parent" xml:space="preserve">
+    <value>CallGraphViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel1.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel2.Name" xml:space="preserve">
+    <value>CallGraphViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel2.Parent" xml:space="preserve">
+    <value>CallGraphViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Panel2.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.SplitterDistance" type="System.Int32, mscorlib">
+    <value>25</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.SplitterWidth" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="CallGraphViewSplitContainer.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Name" xml:space="preserve">
+    <value>CallGraphViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitContainer, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.Parent" xml:space="preserve">
+    <value>CallGraphTabPage</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewSplitContainer.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="CallGraphTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="CallGraphTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>2, 2, 2, 2</value>
+  </data>
+  <data name="CallGraphTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="CallGraphTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="CallGraphTabPage.Text" xml:space="preserve">
+    <value>Callgraph view</value>
+  </data>
+  <data name="CallGraphTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows allocations that are aggregated by unique callstack</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTabPage.Name" xml:space="preserve">
+    <value>CallGraphTabPage</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;CallGraphTabPage.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="ExclusiveViewSplitContainer.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="ExclusiveViewSplitContainer.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="SizeInKByte.Text" xml:space="preserve">
+    <value>Size (KByte)</value>
+  </data>
+  <data name="SizeInKByte.Width" type="System.Int32, mscorlib">
+    <value>74</value>
+  </data>
+  <data name="SizePercentage.Text" xml:space="preserve">
+    <value>Size (%)</value>
+  </data>
+  <data name="SizePercentage.Width" type="System.Int32, mscorlib">
+    <value>58</value>
+  </data>
+  <data name="Count.Text" xml:space="preserve">
+    <value>Count</value>
+  </data>
+  <data name="CountPercentage.Text" xml:space="preserve">
+    <value>Count (%)</value>
+  </data>
+  <data name="GroupName.Text" xml:space="preserve">
+    <value>Group Name</value>
+  </data>
+  <data name="GroupName.Width" type="System.Int32, mscorlib">
+    <value>80</value>
+  </data>
+  <data name="FunctionName.Text" xml:space="preserve">
+    <value>Function Name</value>
+  </data>
+  <data name="FunctionName.Width" type="System.Int32, mscorlib">
+    <value>222</value>
+  </data>
+  <data name="ExclusiveListView.ColumnsTooltips" xml:space="preserve">
+    <value>Size of allocation in kilobyte(s)</value>
+  </data>
+  <data name="ExclusiveListView.ColumnsTooltips1" xml:space="preserve">
+    <value>Size of the allocation as a percentage of total</value>
+  </data>
+  <data name="ExclusiveListView.ColumnsTooltips2" xml:space="preserve">
+    <value>Number of allocations</value>
+  </data>
+  <data name="ExclusiveListView.ColumnsTooltips3" xml:space="preserve">
+    <value>Number of allocations as a percentage of total number of allocation</value>
+  </data>
+  <data name="ExclusiveListView.ColumnsTooltips4" xml:space="preserve">
+    <value>Name of group which this allocations belongs to</value>
+  </data>
+  <data name="ExclusiveListView.ColumnsTooltips5" xml:space="preserve">
+    <value>Name of the top most function in the callstack</value>
+  </data>
+  <data name="ExclusiveListView.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="ExclusiveListView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="ExclusiveListView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>543, 587</value>
+  </data>
+  <data name="ExclusiveListView.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveListView.Name" xml:space="preserve">
+    <value>ExclusiveListView</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveListView.Type" xml:space="preserve">
+    <value>MemoryProfiler2.ListViewEx, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveListView.Parent" xml:space="preserve">
+    <value>ExclusiveViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveListView.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel1.Name" xml:space="preserve">
+    <value>ExclusiveViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel1.Parent" xml:space="preserve">
+    <value>ExclusiveViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel1.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="Function.Text" xml:space="preserve">
+    <value>Function</value>
+  </data>
+  <data name="Function.Width" type="System.Int32, mscorlib">
+    <value>275</value>
+  </data>
+  <data name="File.Text" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="File.Width" type="System.Int32, mscorlib">
+    <value>300</value>
+  </data>
+  <data name="Line.Text" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="ExclusiveSingleCallStackView.ColumnsTooltips" xml:space="preserve">
+    <value>Function name</value>
+  </data>
+  <data name="ExclusiveSingleCallStackView.ColumnsTooltips1" xml:space="preserve">
+    <value>Filename</value>
+  </data>
+  <data name="ExclusiveSingleCallStackView.ColumnsTooltips2" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="ExclusiveSingleCallStackView.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="ExclusiveSingleCallStackView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="ExclusiveSingleCallStackView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>719, 587</value>
+  </data>
+  <data name="ExclusiveSingleCallStackView.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveSingleCallStackView.Name" xml:space="preserve">
+    <value>ExclusiveSingleCallStackView</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveSingleCallStackView.Type" xml:space="preserve">
+    <value>MemoryProfiler2.ListViewEx, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveSingleCallStackView.Parent" xml:space="preserve">
+    <value>ExclusiveViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveSingleCallStackView.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel2.Name" xml:space="preserve">
+    <value>ExclusiveViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel2.Parent" xml:space="preserve">
+    <value>ExclusiveViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Panel2.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="ExclusiveViewSplitContainer.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="ExclusiveViewSplitContainer.SplitterDistance" type="System.Int32, mscorlib">
+    <value>543</value>
+  </data>
+  <data name="ExclusiveViewSplitContainer.SplitterWidth" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="ExclusiveViewSplitContainer.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Name" xml:space="preserve">
+    <value>ExclusiveViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitContainer, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.Parent" xml:space="preserve">
+    <value>ExclusiveTabPage</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveViewSplitContainer.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="ExclusiveTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="ExclusiveTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="ExclusiveTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="ExclusiveTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="ExclusiveTabPage.Text" xml:space="preserve">
+    <value>Exclusive view</value>
+  </data>
+  <data name="ExclusiveTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows allocations that are aggregated by group</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveTabPage.Name" xml:space="preserve">
+    <value>ExclusiveTabPage</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;ExclusiveTabPage.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="TimeLineChart.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="TimeLineChart.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="TimeLineChart.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="TimeLineChart.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="TimeLineChart.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="TimeLineChart.Text" xml:space="preserve">
+    <value>Memory Chart</value>
+  </data>
+  <data name="&gt;&gt;TimeLineChart.Name" xml:space="preserve">
+    <value>TimeLineChart</value>
+  </data>
+  <data name="&gt;&gt;TimeLineChart.Type" xml:space="preserve">
+    <value>System.Windows.Forms.DataVisualization.Charting.Chart, System.Windows.Forms.DataVisualization, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35</value>
+  </data>
+  <data name="&gt;&gt;TimeLineChart.Parent" xml:space="preserve">
+    <value>TimeLineTabPage</value>
+  </data>
+  <data name="&gt;&gt;TimeLineChart.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="TimeLineTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="TimeLineTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="TimeLineTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="TimeLineTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="TimeLineTabPage.Text" xml:space="preserve">
+    <value>Timeline view</value>
+  </data>
+  <data name="TimeLineTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows history of memory allocations grouped by memory class</value>
+  </data>
+  <data name="&gt;&gt;TimeLineTabPage.Name" xml:space="preserve">
+    <value>TimeLineTabPage</value>
+  </data>
+  <data name="&gt;&gt;TimeLineTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;TimeLineTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;TimeLineTabPage.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
+  <data name="CallStackHistoryHScroll.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Bottom, Left, Right</value>
+  </data>
+  <data name="CallStackHistoryHScroll.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="CallStackHistoryHScroll.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 545</value>
+  </data>
+  <data name="CallStackHistoryHScroll.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1249, 14</value>
+  </data>
+  <data name="CallStackHistoryHScroll.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryHScroll.Name" xml:space="preserve">
+    <value>CallStackHistoryHScroll</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryHScroll.Type" xml:space="preserve">
+    <value>System.Windows.Forms.HScrollBar, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryHScroll.Parent" xml:space="preserve">
+    <value>CallStackHistoryPanel</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryHScroll.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="CallStackHistoryVScroll.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Right</value>
+  </data>
+  <data name="CallStackHistoryVScroll.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="CallStackHistoryVScroll.Location" type="System.Drawing.Point, System.Drawing">
+    <value>1250, 0</value>
+  </data>
+  <data name="CallStackHistoryVScroll.Size" type="System.Drawing.Size, System.Drawing">
+    <value>14, 572</value>
+  </data>
+  <data name="CallStackHistoryVScroll.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryVScroll.Name" xml:space="preserve">
+    <value>CallStackHistoryVScroll</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryVScroll.Type" xml:space="preserve">
+    <value>System.Windows.Forms.VScrollBar, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryVScroll.Parent" xml:space="preserve">
+    <value>CallStackHistoryPanel</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryVScroll.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="CallStackHistoryPanel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="CallStackHistoryPanel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="CallStackHistoryPanel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="CallStackHistoryPanel.TabIndex" type="System.Int32, mscorlib">
+    <value>3</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryPanel.Name" xml:space="preserve">
+    <value>CallStackHistoryPanel</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryPanel.Type" xml:space="preserve">
+    <value>MemoryProfiler2.DoubleBufferedPanel, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryPanel.Parent" xml:space="preserve">
+    <value>CallstackHistoryTabPage</value>
+  </data>
+  <data name="&gt;&gt;CallStackHistoryPanel.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <metadata name="CallstackHistoryToolStrip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>0, 0</value>
+  </metadata>
+  <data name="toolStripLabel1.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="toolStripLabel1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>58, 22</value>
+  </data>
+  <data name="toolStripLabel1.Text" xml:space="preserve">
+    <value>X Axis Unit</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitFramesButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitFramesButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitFramesButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>46, 22</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitFramesButton.Text" xml:space="preserve">
+    <value>Frames</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitFramesButton.ToolTipText" xml:space="preserve">
+    <value>Check to changes X axis unit into frames</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitAllocationsButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitAllocationsButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitAllocationsButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>62, 22</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitAllocationsButton.Text" xml:space="preserve">
+    <value>Allocations</value>
+  </data>
+  <data name="CallstackHistoryAxisUnitAllocationsButton.ToolTipText" xml:space="preserve">
+    <value>Check to changes X axis unit into stream position of the allocations</value>
+  </data>
+  <data name="toolStripSeparator15.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="CallstackHistoryShowCompleteHistoryButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="CallstackHistoryShowCompleteHistoryButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="CallstackHistoryShowCompleteHistoryButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>122, 22</value>
+  </data>
+  <data name="CallstackHistoryShowCompleteHistoryButton.Text" xml:space="preserve">
+    <value>Show Complete History</value>
+  </data>
+  <data name="CallstackHistoryShowCompleteHistoryButton.ToolTipText" xml:space="preserve">
+    <value>Check to show the complete history instead of range between selected snaphots</value>
+  </data>
+  <data name="CallstackHistoryShowSnapshotsButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="CallstackHistoryShowSnapshotsButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="CallstackHistoryShowSnapshotsButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>90, 22</value>
+  </data>
+  <data name="CallstackHistoryShowSnapshotsButton.Text" xml:space="preserve">
+    <value>Show Snapshots</value>
+  </data>
+  <data name="CallstackHistoryShowSnapshotsButton.ToolTipText" xml:space="preserve">
+    <value>Check to show snapshots information</value>
+  </data>
+  <data name="toolStripSeparator6.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="CallstackHistoryResetZoomButton.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="CallstackHistoryResetZoomButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="CallstackHistoryResetZoomButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="CallstackHistoryResetZoomButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>67, 22</value>
+  </data>
+  <data name="CallstackHistoryResetZoomButton.Text" xml:space="preserve">
+    <value>Reset zoom</value>
+  </data>
+  <data name="CallstackHistoryResetZoomButton.ToolTipText" xml:space="preserve">
+    <value>Resets zoom to default</value>
+  </data>
+  <data name="toolStripSeparator7.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="CallstackHistoryZoomLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>47, 22</value>
+  </data>
+  <data name="CallstackHistoryZoomLabel.Text" xml:space="preserve">
+    <value>Zoom H:</value>
+  </data>
+  <data name="CallstackHistoryZoomLabelH.AutoSize" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="CallstackHistoryZoomLabelH.Size" type="System.Drawing.Size, System.Drawing">
+    <value>19, 22</value>
+  </data>
+  <data name="CallstackHistoryZoomLabelH.Text" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="toolStripLabel4.Size" type="System.Drawing.Size, System.Drawing">
+    <value>17, 22</value>
+  </data>
+  <data name="toolStripLabel4.Text" xml:space="preserve">
+    <value>V:</value>
+  </data>
+  <data name="CallstackHistoryZoomLabelV.AutoSize" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="CallstackHistoryZoomLabelV.Size" type="System.Drawing.Size, System.Drawing">
+    <value>19, 22</value>
+  </data>
+  <data name="CallstackHistoryZoomLabelV.Text" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="toolStripSeparator8.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="CallstackHistoryHelpLabel.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="CallstackHistoryHelpLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>471, 22</value>
+  </data>
+  <data name="CallstackHistoryHelpLabel.Text" xml:space="preserve">
+    <value>Use mouse wheel and control for horizontal or shift for vertical change of the zoom of the graph.</value>
+  </data>
+  <data name="CallstackHistoryToolStrip.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="CallstackHistoryToolStrip.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 25</value>
+  </data>
+  <data name="CallstackHistoryToolStrip.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="CallstackHistoryToolStrip.Visible" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryToolStrip.Name" xml:space="preserve">
+    <value>CallstackHistoryToolStrip</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryToolStrip.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryToolStrip.Parent" xml:space="preserve">
+    <value>CallstackHistoryTabPage</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryToolStrip.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="CallstackHistoryTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="CallstackHistoryTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="CallstackHistoryTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="CallstackHistoryTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>4</value>
+  </data>
+  <data name="CallstackHistoryTabPage.Text" xml:space="preserve">
+    <value>Callstack history</value>
+  </data>
+  <data name="CallstackHistoryTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows the complete history of a callstack's memory allocation, even following it across reallocs</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryTabPage.Name" xml:space="preserve">
+    <value>CallstackHistoryTabPage</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryTabPage.ZOrder" xml:space="preserve">
+    <value>3</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.IsSplitterFixed" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="HistogramPanel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="HistogramPanel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="HistogramPanel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>967, 587</value>
+  </data>
+  <data name="HistogramPanel.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;HistogramPanel.Name" xml:space="preserve">
+    <value>HistogramPanel</value>
+  </data>
+  <data name="&gt;&gt;HistogramPanel.Type" xml:space="preserve">
+    <value>MemoryProfiler2.DoubleBufferedPanel, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;HistogramPanel.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;HistogramPanel.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel1.Name" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel1.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel1.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="HistogramViewCallStackListView.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left, Right</value>
+  </data>
+  <data name="CallstackHeader.Text" xml:space="preserve">
+    <value>Callstack</value>
+  </data>
+  <data name="CallstackHeader.Width" type="System.Int32, mscorlib">
+    <value>270</value>
+  </data>
+  <metadata name="CallStackViewerContextMenu.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>681, 5</value>
+  </metadata>
+  <data name="CopyStackFrameMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>205, 22</value>
+  </data>
+  <data name="CopyStackFrameMenuItem.Text" xml:space="preserve">
+    <value>&amp;Copy Function to Clipboard</value>
+  </data>
+  <data name="CopyCallstackToClipboardMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>205, 22</value>
+  </data>
+  <data name="CopyCallstackToClipboardMenuItem.Text" xml:space="preserve">
+    <value>Copy Call&amp;stack to Clipboard</value>
+  </data>
+  <data name="CallStackViewerContextMenu.Size" type="System.Drawing.Size, System.Drawing">
+    <value>206, 48</value>
+  </data>
+  <data name="&gt;&gt;CallStackViewerContextMenu.Name" xml:space="preserve">
+    <value>CallStackViewerContextMenu</value>
+  </data>
+  <data name="&gt;&gt;CallStackViewerContextMenu.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ContextMenuStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="HistogramViewCallStackListView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 108</value>
+  </data>
+  <data name="HistogramViewCallStackListView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>338, 479</value>
+  </data>
+  <data name="HistogramViewCallStackListView.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewCallStackListView.Name" xml:space="preserve">
+    <value>HistogramViewCallStackListView</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewCallStackListView.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ListView, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewCallStackListView.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewCallStackListView.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="HistogramViewAllocationsLabel.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="HistogramViewAllocationsLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="HistogramViewAllocationsLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="HistogramViewAllocationsLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="HistogramViewAllocationsLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>122, 68</value>
+  </data>
+  <data name="HistogramViewAllocationsLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>0, 16</value>
+  </data>
+  <data name="HistogramViewAllocationsLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>7</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewAllocationsLabel.Name" xml:space="preserve">
+    <value>HistogramViewAllocationsLabel</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewAllocationsLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewAllocationsLabel.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewAllocationsLabel.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="label4.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="label4.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="label4.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="label4.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="label4.Location" type="System.Drawing.Point, System.Drawing">
+    <value>45, 89</value>
+  </data>
+  <data name="label4.Size" type="System.Drawing.Size, System.Drawing">
+    <value>66, 16</value>
+  </data>
+  <data name="label4.TabIndex" type="System.Int32, mscorlib">
+    <value>13</value>
+  </data>
+  <data name="label4.Text" xml:space="preserve">
+    <value>Callstack:</value>
+  </data>
+  <data name="&gt;&gt;label4.Name" xml:space="preserve">
+    <value>label4</value>
+  </data>
+  <data name="&gt;&gt;label4.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;label4.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;label4.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
+  <data name="label1.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="label1.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="label1.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="label1.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="label1.Location" type="System.Drawing.Point, System.Drawing">
+    <value>45, 68</value>
+  </data>
+  <data name="label1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>77, 16</value>
+  </data>
+  <data name="label1.TabIndex" type="System.Int32, mscorlib">
+    <value>12</value>
+  </data>
+  <data name="label1.Text" xml:space="preserve">
+    <value>Allocations:</value>
+  </data>
+  <data name="&gt;&gt;label1.Name" xml:space="preserve">
+    <value>label1</value>
+  </data>
+  <data name="&gt;&gt;label1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;label1.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;label1.ZOrder" xml:space="preserve">
+    <value>3</value>
+  </data>
+  <data name="label2.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="label2.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="label2.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="label2.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="label2.Location" type="System.Drawing.Point, System.Drawing">
+    <value>45, 47</value>
+  </data>
+  <data name="label2.Size" type="System.Drawing.Size, System.Drawing">
+    <value>37, 16</value>
+  </data>
+  <data name="label2.TabIndex" type="System.Int32, mscorlib">
+    <value>11</value>
+  </data>
+  <data name="label2.Text" xml:space="preserve">
+    <value>Size:</value>
+  </data>
+  <data name="&gt;&gt;label2.Name" xml:space="preserve">
+    <value>label2</value>
+  </data>
+  <data name="&gt;&gt;label2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;label2.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;label2.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
+  <data name="HistogramViewSizeLabel.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="HistogramViewSizeLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="HistogramViewSizeLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="HistogramViewSizeLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="HistogramViewSizeLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>122, 47</value>
+  </data>
+  <data name="HistogramViewSizeLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>0, 16</value>
+  </data>
+  <data name="HistogramViewSizeLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>6</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewSizeLabel.Name" xml:space="preserve">
+    <value>HistogramViewSizeLabel</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewSizeLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewSizeLabel.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewSizeLabel.ZOrder" xml:space="preserve">
+    <value>5</value>
+  </data>
+  <data name="label3.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="label3.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="label3.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="label3.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="label3.Location" type="System.Drawing.Point, System.Drawing">
+    <value>45, 26</value>
+  </data>
+  <data name="label3.Size" type="System.Drawing.Size, System.Drawing">
+    <value>48, 16</value>
+  </data>
+  <data name="label3.TabIndex" type="System.Int32, mscorlib">
+    <value>10</value>
+  </data>
+  <data name="label3.Text" xml:space="preserve">
+    <value>Name:</value>
+  </data>
+  <data name="&gt;&gt;label3.Name" xml:space="preserve">
+    <value>label3</value>
+  </data>
+  <data name="&gt;&gt;label3.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;label3.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;label3.ZOrder" xml:space="preserve">
+    <value>6</value>
+  </data>
+  <data name="HistogramViewNameLabel.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="HistogramViewNameLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="HistogramViewNameLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="HistogramViewNameLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="HistogramViewNameLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>122, 26</value>
+  </data>
+  <data name="HistogramViewNameLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>0, 16</value>
+  </data>
+  <data name="HistogramViewNameLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>5</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewNameLabel.Name" xml:space="preserve">
+    <value>HistogramViewNameLabel</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewNameLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewNameLabel.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewNameLabel.ZOrder" xml:space="preserve">
+    <value>7</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>42, 0</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>296, 24</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.Text" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="HistogramViewDetailsLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewDetailsLabel.Name" xml:space="preserve">
+    <value>HistogramViewDetailsLabel</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewDetailsLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewDetailsLabel.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;HistogramViewDetailsLabel.ZOrder" xml:space="preserve">
+    <value>8</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel2.Name" xml:space="preserve">
+    <value>HistrogramViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel2.Parent" xml:space="preserve">
+    <value>HistrogramViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Panel2.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.SplitterDistance" type="System.Int32, mscorlib">
+    <value>967</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.SplitterWidth" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="HistrogramViewSplitContainer.TabIndex" type="System.Int32, mscorlib">
+    <value>14</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Name" xml:space="preserve">
+    <value>HistrogramViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitContainer, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.Parent" xml:space="preserve">
+    <value>HistogramTabPage</value>
+  </data>
+  <data name="&gt;&gt;HistrogramViewSplitContainer.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="HistogramTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="HistogramTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="HistogramTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="HistogramTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>3</value>
+  </data>
+  <data name="HistogramTabPage.Text" xml:space="preserve">
+    <value>Histogram</value>
+  </data>
+  <data name="HistogramTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows memory banks as columns, which are divided into bars, based on class groups</value>
+  </data>
+  <data name="&gt;&gt;HistogramTabPage.Name" xml:space="preserve">
+    <value>HistogramTabPage</value>
+  </data>
+  <data name="&gt;&gt;HistogramTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HistogramTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;HistogramTabPage.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
+  <data name="MemoryViewSplitContainer.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="MemoryViewSplitContainer.IsSplitterFixed" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="MemoryViewSplitContainer.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 25</value>
+  </data>
+  <data name="MemoryViewSplitContainer.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="MemoryBitmapPanel.AutoSizeMode" type="System.Windows.Forms.AutoSizeMode, System.Windows.Forms">
+    <value>GrowAndShrink</value>
+  </data>
+  <data name="MemoryBitmapPanel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="MemoryBitmapPanel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="MemoryBitmapPanel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>967, 562</value>
+  </data>
+  <data name="MemoryBitmapPanel.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapPanel.Name" xml:space="preserve">
+    <value>MemoryBitmapPanel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapPanel.Type" xml:space="preserve">
+    <value>MemoryProfiler2.DoubleBufferedPanel, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapPanel.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapPanel.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel1.Name" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel1.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel1.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>45, 3</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>112, 16</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>10</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryLabel.Text" xml:space="preserve">
+    <value>Allocation History</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryLabel.Name" xml:space="preserve">
+    <value>MemoryBitmapAllocationHistoryLabel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryLabel.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryLabel.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryListView.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Left, Right</value>
+  </data>
+  <data name="AllocFrameColumn.Text" xml:space="preserve">
+    <value>Alloc Frame</value>
+  </data>
+  <data name="AllocFrameColumn.Width" type="System.Int32, mscorlib">
+    <value>72</value>
+  </data>
+  <data name="FreeFrameColumn.Text" xml:space="preserve">
+    <value>Free Frame</value>
+  </data>
+  <data name="FreeFrameColumn.Width" type="System.Int32, mscorlib">
+    <value>72</value>
+  </data>
+  <data name="SizeColumn.Text" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="SizeColumn.Width" type="System.Int32, mscorlib">
+    <value>108</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryListView.ColumnsTooltips" xml:space="preserve">
+    <value>Index of the frame when the allocation has been allocated</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryListView.ColumnsTooltips1" xml:space="preserve">
+    <value>Index of the frame when the allocation has been freed, if empty it means that allocation is still alive</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryListView.ColumnsTooltips2" xml:space="preserve">
+    <value>Size of the allocation</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryListView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 21</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryListView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>338, 238</value>
+  </data>
+  <data name="MemoryBitmapAllocationHistoryListView.TabIndex" type="System.Int32, mscorlib">
+    <value>9</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryListView.Name" xml:space="preserve">
+    <value>MemoryBitmapAllocationHistoryListView</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryListView.Type" xml:space="preserve">
+    <value>MemoryProfiler2.ListViewEx, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryListView.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocationHistoryListView.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="MemoryBitmapCallStackListView.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Bottom, Left, Right</value>
+  </data>
+  <data name="FunctionColumn.Text" xml:space="preserve">
+    <value>Function</value>
+  </data>
+  <data name="FunctionColumn.Width" type="System.Int32, mscorlib">
+    <value>270</value>
+  </data>
+  <data name="MemoryBitmapCallStackListView.ColumnsTooltips" xml:space="preserve">
+    <value>Function</value>
+  </data>
+  <data name="MemoryBitmapCallStackListView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 280</value>
+  </data>
+  <data name="MemoryBitmapCallStackListView.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="MemoryBitmapCallStackListView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>338, 282</value>
+  </data>
+  <data name="MemoryBitmapCallStackListView.TabIndex" type="System.Int32, mscorlib">
+    <value>12</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackListView.Name" xml:space="preserve">
+    <value>MemoryBitmapCallStackListView</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackListView.Type" xml:space="preserve">
+    <value>MemoryProfiler2.ListViewEx, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackListView.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackListView.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>114, 261</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>48, 16</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>13</value>
+  </data>
+  <data name="MemoryBitmapCallstackGroupNameLabel.Text" xml:space="preserve">
+    <value>Group:</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallstackGroupNameLabel.Name" xml:space="preserve">
+    <value>MemoryBitmapCallstackGroupNameLabel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallstackGroupNameLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallstackGroupNameLabel.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallstackGroupNameLabel.ZOrder" xml:space="preserve">
+    <value>3</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.Anchor" type="System.Windows.Forms.AnchorStyles, System.Windows.Forms">
+    <value>Top, Right</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>45, 261</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>63, 16</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>11</value>
+  </data>
+  <data name="MemoryBitmapCallStackLabel.Text" xml:space="preserve">
+    <value>Callstack</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackLabel.Name" xml:space="preserve">
+    <value>MemoryBitmapCallStackLabel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackLabel.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapCallStackLabel.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel2.Name" xml:space="preserve">
+    <value>MemoryViewSplitContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel2.Parent" xml:space="preserve">
+    <value>MemoryViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Panel2.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="MemoryViewSplitContainer.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 562</value>
+  </data>
+  <data name="MemoryViewSplitContainer.SplitterDistance" type="System.Int32, mscorlib">
+    <value>967</value>
+  </data>
+  <data name="MemoryViewSplitContainer.SplitterWidth" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="MemoryViewSplitContainer.TabIndex" type="System.Int32, mscorlib">
+    <value>14</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Name" xml:space="preserve">
+    <value>MemoryViewSplitContainer</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitContainer, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.Parent" xml:space="preserve">
+    <value>MemoryBitmapTabPage</value>
+  </data>
+  <data name="&gt;&gt;MemoryViewSplitContainer.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <metadata name="MemoryBitmapToolStrip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>0, 0</value>
+  </metadata>
+  <data name="MemoryBitmapResetSelectionButton.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MemoryBitmapResetSelectionButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="MemoryBitmapResetSelectionButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="MemoryBitmapResetSelectionButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>84, 22</value>
+  </data>
+  <data name="MemoryBitmapResetSelectionButton.Text" xml:space="preserve">
+    <value>Reset selection</value>
+  </data>
+  <data name="MemoryBitmapResetSelectionButton.ToolTipText" xml:space="preserve">
+    <value>Clears selection</value>
+  </data>
+  <data name="MemoryBitmapResetButton.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MemoryBitmapResetButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="MemoryBitmapResetButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="MemoryBitmapResetButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>67, 22</value>
+  </data>
+  <data name="MemoryBitmapResetButton.Text" xml:space="preserve">
+    <value>Reset zoom</value>
+  </data>
+  <data name="MemoryBitmapResetButton.ToolTipText" xml:space="preserve">
+    <value>Resets zoom to default</value>
+  </data>
+  <data name="toolStripSeparator22.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="MemoryBitmapZoomRowsButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="MemoryBitmapZoomRowsButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="MemoryBitmapZoomRowsButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>79, 22</value>
+  </data>
+  <data name="MemoryBitmapZoomRowsButton.Text" xml:space="preserve">
+    <value>Zoom to Rows</value>
+  </data>
+  <data name="MemoryBitmapZoomRowsButton.ToolTipText" xml:space="preserve">
+    <value>Check to enable and then use the mouse to draw a region which will be zoomed</value>
+  </data>
+  <data name="toolStripSeparator16.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="MemoryBitmapUndoZoomButton.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MemoryBitmapUndoZoomButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="MemoryBitmapUndoZoomButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="MemoryBitmapUndoZoomButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>88, 22</value>
+  </data>
+  <data name="MemoryBitmapUndoZoomButton.Text" xml:space="preserve">
+    <value>Undo Last Zoom</value>
+  </data>
+  <data name="MemoryBitmapUndoZoomButton.ToolTipText" xml:space="preserve">
+    <value>Undo last zoom operation</value>
+  </data>
+  <data name="toolStripSeparator19.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="MemoryBitmapHeatMapButton.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+    <value>
+        iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
+        YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIISURBVDhPpZP7S1NxGMbPPxKaXVUkMEq8IpKUCoY/hGgI
+        ymqkDYYXcCjDZOANURSjCNGFQUTsl4GXVMxKk62YU4fXQpaIlygHQxBRH8/zwvyaIAYe+HLgnPN8nue9
+        HA3nvDTq63oW/jm13XOwvPTB3DYFY5MH+bXfcN8ygfTSMSSXfESicQDxBqdYHwH29g9w2tnZ3UcguIvN
+        rR3417exuBJE5N1n/wfwLgXEOc38Bc6xNRHb+/y4nm49G0Bnit2zf9H6bkliE/jKuYxrd6oVgDWfjB+K
+        TWeKMyrGEVfowITvD9re/9ABVQrAhh0HHK+ZselMMaN/mvwtDb+aVqkA7HYIwIj3ysfluPTorJnP6Ezx
+        oHsD1s5ZXEktUwCOioB5f1CEPR9+wTG6iuiserTo8dkwng7HT/R+XUPF8xlcTjErAOdMcW6NW8STiwG8
+        7vej8oUPN/PsEv3t8Ao0TZP3T1u8uJRkUgAuSYHtO97oLxmXd5t9Ho8aPTK+GzntqNfrLm2fFoihwYOI
+        xGIF4KjoGBLzY1OrF9k6OOFxnwDC4wxIMX1G0pMhgVyMNyoA13PAtS7OrJk1PrC69LUdQWxuF6IybHrX
+        LRI7JrtZdoDAo1XmbjMyD+tjSXxGcXRmnYg5ttD9QuxDhN0uUgDOmbvNTpPOJaGAo2K36cyaGZvOFIfd
+        KlSA8/zRh9ABIDUG+1JpAAAAAElFTkSuQmCC
+</value>
+  </data>
+  <data name="MemoryBitmapHeatMapButton.ImageTransparentColor" type="System.Drawing.Color, System.Drawing">
+    <value>Magenta</value>
+  </data>
+  <data name="MemoryBitmapHeatMapButton.Size" type="System.Drawing.Size, System.Drawing">
+    <value>86, 22</value>
+  </data>
+  <data name="MemoryBitmapHeatMapButton.Text" xml:space="preserve">
+    <value>Show Heat Map</value>
+  </data>
+  <data name="MemoryBitmapHeatMapButton.ToolTipText" xml:space="preserve">
+    <value>'Show Heat Map' shows how "hot" each address is the more allocations that have inhabited a given address, the whiter it will be. Check to enable.</value>
+  </data>
+  <data name="toolStripSeparator18.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="toolStripLabel14.Size" type="System.Drawing.Size, System.Drawing">
+    <value>82, 22</value>
+  </data>
+  <data name="toolStripLabel14.Text" xml:space="preserve">
+    <value>Bytes per pixel:</value>
+  </data>
+  <data name="MemoryBitmapBytesPerPixelLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MemoryBitmapBytesPerPixelLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>60, 22</value>
+  </data>
+  <data name="MemoryBitmapBytesPerPixelLabel.Text" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="MemoryBitmapBytesPerPixelLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleRight</value>
+  </data>
+  <data name="toolStripSeparator17.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="toolStripLabel13.Size" type="System.Drawing.Size, System.Drawing">
+    <value>80, 22</value>
+  </data>
+  <data name="toolStripLabel13.Text" xml:space="preserve">
+    <value>Memory space:</value>
+  </data>
+  <data name="toolStripLabel13.ToolTipText" xml:space="preserve">
+    <value>Shows memory range of visible memory region</value>
+  </data>
+  <data name="MemoryBitmapMemorySpaceLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MemoryBitmapMemorySpaceLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>235, 22</value>
+  </data>
+  <data name="MemoryBitmapMemorySpaceLabel.Text" xml:space="preserve">
+    <value>0x0000000000000000 - 0x0000000000000000</value>
+  </data>
+  <data name="MemoryBitmapMemorySpaceLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleRight</value>
+  </data>
+  <data name="MemoryBitmapMemorySpaceLabel.ToolTipText" xml:space="preserve">
+    <value>Shows memory range of visible memory region</value>
+  </data>
+  <data name="toolStripSeparator20.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="label10.Size" type="System.Drawing.Size, System.Drawing">
+    <value>61, 22</value>
+  </data>
+  <data name="label10.Text" xml:space="preserve">
+    <value>Space size:</value>
+  </data>
+  <data name="label10.ToolTipText" xml:space="preserve">
+    <value>Shows memory space in bytes of visible memory region</value>
+  </data>
+  <data name="MemoryBitmapSpaceSizeLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MemoryBitmapSpaceSizeLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>80, 22</value>
+  </data>
+  <data name="MemoryBitmapSpaceSizeLabel.Text" xml:space="preserve">
+    <value>0 bytes</value>
+  </data>
+  <data name="MemoryBitmapSpaceSizeLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleRight</value>
+  </data>
+  <data name="MemoryBitmapSpaceSizeLabel.ToolTipText" xml:space="preserve">
+    <value>Shows memory space in bytes of visible memory region</value>
+  </data>
+  <data name="toolStripSeparator21.Size" type="System.Drawing.Size, System.Drawing">
+    <value>6, 25</value>
+  </data>
+  <data name="toolStripLabel15.Size" type="System.Drawing.Size, System.Drawing">
+    <value>96, 22</value>
+  </data>
+  <data name="toolStripLabel15.Text" xml:space="preserve">
+    <value>Allocated memory:</value>
+  </data>
+  <data name="toolStripLabel15.ToolTipText" xml:space="preserve">
+    <value>Shows amount of allocated memory in visible memory region</value>
+  </data>
+  <data name="MemoryBitmapAllocatedMemoryLabel.AutoSize" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MemoryBitmapAllocatedMemoryLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>80, 22</value>
+  </data>
+  <data name="MemoryBitmapAllocatedMemoryLabel.Text" xml:space="preserve">
+    <value>0 bytes</value>
+  </data>
+  <data name="MemoryBitmapAllocatedMemoryLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleRight</value>
+  </data>
+  <data name="MemoryBitmapAllocatedMemoryLabel.ToolTipText" xml:space="preserve">
+    <value>Shows amount of allocated memory in visible memory region</value>
+  </data>
+  <data name="MemoryBitmapToolStrip.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="MemoryBitmapToolStrip.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 25</value>
+  </data>
+  <data name="MemoryBitmapToolStrip.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="MemoryBitmapToolStrip.Text" xml:space="preserve">
+    <value>BitmapMenu</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapToolStrip.Name" xml:space="preserve">
+    <value>MemoryBitmapToolStrip</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapToolStrip.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapToolStrip.Parent" xml:space="preserve">
+    <value>MemoryBitmapTabPage</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapToolStrip.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="MemoryBitmapTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="MemoryBitmapTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="MemoryBitmapTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="MemoryBitmapTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>5</value>
+  </data>
+  <data name="MemoryBitmapTabPage.Text" xml:space="preserve">
+    <value>Memory bitmap</value>
+  </data>
+  <data name="MemoryBitmapTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows memory bitmap view</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapTabPage.Name" xml:space="preserve">
+    <value>MemoryBitmapTabPage</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapTabPage.ZOrder" xml:space="preserve">
+    <value>5</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.IsSplitterFixed" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="columnHeader6.Text" xml:space="preserve">
+    <value>0 Frames</value>
+  </data>
+  <data name="columnHeader6.Width" type="System.Int32, mscorlib">
+    <value>61</value>
+  </data>
+  <data name="columnHeader12.Text" xml:space="preserve">
+    <value>0 Frame Count</value>
+  </data>
+  <data name="columnHeader12.Width" type="System.Int32, mscorlib">
+    <value>84</value>
+  </data>
+  <data name="columnHeader5.Text" xml:space="preserve">
+    <value>1 Frame</value>
+  </data>
+  <data name="columnHeader10.Text" xml:space="preserve">
+    <value>Longest Run</value>
+  </data>
+  <data name="columnHeader10.Width" type="System.Int32, mscorlib">
+    <value>79</value>
+  </data>
+  <data name="columnHeader11.Text" xml:space="preserve">
+    <value>Run Avg Alloc (bytes)</value>
+  </data>
+  <data name="columnHeader11.Width" type="System.Int32, mscorlib">
+    <value>116</value>
+  </data>
+  <data name="ShortLivedListView.ColumnsTooltips" xml:space="preserve">
+    <value>"0 Frames" is the number of allocations that were freed (including reallocs) within the same frame</value>
+  </data>
+  <data name="ShortLivedListView.ColumnsTooltips1" xml:space="preserve">
+    <value>"0 Frame Count" is the number of unique frames that had allocations that were freed the same frame</value>
+  </data>
+  <data name="ShortLivedListView.ColumnsTooltips2" xml:space="preserve">
+    <value>"1 Frame" is the number of allocations that were freed the following frame</value>
+  </data>
+  <data name="ShortLivedListView.ColumnsTooltips3" xml:space="preserve">
+    <value>"Longest Run" is the longest unbroken run of frames where the callstack freed an allocation it had made the previous frame</value>
+  </data>
+  <data name="ShortLivedListView.ColumnsTooltips4" xml:space="preserve">
+    <value>"Run Avg Alloc" shows the average allocation size in bytes of the longest run</value>
+  </data>
+  <data name="ShortLivedListView.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="ShortLivedListView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="ShortLivedListView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>424, 587</value>
+  </data>
+  <data name="ShortLivedListView.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedListView.Name" xml:space="preserve">
+    <value>ShortLivedListView</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedListView.Type" xml:space="preserve">
+    <value>MemoryProfiler2.ListViewEx, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedListView.Parent" xml:space="preserve">
+    <value>ShortLivedAllocationsSplittContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedListView.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel1.Name" xml:space="preserve">
+    <value>ShortLivedAllocationsSplittContainer.Panel1</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel1.Parent" xml:space="preserve">
+    <value>ShortLivedAllocationsSplittContainer</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel1.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="columnHeader7.Text" xml:space="preserve">
+    <value>Function</value>
+  </data>
+  <data name="columnHeader7.Width" type="System.Int32, mscorlib">
+    <value>329</value>
+  </data>
+  <data name="columnHeader8.Text" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="columnHeader8.Width" type="System.Int32, mscorlib">
+    <value>191</value>
+  </data>
+  <data name="columnHeader9.Text" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="columnHeader9.Width" type="System.Int32, mscorlib">
+    <value>43</value>
+  </data>
+  <data name="ShortLivedCallStackListView.ColumnsTooltips" xml:space="preserve">
+    <value>Function name</value>
+  </data>
+  <data name="ShortLivedCallStackListView.ColumnsTooltips1" xml:space="preserve">
+    <value>Filename</value>
+  </data>
+  <data name="ShortLivedCallStackListView.ColumnsTooltips2" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="ShortLivedCallStackListView.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="ShortLivedCallStackListView.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="ShortLivedCallStackListView.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="ShortLivedCallStackListView.Size" type="System.Drawing.Size, System.Drawing">
+    <value>838, 587</value>
+  </data>
+  <data name="ShortLivedCallStackListView.TabIndex" type="System.Int32, mscorlib">
+    <value>3</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedCallStackListView.Name" xml:space="preserve">
+    <value>ShortLivedCallStackListView</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedCallStackListView.Type" xml:space="preserve">
+    <value>MemoryProfiler2.ListViewEx, MemoryProfiler2, Version=1.0.4357.37767, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedCallStackListView.Parent" xml:space="preserve">
+    <value>ShortLivedAllocationsSplittContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedCallStackListView.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel2.Name" xml:space="preserve">
+    <value>ShortLivedAllocationsSplittContainer.Panel2</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitterPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel2.Parent" xml:space="preserve">
+    <value>ShortLivedAllocationsSplittContainer</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Panel2.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.SplitterDistance" type="System.Int32, mscorlib">
+    <value>424</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.SplitterWidth" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="ShortLivedAllocationsSplittContainer.TabIndex" type="System.Int32, mscorlib">
+    <value>4</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Name" xml:space="preserve">
+    <value>ShortLivedAllocationsSplittContainer</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Type" xml:space="preserve">
+    <value>System.Windows.Forms.SplitContainer, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.Parent" xml:space="preserve">
+    <value>ShortLivedAllocationsTabPage</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsSplittContainer.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="ShortLivedAllocationsTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="ShortLivedAllocationsTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="ShortLivedAllocationsTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="ShortLivedAllocationsTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>6</value>
+  </data>
+  <data name="ShortLivedAllocationsTabPage.Text" xml:space="preserve">
+    <value>Short lived allocations</value>
+  </data>
+  <data name="ShortLivedAllocationsTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows allocations that are freed very soon afterwards, which can cause performance and fragmentation issues</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsTabPage.Name" xml:space="preserve">
+    <value>ShortLivedAllocationsTabPage</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;ShortLivedAllocationsTabPage.ZOrder" xml:space="preserve">
+    <value>6</value>
+  </data>
+  <data name="DetailsLayoutPanel.ColumnCount" type="System.Int32, mscorlib">
+    <value>3</value>
+  </data>
+  <data name="DetailsEndTextBox.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="DetailsEndTextBox.Location" type="System.Drawing.Point, System.Drawing">
+    <value>846, 24</value>
+  </data>
+  <data name="DetailsEndTextBox.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="DetailsEndTextBox.MaxLength" type="System.Int32, mscorlib">
+    <value>327670</value>
+  </data>
+  <data name="DetailsEndTextBox.Multiline" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="DetailsEndTextBox.ScrollBars" type="System.Windows.Forms.ScrollBars, System.Windows.Forms">
+    <value>Vertical</value>
+  </data>
+  <data name="DetailsEndTextBox.Size" type="System.Drawing.Size, System.Drawing">
+    <value>418, 563</value>
+  </data>
+  <data name="DetailsEndTextBox.TabIndex" type="System.Int32, mscorlib">
+    <value>23</value>
+  </data>
+  <data name="DetailsEndTextBox.WordWrap" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="&gt;&gt;DetailsEndTextBox.Name" xml:space="preserve">
+    <value>DetailsEndTextBox</value>
+  </data>
+  <data name="&gt;&gt;DetailsEndTextBox.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsEndTextBox.Parent" xml:space="preserve">
+    <value>DetailsLayoutPanel</value>
+  </data>
+  <data name="&gt;&gt;DetailsEndTextBox.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="DetailsDiffTextBox.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="DetailsDiffTextBox.Location" type="System.Drawing.Point, System.Drawing">
+    <value>417, 24</value>
+  </data>
+  <data name="DetailsDiffTextBox.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="DetailsDiffTextBox.MaxLength" type="System.Int32, mscorlib">
+    <value>327670</value>
+  </data>
+  <data name="DetailsDiffTextBox.Multiline" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="DetailsDiffTextBox.ScrollBars" type="System.Windows.Forms.ScrollBars, System.Windows.Forms">
+    <value>Vertical</value>
+  </data>
+  <data name="DetailsDiffTextBox.Size" type="System.Drawing.Size, System.Drawing">
+    <value>429, 563</value>
+  </data>
+  <data name="DetailsDiffTextBox.TabIndex" type="System.Int32, mscorlib">
+    <value>22</value>
+  </data>
+  <data name="DetailsDiffTextBox.WordWrap" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="&gt;&gt;DetailsDiffTextBox.Name" xml:space="preserve">
+    <value>DetailsDiffTextBox</value>
+  </data>
+  <data name="&gt;&gt;DetailsDiffTextBox.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsDiffTextBox.Parent" xml:space="preserve">
+    <value>DetailsLayoutPanel</value>
+  </data>
+  <data name="&gt;&gt;DetailsDiffTextBox.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="DetailsViewEndLabel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Top</value>
+  </data>
+  <data name="DetailsViewEndLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="DetailsViewEndLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="DetailsViewEndLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>847, 1</value>
+  </data>
+  <data name="DetailsViewEndLabel.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>1, 1, 1, 1</value>
+  </data>
+  <data name="DetailsViewEndLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>416, 20</value>
+  </data>
+  <data name="DetailsViewEndLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>21</value>
+  </data>
+  <data name="DetailsViewEndLabel.Text" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="DetailsViewEndLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewEndLabel.Name" xml:space="preserve">
+    <value>DetailsViewEndLabel</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewEndLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewEndLabel.Parent" xml:space="preserve">
+    <value>DetailsLayoutPanel</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewEndLabel.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
+  <data name="DetailsViewStartLabel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Top</value>
+  </data>
+  <data name="DetailsViewStartLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="DetailsViewStartLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="DetailsViewStartLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="DetailsViewStartLabel.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>1, 1, 1, 1</value>
+  </data>
+  <data name="DetailsViewStartLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>415, 20</value>
+  </data>
+  <data name="DetailsViewStartLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>14</value>
+  </data>
+  <data name="DetailsViewStartLabel.Text" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="DetailsViewStartLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewStartLabel.Name" xml:space="preserve">
+    <value>DetailsViewStartLabel</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewStartLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewStartLabel.Parent" xml:space="preserve">
+    <value>DetailsLayoutPanel</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewStartLabel.ZOrder" xml:space="preserve">
+    <value>3</value>
+  </data>
+  <data name="DetailsViewDiffLabel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Top</value>
+  </data>
+  <data name="DetailsViewDiffLabel.Font" type="System.Drawing.Font, System.Drawing">
+    <value>Microsoft Sans Serif, 9.75pt</value>
+  </data>
+  <data name="DetailsViewDiffLabel.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="DetailsViewDiffLabel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>418, 1</value>
+  </data>
+  <data name="DetailsViewDiffLabel.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>1, 1, 1, 1</value>
+  </data>
+  <data name="DetailsViewDiffLabel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>427, 20</value>
+  </data>
+  <data name="DetailsViewDiffLabel.TabIndex" type="System.Int32, mscorlib">
+    <value>20</value>
+  </data>
+  <data name="DetailsViewDiffLabel.Text" xml:space="preserve">
+    <value>Diff</value>
+  </data>
+  <data name="DetailsViewDiffLabel.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewDiffLabel.Name" xml:space="preserve">
+    <value>DetailsViewDiffLabel</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewDiffLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewDiffLabel.Parent" xml:space="preserve">
+    <value>DetailsLayoutPanel</value>
+  </data>
+  <data name="&gt;&gt;DetailsViewDiffLabel.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
+  <data name="DetailsStartTextBox.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="DetailsStartTextBox.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 24</value>
+  </data>
+  <data name="DetailsStartTextBox.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="DetailsStartTextBox.MaxLength" type="System.Int32, mscorlib">
+    <value>327670</value>
+  </data>
+  <data name="DetailsStartTextBox.Multiline" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="DetailsStartTextBox.ScrollBars" type="System.Windows.Forms.ScrollBars, System.Windows.Forms">
+    <value>Vertical</value>
+  </data>
+  <data name="DetailsStartTextBox.Size" type="System.Drawing.Size, System.Drawing">
+    <value>417, 563</value>
+  </data>
+  <data name="DetailsStartTextBox.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="DetailsStartTextBox.WordWrap" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="&gt;&gt;DetailsStartTextBox.Name" xml:space="preserve">
+    <value>DetailsStartTextBox</value>
+  </data>
+  <data name="&gt;&gt;DetailsStartTextBox.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsStartTextBox.Parent" xml:space="preserve">
+    <value>DetailsLayoutPanel</value>
+  </data>
+  <data name="&gt;&gt;DetailsStartTextBox.ZOrder" xml:space="preserve">
+    <value>5</value>
+  </data>
+  <data name="DetailsLayoutPanel.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
+    <value>Fill</value>
+  </data>
+  <data name="DetailsLayoutPanel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 0</value>
+  </data>
+  <data name="DetailsLayoutPanel.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="DetailsLayoutPanel.RowCount" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="DetailsLayoutPanel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="DetailsLayoutPanel.TabIndex" type="System.Int32, mscorlib">
+    <value>20</value>
+  </data>
+  <data name="&gt;&gt;DetailsLayoutPanel.Name" xml:space="preserve">
+    <value>DetailsLayoutPanel</value>
+  </data>
+  <data name="&gt;&gt;DetailsLayoutPanel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TableLayoutPanel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsLayoutPanel.Parent" xml:space="preserve">
+    <value>DetailsTabPage</value>
+  </data>
+  <data name="&gt;&gt;DetailsLayoutPanel.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="DetailsLayoutPanel.LayoutSettings" type="System.Windows.Forms.TableLayoutSettings, System.Windows.Forms">
+    <value>&lt;?xml version="1.0" encoding="utf-16"?&gt;&lt;TableLayoutSettings&gt;&lt;Controls&gt;&lt;Control Name="DetailsEndTextBox" Row="1" RowSpan="1" Column="0" ColumnSpan="1" /&gt;&lt;Control Name="DetailsDiffTextBox" Row="1" RowSpan="1" Column="0" ColumnSpan="1" /&gt;&lt;Control Name="DetailsViewEndLabel" Row="0" RowSpan="1" Column="2" ColumnSpan="1" /&gt;&lt;Control Name="DetailsViewStartLabel" Row="0" RowSpan="1" Column="0" ColumnSpan="1" /&gt;&lt;Control Name="DetailsViewDiffLabel" Row="0" RowSpan="1" Column="1" ColumnSpan="1" /&gt;&lt;Control Name="DetailsStartTextBox" Row="1" RowSpan="1" Column="0" ColumnSpan="1" /&gt;&lt;/Controls&gt;&lt;Columns Styles="Percent,33,Percent,34,Percent,33" /&gt;&lt;Rows Styles="Absolute,24,AutoSize,0" /&gt;&lt;/TableLayoutSettings&gt;</value>
+  </data>
+  <data name="DetailsTabPage.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 22</value>
+  </data>
+  <data name="DetailsTabPage.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="DetailsTabPage.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1264, 587</value>
+  </data>
+  <data name="DetailsTabPage.TabIndex" type="System.Int32, mscorlib">
+    <value>7</value>
+  </data>
+  <data name="DetailsTabPage.Text" xml:space="preserve">
+    <value>Details view</value>
+  </data>
+  <data name="DetailsTabPage.ToolTipText" xml:space="preserve">
+    <value>Shows detailed information for selected snapshot markers</value>
+  </data>
+  <data name="&gt;&gt;DetailsTabPage.Name" xml:space="preserve">
+    <value>DetailsTabPage</value>
+  </data>
+  <data name="&gt;&gt;DetailsTabPage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DetailsTabPage.Parent" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;DetailsTabPage.ZOrder" xml:space="preserve">
+    <value>7</value>
+  </data>
+  <data name="MainTabControl.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="MainTabControl.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 52</value>
+  </data>
+  <data name="MainTabControl.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="MainTabControl.Padding" type="System.Drawing.Point, System.Drawing">
+    <value>16, 3</value>
+  </data>
+  <data name="MainTabControl.ShowToolTips" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="MainTabControl.Size" type="System.Drawing.Size, System.Drawing">
+    <value>1272, 613</value>
+  </data>
+  <data name="MainTabControl.TabIndex" type="System.Int32, mscorlib">
+    <value>13</value>
+  </data>
+  <data name="&gt;&gt;MainTabControl.Name" xml:space="preserve">
+    <value>MainTabControl</value>
+  </data>
+  <data name="&gt;&gt;MainTabControl.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabControl, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MainTabControl.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;MainTabControl.ZOrder" xml:space="preserve">
+    <value>6</value>
+  </data>
+  <metadata name="CallGraphContextMenu.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>497, 6</value>
+  </metadata>
+  <data name="ResetParentMenuItem.Enabled" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
+  <data name="ResetParentMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>204, 22</value>
+  </data>
+  <data name="ResetParentMenuItem.Text" xml:space="preserve">
+    <value>&amp;Reset Parent</value>
+  </data>
+  <data name="ResetParentMenuItem.ToolTipText" xml:space="preserve">
+    <value>Resets parent function to the default state and reparses the file, so no filtering will be applied</value>
+  </data>
+  <data name="SetParentMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>204, 22</value>
+  </data>
+  <data name="SetParentMenuItem.Text" xml:space="preserve">
+    <value>Set &amp;Parent</value>
+  </data>
+  <data name="SetParentMenuItem.ToolTipText" xml:space="preserve">
+    <value>Sets current selected tree node as parent and reparses to apply the filtering</value>
+  </data>
+  <data name="CallGraphViewHistoryMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>204, 22</value>
+  </data>
+  <data name="CallGraphViewHistoryMenuItem.Text" xml:space="preserve">
+    <value>&amp;View History</value>
+  </data>
+  <data name="CallGraphViewHistoryMenuItem.ToolTipText" xml:space="preserve">
+    <value>Views the history of all the callstacks parented to the selected node</value>
+  </data>
+  <data name="toolStripSeparator13.Size" type="System.Drawing.Size, System.Drawing">
+    <value>201, 6</value>
+  </data>
+  <data name="CopyFunctionToClipboardToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>204, 22</value>
+  </data>
+  <data name="CopyFunctionToClipboardToolStripMenuItem.Text" xml:space="preserve">
+    <value>&amp;Copy Function to Clipboard</value>
+  </data>
+  <data name="CopyFunctionToClipboardToolStripMenuItem.ToolTipText" xml:space="preserve">
+    <value>Copies function name to clipboard</value>
+  </data>
+  <data name="CopySizeToClipboardMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>204, 22</value>
+  </data>
+  <data name="CopySizeToClipboardMenuItem.Text" xml:space="preserve">
+    <value>Copy &amp;Size to Clipboard</value>
+  </data>
+  <data name="CopySizeToClipboardMenuItem.ToolTipText" xml:space="preserve">
+    <value>Copies size to clipboard</value>
+  </data>
+  <data name="toolStripSeparator14.Size" type="System.Drawing.Size, System.Drawing">
+    <value>201, 6</value>
+  </data>
+  <data name="ExpandAllCollapseAllMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>204, 22</value>
+  </data>
+  <data name="ExpandAllCollapseAllMenuItem.Text" xml:space="preserve">
+    <value>Expand &amp;All / Collapse All</value>
+  </data>
+  <data name="ExpandAllCollapseAllMenuItem.ToolTipText" xml:space="preserve">
+    <value>Expands all / Collapses all nodes</value>
+  </data>
+  <data name="CallGraphContextMenu.Size" type="System.Drawing.Size, System.Drawing">
+    <value>205, 148</value>
+  </data>
+  <data name="&gt;&gt;CallGraphContextMenu.Name" xml:space="preserve">
+    <value>CallGraphContextMenu</value>
+  </data>
+  <data name="&gt;&gt;CallGraphContextMenu.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ContextMenuStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <metadata name="ViewHistoryContextMenu.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>906, 8</value>
+  </metadata>
+  <data name="ViewHistoryMenuItem.Size" type="System.Drawing.Size, System.Drawing">
+    <value>133, 22</value>
+  </data>
+  <data name="ViewHistoryMenuItem.Text" xml:space="preserve">
+    <value>View &amp;History</value>
+  </data>
+  <data name="ViewHistoryContextMenu.Size" type="System.Drawing.Size, System.Drawing">
+    <value>134, 26</value>
+  </data>
+  <data name="&gt;&gt;ViewHistoryContextMenu.Name" xml:space="preserve">
+    <value>ViewHistoryContextMenu</value>
+  </data>
+  <data name="&gt;&gt;ViewHistoryContextMenu.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ContextMenuStrip, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <metadata name="$this.Localizable" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <data name="$this.AccessibleDescription" xml:space="preserve">
+    <value>`</value>
+  </data>
+  <data name="$this.AutoScaleDimensions" type="System.Drawing.SizeF, System.Drawing">
+    <value>6, 13</value>
+  </data>
+  <data name="$this.ClientSize" type="System.Drawing.Size, System.Drawing">
+    <value>1272, 690</value>
+  </data>
+  <data name="$this.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>800, 600</value>
+  </data>
+  <data name="$this.StartPosition" type="System.Windows.Forms.FormStartPosition, System.Windows.Forms">
+    <value>CenterScreen</value>
+  </data>
+  <data name="$this.Text" xml:space="preserve">
+    <value>Memory Profiler v2.0</value>
+  </data>
+  <data name="&gt;&gt;FileMenuItem.Name" xml:space="preserve">
+    <value>FileMenuItem</value>
+  </data>
+  <data name="&gt;&gt;FileMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;OpenMenuItem.Name" xml:space="preserve">
+    <value>OpenMenuItem</value>
+  </data>
+  <data name="&gt;&gt;OpenMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ExportToCSVMenuItem.Name" xml:space="preserve">
+    <value>ExportToCSVMenuItem</value>
+  </data>
+  <data name="&gt;&gt;ExportToCSVMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator12.Name" xml:space="preserve">
+    <value>toolStripSeparator12</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator12.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;quitToolStripMenuItem.Name" xml:space="preserve">
+    <value>quitToolStripMenuItem</value>
+  </data>
+  <data name="&gt;&gt;quitToolStripMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripMenuItem1.Name" xml:space="preserve">
+    <value>toolStripMenuItem1</value>
+  </data>
+  <data name="&gt;&gt;toolStripMenuItem1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;findToolStripMenuItem.Name" xml:space="preserve">
+    <value>findToolStripMenuItem</value>
+  </data>
+  <data name="&gt;&gt;findToolStripMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;findNextToolStripMenuItem.Name" xml:space="preserve">
+    <value>findNextToolStripMenuItem</value>
+  </data>
+  <data name="&gt;&gt;findNextToolStripMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;copyHighlightedToClipboardToolStripMenuItem.Name" xml:space="preserve">
+    <value>copyHighlightedToClipboardToolStripMenuItem</value>
+  </data>
+  <data name="&gt;&gt;copyHighlightedToClipboardToolStripMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;unhighlightAllToolStripMenuItem.Name" xml:space="preserve">
+    <value>unhighlightAllToolStripMenuItem</value>
+  </data>
+  <data name="&gt;&gt;unhighlightAllToolStripMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ToolMenuItem.Name" xml:space="preserve">
+    <value>ToolMenuItem</value>
+  </data>
+  <data name="&gt;&gt;ToolMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;OptionsMenuItem.Name" xml:space="preserve">
+    <value>OptionsMenuItem</value>
+  </data>
+  <data name="&gt;&gt;OptionsMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;InvertCallgraphViewMenuItem.Name" xml:space="preserve">
+    <value>InvertCallgraphViewMenuItem</value>
+  </data>
+  <data name="&gt;&gt;InvertCallgraphViewMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FilterObjectVMFunctionsMenuItem.Name" xml:space="preserve">
+    <value>FilterObjectVMFunctionsMenuItem</value>
+  </data>
+  <data name="&gt;&gt;FilterObjectVMFunctionsMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HelpMenuItem.Name" xml:space="preserve">
+    <value>HelpMenuItem</value>
+  </data>
+  <data name="&gt;&gt;HelpMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;QuickStartMenuItem.Name" xml:space="preserve">
+    <value>QuickStartMenuItem</value>
+  </data>
+  <data name="&gt;&gt;QuickStartMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DiffStartToolLabel.Name" xml:space="preserve">
+    <value>DiffStartToolLabel</value>
+  </data>
+  <data name="&gt;&gt;DiffStartToolLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DiffStartComboBox.Name" xml:space="preserve">
+    <value>DiffStartComboBox</value>
+  </data>
+  <data name="&gt;&gt;DiffStartComboBox.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripComboBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator1.Name" xml:space="preserve">
+    <value>toolStripSeparator1</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DiffEndToolLabel.Name" xml:space="preserve">
+    <value>DiffEndToolLabel</value>
+  </data>
+  <data name="&gt;&gt;DiffEndToolLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;DiffEndComboBox.Name" xml:space="preserve">
+    <value>DiffEndComboBox</value>
+  </data>
+  <data name="&gt;&gt;DiffEndComboBox.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripComboBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator2.Name" xml:space="preserve">
+    <value>toolStripSeparator2</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator2.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SortCriteriaSplitButton.Name" xml:space="preserve">
+    <value>SortCriteriaSplitButton</value>
+  </data>
+  <data name="&gt;&gt;SortCriteriaSplitButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSplitButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SortBySizeMenuItem.Name" xml:space="preserve">
+    <value>SortBySizeMenuItem</value>
+  </data>
+  <data name="&gt;&gt;SortBySizeMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SortByCountMenuItem.Name" xml:space="preserve">
+    <value>SortByCountMenuItem</value>
+  </data>
+  <data name="&gt;&gt;SortByCountMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator3.Name" xml:space="preserve">
+    <value>toolStripSeparator3</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator3.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;AllocationsTypeSplitButton.Name" xml:space="preserve">
+    <value>AllocationsTypeSplitButton</value>
+  </data>
+  <data name="&gt;&gt;AllocationsTypeSplitButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSplitButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ActiveAllocsMenuItem.Name" xml:space="preserve">
+    <value>ActiveAllocsMenuItem</value>
+  </data>
+  <data name="&gt;&gt;ActiveAllocsMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;LifetimeAllocsMenuItem.Name" xml:space="preserve">
+    <value>LifetimeAllocsMenuItem</value>
+  </data>
+  <data name="&gt;&gt;LifetimeAllocsMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator4.Name" xml:space="preserve">
+    <value>toolStripSeparator4</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator4.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ContainersSplitButton.Name" xml:space="preserve">
+    <value>ContainersSplitButton</value>
+  </data>
+  <data name="&gt;&gt;ContainersSplitButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSplitButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;HideTemplatesMenuItem.Name" xml:space="preserve">
+    <value>HideTemplatesMenuItem</value>
+  </data>
+  <data name="&gt;&gt;HideTemplatesMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ShowTemplatesMenuItem.Name" xml:space="preserve">
+    <value>ShowTemplatesMenuItem</value>
+  </data>
+  <data name="&gt;&gt;ShowTemplatesMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator9.Name" xml:space="preserve">
+    <value>toolStripSeparator9</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator9.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FilterTypeSplitButton.Name" xml:space="preserve">
+    <value>FilterTypeSplitButton</value>
+  </data>
+  <data name="&gt;&gt;FilterTypeSplitButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSplitButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FilterOutClassesMenuItem.Name" xml:space="preserve">
+    <value>FilterOutClassesMenuItem</value>
+  </data>
+  <data name="&gt;&gt;FilterOutClassesMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FilterInClassesMenuItem.Name" xml:space="preserve">
+    <value>FilterInClassesMenuItem</value>
+  </data>
+  <data name="&gt;&gt;FilterInClassesMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator5.Name" xml:space="preserve">
+    <value>toolStripSeparator5</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator5.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FilterClassesDropDownButton.Name" xml:space="preserve">
+    <value>FilterClassesDropDownButton</value>
+  </data>
+  <data name="&gt;&gt;FilterClassesDropDownButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripDropDownButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FilterLabel.Name" xml:space="preserve">
+    <value>FilterLabel</value>
+  </data>
+  <data name="&gt;&gt;FilterLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FilterTextBox.Name" xml:space="preserve">
+    <value>FilterTextBox</value>
+  </data>
+  <data name="&gt;&gt;FilterTextBox.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripTextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryPoolFilterButton.Name" xml:space="preserve">
+    <value>MemoryPoolFilterButton</value>
+  </data>
+  <data name="&gt;&gt;MemoryPoolFilterButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripDropDownButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;PoolMainItem.Name" xml:space="preserve">
+    <value>PoolMainItem</value>
+  </data>
+  <data name="&gt;&gt;PoolMainItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;PoolLocalItem.Name" xml:space="preserve">
+    <value>PoolLocalItem</value>
+  </data>
+  <data name="&gt;&gt;PoolLocalItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;PoolHostDefaultItem.Name" xml:space="preserve">
+    <value>PoolHostDefaultItem</value>
+  </data>
+  <data name="&gt;&gt;PoolHostDefaultItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;PoolHostMoviesItem.Name" xml:space="preserve">
+    <value>PoolHostMoviesItem</value>
+  </data>
+  <data name="&gt;&gt;PoolHostMoviesItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;PoolSeparator.Name" xml:space="preserve">
+    <value>PoolSeparator</value>
+  </data>
+  <data name="&gt;&gt;PoolSeparator.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;PoolAllItem.Name" xml:space="preserve">
+    <value>PoolAllItem</value>
+  </data>
+  <data name="&gt;&gt;PoolAllItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;PoolNoneItem.Name" xml:space="preserve">
+    <value>PoolNoneItem</value>
+  </data>
+  <data name="&gt;&gt;PoolNoneItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator10.Name" xml:space="preserve">
+    <value>toolStripSeparator10</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator10.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;GoButton.Name" xml:space="preserve">
+    <value>GoButton</value>
+  </data>
+  <data name="&gt;&gt;GoButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;StatusStripLabel.Name" xml:space="preserve">
+    <value>StatusStripLabel</value>
+  </data>
+  <data name="&gt;&gt;StatusStripLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripStatusLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SelectionSizeStatusLabel.Name" xml:space="preserve">
+    <value>SelectionSizeStatusLabel</value>
+  </data>
+  <data name="&gt;&gt;SelectionSizeStatusLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripStatusLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ToolStripProgressBar.Name" xml:space="preserve">
+    <value>ToolStripProgressBar</value>
+  </data>
+  <data name="&gt;&gt;ToolStripProgressBar.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripProgressBar, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SizeInKByte.Name" xml:space="preserve">
+    <value>SizeInKByte</value>
+  </data>
+  <data name="&gt;&gt;SizeInKByte.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SizePercentage.Name" xml:space="preserve">
+    <value>SizePercentage</value>
+  </data>
+  <data name="&gt;&gt;SizePercentage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;Count.Name" xml:space="preserve">
+    <value>Count</value>
+  </data>
+  <data name="&gt;&gt;Count.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CountPercentage.Name" xml:space="preserve">
+    <value>CountPercentage</value>
+  </data>
+  <data name="&gt;&gt;CountPercentage.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;GroupName.Name" xml:space="preserve">
+    <value>GroupName</value>
+  </data>
+  <data name="&gt;&gt;GroupName.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FunctionName.Name" xml:space="preserve">
+    <value>FunctionName</value>
+  </data>
+  <data name="&gt;&gt;FunctionName.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;Function.Name" xml:space="preserve">
+    <value>Function</value>
+  </data>
+  <data name="&gt;&gt;Function.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;File.Name" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="&gt;&gt;File.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;Line.Name" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="&gt;&gt;Line.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel1.Name" xml:space="preserve">
+    <value>toolStripLabel1</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel1.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryAxisUnitFramesButton.Name" xml:space="preserve">
+    <value>CallstackHistoryAxisUnitFramesButton</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryAxisUnitFramesButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryAxisUnitAllocationsButton.Name" xml:space="preserve">
+    <value>CallstackHistoryAxisUnitAllocationsButton</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryAxisUnitAllocationsButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator15.Name" xml:space="preserve">
+    <value>toolStripSeparator15</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator15.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryShowCompleteHistoryButton.Name" xml:space="preserve">
+    <value>CallstackHistoryShowCompleteHistoryButton</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryShowCompleteHistoryButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryShowSnapshotsButton.Name" xml:space="preserve">
+    <value>CallstackHistoryShowSnapshotsButton</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryShowSnapshotsButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator6.Name" xml:space="preserve">
+    <value>toolStripSeparator6</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator6.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryResetZoomButton.Name" xml:space="preserve">
+    <value>CallstackHistoryResetZoomButton</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryResetZoomButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator7.Name" xml:space="preserve">
+    <value>toolStripSeparator7</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator7.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryZoomLabel.Name" xml:space="preserve">
+    <value>CallstackHistoryZoomLabel</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryZoomLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryZoomLabelH.Name" xml:space="preserve">
+    <value>CallstackHistoryZoomLabelH</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryZoomLabelH.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel4.Name" xml:space="preserve">
+    <value>toolStripLabel4</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel4.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryZoomLabelV.Name" xml:space="preserve">
+    <value>CallstackHistoryZoomLabelV</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryZoomLabelV.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator8.Name" xml:space="preserve">
+    <value>toolStripSeparator8</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator8.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryHelpLabel.Name" xml:space="preserve">
+    <value>CallstackHistoryHelpLabel</value>
+  </data>
+  <data name="&gt;&gt;CallstackHistoryHelpLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallstackHeader.Name" xml:space="preserve">
+    <value>CallstackHeader</value>
+  </data>
+  <data name="&gt;&gt;CallstackHeader.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CopyStackFrameMenuItem.Name" xml:space="preserve">
+    <value>CopyStackFrameMenuItem</value>
+  </data>
+  <data name="&gt;&gt;CopyStackFrameMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CopyCallstackToClipboardMenuItem.Name" xml:space="preserve">
+    <value>CopyCallstackToClipboardMenuItem</value>
+  </data>
+  <data name="&gt;&gt;CopyCallstackToClipboardMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;AllocFrameColumn.Name" xml:space="preserve">
+    <value>AllocFrameColumn</value>
+  </data>
+  <data name="&gt;&gt;AllocFrameColumn.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FreeFrameColumn.Name" xml:space="preserve">
+    <value>FreeFrameColumn</value>
+  </data>
+  <data name="&gt;&gt;FreeFrameColumn.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SizeColumn.Name" xml:space="preserve">
+    <value>SizeColumn</value>
+  </data>
+  <data name="&gt;&gt;SizeColumn.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;FunctionColumn.Name" xml:space="preserve">
+    <value>FunctionColumn</value>
+  </data>
+  <data name="&gt;&gt;FunctionColumn.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapResetSelectionButton.Name" xml:space="preserve">
+    <value>MemoryBitmapResetSelectionButton</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapResetSelectionButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapResetButton.Name" xml:space="preserve">
+    <value>MemoryBitmapResetButton</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapResetButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator22.Name" xml:space="preserve">
+    <value>toolStripSeparator22</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator22.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapZoomRowsButton.Name" xml:space="preserve">
+    <value>MemoryBitmapZoomRowsButton</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapZoomRowsButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator16.Name" xml:space="preserve">
+    <value>toolStripSeparator16</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator16.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapUndoZoomButton.Name" xml:space="preserve">
+    <value>MemoryBitmapUndoZoomButton</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapUndoZoomButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator19.Name" xml:space="preserve">
+    <value>toolStripSeparator19</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator19.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapHeatMapButton.Name" xml:space="preserve">
+    <value>MemoryBitmapHeatMapButton</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapHeatMapButton.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator18.Name" xml:space="preserve">
+    <value>toolStripSeparator18</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator18.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel14.Name" xml:space="preserve">
+    <value>toolStripLabel14</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel14.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapBytesPerPixelLabel.Name" xml:space="preserve">
+    <value>MemoryBitmapBytesPerPixelLabel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapBytesPerPixelLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator17.Name" xml:space="preserve">
+    <value>toolStripSeparator17</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator17.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel13.Name" xml:space="preserve">
+    <value>toolStripLabel13</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel13.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapMemorySpaceLabel.Name" xml:space="preserve">
+    <value>MemoryBitmapMemorySpaceLabel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapMemorySpaceLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator20.Name" xml:space="preserve">
+    <value>toolStripSeparator20</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator20.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;label10.Name" xml:space="preserve">
+    <value>label10</value>
+  </data>
+  <data name="&gt;&gt;label10.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapSpaceSizeLabel.Name" xml:space="preserve">
+    <value>MemoryBitmapSpaceSizeLabel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapSpaceSizeLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator21.Name" xml:space="preserve">
+    <value>toolStripSeparator21</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator21.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel15.Name" xml:space="preserve">
+    <value>toolStripLabel15</value>
+  </data>
+  <data name="&gt;&gt;toolStripLabel15.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocatedMemoryLabel.Name" xml:space="preserve">
+    <value>MemoryBitmapAllocatedMemoryLabel</value>
+  </data>
+  <data name="&gt;&gt;MemoryBitmapAllocatedMemoryLabel.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripLabel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader6.Name" xml:space="preserve">
+    <value>columnHeader6</value>
+  </data>
+  <data name="&gt;&gt;columnHeader6.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader12.Name" xml:space="preserve">
+    <value>columnHeader12</value>
+  </data>
+  <data name="&gt;&gt;columnHeader12.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader5.Name" xml:space="preserve">
+    <value>columnHeader5</value>
+  </data>
+  <data name="&gt;&gt;columnHeader5.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader10.Name" xml:space="preserve">
+    <value>columnHeader10</value>
+  </data>
+  <data name="&gt;&gt;columnHeader10.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader11.Name" xml:space="preserve">
+    <value>columnHeader11</value>
+  </data>
+  <data name="&gt;&gt;columnHeader11.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader7.Name" xml:space="preserve">
+    <value>columnHeader7</value>
+  </data>
+  <data name="&gt;&gt;columnHeader7.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader8.Name" xml:space="preserve">
+    <value>columnHeader8</value>
+  </data>
+  <data name="&gt;&gt;columnHeader8.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;columnHeader9.Name" xml:space="preserve">
+    <value>columnHeader9</value>
+  </data>
+  <data name="&gt;&gt;columnHeader9.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ColumnHeader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ResetParentMenuItem.Name" xml:space="preserve">
+    <value>ResetParentMenuItem</value>
+  </data>
+  <data name="&gt;&gt;ResetParentMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;SetParentMenuItem.Name" xml:space="preserve">
+    <value>SetParentMenuItem</value>
+  </data>
+  <data name="&gt;&gt;SetParentMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewHistoryMenuItem.Name" xml:space="preserve">
+    <value>CallGraphViewHistoryMenuItem</value>
+  </data>
+  <data name="&gt;&gt;CallGraphViewHistoryMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator13.Name" xml:space="preserve">
+    <value>toolStripSeparator13</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator13.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CopyFunctionToClipboardToolStripMenuItem.Name" xml:space="preserve">
+    <value>CopyFunctionToClipboardToolStripMenuItem</value>
+  </data>
+  <data name="&gt;&gt;CopyFunctionToClipboardToolStripMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;CopySizeToClipboardMenuItem.Name" xml:space="preserve">
+    <value>CopySizeToClipboardMenuItem</value>
+  </data>
+  <data name="&gt;&gt;CopySizeToClipboardMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator14.Name" xml:space="preserve">
+    <value>toolStripSeparator14</value>
+  </data>
+  <data name="&gt;&gt;toolStripSeparator14.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripSeparator, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ExpandAllCollapseAllMenuItem.Name" xml:space="preserve">
+    <value>ExpandAllCollapseAllMenuItem</value>
+  </data>
+  <data name="&gt;&gt;ExpandAllCollapseAllMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;ViewHistoryMenuItem.Name" xml:space="preserve">
+    <value>ViewHistoryMenuItem</value>
+  </data>
+  <data name="&gt;&gt;ViewHistoryMenuItem.Type" xml:space="preserve">
+    <value>System.Windows.Forms.ToolStripMenuItem, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;$this.Name" xml:space="preserve">
+    <value>MainWindow</value>
+  </data>
+  <data name="&gt;&gt;$this.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Form, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+</root>

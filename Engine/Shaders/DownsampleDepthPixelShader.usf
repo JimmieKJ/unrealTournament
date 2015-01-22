@@ -1,0 +1,29 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DownSampleDepthPixelShader.usf: Downsamples scene depth by a factor of 2.
+=============================================================================*/
+
+#include "Common.usf"
+
+float2 ProjectionScaleBias;
+float4 SourceTexelOffsets01;
+float4 SourceTexelOffsets23;
+
+void Main(
+	float2 InUV : TEXCOORD0,
+	out float OutDepth : SV_DEPTH,
+	out float4 OutColor : SV_Target0
+	)
+{
+	// Lookup the four view space Z's of the full resolution pixels corresponding to this low resolution pixel
+	float ViewSpaceZ0 = CalcSceneDepth(InUV + SourceTexelOffsets01.xy);
+	float ViewSpaceZ1 = CalcSceneDepth(InUV + SourceTexelOffsets01.zw);
+	float ViewSpaceZ2 = CalcSceneDepth(InUV + SourceTexelOffsets23.xy);
+	float ViewSpaceZ3 = CalcSceneDepth(InUV + SourceTexelOffsets23.zw);
+	// Use the furthest depth to shrink foreground object silhouettes
+	float FurthestDepth = max(max(ViewSpaceZ0, ViewSpaceZ1), max(ViewSpaceZ2, ViewSpaceZ3));
+	// Convert view space Z into post projection Z and output post projection Z / W as the depth buffer expects.
+	OutDepth = (FurthestDepth * ProjectionScaleBias.x + ProjectionScaleBias.y) / FurthestDepth;
+	OutColor = 0;
+}

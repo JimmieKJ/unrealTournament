@@ -1,0 +1,78 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+
+/**
+ * Ignores the Margin. Just renders the image. Can tile the image instead of stretching.
+ */
+struct SLATECORE_API FSlateDynamicImageBrush
+	: public FSlateBrush
+{
+	/**
+	 * @param InTexture		The UTexture2D being used for this brush.
+	 * @param InImageSize		How large should the image be (not necessarily the image size on disk)
+	 * @param InTint		The tint of the image
+	 * @param InTiling		How do we tile if at all?
+	 * @param InImageType		The type of image this this is
+	 */
+	FORCENOINLINE FSlateDynamicImageBrush( 
+		class UTexture2D* InTexture, 
+		const FVector2D& InImageSize,
+		const FName InTextureName,
+		const FLinearColor& InTint = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), 
+		ESlateBrushTileType::Type InTiling = ESlateBrushTileType::NoTile, 
+		ESlateBrushImageType::Type InImageType = ESlateBrushImageType::FullColor
+	)
+		: FSlateBrush(ESlateBrushDrawType::Image, FName(TEXT("None")), FMargin(0.0f), InTiling, InImageType, InImageSize, InTint, (UObject*)InTexture)
+	{
+		bIsDynamicallyLoaded = true;
+
+		// if we have a texture, make a unique name
+		if (ResourceObject != nullptr)
+		{
+			// @todo Slate - Hack:  This is to address an issue where the brush created and a GC occurs before the brush resource object becomes referenced
+			// by the Slate resource manager.  
+			ResourceObject->AddToRoot();
+			ResourceName = InTextureName;
+		}
+	}
+
+	/**
+	 * @param InTextureName		The name of the texture to load.
+	 * @param InImageSize		How large should the image be (not necessarily the image size on disk)
+	 * @param InTint		The tint of the image.
+	 * @param InTiling		How do we tile if at all?
+	 * @param InImageType		The type of image this this is
+	 */
+	FSlateDynamicImageBrush( 
+		const FName InTextureName,
+		const FVector2D& InImageSize,
+		const FLinearColor& InTint = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), 
+		ESlateBrushTileType::Type InTiling = ESlateBrushTileType::NoTile, 
+		ESlateBrushImageType::Type InImageType = ESlateBrushImageType::FullColor
+	)
+		: FSlateBrush(ESlateBrushDrawType::Image, InTextureName, FMargin(0.0f), InTiling, InImageType, InImageSize, InTint, nullptr, true)
+	{
+		bIsDynamicallyLoaded = true;
+	}
+
+	/**
+	* @param InTextureName		The name to use when registering the image data as a texture.
+	* @param InImageSize		How large should the image be (not necessarily the image size on disk)
+	* @param InImageData		The raw image data formatted as BGRA
+	* @param InTint				The tint of the image.
+	* @param InTiling			How do we tile if at all?
+	* @param InImageType		The type of image this this is
+	*/
+	static TSharedPtr<FSlateDynamicImageBrush> CreateWithImageData(
+		const FName InTextureName,
+		const FVector2D& InImageSize,
+		const TArray<uint8>& InImageData,
+		const FLinearColor& InTint = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f),
+		ESlateBrushTileType::Type InTiling = ESlateBrushTileType::NoTile,
+		ESlateBrushImageType::Type InImageType = ESlateBrushImageType::FullColor);
+
+	/** Destructor. */
+	virtual ~FSlateDynamicImageBrush();
+};

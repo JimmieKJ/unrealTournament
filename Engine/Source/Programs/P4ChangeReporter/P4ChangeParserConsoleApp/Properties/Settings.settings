@@ -1,0 +1,21 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="P4ChangeParserApp.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="DefaultDepotPath" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">//depot/...</Value>
+    </Setting>
+    <Setting Name="P4Server" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">p4-server.epicgames.net:1666</Value>
+    </Setting>
+    <Setting Name="DepotPathMustStartWith" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">//depot/</Value>
+    </Setting>
+    <Setting Name="DepotPathMustEndWith" Type="System.String" Scope="User">
+      <Value Profile="(Default)">...</Value>
+    </Setting>
+    <Setting Name="NowString" Type="System.String" Scope="User">
+      <Value Profile="(Default)">now</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

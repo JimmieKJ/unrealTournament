@@ -1,0 +1,175 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	FilterPixelShader.usf: Filter pixel shader source.
+=============================================================================*/
+
+#include "Common.usf"
+
+#ifndef NUM_SAMPLES
+#define NUM_SAMPLES 4
+#endif
+
+// main input texture
+SamplerState FilterTextureSampler;
+Texture2D FilterTexture;
+
+#if COMBINE_METHOD == 1
+// optional texture that is additively blended on top of the many samples from the filter texture
+SamplerState AdditiveTextureSampler;
+Texture2D AdditiveTexture;
+#endif
+
+//
+half4 SampleWeights[NUM_SAMPLES];
+
+// UV.y and UV.wz are the input UV coordinates
+half ComputeMask(float2 UV)
+{
+	// Deactivated for now as with bilinear filtering it can cause artifacts.
+	// Todo: Solution would be to have border color or a 1 pixel border around the content if
+	// it's embedded into a bigger texture. Then we can reactivate that code and make sure
+	// it doesn't clip this last pixel.
+	return 1;
+}
+
+void Combine(inout float4 Dest, float4 Src, float4 Weight)
+{
+#if COMBINE_METHOD == 0 || COMBINE_METHOD == 1 
+	// weighted additive, for bloom
+	Dest += Src * Weight;
+#else // COMBINE_METHOD == 2
+	// max magnitude of the 2d vector, for motionblur
+	float DestLen = dot(Dest.xy, Dest.xy);
+	float SrcLen = dot(Src.xy, Src.xy);
+
+	FLATTEN if(SrcLen > DestLen)
+	{
+		Dest = Src;
+	}
+#endif
+}
+
+#if (ES2_PROFILE || ES3_1_PROFILE)
+
+void Main(
+	float2 InUV : TEXCOORD0,
+	float2 InOffsetUVs[NUM_SAMPLES] : TEXCOORD1,
+	out half4 OutColor : SV_Target0
+	)
+{
+	half3 Dest = 0;
+	UNROLL for( int i = 0; i < NUM_SAMPLES; i++ )
+	{
+		Dest += FilterTexture.Sample( FilterTextureSampler, InOffsetUVs[i] ).rgb * SampleWeights[i];
+	}
+
+#if COMBINE_METHOD == 1
+	Dest += AdditiveTexture.Sample( AdditiveTextureSampler, InUV ).rgb;
+#endif
+
+	OutColor.rgb = Dest;
+}
+
+#else
+
+void Main(
+	float2 InUV : TEXCOORD0,
+	float4 InOffsetUVs[(NUM_SAMPLES + 1) / 2] : TEXCOORD1,
+	out float4 OutColor : SV_Target0
+	)
+{
+	int SampleIndex;
+	half4 Dest = 0;
+	UNROLL for(SampleIndex = 0;SampleIndex < NUM_SAMPLES - 1;SampleIndex += 2)
+	{
+		half Mask; 
+		float4 UVUV = InOffsetUVs[SampleIndex / 2];
+		
+		Mask = ComputeMask(UVUV.xy);
+		Combine(Dest, Texture2DSample(FilterTexture, FilterTextureSampler,UVUV.xy), Mask * SampleWeights[SampleIndex + 0]);
+
+		Mask = ComputeMask(UVUV.wz);
+		Combine(Dest, Texture2DSample(FilterTexture, FilterTextureSampler,UVUV.wz), Mask * SampleWeights[SampleIndex + 1]);
+	}
+	FLATTEN if(SampleIndex < NUM_SAMPLES)
+	{
+		float4 UVUV = InOffsetUVs[SampleIndex / 2];
+
+		half Mask = ComputeMask(UVUV.xy);
+		Combine(Dest, Texture2DSample(FilterTexture, FilterTextureSampler,UVUV.xy), Mask * SampleWeights[SampleIndex + 0]);
+	}
+
+#if COMBINE_METHOD == 1
+	Dest += Texture2DSample(AdditiveTexture, AdditiveTextureSampler, InUV);
+#endif
+
+	// RETURN_COLOR not needed unless writing to SceneColor;
+	OutColor = Dest;
+}
+#endif
+
+// currently only used for downsampling, doesn't need to be masked as it doesn't read outside bounds
+// reads 4 samples
+void DownsampleScene(
+	float4 InOffsetUVs[2] : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	int SampleIndex;
+	half4 Sum = 0;
+
+	UNROLL for(SampleIndex = 0;SampleIndex < 4 - 1;SampleIndex += 2)
+	{
+		{
+			float2 UV = InOffsetUVs[SampleIndex / 2].xy;
+
+			Sum.rgb += Texture2DSample(FilterTexture, FilterTextureSampler, UV).rgb;
+		}
+		{
+			float2 UV = InOffsetUVs[SampleIndex / 2].wz;
+
+			Sum.rgb += Texture2DSample(FilterTexture, FilterTextureSampler, UV).rgb;
+		}
+	}
+
+	Sum.rgb *= 0.25f;
+
+	// depth in alpha feature
+	{
+		float Best;
+		{
+			// to avoid leaking between far and near blur we don't do average on depth
+			// we take the sample that is nearest to the average
+
+			float4 Samples;
+			
+			Samples.x = CalcSceneDepth(InOffsetUVs[0].xy);
+			Samples.y = CalcSceneDepth(InOffsetUVs[0].wz);
+			Samples.z = CalcSceneDepth(InOffsetUVs[1].xy);
+			Samples.w = CalcSceneDepth(InOffsetUVs[1].wz);
+
+			float Avg = dot(Samples, 0.25f);
+
+			Samples -= Avg;
+
+			float Chosen = Samples.x;
+			Chosen = (abs(Samples.y) < abs(Chosen)) ? Samples.y : Chosen;
+			Chosen = (abs(Samples.z) < abs(Chosen)) ? Samples.z : Chosen;
+			Chosen = (abs(Samples.w) < abs(Chosen)) ? Samples.w : Chosen;
+
+			Best = Chosen + Avg;
+		}
+
+		Sum.a = 1;
+	}
+
+	// RETURN_COLOR not needed unless writing to SceneColor;
+	OutColor = Sum;
+}
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+
+// --------------------
+
+#endif

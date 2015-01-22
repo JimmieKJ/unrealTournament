@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ASphereReflectionCapture
+Crumbs:
+Description: ASphereReflectionCapture クラスの概要
+
+[EXCERPT:ASphereReflectionCapture]
+
+主に使用する反射キャプチャは Sphere Reflection Capture (球形状の反射キャプチャ) です。このアクタはランタイム以前に計算されるため、パフォーマンスにほとんど影響を与えずにワールド内に配置することが可能です。
+
+[VAR:ToolTipFullLink]
+Resources/ContentExamples/Reflections/1_4
+[/VAR]
+[/EXCERPT:ASphereReflectionCapture]

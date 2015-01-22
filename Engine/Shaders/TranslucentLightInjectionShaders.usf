@@ -1,0 +1,335 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/**
+ * TranslucentLightInjectionShaders.usf: Shaders for calculating lighting in a volume to use on translucency
+ */
+
+#include "Common.usf"
+#include "SHCommon.usf"
+
+#if INJECTION_PIXEL_SHADER
+	#include "Material.usf"
+#endif
+
+#include "DynamicLightingCommon.usf"
+
+uint VolumeCascadeIndex;
+float4 SimpleLightPositionAndRadius;
+float4 SimpleLightColorAndExponent;
+
+float CalcSimpleLightAttenuation(float3 WorldPosition)
+{
+	float3 WorldLightVector = SimpleLightPositionAndRadius.xyz - WorldPosition;
+
+	float Attenuation = 1;
+
+	if (SimpleLightColorAndExponent.w == 0)
+	{
+		float DistanceSqr = dot( WorldLightVector, WorldLightVector );
+
+		// Sphere falloff (technically just 1/d2 but this avoids inf)
+		Attenuation = 1 / ( DistanceSqr + 1 );
+	
+		float LightRadiusMask = Square(saturate(1 - Square(DistanceSqr / (SimpleLightPositionAndRadius.w * SimpleLightPositionAndRadius.w))));
+		Attenuation *= LightRadiusMask;
+	}
+	else
+	{
+		Attenuation = RadialAttenuation(WorldLightVector / SimpleLightPositionAndRadius.w, SimpleLightColorAndExponent.w);
+	}
+
+	return Attenuation;
+}
+
+/** Pixel shader that calculates direct lighting for a simple light (unshadowed point light) for all the affected voxels of a volume texture. */
+void SimpleLightInjectMainPS(
+	FWriteToSliceGeometryOutput Input,
+	out float4 OutColor0 : SV_Target0,
+	out float3 OutColor1 : SV_Target1
+	)
+{
+	OutColor0 = 0;
+	OutColor1 = 0;
+
+	// compute XYZ of the position we shader
+	float3 WorldPosition;
+	{
+		float ZPosition = View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+
+		WorldPosition = float3(View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
+	}
+
+	// compute UVW of the position we shade in the volume
+	float3 VolumeUVs = float3(Input.Vertex.UV, (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w);
+	float3 NormalizedLightVector = normalize(SimpleLightPositionAndRadius.xyz - WorldPosition);
+	float VoxelSize = View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+	float3 WorldPositionForLighting = WorldPosition + 1 * GetBoxPushout(NormalizedLightVector, .5f * VoxelSize);
+
+	float Attenuation = CalcSimpleLightAttenuation(WorldPositionForLighting);
+	float3 Lighting = SimpleLightColorAndExponent.rgb / PI * Attenuation;
+
+	FTwoBandSHVectorRGB SHLighting = MulSH(SHBasisFunction(NormalizedLightVector), Lighting);
+	OutColor0 = float4(SHLighting.R.V.x, SHLighting.G.V.x, SHLighting.B.V.x, 0);
+
+	float3 LuminanceWeights = float3(.3, .59, .11);
+	float3 Coefficient0 = float3(SHLighting.R.V.y, SHLighting.G.V.y, SHLighting.B.V.y);
+	float3 Coefficient1 = float3(SHLighting.R.V.z, SHLighting.G.V.z, SHLighting.B.V.z);
+	float3 Coefficient2 = float3(SHLighting.R.V.w, SHLighting.G.V.w, SHLighting.B.V.w);
+	OutColor1 = float3(dot(Coefficient0, LuminanceWeights), dot(Coefficient1, LuminanceWeights), dot(Coefficient2, LuminanceWeights));
+}
+
+#if INJECTION_PIXEL_SHADER
+
+// use low quality shadow sampling on translucency for better performance
+#define SHADOW_QUALITY 2
+
+#include "ShadowProjectionCommon.usf"
+#include "LightFunctionCommon.usf"
+
+/** Parameters needed to access the shadow map of the light. */
+float4x4 WorldToShadowMatrix;
+float4 ShadowmapMinMax;
+float4 CascadeBounds;
+float4 InnerCascadeBounds;
+// WorldSpace planes to clip the cascade for ShadoewMethod1
+float4 ClippingPlanes[2];
+// .x:1/SplitNearFadeRegion, .y:1/SplitFarFadeRegion .zw:DistanceFadeMAD
+float4 ShadowInjectParams;
+
+/** 1 if the light is a spotlight, 0 otherwise. */
+float SpotlightMask;
+float2 DepthBiasParameters;
+
+/** Whether to compute static shadowing. */
+uint bStaticallyShadowed;
+
+/** Shadow depth map computed for static geometry by Lightmass. */
+Texture2D StaticShadowDepthTexture;
+SamplerState StaticShadowDepthTextureSampler;
+
+/** Transform used for static shadowing by spot and directional lights. */
+float4x4 WorldToStaticShadowMatrix;
+
+float GetLightFunctionShadowFactor(float3 WorldPositionForLighting)
+{
+	float ShadowFactor = 1;
+
+	// Apply light function after edge fading, so that a black light function at the edges can cause distant translucency to also be black
+	#if APPLY_LIGHT_FUNCTION
+		float4 LightVector = mul(float4(WorldPositionForLighting, 1),LightFunctionWorldToLight);
+		LightVector.xyz /= LightVector.w;
+		float3 LightFunction = GetLightFunctionColor(LightVector.xyz, WorldPositionForLighting);
+
+		// We only suport monochrome light functions
+		ShadowFactor = dot(LightFunction, .3333f).x;
+	#endif
+
+	return ShadowFactor;
+}
+
+/** Computes dynamic and static shadowing for a point anywhere in space. */
+float ComputeVolumeShadowing(float3 WorldPositionForLighting)
+{
+	float ShadowFactor = 1;
+
+	BRANCH
+	if (bStaticallyShadowed)
+	{
+		bool bUsePointLightShadowing = false;
+
+		#if RADIAL_ATTENUATION
+			bUsePointLightShadowing = SpotlightMask < 1;
+		#endif
+
+		BRANCH
+		if (bUsePointLightShadowing)
+		{
+			float3 LightVector = WorldPositionForLighting - DeferredLightUniforms.LightPosition;
+			float DistanceToLight = length(LightVector);
+			float3 NormalizedLightVector = LightVector / DistanceToLight;
+
+			//@todo - use parametrization without slow inverse trig.  Dual paraboloid?
+			float NormalizedTheta = atan2(NormalizedLightVector.y, NormalizedLightVector.x) / (2 * PI);
+			// atan2 returns in the range [-PI, PI], wrap the negative portion to [.5, 1]
+			float U = NormalizedTheta > 0 ? NormalizedTheta : 1 + NormalizedTheta;
+			float V = acos(NormalizedLightVector.z) / PI;
+			float2 UnwrappedUVs = float2(U, V);
+
+			float ShadowDepth = Texture2DSampleLevel(StaticShadowDepthTexture, StaticShadowDepthTextureSampler, UnwrappedUVs, 0).x;
+			ShadowFactor = DistanceToLight * DeferredLightUniforms.LightInvRadius < ShadowDepth;
+		}
+		else
+		{
+			// This path is used for directional lights and spot lights, which only require a single projection
+			// Transform the world position into shadowmap space
+			float4 HomogeneousShadowPosition = mul(float4(WorldPositionForLighting, 1), WorldToStaticShadowMatrix);
+			float2 ShadowUVs = HomogeneousShadowPosition.xy / HomogeneousShadowPosition.w;
+
+			// Treat as unshadowed if the voxel is outside of the shadow map
+			if (all(ShadowUVs >= 0 && ShadowUVs <= 1))
+			{
+				// Sample the shadowmap depth and determine if this voxel is shadowed
+				float ShadowDepth = Texture2DSampleLevel(StaticShadowDepthTexture, StaticShadowDepthTextureSampler, ShadowUVs, 0).x;
+				ShadowFactor = HomogeneousShadowPosition.z < ShadowDepth;
+			}
+		}
+	}		
+
+	#if DYNAMICALLY_SHADOWED
+		bool bUseCubemapShadowing = false;
+		float DynamicShadowFactor = 1;
+
+		#if RADIAL_ATTENUATION
+			bUseCubemapShadowing = SpotlightMask < 1;
+		#endif
+
+		if (bUseCubemapShadowing)
+		{
+			DynamicShadowFactor = CubemapHardwarePCF(WorldPositionForLighting, DeferredLightUniforms.LightPosition, DeferredLightUniforms.LightInvRadius, 0.03f * 512 * InvShadowmapResolution);
+		}
+		else
+		{
+			// Transform the world position into shadowmap space
+			float4 HomogeneousShadowPosition = mul(float4(WorldPositionForLighting, 1), WorldToShadowMatrix);
+			float2 ShadowUVs = HomogeneousShadowPosition.xy / HomogeneousShadowPosition.w;
+
+			// Treat as unshadowed if the voxel is outside of the shadow map
+			if (all(ShadowUVs >= ShadowmapMinMax.xy && ShadowUVs <= ShadowmapMinMax.zw))
+			{
+				// Sample the shadowmap depth and determine if this voxel is shadowed
+				float ShadowDepth = Texture2DSampleLevel(ShadowDepthTexture, ShadowDepthTextureSampler, ShadowUVs, 0).x;
+				DynamicShadowFactor = HomogeneousShadowPosition.z < ShadowDepth - DepthBiasParameters.x;
+			}
+		}
+
+		// fade shadows in the distance
+		#if !RADIAL_ATTENUATION 
+			float Depth = dot(WorldPositionForLighting - View.ViewOrigin.xyz, View.ViewForward);
+			float DistanceFade = saturate(Depth * ShadowInjectParams.z + ShadowInjectParams.w);
+			DynamicShadowFactor = lerp(DynamicShadowFactor, 1.0f, DistanceFade * DistanceFade);
+		#endif
+
+		// Combine static shadowing and dynamic shadowing, important for stationary directional lights with CSM
+		ShadowFactor = min(ShadowFactor, DynamicShadowFactor);
+
+	#endif
+
+	return ShadowFactor;
+}
+
+/** Pixel shader that calculates direct lighting for all the affected voxels of a volume texture. */
+void InjectMainPS(
+	FWriteToSliceGeometryOutput Input,
+	out float4 OutColor0 : SV_Target0,
+	out float3 OutColor1 : SV_Target1
+	)
+{
+	OutColor0 = 0;
+	OutColor1 = 0;
+
+	// compute XYZ of the position we want to shade
+	float3 WorldPosition;
+	{
+		float ZPosition = View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].z + (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+
+		WorldPosition = float3(View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].xy + Input.Vertex.UV / View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].xy - .5f * View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w, ZPosition);
+	}
+
+	// compute UVW of the position we shade in the volume
+	float3 VolumeUVs = float3(Input.Vertex.UV, (Input.LayerIndex + .5f) * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w);
+
+	// 0: no contribution, 1:full contribution
+	float Masking = 1.0f;
+
+	
+	#if RADIAL_ATTENUATION 
+	{
+		// cull voxels outside the light radius (value is < 0)
+		float3 LightVector = DeferredLightUniforms.LightPosition - WorldPosition;
+		clip(1.0f / (DeferredLightUniforms.LightInvRadius * DeferredLightUniforms.LightInvRadius) - dot(LightVector, LightVector));
+	}
+	#else
+	{
+		// directional light
+		float DistToNear = -dot(ClippingPlanes[0], float4(WorldPosition, 1));
+		float DistToFar = -dot(ClippingPlanes[1], float4(WorldPosition, 1));
+		
+		// cull volumes outside the cascade (value is < 0)
+		clip(DistToNear);
+		clip(DistToFar);
+
+		// fade cascade transition regions (additivebly blended so it does a cross fade)
+		Masking *= saturate(DistToNear * ShadowInjectParams.x);
+		Masking *= saturate(DistToFar * ShadowInjectParams.y);
+	}
+	#endif
+
+	float3 NormalizedLightVector = GetNormalizedLightVector(WorldPosition);
+
+	float3 WorldPositionForLighting;
+	{
+		float VoxelSize = View.TranslucencyLightingVolumeInvSize[VolumeCascadeIndex].w;
+
+		WorldPositionForLighting = WorldPosition + 1 * GetBoxPushout(NormalizedLightVector, .5f * VoxelSize);
+	}
+
+	{
+		float3 WorldLightVector;
+		// Calculate radial attenuation using the same biased position used for shadowing
+		// Anything else would cause the extents of the shadowmap to not match up with the cone falloff on a spotlight
+		float Attenuation = CalcLightAttenuation(WorldPositionForLighting, WorldLightVector);
+
+		float ShadowFactor = ComputeVolumeShadowing(WorldPositionForLighting);
+		
+		if (VolumeCascadeIndex == 1)
+		{
+			// Larger values result in a shorter transition distance
+			float TransitionScale = 10;
+			// Rescale the UVs to make the fade go to 0 before the edge of the volume
+			float3 FadeUVs = VolumeUVs * (1 + 4 * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w) - 2 * View.TranslucencyLightingVolumeMin[VolumeCascadeIndex].w;
+			// Setup a 3d lerp factor going to 0 near the edge of the outer volume
+			float3 LerpFactors = saturate((.5f - abs(FadeUVs - .5f)) * TransitionScale);
+			float FinalLerpFactor = LerpFactors.x * LerpFactors.y * LerpFactors.z;
+
+			#if RADIAL_ATTENUATION 
+				// For local lights, fade attenuation to 0 for the border voxels
+				Attenuation = lerp(0, Attenuation, FinalLerpFactor);
+				ShadowFactor = lerp(0.0f, ShadowFactor, FinalLerpFactor);
+			#else
+				// Fade out shadowing for the border voxels
+				// The border voxels are used to light all translucency outside of both lighting volumes
+				ShadowFactor = lerp(1.0f, ShadowFactor, FinalLerpFactor);
+			#endif
+		}
+
+		// Apply light function after edge fading, so that a light function which is modifying the light's brightness still works
+		ShadowFactor *= GetLightFunctionShadowFactor(WorldPositionForLighting);
+
+		float3 Lighting = DeferredLightUniforms.LightColor / PI * Attenuation * ShadowFactor;
+
+		FTwoBandSHVectorRGB SHLighting = MulSH(SHBasisFunction(NormalizedLightVector), Lighting);
+
+		float DirectionalLightContribution = 0;
+
+		#if !RADIAL_ATTENUATION 
+			DirectionalLightContribution = Attenuation * ShadowFactor;
+		#endif
+
+		// Directional light contribution in w
+		OutColor0 = float4(SHLighting.R.V.x, SHLighting.G.V.x, SHLighting.B.V.x, DirectionalLightContribution);
+
+		float3 LuminanceWeights = float3(.3, .59, .11);
+		float3 Coefficient0 = float3(SHLighting.R.V.y, SHLighting.G.V.y, SHLighting.B.V.y);
+		float3 Coefficient1 = float3(SHLighting.R.V.z, SHLighting.G.V.z, SHLighting.B.V.z);
+		float3 Coefficient2 = float3(SHLighting.R.V.w, SHLighting.G.V.w, SHLighting.B.V.w);
+		OutColor1 = float3(dot(Coefficient0, LuminanceWeights), dot(Coefficient1, LuminanceWeights), dot(Coefficient2, LuminanceWeights));
+	}
+
+	// debug, make inner cascase green
+//	if(VolumeCascadeIndex == 0) OutColor0 = float4(0,1,0,1);
+
+	OutColor0 *= Masking;
+	OutColor1 *= Masking;
+}
+
+#endif // #if INJECTION_PIXEL_SHADER

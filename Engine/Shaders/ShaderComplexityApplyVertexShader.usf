@@ -1,0 +1,17 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	LDRExtractVertexShader.usf - Passes vertex inputs through to the pixel shader.
+=============================================================================*/
+
+#include "Common.usf"
+
+void Main(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 InTexCoord : ATTRIBUTE1,
+	out float2 OutTexCoord : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord);
+}

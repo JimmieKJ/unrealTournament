@@ -1,0 +1,61 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	SkyLightingShared.usf
+=============================================================================*/
+
+float ApproximateConeConeIntersection(float ArcLength0, float ArcLength1, float AngleBetweenCones)
+{
+	float AngleDifference = abs(ArcLength0 - ArcLength1);
+
+	float Intersection = smoothstep(
+		0,
+		1.0,
+		1.0 - saturate((AngleBetweenCones - AngleDifference) / (ArcLength0 + ArcLength1 - AngleDifference)));
+
+	return Intersection;
+}
+
+Texture2D BentNormalAOTexture;
+SamplerState BentNormalAOSampler;
+
+float ApplyBentNormalAO;
+float InvSkySpecularOcclusionStrength;
+
+float GetDistanceFieldAOSpecularOcclusion(float2 ScreenUV, float3 ReflectionVector, float Roughness, bool bTwoSidedFoliage)
+{
+	float Visibility = 1;
+
+	BRANCH
+	if (ApplyBentNormalAO > 0)
+	{
+		float3 BentNormalAO = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, ScreenUV, 0).xyz;
+		float BentNormalLength = length(BentNormalAO);
+
+		BRANCH
+		if (bTwoSidedFoliage)
+		{
+			Visibility = BentNormalLength;
+		}
+		else
+		{
+			float ReflectionConeAngle = Roughness * PI;
+			float UnoccludedAngle = BentNormalLength * PI * InvSkySpecularOcclusionStrength;
+			float AngleBetween = acos(dot(BentNormalAO, ReflectionVector) / max(BentNormalLength, .001f));
+			Visibility = ApproximateConeConeIntersection(ReflectionConeAngle, UnoccludedAngle, AngleBetween);
+
+			// Can't rely on the direction of the bent normal when close to fully occluded, lerp to shadowed
+			Visibility = lerp(0, Visibility, saturate((UnoccludedAngle - .1f) / .2f));
+		}
+	}
+
+	return Visibility;
+}
+
+float GetDynamicSkyIndirectIrradiance(float2 ScreenUV, float3 WorldNormal)
+{
+	float3 BentNormal = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, ScreenUV, 0).xyz;
+	float SkyVisibility = length(BentNormal);
+	float3 DiffuseLookup = GetSkySHDiffuse(WorldNormal) * View.SkyLightColor.rgb;
+	return Luminance(DiffuseLookup) * SkyVisibility;
+}

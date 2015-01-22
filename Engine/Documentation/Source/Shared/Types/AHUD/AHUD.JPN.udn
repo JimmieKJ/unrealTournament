@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2308873
+Availability:NoPublish
+Title:AHUD
+Crumbs:
+Description:HUD クラスの概要
+
+[EXCERPT:AHUD]
+
+HUD は、スクリーン上にオーバーレイされる要素を表示するための基本クラスです。
+
+[VAR:ToolTipFullLink]
+Gameplay/Framework/UIAndHUD
+[/VAR]
+[/EXCERPT:AHUD]

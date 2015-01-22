@@ -1,0 +1,16 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "Common.usf"
+
+float3 TransformLocalToWorld(float3 LocalPosition)
+{
+	//expand the matrix multiply to avoid a code-gen bug on PS4.
+	//float3 RotatedPosition = mul(LocalPosition.xyz, (float3x3)Primitive.LocalToWorld);
+	float3 RotatedPosition = Primitive.LocalToWorld[0].xyz * LocalPosition.xxx + Primitive.LocalToWorld[1].xyz * LocalPosition.yyy + Primitive.LocalToWorld[2].xyz * LocalPosition.zzz;
+	return RotatedPosition + Primitive.LocalToWorld[3].xyz;
+}
+
+float4 TransformLocalToTranslatedWorld(float3 LocalPosition)
+{
+	return float4(TransformLocalToWorld(LocalPosition) + View.PreViewTranslation.xyz,1);
+}

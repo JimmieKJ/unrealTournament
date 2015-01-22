@@ -1,0 +1,13 @@
+Availability:NoPublish
+Title:APostProcessVolume
+Crumbs:
+Description:Overview of the PostProcessVolume class
+
+[EXCERPT:APostProcessVolume]
+
+The PostProcessVolume is a special type of volume that can be added to a level and, because Unreal Engine 4 does not make use of post processing chains, these volumes are currently the only way to manipulate post processing parameters.
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/PostProcessEffects
+[/VAR]
+[/EXCERPT:APostProcessVolume]

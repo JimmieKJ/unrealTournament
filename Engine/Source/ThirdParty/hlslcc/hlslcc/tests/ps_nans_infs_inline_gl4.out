@@ -1,0 +1,20 @@
+----------------------------------------------------------------------
+../../../tests/ps_nans_infs_inline.hlsl(0): warning: internal compiler warning: float division by zero
+../../../tests/ps_nans_infs_inline.hlsl(0): warning: internal compiler warning: float division by zero
+
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.24
+// @Inputs: 
+// @Outputs: f4:out_Target0
+// @PackedGlobals: TexCoordScaleBias(h:0,4)
+// @Samplers: ColorTexture(0:1[ColorTextureSampler])
+#version 430
+uniform vec4 _pu_h[1];
+uniform sampler2D _ps0;
+in TEXCOORD0 { vec2 Data; } in_TEXCOORD0;
+out vec4 out_Target0;
+void main()
+{
+	out_Target0.xyzw = texture(_ps0,(((in_TEXCOORD0.Data*_pu_h[0].xy)+_pu_h[0].zw)/vec2(0.0,0.0)));
+}
+

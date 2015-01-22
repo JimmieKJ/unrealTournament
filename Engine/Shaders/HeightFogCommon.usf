@@ -1,0 +1,64 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	HeightFogCommon.usf: 
+=============================================================================*/
+
+static const float FLT_EPSILON = 0.001f;
+static const float FLT_EPSILON2 = 0.01f;
+
+/** Shader parameters shared between exponential and multi-layer height fog, to reduce constant register usage. */
+float4 SharedFogParameter0;
+float4 SharedFogParameter1;
+half4 InscatteringLightDirection;
+half4 DirectionalInscatteringColor;
+float DirectionalInscatteringStartDistance;
+
+half4 GetExponentialHeightFog(float3 WorldPosition, float3 InCameraPosition)
+{
+	/** FogDensity * exp2(-FogHeightFalloff * (CameraWorldPosition.z - FogHeight)) in x, FogHeightFalloff in y, CosTerminatorAngle in z, StartDistance in w. */
+	const float4 ExponentialFogParameters = SharedFogParameter0;
+	/** Color to use. */
+	const half3 ExponentialFogColor = SharedFogParameter1.xyz;
+	const half MinFogOpacity = SharedFogParameter1.w;
+
+	float3 CameraToReceiver = WorldPosition - InCameraPosition;
+	float CameraToReceiverLengthSqr = dot( CameraToReceiver, CameraToReceiver );
+	float CameraToReceiverLengthInv = rsqrt( CameraToReceiverLengthSqr );
+	float CameraToReceiverLength = CameraToReceiverLengthSqr * CameraToReceiverLengthInv;
+	half3 CameraToReceiverNormalized = CameraToReceiver * CameraToReceiverLengthInv;
+
+	// Calculate the line integral of the ray from the camera to the receiver position through the fog density function
+	// The exponential fog density function is d = GlobalDensity * exp(-HeightFalloff * z)
+	float EffectiveZ = (abs(CameraToReceiver.z) > FLT_EPSILON2) ? CameraToReceiver.z : FLT_EPSILON2;
+	float Falloff = max( -127.0f, ExponentialFogParameters.y * EffectiveZ );	// if it's lower than -127.0, then exp2() goes crazy in OpenGL's GLSL.
+	float ExponentialHeightLineIntegralShared = ExponentialFogParameters.x * (1.0f - exp2(-Falloff) ) / Falloff;
+	float ExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * max(CameraToReceiverLength - ExponentialFogParameters.w, 0.0f);
+
+	half3 DirectionalInscattering = 0;
+
+	if (InscatteringLightDirection.w > 0)
+	{
+		// Setup a cosine lobe around the light direction to approximate inscattering from the directional light off of the ambient haze;
+		// clamp to avoid issues on some platforms (Could've used ClampedPow(), but we want the dot to be 0..1)
+		half3 DirectionalLightInscattering = DirectionalInscatteringColor.xyz * pow(saturate(dot(CameraToReceiverNormalized, InscatteringLightDirection.xyz)), clamp(DirectionalInscatteringColor.w, 0.000001f, 1000.0));
+
+		// Calculate the line integral of the eye ray through the haze, using a special starting distance to limit the inscattering to the distance
+		float DirExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * max(CameraToReceiverLength - DirectionalInscatteringStartDistance, 0.0f);
+		// Calculate the amount of light that made it through the fog using the transmission equation
+		half DirectionalInscatteringFogFactor = saturate(exp2(-DirExponentialHeightLineIntegral));
+		// Final inscattering from the light
+		DirectionalInscattering = DirectionalLightInscattering * (1 - DirectionalInscatteringFogFactor);
+	}
+
+	// Calculate the amount of light that made it through the fog using the transmission equation
+	half ExpFogFactor = max(saturate(exp2(-ExponentialHeightLineIntegral)), MinFogOpacity);
+
+	return half4((ExponentialFogColor) * (1 - ExpFogFactor) + DirectionalInscattering, ExpFogFactor);
+}
+
+half4 CalculateVertexHeightFog(float3 WorldPosition, float4 InCameraPosition)
+{
+	return GetExponentialHeightFog(WorldPosition, InCameraPosition.xyz);
+}
+

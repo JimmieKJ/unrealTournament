@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:AExponentialHeightFog
+Crumbs:
+Description:ExponentialHeightFog クラスの概要
+
+[EXCERPT:AExponentialHeightFog]
+
+指数関数的ハイトフォグでは、マップ内の低い場所では濃度がより濃くなり、高い場所では薄くなります。遷移がスムーズなため、高度が高くなるにつれて、はっきりと分断されることは決してありません。
+
+[VAR:ToolTipFullLink]
+Engine/Actors/FogEffects/HeightFog
+[/VAR]
+[/EXCERPT:AExponentialHeightFog]

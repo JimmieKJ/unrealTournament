@@ -1,0 +1,404 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+
+#include "AssetToolsPrivatePCH.h"
+#include "AssetRegistryModule.h"
+#include "ISourceControlModule.h"
+#include "ObjectTools.h"
+#include "MessageLog.h"
+
+#define LOCTEXT_NAMESPACE "AssetFixUpRedirectors"
+
+
+struct FRedirectorRefs
+{
+	UObjectRedirector* Redirector;
+	TArray<FName> ReferencingPackageNames;
+	FText FailureReason;
+	bool bRedirectorValidForFixup;
+
+	FRedirectorRefs(UObjectRedirector* InRedirector)
+		: Redirector(InRedirector)
+		, bRedirectorValidForFixup(true)
+	{}
+};
+
+
+void FAssetFixUpRedirectors::FixupReferencers(const TArray<UObjectRedirector*>& Objects) const
+{
+	// Transform array into TWeakObjectPtr array
+	TArray<TWeakObjectPtr<UObjectRedirector>> ObjectWeakPtrs;
+	for (auto Object : Objects)
+	{
+		ObjectWeakPtrs.Add(Object);
+	}
+
+	if (ObjectWeakPtrs.Num() > 0)
+	{
+		// If the asset registry is still loading assets, we cant check for referencers, so we must open the Discovering Assets dialog until it is done
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		if (AssetRegistryModule.Get().IsLoadingAssets())
+		{
+			// Open a dialog asking the user to wait while assets are being discovered
+			SDiscoveringAssetsDialog::OpenDiscoveringAssetsDialog(
+				SDiscoveringAssetsDialog::FOnAssetsDiscovered::CreateSP(this, &FAssetFixUpRedirectors::ExecuteFixUp, ObjectWeakPtrs)
+				);
+		}
+		else
+		{
+			// No need to wait, attempt to fix references now.
+			ExecuteFixUp(ObjectWeakPtrs);
+		}
+	}
+}
+
+void FAssetFixUpRedirectors::ExecuteFixUp(TArray<TWeakObjectPtr<UObjectRedirector>> Objects) const
+{
+	TArray<FRedirectorRefs> RedirectorRefsList;
+	for (auto Object : Objects)
+	{
+		auto ObjectRedirector = Object.Get();
+
+		if (ObjectRedirector)
+		{
+			RedirectorRefsList.Emplace(ObjectRedirector);
+		}
+	}
+
+	if ( RedirectorRefsList.Num() > 0 )
+	{
+		// Gather all referencing packages for all redirectors that are being fixed.
+		PopulateRedirectorReferencers(RedirectorRefsList);
+
+		// Update Package Status for all selected redirectors if SCC is enabled
+		if ( UpdatePackageStatus(RedirectorRefsList) )
+		{
+			// Load all referencing packages.
+			TArray<UPackage*> ReferencingPackagesToSave;
+			LoadReferencingPackages(RedirectorRefsList, ReferencingPackagesToSave);
+
+			// Prompt to check out all referencing packages, leave redirectors for assets referenced by packages that are not checked out and remove those packages from the save list.
+			const bool bUserAcceptedCheckout = CheckOutReferencingPackages(RedirectorRefsList, ReferencingPackagesToSave);
+			if ( bUserAcceptedCheckout )
+			{
+				// If any referencing packages are left read-only, the checkout failed or SCC was not enabled. Trim them from the save list and leave redirectors.
+				DetectReadOnlyPackages(RedirectorRefsList, ReferencingPackagesToSave);
+
+				// Fix up referencing FStringAssetReferences
+				FixUpStringAssetReferences(RedirectorRefsList, ReferencingPackagesToSave);
+
+				// Save all packages that were referencing any of the assets that were moved without redirectors
+				SaveReferencingPackages(ReferencingPackagesToSave);
+
+				// Delete any redirectors that are no longer referenced
+				DeleteRedirectors(RedirectorRefsList);
+
+				// Finally, report any failures that happened during the rename
+				ReportFailures(RedirectorRefsList);
+			}
+		}
+	}
+}
+
+void FAssetFixUpRedirectors::PopulateRedirectorReferencers(TArray<FRedirectorRefs>& RedirectorsToPopulate) const
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	for ( auto RedirectorRefsIt = RedirectorsToPopulate.CreateIterator(); RedirectorRefsIt; ++RedirectorRefsIt )
+	{
+		FRedirectorRefs& RedirectorRefs = *RedirectorRefsIt;
+		AssetRegistryModule.Get().GetReferencers(RedirectorRefs.Redirector->GetOutermost()->GetFName(), RedirectorRefs.ReferencingPackageNames);
+	}
+}
+
+bool FAssetFixUpRedirectors::UpdatePackageStatus(const TArray<FRedirectorRefs>& RedirectorsToFix) const
+{
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	if ( ISourceControlModule::Get().IsEnabled() )
+	{
+		// Update the source control server availability to make sure we can do the rename operation
+		SourceControlProvider.Login();
+		if ( !SourceControlProvider.IsAvailable() )
+		{
+			// We have failed to update source control even though it is enabled. This is critical and we can not continue
+			FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "SourceControl_ServerUnresponsive", "Source Control is unresponsive. Please check your connection and try again.") );
+			return false;
+		}
+
+		TArray<UPackage*> PackagesToAddToSCCUpdate;
+
+		for ( auto RedirectorRefsIt = RedirectorsToFix.CreateConstIterator(); RedirectorRefsIt; ++RedirectorRefsIt )
+		{
+			const FRedirectorRefs& RedirectorRefs = *RedirectorRefsIt;
+			PackagesToAddToSCCUpdate.Add(RedirectorRefs.Redirector->GetOutermost());
+		}
+
+		SourceControlProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), PackagesToAddToSCCUpdate);
+	}
+
+	return true;
+}
+
+void FAssetFixUpRedirectors::LoadReferencingPackages(TArray<FRedirectorRefs>& RedirectorsToFix, TArray<UPackage*>& OutReferencingPackagesToSave) const
+{
+	FScopedSlowTask SlowTask( RedirectorsToFix.Num(), LOCTEXT( "LoadingReferencingPackages", "Loading Referencing Packages..." ) );
+	SlowTask.MakeDialog();
+
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+
+	// Load all packages that reference each redirector, if possible
+	for ( auto RedirectorRefsIt = RedirectorsToFix.CreateIterator(); RedirectorRefsIt; ++RedirectorRefsIt )
+	{
+		SlowTask.EnterProgressFrame(1);
+
+		FRedirectorRefs& RedirectorRefs = *RedirectorRefsIt;
+		if ( ISourceControlModule::Get().IsEnabled() )
+		{
+			FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(RedirectorRefs.Redirector->GetOutermost(), EStateCacheUsage::Use);
+			const bool bValidSCCState = !SourceControlState.IsValid() || SourceControlState->IsAdded() || SourceControlState->IsCheckedOut() || SourceControlState->CanCheckout() || !SourceControlState->IsSourceControlled() || SourceControlState->IsIgnored();
+
+			if ( !bValidSCCState )
+			{
+				RedirectorRefs.bRedirectorValidForFixup = false;
+				RedirectorRefs.FailureReason = LOCTEXT("RedirectorFixupFailed_BadSCC", "Redirector could not be checked out or marked for delete");
+			}
+		}
+
+		// Load all referencers
+		for ( auto PackageNameIt = RedirectorRefs.ReferencingPackageNames.CreateConstIterator(); PackageNameIt; ++PackageNameIt )
+		{
+			const FString PackageName = (*PackageNameIt).ToString();
+
+			// Find the package in memory. If it is not in memory, try to load it
+			UPackage* Package = FindPackage(NULL, *PackageName);
+			if ( !Package )
+			{
+				// Check if the package is a map before loading it!
+				if ( FEditorFileUtils::IsMapPackageAsset(PackageName) )
+				{
+					// This reference was a map package, don't load it
+					RedirectorRefs.bRedirectorValidForFixup = false;
+					RedirectorRefs.FailureReason = FText::Format(LOCTEXT("RedirectorFixupFailed_MapReference", "Redirector is referenced by an unloaded map. Package: {0}"), FText::FromString(PackageName));
+					continue;
+				}
+
+				Package = LoadPackage(NULL, *PackageName, LOAD_None);
+			}
+
+			if ( Package )
+			{
+				if ( Package->PackageFlags & PKG_CompiledIn )
+				{
+					// This is a script reference
+					RedirectorRefs.bRedirectorValidForFixup = false;
+					RedirectorRefs.FailureReason = FText::Format(LOCTEXT("RedirectorFixupFailed_CodeReference", "Redirector is referenced by code. Package: {0}"), FText::FromString(PackageName));
+				}
+				else
+				{
+					// If we found a valid package, mark it for save
+					OutReferencingPackagesToSave.AddUnique(Package);
+				}
+			}
+		}
+	}
+}
+
+bool FAssetFixUpRedirectors::CheckOutReferencingPackages(TArray<FRedirectorRefs>& RedirectorsToFix, TArray<UPackage*>& InOutReferencingPackagesToSave) const
+{
+	// Prompt to check out all successfully loaded packages
+	bool bUserAcceptedCheckout = true;
+
+	if ( InOutReferencingPackagesToSave.Num() > 0 )
+	{
+		if ( ISourceControlModule::Get().IsEnabled() )
+		{
+			TArray<UPackage*> PackagesCheckedOutOrMadeWritable;
+			TArray<UPackage*> PackagesNotNeedingCheckout;
+			bUserAcceptedCheckout = FEditorFileUtils::PromptToCheckoutPackages( false, InOutReferencingPackagesToSave, &PackagesCheckedOutOrMadeWritable, &PackagesNotNeedingCheckout );
+			if ( bUserAcceptedCheckout )
+			{
+				TArray<UPackage*> PackagesThatCouldNotBeCheckedOut = InOutReferencingPackagesToSave;
+
+				for ( auto PackageIt = PackagesCheckedOutOrMadeWritable.CreateConstIterator(); PackageIt; ++PackageIt )
+				{
+					PackagesThatCouldNotBeCheckedOut.Remove(*PackageIt);
+				}
+
+				for ( auto PackageIt = PackagesNotNeedingCheckout.CreateConstIterator(); PackageIt; ++PackageIt )
+				{
+					PackagesThatCouldNotBeCheckedOut.Remove(*PackageIt);
+				}
+
+				for ( auto PackageIt = PackagesThatCouldNotBeCheckedOut.CreateConstIterator(); PackageIt; ++PackageIt )
+				{
+					const FName NonCheckedOutPackageName = (*PackageIt)->GetFName();
+
+					for ( auto RedirectorRefsIt = RedirectorsToFix.CreateIterator(); RedirectorRefsIt; ++RedirectorRefsIt )
+					{
+						FRedirectorRefs& RedirectorRefs = *RedirectorRefsIt;
+						if ( RedirectorRefs.ReferencingPackageNames.Contains(NonCheckedOutPackageName) )
+						{
+							// We did not check out at least one of the packages we needed to. This redirector can not be fixed up.
+							RedirectorRefs.FailureReason = FText::Format(LOCTEXT("RedirectorFixupFailed_NotCheckedOut", "Referencing package {0} was not checked out"), FText::FromName(NonCheckedOutPackageName));
+							RedirectorRefs.bRedirectorValidForFixup = false;
+						}
+					}
+
+					InOutReferencingPackagesToSave.Remove(*PackageIt);
+				}
+			}
+		}
+	}
+
+	return bUserAcceptedCheckout;
+}
+
+void FAssetFixUpRedirectors::DetectReadOnlyPackages(TArray<FRedirectorRefs>& RedirectorsToFix, TArray<UPackage*>& InOutReferencingPackagesToSave) const
+{
+	// For each valid package...
+	for ( int32 PackageIdx = InOutReferencingPackagesToSave.Num() - 1; PackageIdx >= 0; --PackageIdx )
+	{
+		UPackage* Package = InOutReferencingPackagesToSave[PackageIdx];
+
+		if ( Package )
+		{
+			// Find the package filename
+			FString Filename;
+			if ( FPackageName::DoesPackageExist(Package->GetName(), NULL, &Filename) )
+			{
+				// If the file is read only
+				if ( IFileManager::Get().IsReadOnly(*Filename) )
+				{
+					FName PackageName = Package->GetFName();
+
+					// Find all assets that were referenced by this package to create a redirector when named
+					for ( auto RedirectorIt = RedirectorsToFix.CreateIterator(); RedirectorIt; ++RedirectorIt )
+					{
+						FRedirectorRefs& RedirectorRefs = *RedirectorIt;
+						if ( RedirectorRefs.ReferencingPackageNames.Contains(PackageName) )
+						{
+							RedirectorRefs.FailureReason = FText::Format(LOCTEXT("RedirectorFixupFailed_ReadOnly", "Referencing package {0} was read-only"), FText::FromName(PackageName));
+							RedirectorRefs.bRedirectorValidForFixup = false;
+						}
+					}
+
+					// Remove the package from the save list
+					InOutReferencingPackagesToSave.RemoveAt(PackageIdx);
+				}
+			}
+		}
+	}
+}
+
+void FAssetFixUpRedirectors::SaveReferencingPackages(const TArray<UPackage*>& ReferencingPackagesToSave) const
+{
+	if ( ReferencingPackagesToSave.Num() > 0 )
+	{
+		const bool bCheckDirty = false;
+		const bool bPromptToSave = false;
+		FEditorFileUtils::PromptForCheckoutAndSave(ReferencingPackagesToSave, bCheckDirty, bPromptToSave);
+
+		ISourceControlModule::Get().QueueStatusUpdate(ReferencingPackagesToSave);
+	}
+}
+
+void FAssetFixUpRedirectors::DeleteRedirectors(TArray<FRedirectorRefs>& RedirectorsToFix) const
+{
+	TArray<UObject*> ObjectsToDelete;
+	for ( auto RedirectorIt = RedirectorsToFix.CreateIterator(); RedirectorIt; ++RedirectorIt )
+	{
+		FRedirectorRefs& RedirectorRefs = *RedirectorIt;
+		if ( RedirectorRefs.bRedirectorValidForFixup )
+		{
+			// Add all redirectors found in this package to the redirectors to delete list.
+			// All redirectors in this package should be fixed up.
+			UPackage* RedirectorPackage = RedirectorRefs.Redirector->GetOutermost();
+			TArray<UObject*> AssetsInRedirectorPackage;
+			GetObjectsWithOuter(RedirectorPackage, AssetsInRedirectorPackage, /*bIncludeNestedObjects=*/false);
+			UMetaData* PackageMetaData = NULL;
+			bool bContainsAtLeastOneOtherAsset = false;
+			for ( auto ObjIt = AssetsInRedirectorPackage.CreateConstIterator(); ObjIt; ++ObjIt )
+			{
+				if ( UObjectRedirector* Redirector = Cast<UObjectRedirector>(*ObjIt) )
+				{
+					Redirector->RemoveFromRoot();
+					ObjectsToDelete.Add(Redirector);
+				}
+				else if ( UMetaData* MetaData = Cast<UMetaData>(*ObjIt) )
+				{
+					PackageMetaData = MetaData;
+				}
+				else
+				{
+					bContainsAtLeastOneOtherAsset = true;
+				}
+			}
+
+			if ( !bContainsAtLeastOneOtherAsset )
+			{
+				RedirectorPackage->RemoveFromRoot();
+				ULinkerLoad* Linker = ULinkerLoad::FindExistingLinkerForPackage(RedirectorPackage);
+				if ( Linker )
+				{
+					Linker->RemoveFromRoot();
+				}
+
+				// @todo we shouldnt be worrying about metadata objects here, ObjectTools::CleanUpAfterSuccessfulDelete should
+				if ( PackageMetaData )
+				{
+					PackageMetaData->RemoveFromRoot();
+					ObjectsToDelete.Add(PackageMetaData);
+				}
+			}
+
+			// This redirector will be deleted, NULL the reference here
+			RedirectorRefs.Redirector = NULL;
+		}
+	}
+
+	if ( ObjectsToDelete.Num() > 0 )
+	{
+		ObjectTools::DeleteObjects(ObjectsToDelete);
+	}
+}
+
+void FAssetFixUpRedirectors::ReportFailures(const TArray<FRedirectorRefs>& RedirectorsToFix) const
+{
+	FMessageLog EditorErrors("EditorErrors");
+	bool bTitleOutput = false;
+
+	for ( auto RedirectorIt = RedirectorsToFix.CreateConstIterator(); RedirectorIt; ++RedirectorIt )
+	{
+		const FRedirectorRefs& RedirectorRefs = *RedirectorIt;
+		if ( !RedirectorRefs.bRedirectorValidForFixup )
+		{
+			if(!bTitleOutput)
+			{
+				EditorErrors.Info(LOCTEXT("RedirectorFixupFailedMessage", "The following redirectors could not be completely fixed up"));
+				bTitleOutput = true;
+			}
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("PackageName"), FText::FromString(RedirectorRefs.Redirector->GetOutermost()->GetName()));
+			Arguments.Add(TEXT("FailureReason"), FText::FromString(RedirectorRefs.FailureReason.ToString()));
+			EditorErrors.Warning(FText::Format(LOCTEXT("RedirectorFixupFailedReason", "{PackageName} - {FailureReason}"), Arguments ));
+		}
+	}
+
+	EditorErrors.Open();
+}
+
+void FAssetFixUpRedirectors::FixUpStringAssetReferences(const TArray<FRedirectorRefs>& RedirectorsToFix, const TArray<UPackage*>& InReferencingPackagesToSave) const
+{
+	TArray<UPackage *> PackagesToCheck(InReferencingPackagesToSave);
+
+	FEditorFileUtils::GetDirtyWorldPackages(PackagesToCheck);
+	FEditorFileUtils::GetDirtyContentPackages(PackagesToCheck);
+
+	for (auto& RedirectorRef : RedirectorsToFix)
+	{
+		FAssetRenameManager::RenameReferencingStringAssetReferences(PackagesToCheck,
+			RedirectorRef.Redirector->GetPathName(),
+			RedirectorRef.Redirector->DestinationObject->GetPathName());
+	}
+}
+
+#undef LOCTEXT_NAMESPACE

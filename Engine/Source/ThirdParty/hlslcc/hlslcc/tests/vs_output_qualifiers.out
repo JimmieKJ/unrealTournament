@@ -1,0 +1,102 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.24
+// @Inputs: f4:in_ATTRIBUTE0
+// @Outputs: f4:gl_Position
+// @UniformBlocks: View(0),Primitive(1)
+#version 150
+struct anon_struct_0000
+{
+	mat4 TranslatedWorldToClip;
+	mat4 TranslatedWorldToView;
+	mat4 ViewToTranslatedWorld;
+	mat4 ViewToClip;
+	mat4 ClipToTranslatedWorld;
+	vec3 ViewForward;
+	float _PrePadding332;
+	vec3 ViewUp;
+	float _PrePadding348;
+	vec3 ViewRight;
+	float _PrePadding364;
+	vec4 InvDeviceZToWorldZTransform;
+	vec4 ScreenPositionScaleBias;
+	vec4 ViewSizeAndSceneTexelSize;
+	vec4 ViewOrigin;
+	vec4 TranslatedViewOrigin;
+	vec4 DiffuseOverrideParameter;
+	vec4 SpecularOverrideParameter;
+	vec3 PreViewTranslation;
+	float _PrePadding492;
+	vec3 ViewOriginDelta;
+	float CullingSign;
+	float NearPlane;
+	float AdaptiveTessellationFactor;
+	float GameTime;
+	float RealTime;
+	vec4 UpperSkyColor;
+	vec4 LowerSkyColor;
+	vec3 AmbientColor;
+	float SkyFactor;
+	vec4 TranslucencyLightingVolumeMin[2];
+	vec4 TranslucencyLightingVolumeInvSize[2];
+	float DepthOfFieldFocalDistance;
+	float DepthOfFieldScale;
+	float DepthOfFieldFocalLength;
+	float DepthOfFieldFocalRegion;
+};
+
+struct anon_struct_0001
+{
+	mat4 LocalToWorld;
+	mat4 WorldToLocal;
+	vec4 ObjectWorldPositionAndRadius;
+	vec3 ActorWorldPosition;
+	float _PrePadding156;
+	vec4 ObjectOrientation;
+	vec4 DisplacementNonUniformScale;
+	float LocalToWorldDeterminantSign;
+	float DecalReceiverMask;
+};
+
+layout(std140) uniform _vb0
+{
+#define View View_vb0
+	anon_struct_0000 View;
+};
+
+layout(std140) uniform _vb1
+{
+#define Primitive Primitive_vb1
+	anon_struct_0001 Primitive;
+};
+
+in vec4 in_ATTRIBUTE0;
+centroid out COLOR0 { noperspective vec4 Data; } out_COLOR0;
+out COLOR1 { flat vec4 Data; } out_COLOR1;
+void main()
+{
+	vec4 t0;
+	mat4 t1;
+	mat4 t2;
+	t2 = Primitive.LocalToWorld;
+	t1 = t2;
+	vec3 t3;
+	vec3 t4;
+	t4.x = t2[0].w;
+	t4.y = t2[1].w;
+	t4.z = t2[2].w;
+	t3.xyz = (t4+View.PreViewTranslation);
+	t1[0].w = t3.x;
+	t1[1].w = t3.y;
+	t1[2].w = t3.z;
+	vec4 t5;
+	t5.xyzw = ((t1[3]*in_ATTRIBUTE0.wwww)+((t1[2]*in_ATTRIBUTE0.zzzz)+((t1[1]*in_ATTRIBUTE0.yyyy)+(t1[0]*in_ATTRIBUTE0.xxxx))));
+	t0.xyzw = t5;
+	out_COLOR0.Data.xyzw = vec4(1.0,1.0,1.0,1.0);
+	out_COLOR1.Data.xyzw = vec4(2.0,2.0,2.0,2.0);
+	t0.y = (-t5.y);
+	t0.z = ((2.0*t5.z)+(-t5.w));
+	gl_Position.xyzw = t0;
+}
+

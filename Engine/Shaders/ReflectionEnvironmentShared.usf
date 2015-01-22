@@ -1,0 +1,96 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ReflectionEnvironmentShared
+=============================================================================*/
+  
+#define REFLECTION_CAPTURE_ROUGHEST_MIP 1
+#define REFLECTION_CAPTURE_ROUGHNESS_MIP_SCALE 1.2
+
+/** 
+ * Compute absolute mip for a reflection capture cubemap given a roughness.
+ */
+half ComputeReflectionCaptureMipFromRoughness(half Roughness)
+{
+	// Heuristic that maps roughness to mip level
+	// This is done in a way such that a certain mip level will always have the same roughness, regardless of how many mips are in the texture
+	// Using more mips in the cubemap just allows sharper reflections to be supported
+	half LevelFrom1x1 = REFLECTION_CAPTURE_ROUGHEST_MIP - REFLECTION_CAPTURE_ROUGHNESS_MIP_SCALE * log2(Roughness);
+	// Note: must match GReflectionCaptureSize
+	const half HardcodedNumCaptureArrayMips = 7;
+	return HardcodedNumCaptureArrayMips - 1 - LevelFrom1x1;
+}
+
+float ComputeReflectionCaptureRoughnessFromMip( float Mip )
+{
+	// Note: must match GReflectionCaptureSize
+	const half HardcodedNumCaptureArrayMips = 7;
+	float LevelFrom1x1 = HardcodedNumCaptureArrayMips - 1 - Mip;
+	return exp2( ( REFLECTION_CAPTURE_ROUGHEST_MIP - LevelFrom1x1 ) / REFLECTION_CAPTURE_ROUGHNESS_MIP_SCALE );
+}
+
+TextureCube SkyLightCubemap;
+SamplerState SkyLightCubemapSampler;
+
+/** X = max mip, Y = 1 if sky light should be rendered, 0 otherwise, Z = 1 if sky light is dynamic, 0 otherwise. */
+float3 SkyLightParameters;
+
+float3 GetSkyLightReflection(float3 ReflectionVector, float Roughness, bool Normalized)
+{
+	float AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness);
+	float3 Reflection = TextureCubeSampleLevel(SkyLightCubemap, SkyLightCubemapSampler, ReflectionVector, AbsoluteSpecularMip).rgb;
+
+	BRANCH
+	if (Normalized)
+	{
+		// Sample the lowest resolution mip to get the average color
+		//@todo - can't normalize sky lighting and reflection capture lighting separately
+		float3 LowFrequencyReflection = TextureCubeSampleLevel(SkyLightCubemap, SkyLightCubemapSampler, ReflectionVector, SkyLightParameters.x).rgb;
+		float LowFrequencyBrightness = Luminance(LowFrequencyReflection);
+		Reflection /= max(LowFrequencyBrightness, .00001f);
+	}
+
+	return Reflection * View.SkyLightColor.rgb;
+}
+/** 
+ * Computes sky diffuse lighting from the SH irradiance map.  
+ * This has the SH basis evaluation and diffuse convolusion weights combined for minimal ALU's - see "Stupid Spherical Harmonics (SH) Tricks" 
+ */
+float3 GetSkySHDiffuse(float3 Normal)
+{
+	float4 NormalVector = float4(Normal, 1);
+
+	float3 Intermediate0, Intermediate1, Intermediate2;
+	Intermediate0.x = dot(View.SkyIrradianceEnvironmentMap[0], NormalVector);
+	Intermediate0.y = dot(View.SkyIrradianceEnvironmentMap[1], NormalVector);
+	Intermediate0.z = dot(View.SkyIrradianceEnvironmentMap[2], NormalVector);
+
+	float4 vB = NormalVector.xyzz * NormalVector.yzzx;
+	Intermediate1.x = dot(View.SkyIrradianceEnvironmentMap[3], vB);
+	Intermediate1.y = dot(View.SkyIrradianceEnvironmentMap[4], vB);
+	Intermediate1.z = dot(View.SkyIrradianceEnvironmentMap[5], vB);
+
+	float vC = NormalVector.x * NormalVector.x - NormalVector.y * NormalVector.y;
+	Intermediate2 = View.SkyIrradianceEnvironmentMap[6].xyz * vC;
+
+	// max to not get negative colors, maybe we can optimize to use saturate() and scale later or clamp this way: saturate(A/100)*100
+	return max(0, Intermediate0 + Intermediate1 + Intermediate2);
+}
+
+/**
+* Computes sky diffuse lighting from the SH irradiance map.
+* This has the SH basis evaluation and diffuse convolusion weights combined for minimal ALU's - see "Stupid Spherical Harmonics (SH) Tricks"
+* Only does the first 3 components for speed.
+*/
+float3 GetSkySHDiffuseSimple(float3 Normal)
+{
+	float4 NormalVector = float4(Normal, 1);
+
+	float3 Intermediate0;
+	Intermediate0.x = dot(View.SkyIrradianceEnvironmentMap[0], NormalVector);
+	Intermediate0.y = dot(View.SkyIrradianceEnvironmentMap[1], NormalVector);
+	Intermediate0.z = dot(View.SkyIrradianceEnvironmentMap[2], NormalVector);		
+
+	// max to not get negative colors, maybe we can optimize to use saturate() and scale later or clamp this way: saturate(A/100)*100
+	return max(0, Intermediate0);
+}

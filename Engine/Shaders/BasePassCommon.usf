@@ -1,0 +1,58 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	BasePassCommon.usf: Base pass definitions used by both vertex and pixel shader
+=============================================================================*/
+
+#undef NEEDS_LIGHTMAP_COORDINATE
+
+#define NEEDS_LIGHTMAP_COORDINATE		(HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP)
+// Translucent materials need to compute fogging in the forward shading pass
+// Materials that read from scene color skip getting fogged, because the contents of the scene color lookup have already been fogged
+// This is not foolproof, as any additional color the material adds will then not be fogged correctly
+#define NEEDS_BASEPASS_FOGGING			(ENABLE_TRANSLUCENCY_VERTEX_FOG && ((MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ADDITIVE || MATERIALBLENDING_MODULATE) && !MATERIAL_USES_SCENE_COLOR_COPY))
+#define NEEDS_LIGHTMAP					(NEEDS_LIGHTMAP_COORDINATE)
+
+struct FSharedBasePassInterpolants
+{
+	//for texture-lightmapped translucency we can pass the vertex fog in its own interpolator
+	#if NEEDS_BASEPASS_FOGGING
+		float4 VertexFog		: TEXCOORD6;
+	#endif
+
+	#if !PC_D3D && !GL4_PROFILE
+		float4 PixelPosition	: TEXCOORD7;
+
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+		float4 PixelPositionExcludingWPO : TEXCOORD8;
+#endif
+
+	#endif
+};
+
+#if PC_D3D || GL4_PROFILE
+
+/** Interpolants passed from the vertex shader to the pixel shader. */
+struct FBasePassInterpolantsVSToPS : FSharedBasePassInterpolants
+{
+	float4 PixelPosition	: TEXCOORD7;
+
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	float4 PixelPositionExcludingWPO : TEXCOORD8;
+#endif
+};
+
+/** Interpolants passed from the vertex shader to the domain shader. */
+struct FBasePassInterpolantsVSToDS : FSharedBasePassInterpolants
+{
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	float3 WorldPositionExcludingWPO : TEXCOORD8;
+#endif
+};
+
+#else
+
+// Only the PC shader compiler supports HLSL inheritance
+#define FBasePassInterpolantsVSToPS FSharedBasePassInterpolants
+
+#endif

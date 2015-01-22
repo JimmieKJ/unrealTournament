@@ -1,0 +1,20 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Blueprint Stats",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Blueprint Stats",
+	"Category" : "Editor.Misc",
+	
+	"Modules" :
+	[
+		{
+			"Name" : "BlueprintStats",
+			"Type" : "Editor"
+		}
+	]
+}

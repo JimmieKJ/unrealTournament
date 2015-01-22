@@ -1,0 +1,26 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Windows Media Foundation Video",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "https://forums.unrealengine.com/showthread.php?46879-Media-Framework-Documentation-for-4-5-Preview",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Implements a media player using the Windows Media Foundation framework.",
+	"Category" : "Media.Players",
+	"EnabledByDefault" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "WmfMedia",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PreLoadingScreen",
+			"WhitelistPlatforms" : [ "Win32", "Win64" ]
+		}
+	],
+
+	"CanContainContent" : false
+}

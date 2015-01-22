@@ -1,0 +1,110 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DistanceFieldLightingShared.usf
+=============================================================================*/
+
+#ifndef THREADGROUP_SIZEX
+#define THREADGROUP_SIZEX 1
+#endif   
+
+#ifndef THREADGROUP_SIZEY
+#define THREADGROUP_SIZEY 1
+#endif
+
+#define THREADGROUP_TOTALSIZE (THREADGROUP_SIZEX * THREADGROUP_SIZEY)
+
+#ifndef MAX_OBJECTS_PER_TILE
+#define MAX_OBJECTS_PER_TILE 1
+#endif
+
+#ifndef DOWNSAMPLE_FACTOR
+#define DOWNSAMPLE_FACTOR 1
+#endif
+
+#ifndef UPDATEOBJECTS_THREADGROUP_SIZE
+#define UPDATEOBJECTS_THREADGROUP_SIZE 1
+#endif
+
+float3 DistanceFieldVolumePositionToUV(float3 VolumePosition, float3 UVScale, float3 UVAdd)
+{
+	float3 VolumeUV = VolumePosition * UVScale + UVAdd;
+	return VolumeUV;
+}
+
+Texture3D DistanceFieldTexture;
+SamplerState DistanceFieldSampler;
+float3 DistanceFieldAtlasTexelSize;
+
+RWBuffer<uint> RWObjectIndirectArguments;
+Buffer<uint> ObjectIndirectArguments;
+
+uint GetCulledNumObjects()
+{
+	// IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance
+	return ObjectIndirectArguments[1];
+}
+
+// In float4's.  Must match equivalent C++ variables.
+#define OBJECT_DATA_STRIDE 12
+
+uint NumSceneObjects;
+
+// Have to make these R32F with 4x the reads and writes because of the horrible D3D11 limitation
+// "error X3676: typed UAV loads are only allowed for single-component 32-bit element types"
+Buffer<float> ObjectBounds;
+Buffer<float> ObjectData;
+
+RWBuffer<float> RWObjectBounds;
+RWBuffer<float> RWObjectData;
+
+// In float4's.  Must match equivalent C++ variables.
+#define CULLED_OBJECT_DATA_STRIDE 8
+#define CULLED_OBJECT_BOX_BOUNDS_STRIDE 5
+
+Buffer<float4> CulledObjectBounds;
+Buffer<float4> CulledObjectData;
+Buffer<float4> CulledObjectBoxBounds;
+
+float4 LoadObjectPositionAndRadius(uint ObjectIndex)
+{
+	return CulledObjectBounds.Load(ObjectIndex);
+}
+
+float4x4 LoadObjectWorldToVolume(uint ObjectIndex)
+{
+	float4 M0 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 0);
+	float4 M1 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 1);
+	float4 M2 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 2);
+	float4 M3 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 3);
+
+	return float4x4(M0, M1, M2, M3);
+}
+
+float3 LoadObjectLocalPositionExtent(uint ObjectIndex)
+{
+	return CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 4).xyz;
+}
+
+float4 LoadObjectUVScale(uint ObjectIndex)
+{
+	return CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 5).xyzw;
+}
+
+float3 LoadObjectUVAdd(uint ObjectIndex)
+{
+	return CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 6).xyz;
+}
+
+void LoadObjectViewSpaceBox(uint ObjectIndex, out float3 ObjectViewSpaceMin, out float3 ObjectViewSpaceMax)
+{
+	ObjectViewSpaceMin = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 0).xyz;
+	ObjectViewSpaceMax = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 1).xyz;
+}
+
+void LoadObjectAxes(uint ObjectIndex, out float3 ObjectAxisX, out float3 ObjectAxisY, out float3 ObjectAxisZ)
+{
+	ObjectAxisX = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 2).xyz;
+	ObjectAxisY = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 3).xyz;
+	ObjectAxisZ = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 4).xyz;
+}

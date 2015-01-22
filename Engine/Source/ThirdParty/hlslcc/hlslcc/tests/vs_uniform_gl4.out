@@ -1,0 +1,28 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.24
+// @Inputs: f2:in_ATTRIBUTE0,f2:in_ATTRIBUTE1,i1:gl_VertexID
+// @Outputs: f4:gl_Position
+// @PackedGlobals: ScaleBias(h:0,4)
+#version 430
+uniform vec4 _vu_h[1];
+in vec2 in_ATTRIBUTE0;
+in vec2 in_ATTRIBUTE1;
+out TEXCOORD0 { vec2 Data; } out_TEXCOORD0;
+void main()
+{
+	vec4 t0;
+	vec2 t1;
+	t1.xy = ((in_ATTRIBUTE0*_vu_h[0].xy)+_vu_h[0].zw);
+	vec4 t2;
+	t2.w = 1.0;
+	t2.xy = t1;
+	t2.z = float(uint(gl_VertexID));
+	t0.xyzw = t2;
+	t0.y = (-t1.y);
+	t0.z = ((2.0*t2.z)+-1.0);
+	gl_Position.xyzw = t0;
+	out_TEXCOORD0.Data.xy = in_ATTRIBUTE1;
+}
+

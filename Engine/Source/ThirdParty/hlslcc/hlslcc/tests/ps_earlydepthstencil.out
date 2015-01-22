@@ -1,0 +1,5 @@
+----------------------------------------------------------------------
+../../../tests/ps_earlydepthstencil.hlsl(0): error: 'earlydepthstencil' attribute only supported on GLSL 4.30 target and later
+
+----------------------------------------------------------------------
+no compiler output

@@ -1,0 +1,53 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	BasePassTessellationShaders.usf: Base pass domain and hull shaders
+=============================================================================*/
+
+#include "BasePassVertexCommon.usf"
+
+
+FBasePassVSToDS PassInterpolate(FBasePassVSToDS a, float aInterp, FBasePassVSToDS b, float bInterp)
+{
+	FBasePassVSToDS O;
+	
+	O.FactoryInterpolants = VertexFactoryInterpolate(a.FactoryInterpolants, aInterp, b.FactoryInterpolants, bInterp);
+
+	#if NEEDS_BASEPASS_FOGGING
+		TESSELLATION_INTERPOLATE_MEMBER(BasePassInterpolants.VertexFog);
+	#endif
+
+	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+		TESSELLATION_INTERPOLATE_MEMBER(BasePassInterpolants.WorldPositionExcludingWPO);
+	#endif
+
+	return O;
+}
+
+FBasePassVSToPS PassFinalizeTessellationOutput(FBasePassVSToDS Interpolants, float4 WorldPosition, FMaterialTessellationParameters MaterialParameters)
+{
+	FBasePassVSToPS O;
+	
+	O.FactoryInterpolants = VertexFactoryAssignInterpolants(Interpolants.FactoryInterpolants);
+
+	// Copy everything in the shared base class over to the pixel shader input
+	(FSharedBasePassInterpolants)O.BasePassInterpolants = (FSharedBasePassInterpolants)Interpolants.BasePassInterpolants;
+
+	// Transform position to clip-space
+	ISOLATE
+	{
+		O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
+	}
+	
+	// Calc position-dependent interps
+	O.BasePassInterpolants.PixelPosition = WorldPosition;
+
+	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+		O.BasePassInterpolants.PixelPositionExcludingWPO = float4(Interpolants.BasePassInterpolants.WorldPositionExcludingWPO, 1);
+	#endif
+
+	return O;
+}
+
+// This gets us the MainHull and MainDomain shader definitions
+#include "Tessellation.usf"

@@ -1,0 +1,267 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		DAEA5CED19092981004274D4 /* arch.h in Headers */ = {isa = PBXBuildFile; fileRef = DAEA5CE919092981004274D4 /* arch.h */; };
+		DAEA5CEE19092981004274D4 /* resample_sse.h in Headers */ = {isa = PBXBuildFile; fileRef = DAEA5CEA19092981004274D4 /* resample_sse.h */; };
+		DAEA5CEF19092981004274D4 /* resample.c in Sources */ = {isa = PBXBuildFile; fileRef = DAEA5CEB19092981004274D4 /* resample.c */; };
+		DAEA5CF019092981004274D4 /* stack_alloc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAEA5CEC19092981004274D4 /* stack_alloc.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		DAEA5CE219092973004274D4 /* libspeex_resamplerd.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libspeex_resamplerd.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAEA5CE919092981004274D4 /* arch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = arch.h; path = ../arch.h; sourceTree = "<group>"; };
+		DAEA5CEA19092981004274D4 /* resample_sse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = resample_sse.h; path = ../resample_sse.h; sourceTree = "<group>"; };
+		DAEA5CEB19092981004274D4 /* resample.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = resample.c; path = ../resample.c; sourceTree = "<group>"; };
+		DAEA5CEC19092981004274D4 /* stack_alloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = stack_alloc.h; path = ../stack_alloc.h; sourceTree = "<group>"; };
+		DAEA5CFA19092996004274D4 /* speex_resampler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = speex_resampler.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DAEA5CDF19092973004274D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DAEA5CD919092973004274D4 = {
+			isa = PBXGroup;
+			children = (
+				DAEA5E9519092C76004274D4 /* src */,
+				DAEA5CF419092996004274D4 /* include */,
+				DAEA5CE319092973004274D4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DAEA5CE319092973004274D4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DAEA5CE219092973004274D4 /* libspeex_resamplerd.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DAEA5CF419092996004274D4 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				DAEA5CFA19092996004274D4 /* speex_resampler.h */,
+			);
+			name = include;
+			path = ../../include;
+			sourceTree = "<group>";
+		};
+		DAEA5E9519092C76004274D4 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				DAEA5CE919092981004274D4 /* arch.h */,
+				DAEA5CEA19092981004274D4 /* resample_sse.h */,
+				DAEA5CEB19092981004274D4 /* resample.c */,
+				DAEA5CEC19092981004274D4 /* stack_alloc.h */,
+			);
+			name = src;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		DAEA5CE019092973004274D4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DAEA5CED19092981004274D4 /* arch.h in Headers */,
+				DAEA5CEE19092981004274D4 /* resample_sse.h in Headers */,
+				DAEA5CF019092981004274D4 /* stack_alloc.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		DAEA5CE119092973004274D4 /* speex_resampler */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DAEA5CE619092973004274D4 /* Build configuration list for PBXNativeTarget "speex_resampler" */;
+			buildPhases = (
+				DAEA5CDE19092973004274D4 /* Sources */,
+				DAEA5CDF19092973004274D4 /* Frameworks */,
+				DAEA5CE019092973004274D4 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = speex_resampler;
+			productName = speex_resampler;
+			productReference = DAEA5CE219092973004274D4 /* libspeex_resamplerd.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DAEA5CDA19092973004274D4 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0510;
+				ORGANIZATIONNAME = "Epic Games Inc.";
+			};
+			buildConfigurationList = DAEA5CDD19092973004274D4 /* Build configuration list for PBXProject "speex_resampler" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = DAEA5CD919092973004274D4;
+			productRefGroup = DAEA5CE319092973004274D4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DAEA5CE119092973004274D4 /* speex_resampler */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DAEA5CDE19092973004274D4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DAEA5CEF19092981004274D4 /* resample.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		DAEA5CE419092973004274D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					../../include,
+					"$(inherited)",
+					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		DAEA5CE519092973004274D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					../../include,
+					"$(inherited)",
+					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		DAEA5CE719092973004274D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../../Mac;
+				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					OUTSIDE_SPEEX,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)d";
+			};
+			name = Debug;
+		};
+		DAEA5CE819092973004274D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = ../../Mac;
+				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = OUTSIDE_SPEEX;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DAEA5CDD19092973004274D4 /* Build configuration list for PBXProject "speex_resampler" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAEA5CE419092973004274D4 /* Debug */,
+				DAEA5CE519092973004274D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DAEA5CE619092973004274D4 /* Build configuration list for PBXNativeTarget "speex_resampler" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAEA5CE719092973004274D4 /* Debug */,
+				DAEA5CE819092973004274D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DAEA5CDA19092973004274D4 /* Project object */;
+}

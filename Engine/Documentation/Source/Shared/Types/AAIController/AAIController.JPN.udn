@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:AAIController
+Crumbs:
+Description:AIController クラスの概要
+
+[EXCERPT:AAIController]
+
+AIController はむしろ環境およびゲームワールドからの入力の応答に集中します。PlayerController が何をするかを人プレイヤーに依存し単にその決定をゲーム内でアクションに変換しているのに対し、 AIController は周りのワールドを観察し適切に対応して自分自身で全て決断しなければなりません。
+
+[VAR:ToolTipFullLink]
+/Gameplay/Framework/Controller
+[/VAR]
+[/EXCERPT:AAIController]

@@ -1,0 +1,27 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ScreenVertexShader.usf: Filter vertex shader source.
+=============================================================================*/
+
+#include "Common.usf"
+
+void Main(
+	float2 InPosition : ATTRIBUTE0,
+	float2 InUV       : ATTRIBUTE1,
+	out FScreenVertexOutput Output
+	)
+{
+	DrawRectangle( float4( InPosition, 0, 1 ), InUV, Output.Position, Output.UV);
+}
+
+
+void MainForGS(
+	float2 InPosition : ATTRIBUTE0,
+	float2 InUV       : ATTRIBUTE1,
+	out FScreenVertexOutput Output
+	)
+{
+	// this is just a wrapper of the normal function
+	Main(InPosition, InUV, Output);
+}

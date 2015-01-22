@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ADirectionalLight
+Crumbs:
+Description:DirectionalLight クラスの概要
+
+[EXCERPT:ADirectionalLight]
+
+指向性ライト ははるか遠くにある大量の光源から放出されるライトをシミュレートします。つまりこのライトからキャストされるシャドウは全て平行になるため、指向性ライトは太陽光のシミュレーションに理想的な選択肢です。
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/LightingAndShadows/LightTypes/Directional
+[/VAR]
+[/EXCERPT:ADirectionalLight]

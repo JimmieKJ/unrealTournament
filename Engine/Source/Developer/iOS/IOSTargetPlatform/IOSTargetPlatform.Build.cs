@@ -1,0 +1,51 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+using UnrealBuildTool;
+
+public class IOSTargetPlatform : ModuleRules
+{
+	public IOSTargetPlatform(TargetInfo Target)
+	{
+		BinariesSubFolder = "IOS";
+		
+		PrivateDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"Core",
+				"CoreUObject",
+				"TargetPlatform",
+				"DesktopPlatform",
+				"LaunchDaemonMessages",
+				"Projects"
+			}
+		);
+
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"Messaging",
+				"TargetDeviceServices",
+			}
+		);
+
+		PlatformSpecificDynamicallyLoadedModuleNames.Add("LaunchDaemonMessages");
+
+		//This is somehow necessary for getting iOS to build on, at least, windows. It seems like the target platform is included for cooking, and thus it requirtes a bunch of other info.
+		PublicIncludePaths.AddRange(
+			new string[]
+			{
+				"Runtime/Core/Public/Apple",
+				"Runtime/Core/Public/IOS",
+			}
+		);
+
+		if (UEBuildConfiguration.bCompileAgainstEngine)
+		{
+			PrivateDependencyModuleNames.Add("Engine");
+		}
+
+		if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+            PublicAdditionalLibraries.Add("/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/Current/MobileDevice");
+		}
+	}
+}

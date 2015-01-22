@@ -1,0 +1,109 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	SkyLighting.usf
+=============================================================================*/
+
+#include "Common.usf"
+#include "DeferredShadingCommon.usf"
+#include "ReflectionEnvironmentShared.usf"
+
+Texture2D BentNormalAOTexture;
+SamplerState BentNormalAOSampler;
+
+Texture2D IrradianceTexture;
+SamplerState IrradianceSampler;
+
+float3 ContrastAndNormalizeMulAdd;
+float4 OcclusionTintAndMinOcclusion;
+
+void SkyLightDiffusePS(
+	in float4 UVAndScreenPos : TEXCOORD0, 
+	out float4 OutColor : SV_Target0)
+{
+	float2 UV = UVAndScreenPos.xy;
+	uint ShadingModelId = GetShadingModelId(UV);
+	float3 Lighting = 0; 
+
+	BRANCH
+	// Only light pixels marked as lit
+	if (ShadingModelId > 0)
+	{
+		FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+		FGBufferData InGBufferData = ScreenSpaceData.GBuffer;
+
+		float SkyVisibility = 1;
+		float DotProductFactor = 1;
+		float3 SkyLightingNormal = InGBufferData.WorldNormal;
+		float3 DiffuseIrradiance = 0;
+
+#if APPLY_SHADOWING
+		float3 BentNormal = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UV, 0).xyz;
+
+		#define USE_DIRECTIONAL_OCCLUSION_ON_SKY_DIFFUSE 1
+
+		#if USE_DIRECTIONAL_OCCLUSION_ON_SKY_DIFFUSE
+		{
+			SkyVisibility = length(BentNormal);
+			float3 NormalizedBentNormal = BentNormal / (max(SkyVisibility, .00001f));
+
+			// Use more bent normal in corners
+			float BentNormalWeightFactor = SkyVisibility;
+
+			SkyLightingNormal = lerp(NormalizedBentNormal, InGBufferData.WorldNormal, BentNormalWeightFactor);
+			DotProductFactor = lerp(dot(NormalizedBentNormal, InGBufferData.WorldNormal), 1, BentNormalWeightFactor);
+		}
+		#else
+		{
+			SkyVisibility = length(BentNormal);
+		}
+		#endif
+
+		/*
+		float OcclusionExponent = 1;
+		// Maintain integral of .5 for orthogonal contrast and brightness
+		float NormalizationConstant = .5f * (OcclusionExponent + 1);
+		SkyVisibility = NormalizationConstant * pow(SkyVisibility, OcclusionExponent);
+		*/
+
+		float ContrastCurve = 1 / (1 + exp(-ContrastAndNormalizeMulAdd.x * (SkyVisibility * 10 - 5)));
+		SkyVisibility = saturate(ContrastCurve * ContrastAndNormalizeMulAdd.y + ContrastAndNormalizeMulAdd.z);
+		
+		#if SUPPORT_IRRADIANCE
+			DiffuseIrradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UV, 0).xyz * View.GeneralPurposeTweak;
+		#endif
+#endif
+
+		float ScalarFactors = lerp(SkyVisibility, 1, OcclusionTintAndMinOcclusion.w) * InGBufferData.GBufferAO * ScreenSpaceData.AmbientOcclusion;
+
+		if (InGBufferData.ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE)
+		{
+			float3 SubsurfaceLookup = GetSkySHDiffuse(-InGBufferData.WorldNormal) * View.SkyLightColor.rgb;
+			float3 SubsurfaceColor = ExtractSubsurfaceColor(InGBufferData);
+			Lighting += ScalarFactors * SubsurfaceLookup * SubsurfaceColor;
+		}
+
+		// Compute the preconvolved incoming lighting with the bent normal direction
+		float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * View.SkyLightColor.rgb;
+		
+		// Apply AO to the sky diffuse and account for darkening due to the geometry term
+		Lighting += (ScalarFactors * DotProductFactor) * DiffuseLookup * InGBufferData.DiffuseColor + (1 - SkyVisibility) * OcclusionTintAndMinOcclusion.xyz;
+
+		Lighting += DiffuseIrradiance * InGBufferData.DiffuseColor;
+
+		// For debugging
+		#if SUPPORT_IRRADIANCE
+			//Lighting = max(Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UV, 0).xyz, 0) + .01f * GetSkySHDiffuse(InGBufferData.WorldNormal);
+		#endif
+
+		//Lighting = (Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UV, 0).xyz);
+	}
+
+	// Scene color alpha is used for ScreenSpaceSubsurfaceScattering (if that is not needed it can be disabled with SUBSURFACE_CHANNEL_MODE)
+	{
+		FLightAccumulator LightAccumulator = (FLightAccumulator)0;
+
+		LightAccumulator_Add(LightAccumulator, Lighting, 0, 1.0f);
+		OutColor = LightAccumulator_GetResult(LightAccumulator);
+	}
+}

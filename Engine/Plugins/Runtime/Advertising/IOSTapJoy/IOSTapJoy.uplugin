@@ -1,0 +1,21 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "IOS TapJoy Advertising Provider",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "IOS TapJoy Provider",
+	"Category" : "Advertising",
+	
+	"Modules" :
+	[
+		{
+			"Name" : "IOSTapJoy",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "IOS" ]
+		}
+	]
+}

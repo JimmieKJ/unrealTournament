@@ -1,0 +1,511 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "PropertyEditorPrivatePCH.h"
+#include "PropertyNode.h"
+#include "PropertyHandleImpl.h"
+#include "PropertyEditorHelpers.h"
+#include "IPropertyUtilities.h"
+
+
+FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(FClassToPropertyMap& InPropertyMap, const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, const TSharedRef< IDetailsViewPrivate >& InDetailsView)
+	: PropertyMap( InPropertyMap )
+	, PropertyDetailsUtilities( InPropertyUtilities )
+	, DetailsView( *InDetailsView )
+	, CurrentCustomizationClass( NULL )
+{
+
+}
+
+IDetailCategoryBuilder& FDetailLayoutBuilderImpl::EditCategory( FName CategoryName, const FText& NewLocalizedDisplayName, ECategoryPriority::Type CategoryType )
+{
+	FText LocalizedDisplayName = NewLocalizedDisplayName;
+
+	// Use a generic name if one was not specified
+	if( CategoryName == NAME_None )
+	{
+		static const FText GeneralString = NSLOCTEXT("DetailLayoutBuilderImpl", "General", "General");
+		static const FName GeneralName = *GeneralString.ToString();
+
+		CategoryName = GeneralName;
+		LocalizedDisplayName = GeneralString;
+	}
+
+	TSharedPtr<FDetailCategoryImpl> CategoryImpl;
+	// If the default category map had a category by the provided name, remove it from the map as it is now customized
+	if( !DefaultCategoryMap.RemoveAndCopyValue( CategoryName, CategoryImpl ) )
+	{
+		// Default category map did not have a category by the requested name. Find or add it to the custom map
+		TSharedPtr<FDetailCategoryImpl>& NewCategoryImpl = CustomCategoryMap.FindOrAdd( CategoryName );
+
+		if( !NewCategoryImpl.IsValid() )
+		{
+			NewCategoryImpl = MakeShareable( new FDetailCategoryImpl( CategoryName, SharedThis(this) ) );
+			
+			// We want categories within a type to display in the order they were added but sorting is unstable so we make unique numbers 
+			uint32 SortOrder = (uint32)CategoryType * 1000 + (CustomCategoryMap.Num() - 1);
+			NewCategoryImpl->SetSortOrder( SortOrder );
+		}
+		CategoryImpl = NewCategoryImpl;
+	}
+	else
+	{
+		// Custom category should not exist yet as it was in the default category map
+		checkSlow( !CustomCategoryMap.Contains( CategoryName ) && CategoryImpl.IsValid() );
+		CustomCategoryMap.Add( CategoryName, CategoryImpl );
+
+		// We want categories within a type to display in the order they were added but sorting is unstable so we make unique numbers 
+		uint32 SortOrder = (uint32)CategoryType * 1000 + (CustomCategoryMap.Num() - 1);
+		CategoryImpl->SetSortOrder( SortOrder );
+	}
+
+	CategoryImpl->SetDisplayName( CategoryName, LocalizedDisplayName );
+
+	return *CategoryImpl;
+}
+
+
+TSharedRef<IPropertyHandle> FDetailLayoutBuilderImpl::GetProperty( const FName PropertyPath, const UClass* ClassOutermost, FName InInstanceName )
+{	
+	TSharedPtr<FPropertyHandleBase> PropertyHandle; 
+
+	TSharedPtr<FPropertyNode> PropertyNodePtr = GetPropertyNode( PropertyPath, ClassOutermost, InInstanceName );
+	
+	return GetPropertyHandle( PropertyNodePtr );
+
+}
+
+void FDetailLayoutBuilderImpl::HideProperty( const TSharedPtr<IPropertyHandle> PropertyHandle )
+{
+	if( PropertyHandle.IsValid() && PropertyHandle->IsValidHandle() )
+	{
+		// Mark the property as customized so it wont show up in the default location
+		TSharedPtr<FPropertyNode> PropertyNode = GetPropertyNode( PropertyHandle );
+		if( PropertyNode.IsValid() )
+		{
+			SetCustomProperty( PropertyNode );
+		}
+	}
+}
+
+void FDetailLayoutBuilderImpl::HideProperty( FName PropertyPath, const UClass* ClassOutermost, FName InstanceName )
+{
+	TSharedPtr<FPropertyNode> PropertyNode = GetPropertyNode( PropertyPath, ClassOutermost, InstanceName );
+	if( PropertyNode.IsValid() )
+	{
+		SetCustomProperty( PropertyNode );
+	}
+}
+
+void FDetailLayoutBuilderImpl::ForceRefreshDetails()
+{
+	DetailsView.ForceRefresh();
+}
+
+FDetailCategoryImpl& FDetailLayoutBuilderImpl::DefaultCategory( FName CategoryName )
+{
+	TSharedPtr<FDetailCategoryImpl>& CategoryImpl = DefaultCategoryMap.FindOrAdd( CategoryName );
+
+	if( !CategoryImpl.IsValid() )
+	{
+		CategoryImpl = MakeShareable( new FDetailCategoryImpl( CategoryName, SharedThis(this) ) );
+
+		// We want categories within a type to display in the order they were added but sorting is unstable so we make unique numbers 
+		uint32 SortOrder = (uint32)ECategoryPriority::Default * 1000 + (DefaultCategoryMap.Num() - 1);
+		CategoryImpl->SetSortOrder( SortOrder );
+	}
+	
+
+	CategoryImpl->SetDisplayName( CategoryName, FText::GetEmpty() );
+	return *CategoryImpl;
+}
+
+void FDetailLayoutBuilderImpl::BuildCategories( const FCategoryMap& CategoryMap, TArray< TSharedRef<FDetailCategoryImpl> >& OutSimpleCategories, TArray< TSharedRef<FDetailCategoryImpl> >& OutAdvancedCategories )
+{
+	for( FCategoryMap::TConstIterator It(CategoryMap); It; ++It )
+	{
+		TSharedRef<FDetailCategoryImpl> DetailCategory = It.Value().ToSharedRef();
+
+		const bool bCategoryHiddenByClass = GetDetailsView().IsCategoryHiddenByClass( DetailCategory->GetCategoryName() );
+
+		if( !bCategoryHiddenByClass )
+		{
+			DetailCategory->GenerateLayout();
+
+			if( DetailCategory->ContainsOnlyAdvanced() )
+			{
+				OutAdvancedCategories.Add( DetailCategory );
+			}
+			else
+			{
+				OutSimpleCategories.Add( DetailCategory );
+			}
+		}
+	}
+}
+
+void FDetailLayoutBuilderImpl::GenerateDetailLayout()
+{
+	AllRootTreeNodes.Empty();
+
+	// Sort by the order in which categories were edited
+	struct FCompareFDetailCategoryImpl
+	{
+		FORCEINLINE bool operator()( TSharedPtr<FDetailCategoryImpl> A, TSharedPtr<FDetailCategoryImpl> B ) const
+		{
+			return A->GetSortOrder() < B->GetSortOrder();
+		}
+	};
+
+	// Merge the two category lists and sort them based on priority
+	FCategoryMap AllCategories = CustomCategoryMap;
+	AllCategories.Append( DefaultCategoryMap );
+
+	TArray< TSharedRef<FDetailCategoryImpl> > SimpleCategories;
+	TArray< TSharedRef<FDetailCategoryImpl> > AdvancedOnlyCategories;
+
+	BuildCategories( CustomCategoryMap, SimpleCategories, AdvancedOnlyCategories );
+	BuildCategories( DefaultCategoryMap, SimpleCategories, AdvancedOnlyCategories );
+
+	SimpleCategories.Sort( FCompareFDetailCategoryImpl() );
+	AdvancedOnlyCategories.Sort( FCompareFDetailCategoryImpl() );
+
+	/** Merge the two category lists in sorted order */
+	for( int32 CategoryIndex = 0; CategoryIndex < SimpleCategories.Num(); ++CategoryIndex )
+	{
+		AllRootTreeNodes.Add( SimpleCategories[CategoryIndex] );
+	}
+
+	for( int32 CategoryIndex = 0; CategoryIndex < AdvancedOnlyCategories.Num(); ++CategoryIndex )
+	{
+		AllRootTreeNodes.Add( AdvancedOnlyCategories[CategoryIndex] );
+	}
+
+
+}
+
+void FDetailLayoutBuilderImpl::FilterDetailLayout( const FDetailFilter& InFilter )
+{
+	CurrentFilter = InFilter;
+	FilteredRootTreeNodes.Empty();
+
+	for( int32 RootNodeIndex = 0; RootNodeIndex < AllRootTreeNodes.Num(); ++RootNodeIndex )
+	{
+		TSharedRef<IDetailTreeNode>& RootNode = AllRootTreeNodes[RootNodeIndex];
+
+		// No parent
+		const bool bParentVisibleDueToFiltering = false;
+		RootNode->FilterNode( InFilter );
+
+		if( RootNode->GetVisibility() == ENodeVisibility::Visible )
+		{
+			FilteredRootTreeNodes.Add( RootNode );
+			DetailsView.RequestItemExpanded( RootNode, RootNode->ShouldBeExpanded() );
+		}
+	}
+}
+
+void FDetailLayoutBuilderImpl::SetCurrentCustomizationClass( UClass* CurrentClass, FName VariableName )
+{
+	CurrentCustomizationClass = CurrentClass;
+	CurrentCustomizationVariableName = VariableName;
+}
+
+TSharedPtr<FPropertyNode> FDetailLayoutBuilderImpl::GetPropertyNode( const FName PropertyName, const UClass* ClassOutermost, FName InstanceName ) const
+{
+	TSharedPtr<FPropertyNode> PropertyNode = GetPropertyNodeInternal( PropertyName, ClassOutermost, InstanceName );
+	return PropertyNode;
+}
+
+/**
+ * Parses a path node string into a property and index  The string should be in the format "Property[Index]" for arrays or "Property" for non arrays
+ * 
+ * @param OutProperty	The property name parsed from the string
+ * @param OutIndex		The index of the property in an array (INDEX_NONE if not found)
+ */
+static void GetPropertyAndIndex( const FString& PathNode, FString& OutProperty, int32& OutIndex )
+{
+	OutIndex = INDEX_NONE;
+	FString FoundIndexStr;
+	// Split the text into the property (left of the brackets) and index Right of the open bracket
+	if( PathNode.Split( TEXT("["), &OutProperty, &FoundIndexStr, ESearchCase::IgnoreCase, ESearchDir::FromEnd ) )
+	{
+		// Convert the index string into a number 
+		OutIndex = FCString::Atoi( *FoundIndexStr );
+	}
+	else
+	{
+		// No index was found, the path node is just the property
+		OutProperty = PathNode;
+	}
+}
+/**
+ * Finds a child property node from the provided parent node (does not recurse into grandchildren)
+ *
+ * @param InParentNode	The parent node to locate the child from
+ * @param PropertyName	The property name to find
+ * @param Index			The index of the property if its in an array
+ */
+static TSharedPtr<FPropertyNode> FindChildPropertyNode( FPropertyNode& InParentNode, const FString& PropertyName, int32 Index )
+{
+	TSharedPtr<FPropertyNode> FoundNode(NULL);
+
+	// search each child for a property with the provided name
+	for( int32 ChildIndex = 0; ChildIndex < InParentNode.GetNumChildNodes(); ++ChildIndex )
+	{
+		TSharedPtr<FPropertyNode>& ChildNode = InParentNode.GetChildNode(ChildIndex);
+		UProperty* Property = ChildNode->GetProperty();
+		if( Property && Property->GetFName() == *PropertyName )
+		{
+			FoundNode = ChildNode;
+			break;
+		}
+	}
+
+	// Find the array element.
+	if( FoundNode.IsValid() && Index != INDEX_NONE )
+	{
+		// The found node is the top array so get its child which is the actual node
+		FoundNode = FoundNode->GetChildNode( Index );
+	}
+
+	return FoundNode;
+}
+
+TSharedPtr<FPropertyNode> FDetailLayoutBuilderImpl::GetPropertyNode( TSharedPtr<IPropertyHandle> PropertyHandle ) const
+{
+	TSharedPtr<FPropertyNode> PropertyNode = NULL;
+	if( PropertyHandle->IsValidHandle() )
+	{
+		PropertyNode = StaticCastSharedPtr<FPropertyHandleBase>(PropertyHandle)->GetPropertyNode();
+	}
+
+	return PropertyNode;
+}
+
+/**
+ Contains the location of a property, by path
+
+ Supported format: instance_name'outer.outer.value[optional_index]
+ Instance name is needed if multiple UProperties of the same type exist (such as two identical structs, the instance name is one of the struct variable names)
+ Items in arrays are indexed by []
+ Example setup
+*/
+
+TSharedPtr<FPropertyNode> FDetailLayoutBuilderImpl::GetPropertyNodeInternal( const FName PropertyPath, const UClass* ClassOutermost, FName InstanceName ) const
+{
+	FName PropertyName;
+	TArray<FString> PathList;
+	PropertyPath.ToString().ParseIntoArray( &PathList, TEXT("."), true );
+
+	if( PathList.Num() == 1 )
+	{
+		PropertyName = FName( *PathList[0] );
+	}
+	// The class to find properties in defaults to the class currently being customized
+	FName ClassName = CurrentCustomizationClass ? CurrentCustomizationClass->GetFName() : NAME_None;
+	if( ClassOutermost != NULL )
+	{
+		// The requested a different class
+		ClassName = ClassOutermost->GetFName();
+	}
+
+	// Find the outer variable name.  This only matters if there are multiple instances of the same property
+	FName OuterVariableName = CurrentCustomizationVariableName;
+	if( InstanceName != NAME_None )
+	{
+		OuterVariableName = InstanceName;
+	}
+
+	// If this fails there are no properties associated with the class name provided
+	FClassInstanceToPropertyMap* ClassInstanceToPropertyMapPtr = PropertyMap.Find( ClassName );
+
+	if( ClassInstanceToPropertyMapPtr )
+	{
+		FClassInstanceToPropertyMap& ClassInstanceToPropertyMap = *ClassInstanceToPropertyMapPtr;
+		if( OuterVariableName == NAME_None && ClassInstanceToPropertyMap.Num() == 1 )
+		{
+			// If the outer  variable name still wasnt specified and there is only one instance, just use that
+			auto FirstKey = ClassInstanceToPropertyMap.CreateIterator();
+			OuterVariableName = FirstKey.Key();
+		}
+
+		FPropertyNodeMap* PropertyNodeMapPtr = ClassInstanceToPropertyMap.Find( OuterVariableName );
+
+		if( PropertyNodeMapPtr )
+		{
+			FPropertyNodeMap& PropertyNodeMap = *PropertyNodeMapPtr;
+			// Check for property name fast path first
+			if( PropertyName != NAME_None )
+			{
+				// The property name was ambiguous or not found if this fails.  If ambiguous, it means there are multiple data same typed data structures(components or structs) in the class which
+				// causes multiple properties by the same name to exist.  These properties must be found via the path method.
+				return PropertyNodeMap.PropertyNameToNode.FindRef( PropertyName );
+			}
+			else
+			{
+				// We need to search through the tree for a property with the given path
+				TSharedPtr<FPropertyNode> PropertyNode;
+
+				// Path should be in the format A[optional_index].B.C
+				if( PathList.Num() )
+				{
+					// Get the base property and index
+					FString Property;
+					int32 Index;
+					GetPropertyAndIndex( PathList[0], Property, Index );
+
+					// Get the parent most property node which is the one in the map.  Its children need to be searched
+					PropertyNode = PropertyNodeMap.PropertyNameToNode.FindRef( FName( *Property ) );
+					if( PropertyNode.IsValid() )
+					{
+						if( Index != INDEX_NONE )
+						{
+							// The parent is the actual array, its children are array elements
+							PropertyNode = PropertyNode->GetChildNode( Index );
+						}
+
+						// Search any additional paths for the child
+						for( int32 PathIndex = 1; PathIndex < PathList.Num(); ++PathIndex )
+						{
+							GetPropertyAndIndex( PathList[PathIndex], Property, Index );
+
+							PropertyNode = FindChildPropertyNode( *PropertyNode, Property, Index );
+						}
+					}
+				}
+
+				return PropertyNode;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+
+TSharedRef<IPropertyHandle> FDetailLayoutBuilderImpl::GetPropertyHandle( TSharedPtr<FPropertyNode> PropertyNodePtr )
+{
+	TSharedPtr<IPropertyHandle> PropertyHandle;
+	if( PropertyNodePtr.IsValid() )
+	{ 
+		TSharedRef<FPropertyNode> PropertyNode = PropertyNodePtr.ToSharedRef();
+		FNotifyHook* NotifyHook = GetPropertyUtilities()->GetNotifyHook();
+
+		PropertyHandle = PropertyEditorHelpers::GetPropertyHandle( PropertyNode, NotifyHook, PropertyDetailsUtilities );
+	}
+	else
+	{
+		// Invalid handle
+		PropertyHandle = MakeShareable( new FPropertyHandleBase( NULL, NULL, NULL) ); 
+	}	
+
+	return PropertyHandle.ToSharedRef();
+}
+
+void FDetailLayoutBuilderImpl::AddExternalRootPropertyNode( TSharedRef<FPropertyNode> InExternalRootNode )
+{
+	DetailsView.AddExternalRootPropertyNode( InExternalRootNode );
+}
+
+TSharedPtr<FAssetThumbnailPool> FDetailLayoutBuilderImpl::GetThumbnailPool() const
+{
+	return DetailsView.GetThumbnailPool();
+}
+
+bool FDetailLayoutBuilderImpl::IsPropertyVisible( TSharedRef<IPropertyHandle> PropertyHandle ) const
+{
+	if( PropertyHandle->IsValidHandle() )
+	{
+		FPropertyAndParent PropertyAndParent(*PropertyHandle->GetProperty(), PropertyHandle->GetParentHandle().IsValid() ? PropertyHandle->GetParentHandle()->GetProperty() : nullptr );
+
+		return IsPropertyVisible(PropertyAndParent);
+	}
+	
+	return false;
+}
+
+bool FDetailLayoutBuilderImpl::IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const
+{
+	return DetailsView.IsPropertyVisible( PropertyAndParent );
+}
+
+const IDetailsView& FDetailLayoutBuilderImpl::GetDetailsView() const
+{ 
+	return DetailsView; 
+}
+
+void FDetailLayoutBuilderImpl::GetObjectsBeingCustomized( TArray< TWeakObjectPtr<UObject> >& OutObjects ) const
+{
+	OutObjects.Empty();
+
+	// The class to find properties in defaults to the class currently being customized
+	FName ClassName = CurrentCustomizationClass ? CurrentCustomizationClass->GetFName() : NAME_None;
+	
+	if( ClassName != NAME_None && CurrentCustomizationVariableName != NAME_None )
+	{
+		// If this fails there are no properties associated with the class name provided
+		FClassInstanceToPropertyMap* ClassInstanceToPropertyMapPtr = PropertyMap.Find( ClassName );
+
+		if( ClassInstanceToPropertyMapPtr )
+		{
+			FClassInstanceToPropertyMap& ClassInstanceToPropertyMap = *ClassInstanceToPropertyMapPtr;
+		
+			FPropertyNodeMap* PropertyNodeMapPtr = ClassInstanceToPropertyMap.Find( CurrentCustomizationVariableName );
+
+			if( PropertyNodeMapPtr )
+			{
+				FPropertyNodeMap& PropertyNodeMap = *PropertyNodeMapPtr;
+				FObjectPropertyNode* ParentObjectProperty = PropertyNodeMap.ParentProperty ? PropertyNodeMap.ParentProperty->AsObjectNode() : NULL;
+				if (ParentObjectProperty)
+				{
+					for (int32 ObjectIndex = 0; ObjectIndex < ParentObjectProperty->GetNumObjects(); ++ObjectIndex)
+					{
+						OutObjects.Add(ParentObjectProperty->GetUObject(ObjectIndex));
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		OutObjects = DetailsView.GetSelectedObjects();
+	}
+}
+
+const TSharedRef< IPropertyUtilities >& FDetailLayoutBuilderImpl::GetPropertyUtilities() const
+{
+	return PropertyDetailsUtilities;
+}
+
+void FDetailLayoutBuilderImpl::SetCustomProperty( const TSharedPtr<FPropertyNode>& PropertyNode ) 
+{
+	PropertyNode->SetNodeFlags( EPropertyNodeFlags::IsCustomized, true );
+}
+
+void FDetailLayoutBuilderImpl::Tick( float DeltaTime )
+{
+	for( auto It = TickableNodes.CreateIterator(); It; ++It )
+	{
+		(*It)->Tick( DeltaTime );
+	}
+}
+
+void FDetailLayoutBuilderImpl::AddTickableNode( IDetailTreeNode& TickableNode )
+{
+	TickableNodes.Add( &TickableNode );
+}
+
+void FDetailLayoutBuilderImpl::RemoveTickableNode( IDetailTreeNode& TickableNode )
+{
+	TickableNodes.Remove( &TickableNode );
+}
+
+void FDetailLayoutBuilderImpl::SaveExpansionState( const FString& NodePath, bool bIsExpanded )
+{
+	DetailsView.SaveCustomExpansionState( NodePath, bIsExpanded );
+}
+
+bool FDetailLayoutBuilderImpl::GetSavedExpansionState( const FString& NodePath ) const
+{
+	return DetailsView.GetCustomSavedExpansionState( NodePath );
+}

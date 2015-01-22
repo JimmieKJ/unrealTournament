@@ -1,0 +1,55 @@
+Title:G
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_G]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+GameMode
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_GameMode]
+The **GameMode** class defines the game's set of rules. The rules can include how players join the game, game pausing, and level transition, as well as any game-specific behavior such as win conditions. The GameMode is set for each level, and GameModes can be reused in multiple levels. 
+[/EXCERPT:Glossary_GameMode]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Graph Mode
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Graph_Mode]
+The **Graph Mode** displays the visual representation of a particular graph of nodes as it shows 
+all of the nodes contained in the graph as well as the connections between them. It provides 
+editing capabilities for adding and removing nodes, arranging nodes, and creating links between 
+nodes. Breakpoints can also be set in the **Graph Mode** to aid in [debugging](Engine/Blueprints\UserGuide\Debugging) _Blueprints_.
+[/EXCERPT:Glossary_Graph_Mode]
+
+**Graph Mode** is one of three modes in the Blueprint Editor; the other two are **Defaults Mode** and **Components Mode**.
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+group
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_group]
+In Matinee, a **group** is a container for animation and visual effects for a specific Actor. In the Level Editor, a **group** is an organizational object in which selected Actors can be combined together so they can be transformed as a single unit.
+[/EXCERPT:Glossary_group]
+
+	[/PARAM]
+[/OBJECT]
+
+[/EXCERPT:Glossary_G]

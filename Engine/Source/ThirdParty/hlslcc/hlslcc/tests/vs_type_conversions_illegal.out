@@ -1,0 +1,13 @@
+----------------------------------------------------------------------
+../../../tests/vs_type_conversions_illegal.hlsl(46): error: cannot assign value of type `vec4' to type `mat4': no implicit conversion allowed
+../../../tests/vs_type_conversions_illegal.hlsl(47): error: cannot assign value of type `mat4' to type `vec4': no implicit conversion allowed
+../../../tests/vs_type_conversions_illegal.hlsl(48): error: cannot convert from `mat4' to `FTestStructB'
+../../../tests/vs_type_conversions_illegal.hlsl(49): error: cannot convert from `FTestStructA' to `FTestStructB'
+../../../tests/vs_type_conversions_illegal.hlsl(50): error: cannot convert from `mat3x4' to `mat4x3'
+../../../tests/vs_type_conversions_illegal.hlsl(51): error: cannot implicitly convert `mat4' and `vec4' in arithmetic expression
+../../../tests/vs_type_conversions_illegal.hlsl(52): error: cannot assign value of type `mat3x4' to type `mat4x3': no implicit conversion allowed
+../../../tests/vs_type_conversions_illegal.hlsl(64): error: Invalid swizzle / mask `zw'
+../../../tests/vs_type_conversions_illegal.hlsl(64): error: type mismatch
+
+----------------------------------------------------------------------
+no compiler output

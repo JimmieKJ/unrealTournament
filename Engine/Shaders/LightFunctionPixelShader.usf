@@ -1,0 +1,45 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	LightFunction.usf: Pixel shader for computing a light function.
+=============================================================================*/
+
+#include "Common.usf"
+#include "Material.usf"
+#include "LightFunctionCommon.usf"
+
+float4x4 ScreenToLight;
+
+/** Fade distance in x, disabled brightness in y, output for preview shadows mask in z. */
+float3 LightFunctionParameters2;
+
+void Main(
+	in float4 ScreenPosition : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	half SceneW = PreviousDepth(ScreenPosition);
+	float4 ProjectedScreenPosition = float4(ScreenPosition.xy / ScreenPosition.w * SceneW, SceneW, 1);
+	float4 LightVector = mul(ProjectedScreenPosition, ScreenToLight);
+	LightVector.xyz /= LightVector.w;
+
+	float4 HomogeneousWorldPosition = mul(ProjectedScreenPosition, View.ScreenToWorld);
+	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	// Calculate radial view distance for stable fading
+	float ViewDistance = length(View.ViewOrigin.xyz - WorldPosition);
+
+	float3 Color = GetLightFunctionColor(LightVector.xyz, WorldPosition);
+
+	float DistanceFadeAlpha = saturate((LightFunctionParameters2.x - ViewDistance) / (LightFunctionParameters2.x * .2f));
+	// Fade to disabled based on LightFunctionFadeDistance
+	Color = lerp(LightFunctionParameters2.yyy, Color, DistanceFadeAlpha);
+
+	// Fade to disabled based on ShadowFadeFraction
+	Color = lerp(LightFunctionParameters2.yyy, Color, LightFunctionParameters.y);
+
+	float GreyScale = dot(Color, .3333f);
+	float EncodedLightAttenuation = EncodeLightAttenuation(GreyScale);
+
+	// Light function shadows write to the blue channel.
+	OutColor = lerp(float4(1, 1, EncodedLightAttenuation, 1), EncodedLightAttenuation.xxxx, LightFunctionParameters2.z);
+}

@@ -1,0 +1,13 @@
+Availability:NoPublish
+Title:APrecomputedVisibilityVolume
+Crumbs:
+Description:Overview of the PrecomputedVisibilityVolume class
+
+[EXCERPT:APrecomputedVisibilityVolume]
+
+Precomputed Visibility Volumes store the visibility of Actors for their location in the world. These should be placed only in areas the Player can access.
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Volumes#Volume Types
+[/VAR]
+[/EXCERPT:APrecomputedVisibilityVolume]

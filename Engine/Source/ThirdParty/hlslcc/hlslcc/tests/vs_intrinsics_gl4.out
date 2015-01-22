@@ -1,0 +1,26 @@
+----------------------------------------------------------------------
+../../../tests/vs_intrinsics.hlsl(115): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_intrinsics.hlsl(116): warning: implicit truncation from `ivec4' to `vec3'
+../../../tests/vs_intrinsics.hlsl(117): warning: implicit truncation from `uvec4' to `vec3'
+../../../tests/vs_intrinsics.hlsl(166): warning: implicit truncation from `vec4' to `float'
+../../../tests/vs_intrinsics.hlsl(166): warning: implicit truncation from `vec3' to `float'
+../../../tests/vs_intrinsics.hlsl(166): warning: implicit truncation from `ivec4' to `float'
+../../../tests/vs_intrinsics.hlsl(166): warning: implicit truncation from `ivec3' to `float'
+../../../tests/vs_intrinsics.hlsl(166): warning: implicit truncation from `uvec4' to `float'
+../../../tests/vs_intrinsics.hlsl(166): warning: implicit truncation from `uvec3' to `float'
+
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: f4:in_ATTRIBUTE0
+// @Outputs: f4:gl_Position
+#version 430
+in vec4 in_ATTRIBUTE0;
+void main()
+{
+	vec4 t0;
+	t0.xyzw = in_ATTRIBUTE0;
+	t0.y = (-in_ATTRIBUTE0.y);
+	t0.z = ((2.0*in_ATTRIBUTE0.z)+(-in_ATTRIBUTE0.w));
+	gl_Position.xyzw = t0;
+}
+

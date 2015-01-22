@@ -1,0 +1,264 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.30729</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{37619116-CCE8-465A-8B1F-081CA53364BB}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MarkdownSharp</RootNamespace>
+    <AssemblyName>UnrealMarkdown</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <StartupObject>
+    </StartupObject>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <OldToolsVersion>3.5</OldToolsVersion>
+    <UpgradeBackupLocation />
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+    <SccProjectName>
+    </SccProjectName>
+    <SccLocalPath>
+    </SccLocalPath>
+    <SccAuxPath>
+    </SccAuxPath>
+    <SccProvider>
+    </SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\..\..\Binaries\DotNET\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <DocumentationFile>
+    </DocumentationFile>
+    <WarningsAsErrors>
+    </WarningsAsErrors>
+    <PlatformTarget>x86</PlatformTarget>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Development|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\..\..\Binaries\DotNET\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <DocumentationFile>
+    </DocumentationFile>
+    <WarningsAsErrors>
+    </WarningsAsErrors>
+    <PlatformTarget>x86</PlatformTarget>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <WarningsAsErrors>1591</WarningsAsErrors>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Development|x86'">
+    <OutputPath>bin\x86\Development\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <OutputPath>..\..\..\..\..\Binaries\DotNET\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="DotLiquid">
+      <HintPath>..\libs\DotLiquid.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
+    <Reference Include="System" />
+    <Reference Include="System.configuration" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.XML" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\DotNETCommon\MetaData.cs">
+      <Link>Properties\MetaData.cs</Link>
+    </Compile>
+    <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="Doxygen\DoxygenConfig.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DoxygenConfig.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Doxygen\DoxygenHelper.cs" />
+    <Compile Include="Doxygen\DoxygenToMarkdownTranslator.cs" />
+    <Compile Include="EpicMarkdown\EMDecorationElement.cs" />
+    <Compile Include="EpicMarkdown\EMElementWithElements.cs" />
+    <Compile Include="EpicMarkdown\EMLink.cs" />
+    <Compile Include="EpicMarkdown\EMBlockQuotes.cs" />
+    <Compile Include="EpicMarkdown\EMBookmark.cs" />
+    <Compile Include="EpicMarkdown\EMCodeBlock.cs" />
+    <Compile Include="EpicMarkdown\EMContentElement.cs" />
+    <Compile Include="EpicMarkdown\EMDefinitionListItem.cs" />
+    <Compile Include="EpicMarkdown\EMDocument.cs" />
+    <Compile Include="EpicMarkdown\EMElement.cs" />
+    <Compile Include="EpicMarkdown\EMElementOrigin.cs" />
+    <Compile Include="EpicMarkdown\EMElements.cs" />
+    <Compile Include="EpicMarkdown\EMErrorElement.cs" />
+    <Compile Include="EpicMarkdown\EMExcerpt.cs" />
+    <Compile Include="EpicMarkdown\EMFormattedText.cs" />
+    <Compile Include="EpicMarkdown\EMHeader.cs" />
+    <Compile Include="EpicMarkdown\EMHorizontalRule.cs" />
+    <Compile Include="EpicMarkdown\EMImage.cs" />
+    <Compile Include="EpicMarkdown\EMInclude.cs" />
+    <Compile Include="EpicMarkdown\EMList.cs" />
+    <Compile Include="EpicMarkdown\EMListItem.cs" />
+    <Compile Include="EpicMarkdown\EMObject.cs" />
+    <Compile Include="EpicMarkdown\EMObjectParam.cs" />
+    <Compile Include="EpicMarkdown\EMParagraph.cs" />
+    <Compile Include="EpicMarkdown\EMRawHTML.cs" />
+    <Compile Include="EpicMarkdown\EMReadingMessage.cs" />
+    <Compile Include="EpicMarkdown\EMRegion.cs" />
+    <Compile Include="EpicMarkdown\EMRelativeLink.cs" />
+    <Compile Include="EpicMarkdown\EMSpanElements.cs" />
+    <Compile Include="EpicMarkdown\EMTable.cs" />
+    <Compile Include="EpicMarkdown\EMTOCInline.cs" />
+    <Compile Include="EpicMarkdown\IHTMLRenderable.cs" />
+    <Compile Include="EpicMarkdown\Parsers\EMCustomRegexParser.cs" />
+    <Compile Include="EpicMarkdown\Parsers\EMMarkdownAndHTMLTagsParser.cs" />
+    <Compile Include="EpicMarkdown\Parsers\EMParsingErrorException.cs" />
+    <Compile Include="EpicMarkdown\Parsers\EMParsingHelper.cs" />
+    <Compile Include="EpicMarkdown\Parsers\EMRegexMatch.cs" />
+    <Compile Include="EpicMarkdown\Parsers\EMRegexParser.cs" />
+    <Compile Include="EpicMarkdown\Parsers\EMTaggedElementsParser.cs" />
+    <Compile Include="EpicMarkdown\Parsers\IMatch.cs" />
+    <Compile Include="EpicMarkdown\Parsers\IParser.cs" />
+    <Compile Include="EpicMarkdown\Parsers\SpanParser\EMBracketedTag.cs" />
+    <Compile Include="EpicMarkdown\Parsers\SpanParser\EMDecorationTag.cs" />
+    <Compile Include="EpicMarkdown\Parsers\SpanParser\EMSpanParser.cs" />
+    <Compile Include="EpicMarkdown\PathProviders\EMEMailPath.cs" />
+    <Compile Include="EpicMarkdown\PathProviders\EMExternalPath.cs" />
+    <Compile Include="EpicMarkdown\PathProviders\EMLocalDocumentPath.cs" />
+    <Compile Include="EpicMarkdown\PathProviders\EMLocalFilePath.cs" />
+    <Compile Include="EpicMarkdown\PathProviders\EMPathVerificationException.cs" />
+    <Compile Include="EpicMarkdown\PathProviders\EMPathProvider.cs" />
+    <Compile Include="EpicMarkdown\Traversing\ITraversable.cs" />
+    <Compile Include="EpicMarkdown\Traversing\ITraversingContext.cs" />
+    <Compile Include="EpicMarkdown\Traversing\RenderingContext.cs" />
+    <Compile Include="FileSystemUtils\FileHelper.cs" />
+    <Compile Include="FileSystemUtils\FileWatcher.cs" />
+    <Compile Include="ImageConversion.cs" />
+    <Compile Include="Language.cs" />
+    <Compile Include="MarkdownList.cs" />
+    <Compile Include="OffensiveWordFilterHelper.cs" />
+    <Compile Include="PathCompletionHelper.cs" />
+    <Compile Include="Preprocessor\ExcerptsManager.cs" />
+    <Compile Include="Preprocessor\Filter.cs" />
+    <Compile Include="Preprocessor\ImageOptions.cs" />
+    <Compile Include="Preprocessor\IntervalSet.cs" />
+    <Compile Include="Preprocessor\MetadataManager.cs" />
+    <Compile Include="Preprocessor\Normalizer.cs" />
+    <Compile Include="Preprocessor\PreprocessedData.cs" />
+    <Compile Include="Preprocessor\PreprocessedTextBound.cs" />
+    <Compile Include="Preprocessor\PreprocessedTextLocationMap.cs" />
+    <Compile Include="Preprocessor\Preprocessor.cs" />
+    <Compile Include="Preprocessor\ProcessedDocumentCache.cs" />
+    <Compile Include="Preprocessor\ReferenceLinksManager.cs" />
+    <Compile Include="Preprocessor\VariableManager.cs" />
+    <Compile Include="TransformationData.cs" />
+    <Compile Include="Markdown.cs" />
+    <Compile Include="Templates.cs" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Doxygen\DoxygenConfig.tt">
+      <Generator>TextTemplatingFilePreprocessor</Generator>
+      <LastGenOutput>DoxygenConfig.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

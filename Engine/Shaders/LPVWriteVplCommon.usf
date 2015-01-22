@@ -1,0 +1,86 @@
+//-----------------------------------------------------------------------------
+// File:		LPVWriteVPLCommmon.usf
+//
+// Summary:		Common functionality for LPV vpl list write
+//
+// Created:		2013-03-01
+//
+// Author:		mailto:benwood@microsoft.com
+//
+//				Copyright (C) Microsoft. All rights reserved.
+//-----------------------------------------------------------------------------
+
+//-------------------------------------------------------------------------------------------------
+
+#include "LPVWriteCommon.usf"
+
+//-------------------------------------------------------------------------------------------------
+
+RWStructuredBuffer<VplListEntry>				RWGvListBuffer;		// 0
+RWByteAddressBuffer								RWGvListHeadBuffer;	// 1
+
+RWStructuredBuffer<VplListEntry>				RWVplListBuffer;		// 2
+RWByteAddressBuffer								RWVplListHeadBuffer;	// 3
+
+//-------------------------------------------------------------------------------------------------
+// Functions
+//-------------------------------------------------------------------------------------------------
+int AddToVplList( float3 worldPos, float3 flux, float3 direction, const bool emissiveInjection )
+{
+	int gridIndex = GetGridIndex( worldPos ); 
+	[branch]
+	if ( gridIndex >= 0 )
+	{
+		// Allocate a new list entry 
+		uint newHeadIndex = RWVplListBuffer.IncrementCounter();
+		uint oldHeadIndex;
+		RWVplListHeadBuffer.InterlockedExchange( gridIndex*4, newHeadIndex, oldHeadIndex );
+
+		if ( emissiveInjection )
+		{
+			// Weight according to projected texel size 1 / N dot L
+			float nDotL = abs( dot( LpvWrite.GeometryVolumeCaptureLightDirection.xyz, direction ) );
+			nDotL = max( nDotL, 0.25f ); // Clamp to prevent divBy0 and and general weirdness due to undersampling
+			flux *= 1.0f / nDotL;
+		}
+
+		// Fill in the new list node 
+		Vpl vpl;
+		vpl.normal = direction;
+		vpl.flux = flux;
+
+		VplListEntry listNode = PackVpl( vpl );
+		listNode.nextIndex = oldHeadIndex;
+		RWVplListBuffer[ newHeadIndex ] = listNode;
+	}
+	return gridIndex;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+int AddToGvList( float3 worldPos, float3 flux, float3 direction )
+{
+	// Gv is offset by half 
+	float3 offset = ( LpvWrite.LpvScale * 0.5f ).xxx;
+	int gridIndex = GetGridIndex( worldPos + offset ); 
+	[branch]
+	if ( gridIndex >= 0 )
+	{
+		// Allocate a new list entry 
+		uint newHeadIndex = RWGvListBuffer.IncrementCounter();
+		uint oldHeadIndex;
+		RWGvListHeadBuffer.InterlockedExchange( gridIndex*4, newHeadIndex, oldHeadIndex );
+
+		// Fill in the new list node 
+		Vpl vpl;
+		vpl.normal = direction;
+		vpl.flux = flux;
+
+		VplListEntry listNode = PackVpl( vpl );
+		listNode.nextIndex = oldHeadIndex;
+		RWGvListBuffer[ newHeadIndex ] = listNode;
+	}
+	return gridIndex;
+}
+
+//-------------------------------------------------------------------------------------------------

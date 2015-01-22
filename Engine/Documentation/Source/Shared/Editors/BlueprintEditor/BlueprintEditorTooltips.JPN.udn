@@ -1,0 +1,68 @@
+﻿Availability:NoPublish
+Title:
+Crumbs:
+Description:
+
+
+[EXCERPT:BlueprintActionMenuContextText]
+アクション メニューに対する現在のコンテキストを表示します。これは、メニューがどのように呼び出されたかに応じて変わります。
+
+ワイヤーをドラッグしてメニューを開いた場合、コンテキストはそのタイプ (オブジェクトに対する関数またはメンバー変数) に対して動作するアクションになります。
+
+バックグラウンドでコンテキストをクリックしてメニューを開いた場合、そのコンテキストは現在のブループリントで利用可能なアクションになります (ここで宣言された、または親クラスで宣言された変数や関数で動作します) 。
+[/EXCERPT:BlueprintActionMenuContextText]
+
+
+[EXCERPT:BlueprintActionMenuContextToggle]
+チェックを入れると、利用可能なアクションとノードのリストが、現在の「コンテキスト」  で可能なもの (メニューをどのように開いたかに応じて可能なアクション) だけにフィルタリングされます。
+
+ワイヤーをドラッグしてメニューを開いた場合、そのタイプ に対して動作する変数や関数にフィルタリングされます。
+
+バックグラウンドでコンテキストをクリックしてメニューを開いた場合、現在のブループリントで利用可能なアクションにフィルタリングされます (ここで宣言された、または親クラスで宣言された変数や関数で動作します) 。
+[/EXCERPT:BlueprintActionMenuContextToggle]
+
+
+[EXCERPT:MyBlueprint_ShowInheritedVariables]
+チェックを入れると、親のブループリントとクラスで宣言された変数も「My Blueprints」ツリーに表示され、簡単にグラフ エディタにドラッグできるようになります。
+[/EXCERPT:MyBlueprint_ShowInheritedVariables]
+
+[EXCERPT:DefaultsMode]
+
+
+デフォルトモードから、ブループリントにある全プロパティのデフォルト値を編集することができます。
+
+[VAR:ToolTipFullLink]
+Programming/Blueprints/Editor/Modes/Defaults
+[/VAR]
+
+[/EXCERPT:DefaultsMode]
+
+
+[EXCERPT:ComponentsMode]
+
+
+コンポーネントの編集モードでは以下が可能です。
+*　ブループリントにある全プロパティのデフォルト値の編集。
+* 新変数の追加。
+*　ブループリントのインスタンスの配置結果の表示。
+*コンポーネントの変換の視覚的な調整。
+
+[VAR:ToolTipFullLink]
+Programming/Blueprints/Editor/Modes/Components
+[/VAR]
+
+[/EXCERPT:ComponentsMode]
+
+
+[EXCERPT:GraphMode]
+
+
+グラフ編集モードはブループリントの全ロジックを実行します。
+*
+*　
+
+[VAR:ToolTipFullLink]
+Programming/Blueprints/Editor/Modes/GraphPanel
+[/VAR]
+
+[/EXCERPT:GraphMode]

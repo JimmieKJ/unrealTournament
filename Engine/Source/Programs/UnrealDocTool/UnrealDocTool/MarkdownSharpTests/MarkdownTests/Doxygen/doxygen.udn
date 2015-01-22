@@ -1,0 +1,9 @@
+﻿%doxygen:FStreamingManagerTexture::FPendingPrimitiveType%
+
+| test table header A | test table header B |  
+| ------- | ------------|  
+| test table cell A | %doxygen:FStreamingManagerTexture::FPendingPrimitiveType% |  
+
+%doxygen:AActor::GetInstigator() const%
+
+%doxygen:AActor::GetInstigator<class T>() const%

@@ -1,0 +1,51 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+
+#include "Common.usf"
+
+float4x4 ViewProjection;
+
+struct VertexOut
+{
+	float4 Position : SV_POSITION;
+	float4 Color : COLOR0;
+	float4 TextureCoordinates : TEXCOORD0;
+	float4 ClipOriginAndPos : TEXCOORD1;
+	float4 ClipExtents : TEXCOORD2;
+};
+
+VertexOut Main(
+	in float4 InTextureCoordinates : ATTRIBUTE0,
+/* Don't change these int streams to float, otherwise it WILL fail since the vertex declaration is defined as int on D3D11:
+		D3D11: WARNING: ID3D11Device::CreateInputLayout: The provided input signature expects to read an element with SemanticName/Index: 'ATTRIBUTE'/1 and component(s) of the type 'float32'.  However, the matching entry in the Input Layout declaration, element[1], specifies mismatched format: 'R16G16B16A16_SINT'.  This is not an error, since behavior is well defined: The element format determines what data conversion algorithm gets applied before it shows up in a shader register. Independently, the shader input signature defines how the shader will interpret the data that has been placed in its input registers, with no change in the bits stored.  It is valid for the application to reinterpret data as a different type once it is in the vertex shader, so this warning is issued just in case reinterpretation was not intended by the author. [ STATE_CREATION WARNING #391: CREATEINPUTLAYOUT_TYPE_MISMATCH ]
+*/
+#if ES2_PROFILE && COMPILER_GLSL_ES2
+	in float2 InPosition : ATTRIBUTE1,
+	in float2 InClipOrigin : ATTRIBUTE2,
+	in float4 InClipExtents : ATTRIBUTE3,
+#else
+	in int2 InPosition : ATTRIBUTE1,
+	in half2 InClipOrigin : ATTRIBUTE2,
+	in half4 InClipExtents : ATTRIBUTE3,
+#endif
+	in float4 InColor : ATTRIBUTE4
+	)
+{
+	VertexOut VOut;
+	VOut.Position = mul(float4(InPosition.xy,0,1), ViewProjection);
+
+#if ES2_PROFILE && COMPILER_GLSL_ES2
+	// @todo-mobile: Fix this in the projection matrix
+	VOut.Position.y =  -VOut.Position.y;
+#endif
+
+
+	// TextureCoordinates contains both the first and second texture coordinates in xy and zw respectively.
+	VOut.TextureCoordinates = InTextureCoordinates;
+	VOut.ClipOriginAndPos = float4(InClipOrigin, InPosition.xy);
+	VOut.ClipExtents = InClipExtents;
+
+	VOut.Color = InColor FCOLOR_COMPONENT_SWIZZLE;
+
+	return VOut;
+}

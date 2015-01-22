@@ -1,0 +1,209 @@
+//-----------------------------------------------------------------------------
+// File:		LPVPropagation.usf
+//
+// Summary:		Compute shader which handles LPV propagation
+//
+// Created:		2013-03-01
+//
+// Author:		mailto:benwood@microsoft.com
+//
+//				Copyright (C) Microsoft. All rights reserved. 
+//-----------------------------------------------------------------------------
+
+/*------------------------------------------------------------------------------
+	Compile time parameters:
+------------------------------------------------------------------------------*/
+ 
+#include "Common.usf"
+#include "LPVWriteCommon.usf"
+#include "LPVGeometryVolumeCommon.usf"
+
+//-------------------------------------------------------------------------------------------------
+
+#define PROPOGATION					1
+
+#if REFINE_OVER_TIME
+  #define PROPAGATE_WEIGHT 0.008 
+#else
+  #define PROPAGATE_WEIGHT 0.08
+#endif 
+
+// LPV_MULTIPLE_BOUNCES_ENABLED only works if LPV_SECONDARY_OCCLUSION and LPV_MULTIPLE_BOUNCES are enabled
+#if ( !LPV_MULTIPLE_BOUNCES || !LPV_SECONDARY_OCCLUSION ) && LPV_MULTIPLE_BOUNCES_ENABLED
+  #undef LPV_MULTIPLE_BOUNCES_ENABLED
+  #define LPV_MULTIPLE_BOUNCES_ENABLED 0
+#endif
+
+//-------------------------------------------------------------------------------------------------
+
+#define L1 1.0f
+#define L2 0.7071067f
+#define L3 0.5773502f
+
+void GetGeometryVolumeCellWeights( int index, 
+								   out float weights[26], 
+#if LPV_MULTIPLE_BOUNCES_ENABLED  
+								   out float3 colors[26], 
+#endif
+								   const float3 directions[26] )
+{
+	// Read the surrounding 8 geometry volume cells
+	GeometryVolumeEntry gvCells[8];
+	const int xStride = 1;
+	const int yStride = 32;
+	const int zStride = 32*32;
+	gvCells[0] = ReadGvCell( index );
+	gvCells[1] = ReadGvCell( index + xStride );
+	gvCells[2] = ReadGvCell( index + yStride );
+	gvCells[3] = ReadGvCell( index + yStride + xStride );
+	gvCells[4] = ReadGvCell( index + zStride );
+	gvCells[5] = ReadGvCell( index + xStride + zStride );
+	gvCells[6] = ReadGvCell( index + yStride + zStride );
+	gvCells[7] = ReadGvCell( index + yStride + xStride + zStride );
+
+	[unroll]
+	for ( int i=0; i<26; i++ ) weights[i] = 1.0f;
+
+#if LPV_MULTIPLE_BOUNCES_ENABLED 
+	[unroll]
+	for ( int i=0; i<26; i++ ) colors[i] = 1.0f;
+#endif
+
+	// 8 1-tap weights (corners)
+	{
+		const int destIndex[8] = { 0, 17, 6, 23, 2, 19, 8, 25 };
+		[unroll]
+		for ( int i=0; i<8; i++ )
+		{
+			const float3 direction = directions[ destIndex[i] ];
+			weights[ destIndex[i] ] = 1.0f-saturate( SHLookupScalar( gvCells[i].SH, direction ) * LpvWrite.SecondaryOcclusionStrength );
+
+#if LPV_MULTIPLE_BOUNCES_ENABLED 
+			colors[ destIndex[i] ] = gvCells[i].color;
+#endif
+		}
+	}
+	// 12 2-tap weights (edges)
+	{
+		const int destIndex[12]      = {  1,	 3,	    5,	   7,	  9,	 11,	14,    16,    18,    20,    22,    24 };
+		const int sourceIndex[12][2] = { {0,4}, {0,2}, {4,6}, {2,6}, {0,1}, {4,5}, {2,3}, {6,7}, {1,5}, {1,3}, {5,7}, {3,7} };
+		[unroll]
+		for ( int i=0; i<12; i++ )
+		{
+			const float3 direction = directions[ destIndex[i] ];
+			float cellWeight = SHLookupScalar( gvCells[ sourceIndex[i][0] ].SH, direction ) * LpvWrite.SecondaryOcclusionStrength;
+			cellWeight		+= SHLookupScalar( gvCells[ sourceIndex[i][1] ].SH, direction ) * LpvWrite.SecondaryOcclusionStrength;
+			weights[ destIndex[i] ] = 1.0f-saturate( cellWeight * 0.5f );
+
+#if LPV_MULTIPLE_BOUNCES_ENABLED 
+			float3 cellColour = gvCells[ sourceIndex[i][0] ].color + gvCells[ sourceIndex[i][1] ].color;
+			colors[ destIndex[i] ] = cellColour * 0.5f;
+#endif
+		}
+	}
+	// 6 4-tap weights (faces)
+	{
+		const int destIndex[6]      = {  4,         10,        12,        13,        15,        21 };
+		const int sourceIndex[6][4] = { {0,2,4,6}, {0,1,4,5}, {0,1,2,3}, {4,5,6,7}, {2,3,6,7}, {1,3,5,7} };
+		[unroll]
+		for ( int i=0; i<6; i++ )
+		{
+			const float3 direction = directions[ destIndex[i] ];
+			float cellWeight = SHLookupScalar( gvCells[ sourceIndex[i][0] ].SH, direction ) * LpvWrite.SecondaryOcclusionStrength;
+			cellWeight		+= SHLookupScalar( gvCells[ sourceIndex[i][1] ].SH, direction ) * LpvWrite.SecondaryOcclusionStrength;
+			cellWeight		+= SHLookupScalar( gvCells[ sourceIndex[i][2] ].SH, direction ) * LpvWrite.SecondaryOcclusionStrength;
+			cellWeight		+= SHLookupScalar( gvCells[ sourceIndex[i][3] ].SH, direction ) * LpvWrite.SecondaryOcclusionStrength;
+			weights[ destIndex[i] ] = 1.0f-saturate( cellWeight * 0.25f );
+#if LPV_MULTIPLE_BOUNCES_ENABLED
+			float3 cellColour = gvCells[ sourceIndex[i][0] ].color + gvCells[ sourceIndex[i][1] ].color +
+								gvCells[ sourceIndex[i][2] ].color + gvCells[ sourceIndex[i][3] ].color;
+			colors[ destIndex[i] ] = cellColour * 0.25f;
+#endif
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+[numthreads(4,4,4)]
+void CSPropogate(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID ) 
+{
+	int index = GetGridAddress( DTid );
+
+
+	float3 gridPos = float3( DTid );
+
+	// Read the current SH cell
+	LPVCell cell = ReadLpvCell( index );
+
+#if PROPOGATION
+
+#if LPV_MULTIPLE_BOUNCES_ENABLED
+	LPVCell originalCell = cell;
+#endif
+	 
+	const int n=26;
+	const int3 directions[n] = 
+		{	int3(-1,-1,-1 ), int3(-1,-1, 0 ), int3(-1,-1, 1 ), int3(-1, 0,-1 ), int3(-1, 0, 0 ), int3(-1, 0, 1 ), int3(-1, 1,-1 ), int3(-1, 1, 0 ), int3(-1, 1, 1 ),
+			int3( 0,-1,-1 ), int3( 0,-1, 0 ), int3( 0,-1, 1 ), int3( 0, 0,-1 ),                  int3( 0, 0, 1 ), int3( 0, 1,-1 ), int3( 0, 1, 0 ), int3( 0, 1, 1 ),
+			int3( 1,-1,-1 ), int3( 1,-1, 0 ), int3( 1,-1, 1 ), int3( 1, 0,-1 ), int3( 1, 0, 0 ), int3( 1, 0, 1 ), int3( 1, 1,-1 ), int3( 1, 1, 0 ), int3( 1, 1, 1 ) };
+
+	const float3 nDirections[26] = 
+		{	float3(-L3,-L3,-L3 ), float3(-L2,-L2, 0  ), float3(-L3,-L3, L3 ), float3(-L2, 0 ,-L2 ), float3(-L1, 0 , 0  ), float3(-L2, 0 , L2 ), float3(-L3, L3,-L3 ), float3(-L2, L2, 0  ), float3(-L3, L3, L3 ),
+			float3( 0 ,-L2,-L2 ), float3( 0 ,-L1, 0  ), float3( 0 ,-L2, L2 ), float3( 0 , 0 ,-L1 ),						  float3( 0 , 0 , L1 ), float3( 0 , L2,-L2 ), float3( 0 , L1, 0  ), float3( 0 , L2, L2 ),
+			float3( L3,-L3,-L3 ), float3( L2,-L2, 0  ), float3( L3,-L3, L3 ), float3( L2, 0 ,-L2 ), float3( L1, 0 , 0  ), float3( L2, 0 , L2 ), float3( L3, L3,-L3 ), float3( L2, L2, 0  ), float3( L3, L3, L3 ) };
+
+	// Get the weights from the geometry volume
+#if LPV_SECONDARY_OCCLUSION
+	float gvWeights[n];
+#if LPV_MULTIPLE_BOUNCES_ENABLED 
+	float3 gvColors[n];
+	GetGeometryVolumeCellWeights( index, gvWeights, gvColors, nDirections );
+#else
+	GetGeometryVolumeCellWeights( index, gvWeights, nDirections );
+#endif
+
+#endif
+
+#if !PS4_PROFILE
+	[loop]
+#endif
+	for ( int i=0; i<n; i++ )
+	{
+		int3 pos = ( DTid+directions[i] ) % 32;
+		int nIndex = GetGridAddress( pos );
+
+		LPVCell nCell = ReadLpvCell( nIndex );
+
+		float3 nDir = float3(directions[i]);
+		float lenSq = dot(nDir,nDir);
+		nDir = nDirections[i];
+
+		float cellWeight = 1.0f/(lenSq); // Falloff with 1/distance sq
+		float weight = cellWeight * PROPAGATE_WEIGHT;
+#if LPV_SECONDARY_OCCLUSION
+		//float gvWeight = pow( gvWeights[i], 4.0f );
+		float gvWeight = gvWeights[i];
+		weight *= gvWeight;
+#endif
+		float3 col = LPVCellLookup( nCell, nDir ) * weight;
+
+#if LPV_MULTIPLE_BOUNCES_ENABLED 
+		// Get the flux output from this cell to its neighbour
+		// TODO: can we use group shared memory to avoid this (since the neighbouring cell has to compute it anyway)
+		float3 cellOutColor = LPVCellLookup( originalCell, -nDir ) * cellWeight * PROPAGATE_WEIGHT; 
+
+		float opacity = 1.0f - gvWeight;
+		// Reflect the light back, multiplying by the geometry's opacity and colour. 
+		// This is added to the light read back from the cell
+		float3 reflectColor = ( gvColors[i] * cellOutColor) * pow(opacity,3);
+		col += reflectColor * LpvWrite.SecondaryBounceStrength;
+#endif
+
+		AccumulateLighting( col, nDir, 1.0f, cell );
+	}
+#endif  // Propagation
+
+	// Write the accumulated cell
+	WriteLpvCell( cell, index );
+}

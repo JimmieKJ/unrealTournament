@@ -1,0 +1,60 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="MarkdownMode.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="SourceDirectoryName" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Source</Value>
+    </Setting>
+    <Setting Name="DoCompressImages" Type="System.Boolean" Scope="Application">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="CompressImageType" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">jpg</Value>
+    </Setting>
+    <Setting Name="JpegCompressionRate" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">80</Value>
+    </Setting>
+    <Setting Name="DefaultImageFillColorText" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">#FFFFFF</Value>
+    </Setting>
+    <Setting Name="SupportedLanguagesString" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">INT,CHN,JPN,KOR</Value>
+    </Setting>
+    <Setting Name="DefaultTemplate" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Default.html</Value>
+    </Setting>
+    <Setting Name="MetadataErrorIfMissingString" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Title,Crumbs</Value>
+    </Setting>
+    <Setting Name="MetadataInfoIfMissingString" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Description</Value>
+    </Setting>
+    <Setting Name="PublicAvailabilitiesString" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Public</Value>
+    </Setting>
+    <Setting Name="APIFolderLocation" Type="System.String" Scope="User">
+      <Value Profile="(Default)">API</Value>
+    </Setting>
+    <Setting Name="ImagesFolderName" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Images</Value>
+    </Setting>
+    <Setting Name="DoNotPublishAvailabilitiesFlag" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">NoPublish</Value>
+    </Setting>
+    <Setting Name="SupportedAvailabilitiesString" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Licensee,Rocket,Epic,Docs</Value>
+    </Setting>
+    <Setting Name="LastAvailability" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Licensee,Rocket,Epic,Docs</Value>
+    </Setting>
+    <Setting Name="FirstRun" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="DisableAllParsing" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="DisableHighlighting" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

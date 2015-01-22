@@ -1,0 +1,87 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+
+#include "GraphEditorCommon.h"
+
+#include "GraphEditor.h"
+#include "GraphEditorModule.h"
+#include "GraphEditorActions.h"
+#include "ScopedTransaction.h"
+#include "SGraphEditorActionMenu.h"
+#include "EdGraphUtilities.h"
+#include "SGraphEditorImpl.h"
+
+IMPLEMENT_MODULE(FGraphEditorModule, GraphEditor);
+
+#define LOCTEXT_NAMESPACE "GraphEditorModule"
+
+/////////////////////////////////////////////////////
+// FGraphEditorModule
+
+void FGraphEditorModule::StartupModule()
+{
+	TArray< TWeakPtr<SGraphEditor> >& Instances = SGraphEditor::AllInstances;
+	for (auto InstanceIt = SGraphEditor::AllInstances.CreateIterator(); InstanceIt; ++InstanceIt)
+	{
+		TWeakPtr<SGraphEditor>& Instance = *InstanceIt;
+		if (Instance.IsValid())
+		{
+			Instance.Pin()->OnModuleReloaded();
+		}		
+	}
+}
+
+void FGraphEditorModule::ShutdownModule()
+{
+	// Notify all the instances of GraphEditor that their code is about to be unloaded.
+	for (auto InstanceIt = SGraphEditor::AllInstances.CreateIterator(); InstanceIt; ++InstanceIt)
+	{
+		TWeakPtr<SGraphEditor>& Instance = *InstanceIt;
+		if (Instance.IsValid())
+		{
+			Instance.Pin()->OnModuleUnloading();
+		}		
+	}
+
+	FGraphEditorCommands::Unregister();
+}
+
+/**
+ * DO NOT CALL THIS METHOD. Use SNew(SGraphEditor) to make instances of SGraphEditor.
+ *
+ * @return A GraphEditor implementation.
+ */
+TSharedRef<SGraphEditor> FGraphEditorModule::PRIVATE_MakeGraphEditor( 
+	const TSharedPtr<FUICommandList>& InAdditionalCommands, 
+	const TAttribute<bool>& InIsEditable, 
+	const TAttribute<bool>& InIsEmpty,
+	TAttribute<FGraphAppearanceInfo> Appearance,
+	TSharedPtr<SWidget> InTitleBar,
+	const TAttribute<bool>& InTitleBarEnabledOnly,
+	UEdGraph* InGraphToEdit,
+	SGraphEditor::FGraphEditorEvents InGraphEvents,
+	bool InAutoExpandActionMenu,
+	UEdGraph* InGraphToDiff,
+	FSimpleDelegate InOnNavigateHistoryBack,
+	FSimpleDelegate InOnNavigateHistoryForward,
+	TAttribute<bool> ShowGraphStateOverlay)
+{
+	return
+		SNew(SGraphEditorImpl)
+		.AdditionalCommands(InAdditionalCommands)
+		.IsEditable(InIsEditable)
+		.Appearance(Appearance)
+		.TitleBar(InTitleBar)
+		.TitleBarEnabledOnly(InTitleBarEnabledOnly)
+		.GraphToEdit(InGraphToEdit)
+		.GraphEvents(InGraphEvents)
+		.AutoExpandActionMenu(InAutoExpandActionMenu)
+		.GraphToDiff(InGraphToDiff)
+		.OnNavigateHistoryBack(InOnNavigateHistoryBack)
+		.OnNavigateHistoryForward(InOnNavigateHistoryForward)
+		.ShowGraphStateOverlay(ShowGraphStateOverlay);
+}
+
+/////////////////////////////////////////////////////
+
+#undef LOCTEXT_NAMESPACE 

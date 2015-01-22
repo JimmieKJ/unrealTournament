@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "CustomMeshComponent Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "A new renderable Component class that allows you to specify custom geometry via C++ or Blueprint.",
+	"Category" : "Rendering.Components",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "CustomMeshComponent",
+			"Type" : "Runtime",
+			"BlacklistPlatforms" : [ "HTML5" ]
+		}
+	]
+}

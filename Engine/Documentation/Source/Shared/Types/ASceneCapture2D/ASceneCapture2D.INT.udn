@@ -1,0 +1,13 @@
+Availability:NoPublish
+Title:ASceneCapture2D
+Crumbs:
+Description:Overview of the SceneCapture2D class
+
+[EXCERPT:ASceneCapture2D]
+
+Much like the Scene Capture Cube, a Scene Capture 2D makes an image of the scene on every frame.  The Scene Capture 2D captures the scene from its view frustum, stores that view as an image, which is then used within a Material.
+
+[VAR:ToolTipFullLink]
+Resources/ContentExamples/Reflections/1_7
+[/VAR]
+[/EXCERPT:ASceneCapture2D]

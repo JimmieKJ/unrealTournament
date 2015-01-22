@@ -1,0 +1,37 @@
+﻿Title:Included file
+
+# 1. Header Level 1
+
+## a. Header Level 2
+
+## b. Header Level 2
+
+# 2. Header Level 1
+
+[EXCERPT:Excerpt]
+# 3. Excerpt header Level 1
+
+## a. Excerpt header Level 2
+
+### -. Excerpt header Level 3
+
+<!--
+[EXCERPT:inner]
+Do not display this.
+[/EXCERPT:inner]
+-->
+
+[/EXCERPT]
+
+<!--
+[EXCERPT:doxyInclusionTesting]
+
+[INCLUDE:#internalExcerpt]
+
+<!--
+[EXCERPT:internalExcerpt]
+%doxygen:FStreamingManagerTexture::FPendingPrimitiveType%
+[/EXCERPT:internalExcerpt]
+-->
+[/EXCERPT:doxyInclusionTesting]
+-->

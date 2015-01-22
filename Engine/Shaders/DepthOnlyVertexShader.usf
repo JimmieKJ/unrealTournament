@@ -1,0 +1,123 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DepthOnlyVertexShader.hlsl: Depth-only vertex shader.
+=============================================================================*/
+
+#include "Common.usf"
+#include "Material.usf"
+#include "VertexFactory.usf"
+
+
+struct FDepthOnlyVSToPS
+{
+	#if !MATERIALBLENDING_SOLID
+		FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
+		float4 PixelPosition : TEXCOORD6;
+	#endif
+
+	float4 Position : SV_POSITION;
+};
+
+#if USING_TESSELLATION	
+	struct FDepthOnlyVSToDS
+	{
+		FVertexFactoryInterpolantsVSToDS FactoryInterpolants;
+		float4 Position : VS_To_DS_Position;
+		OPTIONAL_VertexID_VS_To_DS
+	};
+	
+	#define FDepthOnlyVSOutput FDepthOnlyVSToDS
+	#define VertexFactoryGetInterpolants VertexFactoryGetInterpolantsVSToDS
+#else
+	#define FDepthOnlyVSOutput FDepthOnlyVSToPS
+	#define VertexFactoryGetInterpolants VertexFactoryGetInterpolantsVSToPS
+#endif
+
+#if USING_TESSELLATION	
+	#define FPassSpecificVSToDS FDepthOnlyVSToDS
+	#define FPassSpecificVSToPS FDepthOnlyVSToPS
+	
+	FDepthOnlyVSToDS PassInterpolate(FDepthOnlyVSToDS a, float aInterp, FDepthOnlyVSToDS b, float bInterp)
+	{
+		FDepthOnlyVSToDS O;
+		
+		O.FactoryInterpolants = VertexFactoryInterpolate(a.FactoryInterpolants, aInterp, b.FactoryInterpolants, bInterp);
+
+		return O;
+	}
+
+	FDepthOnlyVSToPS PassFinalizeTessellationOutput(FDepthOnlyVSToDS Interpolants, float4 WorldPosition, FMaterialTessellationParameters MaterialParameters)
+	{
+		FDepthOnlyVSToPS O;
+		
+		#if !MATERIALBLENDING_SOLID
+			O.FactoryInterpolants = VertexFactoryAssignInterpolants(Interpolants.FactoryInterpolants);
+		#endif
+
+		// Finally, transform position to clip-space
+		ISOLATE
+		{
+			O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
+		}
+			
+		#if !MATERIALBLENDING_SOLID
+			O.PixelPosition = WorldPosition;
+		#endif
+		
+		return O;
+	}
+	
+	#include "Tessellation.usf"
+#endif
+
+#if VERTEXSHADER
+
+void Main(
+	FVertexFactoryInput Input,
+	OPTIONAL_VertexID
+	out FDepthOnlyVSOutput Output
+	)
+{
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+
+	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
+	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPos.xyz, TangentToLocal);
+
+	// Isolate instructions used for world position offset
+	// As these cause the optimizer to generate different position calculating instructions in each pass, resulting in self-z-fighting.
+	// This is only necessary for shaders used in passes that have depth testing enabled.
+	ISOLATE
+	{
+		WorldPos.xyz += GetMaterialWorldPositionOffset(VertexParameters);
+	}
+
+#if USING_TESSELLATION
+	// Transformation is done in Domain shader when tessellating
+	Output.Position = WorldPos;
+#else
+	ISOLATE
+	{
+		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPos);
+		Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
+	}
+#endif
+
+#if !MATERIALBLENDING_SOLID || USING_TESSELLATION
+	// Masked and transparent materials need texture coords to clip, and tessellated
+	// materials need texture coords to displace
+	Output.FactoryInterpolants = VertexFactoryGetInterpolants(Input, VFIntermediates, VertexParameters);
+#endif
+
+#if !MATERIALBLENDING_SOLID
+	#if !USING_TESSELLATION	
+		Output.PixelPosition = WorldPos;
+	#endif
+
+#endif
+
+	OutputVertexID( Output );
+}
+
+#endif // VERTEXSHADER

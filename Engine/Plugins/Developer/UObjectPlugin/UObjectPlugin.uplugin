@@ -1,0 +1,21 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "UObject Example Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "An example of a plugin which declares its own UObject type.  This can be used as a starting point when creating your own plugin.",
+	"Category" : "Examples",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "UObjectPlugin",
+			"Type" : "Developer"
+		}
+	]
+}

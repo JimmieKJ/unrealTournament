@@ -1,0 +1,155 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	MonteCarlo.usf: Monte Carlo integration of distributions
+=============================================================================*/
+
+float3 TangentToWorld( float3 Vec, float3 TangentZ )
+{
+	float3 UpVector = abs(TangentZ.z) < 0.999 ? float3(0,0,1) : float3(1,0,0);
+	float3 TangentX = normalize( cross( UpVector, TangentZ ) );
+	float3 TangentY = cross( TangentZ, TangentX );
+	return TangentX * Vec.x + TangentY * Vec.y + TangentZ * Vec.z;
+}
+
+uint ReverseBits32( uint bits )
+{
+#if SM5_PROFILE
+	return reversebits( bits );
+#else
+	bits = ( bits << 16) | ( bits >> 16);
+	bits = ( (bits & 0x00ff00ff) << 8 ) | ( (bits & 0xff00ff00) >> 8 );
+	bits = ( (bits & 0x0f0f0f0f) << 4 ) | ( (bits & 0xf0f0f0f0) >> 4 );
+	bits = ( (bits & 0x33333333) << 2 ) | ( (bits & 0xcccccccc) >> 2 );
+	bits = ( (bits & 0x55555555) << 1 ) | ( (bits & 0xaaaaaaaa) >> 1 );
+	return bits;
+#endif
+}
+
+float2 Hammersley( uint Index, uint NumSamples, uint2 Random )
+{
+	float E1 = frac( (float)Index / NumSamples + float( Random.x & 0xffff ) / (1<<16) );
+	float E2 = float( ReverseBits32(Index) ^ Random.y ) * 2.3283064365386963e-10;
+	return float2( E1, E2 );
+}
+
+float4 UniformSampleSphere( float2 E )
+{
+	float Phi = 2 * PI * E.x;
+	float CosTheta = 1 - 2 * E.y;
+	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+
+	float3 H;
+	H.x = SinTheta * cos( Phi );
+	H.y = SinTheta * sin( Phi );
+	H.z = CosTheta;
+
+	float PDF = 1.0 / (4 * PI);
+
+	return float4( H, PDF );
+}
+
+float4 UniformSampleHemisphere( float2 E )
+{
+	float Phi = 2 * PI * E.x;
+	float CosTheta = E.y;
+	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+
+	float3 H;
+	H.x = SinTheta * cos( Phi );
+	H.y = SinTheta * sin( Phi );
+	H.z = CosTheta;
+
+	float PDF = 1.0 / (2 * PI);
+
+	return float4( H, PDF );
+}
+
+float2 UniformSampleDisk(float2 Random)
+{
+	const float Theta = 2.0f * (float)PI * Random.x;
+	const float Radius = sqrt(Random.y);
+	return float2(Radius * cos(Theta), Radius * sin(Theta));
+}
+
+float4 CosineSampleHemisphere( float2 E )
+{
+	float Phi = 2 * PI * E.x;
+	float CosTheta = sqrt( E.y );
+	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+
+	float3 H;
+	H.x = SinTheta * cos( Phi );
+	H.y = SinTheta * sin( Phi );
+	H.z = CosTheta;
+
+	float PDF = CosTheta / PI;
+
+	return float4( H, PDF );
+}
+
+float4 UniformSampleCone( float2 E, float CosThetaMax )
+{
+	float Phi = 2 * PI * E.x;
+	float CosTheta = lerp( CosThetaMax, 1, E.y );
+	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+
+	float3 L;
+	L.x = SinTheta * cos( Phi );
+	L.y = SinTheta * sin( Phi );
+	L.z = CosTheta;
+
+	float PDF = 1.0 / ( 2 * PI * (1 - CosThetaMax) );
+
+	return float4( L, PDF );
+}
+
+float4 ImportanceSampleBlinn( float2 E, float Roughness )
+{
+	float m = Roughness * Roughness;
+	float n = 2 / (m*m) - 2;
+
+	float Phi = 2 * PI * E.x;
+	float CosTheta = ClampedPow( E.y, 1 / (n + 1) );
+	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+
+	float3 H;
+	H.x = SinTheta * cos( Phi );
+	H.y = SinTheta * sin( Phi );
+	H.z = CosTheta;
+
+	float D = (n+2)/ (2*PI) * ClampedPow( CosTheta, n );
+	float PDF = D * CosTheta;
+
+	return float4( H, PDF );
+}
+
+float4 ImportanceSampleGGX( float2 E, float Roughness )
+{
+	float m = Roughness * Roughness;
+	float m2 = m * m;
+
+	float Phi = 2 * PI * E.x;
+	float CosTheta = sqrt( (1 - E.y) / ( 1 + (m2 - 1) * E.y ) );
+	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+
+	float3 H;
+	H.x = SinTheta * cos( Phi );
+	H.y = SinTheta * sin( Phi );
+	H.z = CosTheta;
+	
+	float d = ( CosTheta * m2 - CosTheta ) * CosTheta + 1;
+	float D = m2 / ( PI*d*d );
+	float PDF = D * CosTheta;
+
+	return float4( H, PDF );
+}
+
+// Multiple importance sampling power heuristic of two functions with a power of two. 
+// [Veach 1997, "Robust Monte Carlo Methods for Light Transport Simulation"]
+float MISWeight( uint Num, float PDF, uint OtherNum, float OtherPDF )
+{
+	float Weight = Num * PDF;
+	float OtherWeight = OtherNum * OtherPDF;
+	return Weight * Weight / (Weight * Weight + OtherWeight * OtherWeight);
+}

@@ -1,0 +1,32 @@
+CC=emcc
+CFLAGS= -O2 -Iinclude -DNDEBUG -D_WIN32 -D__MINGW32__ #-std=c++11
+
+SOURCES= \
+  src\bitwise.c\
+  src\framing.c\
+  
+OBJECTS=$(SOURCES:.c=.bc)
+
+LIBOGG = libogg.bc
+
+.c.bc:
+	$(CC) $(CFLAGS) $< -o $@
+
+$(LIBOGG): $(OBJECTS) 
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@ 
+
+install: $(LIBOGG)
+	xcopy $(LIBOGG) lib\HTML5\ /F /R /Y /I
+
+uninstall:
+	del lib\HTML5\$(LIBOGG) /F 
+
+all: libogg 
+
+clean:
+	del src\*.bc *.bc
+ 
+
+
+	
+	

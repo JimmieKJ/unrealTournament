@@ -1,0 +1,30 @@
+﻿Title:N
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_N]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Navigation（ナビゲーション）
+	[/PARAM]
+	[PARAM:Definition]
+ビューポートで行うレベル内の移動方法です。レベルエディタで行うナビゲーションはしばし右マウスボタンを使用します。W、A、S、Dキーや/またはマウスのスクロールホイールを使用します。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Node（ノード）
+	[/PARAM]
+	[PARAM:Definition]
+ブループリントのグラフセクションに配置される任意の関数、イベント、その他のオブジェクトです。下層にあるコードを実行するために、ワイヤーで他のノードと接続します。
+	[/PARAM]
+[/OBJECT]
+
+
+
+[/EXCERPT:Glossary_N]
+
+

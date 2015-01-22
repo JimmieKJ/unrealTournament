@@ -1,0 +1,297 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ShadowDepthVertexShader.usf: Vertex shader for writing shadow depth.
+=============================================================================*/
+
+#include "Common.usf"
+#include "Material.usf"
+#include "VertexFactory.usf"
+#include "ShadowDepthCommon.usf"
+
+float4x4 ProjectionMatrix;
+
+//@todo - make this a bool, bool shader parameters currently do not work in vertex shaders on Xbox 360 (TTP 125134)
+float bClampToNearPlane;
+
+void SetShadowDepthOutputs(float4 WorldPosition, out float4 OutPosition, out float ShadowDepth)
+{
+	OutPosition = mul(WorldPosition, ProjectionMatrix);
+
+	// Clamp the vertex to the near plane if it is in front of the near plane
+	// This has problems if some vertices of a triangle get clamped and others do not, also causes artifacts with non-ortho projections
+	if (bClampToNearPlane && OutPosition.z < 0)
+	{
+		OutPosition.z = 0.000001f;
+		OutPosition.w = 1.0f;
+	}
+
+	#if PERSPECTIVE_CORRECT_DEPTH
+		ShadowDepth = OutPosition.z;
+	#else
+		float DepthBias = ShadowParams.x;
+		float InvMaxSubjectDepth = ShadowParams.y;
+
+		// Output linear, normalized depth
+		ShadowDepth = OutPosition.z * InvMaxSubjectDepth + DepthBias;
+		OutPosition.z = ShadowDepth * OutPosition.w;
+	#endif
+}
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW
+
+/** View projection matrix for each cube map face. */
+float4x4 ShadowViewProjectionMatrices[6];
+/** Flag indicating which faces of the cube map the object is visible to.  This just needs 6 bits, but there's no int parameter type yet. */
+float4 MeshVisibleToFace[6];
+
+#define FPassSpecificVSToGS FShadowDepthVSToPS
+
+struct FShadowDepthGSToPS
+{
+#if INTERPOLATE_VF_ATTRIBUTES
+	FShadowDepthVSToPS PSInputs;
+#endif
+
+	/** Controls which of the cube map faces to rasterize the primitive to, only the value from the first vertex is used. */
+	uint RTIndex : SV_RenderTargetArrayIndex;
+	float4 OutPosition : SV_POSITION;
+};
+ 
+/** Allocate space for cloning to all 6 faces which is the worst case. */
+[maxvertexcount(18)]
+void MainOnePassPointLightGS(triangle FPassSpecificVSToGS Input[3], inout TriangleStream<FShadowDepthGSToPS> OutStream)
+{
+	UNROLL
+	// Clone the triangle to each face
+    for (int CubeFaceIndex = 0; CubeFaceIndex < 6; CubeFaceIndex++)
+    {
+		BRANCH
+		// Skip this cube face if the object is not visible to it
+		if (MeshVisibleToFace[CubeFaceIndex].x > 0)
+		{
+			float4 ClipSpacePositions[3];
+			UNROLL
+			for (int VertexIndex = 0; VertexIndex < 3; VertexIndex++)
+			{
+				// Calculate the clip space position for each cube face
+				ClipSpacePositions[VertexIndex] = mul(Input[VertexIndex].GSPosition, ShadowViewProjectionMatrices[CubeFaceIndex]);
+			}
+
+			float4 FrustumTests0 = saturate(ClipSpacePositions[0].xyxy * float4(-1, -1, 1, 1) - ClipSpacePositions[0].w);		
+			float4 FrustumTests1 = saturate(ClipSpacePositions[1].xyxy * float4(-1, -1, 1, 1) - ClipSpacePositions[1].w);		
+			float4 FrustumTests2 = saturate(ClipSpacePositions[2].xyxy * float4(-1, -1, 1, 1) - ClipSpacePositions[2].w);		
+			float4 FrustumTests = FrustumTests0 * FrustumTests1 * FrustumTests2;		
+
+			BRANCH		
+			// Frustum culling, saves GPU time with high poly meshes
+			if (!any(FrustumTests != 0))		
+			{				
+				FShadowDepthGSToPS Output;
+				Output.RTIndex = CubeFaceIndex;
+
+				UNROLL
+				for (int VertexIndex = 0; VertexIndex < 3; VertexIndex++)
+				{
+					Output.OutPosition = ClipSpacePositions[VertexIndex];
+
+					#if INTERPOLATE_VF_ATTRIBUTES
+						Output.PSInputs.FactoryInterpolants = Input[VertexIndex].FactoryInterpolants;
+						Output.PSInputs.GSPosition = Output.OutPosition;
+					#endif
+
+#if INTERPOLATE_POSITION
+					Output.PSInputs.PixelPosition = Input[VertexIndex].GSPosition;
+#endif
+					OutStream.Append(Output);
+				}
+				OutStream.RestartStrip();
+			}
+		}
+	}
+}
+
+#endif
+
+#if USING_TESSELLATION
+
+struct FShadowDepthVSToDS
+{
+	FVertexFactoryInterpolantsVSToDS FactoryInterpolants;
+	float4 Position : VS_to_DS_Position;
+	OPTIONAL_VertexID_VS_To_DS
+};
+
+struct FShadowDepthDSToPS : FShadowDepthVSToPS
+{
+	float4 Position : SV_POSITION;
+};
+
+#define FPassSpecificVSToDS FShadowDepthVSToDS
+#define FPassSpecificVSToPS FShadowDepthDSToPS
+
+FShadowDepthVSToDS PassInterpolate(FShadowDepthVSToDS a, float aInterp, FShadowDepthVSToDS b, float bInterp)
+{
+	FShadowDepthVSToDS O;
+	O.FactoryInterpolants = VertexFactoryInterpolate(a.FactoryInterpolants, aInterp, b.FactoryInterpolants, bInterp);
+	return O;
+}
+
+FShadowDepthDSToPS PassFinalizeTessellationOutput(FShadowDepthVSToDS Interpolants, float4 WorldPosition, FMaterialTessellationParameters MaterialParameters)
+{
+	FShadowDepthDSToPS O;
+	
+#if INTERPOLATE_VF_ATTRIBUTES
+	O.FactoryInterpolants = VertexFactoryAssignInterpolants(Interpolants.FactoryInterpolants);
+#endif
+
+
+#if ONEPASS_POINTLIGHT_SHADOW
+	O.Position = O.GSPosition = WorldPosition;
+#else
+
+	float ShadowDepth;
+	SetShadowDepthOutputs(
+		WorldPosition, 
+		O.Position, 
+#if PERSPECTIVE_CORRECT_DEPTH
+		O.ShadowDepth
+#else
+		ShadowDepth
+#endif
+		);
+#endif
+
+#if !(ONEPASS_POINTLIGHT_SHADOW || PERSPECTIVE_CORRECT_DEPTH) && COMPILER_SUPPORTS_EMPTY_STRUCTS
+	O.Dummy = 0;
+#endif
+
+	return O;
+}
+	
+#include "Tessellation.usf"
+
+#endif // #if USING_TESSELLATION
+
+void Main(
+	FVertexFactoryInput Input,
+#if USING_TESSELLATION
+	out FShadowDepthVSToDS OutParameters,
+#else
+	out FShadowDepthVSToPS OutParameters,
+#endif 	
+	OPTIONAL_VertexID
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
+
+	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPos.xyz, TangentToLocal);
+	WorldPos.xyz += GetMaterialWorldPositionOffset(VertexParameters);
+
+#if USING_TESSELLATION
+	OutPosition = OutParameters.Position = WorldPos;
+	
+	// Tessellated materials need vertex coords for displacement
+	OutParameters.FactoryInterpolants = VertexFactoryGetInterpolantsVSToDS(Input, VFIntermediates, VertexParameters);
+	
+#elif ONEPASS_POINTLIGHT_SHADOW
+
+	OutPosition = OutParameters.GSPosition = WorldPos;
+
+	#if INTERPOLATE_VF_ATTRIBUTES
+		// Masked materials need texture coords to clip
+		OutParameters.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
+	#endif
+
+	#if INTERPOLATE_POSITION
+		OutParameters.PixelPosition = WorldPos;
+	#endif
+
+#else
+	float Dummy;
+
+	SetShadowDepthOutputs(
+		WorldPos, 
+		OutPosition, 
+#if !PERSPECTIVE_CORRECT_DEPTH
+		Dummy
+#else
+		OutParameters.ShadowDepth
+#endif
+		);
+	
+	#if INTERPOLATE_VF_ATTRIBUTES
+		// Masked materials need texture coords to clip
+		OutParameters.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
+
+		#if INTERPOLATE_POSITION
+			OutParameters.PixelPosition = WorldPos;
+		#endif
+	#endif
+
+	#if !PERSPECTIVE_CORRECT_DEPTH && !COMPILER_SUPPORTS_EMPTY_STRUCTS
+		OutParameters.Dummy = 0;
+	#endif
+#endif
+
+	OutputVertexID( OutParameters );
+}
+
+void MainForGS(
+	FVertexFactoryInput Input,
+#if USING_TESSELLATION
+	out FShadowDepthVSToDS OutParameters,
+#else
+	out FShadowDepthVSToPS OutParameters,
+#endif 	
+	OPTIONAL_VertexID
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	Main(Input,
+		OutParameters,
+		OPTIONAL_VertexID_PARAM
+		OutPosition);
+}
+
+
+#if POSITION_ONLY
+void PositionOnlyMain(
+	in FPositionOnlyVertexFactoryInput Input,
+	out FShadowDepthVSToPS OutParameters,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	float4 WorldPos = VertexFactoryGetWorldPosition(Input);
+
+#if ONEPASS_POINTLIGHT_SHADOW
+	OutPosition = OutParameters.GSPosition = WorldPos;
+#else // #if ONEPASS_POINTLIGHT_SHADOW
+	float ShadowDepth;
+	SetShadowDepthOutputs(WorldPos,OutPosition,ShadowDepth);
+	#if PERSPECTIVE_CORRECT_DEPTH
+		OutParameters.ShadowDepth = ShadowDepth;
+	#elif !COMPILER_SUPPORTS_EMPTY_STRUCTS
+		OutParameters.Dummy = 0;
+	#endif
+#endif // #if ONEPASS_POINTLIGHT_SHADOW
+
+#if INTERPOLATE_POSITION
+	OutputParameters.PixelPosition = WorldPos;
+#endif
+}
+
+
+void PositionOnlyMainForGS(
+	in FPositionOnlyVertexFactoryInput Input,
+	out FShadowDepthVSToPS OutParameters,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	PositionOnlyMain(Input, OutParameters, OutPosition);
+}
+
+#endif

@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:AController
+Crumbs:
+Description:Controller  クラスの概要
+
+[EXCERPT:AController]
+
+コントローラー は非物理的なアクタで、ポーン (またはキャラクターなどポーンから派生したクラス) を所有して動作を制御することができます。AIController がポーンに対し人工知能を実装するのに対して、 PlayerControllers は人間のプレーヤーがポーンを制御するために使用します。コントローラーは Possess 関数でポーンを制御し、 Unpossess 関すでポーンの制御を中断します。
+
+[VAR:ToolTipFullLink]
+Gameplay/Framework/Controller
+[/VAR]
+[/EXCERPT:AController]

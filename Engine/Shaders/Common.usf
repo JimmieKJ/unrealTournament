@@ -1,0 +1,1003 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	Common.usf: Common shader code
+=============================================================================*/
+  
+#pragma once
+
+#if PS4_PROFILE  
+	// always #include PS4Common.usf so it can #define override anything in any other included file.
+	#include "PS4/PS4Common.usf"
+#endif
+
+#if METAL_PROFILE || METAL_MRT_PROFILE
+	// Helps with iteration when changing Metal shader code generation backend.
+	#include "MetalCommon.usf"
+#endif
+
+#ifndef FORCE_FLOATS
+#define FORCE_FLOATS 0
+#endif
+
+#if (!COMPILER_GLSL_ES2 && !METAL_PROFILE) || FORCE_FLOATS
+	// Always use floats when not using the ES2 compiler, because low precision modifiers are currently only tweaked for ES2, 
+	// And we don't want potential side effects on other platforms
+	#define half float
+	#define half1 float1
+	#define half2 float2
+	#define half3 float3
+	#define half4 float4
+	#define half3x3 float3x3
+	#define half4x4 float4x4 
+	#define half4x3 float4x3 
+	#define fixed float
+	#define fixed1 float1
+	#define fixed2 float2
+	#define fixed3 float3
+	#define fixed4 float4
+	#define fixed3x3 float3x3
+	#define fixed4x4 float4x4
+	#define fixed4x3 float4x3
+#endif
+
+// These types are used for material translator generated code, or any functions the translated code can call
+#if PIXELSHADER
+	#define MaterialFloat half
+	#define MaterialFloat2 half2
+	#define MaterialFloat3 half3
+	#define MaterialFloat4 half4
+	#define MaterialFloat3x3 half3x3
+	#define MaterialFloat4x4 half4x4 
+	#define MaterialFloat4x3 half4x3 
+#else
+	// Material translated vertex shader code always uses floats, 
+	// Because it's used for things like world position and UVs
+	#define MaterialFloat float
+	#define MaterialFloat2 float2
+	#define MaterialFloat3 float3
+	#define MaterialFloat4 float4
+	#define MaterialFloat3x3 float3x3
+	#define MaterialFloat4x4 float4x4 
+	#define MaterialFloat4x3 float4x3 
+#endif
+
+#if COMPILER_GLSL_ES2 || METAL_PROFILE || METAL_MRT_PROFILE
+
+	float determinant(float3x3 M)
+	{    
+		return	
+			M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) -
+			M[1][0] * (M[0][1] * M[2][2] - M[0][2] * M[2][1]) +
+			M[2][0] * (M[0][1] * M[1][2] - M[0][2] * M[1][1]);
+	}
+
+#endif   
+
+// Generated file that contains uniform buffer declarations needed by the shader being compiled 
+#include "GeneratedUniformBuffers.usf" 
+
+// to support the console command "r.InvalidateShaderCache"
+#include "ShaderVersion.usf"
+
+#include "Definitions.usf"
+
+#define FEATURE_LEVEL_ES2	1
+#define FEATURE_LEVEL_ES3_1	2
+#define FEATURE_LEVEL_SM3	3
+#define FEATURE_LEVEL_SM4	4
+#define FEATURE_LEVEL_SM5	5
+#define FEATURE_LEVEL_MAX	6
+
+// A8 textures when sampled either have their component in R or A. D3D uses A and that is the default.
+#define A8_SAMPLE_MASK .a
+	
+#if PS4_PROFILE
+
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
+
+#elif SM5_PROFILE
+	// SM5 = full dx11 features (high end UE4 rendering)
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
+#elif SM4_PROFILE
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
+#elif GL3_PROFILE || GL4_PROFILE
+
+	#if GL3_PROFILE
+		#define FEATURE_LEVEL FEATURE_LEVEL_SM4
+	#elif GL4_PROFILE
+		#define FEATURE_LEVEL FEATURE_LEVEL_SM5
+	#endif
+
+	// A8 textures when sampled have their component in R.
+	#undef A8_SAMPLE_MASK
+	#define A8_SAMPLE_MASK .r
+
+	// hacks until the shader compiler supports those
+	#if GL4_PROFILE
+		#define class struct
+	#endif
+#elif METAL_PROFILE
+	#define FEATURE_LEVEL  FEATURE_LEVEL_ES3_1
+	// @todo metal: remove this and make sure all uses handle METAL_PROFILE
+	#undef ES3_1_PROFILE
+	#define ES3_1_PROFILE 1
+	#define FCOLOR_COMPONENT_SWIZZLE .bgra  
+#elif METAL_MRT_PROFILE
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
+	// @todo metal: remove this and make sure all uses handle METAL_MRT_PROFILE
+	#undef SM4_PROFILE
+	#define SM4_PROFILE 1
+	#define FCOLOR_COMPONENT_SWIZZLE .bgra  
+#elif ES2_PROFILE || ES3_1_PROFILE
+	//@todo ES3_1 GL
+	#define FEATURE_LEVEL FEATURE_LEVEL_ES2
+
+	#if COMPILER_GLSL_ES2 
+		// Swizzle as we only support GL_BGRA on non-ES2 platforms that have that extension
+		#define FCOLOR_COMPONENT_SWIZZLE .bgra  
+	#else 
+		#define FCOLOR_COMPONENT_SWIZZLE 
+		#if COMPILER_GLSL
+			// A8 textures when sampled have their component in R
+			#undef A8_SAMPLE_MASK
+			#define A8_SAMPLE_MASK .r
+		#endif
+	#endif
+#else
+
+	#error Add your platform here
+
+	#define FEATURE_LEVEL FEATURE_LEVEL_MAX
+
+#endif
+
+#ifndef ES2_EMULATION
+#define ES2_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2) && (!COMPILER_GLSL_ES2 && COMPILE_SHADERS_FOR_DEVELOPMENT && !METAL_PROFILE))
+#endif
+
+// If we didn't request color component swizzling, just make it empty
+#ifndef FCOLOR_COMPONENT_SWIZZLE
+#define FCOLOR_COMPONENT_SWIZZLE
+#endif
+
+// Whether the platform supports independent texture and samplers
+// When enabled, different texture lookups can share samplers to allow more artist samplers in the base pass
+// Ideally this would just be enabled for all SM4 and above feature level platforms
+// @todo metal mrt: No reason this can't work with Metal, once cross compiler is fixed
+#define SUPPORTS_INDEPENDENT_SAMPLERS ((PS4_PROFILE || SM5_PROFILE || SM4_PROFILE) && !METAL_MRT_PROFILE)
+
+// This would need to be a #define in GLSL to ignore the SamplerState, however, it is currently a function call in HLSL
+// for type checking of the parameters - ironically the type checking is really only needed in GLSL!
+MaterialFloat4 Texture1DSample(Texture1D Tex, SamplerState Sampler, float UV)
+{
+	return Tex.Sample(Sampler, UV);
+}
+MaterialFloat4 Texture2DSample(Texture2D Tex, SamplerState Sampler, float2 UV)
+{
+	return Tex.Sample(Sampler, UV);
+}
+MaterialFloat Texture2DSample_A8(Texture2D Tex, SamplerState Sampler, float2 UV)
+{
+	return Tex.Sample(Sampler, UV) A8_SAMPLE_MASK;
+}
+MaterialFloat4 Texture3DSample(Texture3D Tex, SamplerState Sampler, float3 UV)
+{
+	return Tex.Sample(Sampler, UV);
+}
+MaterialFloat4 TextureCubeSample(TextureCube Tex, SamplerState Sampler, float3 UV)
+{
+	return Tex.Sample(Sampler, UV);
+}
+MaterialFloat4 Texture1DSampleLevel(Texture1D Tex, SamplerState Sampler, float UV, MaterialFloat Mip)
+{
+	return Tex.SampleLevel(Sampler, UV, Mip);
+}
+MaterialFloat4 Texture2DSampleLevel(Texture2D Tex, SamplerState Sampler, float2 UV, MaterialFloat Mip)
+{
+	return Tex.SampleLevel(Sampler, UV, Mip);
+}
+MaterialFloat4 Texture2DSampleBias(Texture2D Tex, SamplerState Sampler, float2 UV, MaterialFloat MipBias)
+{
+	return Tex.SampleBias(Sampler, UV, MipBias);
+}
+MaterialFloat4 Texture3DSampleLevel(Texture3D Tex, SamplerState Sampler, float3 UV, MaterialFloat Mip)
+{
+	return Tex.SampleLevel(Sampler, UV, Mip);
+}
+MaterialFloat4 TextureCubeSampleLevel(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat Mip)
+{
+	return Tex.SampleLevel(Sampler, UV, Mip);
+}
+MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
+{
+	return Tex.SampleBias(Sampler, UV, MipBias);
+}
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5 // Cubemap arrays are not supported in SM4 feature level
+	MaterialFloat4 TextureCubeArraySampleLevel(TextureCubeArray Tex, SamplerState Sampler, float3 UV, float ArrayIndex, MaterialFloat Mip)
+	{
+		return Tex.SampleLevel(Sampler, float4(UV, ArrayIndex), Mip);
+	}
+#endif
+
+	// TANGENTTOWORLD0 is the first row of the tangent to world matrix, w might be needed for padding and is not used yet.
+	// TANGENTTOWORLD2 is the last row of the tangent to world matrix, determinant of tangent basis in w
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+
+	#define TANGENTTOWORLD0					TEXCOORD10
+	#define TANGENTTOWORLD2					TEXCOORD11
+
+	// _centroid is needed to get better quality with MSAA
+
+	// The D3D shader compiler combines _centroid and non controid. Using float3 would results in a internal
+	// shader compiler error. This block is using float4 to prevent that.
+	#define TANGENTTOWORLD_INTERPOLATOR_BLOCK	float4 TangentToWorld0 : TEXCOORD10_centroid; float4	TangentToWorld2	: TEXCOORD11_centroid;
+
+#else
+
+	#define TANGENTTOWORLD0					TEXCOORD10
+	#define TANGENTTOWORLD2					TEXCOORD11
+
+	// TangentToWorld0 is float4 only to match D3D11
+#if METAL_PROFILE
+		//@todo-rco: FIXME!
+		#define TANGENTTOWORLD_INTERPOLATOR_BLOCK	float4 TangentToWorld0 : TANGENTTOWORLD0; float4	TangentToWorld2	: TANGENTTOWORLD2;
+#else
+	#define TANGENTTOWORLD_INTERPOLATOR_BLOCK	MaterialFloat4 TangentToWorld0 : TANGENTTOWORLD0; MaterialFloat4	TangentToWorld2	: TANGENTTOWORLD2;
+#endif
+#endif
+
+MaterialFloat Luminance( MaterialFloat3 LinearColor )
+{
+	return dot( LinearColor, MaterialFloat3( 0.3, 0.59, 0.11 ) );
+}
+
+const static MaterialFloat PI = 3.1415926535897932f;
+
+MaterialFloat length2(MaterialFloat2 v)
+{
+	return dot(v, v);
+}
+MaterialFloat length2(MaterialFloat3 v)
+{
+	return dot(v, v);
+}
+MaterialFloat length2(MaterialFloat4 v)
+{
+	return dot(v, v);
+}
+
+MaterialFloat UnClampedPow(MaterialFloat X, MaterialFloat Y)
+{
+	return pow(X, Y);
+}
+MaterialFloat2 UnClampedPow(MaterialFloat2 X, MaterialFloat2 Y)
+{
+	return pow(X, Y);
+}
+MaterialFloat3 UnClampedPow(MaterialFloat3 X, MaterialFloat3 Y)
+{
+	return pow(X, Y);
+}
+MaterialFloat4 UnClampedPow(MaterialFloat4 X, MaterialFloat4 Y)
+{
+	return pow(X, Y);
+}
+
+// Clamp the base, so it's never <= 0.0f (INF/NaN).
+MaterialFloat ClampedPow(MaterialFloat X,MaterialFloat Y)
+{
+	return pow(max(abs(X),0.000001f),Y);
+}
+MaterialFloat2 ClampedPow(MaterialFloat2 X,MaterialFloat2 Y)
+{
+	return pow(max(abs(X),MaterialFloat2(0.000001f,0.000001f)),Y);
+}
+MaterialFloat3 ClampedPow(MaterialFloat3 X,MaterialFloat3 Y)
+{
+	return pow(max(abs(X),MaterialFloat3(0.000001f,0.000001f,0.000001f)),Y);
+}  
+MaterialFloat4 ClampedPow(MaterialFloat4 X,MaterialFloat4 Y)
+{
+	return pow(max(abs(X),MaterialFloat4(0.000001f,0.000001f,0.000001f,0.000001f)),Y);
+} 
+
+#include "Random.usf"	// used by MaterialExpressionNoise
+  
+/** 
+ * Use this function to compute the pow() in the specular computation.
+ * This allows to change the implementation depending on platform or it easily can be replaced by some approxmation.
+ */
+MaterialFloat PhongShadingPow(MaterialFloat X, MaterialFloat Y)
+{
+	// The following clamping is done to prevent NaN being the result of the specular power computation.
+	// Clamping has a minor performance cost.
+
+	// In HLSL pow(a, b) is implemented as exp2(log2(a) * b).
+
+	// For a=0 this becomes exp2(-inf * 0) = exp2(NaN) = NaN.
+
+	// As seen in #TTP 160394 "QA Regression: PS3: Some maps have black pixelated artifacting."
+	// this can cause severe image artifacts (problem was caused by specular power of 0, lightshafts propagated this to other pixels).
+	// The problem appeared on PlayStation 3 but can also happen on similar PC NVidia hardware.
+
+	// In order to avoid platform differences and rarely occuring image atrifacts we clamp the base.
+
+	// Note: Clamping the exponent seemed to fix the issue mentioned TTP but we decided to fix the root and accept the
+	// minor performance cost.
+
+	return ClampedPow(X, Y);
+}
+
+#if FEATURE_LEVEL < FEATURE_LEVEL_ES3_1
+	// DX11 (feature levels >= 10) feature sets natively supports uints in shaders; we just use floats on other platforms.
+	#define uint4	int4
+#endif
+
+// Optional VertexID - used by tessellation to uniquely identify control points.
+#if USING_TESSELLATION && DISPLACEMENT_ANTICRACK
+	#define OPTIONAL_VertexID			uint VertexID : SV_VertexID,
+	#define OPTIONAL_VertexID_PARAM		VertexID,
+	#define OPTIONAL_VertexID_VS_To_DS	uint VertexID : VS_To_DS_VertexID;
+	#define OutputVertexID( Out ) Out.VertexID = VertexID
+#else // #if USING_TESSELLATION && DISPLACEMENT_ANTICRACK
+	#define OPTIONAL_VertexID
+	#define OPTIONAL_VertexID_PARAM
+	#define OPTIONAL_VertexID_VS_To_DS
+	#define OutputVertexID( Out )
+#endif // #if USING_TESSELLATION && DISPLACEMENT_ANTICRACK
+
+// Helper macro used to interpolate the given member
+#define TESSELLATION_INTERPOLATE_MEMBER(member) O.member = a.member * aInterp + b.member * bInterp
+
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+	/** 
+		* Number of MSAA samples supported by deferred passes in D3D11. 
+		* This is hardcoded because it allows deferred passes to optimize for the given value (for example, unrolling a loop).
+		*/
+	#define NumMSAASamples 4
+#endif
+
+// depth in the red channel in DeviceZ
+Texture2D		SceneDepthTexture;
+SamplerState	SceneDepthTextureSampler;
+// scene HDR color
+Texture2D		SceneColorTexture;
+SamplerState	SceneColorTextureSampler;
+// copy of scene alpha for PC ES2 emulation
+Texture2D		SceneAlphaCopyTexture;
+SamplerState	SceneAlphaCopyTextureSampler;
+// shadow and light function
+Texture2D		LightAttenuationTexture;
+SamplerState	LightAttenuationTextureSampler;
+
+// We don't use an inline function so we can avoid type promotion/ coercion.
+#define RETURN_COLOR( Color ) ( Color )
+
+// Tangent space bias
+// We don't use a function so we can avoid type promotion/ coercion.
+#define TangentBias(X) (X * 2.0f - 1.0f)
+
+#define TERRAIN_ZSCALE				(1.0f/128.0f)
+
+float Square( float x )
+{
+	return x*x;
+}
+
+float2 Square( float2 x )
+{
+	return x*x;
+}
+
+float3 Square( float3 x )
+{
+	return x*x;
+}
+
+float4 Square( float4 x )
+{
+	return x*x;
+}
+
+// Only valid for x >= 0
+MaterialFloat AtanFast( MaterialFloat x )
+{
+	// Minimax 3 approximation
+	MaterialFloat3 A = x < 1 ? MaterialFloat3( x, 0, 1 ) : MaterialFloat3( 1/x, 0.5 * PI, -1 );
+	return A.y + A.z * ( ( ( -0.130234 * A.x - 0.0954105 ) * A.x + 1.00712 ) * A.x - 0.00001203333 );
+}
+
+/**
+ * Returns the upper 3x3 portion of the LocalToWorld matrix.
+ */
+MaterialFloat3x3 GetLocalToWorld3x3()
+{
+	return (MaterialFloat3x3)Primitive.LocalToWorld;
+}
+
+float4 PreviousLighting(float4 ScreenPosition)
+{
+	return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+}
+
+/** Fetches the values in the light attenuation buffer. */
+float4 GetLightAttenuation(float4 ScreenPosition)
+{
+	ScreenPosition.xy = float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+	float4 Attenuation = Texture2DSample(LightAttenuationTexture, LightAttenuationTextureSampler, ScreenPosition.xy);
+	// Undo the sqrt that was used to encode
+	return Square(Attenuation);
+}
+
+/** Converts a linear input value into a value to be stored in the light attenuation buffer. */
+MaterialFloat EncodeLightAttenuation(MaterialFloat InColor)
+{
+	// Apply a 1/2 power to the input, which allocates more bits for the darks and prevents banding
+	// Similar to storing colors in gamma space, except this uses less instructions than a pow(x, 1/2.2)
+	return sqrt(InColor);
+}
+
+/** Converts a linear input value into a value to be stored in the light attenuation buffer. */
+MaterialFloat4 EncodeLightAttenuation(MaterialFloat4 InColor)
+{
+	return sqrt(InColor);
+}
+
+/** return the scene lighting texture */
+MaterialFloat3 CalcSceneColor(MaterialFloat2 ScreenUV)
+{
+	return Texture2DSampleLevel(SceneColorTexture, SceneColorTextureSampler, ScreenUV, 0).rgb;
+}
+
+/** return all channels of the scene lighting texture */
+MaterialFloat4 CalcFullSceneColor(MaterialFloat2 ScreenUV)
+{
+	  return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
+}
+
+/** Encodes HDR linear scene color for storage in the 8 bit light attenuation texture. */
+MaterialFloat3 EncodeSceneColorForMaterialNode(MaterialFloat3 LinearSceneColor)
+{
+	// Preserving a range from [0, 10]
+	// Remap values to get more bits of precision in the darks
+	return pow(LinearSceneColor * .1f, .25f);
+}
+
+
+//
+// MOBILE WITHOUT FP16 SUPPORT: 8-BIT/CHANNEL MOSAICING FOR LINEAR HDR
+//
+// This provides linear blending and a {0 to 2} dynamic range.
+// This works by splitting the image into a checkerboard of dark and light pixels.
+//   DLDL
+//   LDLD
+//   DLDL
+//   LDLD
+//
+// There is an extra scan line dither pattern to increase precision by 1-bit.
+// The HdrMosaic() function computes the exposure level per pixel for the forward render pass.
+// The HdrDemosaic() function reconstructs the proper image in the tonemapping pass.
+//
+
+// These have been carefully tuned and should probably not be adjusted.
+// Dark pixel range is {0 to 1/DRK_MUL}.
+#define DRK_MUL 6.0
+// Support {0 to 2} in dynamic range.
+#define HDR_MUL (1.0/2.0)
+
+#define MOSAIC_ADD   HDR_MUL
+// The blend factor causes a smooth blend between the light and dark pixels.
+#define MOSAIC_BLEND ((255.0-(DRK_MUL/HDR_MUL))/255.0)
+#define MOSAIC_MUL   ((DRK_MUL * MOSAIC_BLEND - MOSAIC_ADD) * 2.0)
+
+// Done during forward shading pass before blending.
+MaterialFloat3 HdrMosaic(MaterialFloat3 LinearColor, MaterialFloat2 VPos) 
+{
+	MaterialFloat2 V;
+	V = VPos.xy * 0.5;
+	V.y += V.x;
+	V = frac(V);
+	MaterialFloat2 C;
+	C = (V * MaterialFloat2(2.0 * (-0.5/255.0), MOSAIC_MUL)) + MaterialFloat2(-0.5/255.0, MOSAIC_ADD);
+	return (LinearColor * C.y) + C.x;
+}
+
+#define DEMOSAIC_MUL (((1.0/DRK_MUL) - (1.0/HDR_MUL)) * 2.0)
+#define DEMOSAIC_ADD (1.0/HDR_MUL)
+
+// Resolve pass to remove mosaic and restore color.
+MaterialFloat3 HdrDemosaic(MaterialFloat3 Pixel, MaterialFloat3 OtherPixel, MaterialFloat2 VPos)
+{
+	MaterialFloat A = frac(dot(VPos + View.DemosaicVposOffset, MaterialFloat2(0.5, 0.5)));
+	MaterialFloat B = 0.5 - A;
+	A = A * DEMOSAIC_MUL + DEMOSAIC_ADD;
+	B = B * DEMOSAIC_MUL + DEMOSAIC_ADD;
+
+	// On ES2 devices we demosaic during the tonemapping pass which renders upside down, account for that here.
+	#if COMPILER_GLSL_ES2
+		return max((Pixel * B), (OtherPixel * A)); 
+	#else
+		return max((Pixel * A), (OtherPixel * B)); 
+	#endif
+}
+
+
+// Like RGBM but this can be interpolated.
+MaterialFloat4 RGBTEncode(MaterialFloat3 Color)
+{
+	MaterialFloat4 RGBT;
+	MaterialFloat Max = max(max(Color.r, Color.g), max(Color.b, 1e-6));
+	MaterialFloat RcpMax = rcp(Max);
+	RGBT.rgb = Color.rgb * RcpMax;
+	RGBT.a = Max * rcp(1.0 + Max);
+	return RGBT;
+}
+
+MaterialFloat3 RGBTDecode(MaterialFloat4 RGBT)
+{
+	RGBT.a = RGBT.a * rcp(1.0 - RGBT.a);
+	return RGBT.rgb * RGBT.a;
+}
+
+
+
+MaterialFloat4 RGBMEncode( MaterialFloat3 Color )
+{
+	Color *= 1.0 / 64.0;
+	
+	float4 rgbm;
+	rgbm.a = saturate( max( max( Color.r, Color.g ), max( Color.b, 1e-6 ) ) );
+	rgbm.a = ceil( rgbm.a * 255.0 ) / 255.0;
+	rgbm.rgb = Color / rgbm.a;
+	return rgbm;
+}
+
+MaterialFloat4 RGBMEncodeFast( MaterialFloat3 Color )
+{
+	// 0/0 result written to fixed point buffer goes to zero
+	MaterialFloat4 rgbm;
+	rgbm.a = dot( Color, 255.0 / 64.0 );
+	rgbm.a = ceil( rgbm.a );
+	rgbm.rgb = Color / rgbm.a;
+	rgbm *= MaterialFloat4( 255.0 / 64.0, 255.0 / 64.0, 255.0 / 64.0, 1.0 / 255.0 );
+	return rgbm;
+}
+
+MaterialFloat3 RGBMDecode( MaterialFloat4 rgbm, MaterialFloat MaxValue )
+{
+	return rgbm.rgb * (rgbm.a * MaxValue);
+}
+
+MaterialFloat3 RGBMDecode( MaterialFloat4 rgbm )
+{
+	return rgbm.rgb * (rgbm.a * 64.0f);
+}
+
+/** Calculates the ScreenUV given the screen position and an offset fraction. */
+float2 CalcScreenUVFromOffsetFraction(float4 ScreenPosition, float2 OffsetFraction)
+{
+	float2 NDC = ScreenPosition.xy / ScreenPosition.w;
+	// Apply the offset in NDC space so that it is consistent regardless of scene color buffer size
+	// Clamp to valid area of the screen to avoid reading garbage
+	//@todo - soft clamp
+	float2 OffsetNDC = clamp(NDC + OffsetFraction * float2(2, -2), -.999f, .999f);
+	return float2(OffsetNDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+}
+
+/** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
+float3 DecodeSceneColorForMaterialNode(float2 ScreenUV)
+{
+	float4 EncodedSceneColor = Texture2DSample(LightAttenuationTexture, LightAttenuationTextureSampler, ScreenUV);
+
+	// Undo the function in EncodeSceneColorForMaterialNode
+	return pow(EncodedSceneColor.rgb, 4) * 10;
+}
+
+// Converts depth buffer Z / W into W
+float ConvertFromDeviceZ(float DeviceZ)
+{
+	return 1.f / (DeviceZ * View.InvDeviceZToWorldZTransform[2] - View.InvDeviceZToWorldZTransform[3]);	
+}
+
+// inverse opteration of ConvertFromDeviceZ
+float ConvertToDeviceZ(float SceneDepth)
+{
+	return 1.0f / ((SceneDepth + View.InvDeviceZToWorldZTransform[3]) * View.InvDeviceZToWorldZTransform[2]);
+}
+
+/** Returns clip space W, which is world space distance along the View Z axis. */
+float CalcSceneDepth( float2 ScreenUV )
+{
+#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
+	return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
+#else
+	#if COMPILER_GLSL_ES2
+		#if IOS
+			// Only call FramebufferFetch when actually compiling for IOS ES2.
+			return FramebufferFetchES2().w;
+		#elif WEBGL
+			return Texture2DSampleLevel(SceneAlphaCopyTexture, SceneAlphaCopyTextureSampler, ScreenUV, 0).r;
+		#else 
+			return 65000.0f; 
+		#endif 
+	#elif METAL_PROFILE
+			return FramebufferFetchES2().w;
+	#else
+		return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
+	#endif
+#endif
+}
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION
+
+	// depth in in DeviceZ
+	Texture2D<float> SceneDepthTextureNonMS;
+
+	/** Returns clip space W, which is world space distance along the View Z axis. */
+	float CalcSceneDepth(uint2 PixelPos)
+	{
+		float DeviceZ = SceneDepthTextureNonMS.Load(int3(PixelPos, 0));
+
+		// Fetch the depth buffer Z / W value, solve for W
+		return ConvertFromDeviceZ(DeviceZ);
+	}
+#endif
+
+/**
+* Returns scene color in rgb, depth in a
+*/
+float4 CalcSceneColorAndDepth( float2 ScreenUV )
+{
+	return float4(CalcSceneColor(ScreenUV), CalcSceneDepth(ScreenUV));
+}
+
+float PreviousDepth(float4 ScreenPosition)
+{
+	ScreenPosition.xy = float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+	return CalcSceneDepth(ScreenPosition.xy);
+}
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if FEATURE_LEVEL == FEATURE_LEVEL_SM4
+	// SM4 requires texture size to be explicitly stated and expressed as the number of samples.
+	Texture2DMS<float4, NumMSAASamples> SceneColorSurface;
+	Texture2DMS<float, NumMSAASamples> SceneDepthSurface;
+#else
+	Texture2DMS<float4> SceneColorSurface;
+	Texture2DMS<float> SceneDepthSurface;
+#endif // FEATURE_LEVEL
+	float CalcSceneDepthMSAA(float2 ScreenUV,uint SampleIndex)
+	{
+		float2 SurfaceDimensions;
+		float NumSurfaceSamples;
+		SceneDepthSurface.GetDimensions(SurfaceDimensions.x,SurfaceDimensions.y,NumSurfaceSamples);
+
+		int2 IntUV = int2(trunc(ScreenUV * SurfaceDimensions));
+		float DeviceZ = SceneDepthSurface.Load(IntUV,SampleIndex);
+
+		return ConvertFromDeviceZ(DeviceZ);
+	}
+	float PreviousDepthMSAA(float4 ScreenPosition,uint SampleIndex)
+	{
+		ScreenPosition.xy = float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+		return CalcSceneDepthMSAA(ScreenPosition.xy,SampleIndex);
+	}
+#endif
+	 
+/** 
+ * aligns the clip space position so that it can be used as a texture coordinate
+ * to properly align in screen space
+ */
+MaterialFloat4 ScreenAlignedPosition( float4 ScreenPosition )
+{
+	return MaterialFloat4(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz, ScreenPosition.z/ScreenPosition.w,1);
+}
+
+/** 
+ * Aligns the [0,1] UV to match the view within the backbuffer
+ */
+MaterialFloat2 ScreenAlignedUV( MaterialFloat2 UV )
+{
+	return (UV*MaterialFloat2(2,-2) + MaterialFloat2(-1,1))*View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+}
+
+/**
+ * Compute viewport coordinates from the given fragment coordinates.
+ */
+MaterialFloat2 GetViewportCoordinates(MaterialFloat2 InFragmentCoordinates)
+{
+	return InFragmentCoordinates;
+}
+
+/**
+ * Unpack a normal stored in a normal map. The X and Y components are rescaled from [0,1] to [-1,1] and Z is reconstructed.
+ */
+MaterialFloat4 UnpackNormalMap( MaterialFloat4 TextureSample )
+{
+#if COMPILER_GLSL_ES2
+	return MaterialFloat4(TextureSample.rgb * 2 - 1, 1);
+#else
+	#if DXT5_NORMALMAPS
+		MaterialFloat2 NormalXY = TextureSample.ag;
+	#else
+		MaterialFloat2 NormalXY = TextureSample.rg;
+	#endif
+
+	NormalXY = NormalXY * MaterialFloat2(2.0f,2.0f) - MaterialFloat2(1.0f,1.0f);
+	MaterialFloat NormalZ = sqrt( saturate( 1.0f - dot( NormalXY, NormalXY ) ) );
+	return MaterialFloat4( NormalXY.xy, NormalZ, 1.0f );
+#endif
+}
+
+// Antialiased version of a binary comparison between ThresholdConst and a texture channel.
+float AntialiasedTextureMask( Texture2D Tex, SamplerState Sampler, float2 UV, float ThresholdConst, int Channel )
+{
+	// By setting MaskConst to 0001, 0010, 0100 or 1000 individual channels can be chosen (the compiler should be able to optimize that).
+	MaterialFloat4 MaskConst = MaterialFloat4(Channel == 0, Channel == 1, Channel == 2, Channel == 3);
+
+	// border width in pixels, for antialiasing 1 .. 1.5 is good but 1.0 is good for optimizations 
+	const float WidthConst = 1.0f;			
+	float InvWidthConst = 1 / WidthConst;
+
+	// Problem:
+
+	// A simple texture lookup with a comparison against some thresold value allows to get a mask useful
+	// for many purposes (e.g. text rendering, signs, oil/water/paint). Antialiased masks look much better
+	// and mip mapping provides that but only for minification. So when the texture resolution is lower than
+	// the rendering size results get blurry.
+
+	// Idea:
+
+	// We compute the distance to the threshold line in pixels (with subpixel precision). We can visualize
+	// the problem as a heightmap that intersects a axis aligned plane at the threshold height. Only surface
+	// above the threshold plane contributes to the mask. Looking at one pixel the heightmap can be approximated
+	// by a plane. We can easily get the plane center value form a texture lookup and get the plane equation from
+	// ddx and ddy of that value (only one value per 2x2 block) or some other more precise method. We can reduce the
+	// 3d problem to 2d (looking at the steepest angle only) and the resulting value tells us how much the texture value
+	// changes for one pixel. This allows us to scale and bias (threshold) the texture value the so it maps to the
+	// distance function. We rescaling the distance to 0.5 coverage at the line, >1 MaterialFloat a pixel inside and <0 MaterialFloat
+	// a pixel outside. Clamping this value in the range from 0..1 gives us a good approximation of the pixel coverage.
+
+	// We tried multiple possible implementations - this is the cheapest and looks ok is most cases.
+	// If quality improvements are needed we can add an option to the node later on.
+	float Result;
+	{
+		// optimized, ddx/ddy only for every 2x2 block (bad for distant stuff)
+		float Sample1 = dot(MaskConst, Texture2DSample(Tex, Sampler, UV));
+
+		// compute the derivatives of the texture content
+		float2 TexDD = float2(ddx(Sample1), ddy(Sample1));
+
+		float TexDDLength = max(abs(TexDD.x), abs(TexDD.y)); 
+		float Top = InvWidthConst * (Sample1 - ThresholdConst);
+		Result = Top / TexDDLength + ThresholdConst;
+	}
+
+	Result = saturate(Result);	// no always needed (e.g. DX9 framebuffer blending)
+
+	return Result;
+}
+
+float Noise3D_Multiplexer(int Function, float3 Position)
+{
+	// verified, HLSL compiled out the switch if Function is a constant
+	switch(Function)
+	{
+		case 0:
+			return SimplexNoise3D_TEX(Position);
+		case 1:
+			return GradientNoise3D_TEX(Position);
+		case 2:
+			return PerlinNoise3D_ALU(Position);
+		case 3:
+			return FastGradientPerlinNoise3D_TEX(Position);
+
+		// currently not accessible through UI
+		default:
+			return ComputeRandomFrom3DPosition((int3)Position).x;
+	}
+	return 0;
+}
+
+// @param LevelScale usually 2 but higher values allow efficient use of few levels
+// @return in user defined range (OutputMin..OutputMax)
+float MaterialExpressionNoise(float3 Position, float Scale, int Quality, int Function, bool bTurbulence, uint Levels, float OutputMin, float OutputMax, float LevelScale, float FilterWidth)
+{
+	Position *= Scale;
+	FilterWidth *= Scale;
+
+	float Out = 0.0f;
+	float OutScale = 1.0f;
+	float InvLevelScale = 1.0f / LevelScale;
+	
+	LOOP for(uint i = 0; i < Levels; ++i)
+	{
+		// fade out noise level that are too high frequent (not done through dynamic branching as it usually requires gradient instructions)
+		OutScale *= saturate(1.0 - FilterWidth);
+
+		if(bTurbulence)
+		{
+			Out += abs(Noise3D_Multiplexer(Function, Position)) * OutScale;
+		}
+		else
+		{
+			Out += Noise3D_Multiplexer(Function, Position) * OutScale;
+		}
+
+		Position *= LevelScale;
+		OutScale *= InvLevelScale;
+		FilterWidth *= LevelScale;
+	}
+
+	if(!bTurbulence)
+	{
+		// bring -1..1 to 0..1 range
+		Out = Out * 0.5f + 0.5f;
+	}
+
+	// Out is in 0..1 range
+	return lerp(OutputMin, OutputMax, Out);
+}
+
+
+/*
+* Clips a ray to an AABB.  Does not handle rays parallel to any of the planes.
+*
+* @param RayOrigin - The origin of the ray in world space.
+* @param RayEnd - The end of the ray in world space.  
+* @param BoxMin - The minimum extrema of the box.
+* @param BoxMax - The maximum extrema of the box.
+* @return - Returns the closest intersection along the ray in x, and furthest in y.  
+*			If the ray did not intersect the box, then the furthest intersection <= the closest intersection.
+*			The intersections will always be in the range [0,1], which corresponds to [RayOrigin, RayEnd] in worldspace.
+*			To find the world space position of either intersection, simply plug it back into the ray equation:
+*			WorldPos = RayOrigin + (RayEnd - RayOrigin) * Intersection;
+*/
+float2 LineBoxIntersect(float3 RayOrigin, float3 RayEnd, float3 BoxMin, float3 BoxMax)
+{
+	float3 InvRayDir = 1.0f / (RayEnd - RayOrigin);
+	
+	//find the ray intersection with each of the 3 planes defined by the minimum extrema.
+	float3 FirstPlaneIntersections = (BoxMin - RayOrigin) * InvRayDir;
+	//find the ray intersection with each of the 3 planes defined by the maximum extrema.
+	float3 SecondPlaneIntersections = (BoxMax - RayOrigin) * InvRayDir;
+	//get the closest of these intersections along the ray
+	float3 ClosestPlaneIntersections = min(FirstPlaneIntersections, SecondPlaneIntersections);
+	//get the furthest of these intersections along the ray
+	float3 FurthestPlaneIntersections = max(FirstPlaneIntersections, SecondPlaneIntersections);
+
+	float2 BoxIntersections;
+	//find the furthest near intersection
+	BoxIntersections.x = max(ClosestPlaneIntersections.x, max(ClosestPlaneIntersections.y, ClosestPlaneIntersections.z));
+	//find the closest far intersection
+	BoxIntersections.y = min(FurthestPlaneIntersections.x, min(FurthestPlaneIntersections.y, FurthestPlaneIntersections.z));
+	//clamp the intersections to be between RayOrigin and RayEnd on the ray
+	return saturate(BoxIntersections);
+}
+
+/** Computes distance from an AABB to a point in space. */
+MaterialFloat ComputeDistanceFromBoxToPoint(MaterialFloat3 Mins, MaterialFloat3 Maxs, MaterialFloat3 InPoint)
+{
+	MaterialFloat3 DistancesToMin = InPoint < Mins ? abs(InPoint - Mins) : 0;
+	MaterialFloat3 DistancesToMax = InPoint > Maxs ? abs(InPoint - Maxs) : 0;
+
+	MaterialFloat Distance = dot(DistancesToMin, 1);
+	Distance += dot(DistancesToMax, 1);
+	return Distance;
+}
+
+/** Transforms a vector from tangent space to world space */
+MaterialFloat3 TransformTangentVectorToWorld(MaterialFloat3x3 TangentToWorld, MaterialFloat3 InTangentVector)
+{
+	// Transform directly to world space
+	// The vector transform is optimized for this case, only one vector-matrix multiply is needed
+	return mul(InTangentVector, TangentToWorld);
+}
+
+/** Transforms a vector from world space to tangent space */
+MaterialFloat3 TransformWorldVectorToTangent(MaterialFloat3x3 TangentToWorld, MaterialFloat3 InWorldVector)
+{
+	// Transform from world to tangent space
+	return mul(TangentToWorld, InWorldVector);
+}
+
+/** Computes the distance from the center to the edge of an AABB with the given extents in the given direction. */
+MaterialFloat GetBoxPushout(MaterialFloat3 Normal,MaterialFloat3 Extent)
+{
+	return dot(abs(Normal * Extent), MaterialFloat3(1.0f, 1.0f, 1.0f));
+}
+
+// Define passthrough implementations of EvaluateAttributeAtSample for non-D3D11 platforms.
+#if !SM5_PROFILE
+	float EvaluateAttributeAtSample(float Attribute,uint SampleIndex) { return Attribute; }
+	float2 EvaluateAttributeAtSample(float2 Attribute,uint SampleIndex) { return Attribute; }
+	float3 EvaluateAttributeAtSample(float3 Attribute,uint SampleIndex) { return Attribute; }
+	float4 EvaluateAttributeAtSample(float4 Attribute,uint SampleIndex) { return Attribute; }
+#endif
+
+/** Output of the screen vertex shader. */
+struct FScreenVertexOutput
+{
+	MaterialFloat2 UV : TEXCOORD0;
+	float4 Position : SV_POSITION;
+};
+
+
+// for velocity rendering, motionblur and temporal AA
+// velocity needs to support -2..2 screen space range for x and y
+// texture is 16bit 0..1 range per channel
+float2 EncodeVelocityToTexture(float2 In)
+{
+	// 0.499f is a value smaller than 0.5f to avoid using the full range to use the clear color (0,0) as special value
+	// 0.5f to allow for a range of -2..2 instead of -1..1 for really fast motions for temporal AA
+	return In * (0.499f * 0.5f) + 32767.0f / 65535.0f;
+}
+// see EncodeVelocityToTexture()
+float2 DecodeVelocityFromTexture(float2 In)
+{
+	const float InvDiv = 1.0f / (0.499f * 0.5f);
+	// reference
+//	return (In - 32767.0f / 65535.0f ) / (0.499f * 0.5f);
+	// MAD layout to help compiler
+	return In * InvDiv - 32767.0f / 65535.0f * InvDiv;
+}
+
+// Used for the Global Illumination in the GIReplace material expression
+bool GetGIReplaceState()
+{
+#if REFLECTIVE_SHADOW_MAP
+	return true;
+#else
+	return false;
+#endif
+}
+
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+struct FWriteToSliceGeometryOutput
+{
+	FScreenVertexOutput Vertex;
+	uint LayerIndex : SV_RenderTargetArrayIndex;
+};
+#endif
+
+// Helper macro to globally ignore requests for non-offset world positions in materials when lower than shader model 4. We do this
+// because we are using an extra interpolator for this second world position, and in < SM4 there may not be enough
+#define USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS	(NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS && FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
+
+/** Used for calculating vertex positions and UVs when drawing with DrawRectangle */
+void DrawRectangle( in float4 InPosition, in float2 InTexCoord, out float4 OutPosition, out float2 OutTexCoord)
+{
+	OutPosition = InPosition;
+	OutPosition.xy = -1.0f + 2.0f * (DrawRectangleParameters.PosScaleBias.zw + (InPosition.xy * DrawRectangleParameters.PosScaleBias.xy)) * DrawRectangleParameters.InvTargetSizeAndTextureSize.xy;
+	OutPosition.xy *= float2( 1, -1 );
+	OutTexCoord.xy = (DrawRectangleParameters.UVScaleBias.zw + (InTexCoord.xy * DrawRectangleParameters.UVScaleBias.xy)) * DrawRectangleParameters.InvTargetSizeAndTextureSize.zw;
+}
+
+/** Used for calculating vertex positions when drawing with DrawRectangle */
+void DrawRectangle( in float4 InPosition, out float4 OutPosition)
+{
+	OutPosition = InPosition;
+	OutPosition.xy = -1.0f + 2.0f * (DrawRectangleParameters.PosScaleBias.zw + (InPosition.xy * DrawRectangleParameters.PosScaleBias.xy)) * DrawRectangleParameters.InvTargetSizeAndTextureSize.xy;
+	OutPosition.xy *= float2( 1, -1 );
+}
+
+//Since some platforms don't remove Nans in saturate calls, 
+//SafeSaturate function will remove nan/inf.    
+//Can be expensive, only call when there's a good reason to expect Nans.
+//D3D saturate actually turns Nans -> 1  since it does the min(x, 1) first, and D3D nan rules specify the non-nand operand wins in such a case.  
+//See: http://msdn.microsoft.com/en-us/library/windows/desktop/jj218760(v=vs.85).aspx  
+#define SafeSaturate_Def(type)\
+type SafeSaturate(type In) \
+{\
+	return saturate(In);\
+}
+
+SafeSaturate_Def(float)
+SafeSaturate_Def(float2)
+SafeSaturate_Def(float3)
+SafeSaturate_Def(float4)

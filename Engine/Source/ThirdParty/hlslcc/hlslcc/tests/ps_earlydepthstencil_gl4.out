@@ -1,0 +1,15 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: 
+// @Outputs: f4:out_Target0
+#version 430
+layout(early_fragment_tests) in;
+in TEXCOORD0 { vec2 Data; } in_TEXCOORD0;
+out vec4 out_Target0;
+void main()
+{
+	out_Target0.xyzw = in_TEXCOORD0.Data.xyyx;
+}
+

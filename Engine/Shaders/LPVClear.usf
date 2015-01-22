@@ -1,0 +1,76 @@
+//-----------------------------------------------------------------------------
+// File:		LPVClear.usf
+//
+// Summary:		Shader to clear an LPV volume
+//
+// Created:		2013-03-01
+//
+// Author:		mailto:benwood@microsoft.com
+//
+//				Copyright (C) Microsoft. All rights reserved.
+//-----------------------------------------------------------------------------
+
+/*------------------------------------------------------------------------------
+	Compile time parameters:
+------------------------------------------------------------------------------*/
+
+#include "Common.usf"
+#include "LPVWriteCommon.usf" 
+#include "LPVGeometryVolumeCommon.usf"
+
+//------------------------------------------------------------------------------
+
+[numthreads(4,4,4)]
+void CSClear(uint3 DTid : SV_DispatchThreadID) 
+{
+	uint i = GetGridAddress( DTid );
+
+#if REFINE_OVER_TIME
+	int3 idx = DTid;
+	int3 scrollVec = int3(LpvWrite.mOldGridOffset) - int3(LpvWrite.mLpvGridOffset);
+	idx += scrollVec;
+
+
+	float maxExtent = MaxGridExtent( (float3)idx );
+	float mul = PREV_FRAME_MULTIPLIER;
+	if ( maxExtent > 15.5 )
+	{
+		mul = 0.0f;
+	}
+
+	idx = clamp( idx, int3(0,0,0), int3(31,31,31) );
+	int sourceCell = GetGridAddress( idx );
+
+	LPVCell cell = ReadLpvCell( sourceCell );
+
+	mul *= LpvWrite.ClearMultiplier;
+
+	//@TODO: add a separate shader for this
+	[branch]
+	if ( mul == 0.0f ) // This is needed in order to fix QNANs 
+	{
+		ClearCell( cell ); 
+	}
+	else
+	{
+		MultiplyCell( cell, mul );
+	}
+
+	WriteLpvCell( cell, i );
+
+#else // !REFINE_OVER_TIME
+	LPVCell cell;
+	ClearCell( cell ); 
+	WriteLpvCell( cell, i );
+#endif
+}
+
+//------------------------------------------------------------------------------
+
+[numthreads(4,4,4)]
+void CSClearGeometryVolume(uint3 DTid : SV_DispatchThreadID) 
+{
+	uint i = GetGridAddress( DTid );
+	ClearGvCell( i );
+}
+

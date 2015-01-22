@@ -1,0 +1,91 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	GPUBenchmark.usf: PostProcessing Benchmark.
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+Texture2D InputTexture;
+SamplerState InputTextureSampler;
+
+
+// vertex shader entry point
+void MainBenchmarkVS(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 UV : ATTRIBUTE1,
+	out float2 OutUV : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	) 
+{
+	DrawRectangle(InPosition, UV, OutPosition, OutUV);
+}
+
+// pixel shader entry point
+void MainPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+	float2 Offset = PostprocessInput0Size.zw;
+
+	OutColor = 0;
+
+#if METHOD == 0
+	// ALU heavy
+	{
+		// some dependency to the input texture
+		OutColor = Texture2DSample(InputTexture, InputTextureSampler, InUV) * 0.99f;
+
+		UNROLL for(int i = 0; i < 16; ++i)
+		{
+			// todo: use float4 MAD to get raw GPU performance (should be same for scalar and non scalar)
+			float4 Value = PseudoRandom(InUV + float2(i * 0.001f, 0));
+
+			OutColor.r += Value.r;
+		}
+	}
+#elif METHOD == 1
+	// TEX heavy
+	{
+		UNROLL for(int i = 0; i < 16; ++i)
+		{
+			float4 Value = Texture2DSample(InputTexture, InputTextureSampler, InUV + float2(i * 0.0001f, 0));
+
+			OutColor.r += Value.r;
+		}
+	}
+#elif METHOD == 2
+	// dependent TEX heavy
+	{
+		UNROLL for(int i = 0; i < 16; ++i)
+		{
+			float4 Value = Texture2DSample(InputTexture, InputTextureSampler, InUV + float2(i * 0.001f, OutColor.r * 0.001f));
+
+			OutColor.r += Value.r;
+		}
+	}
+#elif METHOD == 3
+	// some dependency to the input texture
+	OutColor = Texture2DSample(InputTexture, InputTextureSampler, InUV) * 0.99f;
+#elif METHOD == 4
+	// Bandwidth heavy
+	{
+		float2 PixelPos = frac(InUV * 512.0f / 16.0f) * 16.0f;
+
+		UNROLL for(int y = 0; y < 4; ++y)
+		{
+			UNROLL for(int x = 0; x < 4; ++x)
+			{
+				// should be bandwidth trashing enough to profile memory bandwidth
+				float4 Value = Texture2DSample(InputTexture, InputTextureSampler, (PixelPos + float2(x, y)) * 16 / 512.0f);
+
+				OutColor.r += Value.r;
+			}
+		}
+	}
+#else
+	error
+#endif
+
+	// todo: Framebuffer blending test, clear test, vertex performance, draw call performance, constant buffer upload performance
+}
+

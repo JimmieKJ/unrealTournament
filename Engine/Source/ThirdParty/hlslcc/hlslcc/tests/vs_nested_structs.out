@@ -1,0 +1,47 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: f4:in_ATTRIBUTE0,f3:in_ATTRIBUTE1,f4:in_ATTRIBUTE2,f4:in_ATTRIBUTE3,f2:in_ATTRIBUTE4,f2:in_ATTRIBUTE5,f2:in_ATTRIBUTE6,f4:in_ATTRIBUTE10
+// @Outputs: f4:gl_Position
+#version 150
+in vec4 in_ATTRIBUTE0;
+in vec3 in_ATTRIBUTE1;
+in vec4 in_ATTRIBUTE2;
+in vec4 in_ATTRIBUTE3;
+in vec2 in_ATTRIBUTE4;
+in vec2 in_ATTRIBUTE5;
+in vec2 in_ATTRIBUTE6;
+in vec4 in_ATTRIBUTE10;
+out TEXCOORD10_centroid { vec4 Data; } out_TEXCOORD10_centroid;
+out TEXCOORD11_centroid { vec4 Data; } out_TEXCOORD11_centroid;
+out COLOR0 { vec4 Data; } out_COLOR0;
+out TEXCOORD0 { vec4 Data; } out_TEXCOORD0;
+out TEXCOORD1 { vec4 Data; } out_TEXCOORD1;
+out INTERP0 { vec4 Data; } out_INTERP0;
+void main()
+{
+	vec4 t0;
+	vec4 t1;
+	vec4 t2[2];
+	t2[(((3+1)/2)+(-1))].xyzw = vec4(0.0,0.0,0.0,0.0);
+	t2[(0/2)].xy = in_ATTRIBUTE4;
+	t2[(0/2)].zw = in_ATTRIBUTE5.yx;
+	t2[(2/2)].xy = in_ATTRIBUTE6;
+	t2[(0/2)].xy = (t2[0].xy+in_ATTRIBUTE4);
+	t2[(0/2)].zw = (t2[0].wz+in_ATTRIBUTE5).yx;
+	t2[(2/2)].xy = (t2[1].xy+in_ATTRIBUTE6);
+	t1.xyz = in_ATTRIBUTE1;
+	t1.w = 0.0;
+	t0.xyzw = in_ATTRIBUTE0;
+	out_TEXCOORD10_centroid.Data.xyzw = t1;
+	out_TEXCOORD11_centroid.Data.xyzw = in_ATTRIBUTE2;
+	out_COLOR0.Data.xyzw = in_ATTRIBUTE3.zyxw;
+	out_TEXCOORD0.Data.xyzw = t2[0];
+	out_TEXCOORD1.Data.xyzw = t2[1];
+	out_INTERP0.Data.xyzw = in_ATTRIBUTE10;
+	t0.y = (-in_ATTRIBUTE0.y);
+	t0.z = ((2.0*in_ATTRIBUTE0.z)+(-in_ATTRIBUTE0.w));
+	gl_Position.xyzw = t0;
+}
+

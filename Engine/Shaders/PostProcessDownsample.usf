@@ -1,0 +1,72 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessDownsample.usf: PostProcessing down sample.
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+// vertex shader entry point
+void MainDownsampleVS(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 UV : ATTRIBUTE1,
+	out float2 OutUV : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	) 
+{
+	DrawRectangle(InPosition, UV, OutPosition, OutUV);
+}
+
+// pixel shader entry point
+void MainPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+	float2 Offset = PostprocessInput0Size.zw;
+
+#if METHOD == 0
+	// low quality 1 sample
+	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, InUV);
+#elif METHOD == 1
+	// high quality 4 samples
+	float2 UV[4];
+
+	// blur during downsample (4x4 kernel) to get better quality especially for HDR content, can be made an option of this shader
+	UV[0] = InUV + Offset * float2(-1, -1);
+	UV[1] = InUV + Offset * float2( 1, -1);
+	UV[2] = InUV + Offset * float2(-1,  1);
+	UV[3] = InUV + Offset * float2( 1,  1);
+
+	float4 Sample[4];
+
+	for(uint i = 0; i < 4; ++i)
+	{
+		Sample[i] = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV[i]);
+	}
+
+	OutColor = (Sample[0] + Sample[1] + Sample[2] + Sample[3]) * 0.25f;
+
+	// fixed rarely occuring yellow color tine of the whole viewport (certain view port size, need to investigate more)
+	OutColor.rgb = max(float3(0,0,0), OutColor.rgb);
+#else
+	// high quality 4 samples with blurring
+	// Depth in Alpha
+	float2 UV[4];
+
+	// no filtering (2x2 kernel) to get no leaking in Depth of Field
+	UV[0] = InUV + Offset * float2(-0.5f, -0.5f);
+	UV[1] = InUV + Offset * float2( 0.5f, -0.5f);
+	UV[2] = InUV + Offset * float2(-0.5f,  0.5f);
+	UV[3] = InUV + Offset * float2( 0.5f,  0.5f);
+
+	float3 Sample[4];
+
+	for(uint i = 0; i < 4; ++i)
+	{
+		Sample[i] = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV[i]).rgb;
+	}
+
+	// todo: this still leaks as we need to mask in focus pixels
+	OutColor = float4((Sample[0] + Sample[1] + Sample[2] + Sample[3]) * 0.25f, CalcSceneDepth(UV[0]));
+#endif
+}
+

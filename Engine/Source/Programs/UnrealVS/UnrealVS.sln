@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealVS", "UnrealVS.csproj", "{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		VS11 Debug|Any CPU = VS11 Debug|Any CPU
+		VS11 Release|Any CPU = VS11 Release|Any CPU
+		VS12 Debug|Any CPU = VS12 Debug|Any CPU
+		VS12 Release|Any CPU = VS12 Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS11 Debug|Any CPU.ActiveCfg = VS11d|Any CPU
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS11 Debug|Any CPU.Build.0 = VS11d|Any CPU
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS11 Release|Any CPU.ActiveCfg = VS11|Any CPU
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS11 Release|Any CPU.Build.0 = VS11|Any CPU
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS12 Debug|Any CPU.ActiveCfg = VS12d|Any CPU
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS12 Debug|Any CPU.Build.0 = VS12d|Any CPU
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS12 Release|Any CPU.ActiveCfg = VS12|Any CPU
+		{C0EE3E23-0255-4D0E-9369-82247AD5E2DD}.VS12 Release|Any CPU.Build.0 = VS12|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,10 @@
+Default build only supports OSS, to build it with ALSA and Pulse, install them before configuring the library. I.e. on Debian:
+
+#!/bin/sh
+
+tar xjf openal-soft-1.15.1.tar.bz2 
+mkdir build
+cd build
+sudo apt-get install libasound2-dev libpulse-dev
+cmake ../openal-soft-1.15.1/
+make

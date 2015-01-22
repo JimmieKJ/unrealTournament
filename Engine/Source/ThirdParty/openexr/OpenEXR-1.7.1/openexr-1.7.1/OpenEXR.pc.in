@@ -1,0 +1,13 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+OpenEXR_includedir=@includedir@/OpenEXR
+
+Name: OpenEXR
+Description: OpenEXR image library
+Version: @OPENEXR_VERSION@
+Requires: IlmBase
+Libs: -L${libdir} -lIlmImf
+Libs.private: -lz
+Cflags: -I${OpenEXR_includedir}

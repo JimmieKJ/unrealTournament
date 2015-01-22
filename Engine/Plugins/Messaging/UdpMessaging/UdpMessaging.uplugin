@@ -1,0 +1,25 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "UDP Messaging",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Adds a UDP based transport and tunneling layer to the messaging sub-system for sending and receiving messages between networked computers and devices.",
+	"Category" : "Messaging.Plugins",
+	"EnabledByDefault" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "UdpMessaging",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PreDefault",
+			"BlacklistPlatforms" : [ "HTML5" ]
+		}
+	],
+
+	"CanContainContent" : false
+}

@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "IOS Device Profile Selector",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "IOS Device Profile Selector used show selection of device profiles on hardware",
+	"Category" : "Programming Runtime.Plugins",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "IOSDeviceProfileSelector",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PostConfigInit",
+			"WhitelistPlatforms" : [ "IOS" ]
+		}
+	]
+}

@@ -1,0 +1,8 @@
+.response
+\Documentation\
+\Intermediate\
+\Source\
+\DerivedDataCache\
+.pdb
+.lib
+.exp

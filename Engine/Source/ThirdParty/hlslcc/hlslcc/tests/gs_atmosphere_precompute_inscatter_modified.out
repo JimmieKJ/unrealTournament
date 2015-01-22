@@ -1,0 +1,68 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.24
+// @Inputs: 
+// @Outputs: f4:gl_Position,i1:gl_Layer
+// @PackedGlobals: Matrixes(h:0,32)
+// @Samplers: TestFloatTex(0:1)
+#version 150
+
+layout(triangles) in;
+layout(triangle_strip, max_vertices = 3) out;
+
+uniform vec4 _gu_h[8];
+uniform sampler2DMS _gs0;
+in TEXCOORD0 { vec2 Data; } in_TEXCOORD0[3];
+in TEXCOORD1 { vec2 Data; } in_TEXCOORD1[3];
+out TEXCOORD0 { vec2 Data; } out_TEXCOORD0;
+out TEXCOORD1 { vec2 Data; } out_TEXCOORD1;
+out HLSLCC_LAYER_INDEX { flat uint Data; } out_HLSLCC_LAYER_INDEX;
+void main()
+{
+	vec2 t0;
+	vec2 t1;
+	vec2 t2;
+	vec2 t3;
+	t0.xy = in_TEXCOORD0[1].Data;
+	t1.xy = in_TEXCOORD1[1].Data;
+	t2.xy = in_TEXCOORD0[2].Data;
+	t3.xy = in_TEXCOORD1[2].Data;
+	uint t4;
+	uint t5;
+	ivec2 t6;
+	t6.xy = textureSize(_gs0);
+	t5 = uint(t6.x);
+	t4 = uint(t6.y);
+	vec4 t7;
+	t7.xyzw = _gu_h[3];
+	out_TEXCOORD0.Data.xy = in_TEXCOORD0[0].Data;
+	out_TEXCOORD1.Data.xy = in_TEXCOORD1[0].Data;
+	t7.y = (-_gu_h[3].y);
+	t7.z = ((2.0*_gu_h[3].z)+(-_gu_h[3].w));
+	gl_Position.xyzw = t7;
+	gl_Layer = int(t5);
+	out_HLSLCC_LAYER_INDEX.Data = t5;
+	EmitVertex();
+	vec4 t8;
+	t8.xyzw = _gu_h[7];
+	out_TEXCOORD0.Data.xy = t0;
+	out_TEXCOORD1.Data.xy = t1;
+	t8.y = (-_gu_h[7].y);
+	t8.z = ((2.0*_gu_h[7].z)+(-_gu_h[7].w));
+	gl_Position.xyzw = t8;
+	gl_Layer = int(t4);
+	out_HLSLCC_LAYER_INDEX.Data = t4;
+	EmitVertex();
+	vec4 t9;
+	t9.xyzw = _gu_h[6];
+	out_TEXCOORD0.Data.xy = t2;
+	out_TEXCOORD1.Data.xy = t3;
+	t9.y = (-_gu_h[6].y);
+	t9.z = ((2.0*_gu_h[6].z)+(-_gu_h[6].w));
+	gl_Position.xyzw = t9;
+	gl_Layer = 4;
+	out_HLSLCC_LAYER_INDEX.Data = 4u;
+	EmitVertex();
+}
+

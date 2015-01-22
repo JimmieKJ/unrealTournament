@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ASceneCapture2D
+Crumbs:
+Description:SceneCapture2D 클래스 개요입니다.
+
+[EXCERPT:ASceneCapture2D]
+
+Scene Capture Cube (스크린 캡처 큐브)와 매우 비슷하게, Scene Capture 2D (씬 캡처 2D)는 매 프레임마다 씬의 이미지를 만듭니다. Scene Capture 2D 는 뷰 프러스텀에서 씬을 캡처한 다음 이미지로 저장한 이후에는, 머티리얼 안에서 사용할 수 있습니다.
+
+[VAR:ToolTipFullLink]
+Resources/ContentExamples/Reflections/1_7
+[/VAR]
+[/EXCERPT:ASceneCapture2D]

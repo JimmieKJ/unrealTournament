@@ -1,0 +1,64 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	BasePassVertexShader.usf: Base pass vertex shader
+=============================================================================*/
+
+#include "BasePassVertexCommon.usf"
+
+/** Entry point for the base pass vertex shader. */
+void Main(
+	FVertexFactoryInput Input,
+	OPTIONAL_VertexID
+	out FBasePassVSOutput Output
+	)
+{
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	float4 WorldPositionExcludingWPO = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float4 WorldPosition = WorldPositionExcludingWPO;
+
+	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);	
+	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPosition.xyz, TangentToLocal);
+
+	// Isolate instructions used for world position offset
+	// As these cause the optimizer to generate different position calculating instructions in each pass, resulting in self-z-fighting.
+	// This is only necessary for shaders used in passes that have depth testing enabled.
+	ISOLATE
+	{
+		WorldPosition.xyz += GetMaterialWorldPositionOffset(VertexParameters);
+	}
+
+#if USING_TESSELLATION
+	// We let the Domain Shader convert to post projection when tessellating
+	Output.Position = WorldPosition;	
+
+	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+		Output.BasePassInterpolants.WorldPositionExcludingWPO = WorldPositionExcludingWPO;
+	#endif
+#else
+	ISOLATE
+	{
+		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPosition);
+		Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
+	}
+
+	Output.BasePassInterpolants.PixelPosition = WorldPosition;
+
+	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+		Output.BasePassInterpolants.PixelPositionExcludingWPO = WorldPositionExcludingWPO;
+	#endif
+#endif
+
+	Output.FactoryInterpolants = VertexFactoryGetInterpolants(Input, VFIntermediates, VertexParameters);
+
+// Calculate the fog needed for translucency
+#if NEEDS_BASEPASS_FOGGING
+#if BASEPASS_ATMOSPHERIC_FOG
+	Output.BasePassInterpolants.VertexFog = CalculateVertexAtmosphericFog(WorldPosition.xyz, View.TranslatedViewOrigin.xyz);
+#else
+	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz, View.TranslatedViewOrigin);
+#endif
+#endif
+
+	OutputVertexID( Output );
+}

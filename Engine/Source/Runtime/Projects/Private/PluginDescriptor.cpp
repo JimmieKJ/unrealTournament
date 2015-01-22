@@ -1,0 +1,244 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "ProjectsPrivatePCH.h"
+#include "PluginDescriptor.h"
+
+#define LOCTEXT_NAMESPACE "PluginDescriptor"
+
+
+FPluginDescriptor::FPluginDescriptor()
+	: FileVersion(EPluginDescriptorVersion::Latest)
+	, Version(0)
+	, bEnabledByDefault(false)
+	, bCanContainContent(false)
+	, bIsBetaVersion(false)
+{ }
+
+
+bool FPluginDescriptor::Load( const FString& FileName, FText& OutFailReason )
+{
+	// Read the file to a string
+	FString FileContents;
+
+	if (!FFileHelper::LoadFileToString(FileContents, *FileName))
+	{
+		OutFailReason = FText::Format(LOCTEXT("FailedToLoadDescriptorFile", "Failed to open descriptor file '{0}'"), FText::FromString(FileName));
+		return false;
+	}
+
+	// Deserialize a JSON object from the string
+	TSharedPtr< FJsonObject > Object;
+	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(FileContents);
+	
+	if (!FJsonSerializer::Deserialize(Reader, Object) || !Object.IsValid() )
+	{
+		OutFailReason = FText::Format(LOCTEXT("FailedToReadDescriptorFile", "Failed to read file. {0}"), FText::FromString(Reader->GetErrorMessage()));
+		return false;
+	}
+
+	// Parse it as a plug-in descriptor
+	return Read(*Object.Get(), OutFailReason);
+}
+
+
+bool FPluginDescriptor::Read( const FJsonObject& Object, FText& OutFailReason )
+{
+	// Read the file version
+	int32 FileVersionInt32;
+
+	if(!Object.TryGetNumberField(TEXT("FileVersion"), FileVersionInt32))
+	{
+		if(!Object.TryGetNumberField(TEXT("PluginFileVersion"), FileVersionInt32))
+		{
+			OutFailReason = LOCTEXT("InvalidProjectFileVersion", "File does not have a valid 'FileVersion' number.");
+			return false;
+		}
+	}
+
+	// Check that it's within range
+	EPluginDescriptorVersion::Type FileVersion = (EPluginDescriptorVersion::Type)FileVersionInt32;
+	if ((FileVersion <= EPluginDescriptorVersion::Invalid) || (FileVersion > EPluginDescriptorVersion::Latest))
+	{
+		FText ReadVersionText = FText::FromString(FString::Printf(TEXT("%d"), (int32)FileVersion));
+		FText LatestVersionText = FText::FromString(FString::Printf(TEXT("%d"), (int32)EPluginDescriptorVersion::Latest));
+		OutFailReason = FText::Format( LOCTEXT("ProjectFileVersionTooLarge", "File appears to be in a newer version ({0}) of the file format that we can load (max version: {1})."), ReadVersionText, LatestVersionText);
+		return false;
+	}
+
+	// Read the other fields
+	Object.TryGetNumberField(TEXT("Version"), Version);
+	Object.TryGetStringField(TEXT("VersionName"), VersionName);
+	Object.TryGetStringField(TEXT("FriendlyName"), FriendlyName);
+	Object.TryGetStringField(TEXT("Description"), Description);
+
+	if (!Object.TryGetStringField(TEXT("Category"), Category))
+	{
+		// Category used to be called CategoryPath in .uplugin files
+		Object.TryGetStringField(TEXT("CategoryPath"), Category);
+	}
+        
+	// Due to a difference in command line parsing between Windows and Mac, we shipped a few Mac samples containing
+	// a category name with escaped quotes. Remove them here to make sure we can list them in the right category.
+	if (Category.Len() >= 2 && Category.StartsWith(TEXT("\"")) && Category.EndsWith(TEXT("\"")))
+	{
+		Category = Category.Mid(1, Category.Len() - 2);
+	}
+
+	Object.TryGetStringField(TEXT("CreatedBy"), CreatedBy);
+	Object.TryGetStringField(TEXT("CreatedByURL"), CreatedByURL);
+	Object.TryGetStringField(TEXT("DocsURL"), DocsURL);
+
+	if (!FModuleDescriptor::ReadArray(Object, TEXT("Modules"), Modules, OutFailReason))
+	{
+		return false;
+	}
+
+	Object.TryGetBoolField(TEXT("EnabledByDefault"), bEnabledByDefault);
+	Object.TryGetBoolField(TEXT("CanContainContent"), bCanContainContent);
+	Object.TryGetBoolField(TEXT("IsBetaVersion"), bIsBetaVersion);
+
+	return true;
+}
+
+
+FPluginReferenceDescriptor::FPluginReferenceDescriptor( const FString &InName, bool bInEnabled )
+	: Name(InName)
+	, bEnabled(bInEnabled)
+{ }
+
+
+bool FPluginReferenceDescriptor::IsEnabledForPlatform( const FString& Platform ) const
+{
+	// If it's not enabled at all, return false
+	if(!bEnabled)
+	{
+		return false;
+	}
+
+	// If there is a list of whitelisted platforms, and this isn't one of them, return false
+	if(WhitelistPlatforms.Num() > 0 && !WhitelistPlatforms.Contains(Platform))
+	{
+		return false;
+	}
+
+	// If this platform is blacklisted, also return false
+	if(BlacklistPlatforms.Contains(Platform))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+
+bool FPluginReferenceDescriptor::Read( const FJsonObject& Object, FText& OutFailReason )
+{
+	// Get the name
+	if(!Object.TryGetStringField(TEXT("Name"), Name))
+	{
+		OutFailReason = LOCTEXT("PluginReferenceWithoutName", "Plugin references must have a 'Name' field");
+		return false;
+	}
+
+	// Get the enabled field
+	if(!Object.TryGetBoolField(TEXT("Enabled"), bEnabled))
+	{
+		OutFailReason = LOCTEXT("PluginReferenceWithoutEnabled", "Plugin references must have an 'Enabled' field");
+		return false;
+	}
+
+	// Read the description
+	Object.TryGetStringField(TEXT("Description"), Description);
+
+	// Get the platform lists
+	Object.TryGetStringArrayField(TEXT("WhitelistPlatforms"), WhitelistPlatforms);
+	Object.TryGetStringArrayField(TEXT("BlacklistPlatforms"), BlacklistPlatforms);
+
+	return true;
+}
+
+
+bool FPluginReferenceDescriptor::ReadArray( const FJsonObject& Object, const TCHAR* Name, TArray<FPluginReferenceDescriptor>& OutPlugins, FText& OutFailReason )
+{
+	const TArray< TSharedPtr<FJsonValue> > *Array;
+
+	if (Object.TryGetArrayField(Name, Array))
+	{
+		for (const TSharedPtr<FJsonValue> &Item : *Array)
+		{
+			const TSharedPtr<FJsonObject> *Object;
+
+			if (Item.IsValid() && Item->TryGetObject(Object))
+			{
+				FPluginReferenceDescriptor Plugin;
+
+				if (!Plugin.Read(*Object->Get(), OutFailReason))
+				{
+					return false;
+				}
+
+				OutPlugins.Add(Plugin);
+			}
+		}
+	}
+
+	return true;
+}
+
+
+void FPluginReferenceDescriptor::Write( TJsonWriter<>& Writer ) const
+{
+	Writer.WriteObjectStart();
+	Writer.WriteValue(TEXT("Name"), Name);
+	Writer.WriteValue(TEXT("Enabled"), bEnabled);
+
+	if (Description.Len() > 0)
+	{
+		Writer.WriteValue(TEXT("Description"), Description);
+	}
+
+	if (WhitelistPlatforms.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("WhitelistPlatforms"));
+
+		for (int Idx = 0; Idx < WhitelistPlatforms.Num(); Idx++)
+		{
+			Writer.WriteValue(WhitelistPlatforms[Idx]);
+		}
+
+		Writer.WriteArrayEnd();
+	}
+
+	if (BlacklistPlatforms.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("BlacklistPlatforms"));
+
+		for (int Idx = 0; Idx < BlacklistPlatforms.Num(); Idx++)
+		{
+			Writer.WriteValue(BlacklistPlatforms[Idx]);
+		}
+
+		Writer.WriteArrayEnd();
+	}
+
+	Writer.WriteObjectEnd();
+}
+
+
+void FPluginReferenceDescriptor::WriteArray( TJsonWriter<>& Writer, const TCHAR* Name, const TArray<FPluginReferenceDescriptor>& Plugins )
+{
+	if( Plugins.Num() > 0)
+	{
+		Writer.WriteArrayStart(Name);
+
+		for (int Idx = 0; Idx < Plugins.Num(); Idx++)
+		{
+			Plugins[Idx].Write(Writer);
+		}
+
+		Writer.WriteArrayEnd();
+	}
+}
+
+
+#undef LOCTEXT_NAMESPACE

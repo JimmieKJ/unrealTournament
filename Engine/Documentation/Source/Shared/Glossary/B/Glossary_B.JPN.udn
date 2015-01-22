@@ -1,0 +1,89 @@
+﻿INTSourceChangelist:2033300
+Title:B
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+[EXCERPT:Glossary_B]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+ブループリント
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Blueprints]
+**ブループリント** は、アンリアル エディタを使用したゲームプレイ エレメントの作成に、ノードをベースとするインターフェースの概念を基礎としたビジュアル ゲームプレイ スクリプティング システム一式です。プログラミング言語や言語がサポートする機能など、通常はプログラマー専用である幅広いコンセプトおよびツールの提供を可能にする柔軟性に優れた高性能システムです。
+
+Level ブループリント、 Class ブループリント、ブループリント マクロライブラリ、そして Animation ブループリントなど数種類のブループリントがあります。
+[/EXCERPT:Glossary_Blueprints]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+ブループリント エディタ
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_BlueprintEditor]
+**ブループリント エディタ** の本質は、ノードベースのグラフ エディタです。ターゲットとなる情報を提供し、ブループリントとそのグラフへの追加修正を可能にする追加ウィンドウが幾つかあります。
+[/EXCERPT:Glossary_BlueprintEditor]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+ブループリント インターフェース
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_BlueprintInterface]
+**ブループリント インターフェース** は、未定義の関数が作成されるアセットのタイプです。どのブループリントでも、このインターフェースの実装と、これらの関数独自の定義の作成が可能です。これは、ブループリント間での相互通信、特に 1 つのブループリントが複数のブループリントと相互作用する場合の手段の 1 つです。
+[/EXCERPT:Glossary_BlueprintInterface]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Blueprint Macro Library (ブループリント マクロライブラリ)
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_BlueprintMacroLibrary]
+**Blueprint Macro Library** は、他のブループリントへノードとして配置可能なマクロのコレクションや内蔵グラフを保持するブループリントコンテナです。良く使用するノードのシーケンスや実行とデータ移行両方の入出力データを備えているため、時間節約の手段となります。マクロは参照される全グラフで共有されますが、コンパイル時の折りたたまれたノードのようにグラフ内へ自動的に展開されます。つまり、ブループリント マクロライブラリはコンパイルを必要としませんが、マクロの変更は、ブループリントを含んだグラフの再コンパイル時のみマクロを参照するグラフへ反映されます。
+[/EXCERPT:Glossary_BlueprintMacroLibrary]
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+ブラシ
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_Brush]
+**ブラシ** は、ジオメトリおよびゲームプレイ ボリュームの定義に使用する 3D ボリュームです。また、サーフェスやシーン上に (カラーなどの) 値のペイントに使用できるユーザー インターフェース ツールでもあります。
+[/EXCERPT:Glossary_Brush]
+ 
+	[/PARAM]
+[/OBJECT]
+
+
+[/EXCERPT:Glossary_B]

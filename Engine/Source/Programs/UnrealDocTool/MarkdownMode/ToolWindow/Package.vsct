@@ -1,0 +1,332 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!--  This is the file that defines the actual layout and type of the commands.
+        It is divided in different sections (e.g. command definition, command
+        placement, ...), with each defining a specific set of properties.
+        See the comment before each section for more details about how to
+        use it. -->
+
+  <!--  The VSCT compiler (the tool that translates this file into the binary 
+        format that VisualStudio will consume) has the ability to run a preprocessor 
+        on the vsct file; this preprocessor is (usually) the C++ preprocessor, so 
+        it is possible to define includes and macros with the same syntax used 
+        in C++ files. Using this ability of the compiler here, we include some files 
+        defining some of the constants that we will use inside the file. -->
+
+  <!--This is the file that defines the IDs for all the commands exposed by VisualStudio. -->
+  <Extern href="stdidcmd.h"/>
+
+  <!--This header contains the command ids for the menus provided by the shell. -->
+  <Extern href="vsshlids.h"/>
+
+  <!--The Commands section is where we the commands, menus and menu groups are defined.
+      This section uses a Guid to identify the package that provides the command defined inside it. -->
+  <Commands package="guidMarkdownPackagePkg">
+    <!-- Inside this section we have different sub-sections: one for the menus, another  
+    for the menu groups, one for the buttons (the actual commands), one for the combos 
+    and the last one for the bitmaps used. Each element is identified by a command id that  
+    is a unique pair of guid and numeric identifier; the guid part of the identifier is usually  
+    called "command set" and is used to group different command inside a logically related  
+    group; your package should define its own command set in order to avoid collisions  
+    with command ids defined by other packages. -->
+
+    <Menus>
+      <!--  To define an element in this group you need an ID, a parent group, a display priority,
+            a menu type, a name and a default text. -->
+      <!-- Editor Toolbar -->
+      <Menu guid="guidMarkdownPackageCmdSet" id="MarkdownToolbar" priority="0x100" type="Toolbar">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownToolbar"/>
+        <CommandFlag>DefaultDocked</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Epic Markdown Mode Toolbar</ButtonText>
+        </Strings>
+      </Menu>
+    </Menus>
+
+    <Groups>
+      <Group guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup" priority="0x0100">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownToolbar"/>
+      </Group>
+      <Group guid="guidMarkdownPackageCmdSet" id="MarkdownMenuDoxygenGroup" priority="0x0101">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownToolbar"/>
+      </Group>
+      <Group guid="guidMarkdownPackageCmdSet" id="MarkdownMenuP4Group" priority="0x0102">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownToolbar"/>
+      </Group>
+      <Group guid="guidMarkdownPackageCmdSet" id="MarkdownContextMenuGroup" priority="0x0103">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN"/>
+      </Group>
+      <Group guid="guidMarkdownPackageCmdSet" id="MarkdownContextSLNEXPItem" priority="0x0104">
+        <Parent guid ="guidSHLMainMenu" id="IDM_VS_CTXT_ITEMNODE"/>
+      </Group>
+      <Group guid="guidMarkdownPackageCmdSet" id="MarkdownParseOptions" priority="0x0105">
+        <Parent guid ="guidMarkdownPackageCmdSet" id="MarkdownToolbar"/>
+      </Group>
+    </Groups>
+    
+    <!--Buttons section. -->
+    <!--This section defines the elements the user can interact with, like a menu command or a button 
+        or combo box in a toolbar. -->
+    <Buttons>
+      <!--To define a menu group you have to specify its ID, the parent menu and its display priority. 
+          The command is visible and enabled by default. If you need to change the visibility, status, etc, you can use
+          the CommandFlag node.
+          You can add more than one CommandFlag node e.g.:
+              <CommandFlag>DefaultInvisible</CommandFlag>
+              <CommandFlag>DynamicVisibility</CommandFlag>
+          If you do not want an image next to your command, remove the Icon node or set it to <Icon guid="guidOfficeIcon" id="msotcidNoIcon" /> -->
+
+      <Button guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownPreviewWindow" priority="0x0101" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPic2" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownPreviewWindow</CommandName>
+          <ButtonText>&amp;Markdown Preview Window</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownOpenImagesFolder" priority="0x0102" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPic1" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownOpenImagesFolder</CommandName>
+          <ButtonText>&amp;Open Images Folder</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid ="guidMarkdownPackageCmdSet" id="cmdidMarkdownPreviewPage" priority="0x0103" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPicPreview"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownPreviewPage</CommandName>
+          <ButtonText>&amp;Markdown Preview Page</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid ="guidMarkdownPackageCmdSet" id="cmdidMarkdownPublishPage" priority="0x0104" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPicPublish"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownPublishPage</CommandName>
+          <ButtonText>&amp;Markdown Publish Page</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid ="guidMarkdownPackageCmdSet" id="cmdidMarkdownPublishRecursive" priority="0x0105" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPicPubRecursive"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownPublishRecursive</CommandName>
+          <ButtonText>&amp;Markdown Publish Recursive</ButtonText>
+        </Strings>
+      </Button>
+
+      <!---Solution Explorer Context Menu items for Publishing -->
+      
+      <Button guid ="guidMarkdownPackageCmdSet" id="cmdidMarkdownPublishPagesCtxt" priority="0x0101" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownContextSLNEXPItem"/>
+        <Icon guid="guidImages" id="bmpPicPublish"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownPublishPagesCtxt</CommandName>
+          <ButtonText>&amp;Markdown - Publish File(s)</ButtonText>
+        </Strings>
+      </Button>
+      
+      <Button guid ="guidMarkdownPackageCmdSet" id="CmdidMarkdownPublishRecursiveCtxt" priority="0x0102" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownContextSLNEXPItem"/>
+        <Icon guid="guidImages" id="bmpPicPubRecursive"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>CmdidMarkdownPublishRecursiveCtxt</CommandName>
+          <ButtonText>&amp;Markdown - Publish Recursive</ButtonText>
+        </Strings>
+      </Button>
+
+      <!---Code Window Context Menu Items for changing text styles -->
+
+      <Button guid ="guidMarkdownPackageCmdSet" id="cmdidMarkdownBoldText" priority="0x0101" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownContextMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPicBold" />
+        <Strings>
+          <CommandName>SetTextStyleBold</CommandName>
+          <ButtonText>Bold</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid ="guidMarkdownPackageCmdSet" id="cmdidMarkdownItalicText" priority="0x0102" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownContextMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPicItalic" />
+        <Strings>
+          <CommandName>SetTextStyleBold</CommandName>
+          <ButtonText>Italic</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid ="guidMarkdownPackageCmdSet" id="cmdidMarkdownCodeText" priority="0x0103" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownContextMenuGroup"/>
+        <Icon guid="guidImages" id="bmpPicCode" />
+        <Strings>
+          <CommandName>SetTextStyleBold</CommandName>
+          <ButtonText>Code</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownPublishList" type="Button" priority="0x300">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup" />
+        <CommandFlag>DynamicItemStart</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownPublishList</CommandName>
+          <ButtonText></ButtonText>
+          <ToolTipText>Publish flags: </ToolTipText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownRebuildDoxygenDatabase" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuDoxygenGroup"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownRebuildDoxygenDatabase</CommandName>
+          <ButtonText>&amp;Rebuild doxygen database</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownCheckP4Images" priority="0x0100" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuP4Group"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownCheckP4Images</CommandName>
+          <ButtonText>&amp;Check depot for images</ButtonText>
+        </Strings>
+      </Button>
+
+    <Button guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownDisableParsing" priority="0x0100" type="Button">
+      <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownParseOptions"/>
+      <CommandFlag>DynamicVisibility</CommandFlag>
+      <CommandFlag>DefaultDisabled</CommandFlag>
+      <Strings>
+        <CommandName>cmdidMarkdownDisableParsing</CommandName>
+        <ButtonText>&amp; Disable Parsing</ButtonText>
+      </Strings>
+    </Button>
+
+      <Button guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownDisableHighlighting" priority="0x0101" type="Button">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownParseOptions"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <CommandName>cmdidMarkdownDisableHighlighting</CommandName>
+          <ButtonText>&amp;Disable Highlighting</ButtonText>
+        </Strings>
+      </Button>  
+      
+    </Buttons>
+
+    <Combos>
+      <Combo guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownNavigateToCombo" priority="0x0200" type="IndexCombo" defaultWidth="130" idCommandList="cmdidMarkdownNavigateToComboGetList">
+        <Parent guid="guidMarkdownPackageCmdSet" id="MarkdownMenuGroup"/>
+        <CommandFlag>IconAndText</CommandFlag>
+        <CommandFlag>CommandWellOnly</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <MenuText>Navigate to: </MenuText>
+          <ButtonText>Navigate to: </ButtonText>
+        </Strings>
+      </Combo>
+    </Combos>
+   
+    <!--The bitmaps section is used to define the bitmaps that are used for the commands.-->
+    <Bitmaps>
+      <Bitmap guid="guidImages" href="..\Resources\Images_24bit.bmp" usedList="bmpPic1, bmpPic2, bmpPicSearch, bmpPicX, bmpPicArrows,bmpPicBold,bmpPicItalic,bmpPicCode,bmpPicPreview,bmpPicPublish,bmpPicPubRecursive"/>
+    </Bitmaps>
+
+  </Commands>
+
+  <VisibilityConstraints>
+    <VisibilityItem guid="guidMarkdownPackageCmdSet" id="MarkdownToolbar" context="UICONTEXT_MarkdownMode" />
+  </VisibilityConstraints>
+
+  <KeyBindings>
+    <KeyBinding guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownPreviewWindow" key1="w" mod1="alt" editor="guidVSStd97"></KeyBinding>
+    <KeyBinding guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownOpenImagesFolder" key1="F" mod1="alt" editor="guidVSStd97"></KeyBinding>
+    <KeyBinding guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownRebuildDoxygenDatabase" key1="D" mod1="alt" editor="guidVSStd97"></KeyBinding>
+    <KeyBinding guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownBoldText" editor="guidVSStd97" key1="B" mod1="alt"></KeyBinding>
+    <KeyBinding guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownItalicText" editor="guidVSStd97" key1="I" mod1="alt"></KeyBinding>
+    <KeyBinding guid="guidMarkdownPackageCmdSet" id="cmdidMarkdownCodeText" editor="guidVSStd97" key1="C" mod1="alt"></KeyBinding>
+  </KeyBindings>
+
+  <Symbols>
+    <!-- This is the package guid. -->
+    <GuidSymbol name="guidMarkdownPackagePkg" value="{06fa6fbc-681e-4fdc-bd58-81e8401c5e00}" />
+
+    <GuidSymbol name="UICONTEXT_MarkdownMode" value="{E12EADF7-291A-4E55-AD07-390DAC69BB4D}" />
+    
+    <!-- This is the guid used to group the menu commands together -->
+    <GuidSymbol name="guidMarkdownPackageCmdSet" value="{36c5243f-48c6-4666-bc21-8c398b312f0f}">
+      <IDSymbol name="cmdidMarkdownOpenImagesFolder" value="0x0101" />
+      <IDSymbol name="cmdidMarkdownPreviewWindow" value="0x0102" />
+      <IDSymbol name="cmdidMarkdownRebuildDoxygenDatabase" value="0x0103" />
+      <IDSymbol name="cmdidMarkdownCheckP4Images" value="0x0104" />
+      <IDSymbol name="cmdidMarkdownBoldText" value="0x0105" />
+      <IDSymbol name="cmdidMarkdownItalicText" value="0x0106" />
+      <IDSymbol name="cmdidMarkdownCodeText" value="0x0107" />
+      <IDSymbol name="cmdidMarkdownPreviewPage" value ="0x0108" />
+      <IDSymbol name="cmdidMarkdownPublishPage" value ="0x0109" />
+      <IDSymbol name="cmdidMarkdownPublishRecursive" value ="0x01110" />
+      <IDSymbol name="CmdidMarkdownPublishRecursiveCtxt" value="0x0111"/>
+      <IDSymbol name="cmdidMarkdownPublishPagesCtxt" value="0x0112"/>
+      <IDSymbol name="cmdidMarkdownDisableParsing" value="0x0113"/>
+      <IDSymbol name="cmdidMarkdownDisableHighlighting" value="0x0114"/>
+
+      <IDSymbol name="MarkdownToolbar" value="0x1020"/>
+      <IDSymbol name="MarkdownMenuGroup" value="0x1021"/>
+      <IDSymbol name="MarkdownMenuDoxygenGroup" value="0x1022"/>
+      <IDSymbol name="MarkdownMenuP4Group" value="0x1023" />
+      <IDSymbol name="MarkdownContextMenuGroup" value="0x1024"/>
+      <IDSymbol name="MarkdownContextSLNEXPItem" value="0x1025"/>
+      <IDSymbol name="MarkdownContextSLNEXPMultiItem" value="0x1026"/>
+      <IDSymbol name="MarkdownParseOptions" value="0x01027"/>
+
+      <IDSymbol name="cmdidMarkdownNavigateToCombo" value="0x0131" />
+      <IDSymbol name="cmdidMarkdownNavigateToComboGetList" value="0x0132" />
+
+      <IDSymbol name="cmdidMarkdownPublishList" value="0x9000" />
+      
+    </GuidSymbol>
+    
+    <GuidSymbol name="guidImages" value="{4fa980d8-e34f-4456-bddc-ce863534a48d}" >
+      <IDSymbol name="bmpPic1" value="1" />
+      <IDSymbol name="bmpPic2" value="2" />
+      <IDSymbol name="bmpPicSearch" value="3" />
+      <IDSymbol name="bmpPicX" value="4" />
+      <IDSymbol name="bmpPicArrows" value="5" />
+      <IDSymbol name="bmpPicBold" value="6" />
+      <IDSymbol name="bmpPicItalic" value="7" />
+      <IDSymbol name="bmpPicCode" value="8" />
+      <IDSymbol name="bmpPicPreview" value="9"/>
+      <IDSymbol name="bmpPicPublish" value="10"/>
+      <IDSymbol name="bmpPicPubRecursive" value="11"/>
+    </GuidSymbol>
+  </Symbols>
+
+</CommandTable>

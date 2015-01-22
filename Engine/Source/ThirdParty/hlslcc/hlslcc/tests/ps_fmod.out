@@ -1,0 +1,14 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Outputs: f4:out_Target0,f4:out_Target1
+#version 150
+out vec4 out_Target0;
+out vec4 out_Target1;
+void main()
+{
+	out_Target0.xyzw = vec4(0.50000000,-0.50000000,0.50000000,-0.50000000);
+	out_Target1.xyzw = vec4(2.0,-3.0,2.0,-2.0);
+}
+

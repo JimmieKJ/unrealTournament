@@ -1,0 +1,50 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessMaterialShaders.usf: Shaders for rendering post process materials
+=============================================================================*/
+
+#include "Common.usf"
+#include "Material.usf"
+
+void MainVS(
+	in float4 InPosition : ATTRIBUTE0,
+	out float4 OutScreenPosition : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	DrawRectangle(InPosition,  OutPosition);
+	OutScreenPosition = OutPosition;
+}
+
+void MainPS(
+	in float4 ScreenPosition : TEXCOORD0,
+	in float4 SvPosition : SV_Position,
+	out float4 OutColor : SV_Target0
+	)
+{
+	FMaterialPixelParameters Parameters = MakeInitializedMaterialPixelParameters();
+
+	float2 ScreenUV = ScreenAlignedPosition(ScreenPosition);
+
+#if NUM_MATERIAL_TEXCOORDS
+	for(int CoordinateIndex = 0;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex++)
+	{
+		Parameters.TexCoords[CoordinateIndex] = ScreenUV;
+	}
+#endif
+
+	Parameters.VertexColor = 1;
+
+	// Deproject quad pixel position into world
+	float SceneDepth = CalcSceneDepth(ScreenUV);
+	float3 ScreenVector = mul(float4(ScreenPosition.xy, 1, 0), View.ScreenToWorld).xyz;
+	float3 WorldPosition = ScreenVector * SceneDepth;
+
+	// fill out other related material parameters
+	CalcMaterialParameters(Parameters, SvPosition, true, float4(WorldPosition, 1));
+	Parameters.ScreenPosition = ScreenPosition;
+
+	// Grab emissive colour as output
+	OutColor = float4(GetMaterialEmissive(Parameters), 1);
+} 

@@ -1,0 +1,74 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessBloom.usf: PostProcessing bloom
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+// vertex shader entry point
+void MainPostprocessCommonVS(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 InTexCoord : ATTRIBUTE1,
+	out float4 OutTexCoord : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);
+	OutTexCoord.zw =  OutPosition.xy;
+}
+
+// vertex shader entry point
+void MainVS(
+	in float4 InPosition : ATTRIBUTE0,
+	in float2 InTexCoord : ATTRIBUTE1,
+	out float4 OutTexCoord : TEXCOORD0,
+	out float OutExposureScale : TEXCOORD1,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	MainPostprocessCommonVS(InPosition, InTexCoord, OutTexCoord, OutPosition);
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+	// texture can be GWhiteTexture which is 1x1. It's important we don't read outside bounds.
+	OutExposureScale = EyeAdaptation.Load(int3(0, 0, 0)).r;
+#else
+	OutExposureScale = 1;
+#endif
+}
+
+// x:BloomThreshold, yz:unused, w:ExposureScale (useful if eyeadaptation is locked)
+float4 BloomThreshold;
+// -----------------------------
+// bloom threshold
+void MainPS(
+	  float4 UVAndScreenPos : TEXCOORD0
+	, float InExposureScale : TEXCOORD1
+	, out float4 OutColor : SV_Target0)
+{
+	float2 UV = UVAndScreenPos.xy;
+
+	half4 SceneColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
+
+	// clamp to avoid artifacts from exceeding fp16 through framebuffer blending of multiple very bright lights
+	SceneColor.rgb = min(float3(256 * 256, 256 * 256, 256 * 256), SceneColor.rgb);
+	
+	half3 LinearColor = SceneColor.rgb;
+
+	float ExposureScale = InExposureScale;
+
+#if NO_EYEADAPTATION_EXPOSURE_FIX 
+	ExposureScale = BloomThreshold.w;
+#endif
+
+	// todo: make this adjustable (e.g. LUT)
+	half TotalLuminance = Luminance( LinearColor ) * ExposureScale;
+	half BloomLuminance = TotalLuminance - BloomThreshold.x;
+	// mask 0..1
+	half BloomAmount = saturate(BloomLuminance / 2.0f);
+
+	OutColor = float4(BloomAmount * LinearColor, 0);
+}
+
+

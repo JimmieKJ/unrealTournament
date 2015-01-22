@@ -1,0 +1,104 @@
+//-----------------------------------------------------------------------------
+// File:		PostProcessLpvIndirect.usf
+//
+// Summary:		Light propagation volume postprocessing
+//
+// Created:		11/03/2013
+//
+// Author:		mailto:benwood@microsoft.com
+//
+//				Copyright (C) Microsoft. All rights reserved.
+//-----------------------------------------------------------------------------
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+#include "DeferredLightingCommon.usf"
+#include "Random.usf"
+#include "LPVFinalPass.usf"
+
+#define MULTIPLE_SPEC_LOOKUPS 1
+
+float3 LpvSpecularHighQuality( float3 WorldPosition, float3 R, float Roughness )
+{
+	// Decreased roughness results in longer ray offsets and higher frequency reflections 
+	float Smooth = 1.0f-Roughness;
+	float offset = Smooth * Smooth * Smooth * Smooth *  8.0f;
+	float3 specularOut = LPVSpecular( WorldPosition, R, offset ); 
+
+	// To prevent artifacts from very long ray lookups, we do multiple lookups and combine 
+	// with a weighting favouring brighter/further samples
+#if MULTIPLE_SPEC_LOOKUPS
+	[branch] 
+	if ( offset > 5.0f )
+	{
+		float3 spec1 = LPVSpecular( WorldPosition, R, offset * 0.5 ); 
+		float l1 = dot( spec1, float3(0.299f,0.587f,0.114f) ) * 0.25;
+		float l2 = dot( specularOut, float3(0.299f,0.587f,0.114f) ) * 0.75;
+		specularOut = lerp( spec1, specularOut, l2/((l1+l2)+0.0001f) );
+	}
+	[branch] 
+	if ( offset > 1.0f )
+	{
+		float3 spec1 = LPVLookup( WorldPosition, R ); 
+		float l1 = dot( spec1, float3(0.299f,0.587f,0.114f) ) * 0.25;
+		float l2 = dot( specularOut, float3(0.299f,0.587f,0.114f) ) * 0.75;
+		specularOut = lerp( spec1, specularOut, l2/((l1+l2)+0.0001f) );
+	}
+#endif
+
+	return specularOut;
+}
+
+void MainPS(in float4 UVAndScreenPos : TEXCOORD0, float4 SVPos: SV_POSITION, out float4 OutColor : SV_Target0)
+{
+	float2 UV = UVAndScreenPos.xy; 
+
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);  
+	FGBufferData GBuffer = ScreenSpaceData.GBuffer;
+	 
+	// screen position in [-1, 1] screen space 
+	float2 ScreenSpacePos = UVAndScreenPos.zw;
+
+	float3 ScreenVectorU = mul(float4(ScreenSpacePos, 1, 0), View.ScreenToWorld).xyz;
+	float3 ScreenVector = normalize(ScreenVectorU); 
+
+	float SceneDepth = CalcSceneDepth(UV);
+	float3 WorldPosition = ScreenVectorU * SceneDepth + View.ViewOrigin.xyz;
+
+	float3 grid = WorldToGrid( WorldPosition );
+	float minGrid = min( grid.x, min(grid.y,grid.z ) );
+	float maxGrid = max( grid.x, max(grid.y,grid.z ) );
+
+	[branch]
+	if ( minGrid >= 0.0f && maxGrid <= 32.0f )
+	{
+		float3 R = reflect( ScreenVector, GBuffer.WorldNormal );
+
+		float3 LpvDiffuse = LPVLookup( WorldPosition, GBuffer.WorldNormal );
+
+		float3 Diffuse = GBuffer.DiffuseColor * LpvDiffuse;
+
+		float3 LpvSpecular = 0;
+		[branch]
+		if ( dot( GBuffer.SpecularColor.xyz, GBuffer.SpecularColor.xyz ) >= 0.00001f )
+		{
+			LpvSpecular = LpvSpecularHighQuality( WorldPosition, R, GBuffer.Roughness );
+		}
+	
+		// apply darkening from ambient occlusion (does not use PostprocessInput1 to set white texture if SSAO is off)
+		float AmbientOcclusion = GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion;
+
+		// diffuse
+		OutColor = float4( Diffuse.xyz, 0 );
+
+		// specular
+		OutColor += float4( LpvSpecular * EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, dot(GBuffer.WorldNormal, -ScreenVector) ), 0 );
+
+		// AO
+		OutColor.rgb *= AmbientOcclusion;
+	}
+	else
+	{
+		OutColor = 0;
+	}
+}

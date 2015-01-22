@@ -1,0 +1,30 @@
+﻿Title:W
+Crumbs:Shared/Glossary
+Description:
+Availability:Public
+
+[EXCERPT:Glossary_W]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Widget（ウィジェット）
+	[/PARAM]
+	[PARAM:Definition]
+レベルエディタで使用するビジュアルツールです。ウィジェットは一般的にビューポートをビジュアルで表現します。例えばMoveツールは、X、Y、Z軸を示す赤、緑、そして青を矢印が表示されます。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+Wire（ワイヤー）
+	[/PARAM]
+	[PARAM:Definition]
+ブループリントのグラフセクションで、2つのノードを接続しているラインです。ワイヤーはノードのピンからドラッグして作成します。ピンのドラッグ時にコンテクストメニューが作成されて、グラフに追加する別ノードを選択することができます。
+	[/PARAM]
+[/OBJECT]
+
+
+[/EXCERPT:Glossary_W]
+
+
+

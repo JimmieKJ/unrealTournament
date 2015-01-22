@@ -1,0 +1,253 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	Tessellation.usf: Shader #include dispatch for tessellation
+=============================================================================*/
+
+/** Returns the texture coordinate for the vertex. */
+float2 GetTextureCoordinateDS( FPassSpecificVSToDS Vertex )
+{
+	return VertexFactoryGetTextureCoordinateDS( Vertex.FactoryInterpolants );
+}
+
+/** Returns the normal for the vertex. */
+float4 GetNormalDS( float3x3 TangentToWorld )
+{
+	return float4(TangentToWorld[2], 0);
+}
+
+
+/** Returns the tangent for the vertex. */
+float3 GetTangentDS( float3x3 TangentToWorld )
+{
+	return TangentToWorld[0];
+}
+
+/** 
+ * Optionally use Dominant Edge and Corner method to avoid cracks on corners and edges due to displacement map offsets.
+ * Dominant Edges are determined dynamically from AEN data, by order on UV
+ * Dominant Corners are determined offline and appended to the AEN data
+ */
+#if DISPLACEMENT_ANTICRACK
+
+	struct FHullShaderConstantDominantEdgeData
+	{
+		float2 UV0;
+		float2 UV1;	
+		float4 Normal0;
+		float4 Normal1;
+		float3 Tangent0;
+		float3 Tangent1;
+	};
+
+	struct FHullShaderConstantDominantVertexData
+	{
+		float2 UV;
+		float4 Normal;
+		float3 Tangent;
+	};
+
+#endif
+
+#if HULLSHADER
+// Converts the Local space scales to tangent space (note flipped order on mul)
+float3 GetTangentSpaceNonUniformScales(float3x3 TangentToLocal)
+{
+	return mul(TangentToLocal, Primitive.NonUniformScale.xyz);
+}
+
+float GetTessellationMultiplier(FPassSpecificVSToDS I)
+{
+	FMaterialTessellationParameters MaterialParameters = GetMaterialTessellationParameters(I.FactoryInterpolants, I.Position.xyz);
+	return GetMaterialTessellationMultiplier(MaterialParameters);
+}
+
+// get diameter of a bounding sphere in post projection (scaled by post proj z of origin) in Y.
+float GetPostProjectionSphereExtent( float3 Origin, float Diameter )
+{
+	float4 ClipPos = mul( float4( Origin, 1.0 ), View.TranslatedWorldToClip );
+	// Saturate to prevent NANs/INFs if ClipPos.w is near zero.
+	float ClipY = saturate(abs(Diameter * View.ViewToClip._m11 / ClipPos.w));
+	return ClipY;
+}
+
+// This is a heuristic that maps a bounding sphere on relevant edges/primitive to post projection space and uses that to scale the tessellation on the edges/primitive.
+//
+// Returns float4 where:
+// X - 0->1 Edge tessellation factor
+// Y - 1->2 Edge tessellation factor
+// Z - 2->0 Edge tessellation factor
+// W - inside tessellation factor
+float4 CalculateCompositeTessellationFactors(float3 Control0, float3 Control1, float3 Control2)
+{
+#if USE_ADAPTIVE_TESSELLATION_FACTOR
+	float Edge0 = distance(Control0, Control1);
+	float Edge1 = distance(Control1, Control2);
+	float Edge2 = distance(Control2, Control0);
+
+	// Average lengths to get an inside factor.
+	float InsideDiameter = (Edge0 + Edge1 + Edge2) / 3;
+
+	// Midpoints.
+	float3 Midpoint0 = (Control0 + Control1) / 2;
+	float3 Midpoint1 = (Control1 + Control2) / 2;
+	float3 Midpoint2 = (Control2 + Control0) / 2;
+	float3 MidpointAll = (Control0 + Control1 + Control2) / 3;
+
+	float4 CompositeFactors = float4(
+		GetPostProjectionSphereExtent( Midpoint1, Edge1 ),
+		GetPostProjectionSphereExtent( Midpoint2, Edge2 ),
+		GetPostProjectionSphereExtent( Midpoint0, Edge0 ),
+		GetPostProjectionSphereExtent( MidpointAll, InsideDiameter ) );
+
+	// The adaptive tessellation factor is 0.5 * ViewSizeY / PixelsPerEdge and CompositeFactors is 2 * PercentageOfScreen.  
+	return View.AdaptiveTessellationFactor * CompositeFactors;
+#else
+	return float4( 1.0,1.0,1.0,1.0 );
+#endif
+}
+
+#if DISPLACEMENT_ANTICRACK
+
+	/**
+	 * Use a heuristic to determine which Edge (point pair) will be the dominant Edge. 
+	 * The heuristic should be consistent across the entire mesh.
+	 * Current heuristic is the smallest UV from the control points.
+	 */
+	FHullShaderConstantDominantEdgeData GenerateDominantEdgeData(FPassSpecificVSToDS Edge0Vert0,FPassSpecificVSToDS Edge0Vert1,FPassSpecificVSToDS Edge1Vert0,FPassSpecificVSToDS Edge1Vert1)
+	{
+		FHullShaderConstantDominantEdgeData Result = (FHullShaderConstantDominantEdgeData)0;
+		FPassSpecificVSToDS DominantVert0 = Edge0Vert0;
+		FPassSpecificVSToDS DominantVert1 = Edge0Vert1;
+
+		if ( Edge1Vert0.VertexID < Edge0Vert0.VertexID ||
+			(Edge1Vert0.VertexID == Edge0Vert0.VertexID && Edge1Vert1.VertexID < Edge0Vert1.VertexID ) )
+		{
+			DominantVert0 = Edge1Vert0;	
+			DominantVert1 = Edge1Vert1;
+		}
+
+		#if NUM_MATERIAL_TEXCOORDS
+			Result.UV0 = GetTextureCoordinateDS( DominantVert0 );
+			Result.UV1 = GetTextureCoordinateDS( DominantVert1 );
+		#endif
+
+		float3x3 TangentBasis0 = VertexFactoryGetTangentToLocalDS(DominantVert0.FactoryInterpolants);
+		float3x3 TangentBasis1 = VertexFactoryGetTangentToLocalDS(DominantVert1.FactoryInterpolants);
+
+		Result.Normal0 = GetNormalDS( TangentBasis0 );
+		Result.Normal1 = GetNormalDS( TangentBasis1 );
+
+		Result.Tangent0 = GetTangentDS( TangentBasis0 );
+		Result.Tangent1 = GetTangentDS( TangentBasis1 );
+
+		return Result;
+	}
+
+	FHullShaderConstantDominantVertexData GenerateDominantVertexData(FPassSpecificVSToDS DominantVertex)
+	{
+		FHullShaderConstantDominantVertexData Result = (FHullShaderConstantDominantVertexData)0;
+
+		#if NUM_MATERIAL_TEXCOORDS
+			Result.UV = GetTextureCoordinateDS( DominantVertex );
+		#endif
+
+		float3x3 TangentToLocal = VertexFactoryGetTangentToLocalDS(DominantVertex.FactoryInterpolants);
+
+		Result.Normal = GetNormalDS( TangentToLocal );
+		Result.Tangent = GetTangentDS( TangentToLocal );
+		
+		return Result;
+	}
+	
+#endif	// DISPLACEMENT_ANTICRACK
+
+#endif // HULLSHADER
+
+#if DOMAINSHADER
+
+#if DISPLACEMENT_ANTICRACK
+void ApplyDominantData(
+	inout float2 DisplacementTexCoords,
+	inout float3x3 TangentToWorld,
+	float4 DisplacementNormal,
+	float3 DisplacementTangent,
+	float U,
+	float V,
+	float W,
+	FHullShaderConstantDominantEdgeData DE0,
+	FHullShaderConstantDominantEdgeData DE1,
+	FHullShaderConstantDominantEdgeData DE2,
+	FHullShaderConstantDominantVertexData DV0,
+	FHullShaderConstantDominantVertexData DV1,
+	FHullShaderConstantDominantVertexData DV2 )
+{
+	// some handy vars for our state
+	float EdgeU = (U == 0) ? 1 : 0;
+	float EdgeV = (V == 0) ? 1 : 0;
+	float EdgeW = (W == 0) ? 1 : 0;
+	float Corner = ((EdgeU + EdgeV + EdgeW) == 2) ? 1 : 0;
+	float Edge   = ((EdgeU + EdgeV + EdgeW) == 1) ? 1 : 0;
+	float Center = ((EdgeU + EdgeV + EdgeW) == 0) ? 1 : 0;
+
+	if(Corner==1)
+	{
+		// Corner masks
+		float CornerU = ((EdgeV + EdgeW) == 2) ? 1 : 0;
+		float CornerV = ((EdgeW + EdgeU) == 2) ? 1 : 0;
+		float CornerW = ((EdgeU + EdgeV) == 2) ? 1 : 0;
+
+		// Override the tex coord with the dominant vert
+		DisplacementTexCoords =	CornerU * DV0.UV +
+								CornerV * DV1.UV +
+								CornerW * DV2.UV;
+									 
+		// Override normal/tangent with dominant vert 
+		DisplacementNormal = CornerU * DV0.Normal +
+							 CornerV * DV1.Normal +
+							 CornerW * DV2.Normal;
+
+		DisplacementTangent = CornerU * DV0.Tangent +
+							  CornerV * DV1.Tangent +
+							  CornerW * DV2.Tangent;
+	}
+	else if(Edge)
+	{
+		// interpolant change based on which Edge we are on
+		#define CONDITIONAL_EDGE_INTERPOLATE(Data0, Data1) EdgeU*(V*Data0 + W*Data1) + EdgeV*(W*Data0 + U*Data1) + EdgeW*(U*Data0 + V*Data1)
+
+		// override tex coords interpolated along dominant Edge
+		float2 UV0 = EdgeU*DE0.UV0 + EdgeV*DE1.UV0 + EdgeW*DE2.UV0;
+		float2 UV1 = EdgeU*DE0.UV1 + EdgeV*DE1.UV1 + EdgeW*DE2.UV1;
+
+		DisplacementTexCoords = CONDITIONAL_EDGE_INTERPOLATE(UV0,UV1);
+
+		// pull out dominant normals depending on which Edge
+		float4 Normal0 = EdgeU*DE0.Normal0 + EdgeV*DE1.Normal0 + EdgeW*DE2.Normal0;
+		float4 Normal1 = EdgeU*DE0.Normal1 + EdgeV*DE1.Normal1 + EdgeW*DE2.Normal1;
+
+		// interpolate change based on which Edge we are on
+		DisplacementNormal = CONDITIONAL_EDGE_INTERPOLATE(Normal0,Normal1);
+
+		// pull out dominant normals depending on which Edge
+		float3 Tangent0 = EdgeU*DE0.Tangent0 + EdgeV*DE1.Tangent0 + EdgeW*DE2.Tangent0;
+		float3 Tangent1 = EdgeU*DE0.Tangent1 + EdgeV*DE1.Tangent1 + EdgeW*DE2.Tangent1;
+
+		// interpolate change based on which Edge we are on
+		DisplacementTangent = CONDITIONAL_EDGE_INTERPOLATE(Tangent0,Tangent1);
+	}
+
+	if(Center==0)	// Edge or Corner case will overwrite normal and tangent, thus recalc tangent2world
+	{
+		TangentToWorld = AssembleTangentToWorld( DisplacementTangent, DisplacementNormal );
+	}
+}
+#endif	// DISPLACEMENT_ANTICRACK
+
+#endif // DOMAINSHADER
+
+#if TESSELLATION_TYPE_FLAT
+#include "FlatTessellation.usf"
+#elif TESSELLATION_TYPE_PNTRIANGLES
+#include "PNTriangles.usf"
+#endif

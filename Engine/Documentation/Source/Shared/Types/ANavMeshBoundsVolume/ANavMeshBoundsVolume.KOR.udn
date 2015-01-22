@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ANavMeshBoundsVolume
+Crumbs:
+Description:NavMeshBoundsVolume 클래스 개요입니다.
+
+[EXCERPT:ANavMeshBoundsVolume]
+
+Nav Mesh Bounds Volume (내비 메시 바운드 볼륨)은 레벨에서 내비 메시를 계산할 곳을 제어할 수 있는 방법으로 사용됩니다.
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Volumes#Volume Types
+[/VAR]
+[/EXCERPT:ANavMeshBoundsVolume]

@@ -1,0 +1,59 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "ComponentVisualizersPrivatePCH.h"
+
+#include "ConstraintComponentVisualizer.h"
+
+static const FColor	JointFrame1Color(255,0,0);
+static const FColor JointFrame2Color(0,0,255);
+
+void FConstraintComponentVisualizer::DrawVisualization( const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI )
+{
+	const UPhysicsConstraintComponent* ConstraintComp = Cast<const UPhysicsConstraintComponent>(Component);
+	if(ConstraintComp != NULL)
+	{
+		const FConstraintInstance& Instance = ConstraintComp->ConstraintInstance;
+
+		FTransform Con1Frame, Con2Frame;
+
+		// If constraint is created, use the calculated frame
+		if(Instance.IsValidConstraintInstance())
+		{
+			FTransform BodyTransform1 = ConstraintComp->GetBodyTransform(EConstraintFrame::Frame1);
+			BodyTransform1.RemoveScaling();
+			FTransform BodyTransform2 = ConstraintComp->GetBodyTransform(EConstraintFrame::Frame2);
+			BodyTransform2.RemoveScaling();
+
+			Con1Frame = Instance.GetRefFrame(EConstraintFrame::Frame1) * BodyTransform1;
+			Con2Frame = Instance.GetRefFrame(EConstraintFrame::Frame2) * BodyTransform2;
+		}
+		// Otherwise use the component frame
+		else
+		{
+			Con1Frame = ConstraintComp->ComponentToWorld;
+			Con1Frame.RemoveScaling();
+			Con2Frame = ConstraintComp->ComponentToWorld;
+			Con2Frame.SetRotation(ConstraintComp->ConstraintInstance.AngularRotationOffset.Quaternion() * Con2Frame.GetRotation());
+			Con1Frame.RemoveScaling();
+		}
+
+		FBox Body1Box = ConstraintComp->GetBodyBox(EConstraintFrame::Frame1);
+		FBox Body2Box = ConstraintComp->GetBodyBox(EConstraintFrame::Frame2);
+
+		// Draw constraint information
+		Instance.DrawConstraint(PDI, 1.f, 1.f, true, true, Con1Frame, Con2Frame, false);
+
+		// Draw boxes to indicate bodies connected by joint.
+		if(Body1Box.IsValid)
+		{
+			PDI->DrawLine( Con1Frame.GetTranslation(), Body1Box.GetCenter(), JointFrame1Color, SDPG_World );
+			DrawWireBox(PDI, Body1Box, JointFrame1Color, SDPG_World );
+		}
+
+		if(Body2Box.IsValid)
+		{
+			PDI->DrawLine( Con2Frame.GetTranslation(), Body2Box.GetCenter(), JointFrame2Color, SDPG_World );
+			DrawWireBox(PDI, Body2Box, JointFrame2Color, SDPG_World );
+		}
+	}
+}

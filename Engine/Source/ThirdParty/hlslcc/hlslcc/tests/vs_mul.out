@@ -1,0 +1,57 @@
+----------------------------------------------------------------------
+../../../tests/vs_mul.hlsl(21): warning: implicit truncation from `mat3x4' to `mat3'
+
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.24
+// @Inputs: f4:in_POSITION
+// @Outputs: 
+// @PackedGlobals: MatrixRows(h:0,32),LocalToWorld(h:32,16)
+#version 150
+uniform vec4 _vu_h[12];
+in vec4 in_POSITION;
+out POSITION { vec4 Data; } out_POSITION;
+out MISC0 { vec4 Data; } out_MISC0;
+out MISC1 { vec4 Data; } out_MISC1;
+out MISC2 { vec4 Data; } out_MISC2;
+out MISC3 { vec4 Data; } out_MISC3;
+out MISC4 { vec4 Data; } out_MISC4;
+out MISC5 { vec4 Data; } out_MISC5;
+out MISC6 { vec4 Data; } out_MISC6;
+out MISC7 { vec4 Data; } out_MISC7;
+out MISC8 { vec4 Data; } out_MISC8;
+void main()
+{
+	vec4 t0;
+	t0.x = dot(_vu_h[0],in_POSITION);
+	t0.y = dot(_vu_h[1],in_POSITION);
+	t0.z = dot(_vu_h[2],in_POSITION);
+	t0.w = dot(_vu_h[3],in_POSITION);
+	vec4 t1;
+	t1.x = dot(_vu_h[8],in_POSITION);
+	t1.y = dot(_vu_h[9],in_POSITION);
+	t1.z = dot(_vu_h[10],in_POSITION);
+	t1.w = dot(_vu_h[11],in_POSITION);
+	vec4 t2;
+	vec4 t3;
+	vec4 t4;
+	vec4 t5;
+	t5.xyzw = ((_vu_h[0].zzzz*_vu_h[6])+((_vu_h[0].yyyy*_vu_h[5])+(_vu_h[0].xxxx*_vu_h[4])));
+	t2.xyzw = t5;
+	t5.xyzw = (_vu_h[1].xxxx*_vu_h[4]);
+	vec4 t6;
+	t6.xyzw = ((_vu_h[1].zzzz*_vu_h[6])+((_vu_h[1].yyyy*_vu_h[5])+t5));
+	t3.xyzw = t6;
+	t6.xyzw = (_vu_h[2].xxxx*_vu_h[4]);
+	t4.xyzw = ((_vu_h[2].zzzz*_vu_h[6])+((_vu_h[2].yyyy*_vu_h[5])+t6));
+	out_POSITION.Data.xyzw = ((_vu_h[11]*in_POSITION.wwww)+((_vu_h[10]*in_POSITION.zzzz)+((_vu_h[9]*in_POSITION.yyyy)+(_vu_h[8]*in_POSITION.xxxx))));
+	out_MISC0.Data.xyzw = t2;
+	out_MISC1.Data.xyzw = t3;
+	out_MISC2.Data.xyzw = t4;
+	out_MISC3.Data.xyzw = t4;
+	out_MISC4.Data.xyzw = (_vu_h[0].xxxx*_vu_h[1]);
+	out_MISC5.Data.xyzw = vec4(dot(_vu_h[0],_vu_h[1]));
+	out_MISC6.Data.xyzw = t0;
+	out_MISC7.Data.xyzw = ((_vu_h[3]*in_POSITION.wwww)+((_vu_h[2]*in_POSITION.zzzz)+((_vu_h[1]*in_POSITION.yyyy)+(_vu_h[0]*in_POSITION.xxxx))));
+	out_MISC8.Data.xyzw = t1;
+}
+

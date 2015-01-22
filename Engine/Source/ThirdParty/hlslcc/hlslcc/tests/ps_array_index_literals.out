@@ -1,0 +1,26 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: 
+// @Outputs: f4:out_Target0
+// @PackedGlobals: PossibleColors(h:0,24),ConstColorIndex(u:0,1),bConstColor(u:4,1)
+#version 150
+uniform uvec4 _pu_u[2];
+uniform vec4 _pu_h[6];
+in COLOR_INDEX1 { int Data; } in_COLOR_INDEX1;
+in COLOR_INDEX2 { uint Data; } in_COLOR_INDEX2;
+out vec4 out_Target0;
+void main()
+{
+	uint t0;
+	t0 = _pu_u[0].x;
+	vec4 t1;
+	t1.xyzw = ((_pu_h[0]+_pu_h[in_COLOR_INDEX1.Data])+_pu_h[int(in_COLOR_INDEX2.Data)]);
+	if (bool(_pu_u[1].x))
+	{
+		t1.xyzw = _pu_h[int(t0)];
+	}
+	out_Target0.xyzw = t1;
+}
+

@@ -1,0 +1,33 @@
+﻿[REGION:regionParam]
+    Block region
+[/REGION]
+
+Paragraph between.
+
+[REGION:none]
+* item
+* item
+    * nested item
+* item
+    * nested item
+[/REGION]
+
+[REGION:none]
+    * item
+    * item
+        * nested item
+    * item
+        * nested item
+[/REGION]
+
+[REGION:none]
+* item
+* item
+
+        * nested item
+* item
+
+        * nested item
+[/REGION]
+
+[REGION:regionParam2]Single line region[/REGION]

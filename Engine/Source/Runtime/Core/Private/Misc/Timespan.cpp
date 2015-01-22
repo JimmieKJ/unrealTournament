@@ -1,0 +1,173 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "CorePrivatePCH.h"
+
+
+/* FTimespan interface
+ *****************************************************************************/
+
+bool FTimespan::ExportTextItem( FString& ValueStr, FTimespan const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
+{
+	ValueStr += ToString(TEXT("%N%d.%h:%m:%s.%f"));
+
+	return true;
+}
+
+
+bool FTimespan::ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText )
+{
+	// @todo gmp: implement FTimespan::ImportTextItem
+	return false;
+}
+
+
+bool FTimespan::Serialize( FArchive& Ar )
+{
+	Ar << *this;
+
+	return true;
+}
+
+
+FString FTimespan::ToString() const
+{
+	if (GetDays() == 0)
+	{
+		return ToString(TEXT("%n%h:%m:%s.%f"));
+	}
+
+	return ToString(TEXT("%n%d.%h:%m:%s.%f"));
+}
+
+
+FString FTimespan::ToString( const TCHAR* Format ) const
+{
+	FString Result;
+
+	while (*Format != TCHAR('\0'))
+	{
+		if ((*Format == TCHAR('%')) && (*++Format != TCHAR('\0')))
+		{
+			switch (*Format)
+			{
+			case TCHAR('n'): if (Ticks < 0) Result += TCHAR('-'); break;
+			case TCHAR('N'): Result += (Ticks < 0) ? TCHAR('-') : TCHAR('+'); break;
+			case TCHAR('d'): Result += FString::Printf(TEXT("%i"), FMath::Abs(GetDays())); break;
+			case TCHAR('h'): Result += FString::Printf(TEXT("%02i"), FMath::Abs(GetHours())); break;
+			case TCHAR('m'): Result += FString::Printf(TEXT("%02i"), FMath::Abs(GetMinutes())); break;
+			case TCHAR('s'): Result += FString::Printf(TEXT("%02i"), FMath::Abs(GetSeconds())); break;
+			case TCHAR('f'): Result += FString::Printf(TEXT("%03i"), FMath::Abs(GetMilliseconds())); break;
+			case TCHAR('D'): Result += FString::Printf(TEXT("%f"), FMath::Abs(GetTotalDays())); break;
+			case TCHAR('H'): Result += FString::Printf(TEXT("%f"), FMath::Abs(GetTotalHours())); break;
+			case TCHAR('M'): Result += FString::Printf(TEXT("%f"), FMath::Abs(GetTotalMinutes())); break;
+			case TCHAR('S'): Result += FString::Printf(TEXT("%f"), FMath::Abs(GetTotalSeconds())); break;
+			case TCHAR('F'): Result += FString::Printf(TEXT("%f"), FMath::Abs(GetTotalMilliseconds())); break;
+
+			default:
+
+				Result += *Format;
+			}
+		}
+		else
+		{
+			Result += *Format;
+		}
+
+		++Format;
+	}
+
+	return Result;
+}
+
+
+/* FTimespan static interface
+ *****************************************************************************/
+
+FTimespan FTimespan::FromDays( double Days )
+{
+	check((Days >= MinValue().GetTotalDays()) && (Days <= MaxValue().GetTotalDays()));
+
+	return FTimespan(Days * ETimespan::TicksPerDay);
+}
+
+FTimespan FTimespan::FromHours( double Hours )
+{
+	check((Hours >= MinValue().GetTotalHours()) && (Hours <= MaxValue().GetTotalHours()));
+
+	return FTimespan(Hours * ETimespan::TicksPerHour);
+}
+
+FTimespan FTimespan::FromMilliseconds( double Milliseconds )
+{
+	check((Milliseconds >= MinValue().GetTotalMilliseconds()) && (Milliseconds <= MaxValue().GetTotalMilliseconds()));
+
+	return FTimespan(Milliseconds * ETimespan::TicksPerMillisecond);
+}
+
+FTimespan FTimespan::FromMinutes( double Minutes )
+{
+	check((Minutes >= MinValue().GetTotalMinutes()) && (Minutes <= MaxValue().GetTotalMinutes()));
+
+	return FTimespan(Minutes * ETimespan::TicksPerMinute);
+}
+
+FTimespan FTimespan::FromSeconds( double Seconds )
+{
+	check((Seconds >= MinValue().GetTotalSeconds()) && (Seconds <= MaxValue().GetTotalSeconds()));
+
+	return FTimespan(Seconds * ETimespan::TicksPerSecond);
+}
+
+
+bool FTimespan::Parse( const FString& TimespanString, FTimespan& OutTimespan )
+{
+	// @todo gmp: implement stricter FTimespan parsing; this implementation is too forgiving.
+	FString TokenString = TimespanString.Replace(TEXT("."), TEXT(":"));
+
+	bool Negative = TokenString.StartsWith(TEXT("-"));
+
+	TokenString.ReplaceInline(TEXT("-"), TEXT(":"));
+
+	TArray<FString> Tokens;
+	TokenString.ParseIntoArray(&Tokens, TEXT(":"), true);
+
+	if (Tokens.Num() == 4)
+	{
+		Tokens.Insert(TEXT("0"), 0);
+	}
+
+	if (Tokens.Num() == 5)
+	{
+		OutTimespan.Assign(FCString::Atoi(*Tokens[0]), FCString::Atoi(*Tokens[1]), FCString::Atoi(*Tokens[2]), FCString::Atoi(*Tokens[3]), FCString::Atoi(*Tokens[4]));
+
+		if (Negative)
+		{
+			OutTimespan.Ticks *= -1;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+
+/* FTimespan friend functions
+ *****************************************************************************/
+
+FArchive& operator<<( FArchive& Ar, FTimespan& Timespan )
+{
+	return Ar << Timespan.Ticks;
+}
+
+
+/* FTimespan implementation
+ *****************************************************************************/
+
+void FTimespan::Assign( int32 Days, int32 Hours, int32 Minutes, int32 Seconds, int32 Milliseconds )
+{
+	int64 totalms = 1000 * (60 * 60 * 24 * (int64)Days + 60 * 60 * (int64)Hours + 60 * (int64)Minutes + (int64)Seconds) + (int64)Milliseconds;
+	check((totalms >= MinValue().GetTotalMilliseconds()) && (totalms <= MaxValue().GetTotalMilliseconds()));
+
+	Ticks = totalms * ETimespan::TicksPerMillisecond;
+}

@@ -1,0 +1,169 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessVisualizeGBuffer.usf: PostProcessing shader to visualize the GBuffer
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+#include "DeferredShadingCommon.usf"
+#include "PostProcessHistogramCommon.usf"
+
+// This should match the enumeration defined in ShowFlags.h.
+// TODO: Perhaps we could share this with the C++ side?
+#define GBUFFER_VISUALIZATION_MODE_ALL				0
+#define GBUFFER_VISUALIZATION_MODE_DIFFUSE_RGB		1
+#define GBUFFER_VISUALIZATION_MODE_SPECULAR_RGB		2
+#define GBUFFER_VISUALIZATION_MODE_BASE_RGB			3
+#define GBUFFER_VISUALIZATION_MODE_SUBSURFACE_RGB	4
+#define GBUFFER_VISUALIZATION_MODE_WORLD_NORMAL		5
+#define GBUFFER_VISUALIZATION_MODE_SEP_TRANS_RGB	6
+#define GBUFFER_VISUALIZATION_MODE_SEP_TRANS_A		7
+#define GBUFFER_VISUALIZATION_MODE_OPACITY			8
+#define GBUFFER_VISUALIZATION_MODE_DECAL_MASK		9
+#define GBUFFER_VISUALIZATION_MODE_SCENE_DEPTH		10
+#define GBUFFER_VISUALIZATION_MODE_METALLIC			11
+#define GBUFFER_VISUALIZATION_MODE_SPECULAR			12
+#define GBUFFER_VISUALIZATION_MODE_ROUGHNESS		13
+#define GBUFFER_VISUALIZATION_MODE_MATERIAL_AO		14
+#define GBUFFER_VISUALIZATION_MODE_LIGHTING_MODEL	15
+
+/** Helper function for computing a distinct color per lighting model */
+float3 GetLightingModelColor(FGBufferData GBuffer)
+{
+//@todo This seems to ICE PSSL...
+#if !PS4_PROFILE
+	switch(GBuffer.LightingModelId)
+	{
+		case LIGHTINGMODELID_UNLIT: return float3(0.1f, 0.1f, 0.2f); // Dark Blue
+		case LIGHTINGMODELID_DEFAULT_LIT: return float3(0.1f, 1.0f, 0.1f); // Green
+		case LIGHTINGMODELID_SUBSURFACE: return float3(1.0f, 0.1f, 0.1f); // Red
+		case LIGHTINGMODELID_PREINTEGRATED_SKIN: return float3(0.6f, 0.4f, 0.1f); // Brown
+	}
+#endif
+	return float3(1.0f, 1.0f, 1.0f); // White
+}
+
+/** Compute the color of the given pixel in the specified GBuffer channel. Note that ChannelIndex is */
+float3 GetGBufferChannelData(FGBufferData GBuffer, float2 UV, int ChannelIndex)
+{
+//@todo This seems to ICE PSSL...
+#if !PS4_PROFILE
+	switch (ChannelIndex)
+	{
+		case GBUFFER_VISUALIZATION_MODE_DIFFUSE_RGB: return pow( GBuffer.DiffuseColor, 1/2.2 );
+		case GBUFFER_VISUALIZATION_MODE_SPECULAR_RGB: return pow( GBuffer.SpecularColor, 1/2.2 );
+		case GBUFFER_VISUALIZATION_MODE_BASE_RGB: return pow( GBuffer.BaseColor, 1/2.2 );
+		case GBUFFER_VISUALIZATION_MODE_SUBSURFACE_RGB: return pow( GBuffer.SubsurfaceColor, 1/2.2 );
+		case GBUFFER_VISUALIZATION_MODE_WORLD_NORMAL: return GBuffer.WorldNormal * 0.5f + 0.5f;
+		case GBUFFER_VISUALIZATION_MODE_SEP_TRANS_RGB: return Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, UV).rgb*20;
+		case GBUFFER_VISUALIZATION_MODE_OPACITY: return GBuffer.Opacity;
+		case GBUFFER_VISUALIZATION_MODE_SEP_TRANS_A: return Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, UV).a;
+		case GBUFFER_VISUALIZATION_MODE_DECAL_MASK: return GBuffer.DecalMask;
+		case GBUFFER_VISUALIZATION_MODE_SCENE_DEPTH: return frac(GBuffer.Depth * 0.0001f);
+		case GBUFFER_VISUALIZATION_MODE_METALLIC: return GBuffer.Metallic;
+		case GBUFFER_VISUALIZATION_MODE_SPECULAR: return GBuffer.Specular;
+		case GBUFFER_VISUALIZATION_MODE_ROUGHNESS: return GBuffer.Roughness;
+		case GBUFFER_VISUALIZATION_MODE_MATERIAL_AO: return GBuffer.GBufferAO;
+		case GBUFFER_VISUALIZATION_MODE_LIGHTING_MODEL: return GetLightingModelColor(GBuffer);
+	}
+#endif
+	// Unknown 
+	return float3(0,0,0);
+}
+
+int ComputeChannelIndexFromQuarterTile(int2 QuarterTileXY)
+{
+	const int ChannelIndexTable[16] =
+	{
+		1, 2, 3, 4,
+		5, 0, 0, 6,
+		7, 0, 0, 8,
+		9, 10, 11, 12,
+	};
+
+	return ChannelIndexTable[QuarterTileXY.y*4+QuarterTileXY.x];
+}
+
+/** For "All" mode, we split the screen up into a 4x4 grid of tiles, each one able to display a different component of the gbuffer. 
+	This function maps a tile coordinate (X,Y) onto a specific GBuffer component and computes the colour at the given UV */
+
+float3 ComputeQuarterColor(float2 UV, int2 QuarterTileXY)
+{	
+	FGBufferData GBuffer = GetGBufferData(UV);
+	int index = ComputeChannelIndexFromQuarterTile(QuarterTileXY);
+	return GetGBufferChannelData(GBuffer, UV, index);
+}
+
+/** Main pixel shader function */
+void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+#if GBUFFER_VISUALIZATION_MODE == GBUFFER_VISUALIZATION_MODE_ALL
+	int2 PixelPos = (int2)(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
+
+	// half viewport size
+	int2 HalfInsetSize = (int2)(ViewportSize.xy / 2);
+	// quarter viewport size
+	int2 QuarterInsetSize = (int2)(ViewportSize.xy / 4);
+
+	// 16 tiles over the full viewport
+	int2 QuarterTileXY = (int2)((uint2)PixelPos / QuarterInsetSize);
+	// pixel position within a quartertile 
+	int2 QuarterTileLocalPos = PixelPos - QuarterTileXY * QuarterInsetSize;
+	
+	// GBuffer size
+	uint2 BufferSize;
+	PostprocessInput0.GetDimensions(BufferSize.x, BufferSize.y);
+	float2 InvBufferSize = 1.0f / (float2)BufferSize;
+
+	int2 HalfTileLocalPos = PixelPos - QuarterInsetSize;
+
+	float2 HalfScaledUV = HalfTileLocalPos / float2(BufferSize) * 2;
+
+	float2 QuarterScaledUV = QuarterTileLocalPos / float2(BufferSize) * 4;
+
+	OutColor = 0;
+
+	float QuarterSoftMask;
+	{
+		const int Border1 = 10;
+		const int Border2 = 8;
+		float BorderDistance = ComputeDistanceToRect(QuarterTileLocalPos, int2(0, 0) + Border1.xx, QuarterInsetSize - 2 * Border1.xx);
+		
+		QuarterSoftMask = 1 - saturate((BorderDistance - Border2.x) *0.5f);
+	}
+
+	float3 BackgroundColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVAndScreenPos.xy).rgb;
+
+	// anti aliasing
+	float3 QuarterColor = 0;
+	{
+		int DownsampleFactor = 4;
+
+		for(int dy = 0; dy < DownsampleFactor; ++dy)
+		{
+			for(int dx = 0; dx < DownsampleFactor; ++dx)
+			{
+				float3 SampleColor = ComputeQuarterColor(QuarterScaledUV + float2( dx,  dy) * InvBufferSize, QuarterTileXY);
+
+				QuarterColor += SampleColor;
+			}
+		}
+
+		QuarterColor *= 1.0f / (DownsampleFactor * DownsampleFactor);
+	}
+
+	if(QuarterTileXY.x < 1 || QuarterTileXY.y < 1 || QuarterTileXY.x > 2 || QuarterTileXY.y > 2)
+	{
+		OutColor.rgb = lerp(BackgroundColor, QuarterColor, QuarterSoftMask);
+		OutColor = lerp(OutColor, float4(1,1,1,1), QuarterSoftMask * (1 - QuarterSoftMask));
+	}
+	else
+	{
+		OutColor.rgb = BackgroundColor;
+	}
+#else
+	FGBufferData GBuffer = GetGBufferData(UVAndScreenPos.xy);
+	OutColor = float4(GetGBufferChannelData(GBuffer, UVAndScreenPos.xy, GBUFFER_VISUALIZATION_MODE), 1);
+#endif
+}

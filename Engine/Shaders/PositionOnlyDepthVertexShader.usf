@@ -1,0 +1,21 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PositionOnlyDepthOnlyVertexShader.hlsl: Depth-only vertex shader.
+=============================================================================*/
+
+#include "Common.usf"
+#include "Material.usf"
+#include "VertexFactory.usf"
+
+
+void Main(
+	FPositionOnlyVertexFactoryInput Input,
+	out float4 OutPosition : SV_POSITION)
+{
+	float4 WorldPos = VertexFactoryGetWorldPosition(Input);
+	ISOLATE
+	{
+		OutPosition = mul(WorldPos, View.TranslatedWorldToClip);
+	}
+}

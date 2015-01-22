@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2284977
+Availability:NoPublish
+Title:UWidgetBlueprint
+Crumbs:
+Description:WidgetBlueprint クラスの概要
+
+[EXCERPT:UWidgetBlueprint]
+
+ウィジェットブループリントは、ユーザーによる拡張が可能な UWidget の UUserWidget の拡張を有効にします
+
+[VAR:ToolTipFullLink]
+
+[/VAR]
+[/EXCERPT:UWidgetBlueprint]

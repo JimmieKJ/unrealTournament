@@ -1,0 +1,118 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "Landscape.h"
+#include "MaterialCompiler.h"
+#include "Materials/MaterialExpressionLandscapeLayerWeight.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+
+#define LOCTEXT_NAMESPACE "Landscape"
+
+
+///////////////////////////////////////////////////////////////////////////////
+// UMaterialExpressionLandscapeLayerWeight
+///////////////////////////////////////////////////////////////////////////////
+
+UMaterialExpressionLandscapeLayerWeight::UMaterialExpressionLandscapeLayerWeight(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FString NAME_Landscape;
+		FConstructorStatics()
+			: NAME_Landscape(LOCTEXT("Landscape", "Landscape").ToString())
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	bIsParameterExpression = true;
+	MenuCategories.Add(ConstructorStatics.NAME_Landscape);
+	PreviewWeight = 0.0f;
+	ConstBase = FVector(0.f, 0.f, 0.f);
+}
+
+
+FGuid& UMaterialExpressionLandscapeLayerWeight::GetParameterExpressionId()
+{
+	return ExpressionGUID;
+}
+
+
+void UMaterialExpressionLandscapeLayerWeight::PostLoad()
+{
+	Super::PostLoad();
+
+	if (GetLinkerUE4Version() < VER_UE4_FIXUP_TERRAIN_LAYER_NODES)
+	{
+		UpdateParameterGuid(true, true);
+	}
+}
+
+
+bool UMaterialExpressionLandscapeLayerWeight::IsResultMaterialAttributes(int32 OutputIndex)
+{
+	if (ContainsInputLoop())
+	{
+		// If there is a loop anywhere in this expression's inputs then we can't risk checking them
+		return false;
+	}
+	bool bLayerIsMaterialAttributes = Layer.Expression != nullptr && Layer.Expression->IsResultMaterialAttributes(Layer.OutputIndex);
+	bool bBaseIsMaterialAttributes = Base.Expression != nullptr && Base.Expression->IsResultMaterialAttributes(Base.OutputIndex);
+	return bLayerIsMaterialAttributes || bBaseIsMaterialAttributes;
+}
+
+
+int32 UMaterialExpressionLandscapeLayerWeight::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+{
+	const int32 BaseCode = Base.Expression ? Base.Compile(Compiler, MultiplexIndex) : Compiler->Constant3(ConstBase.X, ConstBase.Y, ConstBase.Z);
+	const int32 WeightCode = Compiler->StaticTerrainLayerWeight(ParameterName, Compiler->Constant(PreviewWeight));
+
+	int32 ReturnCode = INDEX_NONE;
+	if (WeightCode == INDEX_NONE)
+	{
+		ReturnCode = BaseCode;
+	}
+	else
+	{
+		const int32 LayerCode = Layer.Compile(Compiler, MultiplexIndex);
+		ReturnCode = Compiler->Add(BaseCode, Compiler->Mul(LayerCode, WeightCode));
+	}
+
+	if (ReturnCode != INDEX_NONE && //If we've already failed for some other reason don't bother with this check. It could have been the reentrant check causing this to loop infinitely!
+		Layer.Expression != nullptr && Base.Expression != nullptr &&
+		Layer.Expression->IsResultMaterialAttributes(Layer.OutputIndex) != Base.Expression->IsResultMaterialAttributes(Base.OutputIndex))
+	{
+		Compiler->Error(TEXT("Cannot mix MaterialAttributes and non MaterialAttributes nodes"));
+	}
+
+	return ReturnCode;
+}
+
+
+UTexture* UMaterialExpressionLandscapeLayerWeight::GetReferencedTexture()
+{
+	return GEngine->WeightMapPlaceholderTexture;
+}
+
+
+void UMaterialExpressionLandscapeLayerWeight::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(FString::Printf(TEXT("Layer '%s'"), *ParameterName.ToString()));
+}
+
+
+void UMaterialExpressionLandscapeLayerWeight::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+{
+	int32 CurrentSize = OutParameterNames.Num();
+	OutParameterNames.AddUnique(ParameterName);
+
+	if (CurrentSize != OutParameterNames.Num())
+	{
+		OutParameterIds.Add(ExpressionGUID);
+	}
+}
+
+
+#undef LOCTEXT_NAMESPACE

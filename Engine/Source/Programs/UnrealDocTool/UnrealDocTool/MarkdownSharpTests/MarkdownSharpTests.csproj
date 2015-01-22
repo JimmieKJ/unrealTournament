@@ -1,0 +1,148 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>
+    </ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{F3113010-12E0-46ED-AE31-704FD290D113}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MarkdownSharpTests</RootNamespace>
+    <AssemblyName>MarkdownSharpTests</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x86</PlatformTarget>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="DotLiquid">
+      <HintPath>..\libs\DotLiquid.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
+    <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <CodeAnalysisDependentAssemblyPaths Condition=" '$(VS100COMNTOOLS)' != '' " Include="$(VS100COMNTOOLS)..\IDE\PrivateAssemblies">
+      <Visible>False</Visible>
+    </CodeAnalysisDependentAssemblyPaths>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\DotNETCommon\MetaData.cs">
+      <Link>Properties\MetaData.cs</Link>
+    </Compile>
+    <Compile Include="MarkdownTests\MarkdownTest.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Settings.cs" />
+    <Compile Include="Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Include="MarkdownTests\XHTMLComparator.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MarkdownSharp\MarkdownSharp.csproj">
+      <Project>{37619116-CCE8-465A-8B1F-081CA53364BB}</Project>
+      <Name>MarkdownSharp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\UnrealDocTool\UnrealDocTool.csproj">
+      <Project>{A02BEA2F-4AB7-4C5D-8D55-3935C5837075}</Project>
+      <Name>UnrealDocTool</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="MarkdownTests\BlockQuotes\blockQuotes.udn" />
+    <None Include="MarkdownTests\Bookmarks\bookmarks.udn" />
+    <None Include="MarkdownTests\CodeBlocks\codeblocks.udn" />
+    <None Include="MarkdownTests\Doxygen\doxygen.udn" />
+    <None Include="MarkdownTests\Headers\headers.udn" />
+    <None Include="MarkdownTests\HorizontalRules\horizontalRules.udn" />
+    <None Include="MarkdownTests\Images\images.udn" />
+    <None Include="MarkdownTests\Includes\Images\included.INT.udn" />
+    <None Include="MarkdownTests\Includes\Images\__ctor\__ctor.INT.udn" />
+    <None Include="MarkdownTests\Includes\includes.udn" />
+    <None Include="MarkdownTests\Links\links.udn" />
+    <None Include="MarkdownTests\Lists\lists.udn" />
+    <None Include="MarkdownTests\Objects\objects.udn" />
+    <None Include="MarkdownTests\Paragraphs\paragraphs.udn" />
+    <None Include="MarkdownTests\Publish\publish.udn" />
+    <None Include="MarkdownTests\RawHTML\rawHTML.udn" />
+    <None Include="MarkdownTests\Regions\regions.udn" />
+    <None Include="MarkdownTests\SpanParser\spanParser.udn" />
+    <None Include="MarkdownTests\Tables\tables.udn" />
+    <None Include="MarkdownTests\TOCs\tocs.udn" />
+    <None Include="MarkdownTests\Variables\variables.udn" />
+    <None Include="Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="MarkdownTests\BlockQuotes\blockQuotes.expected.html" />
+    <Content Include="MarkdownTests\Bookmarks\bookmarks.expected.html" />
+    <Content Include="MarkdownTests\CodeBlocks\codeblocks.expected.html" />
+    <Content Include="MarkdownTests\Doxygen\doxygen.expected.html" />
+    <Content Include="MarkdownTests\Doxygen\xml\index.xml" />
+    <Content Include="MarkdownTests\Doxygen\xml\struct_f_streaming_manager_texture_1_1_f_pending_primitive_type.xml" />
+    <Content Include="MarkdownTests\Headers\headers.expected.html" />
+    <Content Include="MarkdownTests\HorizontalRules\horizontalRules.expected.html" />
+    <Content Include="MarkdownTests\Images\images.expected.html" />
+    <Content Include="MarkdownTests\Images\Images\ue4.png" />
+    <Content Include="MarkdownTests\Includes\includes.expected.html" />
+    <Content Include="MarkdownTests\Includes\xml\index.xml" />
+    <Content Include="MarkdownTests\Includes\xml\struct_f_streaming_manager_texture_1_1_f_pending_primitive_type.xml" />
+    <Content Include="MarkdownTests\Links\links.expected.html" />
+    <Content Include="MarkdownTests\Lists\lists.expected.html" />
+    <Content Include="MarkdownTests\Objects\objects.expected.html" />
+    <Content Include="MarkdownTests\Paragraphs\paragraphs.expected.html" />
+    <Content Include="MarkdownTests\Publish\publish.expected.html" />
+    <Content Include="MarkdownTests\RawHTML\rawhtml.expected.html" />
+    <Content Include="MarkdownTests\Regions\regions.expected.html" />
+    <Content Include="MarkdownTests\SpanParser\Images\ue_4.png" />
+    <Content Include="MarkdownTests\SpanParser\spanParser.expected.html" />
+    <Content Include="MarkdownTests\Tables\tables.expected.html" />
+    <Content Include="MarkdownTests\TOCs\tocs.expected.html" />
+    <Content Include="MarkdownTests\Variables\variables.expected.html" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

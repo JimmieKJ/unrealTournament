@@ -1,0 +1,31 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+/**
+ * Input device interface.
+ * Useful for plugins/modules to support custom external input devices.
+ */
+class IInputDevice
+{
+public:
+
+	/** Tick the interface (e.g. check for new controllers) */
+	virtual void Tick( float DeltaTime ) = 0;
+
+	/** Poll for controller state and send events if needed */
+	virtual void SendControllerEvents() = 0;
+
+	/** Set which MessageHandler will get the events from SendControllerEvents. */
+	virtual void SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler ) = 0;
+
+	/** Exec handler to allow console commands to be passed through for debugging */
+    virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) = 0;
+
+	/**
+	 * IForceFeedbackSystem pass through functions
+	 */
+	virtual void SetChannelValue (int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) = 0;
+	virtual void SetChannelValues (int32 ControllerId, const FForceFeedbackValues &values) = 0;
+};
+

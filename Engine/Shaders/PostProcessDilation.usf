@@ -1,0 +1,39 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessDilation.usf: PostProcessing dilation of the diffuse SVO content
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+
+// pixel shader
+void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+	float2 UV = UVAndScreenPos.xy;
+	// screen position in [-1, 1] screen space
+	float2 ScreenSpacePos = UVAndScreenPos.zw;
+	int3 PixelPos = int3((int2)(ScreenSpacePos * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f), 0);
+
+	OutColor = PostprocessInput0.Load(PixelPos);
+
+	int2 MaxSize = (int2)ViewportSize;
+
+	#define SAMPLE(x, y)\
+	{\
+		int3 p = PixelPos + int3(x, y, 0);\
+		FLATTEN\
+		if(all(OutColor.rgb == 0) && all(p.xy < MaxSize))\
+		{\
+			OutColor = PostprocessInput0.Load(p);\
+		}\
+	}
+
+	// take content from neighbors
+	SAMPLE(-1,0) SAMPLE( 1,0) SAMPLE(0,-1) SAMPLE(0, 1)
+
+	// not needed
+//	SAMPLE(-1,1) SAMPLE( 1,1) SAMPLE(1,-1) SAMPLE(1, 1) SAMPLE(-1,-1) SAMPLE( 1,-1) SAMPLE(-1,-1) SAMPLE(-1, 1)
+}
+

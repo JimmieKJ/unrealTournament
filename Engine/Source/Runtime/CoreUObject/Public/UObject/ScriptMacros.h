@@ -1,0 +1,66 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ScriptMacros.h: Kismet VM execution engine.
+=============================================================================*/
+
+#pragma once
+
+/*-----------------------------------------------------------------------------
+	Macros.
+-----------------------------------------------------------------------------*/
+
+/**
+ * This is the largest possible size that a single variable can be; a variables size is determined by multiplying the
+ * size of the type by the variables ArrayDim (always 1 unless it's a static array).
+ */
+enum {MAX_VARIABLE_SIZE = 0x0FFF };
+
+#define ZERO_INIT(Type,ParamName) FMemory::Memzero(&ParamName,sizeof(Type));
+
+#define PARAM_PASSED_BY_VAL(ParamName, PropertyType, ParamType)									\
+	ParamType ParamName;																		\
+	Stack.StepCompiledIn<PropertyType>(&ParamName);
+
+#define PARAM_PASSED_BY_VAL_ZEROED(ParamName, PropertyType, ParamType)							\
+	ParamType ParamName = (ParamType)0;															\
+	Stack.StepCompiledIn<PropertyType>(&ParamName);
+
+#define PARAM_PASSED_BY_REF(ParamName, PropertyType, ParamType)									\
+	ParamType& ParamName = Stack.StepCompiledInRef<PropertyType, ParamType>(NULL);
+
+#define PARAM_PASSED_BY_REF_ZEROED(ParamName, PropertyType, ParamType)							\
+	ParamType& ParamName = Stack.StepCompiledInRef<PropertyType, ParamType>(NULL);
+
+#define P_GET_PROPERTY(PropertyType, ParamName)													\
+	PropertyType::TCppType ParamName = PropertyType::GetDefaultPropertyValue();					\
+	Stack.StepCompiledIn<PropertyType>(&ParamName);
+
+#define P_GET_PROPERTY_REF(PropertyType, ParamName)												\
+	PropertyType::TCppType& ParamName = Stack.StepCompiledInRef<PropertyType, PropertyType::TCppType>(NULL);
+
+
+
+#define P_GET_UBOOL(ParamName)						uint32 ParamName##32 = 0; bool ParamName=false;	Stack.StepCompiledIn<UBoolProperty>(&ParamName##32); ParamName = !!ParamName##32; // translate the bitfield into a bool type for non-intel platforms
+#define P_GET_UBOOL8(ParamName)						uint32 ParamName##32 = 0; uint8 ParamName=0;    Stack.StepCompiledIn<UBoolProperty>(&ParamName##32); ParamName = ParamName##32 ? 1 : 0; // translate the bitfield into a bool type for non-intel platforms
+#define P_GET_UBOOL16(ParamName)					uint32 ParamName##32 = 0; uint16 ParamName=0;   Stack.StepCompiledIn<UBoolProperty>(&ParamName##32); ParamName = ParamName##32 ? 1 : 0; // translate the bitfield into a bool type for non-intel platforms
+#define P_GET_UBOOL32(ParamName)					uint32 ParamName=0;                             Stack.StepCompiledIn<UBoolProperty>(&ParamName); ParamName = ParamName ? 1 : 0; // translate the bitfield into a bool type for non-intel platforms
+#define P_GET_UBOOL64(ParamName)					uint64 ParamName=0;                             Stack.StepCompiledIn<UBoolProperty>(&ParamName); ParamName = ParamName ? 1 : 0; // translate the bitfield into a bool type for non-intel platforms
+#define P_GET_UBOOL_REF(ParamName)					PARAM_PASSED_BY_REF_ZEROED(ParamName, UBoolProperty, bool)
+
+#define P_GET_STRUCT(StructType,ParamName)			PARAM_PASSED_BY_VAL(ParamName, UStructProperty, StructType)
+#define P_GET_STRUCT_REF(StructType,ParamName)		PARAM_PASSED_BY_REF(ParamName, UStructProperty, StructType)
+
+#define P_GET_OBJECT(ObjectType,ParamName)			PARAM_PASSED_BY_VAL_ZEROED(ParamName, UObjectPropertyBase, ObjectType*)
+#define P_GET_OBJECT_REF(ObjectType,ParamName)		PARAM_PASSED_BY_REF_ZEROED(ParamName, UObjectPropertyBase, ObjectType*)
+
+#define P_GET_TARRAY(ElementType,ParamName)			PARAM_PASSED_BY_VAL(ParamName, UArrayProperty, TArray<ElementType>)
+#define P_GET_TARRAY_REF(ElementType,ParamName)		PARAM_PASSED_BY_REF(ParamName, UArrayProperty, TArray<ElementType>)
+
+#define P_GET_TINTERFACE(ObjectType,ParamName)		PARAM_PASSED_BY_VAL(ParamName, UInterfaceProperty, TScriptInterface<ObjectType>)
+#define P_GET_TINTERFACE_REF(ObjectType,ParamName)	PARAM_PASSED_BY_REF(ParamName, UInterfaceProperty, TScriptInterface<ObjectType>)
+
+#define P_GET_ARRAY(ElementType,ParamName)			ElementType ParamName[(MAX_VARIABLE_SIZE/sizeof(ElementType))+1];		Stack.StepCompiledIn<UProperty>(ParamName);
+#define P_GET_ARRAY_REF(ElementType,ParamName)		ElementType ParamName##Temp[(MAX_VARIABLE_SIZE/sizeof(ElementType))+1]; ElementType* ParamName = Stack.StepCompiledInRef<UProperty, ElementType*>(ParamName##Temp);
+
+#define P_FINISH									Stack.Code += !!Stack.Code; // increment the code ptr unless it is null

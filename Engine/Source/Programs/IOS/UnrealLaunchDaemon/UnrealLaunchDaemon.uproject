@@ -1,0 +1,13 @@
+{
+	"FileVersion": 3,
+	"EngineVersion": "1595950",
+	"PackageFileUE4Version": "226",
+	"PackageFileLicenseeUE4Version": "0",
+	"Modules": [
+		{
+			"Name": "PlatformerGame",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

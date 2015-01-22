@@ -1,0 +1,101 @@
+----------------------------------------------------------------------
+../../../tests/vs_implicit_conversions.hlsl(41): warning: implicit truncation from `vec4' to `vec2'
+../../../tests/vs_implicit_conversions.hlsl(42): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_implicit_conversions.hlsl(49): warning: implicit truncation from `ivec4' to `uvec3'
+../../../tests/vs_implicit_conversions.hlsl(52): warning: implicit truncation from `ivec4' to `ivec3'
+../../../tests/vs_implicit_conversions.hlsl(53): warning: implicit truncation from `ivec4' to `ivec3'
+../../../tests/vs_implicit_conversions.hlsl(56): warning: implicit truncation from `ivec4' to `uvec3'
+../../../tests/vs_implicit_conversions.hlsl(57): warning: implicit truncation from `ivec4' to `ivec2'
+../../../tests/vs_implicit_conversions.hlsl(58): warning: implicit truncation from `uvec4' to `uvec2'
+../../../tests/vs_implicit_conversions.hlsl(59): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_implicit_conversions.hlsl(60): warning: implicit truncation from `vec4' to `vec2'
+../../../tests/vs_implicit_conversions.hlsl(62): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_implicit_conversions.hlsl(63): warning: implicit truncation from `ivec4' to `vec2'
+../../../tests/vs_implicit_conversions.hlsl(64): warning: implicit truncation from `uvec4' to `uvec2'
+../../../tests/vs_implicit_conversions.hlsl(65): warning: implicit truncation from `ivec4' to `ivec2'
+../../../tests/vs_implicit_conversions.hlsl(66): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_implicit_conversions.hlsl(67): warning: implicit truncation from `vec4' to `vec3'
+../../../tests/vs_implicit_conversions.hlsl(69): warning: implicit truncation from `uvec3' to `uvec2'
+../../../tests/vs_implicit_conversions.hlsl(70): warning: implicit truncation from `vec4' to `vec3'
+
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: f2:in_ATTRIBUTE0,f2:in_ATTRIBUTE1
+// @Outputs: f4:gl_Position
+#version 150
+in vec2 in_ATTRIBUTE0;
+in vec2 in_ATTRIBUTE1;
+out TEXCOORD0 { vec2 Data; } out_TEXCOORD0;
+out TYPEINDEX0 { int Data; } out_TYPEINDEX0;
+out TYPEINDEX1 { int Data; } out_TYPEINDEX1;
+out TYPEINDEX2 { int Data; } out_TYPEINDEX2;
+out TYPEINDEX3 { int Data; } out_TYPEINDEX3;
+out TYPEINDEX4 { int Data; } out_TYPEINDEX4;
+out TYPEINDEX5 { int Data; } out_TYPEINDEX5;
+out TYPEINDEX6 { int Data; } out_TYPEINDEX6;
+out TYPEINDEX7 { int Data; } out_TYPEINDEX7;
+out TYPEINDEX8 { int Data; } out_TYPEINDEX8;
+out TYPEINDEX9 { int Data; } out_TYPEINDEX9;
+out TYPEINDEX10 { int Data; } out_TYPEINDEX10;
+out TYPEINDEX11 { int Data; } out_TYPEINDEX11;
+out TYPEINDEX12 { int Data; } out_TYPEINDEX12;
+out TYPEINDEX13 { int Data; } out_TYPEINDEX13;
+out TYPEINDEX14 { int Data; } out_TYPEINDEX14;
+out TYPEINDEX15 { int Data; } out_TYPEINDEX15;
+out TYPEINDEX16 { int Data; } out_TYPEINDEX16;
+out TYPEINDEX17 { int Data; } out_TYPEINDEX17;
+out TYPEINDEX18 { int Data; } out_TYPEINDEX18;
+out TYPEINDEX19 { int Data; } out_TYPEINDEX19;
+out TYPEINDEX20 { int Data; } out_TYPEINDEX20;
+out TYPEINDEX21 { int Data; } out_TYPEINDEX21;
+out TYPEINDEX22 { int Data; } out_TYPEINDEX22;
+out TYPEINDEX23 { int Data; } out_TYPEINDEX23;
+out TYPEINDEX24 { int Data; } out_TYPEINDEX24;
+out TYPEINDEX25 { int Data; } out_TYPEINDEX25;
+out TYPEINDEX26 { int Data; } out_TYPEINDEX26;
+out TYPEINDEX27 { int Data; } out_TYPEINDEX27;
+out TYPEINDEX28 { int Data; } out_TYPEINDEX28;
+out TYPEINDEX29 { int Data; } out_TYPEINDEX29;
+void main()
+{
+	vec4 t0;
+	vec4 t1;
+	t1.zw = vec2(0.0,1.0);
+	t1.xy = in_ATTRIBUTE0;
+	t0.xyzw = t1;
+	out_TEXCOORD0.Data.xy = in_ATTRIBUTE1;
+	t0.y = (-in_ATTRIBUTE0.y);
+	t0.z = -1.0;
+	gl_Position.xyzw = t0;
+	out_TYPEINDEX0.Data = 1;
+	out_TYPEINDEX1.Data = 2;
+	out_TYPEINDEX2.Data = 3;
+	out_TYPEINDEX3.Data = 9;
+	out_TYPEINDEX4.Data = 9;
+	out_TYPEINDEX5.Data = 5;
+	out_TYPEINDEX6.Data = 6;
+	out_TYPEINDEX7.Data = 2;
+	out_TYPEINDEX8.Data = 3;
+	out_TYPEINDEX9.Data = 4;
+	out_TYPEINDEX10.Data = 9;
+	out_TYPEINDEX11.Data = 6;
+	out_TYPEINDEX12.Data = 6;
+	out_TYPEINDEX13.Data = 5;
+	out_TYPEINDEX14.Data = 6;
+	out_TYPEINDEX15.Data = 10;
+	out_TYPEINDEX16.Data = 5;
+	out_TYPEINDEX17.Data = 9;
+	out_TYPEINDEX18.Data = 2;
+	out_TYPEINDEX19.Data = 1;
+	out_TYPEINDEX20.Data = 3;
+	out_TYPEINDEX21.Data = 2;
+	out_TYPEINDEX22.Data = 1;
+	out_TYPEINDEX23.Data = 9;
+	out_TYPEINDEX24.Data = 5;
+	out_TYPEINDEX25.Data = 2;
+	out_TYPEINDEX26.Data = 2;
+	out_TYPEINDEX27.Data = 9;
+	out_TYPEINDEX28.Data = 9;
+	out_TYPEINDEX29.Data = 3;
+}
+

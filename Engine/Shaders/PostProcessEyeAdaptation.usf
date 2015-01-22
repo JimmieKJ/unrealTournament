@@ -1,0 +1,44 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PostProcessEyeAdaptation.usf: PostProcessing eye adaptation
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+#include "PostProcessHistogramCommon.usf"
+
+// @param FrameTime in seconds
+// @return smoothed exposure
+float ComputeEyeAdaptation(float OldExposure, float TargetExposure, float FrameTime)
+{
+	float Diff = TargetExposure - OldExposure;
+
+	const float EyeAdaptionSpeedUp = EyeAdaptationParams[1].z;
+	const float EyeAdaptionSpeedDown = EyeAdaptationParams[1].w;
+
+    float AdaptionSpeed = (Diff > 0) ? EyeAdaptionSpeedUp : EyeAdaptionSpeedDown;
+
+    float Factor = 1.0f - exp2(-FrameTime * AdaptionSpeed);
+
+	return clamp(OldExposure + Diff * Factor, EyeAdaptationParams[0].z, EyeAdaptationParams[0].w);
+}
+
+void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float OutColor : SV_Target0)
+{
+	float2 UV = UVAndScreenPos.xy;
+
+	float ExposureOffsetMultipler = EyeAdaptationParams[1].x;
+	
+	float TargetExposure = ComputeEyeAdaptationExposure(PostprocessInput0);
+	float OldExposureScale = PostprocessInput0.Load(int3(0, 1, 0)).x;
+	float OldExposure = ExposureOffsetMultipler / ( OldExposureScale != 0 ? OldExposureScale : 1.0f );
+	float FrameTime = EyeAdaptationParams[1].y;
+
+	// eye adaptation changes over time
+	float SmoothedExposure = ComputeEyeAdaptation(OldExposure, TargetExposure, FrameTime);
+
+	float SmoothedExposureScale = 1.0f / max(0.0001f, SmoothedExposure);
+		
+	OutColor = SmoothedExposureScale * ExposureOffsetMultipler;
+}

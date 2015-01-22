@@ -1,0 +1,6 @@
+----------------------------------------------------------------------
+../../../tests/ps_samplers.hlsl(0): error: Sampler 'InTextureSampler' can't be used with more than one texture.
+
+
+----------------------------------------------------------------------
+no compiler output

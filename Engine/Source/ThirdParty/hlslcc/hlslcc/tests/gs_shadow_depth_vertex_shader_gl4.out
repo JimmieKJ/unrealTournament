@@ -1,0 +1,148 @@
+----------------------------------------------------------------------
+no errors
+----------------------------------------------------------------------
+// Compiled by HLSLCC 0.20
+// @Inputs: 
+// @Outputs: i1:gl_Layer,f4:gl_Position
+// @PackedGlobals: MeshVisibleToFace(h:0,24),ShadowViewProjectionMatrices(h:24,96)
+#version 430
+
+layout(triangles) in;
+layout(triangle_strip, max_vertices = 18) out;
+
+uniform vec4 _gu_h[30];
+in TEXCOORD0 { vec4 Data; } in_TEXCOORD0[3];
+in TEXCOORD1 { vec4 Data; } in_TEXCOORD1[3];
+in COLOR0 { vec4 Data; } in_COLOR0[3];
+in COLOR1 { vec2 Data; } in_COLOR1[3];
+in TEXCOORD2 { vec2 Data; } in_TEXCOORD2[3];
+in TEXCOORD3 { vec4 Data; } in_TEXCOORD3[3];
+in TEXCOORD6 { vec4 Data; } in_TEXCOORD6[3];
+out TEXCOORD0 { vec4 Data; } out_TEXCOORD0;
+out TEXCOORD1 { vec4 Data; } out_TEXCOORD1;
+out COLOR0 { vec4 Data; } out_COLOR0;
+out COLOR1 { vec2 Data; } out_COLOR1;
+out TEXCOORD2 { vec2 Data; } out_TEXCOORD2;
+out TEXCOORD3 { vec4 Data; } out_TEXCOORD3;
+out TEXCOORD6 { vec4 Data; } out_TEXCOORD6;
+out TEXCOORD7 { vec4 Data; } out_TEXCOORD7;
+out HLSLCC_LAYER_INDEX { flat uint Data; } out_HLSLCC_LAYER_INDEX;
+void main()
+{
+	vec4 t0;
+	vec4 t1;
+	vec4 t2;
+	vec2 t3;
+	vec2 t4;
+	vec4 t5;
+	vec4 t6;
+	vec4 t7;
+	vec4 t8;
+	vec4 t9;
+	vec2 t10;
+	vec2 t11;
+	vec4 t12;
+	vec4 t13;
+	vec4 t14;
+	vec4 t15;
+	vec4 t16;
+	vec2 t17;
+	vec2 t18;
+	vec4 t19;
+	vec4 t20;
+	t0.xyzw = in_TEXCOORD0[0].Data;
+	t1.xyzw = in_TEXCOORD1[0].Data;
+	t2.xyzw = in_COLOR0[0].Data;
+	t3.xy = in_COLOR1[0].Data;
+	t4.xy = in_TEXCOORD2[0].Data;
+	t5.xyzw = in_TEXCOORD3[0].Data;
+	t6.xyzw = in_TEXCOORD6[0].Data;
+	t7.xyzw = in_TEXCOORD0[1].Data;
+	t8.xyzw = in_TEXCOORD1[1].Data;
+	t9.xyzw = in_COLOR0[1].Data;
+	t10.xy = in_COLOR1[1].Data;
+	t11.xy = in_TEXCOORD2[1].Data;
+	t12.xyzw = in_TEXCOORD3[1].Data;
+	t13.xyzw = in_TEXCOORD6[1].Data;
+	t14.xyzw = in_TEXCOORD0[2].Data;
+	t15.xyzw = in_TEXCOORD1[2].Data;
+	t16.xyzw = in_COLOR0[2].Data;
+	t17.xy = in_COLOR1[2].Data;
+	t18.xy = in_TEXCOORD2[2].Data;
+	t19.xyzw = in_TEXCOORD3[2].Data;
+	t20.xyzw = in_TEXCOORD6[2].Data;
+	int t21;
+	t21 = 0;
+	for (;t21<6;)
+	{
+		vec4 t22;
+		t22.xyzw = _gu_h[t21];
+		if ((t22.x>0.0))
+		{
+			vec4 t23;
+			vec4 t24;
+			vec4 t25;
+			t23.xyzw = ((_gu_h[(9+(t21*4))]*t6.wwww)+((_gu_h[(8+(t21*4))]*t6.zzzz)+((_gu_h[(7+(t21*4))]*t6.yyyy)+(_gu_h[(6+(t21*4))]*t6.xxxx))));
+			t24.xyzw = ((_gu_h[(9+(t21*4))]*t13.wwww)+((_gu_h[(8+(t21*4))]*t13.zzzz)+((_gu_h[(7+(t21*4))]*t13.yyyy)+(_gu_h[(6+(t21*4))]*t13.xxxx))));
+			t25.xyzw = ((_gu_h[(9+(t21*4))]*t20.wwww)+((_gu_h[(8+(t21*4))]*t20.zzzz)+((_gu_h[(7+(t21*4))]*t20.yyyy)+(_gu_h[(6+(t21*4))]*t20.xxxx))));
+			bool t26;
+			t26 = any(notEqual(((clamp(((t23.xyxy*vec4(-1.0,-1.0,1.0,1.0))+(-t23.wwww)),vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0))*clamp(((t24.xyxy*vec4(-1.0,-1.0,1.0,1.0))+(-t24.wwww)),vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0)))*clamp(((t25.xyxy*vec4(-1.0,-1.0,1.0,1.0))+(-t25.wwww)),vec4(0.0,0.0,0.0,0.0),vec4(1.0,1.0,1.0,1.0))),vec4(0.0,0.0,0.0,0.0)));
+			if (!(t26))
+			{
+				uint t27;
+				t27 = uint(t21);
+				vec4 t28;
+				t28.xyzw = t23;
+				out_TEXCOORD0.Data.xyzw = t0;
+				out_TEXCOORD1.Data.xyzw = t1;
+				out_COLOR0.Data.xyzw = t2;
+				out_COLOR1.Data.xy = t3;
+				out_TEXCOORD2.Data.xy = t4;
+				out_TEXCOORD3.Data.xyzw = t5;
+				out_TEXCOORD6.Data.xyzw = t23;
+				out_TEXCOORD7.Data.xyzw = t6;
+				gl_Layer = int(t27);
+				t28.y = (-t23.y);
+				t28.z = ((2.0*t23.z)+(-t23.w));
+				gl_Position.xyzw = t28;
+				out_HLSLCC_LAYER_INDEX.Data = t27;
+				EmitVertex();
+				vec4 t29;
+				t29.xyzw = t24;
+				out_TEXCOORD0.Data.xyzw = t7;
+				out_TEXCOORD1.Data.xyzw = t8;
+				out_COLOR0.Data.xyzw = t9;
+				out_COLOR1.Data.xy = t10;
+				out_TEXCOORD2.Data.xy = t11;
+				out_TEXCOORD3.Data.xyzw = t12;
+				out_TEXCOORD6.Data.xyzw = t24;
+				out_TEXCOORD7.Data.xyzw = t13;
+				gl_Layer = int(t27);
+				t29.y = (-t24.y);
+				t29.z = ((2.0*t24.z)+(-t24.w));
+				gl_Position.xyzw = t29;
+				out_HLSLCC_LAYER_INDEX.Data = t27;
+				EmitVertex();
+				vec4 t30;
+				t30.xyzw = t25;
+				out_TEXCOORD0.Data.xyzw = t14;
+				out_TEXCOORD1.Data.xyzw = t15;
+				out_COLOR0.Data.xyzw = t16;
+				out_COLOR1.Data.xy = t17;
+				out_TEXCOORD2.Data.xy = t18;
+				out_TEXCOORD3.Data.xyzw = t19;
+				out_TEXCOORD6.Data.xyzw = t25;
+				out_TEXCOORD7.Data.xyzw = t20;
+				gl_Layer = int(t27);
+				t30.y = (-t25.y);
+				t30.z = ((2.0*t25.z)+(-t25.w));
+				gl_Position.xyzw = t30;
+				out_HLSLCC_LAYER_INDEX.Data = t27;
+				EmitVertex();
+				EndPrimitive();
+			}
+		}
+		t21 = (t21+1);
+	}
+}
+

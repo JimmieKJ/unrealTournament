@@ -1,0 +1,295 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8BD1E680195DEE3400941522 /* AllocatorStats.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E66E195DEE3400941522 /* AllocatorStats.cpp */; };
+		8BD1E681195DEE3400941522 /* CoordSys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E66F195DEE3400941522 /* CoordSys.cpp */; };
+		8BD1E682195DEE3400941522 /* Core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E670195DEE3400941522 /* Core.cpp */; };
+		8BD1E683195DEE3400941522 /* ErrorHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E671195DEE3400941522 /* ErrorHandler.cpp */; };
+		8BD1E684195DEE3400941522 /* ErrorHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BD1E672195DEE3400941522 /* ErrorHandler.h */; };
+		8BD1E685195DEE3400941522 /* Key.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E674195DEE3400941522 /* Key.cpp */; };
+		8BD1E686195DEE3400941522 /* Key.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BD1E675195DEE3400941522 /* Key.h */; };
+		8BD1E687195DEE3400941522 /* LicenseTest_inl.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BD1E676195DEE3400941522 /* LicenseTest_inl.h */; };
+		8BD1E688195DEE3400941522 /* FileSystem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E677195DEE3400941522 /* FileSystem.cpp */; };
+		8BD1E689195DEE3400941522 /* Fixed.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E678195DEE3400941522 /* Fixed.cpp */; };
+		8BD1E68A195DEE3400941522 /* Memory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E679195DEE3400941522 /* Memory.cpp */; };
+		8BD1E68B195DEE3400941522 /* Parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E67A195DEE3400941522 /* Parser.cpp */; };
+		8BD1E68C195DEE3400941522 /* Parser.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BD1E67B195DEE3400941522 /* Parser.h */; };
+		8BD1E68D195DEE3400941522 /* ScopeTrace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E67C195DEE3400941522 /* ScopeTrace.cpp */; };
+		8BD1E68E195DEE3400941522 /* SharedHeapBlock.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BD1E67D195DEE3400941522 /* SharedHeapBlock.h */; };
+		8BD1E68F195DEE3400941522 /* SharedHeapBlock_inl.h in Headers */ = {isa = PBXBuildFile; fileRef = 8BD1E67E195DEE3400941522 /* SharedHeapBlock_inl.h */; };
+		8BD1E690195DEE3400941522 /* Wind.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8BD1E67F195DEE3400941522 /* Wind.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		3CCA84E7137C27EF00DC3057 /* libSpeedTreeCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSpeedTreeCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		8BD1E66E195DEE3400941522 /* AllocatorStats.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AllocatorStats.cpp; sourceTree = "<group>"; };
+		8BD1E66F195DEE3400941522 /* CoordSys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CoordSys.cpp; sourceTree = "<group>"; };
+		8BD1E670195DEE3400941522 /* Core.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Core.cpp; sourceTree = "<group>"; };
+		8BD1E671195DEE3400941522 /* ErrorHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ErrorHandler.cpp; sourceTree = "<group>"; };
+		8BD1E672195DEE3400941522 /* ErrorHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ErrorHandler.h; sourceTree = "<group>"; };
+		8BD1E674195DEE3400941522 /* Key.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Key.cpp; sourceTree = "<group>"; };
+		8BD1E675195DEE3400941522 /* Key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Key.h; sourceTree = "<group>"; };
+		8BD1E676195DEE3400941522 /* LicenseTest_inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LicenseTest_inl.h; sourceTree = "<group>"; };
+		8BD1E677195DEE3400941522 /* FileSystem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FileSystem.cpp; sourceTree = "<group>"; };
+		8BD1E678195DEE3400941522 /* Fixed.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Fixed.cpp; sourceTree = "<group>"; };
+		8BD1E679195DEE3400941522 /* Memory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Memory.cpp; sourceTree = "<group>"; };
+		8BD1E67A195DEE3400941522 /* Parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Parser.cpp; sourceTree = "<group>"; };
+		8BD1E67B195DEE3400941522 /* Parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Parser.h; sourceTree = "<group>"; };
+		8BD1E67C195DEE3400941522 /* ScopeTrace.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScopeTrace.cpp; sourceTree = "<group>"; };
+		8BD1E67D195DEE3400941522 /* SharedHeapBlock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SharedHeapBlock.h; sourceTree = "<group>"; };
+		8BD1E67E195DEE3400941522 /* SharedHeapBlock_inl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SharedHeapBlock_inl.h; sourceTree = "<group>"; };
+		8BD1E67F195DEE3400941522 /* Wind.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Wind.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3CCA84E4137C27EF00DC3057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3CCA84DC137C27EF00DC3057 = {
+			isa = PBXGroup;
+			children = (
+				8BD1E66D195DEE3400941522 /* Source */,
+				3CCA84E8137C27EF00DC3057 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3CCA84E8137C27EF00DC3057 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3CCA84E7137C27EF00DC3057 /* libSpeedTreeCore.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8BD1E66D195DEE3400941522 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				8BD1E66E195DEE3400941522 /* AllocatorStats.cpp */,
+				8BD1E66F195DEE3400941522 /* CoordSys.cpp */,
+				8BD1E670195DEE3400941522 /* Core.cpp */,
+				8BD1E671195DEE3400941522 /* ErrorHandler.cpp */,
+				8BD1E672195DEE3400941522 /* ErrorHandler.h */,
+				8BD1E673195DEE3400941522 /* Evaluation */,
+				8BD1E677195DEE3400941522 /* FileSystem.cpp */,
+				8BD1E678195DEE3400941522 /* Fixed.cpp */,
+				8BD1E679195DEE3400941522 /* Memory.cpp */,
+				8BD1E67A195DEE3400941522 /* Parser.cpp */,
+				8BD1E67B195DEE3400941522 /* Parser.h */,
+				8BD1E67C195DEE3400941522 /* ScopeTrace.cpp */,
+				8BD1E67D195DEE3400941522 /* SharedHeapBlock.h */,
+				8BD1E67E195DEE3400941522 /* SharedHeapBlock_inl.h */,
+				8BD1E67F195DEE3400941522 /* Wind.cpp */,
+			);
+			name = Source;
+			path = ../Source;
+			sourceTree = "<group>";
+		};
+		8BD1E673195DEE3400941522 /* Evaluation */ = {
+			isa = PBXGroup;
+			children = (
+				8BD1E674195DEE3400941522 /* Key.cpp */,
+				8BD1E675195DEE3400941522 /* Key.h */,
+				8BD1E676195DEE3400941522 /* LicenseTest_inl.h */,
+			);
+			path = Evaluation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		3CCA84E5137C27EF00DC3057 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8BD1E686195DEE3400941522 /* Key.h in Headers */,
+				8BD1E68F195DEE3400941522 /* SharedHeapBlock_inl.h in Headers */,
+				8BD1E684195DEE3400941522 /* ErrorHandler.h in Headers */,
+				8BD1E687195DEE3400941522 /* LicenseTest_inl.h in Headers */,
+				8BD1E68E195DEE3400941522 /* SharedHeapBlock.h in Headers */,
+				8BD1E68C195DEE3400941522 /* Parser.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		3CCA84E6137C27EF00DC3057 /* SpeedTreeCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3CCA84EB137C27EF00DC3057 /* Build configuration list for PBXNativeTarget "SpeedTreeCore" */;
+			buildPhases = (
+				3CCA84E3137C27EF00DC3057 /* Sources */,
+				3CCA84E4137C27EF00DC3057 /* Frameworks */,
+				3CCA84E5137C27EF00DC3057 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SpeedTreeCore;
+			productName = SpeedTreeCore;
+			productReference = 3CCA84E7137C27EF00DC3057 /* libSpeedTreeCore.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3CCA84DE137C27EF00DC3057 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+			};
+			buildConfigurationList = 3CCA84E1137C27EF00DC3057 /* Build configuration list for PBXProject "SpeedTreeCore" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 3CCA84DC137C27EF00DC3057;
+			productRefGroup = 3CCA84E8137C27EF00DC3057 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3CCA84E6137C27EF00DC3057 /* SpeedTreeCore */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3CCA84E3137C27EF00DC3057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8BD1E68D195DEE3400941522 /* ScopeTrace.cpp in Sources */,
+				8BD1E682195DEE3400941522 /* Core.cpp in Sources */,
+				8BD1E683195DEE3400941522 /* ErrorHandler.cpp in Sources */,
+				8BD1E685195DEE3400941522 /* Key.cpp in Sources */,
+				8BD1E689195DEE3400941522 /* Fixed.cpp in Sources */,
+				8BD1E68B195DEE3400941522 /* Parser.cpp in Sources */,
+				8BD1E68A195DEE3400941522 /* Memory.cpp in Sources */,
+				8BD1E690195DEE3400941522 /* Wind.cpp in Sources */,
+				8BD1E680195DEE3400941522 /* AllocatorStats.cpp in Sources */,
+				8BD1E688195DEE3400941522 /* FileSystem.cpp in Sources */,
+				8BD1E681195DEE3400941522 /* CoordSys.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		3CCA84E9137C27EF00DC3057 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				ONLY_ACTIVE_ARCH = NO;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
+				SDKROOT = macosx;
+				SYMROOT = ../../../Lib/MacOSX;
+			};
+			name = Debug;
+		};
+		3CCA84EA137C27EF00DC3057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
+				SDKROOT = macosx;
+				SYMROOT = ../../../Lib/MacOSX;
+			};
+			name = Release;
+		};
+		3CCA84EC137C27EF00DC3057 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_INPUT_FILETYPE = automatic;
+				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
+				HEADER_SEARCH_PATHS = ../../../Include;
+				OBJROOT = build;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYMROOT = ../../../Lib/MacOSX;
+			};
+			name = Debug;
+		};
+		3CCA84ED137C27EF00DC3057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_INPUT_FILETYPE = automatic;
+				GCC_PREPROCESSOR_DEFINITIONS = NDEBUG;
+				HEADER_SEARCH_PATHS = ../../../Include;
+				OBJROOT = build;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYMROOT = ../../../Lib/MacOSX;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3CCA84E1137C27EF00DC3057 /* Build configuration list for PBXProject "SpeedTreeCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3CCA84E9137C27EF00DC3057 /* Debug */,
+				3CCA84EA137C27EF00DC3057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3CCA84EB137C27EF00DC3057 /* Build configuration list for PBXNativeTarget "SpeedTreeCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3CCA84EC137C27EF00DC3057 /* Debug */,
+				3CCA84ED137C27EF00DC3057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 3CCA84DE137C27EF00DC3057 /* Project object */;
+}

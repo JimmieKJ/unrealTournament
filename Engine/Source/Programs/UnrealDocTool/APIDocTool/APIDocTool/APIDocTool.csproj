@@ -1,0 +1,284 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{E20D866B-14EE-4B6A-946D-9EB1306950B3}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>APIDocTool</RootNamespace>
+    <AssemblyName>APIDocTool</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\DotNETCommon\MetaData.cs">
+      <Link>Properties\MetaData.cs</Link>
+    </Compile>
+    <Compile Include="APIAction.cs" />
+    <Compile Include="APIActionPin.cs" />
+    <Compile Include="APICategory.cs" />
+    <Compile Include="APIConstant.cs" />
+    <Compile Include="APIConstantIndex.cs" />
+    <Compile Include="APIEnumIndex.cs" />
+    <Compile Include="APIFunctionIndex.cs" />
+    <Compile Include="APIHierarchy.cs" />
+    <Compile Include="APIIndex.cs" />
+    <Compile Include="APIFilter.cs" />
+    <Compile Include="APIMemberIndex.cs" />
+    <Compile Include="APIPage.cs" />
+    <Compile Include="APIEventParameters.cs" />
+    <Compile Include="APIGettingStarted.cs" />
+    <Compile Include="APIRecord.cs" />
+    <Compile Include="APIRecordIndex.cs" />
+    <Compile Include="BuildTarget.cs" />
+    <Compile Include="FastJSON\Formatter.cs" />
+    <Compile Include="FastJSON\Getters.cs" />
+    <Compile Include="FastJSON\JSON.cs" />
+    <Compile Include="FastJSON\JsonParser.cs" />
+    <Compile Include="FastJSON\JsonSerializer.cs" />
+    <Compile Include="FastJSON\Reflection.cs" />
+    <Compile Include="FastJSON\SafeDictionary.cs" />
+    <Compile Include="Icons.cs" />
+    <Compile Include="IniFile.cs" />
+    <Compile Include="Metadata.cs" />
+    <Compile Include="APIEnum.cs" />
+    <Compile Include="APIEnumValue.cs" />
+    <Compile Include="APIFunction.cs" />
+    <Compile Include="APIFunctionGroup.cs" />
+    <Compile Include="APIMember.cs" />
+    <Compile Include="APIModule.cs" />
+    <Compile Include="APITypeDef.cs" />
+    <Compile Include="APIModuleIndex.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Tracker.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="APIVariable.cs" />
+    <Compile Include="Sitemap.cs" />
+    <Compile Include="SourceFile.cs" />
+    <Compile Include="Stats.cs" />
+    <Compile Include="UdnManifest.cs" />
+    <Compile Include="UdnWriter.cs" />
+    <Compile Include="Utility.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\DoxygenLib\DoxygenLib.csproj">
+      <Project>{faa932d4-23bd-40ea-893a-43555beeb0a8}</Project>
+      <Name>DoxygenLib</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\CSS\udn_public.css">
+      <Link>Pages\udn_public.css</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Javascript\udn.js">
+      <Link>Pages\udn.js</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Default.html">
+      <Link>Pages\Default.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\DefaultAPI.html">
+      <Link>Pages\DefaultAPI.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\ActionPinListItem.html">
+      <Link>Source\Objects\ActionPinListItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\BlueprintNode.html">
+      <Link>Source\Objects\BlueprintNode.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\BlueprintPin.html">
+      <Link>Source\Objects\BlueprintPin.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\Feature.html">
+      <Link>Source\Objects\Feature.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\Filter.html">
+      <Link>Source\Objects\Filter.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\FilterItem.html">
+      <Link>Source\Objects\FilterItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\FunctionItem.html">
+      <Link>Source\Objects\FunctionItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\FunctionListHead.html">
+      <Link>Source\Objects\FunctionListHead.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\FunctionListHeadWithType.html">
+      <Link>Source\Objects\FunctionListHeadWithType.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\FunctionListItem.html">
+      <Link>Source\Objects\FunctionListItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\FunctionListItemWithType.html">
+      <Link>Source\Objects\FunctionListItemWithType.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\FunctionListTail.html">
+      <Link>Source\Objects\FunctionListTail.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\HierarchyButton.html">
+      <Link>Source\Objects\HierarchyButton.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\HierarchyLabel.html">
+      <Link>Source\Objects\HierarchyLabel.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\HierarchyLabelLinked.html">
+      <Link>Source\Objects\HierarchyLabelLinked.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\HierarchySpacer.html">
+      <Link>Source\Objects\HierarchySpacer.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberHeader.html">
+      <Link>Source\Objects\MemberHeader.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberIconListHead.html">
+      <Link>Source\Objects\MemberIconListHead.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberIconListHeadBlank.html">
+      <Link>Source\Objects\MemberIconListHeadBlank.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberIconListItem.html">
+      <Link>Source\Objects\MemberIconListItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberIconListItemLinked.html">
+      <Link>Source\Objects\MemberIconListItemLinked.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberIconListTail.html">
+      <Link>Source\Objects\MemberIconListTail.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberItem.html">
+      <Link>Source\Objects\MemberItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberList.html">
+      <Link>Source\Objects\MemberList.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberListHead.html">
+      <Link>Source\Objects\MemberListHead.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberListHeadBlank.html">
+      <Link>Source\Objects\MemberListHeadBlank.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberListItem.html">
+      <Link>Source\Objects\MemberListItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberListItemLinked.html">
+      <Link>Source\Objects\MemberListItemLinked.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MemberListTail.html">
+      <Link>Source\Objects\MemberListTail.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MetadataListHead.html">
+      <Link>Source\Objects\MetadataListHead.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MetadataListItem.html">
+      <Link>Source\Objects\MetadataListItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\MetadataListTail.html">
+      <Link>Source\Objects\MetadataListTail.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\Module.html">
+      <Link>Source\Objects\Module.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\ModuleSection.html">
+      <Link>Source\Objects\ModuleSection.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\ModuleSectionExpanded.html">
+      <Link>Source\Objects\ModuleSectionExpanded.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\Navigation.html">
+      <Link>Source\Objects\Navigation.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\Param.html">
+      <Link>Source\Objects\Param.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\ParamHeader.html">
+      <Link>Source\Objects\ParamHeader.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\Typedef.html">
+      <Link>Source\Objects\Typedef.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\TypedefItem.html">
+      <Link>Source\Objects\TypedefItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\ValueItem.html">
+      <Link>Source\Objects\ValueItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\VariableItem.html">
+      <Link>Source\Objects\VariableItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\VariableListHead.html">
+      <Link>Source\Objects\VariableListHead.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\VariableListItem.html">
+      <Link>Source\Objects\VariableListItem.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\VariableListItemNoLink.html">
+      <Link>Source\Objects\VariableListItemNoLink.html</Link>
+    </Content>
+    <Content Include="..\..\..\..\..\Documentation\Source\Include\Templates\Objects\VariableListTail.html">
+      <Link>Source\Objects\VariableListTail.html</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

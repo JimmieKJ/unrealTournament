@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:APostProcessVolume
+Crumbs:
+Description:PostProcessVolume 클래스 개요입니다.
+
+[EXCERPT:APostProcessVolume]
+
+PostProcessVolume (포스트 프로세스 볼륨)은 레벨에 추가할 수 있는 특수 유형 볼륨으로, 언리얼 엔진 4 에서는 포스트 프로세싱 체인을 사용하지 않기 때문에, 포스트 프로세싱 파라미터를 조작할 수 있는 방법은 현재 이 볼륨이 유일합니다.
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/PostProcessEffects
+[/VAR]
+[/EXCERPT:APostProcessVolume]

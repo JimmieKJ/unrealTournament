@@ -1,0 +1,71 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "CameraAnim.generated.h"
+
+/**
+ * A predefined animation to be played on a camera
+ */
+UCLASS(notplaceable, MinimalAPI)
+class UCameraAnim : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+	/** The UInterpGroup that holds our actual interpolation data. */
+	UPROPERTY()
+	class UInterpGroup* CameraInterpGroup;
+
+#if WITH_EDITORONLY_DATA
+	/** This is to preview and they only exists in editor */
+	UPROPERTY(transient)
+	class UInterpGroup* PreviewInterpGroup;
+
+#endif // WITH_EDITORONLY_DATA
+	/** Length, in seconds. */
+	UPROPERTY()
+	float AnimLength;
+
+	/** AABB in local space. */
+	UPROPERTY()
+	FBox BoundingBox;
+
+	/** The */
+	UPROPERTY()
+	float BaseFOV;
+
+	/** Default PP settings to put on the animated camera. For modifying PP without keyframes. */
+	UPROPERTY()
+	FPostProcessSettings BasePostProcessSettings;
+
+	/** Default PP blend weight to put on the animated camera. For modifying PP without keyframes. */
+	UPROPERTY()
+	float BasePostProcessBlendWeight;
+
+protected:
+	/** Internal. Computes and stores the local AABB of the camera's motion. */
+	void CalcLocalAABB();
+
+public:
+	// Begin UObject Interface
+	virtual void PreSave() override;
+	virtual void PostLoad() override;
+	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	// End UObject Interface
+
+	/** 
+	 * Construct a camera animation from an InterpGroup.  The InterpGroup must control a CameraActor.  
+	 * Used by the editor to "export" a camera animation from a normal Matinee scene.
+	 */
+	ENGINE_API bool CreateFromInterpGroup(class UInterpGroup* SrcGroup, class AMatineeActor* InMatineeActor);
+	
+	/** 
+	 * Gets AABB of the camera's path. Useful for rough testing if you can play an animation at a certain
+	 * location in the world without penetrating geometry.
+	 * @return Returns the local-space axis-aligned bounding box of the entire motion of this animation. 
+	 */
+	ENGINE_API FBox GetAABB(FVector const& BaseLoc, FRotator const& BaseRot, float Scale) const;
+};
+
+
+

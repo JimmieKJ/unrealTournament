@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "APIDocTool", "APIDocTool\APIDocTool.csproj", "{E20D866B-14EE-4B6A-946D-9EB1306950B3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DoxygenLib", "..\DoxygenLib\DoxygenLib.csproj", "{FAA932D4-23BD-40EA-893A-43555BEEB0A8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Development|x64 = Development|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E20D866B-14EE-4B6A-946D-9EB1306950B3}.Debug|x64.ActiveCfg = Debug|x64
+		{E20D866B-14EE-4B6A-946D-9EB1306950B3}.Debug|x64.Build.0 = Debug|x64
+		{E20D866B-14EE-4B6A-946D-9EB1306950B3}.Development|x64.ActiveCfg = Release|x64
+		{E20D866B-14EE-4B6A-946D-9EB1306950B3}.Development|x64.Build.0 = Release|x64
+		{FAA932D4-23BD-40EA-893A-43555BEEB0A8}.Debug|x64.ActiveCfg = Debug|x64
+		{FAA932D4-23BD-40EA-893A-43555BEEB0A8}.Debug|x64.Build.0 = Debug|x64
+		{FAA932D4-23BD-40EA-893A-43555BEEB0A8}.Development|x64.ActiveCfg = Release|x64
+		{FAA932D4-23BD-40EA-893A-43555BEEB0A8}.Development|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

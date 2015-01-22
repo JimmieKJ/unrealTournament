@@ -1,0 +1,80 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ShaderComplexityApplyPixelShader.usf: Maps accumulated shader complexity into color.
+=============================================================================*/
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+float3 ShaderComplexityColors[NUM_COMPLEXITY_COLORS];
+
+void Main(
+	in float2 UV : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	float3 SceneColor = clamp(Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV, 0), 0.0f, .999f);
+
+	//expand the stored complexity from [0, 1/3] into [0, NUM_COMPLEXITY_COLORS - 3] 
+	//the first third of the maximum complexity gets NUM_COMPLEXITY_COLORS - 3 unique colors to blend between,
+	//and ShaderComplexityColors[6] represents 1/3rd of the maximum complexity.
+	float FinalShaderComplexity = SceneColor.r * 3.0f * (NUM_COMPLEXITY_COLORS - 3);
+	
+	half3 LowerColor = half3(0,0,0);
+	half3 HigherColor = half3(0,0,0);
+	
+	//map the complexity to the passed in colors
+	if (FinalShaderComplexity <= 1)
+	{
+		LowerColor = ShaderComplexityColors[0];
+		HigherColor = ShaderComplexityColors[1];
+	}
+	else if (FinalShaderComplexity > 1 && FinalShaderComplexity <= 2)
+	{
+		LowerColor = ShaderComplexityColors[1];
+		HigherColor = ShaderComplexityColors[2];
+	}
+	else if (FinalShaderComplexity > 2 && FinalShaderComplexity <= 3)
+	{
+		LowerColor = ShaderComplexityColors[2];
+		HigherColor = ShaderComplexityColors[3];
+	}
+	else if (FinalShaderComplexity > 3 && FinalShaderComplexity <= 4)
+	{
+		LowerColor = ShaderComplexityColors[3];
+		HigherColor = ShaderComplexityColors[4];
+	}
+	else if (FinalShaderComplexity > 4 && FinalShaderComplexity <= 5)
+	{
+		LowerColor = ShaderComplexityColors[4];
+		HigherColor = ShaderComplexityColors[5];
+	}
+	else if (FinalShaderComplexity > 5 && FinalShaderComplexity <= 6)
+	{
+		LowerColor = ShaderComplexityColors[5];
+		HigherColor = ShaderComplexityColors[6];
+	}
+	else
+	{
+		//transform complexity from [1/3,1] to [0,2]
+		//ShaderComplexityColors[8] represents the maximum complexity.
+		FinalShaderComplexity = (SceneColor.r - .33333333f) * 3.0f;
+		if (FinalShaderComplexity <= 1)
+		{
+			LowerColor = ShaderComplexityColors[6];
+			HigherColor = ShaderComplexityColors[7];
+		}
+		else
+		{
+			LowerColor = ShaderComplexityColors[7];
+			HigherColor = ShaderComplexityColors[8];
+		}
+	}
+
+	half ComplexityFraction = frac(FinalShaderComplexity);
+	//weight between the nearest colors based on the fraction
+	half4 ComplexityColor = half4(lerp(LowerColor, HigherColor, ComplexityFraction), 1);
+
+	OutColor = RETURN_COLOR(ComplexityColor);
+}

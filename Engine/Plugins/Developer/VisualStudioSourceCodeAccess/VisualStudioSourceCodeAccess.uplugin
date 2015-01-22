@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Visual Studio Source Code Access",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Allows access to source code in Visual Studio.",
+	"Category" : "Developer.Source Code Access",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "VisualStudioSourceCodeAccess",
+			"Type" : "Developer",
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
+		}
+	]
+}

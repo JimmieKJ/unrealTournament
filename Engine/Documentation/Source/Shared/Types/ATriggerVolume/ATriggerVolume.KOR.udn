@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ATriggerVolume
+Crumbs:
+Description:TriggerVolume 클래스 개요입니다.
+
+[EXCERPT:ATriggerVolume]
+
+Trigger Volume, 트리거 볼륨은 플레이어나 다른 오브젝트가 그 안에 들어가거나 거기서 나올 때 이벤트를 발생시키는 데 사용됩니다.
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Volumes#Volume Types
+[/VAR]
+[/EXCERPT:ATriggerVolume]

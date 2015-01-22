@@ -1,0 +1,13 @@
+Availability:NoPublish
+Title:ATriggerBox
+Crumbs:
+Description:Overview of the TriggerBox class
+
+[EXCERPT:ATriggerBox]
+
+Triggers are Actors that are used to cause an event to occur when they are interacted with by some other object in the level. 
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Triggers
+[/VAR]
+[/EXCERPT:ATriggerBox]

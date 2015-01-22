@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Windows Device Profile Selector",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Windows Device Profile Selector used to determine the system settings for windows platforms",
+	"Category" : "Programming Runtime.Plugins",
+	
+	"Modules" :
+	[
+		{
+			"Name" : "WindowsDeviceProfileSelector",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PostConfigInit",
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
+		}
+	]
+}

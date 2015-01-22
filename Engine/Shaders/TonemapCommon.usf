@@ -1,0 +1,89 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	TonemapCommon.usf: PostProcessing tone mapping common
+=============================================================================*/
+
+// usually 1/2.2, the .y is used for inverse gamma when "gamma only" mode is not used
+half2 InverseGamma;
+
+// Film tonal and color control.
+half4 ColorMatrixR_ColorCurveCd1;
+half4 ColorMatrixG_ColorCurveCd3Cm3;
+half4 ColorMatrixB_ColorCurveCm2;
+half4 ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3;
+half4 ColorCurve_Ch1_Ch2;
+half4 ColorShadow_Luma;
+half4 ColorShadow_Tint1;
+half4 ColorShadow_Tint2;
+
+half3 FilmPostProcess(half3 LinearColor) 
+{
+	// Color and exposure control.
+	half3 MatrixColor;
+	#if USE_COLOR_MATRIX == 1
+		// Apply color matrix (channel mixer, exposure, saturation).
+		MatrixColor.r = dot(LinearColor, ColorMatrixR_ColorCurveCd1.rgb);
+		MatrixColor.g = dot(LinearColor, ColorMatrixG_ColorCurveCd3Cm3.rgb);
+		MatrixColor.b = dot(LinearColor, ColorMatrixB_ColorCurveCm2.rgb);
+		#if USE_SHADOW_TINT == 1
+			MatrixColor *= ColorShadow_Tint1.rgb + ColorShadow_Tint2.rgb * rcp(dot(LinearColor, ColorShadow_Luma.rgb) + 1.0);
+		#endif
+		// Required to insure saturation doesn't create negative colors!
+		MatrixColor = max(half3(0.0, 0.0, 0.0), MatrixColor);
+	#else
+		// Less expensive route when not using saturation and channel mixer.
+		#if USE_SHADOW_TINT == 1
+			MatrixColor = LinearColor * (ColorShadow_Tint1.rgb + ColorShadow_Tint2.rgb * rcp(dot(LinearColor, ColorShadow_Luma.rgb) + 1.0));
+		#else
+			MatrixColor = LinearColor * ColorMatrixB_ColorCurveCm2.rgb;
+		#endif
+	#endif
+	// Apply color curve (includes tonemapping).
+	#if USE_CONTRAST == 1
+		// Full path.
+		half3 MatrixColorD = max(0, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.xxx - MatrixColor);
+		half3 MatrixColorH = max(MatrixColor, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.zzz);
+		half3 MatrixColorM = clamp(MatrixColor, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.xxx, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.zzz);
+		half3 CurveColor = 
+			// Highlights
+			(MatrixColorH*ColorCurve_Ch1_Ch2.xxx + ColorCurve_Ch1_Ch2.yyy) * rcp(MatrixColorH + ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.www) + 
+				// Midtones
+				((MatrixColorM*ColorMatrixB_ColorCurveCm2.aaa + 
+					// Darks
+					((MatrixColorD*ColorMatrixR_ColorCurveCd1.aaa) * rcp(MatrixColorD + ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.yyy) + ColorMatrixG_ColorCurveCd3Cm3.aaa)));
+	#else
+		// This is for mobile, it assumes color is not negative.
+		// Fast path when contrast=1, can remove the dark part of the curve.
+		half3 MatrixColorH = max(MatrixColor, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.zzz);
+		half3 MatrixColorM = min(MatrixColor, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.zzz);
+		half3 CurveColor = (MatrixColorH*ColorCurve_Ch1_Ch2.xxx + ColorCurve_Ch1_Ch2.yyy) * rcp(MatrixColorH + ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.www) + MatrixColorM;
+	#endif
+	return CurveColor;
+}
+
+
+half3 TonemapAndGammaCorrect(half3 LinearColor)
+{
+	// Clamp input to be positive
+	// This displays negative colors as black
+	LinearColor = max(LinearColor, 0);
+
+	half TonemapperRange = 20;
+	half TonemapperScaleClamped = 1;
+	half A = 0.22 / TonemapperScaleClamped;
+	half B = (TonemapperRange + A) / TonemapperRange;
+
+	half LinearSteepness = 1;
+	// value below we have linear adjustments to the sigmoid curve that we don't to above the value
+	half FunctionSplitPos = sqrt(A * B / LinearSteepness) - A;
+
+	half3 GammaColor;
+
+	GammaColor = pow(LinearColor, InverseGamma.x);
+	
+	// in all cases it's good to clamp into the 0..1 range (e.g for LUT color grading)
+	GammaColor = saturate(GammaColor);
+
+	return GammaColor;
+}

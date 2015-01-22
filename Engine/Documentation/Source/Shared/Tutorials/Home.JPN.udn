@@ -1,0 +1,56 @@
+﻿Availability:NoPublish
+Title:チュートリアルのホームページ
+Crumbs:
+Description:アンリアル・エンジン 4 チュートリアル入門の内容
+
+[EXCERPT:TutorialsHome]
+
+## アンリアル・エンジン 4 へようこそ！
+
+アンリアル・エンジン 4の新規ユーザーを対象としたチュートリアル入門は以下となります。
+
+
+
+Window->Tutorial を選択してメニューバーから開くことができます。
+
+
+---
+### In Editor のチュートリアル:基礎
+![](InEditorBasicsTutorialTopic.png)
+
+アンリアル エンジン 4 のエディタ チュートリアルの第一巻です。本チュートリアルでは、カメラ制御、アクタの配置と操作、コンテンツ ブラウザの使用、シーン アウトライナー、詳細パネルの基礎を説明します。
+[In Editor Tutorial: The Basics](Shared\Tutorials\inEditorTutorial)
+
+
+---
+
+### In Editor のチュートリアル:Gamified の基礎
+![](GamifiedTutorial.png)
+
+
+---
+
+本チュートリアルを完了するには、プロジェクト ブラウザから「TutorialProject」をロードする必要があります。
+
+---
+
+
+アンリアル エンジン 4 エディタを説明する Gamified チュートリアル シリーズの第一巻です。本チュートリアルでは、アクタの配置、平行移動、回転、スケーリング、コンテンツ ブラウザの使用、詳細パネルを説明します。 
+[In Editor Tutorial: Gamified Basics](Shared\Tutorials\inEditorGamifiedTutorial)
+
+
+
+---
+
+### In Editor のチュートリアル:Blueprints（ブループリント）
+
+![](BP_Overview_small.png)
+
+[My Blueprints] タブ、ピンタイプ、実行フロー、コンテクスト メニュー、[Dragging off] ノードを含めたアンリアル・エンジン 4 のブループリントを編集する基礎
+
+
+[In Editor Tutorial: Blueprints](Shared\Tutorials\InBlueprintEditorTutorial)
+
+---
+
+[/EXCERPT:TutorialsHome]

@@ -1,0 +1,25 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "KismetCompiler.h"
+
+//////////////////////////////////////////////////////////////////////////
+// FKCHandler_DynamicCast
+
+class FKCHandler_DynamicCast : public FNodeHandlingFunctor
+{
+protected:
+	EKismetCompiledStatementType CastType;
+
+public:
+	FKCHandler_DynamicCast(FKismetCompilerContext& InCompilerContext, EKismetCompiledStatementType InCastType)
+		: FNodeHandlingFunctor(InCompilerContext)
+		, CastType(InCastType)
+	{
+	}
+
+	virtual void RegisterNets(FKismetFunctionContext& Context, UEdGraphNode* Node) override;
+	virtual void RegisterNet(FKismetFunctionContext& Context, UEdGraphPin* Net) override;
+	virtual void Compile(FKismetFunctionContext& Context, UEdGraphNode* Node) override;
+};

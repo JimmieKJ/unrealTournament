@@ -1,0 +1,193 @@
+//-----------------------------------------------------------------------------
+// File:		LPVGeometryVolumeCommon.usf
+//
+// Summary:		Common functionality for geometry volumes
+//
+// Created:		2013-03-01
+//
+// Author:		mailto:benwood@microsoft.com
+//
+//				Copyright (C) Microsoft. All rights reserved.
+//-----------------------------------------------------------------------------
+
+#ifndef LPV_MULTIPLE_BOUNCES
+#define LPV_MULTIPLE_BOUNCES 0
+#endif 
+
+//------------------------------------------------------------------------------
+
+struct GeometryVolumeEntry
+{
+	float SH[9];
+#if LPV_MULTIPLE_BOUNCES
+	//@todo : store colour as SH? Is single component good enough?
+	float3 color;
+#endif
+};
+
+//------------------------------------------------------------------------------
+
+#if LPV_GV_VOLUME_TEXTURE
+RWTexture3D<float4>	gGv3DTextureRW0;
+RWTexture3D<float4>	gGv3DTextureRW1;
+RWTexture3D<float4>	gGv3DTextureRW2;
+
+Texture3D<float4>	gGv3DTexture0;
+Texture3D<float4>	gGv3DTexture1;
+Texture3D<float4>	gGv3DTexture2;
+#else
+RWBuffer<float3>	gGvBufferRW;
+Buffer<float3>		gGvBuffer;
+#endif
+
+//-------------------------------------------------------------------------------------------------
+// Functions
+//-------------------------------------------------------------------------------------------------
+
+GeometryVolumeEntry ReadGvCell( uint index )
+{
+	GeometryVolumeEntry gv;
+
+#if LPV_GV_VOLUME_TEXTURE
+	int4 texIndex = int4( IndexToGridPos( index ), 0 );
+	float4 gvTex0 = gGv3DTexture0.Load( texIndex );
+	float4 gvTex1 = gGv3DTexture1.Load( texIndex );
+	float4 gvTex2 = gGv3DTexture2.Load( texIndex );
+	gv.SH[0] = gvTex0.x;
+	gv.SH[1] = gvTex0.y;
+	gv.SH[2] = gvTex0.z;
+	gv.SH[3] = gvTex0.w;
+	gv.SH[4] = gvTex1.x;
+	gv.SH[5] = gvTex1.y;
+	gv.SH[6] = gvTex1.z;
+	gv.SH[7] = gvTex1.w;
+	gv.SH[8] = gvTex2.x;
+ #if LPV_MULTIPLE_BOUNCES
+	gv.color = gvTex2.yzw;
+ #endif
+#else // LPV_GV_VOLUME_TEXTURE
+ #if LPV_MULTIPLE_BOUNCES
+	uint bufferIndex = index*4;
+ #else
+	uint bufferIndex = index*3;
+ #endif
+	[unroll]
+	for ( uint i=0; i<3; i++ )
+	{
+		gv.SH[i*3]   = gGvBuffer[ bufferIndex+i ].x * 8.0 - 4.0;
+		gv.SH[i*3+1] = gGvBuffer[ bufferIndex+i ].y * 8.0 - 4.0;
+		gv.SH[i*3+2] = gGvBuffer[ bufferIndex+i ].z * 8.0 - 4.0;
+	}
+ #if LPV_MULTIPLE_BOUNCES
+	gv.color = gGvBuffer[ bufferIndex+3 ].xyz;
+ #endif
+#endif // LPV_GV_VOLUME_TEXTURE
+
+
+	return gv;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void WriteGvCell( uint index, GeometryVolumeEntry entry )
+{
+
+#if LPV_GV_VOLUME_TEXTURE
+	int3 texIndex = IndexToGridPos( index );
+	gGv3DTextureRW0[ texIndex ] = float4( entry.SH[0], entry.SH[1], entry.SH[2], entry.SH[3] );
+	gGv3DTextureRW1[ texIndex ] = float4( entry.SH[4], entry.SH[5], entry.SH[6], entry.SH[7] );
+ #if LPV_MULTIPLE_BOUNCES
+	gGv3DTextureRW2[ texIndex ] = float4( entry.SH[8], entry.color.rgb );
+ #else
+	gGv3DTextureRW2[ texIndex ] = float4( entry.SH[8], 0.0f, 0.0f, 0.0f );
+ #endif
+
+#else // LPV_GV_VOLUME_TEXTURE
+ #if LPV_MULTIPLE_BOUNCES
+	uint bufferIndex = index*4;
+ #else
+	uint bufferIndex = index*3;
+ #endif
+
+	[unroll]
+	for ( uint i=0; i<3; i++ )
+	{
+		gGvBufferRW[ bufferIndex+i ] = float3( entry.SH[i*3], entry.SH[i*3+1], entry.SH[i*3+2] ) / 8.0 + 0.5;
+	}
+
+ #if LPV_MULTIPLE_BOUNCES
+	gGvBufferRW[ bufferIndex+3 ].xyz = entry.color;
+ #endif
+#endif // LPV_GV_VOLUME_TEXTURE
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void ClearGvCell( uint index )
+{ 
+#if LPV_GV_VOLUME_TEXTURE
+	int3 texIndex = IndexToGridPos( index );
+	gGv3DTextureRW0[ texIndex ] = 0.0f;
+	gGv3DTextureRW1[ texIndex ] = 0.0f;
+	gGv3DTextureRW2[ texIndex ] = 0.0f;
+#else // LPV_GV_VOLUME_TEXTURE
+ #if LPV_MULTIPLE_BOUNCES
+	uint bufferIndex = index*4;
+ #else
+	uint bufferIndex = index*3;
+ #endif
+	[unroll]
+	for ( uint i=0; i<3; i++ ) gGvBufferRW[bufferIndex+i] = float3(0.5f,0.5f,0.5f);
+
+ #if LPV_MULTIPLE_BOUNCES
+	gGvBufferRW[ bufferIndex+3 ].xyz = float3(0.0f,0.0f,0.0f);
+ #endif
+#endif // LPV_GV_VOLUME_TEXTURE
+}
+
+//-------------------------------------------------------------------------------------------------
+
+float SHLookupScalar( 
+	float coeffs[9],
+    float3 n ) 
+{
+	const float1 c1 = 0.429043 ;
+	const float1 c2 = 0.511664 ;
+	const float1 c3 = 0.743125 ;
+	const float1 c4 = 0.886227 ;
+	const float1 c5 = 0.247708 ;
+
+	float3 n2 = n*n;
+	float xy = n.x*n.y ; 
+	float yz = n.y*n.z ; 
+	float xz = n.x*n.z ;
+
+	float value = c1*coeffs[8]*(n2.x-n2.y) + c3*coeffs[6]*n2.z + c4*coeffs[0] - c5*coeffs[6] 
+            + 2.0f*c1*(coeffs[4]*xy + coeffs[7]*xz + coeffs[5]*yz) 
+            + 2.0f*c2*(coeffs[3]*n.x+coeffs[1]*n.y+coeffs[2]*n.z) ;
+
+	return max( value, 0.0f );
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void AccumulateCoeffsScalar(float value, float3 n, in out float coeffs[9] ) 
+{ 
+	const float c0 = 0.282095f;
+	const float c1 = 0.488603f;
+	const float c2 = 1.092548f;
+	const float c3 = 0.315392f;
+	const float c4 = 0.546274f;
+
+	coeffs[0] += c0*value;
+
+	coeffs[1] += (c1*n.y)*value;   
+	coeffs[2] += (c1*n.z)*value;   
+	coeffs[3] += (c1*n.x)*value;   
+
+	coeffs[4] += (c2*n.x*n.y)*value; 
+	coeffs[5] += (c2*n.y*n.z)*value; 
+	coeffs[7] += (c2*n.x*n.z)*value; 
+	coeffs[6] += (c3*(3.0f*n.z*n.z-1.0f))*value; 
+	coeffs[8] += (c4*(n.x*n.x-n.y*n.y))*value;
+}

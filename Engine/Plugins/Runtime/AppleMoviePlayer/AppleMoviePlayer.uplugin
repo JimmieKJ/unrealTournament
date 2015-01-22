@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Apple Movie Player",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Apple Platform Movie Player using AVPlayer library",
+	"Category" : "Programming Runtime.Plugins",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "AppleMoviePlayer",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PreLoadingScreen",
+			"WhitelistPlatforms" : [ "IOS", "Mac" ]
+		}
+	]
+}

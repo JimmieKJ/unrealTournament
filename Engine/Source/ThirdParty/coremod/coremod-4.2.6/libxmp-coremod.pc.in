@@ -1,0 +1,13 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@/coremod
+
+Name: libxmp-coremod
+Description: Xmp core module player library
+Version: 4.2.6
+
+Requires:
+Libs: -L${libdir} -lxmp-coremod
+Cflags: -I${includedir}
+Libs.private: -lm

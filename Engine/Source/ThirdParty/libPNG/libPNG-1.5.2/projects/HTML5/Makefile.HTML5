@@ -1,0 +1,55 @@
+CC=emcc
+
+CFLAGS = -O2
+
+SOURCES= \
+  png.c\
+  pngerror.c\
+  pngget.c\
+  pngmem.c\
+  pngpread.c\
+  pngread.c\
+  pngrio.c\
+  pngrtran.c\
+  pngrutil.c\
+  pngset.c\
+  pngtrans.c\
+  pngwio.c\
+  pngwrite.c\
+  pngwtran.c\
+  pngwutil.c\
+
+OBJECTS=$(SOURCES:.c=.bc)
+
+ZLIB_HEADER=..\..\zlib\zlib-1.2.5\Inc\
+
+LIBPNG = libpng.bc
+
+libpng: $(SOURCES) $(LIBPNG)
+
+.c.bc:
+	$(CC) $(CFLAGS) $< -o $@
+	
+$(LIBPNG): $(OBJECTS) 
+	$(CC) $(OBJECTS) -o $@
+
+install: libpng 
+	xcopy libpng.bc lib\HTML5\ /F /R /Y /I
+
+uninstall:
+	del lib\HTML5\libpng.bc /F 
+	
+zlib: 
+	copy ..\..\zlib\zlib-1.2.5\Src\zlib.bc .
+	
+all: libpng zlib
+
+clean:
+	del /S *.bc *.js 
+
+test: all pngtest.bc
+	  $(CC) -I$(ZLIB_HEADER) -O2  -o pngtest.js pngtest.bc $(LIBPNG) zlib.bc --embed-file pngtest.png
+
+
+	
+	

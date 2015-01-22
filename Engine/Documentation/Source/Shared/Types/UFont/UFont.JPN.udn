@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:2284846
+Availability:NoPublish
+Title:UFont
+Crumbs:
+Description:Font クラスの概要
+
+[EXCERPT:UFont]
+
+グリフに関する情報を含むフォント オブジェクトフォント データベースには個別のグリフの座標のみしか含まれないのに対し、グリフ ビットマップは含まれているテクスチャに格納されています。
+
+[VAR:ToolTipFullLink]
+Engine/Rendering/Materials/ExpressionReference/Font
+[/VAR]
+[/EXCERPT:UFont]
