@@ -11,6 +11,7 @@ class FUTModule : public FDefaultGameModuleImpl
 IMPLEMENT_PRIMARY_GAME_MODULE(FUTModule, UnrealTournament, "UnrealTournament");
  
 DEFINE_LOG_CATEGORY(UT);
+DEFINE_LOG_CATEGORY(UTNet);
 
 // init editor hooks
 #if WITH_EDITOR

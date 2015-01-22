@@ -7,6 +7,7 @@
 #include "ParticleDefinitions.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(UTNet, Log, All);
 
 #define COLLISION_PROJECTILE ECC_GameTraceChannel1
 #define COLLISION_TRACE_WEAPON ECC_GameTraceChannel2

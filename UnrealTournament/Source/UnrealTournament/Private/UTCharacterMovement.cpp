@@ -259,7 +259,7 @@ float UUTCharacterMovement::UpdateTimeStampAndDeltaTime(float DeltaTime, FNetwor
 
 void UUTCharacterMovement::AdjustMovementTimers(float Adjustment)
 {
-	//UE_LOG(UT, Warning, TEXT("+++++++ROLLOVER time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
+	//UE_LOG(UTNet, Warning, TEXT("+++++++ROLLOVER time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
 	DodgeResetTime -= Adjustment;
 	SprintStartTime -= Adjustment;
 	DodgeRollTapTime -= Adjustment;
@@ -312,7 +312,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 				{
 					CurrentServerMoveTime = GetWorld()->GetTimeSeconds();
 				}
-				//UE_LOG(UT, Warning, TEXT("Correction COMPLETE"));
+				//UE_LOG(UTNet, Warning, TEXT("Correction COMPLETE velocity %f %f %f"), Velocity.X, Velocity.Y, Velocity.Z);
 				// We need to check the jump state before adjusting input acceleration, to minimize latency
 				// and to make sure acceleration respects our potentially new falling state.
 				CharacterOwner->CheckJumpInput(DeltaTime);
@@ -323,11 +323,6 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 				if (CharacterOwner->Role == ROLE_Authority)
 				{
-// @TODO FIXMESTEVE TEMP REMOVE
-					if (GetNetMode() == NM_DedicatedServer && Cast<APlayerController>(CharacterOwner->Controller) != NULL)
-					{
-						UE_LOG(UT, Warning, TEXT("Perform movement from Tick on server"));
-					}
 					PerformMovement(DeltaTime);
 				}
 				else if (bIsClient)
@@ -459,11 +454,11 @@ bool UUTCharacterMovement::CanDodge()
 {
 /*	if (GetCurrentMovementTime() < DodgeResetTime)
 	{
-		UE_LOG(UT, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+		UE_LOG(UTNet, Warning, TEXT("Failed dodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("SUCCEEDED candodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+		UE_LOG(UTNet, Warning, TEXT("SUCCEEDED candodge current move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 	}
 */
 	return !bIsDodgeRolling && CanEverJump() && (GetCurrentMovementTime() > DodgeResetTime);
@@ -498,7 +493,7 @@ void UUTCharacterMovement::PerformWaterJump()
 	DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
 	if (!CharacterOwner->bClientUpdating)
 	{
-		//UE_LOG(UT, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+		//UE_LOG(UTNet, Warning, TEXT("Set dodge reset after wall dodge move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 
 		// @TODO FIXMESTEVE - character should be responsible for effects, should have blueprint event too
 		AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
@@ -519,7 +514,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 /*	
 	FVector Loc = CharacterOwner->GetActorLocation();
-	UE_LOG(UT, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f from yaw %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z, CharacterOwner->GetActorRotation().Yaw);
+	UE_LOG(UTNet, Warning, TEXT("Perform dodge at %f loc %f %f %f vel %f %f %f dodgedir %f %f %f from yaw %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, DodgeDir.X, DodgeDir.Y, DodgeDir.Z, CharacterOwner->GetActorRotation().Yaw);
 */
 	float HorizontalImpulse = DodgeImpulseHorizontal;
 	bool bIsLowGrav = (GetGravityZ() > UPhysicsSettings::Get()->DefaultGravityZ);
@@ -533,7 +528,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
 		{
-			//UE_LOG(UT, Warning, TEXT("Exceeded max wall dodges"));
+			//UE_LOG(UTNet, Warning, TEXT("Exceeded max wall dodges"));
 			NeedsClientAdjustment();
 			return false;
 		}
@@ -552,7 +547,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		const bool bBlockingHit = GetWorld()->SweepSingle(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
 		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 		{
-			//UE_LOG(UT, Warning, TEXT("No wall to dodge"));
+			//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
 			NeedsClientAdjustment();
 			return false;
 		}
@@ -583,7 +578,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 
 	// perform the dodge
-	//UE_LOG(UT, Warning, TEXT("Imparted velocity"));
+	//UE_LOG(UTNet, Warning, TEXT("Imparted velocity"));
 	float VelocityZ = Velocity.Z;
 	Velocity = HorizontalImpulse*DodgeDir + (Velocity | DodgeCross)*DodgeCross;
 	Velocity.Z = 0.f;
@@ -615,7 +610,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 			VelocityZ = 0.f;
 		}
 		Velocity.Z = FMath::Min(VelocityZ + CurrentWallImpulse, MaxAdditiveDodgeJumpSpeed);
-		//UE_LOG(UT, Warning, TEXT("Wall dodge at %f velZ %f"), CharacterOwner->GetWorld()->GetTimeSeconds(), Velocity.Z);
+		//UE_LOG(UTNet, Warning, TEXT("Wall dodge at %f velZ %f"), CharacterOwner->GetWorld()->GetTimeSeconds(), Velocity.Z);
 	}
 	else
 	{
@@ -670,11 +665,11 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 /*
 	if (CharacterOwner->Role < ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
+		UE_LOG(UTNet, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
+		UE_LOG(UTNet, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
 	}
 */
 	Super::PerformMovement(DeltaSeconds);
@@ -785,7 +780,7 @@ void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bF
 		}
 	}
 	Super::CalcVelocity(DeltaTime, Friction, bFluid, BrakingDeceleration);
-	//UE_LOG(UT, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z);
+	//UE_LOG(UTNet, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z);
 }
 
 void UUTCharacterMovement::ResetTimers()
@@ -828,19 +823,19 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		{
 			DodgeRollEndTime = GetCurrentMovementTime() + DodgeRollDuration;
 			Acceleration = DodgeRollAcceleration * Velocity.GetSafeNormal2D();
-			//UE_LOG(UT, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
+			//UE_LOG(UTNet, Warning, TEXT("DodgeRoll within %f"), GetCurrentMovementTime() - DodgeRollTapTime);
 			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging)
 			{
 				DodgeResetTime = DodgeRollEndTime + ((CurrentMultiJumpCount > 0) ? DodgeJumpResetInterval : DodgeResetInterval);
-				//UE_LOG(UT, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
+				//UE_LOG(UTNet, Warning, TEXT("Set dodge reset after landing move time %f dodge reset time %f"), GetCurrentMovementTime(), DodgeResetTime);
 			}
 		}
 		else if (bIsDodging)
 		{
 			Velocity *= ((CurrentMultiJumpCount > 0) ? DodgeJumpLandingSpeedFactor : DodgeLandingSpeedFactor);
 			DodgeResetTime = GetCurrentMovementTime() + ((CurrentMultiJumpCount > 0) ? DodgeJumpResetInterval : DodgeResetInterval);
-			//UE_LOG(UT, Warning, TEXT("bIsDodging cut velocity to %f %f %f"),Velocity.X, Velocity.Y, Velocity.Z);
+			//UE_LOG(UTNet, Warning, TEXT("bIsDodging cut velocity to %f %f %f"),Velocity.X, Velocity.Y, Velocity.Z);
 		}
 		bIsDodging = false;
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
@@ -935,7 +930,7 @@ bool UUTCharacterMovement::CanMultiJump()
 
 void UUTCharacterMovement::ClearDodgeInput()
 {
-	//UE_LOG(UT, Warning, TEXT("ClearDodgeInput"));
+	//UE_LOG(UTNet, Warning, TEXT("ClearDodgeInput"));
 	bPressedDodgeForward = false;
 	bPressedDodgeBack = false;
 	bPressedDodgeLeft = false;
@@ -983,7 +978,7 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 			bIsSprinting = CanSprint();
 			/*if (bWasSprinting != bIsSprinting)
 			{
-				UE_LOG(UT, Warning, TEXT("SPRINTING NOW %d"), bIsSprinting);
+				UE_LOG(UTNet, Warning, TEXT("SPRINTING NOW %d"), bIsSprinting);
 			}*/
 		}
 
@@ -1328,11 +1323,11 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	FVector Loc = CharacterOwner->GetActorLocation();
 	if (CharacterOwner->Role < ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("CLIENT Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
+		UE_LOG(UTNet, Warning, TEXT("CLIENT Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("SERVER Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
+		UE_LOG(UTNet, Warning, TEXT("SERVER Fall at %f from %f %f %f vel %f %f %f delta %f"), GetCurrentSynchTime(), Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, deltaTime);
 	}
 	*/
 	while ((remainingTime > 0.f) && (Iterations < 8))

@@ -64,8 +64,7 @@ const FVector& NewAccel
 	/*
 	if (bOldSprinting != bIsSprinting)
 	{
-	UE_LOG(UT, Warning, TEXT("%f SPRINTING changed from %d to %d"), ClientTimeStamp, bOldSprinting, bIsSprinting);
-
+		UE_LOG(UTNet, Warning, TEXT("%f SPRINTING changed from %d to %d"), ClientTimeStamp, bOldSprinting, bIsSprinting);
 	}*/
 	PerformMovement(DeltaTime);
 
@@ -106,7 +105,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 
 void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode)
 {
-	//UE_LOG(UT, Warning, TEXT("Received client adjust position for %f"), TimeStamp);
+	//UE_LOG(UTNet, Warning, TEXT("Received client adjust position for %f"), TimeStamp);
 	// use normal replication when simulating physics
 	if (CharacterOwner == NULL || CharacterOwner->GetRootComponent() == NULL || !CharacterOwner->GetRootComponent()->IsSimulatingPhysics())
 	{
@@ -460,6 +459,8 @@ void UUTCharacterMovement::SendClientAdjustment()
 		}
 		else
 		{
+			// @TODO FIXMESTEVE separate client adjust position for relative to base, rather than zero velocity
+			bool bHasBase = (ServerData->PendingAdjustment.NewBase != NULL) || (ServerData->PendingAdjustment.MovementMode == MOVE_Walking);
 			if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
 			{
 				FRotator Rotation = ServerData->PendingAdjustment.NewRot.GetNormalized();
@@ -473,7 +474,7 @@ void UUTCharacterMovement::SendClientAdjustment()
 					ServerData->PendingAdjustment.NewVel.Z,
 					ServerData->PendingAdjustment.NewBase,
 					ServerData->PendingAdjustment.NewBaseBoneName,
-					ServerData->PendingAdjustment.NewBase != NULL,
+					bHasBase,
 					ServerData->PendingAdjustment.bBaseRelativePosition,
 					ServerData->PendingAdjustment.MovementMode
 					);
@@ -486,7 +487,7 @@ void UUTCharacterMovement::SendClientAdjustment()
 					ServerData->PendingAdjustment.NewLoc,
 					ServerData->PendingAdjustment.NewBase,
 					ServerData->PendingAdjustment.NewBaseBoneName,
-					ServerData->PendingAdjustment.NewBase != NULL,
+					bHasBase,
 					ServerData->PendingAdjustment.bBaseRelativePosition,
 					ServerData->PendingAdjustment.MovementMode
 					);
@@ -500,7 +501,7 @@ void UUTCharacterMovement::SendClientAdjustment()
 					ServerData->PendingAdjustment.NewVel,
 					ServerData->PendingAdjustment.NewBase,
 					ServerData->PendingAdjustment.NewBaseBoneName,
-					ServerData->PendingAdjustment.NewBase != NULL,
+					bHasBase,
 					ServerData->PendingAdjustment.bBaseRelativePosition,
 					ServerData->PendingAdjustment.MovementMode
 					);
@@ -658,7 +659,7 @@ void UUTCharacterMovement::UTCallServerMove()
 	if (OldMovePtr.IsValid())
 	{
 		const FSavedMove_Character* OldMove = OldMovePtr.Get();
-		//UE_LOG(UT, Warning, TEXT("Sending old move %f"), OldMove->TimeStamp);
+		//UE_LOG(UTNet, Warning, TEXT("Sending old move %f"), OldMove->TimeStamp);
 		UTCharacterOwner->UTServerMoveOld(OldMove->TimeStamp, OldMove->Acceleration, OldMove->SavedControlRotation.Yaw, OldMove->GetCompressedFlags());
 	}
 
@@ -667,7 +668,7 @@ void UUTCharacterMovement::UTCallServerMove()
 		const FSavedMovePtr& MoveToSend = ClientData->SavedMoves[i];
 		if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > ClientData->ClientUpdateTime))
 		{
-			//UE_LOG(UT, Warning, TEXT("Sending pending %f  flags %d"), MoveToSend->TimeStamp, MoveToSend->GetCompressedFlags());
+			//UE_LOG(UTNet, Warning, TEXT("Sending pending %f  flags %d"), MoveToSend->TimeStamp, MoveToSend->GetCompressedFlags());
 			ClientData->ClientUpdateTime = MoveToSend->TimeStamp;
 			if (true) // @TODO FIXMESTEVE bandwidth optimization ((FSavedMove_UTCharacter*)(MoveToSend.Get()))->NeedsRotationSent())
 			{
@@ -692,7 +693,7 @@ void UUTCharacterMovement::UTCallServerMove()
 			ClientMovementBase = NULL;
 			NewMove->EndBoneName = NAME_None;
 		}
-		//UE_LOG(UT, Warning, TEXT("Sending current move %f relative %d flags %d  dodge %d sprint %d shotspawned %d"), NewMove->TimeStamp, bUseRelativeLocation, NewMove->GetCompressedFlags(), (((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward || ((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward || ((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward), ((const FSavedMove_UTCharacter*)NewMove.Get())->bSavedIsSprinting, ((const FSavedMove_UTCharacter*)NewMove.Get())->bShotSpawned);
+		//UE_LOG(UTNet, Warning, TEXT("Sending current move %f relative %d flags %d  dodge %d sprint %d shotspawned %d"), NewMove->TimeStamp, bUseRelativeLocation, NewMove->GetCompressedFlags(), (((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward || ((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward || ((const FSavedMove_UTCharacter*)NewMove.Get())->bPressedDodgeForward), ((const FSavedMove_UTCharacter*)NewMove.Get())->bSavedIsSprinting, ((const FSavedMove_UTCharacter*)NewMove.Get())->bShotSpawned);
 		ClientData->ClientUpdateTime = NewMove->TimeStamp;
 		UTCharacterOwner->UTServerMove
 			(
@@ -729,7 +730,7 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 
 	if (!UTVerifyClientTimeStamp(TimeStamp, *ServerData))
 	{
-		//UE_LOG(UT, Warning, TEXT("Failed UTVerifyClientTimeStamp"));
+		//UE_LOG(UTNet, Warning, TEXT("Failed UTVerifyClientTimeStamp"));
 		return;
 	}
 
@@ -846,12 +847,12 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 		}
 /*		if (bMovementModeDiffers)
 		{
-			UE_LOG(UT, Warning, TEXT("******** MOVEMENTMODE Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d actual %d"),
+			UE_LOG(UTNet, Warning, TEXT("******** MOVEMENTMODE Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d actual %d"),
 				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), int32(CurrentPackedMovementMode), int32(ClientMovementMode), int32(MovementMode));
 		}
 		else
 		{
-			UE_LOG(UT, Warning, TEXT("******** Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s"),
+			UE_LOG(UTNet, Warning, TEXT("******** Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s"),
 				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), *GetNameSafe(MovementBase));
 		}
 */
@@ -1043,7 +1044,7 @@ bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPred
 		// Client is resetting TimeStamp to increase accuracy.
 		if (DeltaTimeStamp < 0.f)
 		{
-			//UE_LOG(UT, Log, TEXT("TimeStamp reset detected. CurrentTimeStamp: %f, new TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
+			//UE_LOG(UTNet, Log, TEXT("TimeStamp reset detected. CurrentTimeStamp: %f, new TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
 			ServerData.CurrentClientTimeStamp = 0.f;
 			AdjustMovementTimers(-1.f*DeltaTimeStamp);
 			return true;
@@ -1052,7 +1053,7 @@ bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPred
 		{
 			// We already reset the TimeStamp, but we just got an old outdated move before the switch.
 			// Just ignore it.
-			//UE_LOG(UT, Log, TEXT("TimeStamp expired. Before TimeStamp Reset. CurrentTimeStamp: %f, TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
+			//UE_LOG(UTNet, Log, TEXT("TimeStamp expired. Before TimeStamp Reset. CurrentTimeStamp: %f, TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
 			return false;
 		}
 	}
@@ -1203,7 +1204,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bSavedJumpAssisted = UTCharMov->bJumpAssisted;
 		bSavedIsDodging = UTCharMov->bIsDodging;
 		bPressedSlide = UTCharMov->bPressedSlide;
-		//UE_LOG(UT, Warning, TEXT("set move %f Dodge %d Sprint %d saved sprint start %f"), TimeStamp, (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight), bSavedIsSprinting, SavedSprintStartTime);
+		//UE_LOG(UTNet, Warning, TEXT("set move %f Dodge %d Sprint %d saved sprint start %f"), TimeStamp, (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight), bSavedIsSprinting, SavedSprintStartTime);
 	}
 
 	// Round acceleration, so sent version and locally used version always match
@@ -1236,35 +1237,35 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			// warn if any of these changed (can be legit)
 			if (SavedMultiJumpCount != UTCharMov->CurrentMultiJumpCount)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f SavedMultiJumpCount from %d to %d"), TimeStamp, SavedMultiJumpCount, UTCharMov->CurrentMultiJumpCount);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedMultiJumpCount from %d to %d"), TimeStamp, SavedMultiJumpCount, UTCharMov->CurrentMultiJumpCount);
 			}
 			if (SavedWallDodgeCount != UTCharMov->CurrentWallDodgeCount)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f SavedWallDodgeCount from %d to %d"), TimeStamp, SavedWallDodgeCount, UTCharMov->CurrentWallDodgeCount);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedWallDodgeCount from %d to %d"), TimeStamp, SavedWallDodgeCount, UTCharMov->CurrentWallDodgeCount);
 			}
 			if (SavedSprintStartTime != UTCharMov->SprintStartTime)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f SavedSprintStartTime from %f to %f"), TimeStamp, SavedSprintStartTime, UTCharMov->SprintStartTime);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedSprintStartTime from %f to %f"), TimeStamp, SavedSprintStartTime, UTCharMov->SprintStartTime);
 			}
 			if (SavedDodgeResetTime != UTCharMov->DodgeResetTime)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeResetTime, UTCharMov->DodgeResetTime);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeResetTime, UTCharMov->DodgeResetTime);
 			}
 			if (SavedDodgeRollEndTime != UTCharMov->DodgeRollEndTime)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeRollEndTime, UTCharMov->DodgeRollEndTime);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeRollEndTime, UTCharMov->DodgeRollEndTime);
 			}
 			if (SavedWallDodgeCount != UTCharMov->CurrentWallDodgeCount)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f SavedWallDodgeCount from %d to %d"), TimeStamp, SavedWallDodgeCount, UTCharMov->CurrentWallDodgeCount);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedWallDodgeCount from %d to %d"), TimeStamp, SavedWallDodgeCount, UTCharMov->CurrentWallDodgeCount);
 			}
 			if (bSavedJumpAssisted != UTCharMov->bJumpAssisted)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f bSavedJumpAssisted from %d to %d"), TimeStamp, bSavedJumpAssisted, UTCharMov->bJumpAssisted);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f bSavedJumpAssisted from %d to %d"), TimeStamp, bSavedJumpAssisted, UTCharMov->bJumpAssisted);
 			}
 			if (bSavedIsDodging != UTCharMov->bIsDodging)
 			{
-			UE_LOG(UT, Warning, TEXT("prep move %f bSavedIsDodging from %d to %d"), TimeStamp, bSavedIsDodging, UTCharMov->bIsDodging);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f bSavedIsDodging from %d to %d"), TimeStamp, bSavedIsDodging, UTCharMov->bIsDodging);
 			}
 			*/
 			// these may have changed in the course of replaying saved moves.  Save new value, since we reset to this before the first one is played
