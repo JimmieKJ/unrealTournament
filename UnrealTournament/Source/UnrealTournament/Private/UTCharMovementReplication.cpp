@@ -776,12 +776,6 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 
 void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLoc, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
 {
-	// limit client error update frequency
-	if (GetWorld()->GetTimeSeconds() - LastClientAdjustmentTime < MinTimeBetweenClientAdjustments)
-	{
-		return;
-	}
-	LastClientAdjustmentTime = GetWorld()->GetTimeSeconds();
 	FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 	check(ServerData);
 
@@ -792,6 +786,15 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 	{
 		return;
 	}
+
+	// limit client error update frequency
+	if (GetWorld()->GetTimeSeconds() - LastClientAdjustmentTime < MinTimeBetweenClientAdjustments)
+	{
+		ServerData->PendingAdjustment.TimeStamp = TimeStamp;
+		ServerData->PendingAdjustment.bAckGoodMove = true;
+		return;
+	}
+	LastClientAdjustmentTime = GetWorld()->GetTimeSeconds();
 
 	// Offset may be relative to base component
 	FVector ClientLoc = RelativeClientLoc;
