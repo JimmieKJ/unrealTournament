@@ -71,7 +71,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	HeadScale = 1.0f;
 	HeadRadius = 18.0f;
 	HeadHeight = 8.0f;
-	HeadBone = FName(TEXT("b_Head"));
+	HeadBone = FName(TEXT("head"));
 	EmoteSpeed = 1.0f;
 
 	BobTime = 0.f;
