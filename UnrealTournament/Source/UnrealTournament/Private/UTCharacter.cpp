@@ -3911,6 +3911,10 @@ void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
 {
 	WalkMovementReductionPct = (InDuration > 0.0f) ? InPct : 0.0f;
 	WalkMovementReductionTime = InDuration;
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->NeedsClientAdjustment();
+	}
 }
 
 void AUTCharacter::OnRep_Invisible_Implementation()

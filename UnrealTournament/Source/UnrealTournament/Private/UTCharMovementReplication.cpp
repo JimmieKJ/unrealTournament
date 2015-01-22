@@ -845,6 +845,14 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 			ServerData->PendingAdjustment.NewBase = NULL;
 			ServerData->PendingAdjustment.NewBaseBoneName = NAME_None;
 		}
+
+		// @TODO FIXMESTEVE configurable property controlled
+		if (LocDiff.Size() > 15.f)
+		{
+			// in case of packet loss, more frequent correction updates if error is larger
+			LastClientAdjustmentTime = GetWorld()->GetTimeSeconds() - 0.05f;
+		}
+
 /*		if (bMovementModeDiffers)
 		{
 			UE_LOG(UTNet, Warning, TEXT("******** MOVEMENTMODE Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s, MovementMode %d vs Client %d actual %d"),
