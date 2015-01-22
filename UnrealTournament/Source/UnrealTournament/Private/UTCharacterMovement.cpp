@@ -523,13 +523,13 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		bIsLowGrav = !UTCharOwner->bApplyWallSlide && bIsLowGrav;
 	}
+	NeedsClientAdjustment();
 
 	if (!IsMovingOnGround())
 	{
 		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
 		{
 			//UE_LOG(UTNet, Warning, TEXT("Exceeded max wall dodges"));
-			NeedsClientAdjustment();
 			return false;
 		}
 		// if falling/swimming, check if can perform wall dodge
@@ -548,7 +548,6 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 		{
 			//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
-			NeedsClientAdjustment();
 			return false;
 		}
 		if ((Result.ImpactNormal | DodgeDir) < WallDodgeMinNormal)
@@ -900,6 +899,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
+		NeedsClientAdjustment(); 
 		return true;
 	}
 
