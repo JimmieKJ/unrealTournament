@@ -323,7 +323,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	// Create some fake servers until I can hook up the server list
 	InternetServers.Empty();
 	LanServers.Empty();
-
+	/*
 	for( int32 ItemIndex = 0; ItemIndex < 200; ++ItemIndex )
 	{
 		FString ServerName = FString::Printf(TEXT("Server %i"), ItemIndex);
@@ -341,7 +341,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 		TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, TEXT("10.0.0.0"), ServerGamePath, ServerGameName, ServerMap, FMath::RandRange(0,16), FMath::RandRange(0,16), FMath::RandRange(0,16), TEXT("1.0.0.0"), FMath::RandRange(10,500), 0x00);
 		HUBServers.Add( NewServer );
 	}
-
+	*/
 	InternetServerList->RequestListRefresh();
 
 	if (PlayerOwner->IsLoggedIn())
@@ -396,7 +396,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	}	
 
 	AddGameFilters();
-	BrowserTypeChanged();
+	//BrowserTypeChanged();
 }
 
 TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
