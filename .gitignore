@@ -25,6 +25,50 @@
 *.opensdf
 *.sdf
 
+# Standard binary files
+*.lib
+*.idb
+*.a
+*.dll
+*.exe
+*.png
+*.bz2
+*.psd
+*.gif
+*.zip
+*.tga
+*.dylib
+*.gz
+*.so
+*.jar
+*.mp4
+*.pak
+*.bmp
+*.obj
+**/*.framework/**
+
+# Engine binaries
+/Engine/Binaries/**
+!/Engine/Binaries/DotNET
+/Engine/Binaries/DotNET/**
+!/Engine/Binaries/DotNET/GitDependencies.*
+
+# Engine extras
+/Engine/Extras/*/**
+!/Engine/Extras/Maya_AnimationRiggingTools/**
+/Engine/Extras/Maya_AnimationRiggingTools/**/*.pdf
+/Engine/Extras/Maya_AnimationRiggingTools/**/*.pyd
+/Engine/Extras/Maya_AnimationRiggingTools/MayaTools/General/ART/**
+/Engine/Extras/Maya_AnimationRiggingTools/MayaTools/General/Icons/**
+!/Engine/Extras/VisualStudioSnippets/**
+
+# Engine ThirdParty Libraries
+/Engine/Source/ThirdParty/ICU/icu4c-53_1/source/data/**
+/Engine/Source/ThirdParty/ICU/icu4c-53_1/source/test/**
+
+# Always exclude content folders
+**/Content/**
+
 # Derived data cache is never checked in
 /*/DerivedDataCache/**
 
@@ -52,3 +96,4 @@
 /UnrealTournament/Plugins/SampleGameMode/Binaries/**
 /UnrealTournament/Plugins/SampleGameMode/Content/**
 /UnrealTournament/Plugins/SampleMutator/Binaries/**
+/UnrealTournament/Releases/**
