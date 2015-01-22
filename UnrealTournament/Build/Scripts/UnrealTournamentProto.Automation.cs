@@ -136,7 +136,7 @@ public class UnrealTournamentBuild
     // Get a basic StagingInfo based on buildversion of command currently running
     public static BuildPatchToolStagingInfo GetUTEditorBuildPatchToolStagingInfo(BuildCommand InOwnerCommand, UnrealTargetPlatform InPlatform, string BranchName)
     {
-        return GetUTBuildPatchToolStagingInfo(InOwnerCommand, CreateBuildVersion(), InPlatform, BranchName);
+        return GetUTEditorBuildPatchToolStagingInfo(InOwnerCommand, CreateBuildVersion(), InPlatform, BranchName);
     }
 
 	public static string GetArchiveDir()
@@ -197,75 +197,77 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
         else
         {
             // GAME BUILD
-            // verify the files we need exist first
-            string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win64", "WindowsNoEditor");
-            string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
-
-            if (!FileExists(RawImageManifest))
             {
-                throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
+                // verify the files we need exist first
+                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win64", "WindowsNoEditor");
+                string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
+
+                if (!FileExists(RawImageManifest))
+                {
+                    throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
+                }
+
+                var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
+
+                // run the patch tool
+                BuildPatchToolBase.Get().Execute(
+                new BuildPatchToolBase.PatchGenerationOptions
+                {
+                    StagingInfo = StagingInfo,
+                    BuildRoot = RawImagePath,
+                    FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
+                    AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
+                    AppLaunchCmdArgs = "UnrealTournament",
+                    AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+                });
+
+                // post the Windows build to build info service on gamedev
+                string McpConfigName = "MainGameDevNet";
+                CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
+                BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+                CommandUtils.Log("Labeling new build as Latest in MCP.");
+                string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
+                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+                // For backwards compatibility, also label as Production-Latest
+                LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
+                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             }
-
-            var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
-
-            // run the patch tool
-            BuildPatchToolBase.Get().Execute(
-            new BuildPatchToolBase.PatchGenerationOptions
-            {
-                StagingInfo = StagingInfo,
-                BuildRoot = RawImagePath,
-                FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
-                AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
-                AppLaunchCmdArgs = "UnrealTournament",
-                AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-            });
-
-            // post the Windows build to build info service on gamedev
-            string McpConfigName = "MainGameDevNet";
-            CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
-            BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-            CommandUtils.Log("Labeling new build as Latest in MCP.");
-            string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
-            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-            // For backwards compatibility, also label as Production-Latest
-            LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
-            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-
 
             // EDITOR BUILD
-
-            // verify the files we need exist first
-            RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsEditor");
-            RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
-
-            if (!FileExists(RawImageManifest))
             {
-                throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
+                // verify the files we need exist first
+                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsEditor");
+                string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
+
+                if (!FileExists(RawImageManifest))
+                {
+                    throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
+                }
+
+                var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
+
+                // run the patch tool
+                BuildPatchToolBase.Get().Execute(
+                new BuildPatchToolBase.PatchGenerationOptions
+                {
+                    StagingInfo = StagingInfo,
+                    BuildRoot = RawImagePath,
+                    AppLaunchCmd = @".\Engine\Binaries\Win64\UE4Editor.exe",
+                    AppLaunchCmdArgs = "UnrealTournament",
+                    AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+                });
+
+                // post the Editor build to build info service on gamedev
+                string McpConfigName = "MainGameDevNet";
+                CommandUtils.Log("Posting UnrealTournament Editor for Windows to MCP.");
+                BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+                CommandUtils.Log("Labeling new build as Latest in MCP.");
+                string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
+                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+                // For backwards compatibility, also label as Production-Latest
+                LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
+                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             }
-
-            StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
-
-            // run the patch tool
-            BuildPatchToolBase.Get().Execute(
-            new BuildPatchToolBase.PatchGenerationOptions
-            {
-                StagingInfo = StagingInfo,
-                BuildRoot = RawImagePath,
-                AppLaunchCmd = @".\Engine\Binaries\Win64\UE4Editor.exe",
-                AppLaunchCmdArgs = "UnrealTournament",
-                AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-            });
-
-            // post the Editor build to build info service on gamedev
-            McpConfigName = "MainGameDevNet";
-            CommandUtils.Log("Posting UnrealTournament Editor for Windows to MCP.");
-            BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-            CommandUtils.Log("Labeling new build as Latest in MCP.");
-            LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
-            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-            // For backwards compatibility, also label as Production-Latest
-            LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
-            BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
         }
 
         PrintRunTime();
