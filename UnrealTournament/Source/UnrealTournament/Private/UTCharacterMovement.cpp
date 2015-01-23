@@ -119,7 +119,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	MaxPositionErrorSquared = 5.f;
 	LastClientAdjustmentTime = -1.f;
+	LastGoodMoveAckTime = -1.f;
 	MinTimeBetweenClientAdjustments = 0.1f;
+	bLargeCorrection = false;
+	LargeCorrectionThreshold = 15.f;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment

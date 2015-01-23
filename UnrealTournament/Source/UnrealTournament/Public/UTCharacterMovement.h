@@ -48,7 +48,19 @@ public:
 	UPROPERTY()
 	float LastClientAdjustmentTime;
 
-	/** Used to control minimum frequency of client adjustment replication. */
+	/** Last time a good move ack was sent.  Used to limit frequency (for when client hasn't had a chance to respond yet. */
+	UPROPERTY()
+		float LastGoodMoveAckTime;
+
+	/** Set if the pending client adjustment is for a large position correction. */
+	UPROPERTY()
+		bool bLargeCorrection;
+
+	/** Position error considered a large correction for client adjustment. */
+	UPROPERTY()
+		float LargeCorrectionThreshold;
+
+	/** Used to control minimum frequency of client adjustment and good move ack replication. */
 	UPROPERTY()
 	float MinTimeBetweenClientAdjustments;
 

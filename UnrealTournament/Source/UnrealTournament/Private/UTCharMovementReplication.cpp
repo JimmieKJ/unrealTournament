@@ -436,81 +436,80 @@ void UUTCharacterMovement::SendClientAdjustment()
 		return;
 	}
 
-	if (ServerData->PendingAdjustment.bAckGoodMove && Cast<AUTCharacter>(CharacterOwner))
+	if (ServerData->PendingAdjustment.bAckGoodMove)
 	{
-		Cast<AUTCharacter>(CharacterOwner)->GoodMoveAckTime = ServerData->PendingAdjustment.TimeStamp;
-		ServerData->PendingAdjustment.TimeStamp = 0;
-		ServerData->PendingAdjustment.bAckGoodMove = false;
-	}
-	else
-	{
-		FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
-		check(ServerData);
-
-		if (ServerData->PendingAdjustment.TimeStamp <= 0.f)
+		if (GetWorld()->GetTimeSeconds() - LastGoodMoveAckTime > MinTimeBetweenClientAdjustments)
 		{
-			return;
-		}
-
-		if (ServerData->PendingAdjustment.bAckGoodMove == true)
-		{
-			// just notify client this move was received
-			ClientAckGoodMove(ServerData->PendingAdjustment.TimeStamp);
-		}
-		else
-		{
-			// @TODO FIXMESTEVE separate client adjust position for relative to base, rather than zero velocity also want to not do good move acks every frame
-			bool bHasBase = (ServerData->PendingAdjustment.NewBase != NULL) || (ServerData->PendingAdjustment.MovementMode == MOVE_Walking);
-			if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
+			if (Cast<AUTCharacter>(CharacterOwner))
 			{
-				FRotator Rotation = ServerData->PendingAdjustment.NewRot.GetNormalized();
-				FVector_NetQuantizeNormal CompressedRotation(Rotation.Pitch / 180.f, Rotation.Yaw / 180.f, Rotation.Roll / 180.f);
-				ClientAdjustRootMotionPosition
-					(
-					ServerData->PendingAdjustment.TimeStamp,
-					CharacterOwner->GetRootMotionAnimMontageInstance()->GetPosition(),
-					ServerData->PendingAdjustment.NewLoc,
-					CompressedRotation,
-					ServerData->PendingAdjustment.NewVel.Z,
-					ServerData->PendingAdjustment.NewBase,
-					ServerData->PendingAdjustment.NewBaseBoneName,
-					bHasBase,
-					ServerData->PendingAdjustment.bBaseRelativePosition,
-					ServerData->PendingAdjustment.MovementMode
-					);
-			}
-			else if (ServerData->PendingAdjustment.NewVel.IsZero())
-			{
-				ClientVeryShortAdjustPosition
-					(
-					ServerData->PendingAdjustment.TimeStamp,
-					ServerData->PendingAdjustment.NewLoc,
-					ServerData->PendingAdjustment.NewBase,
-					ServerData->PendingAdjustment.NewBaseBoneName,
-					bHasBase,
-					ServerData->PendingAdjustment.bBaseRelativePosition,
-					ServerData->PendingAdjustment.MovementMode
-					);
+				Cast<AUTCharacter>(CharacterOwner)->GoodMoveAckTime = ServerData->PendingAdjustment.TimeStamp;
 			}
 			else
 			{
-				ClientAdjustPosition
-					(
-					ServerData->PendingAdjustment.TimeStamp,
-					ServerData->PendingAdjustment.NewLoc,
-					ServerData->PendingAdjustment.NewVel,
-					ServerData->PendingAdjustment.NewBase,
-					ServerData->PendingAdjustment.NewBaseBoneName,
-					bHasBase,
-					ServerData->PendingAdjustment.bBaseRelativePosition,
-					ServerData->PendingAdjustment.MovementMode
-					);
+				// just notify client this move was received
+				ClientAckGoodMove(ServerData->PendingAdjustment.TimeStamp);
 			}
+			LastGoodMoveAckTime = GetWorld()->GetTimeSeconds();
 		}
-
-		ServerData->PendingAdjustment.TimeStamp = 0;
-		ServerData->PendingAdjustment.bAckGoodMove = false;
 	}
+	else if (GetWorld()->GetTimeSeconds() - LastClientAdjustmentTime > MinTimeBetweenClientAdjustments)
+	{
+		// in case of packet loss, more frequent correction updates if error is larger
+		LastClientAdjustmentTime = bLargeCorrection ? GetWorld()->GetTimeSeconds() - 0.05f : GetWorld()->GetTimeSeconds();
+		// @TODO FIXMESTEVE separate client adjust position for relative to base, rather than zero velocity also want to not do good move acks every frame
+		bool bHasBase = (ServerData->PendingAdjustment.NewBase != NULL) || (ServerData->PendingAdjustment.MovementMode == MOVE_Walking);
+		if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
+		{
+			FRotator Rotation = ServerData->PendingAdjustment.NewRot.GetNormalized();
+			FVector_NetQuantizeNormal CompressedRotation(Rotation.Pitch / 180.f, Rotation.Yaw / 180.f, Rotation.Roll / 180.f);
+			//UE_LOG(UTNet, Warning, TEXT("SEND ClientAdjustRootMotionPosition"));
+			ClientAdjustRootMotionPosition
+				(
+				ServerData->PendingAdjustment.TimeStamp,
+				CharacterOwner->GetRootMotionAnimMontageInstance()->GetPosition(),
+				ServerData->PendingAdjustment.NewLoc,
+				CompressedRotation,
+				ServerData->PendingAdjustment.NewVel.Z,
+				ServerData->PendingAdjustment.NewBase,
+				ServerData->PendingAdjustment.NewBaseBoneName,
+				bHasBase,
+				ServerData->PendingAdjustment.bBaseRelativePosition,
+				ServerData->PendingAdjustment.MovementMode
+				);
+		}
+		else if (ServerData->PendingAdjustment.NewVel.IsZero())
+		{
+			//UE_LOG(UTNet, Warning, TEXT("SEND ClientVeryShortAdjustPosition"));
+			ClientVeryShortAdjustPosition
+				(
+				ServerData->PendingAdjustment.TimeStamp,
+				ServerData->PendingAdjustment.NewLoc,
+				ServerData->PendingAdjustment.NewBase,
+				ServerData->PendingAdjustment.NewBaseBoneName,
+				bHasBase,
+				ServerData->PendingAdjustment.bBaseRelativePosition,
+				ServerData->PendingAdjustment.MovementMode
+				);
+		}
+		else
+		{
+			//UE_LOG(UTNet, Warning, TEXT("SEND ClientAdjustPosition"));
+			ClientAdjustPosition
+				(
+				ServerData->PendingAdjustment.TimeStamp,
+				ServerData->PendingAdjustment.NewLoc,
+				ServerData->PendingAdjustment.NewVel,
+				ServerData->PendingAdjustment.NewBase,
+				ServerData->PendingAdjustment.NewBaseBoneName,
+				bHasBase,
+				ServerData->PendingAdjustment.bBaseRelativePosition,
+				ServerData->PendingAdjustment.MovementMode
+				);
+		}
+	}
+
+	ServerData->PendingAdjustment.TimeStamp = 0;
+	ServerData->PendingAdjustment.bAckGoodMove = false;
 }
 
 void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration)
@@ -784,15 +783,6 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 		return;
 	}
 
-	// limit client error update frequency
-	if (GetWorld()->GetTimeSeconds() - LastClientAdjustmentTime < MinTimeBetweenClientAdjustments)
-	{
-		ServerData->PendingAdjustment.TimeStamp = TimeStamp;
-		ServerData->PendingAdjustment.bAckGoodMove = true;
-		return;
-	}
-	LastClientAdjustmentTime = GetWorld()->GetTimeSeconds();
-
 	// Offset may be relative to base component
 	FVector ClientLoc = RelativeClientLoc;
 	if (MovementBaseUtility::UseRelativeLocation(ClientMovementBase))
@@ -847,11 +837,7 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 		}
 
 		// @TODO FIXMESTEVE configurable property controlled
-		if (LocDiff.Size() > 15.f)
-		{
-			// in case of packet loss, more frequent correction updates if error is larger
-			LastClientAdjustmentTime = GetWorld()->GetTimeSeconds() - 0.05f;
-		}
+		bLargeCorrection = (LocDiff.Size() > LargeCorrectionThreshold);
 
 /*		if (bMovementModeDiffers)
 		{
@@ -860,7 +846,7 @@ void UUTCharacterMovement::UTServerMoveHandleClientError(float TimeStamp, float 
 		}
 		else
 		{
-			UE_LOG(UTNet, Warning, TEXT("******** Client Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s"),
+			UE_LOG(UTNet, Warning, TEXT("******** UTClient Error at %f is %f Accel %s LocDiff %s ClientLoc %s, ServerLoc: %s"),
 				TimeStamp, LocDiff.Size(), *Accel.ToString(), *LocDiff.ToString(), *ClientLoc.ToString(), *CharacterOwner->GetActorLocation().ToString(), *GetNameSafe(MovementBase));
 		}
 */

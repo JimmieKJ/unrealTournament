@@ -1121,6 +1121,10 @@ void AUTCharacter::StopRagdoll()
 	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 	GetWorld()->FindTeleportSpot(this, AdjustedLoc, GetActorRotation());
 	GetCapsuleComponent()->SetWorldLocation(AdjustedLoc);
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->NeedsClientAdjustment();
+	}
 
 	// terminate constraints on the root bone so we can move it without interference
 	for (int32 i = 0; i < GetMesh()->Constraints.Num(); i++)
@@ -3357,10 +3361,10 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 		Params.Instigator = this;
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation(), GetActorRotation(), Params);
-		if (UTCharacterMovement)
-		{
-			UTCharacterMovement->NeedsClientAdjustment();
-		}
+	}
+	if (bResult && !bIsATest && UTCharacterMovement)
+	{
+		UTCharacterMovement->NeedsClientAdjustment();
 	}
 	return bResult;
 }
