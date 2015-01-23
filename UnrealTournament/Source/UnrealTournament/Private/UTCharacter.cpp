@@ -2233,8 +2233,11 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 	}
 	// clear all bPressedDodge, so it doesn't get replicated or saved
 	//UE_LOG(UT, Warning, TEXT("Didnt really dodge"));
-	UTCharacterMovement->ClearDodgeInput();
-	UTCharacterMovement->NeedsClientAdjustment();
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->ClearDodgeInput();
+		UTCharacterMovement->NeedsClientAdjustment();
+	}
 	return false;
 }
 
@@ -2248,7 +2251,10 @@ bool AUTCharacter::Roll(FVector RollDir)
 			return true;
 		}
 	}
-	UTCharacterMovement->NeedsClientAdjustment();
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->NeedsClientAdjustment();
+	}
 	return false;
 }
 
@@ -3351,6 +3357,10 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 		Params.Instigator = this;
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation(), GetActorRotation(), Params);
+		if (UTCharacterMovement)
+		{
+			UTCharacterMovement->NeedsClientAdjustment();
+		}
 	}
 	return bResult;
 }
