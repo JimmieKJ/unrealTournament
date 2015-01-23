@@ -101,17 +101,16 @@ private:
 };
 
 
-
 /**
  * Mac Response Wrapper which will be used for it's delegates to receive responses.
  */
 @interface FHttpResponseMacWrapper : NSObject
 {
-};
+	/** Holds the payload as we receive it. */
+	TArray<uint8> Payload;
+}
 /** A handle for the response */
 @property(retain) NSHTTPURLResponse* Response;
-/** Holds the payload as we receive it. */
-@property(retain) NSMutableData* Payload;
 /** Flag whether the response is ready */
 @property BOOL bIsReady;
 /** When the response is complete, indicates whether the response was received without error. */
@@ -125,6 +124,8 @@ private:
 -(void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error;
 /** Delegate called with we complete successfully. See Mac docs for when/how this should be used. */
 -(void) connectionDidFinishLoading:(NSURLConnection *)connection;
+
+- (TArray<uint8>&)getPayload;
 @end
 
 
