@@ -62,4 +62,25 @@ public:
 	 * @return user info or null ptr if not found
 	 */
 	virtual TSharedPtr<FOnlineUser> GetUserInfo(int32 LocalUserNum, const class FUniqueNetId& UserId) = 0;
+
+	/**
+	 * Called when done querying for a UserId mapping from a requested display name
+	 *
+	 * @param bWasSuccessful true if server was contacted and a valid result received
+	 * @param UserId user id initiating the request
+	 * @param DisplayNameOrEmail the name string that was being queried
+	 * @param FoundUserId the user id matched for the passed name string
+	 * @param Error string representing the error condition
+	 */
+	DECLARE_DELEGATE_FiveParams(FOnQueryUserMappingComplete, bool /*bWasSuccessful*/, const FUniqueNetId& /*UserId*/, const FString& /*DisplayNameOrEmail*/, const FUniqueNetId& /*FoundUserId*/, const FString& /*Error*/);
+
+	/**
+	 * Contacts server to obtain a user id from an arbitrary user-entered name string, eg. display name
+	 *
+	 * @param UserId id of the user that is requesting the name string lookup
+	 * @param DisplayNameOrEmail a string of a display name or email to attempt to map to a user id
+	 *
+	 * @return true if the operation was started successfully
+	 */
+	virtual bool QueryUserIdMapping(const FUniqueNetId& UserId, const FString& DisplayNameOrEmail, const FOnQueryUserMappingComplete& Delegate = FOnQueryUserMappingComplete()) = 0;	
 };

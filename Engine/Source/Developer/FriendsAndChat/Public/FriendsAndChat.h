@@ -12,7 +12,6 @@
 #include "SlateBasics.h"
 #include "SlateStyle.h"
 #include "OnlineSubsystem.h"
-#include "OnlineSubsystemMcp.h"
 
 
 /* Interfaces
