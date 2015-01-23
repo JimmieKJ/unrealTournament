@@ -291,19 +291,6 @@ namespace UnrealBuildTool
 
 			Result += " -lc++";
 
-			foreach (string Framework in LinkEnvironment.Config.Frameworks)
-			{
-				Result += AddFrameworkToLinkCommand(Framework);
-			}
-			foreach (UEBuildFramework Framework in LinkEnvironment.Config.AdditionalFrameworks)
-			{
-				Result += AddFrameworkToLinkCommand(Framework.FrameworkName);
-			}
-			foreach (string Framework in LinkEnvironment.Config.WeakFrameworks)
-			{
-				Result += AddFrameworkToLinkCommand(Framework, "-weak_framework");
-			}
-
 			return Result;
 		}
 
@@ -594,7 +581,8 @@ namespace UnrealBuildTool
 		{
 			string LibraryDir = Path.GetDirectoryName(Library);
 			string ExeDir = Path.GetDirectoryName(ExeAbsolutePath);
-			if ((Library.Contains("/Plugins/") || Library.Contains("/Binaries/ThirdParty/")) && Library.EndsWith("dylib") && LibraryDir != ExeDir)
+			string AbsPath = Path.GetFullPath(Library);
+			if ((Library.Contains("/Plugins/") || Library.Contains("/Binaries/ThirdParty/")) && (Library.EndsWith("dylib") || Library.EndsWith(".framework")) && LibraryDir != ExeDir)
 			{
 				string RelativePath = Utils.MakePathRelativeTo(LibraryDir, ExeDir).Replace("\\", "/");
 				if (!RelativePath.Contains(LibraryDir) && !RPaths.Contains(RelativePath))
@@ -685,10 +673,10 @@ namespace UnrealBuildTool
 
 			bool bIsBuildingAppBundle = !LinkEnvironment.Config.bIsBuildingDLL && !LinkEnvironment.Config.bIsBuildingLibrary && !LinkEnvironment.Config.bIsBuildingConsoleApplication;
 
+			List<string> RPaths = new List<string>();
+
 			if (!bIsBuildingLibrary || LinkEnvironment.Config.bIncludeDependentLibrariesInLibrary)
 			{
-				List<string> RPaths = new List<string>();
-
 				// Add the additional libraries to the argument list.
 				foreach (string AdditionalLibrary in LinkEnvironment.Config.AdditionalLibraries)
 				{
@@ -761,6 +749,36 @@ namespace UnrealBuildTool
 
 					AddLibraryPathToRPaths(AdditionalLibrary, AbsolutePath, ref RPaths, ref LinkCommand, bIsBuildingAppBundle);
 				}
+			}
+
+			// Add frameworks
+			Dictionary<string, bool> AllFrameworks = new Dictionary<string, bool>();
+			foreach (string Framework in LinkEnvironment.Config.Frameworks)
+			{
+				if (!AllFrameworks.ContainsKey(Framework))
+				{
+					AllFrameworks.Add(Framework, false);
+				}
+			}
+			foreach (UEBuildFramework Framework in LinkEnvironment.Config.AdditionalFrameworks)
+			{
+				if (!AllFrameworks.ContainsKey(Framework.FrameworkName))
+				{
+					AllFrameworks.Add(Framework.FrameworkName, false);
+				}
+			}
+			foreach (string Framework in LinkEnvironment.Config.WeakFrameworks)
+			{
+				if (!AllFrameworks.ContainsKey(Framework))
+				{
+					AllFrameworks.Add(Framework, true);
+				}
+			}
+
+			foreach (var Framework in AllFrameworks)
+			{
+				LinkCommand += AddFrameworkToLinkCommand(Framework.Key, Framework.Value ? "-weak_framework" : "-framework");
+				AddLibraryPathToRPaths(Framework.Key, AbsolutePath, ref RPaths, ref LinkCommand, bIsBuildingAppBundle);
 			}
 
 			// Add the input files to a response file, and pass the response file on the command-line.
