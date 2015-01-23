@@ -676,7 +676,7 @@ void UUTLocalPlayer::ClearProfileSettings()
 #if !UE_SERVER
 	if (IsLoggedIn())
 	{
-		ShowMessage(NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnTitle","Clear Cloud"), NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnMessage","You are about to clear out your cloud storage.  Are you sure you want to do this?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ClearProfileWarnResults));
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnTitle","!!! WARNING !!!"), NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnMessage","You are about to clear all of your settings in the cloud as well as clear your active game and input ini files locally.  The game will then exit and wait for a restart!\n\nAre you sure you want to do this??"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ClearProfileWarnResults));
 	}
 #endif
 }
@@ -696,7 +696,27 @@ void UUTLocalPlayer::OnDeleteUserFileComplete(bool bWasSuccessful, const FUnique
 	// We successfully cleared the cloud, rewrite everything
 	if (bWasSuccessful && FileName == GetProfileFilename())
 	{
-		ShowMessage(NSLOCTEXT("UTLocalPlayer","CloudClearedTitle","Important"), NSLOCTEXT("UTLocalPlayer","CloudClearedMsg","You have just cleared your cloud settings.  You should restart the game."), UTDIALOG_BUTTON_OK);
+		FString PlaformName = FPlatformProperties::PlatformName();
+		FString Filename = FString::Printf(TEXT("%s%s/Input.ini"), *FPaths::GeneratedConfigDir(), *PlaformName);
+		if (FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Filename))
+		{
+			UE_LOG(UT,Log,TEXT("Failed to delete Input.ini"));
+		}
+
+		Filename = FString::Printf(TEXT("%s%s/Game.ini"), *FPaths::GeneratedConfigDir(), *PlaformName);
+		if (FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Filename))
+		{
+			UE_LOG(UT,Log,TEXT("Failed to delete Game.ini"));
+		}
+
+		Filename = FString::Printf(TEXT("%s%s/GameUserSettings.ini"), *FPaths::GeneratedConfigDir(), *PlaformName);
+		if (FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Filename))
+		{
+			UE_LOG(UT,Log,TEXT("Failed to delete GameUserSettings.ini"));
+		}
+
+
+		FPlatformMisc::RequestExit( 0 );
 	}
 #endif
 }

@@ -450,13 +450,24 @@ void SUWindowsMainMenu::BuildOptionsSubMenu()
 			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 			.OnClicked(this, &SUWindowsMainMenu::OpenControlSettings, DropDownButton)
 		]
+	
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBox)
+			.HeightOverride(2)
+			[
+				SNew(SCanvas)
+			]
+		]
+
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		[
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear your Cloud").ToString())
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings").ToString())
 			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 			.OnClicked(this, &SUWindowsMainMenu::ClearCloud, DropDownButton)
 		]
