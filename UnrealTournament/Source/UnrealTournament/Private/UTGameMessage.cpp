@@ -69,8 +69,10 @@ FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UOb
 {
 	switch (Switch)
 	{
-		case 1: return TEXT("SuddenDeath"); break;
+		case 1: return TEXT("Overtime"); break;
 		case 7: return TEXT("SuddenDeath"); break;
+		case 9: return TEXT("YouAreOnRed"); break;
+		case 10: return TEXT("YouAreOnBlue"); break;
 	}
 	return NAME_None;
 }
