@@ -4,7 +4,6 @@
 #include "UTHUD_TeamDM.h"
 #include "UTTimedPowerup.h"
 #include "UTPickupWeapon.h"
-#include "UTWeap_Redeemer.h"
 #include "UTDuelGame.h"
 #include "Slate/Panels/SUDuelSettings.h"
 
@@ -69,6 +68,7 @@ bool AUTDuelGame::CheckRelevance_Implementation(AActor* Other)
 	if (PickupWeapon != NULL && PickupWeapon->WeaponType != NULL && !PickupWeapon->WeaponType.GetDefaultObject()->bWeaponStay)
 	{
 		PickupWeapon->WeaponType = nullptr;
+		PickupWeapon->bDisplayRespawnTimer = false;
 	}
 
 	return Super::CheckRelevance_Implementation(Other);

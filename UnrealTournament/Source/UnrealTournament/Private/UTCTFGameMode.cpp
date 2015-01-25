@@ -886,8 +886,8 @@ bool AUTCTFGameMode::CheckAdvantage()
 
 void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 {
-	OutRules += FString::Printf(TEXT("GoalScore\t%i\t"), GoalScore);
-	OutRules += FString::Printf(TEXT("TimeLimit\t%i\t"), TimeLimit);
+	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);
+	OutRules += FString::Printf(TEXT("Time Limit\t%i\t"), TimeLimit);
 	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
 
 	if (TimeLimit > 0)

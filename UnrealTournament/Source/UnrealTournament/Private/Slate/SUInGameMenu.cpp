@@ -713,7 +713,7 @@ void SUInGameMenu::BuildOnlineBar()
 						.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 						[
 							SNew(STextBlock)
-							.Text(NSLOCTEXT("Login", "NeedToLogin", "Click to Login").ToString())
+							.Text(NSLOCTEXT("Login", "NeedToLogin", "Click to log in").ToString())
 							.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
 						]
 					]
