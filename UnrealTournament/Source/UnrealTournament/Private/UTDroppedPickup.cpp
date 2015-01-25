@@ -155,17 +155,21 @@ void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 		if (C != NULL)
 		{
 			AUTInventory* Duplicate = C->FindInventoryType<AUTInventory>(Inventory->GetClass(), true);
-			if (Cast<APlayerController>(Target->GetController()))
-			{
-				Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
-			}
 			if (Duplicate == NULL || !Duplicate->StackPickup(Inventory))
 			{
 				C->AddInventory(Inventory, true);
+				if (Cast<APlayerController>(Target->GetController()) && (!Cast<AUTWeapon>(Inventory) || !C->GetPendingWeapon() ||(C->GetPendingWeapon()->GetClass() != Inventory->GetClass())))
+				{
+					Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
+				}
 				Inventory = NULL;
 			}
 			else
 			{
+				if (Cast<APlayerController>(Target->GetController()))
+				{
+					Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());
+				}
 				Inventory->Destroy();
 			}
 		}
