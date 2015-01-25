@@ -26,7 +26,7 @@ public class UnrealTournament : ModuleRules
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
-            PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer" });
+            PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer", "MoviePlayer" });
         }
         if (Target.Type == TargetRules.TargetType.Editor)
         {

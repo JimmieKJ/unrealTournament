@@ -1,8 +1,6 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "UTLoadMap.h"
-
 #include "UTGameEngine.generated.h"
 
 UCLASS()
@@ -75,5 +73,11 @@ class UUTGameEngine : public UGameEngine
 	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true) override;
 	virtual void LoadDownloadedAssetRegistries();
 
+	virtual void SetupLoadingScreen();
+#define UT_LOADING_SCREEN_HOOK SetupLoadingScreen();
+#if CPP
+#include "UTLoadMap.h"
+#endif
 	UT_LOADMAP_DEFINITION()
+#undef UT_LOADING_SCREEN_HOOK
 };

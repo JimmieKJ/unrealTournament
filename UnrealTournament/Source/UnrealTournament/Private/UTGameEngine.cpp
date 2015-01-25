@@ -3,6 +3,11 @@
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
 #include "AssetRegistryModule.h"
+#if !UE_SERVER
+#include "SlateBasics.h"
+#include "MoviePlayer.h"
+#include "Private/Slate/SUWindowsStyle.h"
+#endif
 
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -453,4 +458,20 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 			}
 		}
 	}
+}
+
+void UUTGameEngine::SetupLoadingScreen()
+{
+#if !UE_SERVER
+	if (IsMoviePlayerEnabled())
+	{
+		FLoadingScreenAttributes LoadingScreen;
+		LoadingScreen.bAutoCompleteWhenLoadingCompletes = true;
+		// TODO: probably need to do something to handle aspect ratio
+		//LoadingScreen.WidgetLoadingScreen = SNew(SImage).Image(&LoadingScreenImage);
+		LoadingScreen.WidgetLoadingScreen = SNew(SImage).Image(SUWindowsStyle::Get().GetBrush("LoadingScreen"));
+		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+		FCoreUObjectDelegates::PreLoadMap.Broadcast();
+	}
+#endif
 }
