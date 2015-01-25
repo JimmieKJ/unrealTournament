@@ -47,8 +47,7 @@ void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
 }
 
 /**
- *	We aren't going tor use DrawAllRenderObjects.  Instead we are going to have a nice little custom bit of drawing based on what weapon gropup this 
- *  is.
+ *	We aren't going to use DrawAllRenderObjects.  Instead we are going to have a nice little custom bit of drawing based on what weapon group this is.
  **/
 void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 {

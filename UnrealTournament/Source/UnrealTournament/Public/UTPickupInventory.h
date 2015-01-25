@@ -40,6 +40,7 @@ public:
 	bool bAllowRotatingPickup;
 
 	virtual void BeginPlay() override;
+
 #if WITH_EDITOR
 	/** create transient pickup mesh for editor previewing */
 	virtual void CreateEditorPickupMesh();
@@ -62,6 +63,9 @@ public:
 	virtual void GiveTo_Implementation(APawn* Target) override;
 	virtual void SetPickupHidden(bool bNowHidden) override;
 	virtual void Reset_Implementation() override;
+
+	/** Announce pickup to recipient */
+	virtual void AnnouncePickup(AUTCharacter* P);
 
 	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
 	{

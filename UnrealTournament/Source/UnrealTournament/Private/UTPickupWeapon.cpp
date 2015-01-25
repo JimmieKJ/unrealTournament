@@ -123,6 +123,15 @@ void AUTPickupWeapon::CheckTouching()
 	}
 }
 
+void AUTPickupWeapon::AnnouncePickup(AUTCharacter* P)
+{
+	// Don't announce if player is switching to this weapon to avoid duplicate announcements on screen.
+	if (Cast<APlayerController>(P->GetController()) && (!P->GetPendingWeapon() || (P->GetPendingWeapon()->GetClass() != InventoryType)))
+	{
+		Super::AnnouncePickup(P);
+	}
+}
+
 #if WITH_EDITOR
 void AUTPickupWeapon::OnConstruction(const FTransform& Transform)
 {
