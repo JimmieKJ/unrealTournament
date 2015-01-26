@@ -646,7 +646,7 @@ void GenerateMinidump(const FString & Path)
 }
 
 
-int32 ReportCrash(const FLinuxCrashContext & Context)
+int32 DLLEXPORT ReportCrash(const FLinuxCrashContext & Context)
 {
 	static bool GAlreadyCreatedMinidump = false;
 	// Only create a minidump the first time this function is called.
@@ -673,7 +673,7 @@ int32 ReportCrash(const FLinuxCrashContext & Context)
 /**
  * Generates information for crash reporter
  */
-void GenerateCrashInfoAndLaunchReporter(const FLinuxCrashContext & Context)
+void DLLEXPORT GenerateCrashInfoAndLaunchReporter(const FLinuxCrashContext & Context)
 {
 	// do not report crashes for tools (particularly for crash reporter itself)
 #if !IS_PROGRAM
