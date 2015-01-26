@@ -334,6 +334,8 @@ void FSystemSettings::Initialize( bool bSetupForEditor )
 	FSystemSettingsData DefaultSettings;
 	DefaultSettings.LoadFromIni(GetSectionName(false), GEngineIni, false);
 
+	bIsEditor = bSetupForEditor;
+
 	(FSystemSettingsData&)(*this) = DefaultSettings;
 	LoadFromIni();
 
