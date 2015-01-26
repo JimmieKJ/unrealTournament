@@ -62,7 +62,7 @@ int32 GetBuildUniqueId()
 		Crc = BuildIdOverride;
 	}
 
-	UE_LOG_ONLINE(Verbose, TEXT("GetBuildUniqueId: GEngineNetVersion %d bUseBuildIdOverride %d BuildIdOverride %d Crc %d"),
+	UE_LOG_ONLINE(VeryVerbose, TEXT("GetBuildUniqueId: GEngineNetVersion %d bUseBuildIdOverride %d BuildIdOverride %d Crc %d"),
 		GEngineNetVersion,
 		bUseBuildIdOverride,
 		BuildIdOverride,

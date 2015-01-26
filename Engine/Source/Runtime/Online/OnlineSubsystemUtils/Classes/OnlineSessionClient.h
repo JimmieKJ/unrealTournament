@@ -124,7 +124,7 @@ protected:
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 * @param SearchResult search result containing the invite data
 	 */
-	void OnSessionInviteAccepted(int32 LocalUserNum, bool bWasSuccessful, const class FOnlineSessionSearchResult& SearchResult);
+	virtual void OnSessionInviteAccepted(int32 LocalUserNum, bool bWasSuccessful, const class FOnlineSessionSearchResult& SearchResult);
 
 public:
 

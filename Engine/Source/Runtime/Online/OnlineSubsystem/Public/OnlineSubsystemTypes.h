@@ -1318,27 +1318,30 @@ struct FOnlineNotification
 	/** The payload of this notification */
 	TSharedPtr<FJsonValue> Payload;
 
-	// User to deliver the notification to.  Can be null for system notifications.
+	/** User to deliver the notification to.  Can be null for system notifications. */
 	TSharedPtr<FUniqueNetId> ToUserId;
 
-	// User who sent the notification, optional.
+	/** User who sent the notification, optional. */
 	TSharedPtr<FUniqueNetId> FromUserId;
 
-	FOnlineNotification()
+	FOnlineNotification() :
+		Payload(nullptr),
+		ToUserId(nullptr),
+		FromUserId(nullptr)
 	{
 
 	}
 
 	// Treated as a system notification unless ToUserId is added
 	FOnlineNotification(const FString& InTypeStr, const TSharedPtr<FJsonValue>& InPayload)
-		: TypeStr(InTypeStr), Payload(InPayload)
+		: TypeStr(InTypeStr), Payload(InPayload), ToUserId(nullptr), FromUserId(nullptr)
 	{
 
 	}
 
 	// Notification to a specific user.  FromUserId is optional
 	FOnlineNotification(const FString& InTypeStr, const TSharedPtr<FJsonValue>& InPayload, TSharedPtr<FUniqueNetId> InToUserId)
-		: TypeStr(InTypeStr), Payload(InPayload), ToUserId(InToUserId)
+		: TypeStr(InTypeStr), Payload(InPayload), ToUserId(InToUserId), FromUserId(nullptr)
 	{
 
 	}

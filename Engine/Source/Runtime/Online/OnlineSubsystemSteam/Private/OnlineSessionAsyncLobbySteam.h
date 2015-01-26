@@ -297,11 +297,6 @@ public:
 	virtual void TriggerDelegates() override;
 };
 
-
-/** Helper delegate to allow the FOnlineAsyncTaskSteamFindLobby task to notify different callers */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnAsyncFindLobbyComplete, int32, bool, const class FOnlineSessionSearchResult&);
-typedef FOnAsyncFindLobbyComplete::FDelegate FOnAsyncFindLobbyCompleteDelegate;
-
 /** 
  *  Async task for any search query to find Steam lobbies based on search criteria
  */
@@ -318,7 +313,7 @@ private:
 	/** User that initiated the request */
 	int32 LocalUserNum;
 	/** Delegate to fire when the search is complete */
-	FOnAsyncFindLobbyComplete OnFindLobbyCompleteDelegates;
+	FOnSingleSessionResultComplete OnFindLobbyCompleteDelegates;
 	/** Cached instance of Steam interface */
 	ISteamMatchmaking* SteamMatchmakingPtr;
 
@@ -332,7 +327,7 @@ private:
 public:
 
 	/** Constructor */
-	FOnlineAsyncTaskSteamFindLobby(class FOnlineSubsystemSteam* InSubsystem, const FUniqueNetIdSteam& InLobbyId, const TSharedPtr<FOnlineSessionSearch>& InSearchSettings, int32 InLocalUserNum, const FOnAsyncFindLobbyComplete& InOnFindLobbyCompleteDelegates) :
+	FOnlineAsyncTaskSteamFindLobby(class FOnlineSubsystemSteam* InSubsystem, const FUniqueNetIdSteam& InLobbyId, const TSharedPtr<FOnlineSessionSearch>& InSearchSettings, int32 InLocalUserNum, const FOnSingleSessionResultComplete& InOnFindLobbyCompleteDelegates) :
 		FOnlineAsyncTaskSteam(InSubsystem, k_uAPICallInvalid),
 		bInit(false),
 		LobbyId(InLobbyId),

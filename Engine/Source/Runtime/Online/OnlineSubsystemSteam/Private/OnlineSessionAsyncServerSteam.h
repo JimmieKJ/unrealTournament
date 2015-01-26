@@ -323,16 +323,6 @@ public:
 };
 
 /**
- * Delegate fired once a single server search has completed
- *
- * @param LocalUserNum the controller number of the accepting user
- * @param bWasSuccessful the session was found and is joinable, false otherwise
- * @param FriendSearchResult the search/settings for the session we're attempting to join
- */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnAsyncFindServerInviteComplete, int32, bool, const class FOnlineSessionSearchResult&);
-typedef FOnAsyncFindServerInviteComplete::FDelegate FOnAsyncFindServerInviteCompleteDelegate;
-
-/**
  *	Async task for finding a single server and returning that search result to a properly defined delegate
  */
 class FOnlineAsyncTaskSteamFindServer : public FOnlineAsyncTaskSteamFindServerBase
@@ -341,11 +331,11 @@ protected:
 	/** User initiating the request */
 	int32 LocalUserNum;
 	/** User initiated session invite delegates */
-	FOnAsyncFindServerInviteComplete FindServerInviteCompleteDelegates;
+	FOnSingleSessionResultComplete FindServerInviteCompleteDelegates;
 
 public:
 
-	FOnlineAsyncTaskSteamFindServer(class FOnlineSubsystemSteam* InSubsystem, const TSharedPtr<class FOnlineSessionSearch>& InSearchSettings, int32 InLocalUserNum, FOnAsyncFindServerInviteComplete& InDelegates) :
+	FOnlineAsyncTaskSteamFindServer(class FOnlineSubsystemSteam* InSubsystem, const TSharedPtr<class FOnlineSessionSearch>& InSearchSettings, int32 InLocalUserNum, FOnSingleSessionResultComplete& InDelegates) :
 		FOnlineAsyncTaskSteamFindServerBase(InSubsystem, InSearchSettings),
 		LocalUserNum(InLocalUserNum),
 		FindServerInviteCompleteDelegates(InDelegates)

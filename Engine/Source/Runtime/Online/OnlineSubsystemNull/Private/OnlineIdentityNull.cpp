@@ -121,35 +121,9 @@ bool FOnlineIdentityNull::AutoLogin(int32 LocalUserNum)
 	FString PasswordStr;
 	FString TypeStr;
 
-	FParse::Value(FCommandLine::Get(), TEXT("LOGIN="), LoginStr);
-	if (!LoginStr.IsEmpty())
-	{
-		UE_LOG_ONLINE(Warning, TEXT("LOGIN commandline parameter is deprecated, use AUTH_LOGIN"));
-	}
-	else
-	{
-		FParse::Value(FCommandLine::Get(), TEXT("AUTH_LOGIN="), LoginStr);
-	}
-
-	FParse::Value(FCommandLine::Get(), TEXT("PASSWORD="), PasswordStr);
-	if (!PasswordStr.IsEmpty())
-	{
-		UE_LOG_ONLINE(Warning, TEXT("PASSWORD commandline parameter is deprecated, use AUTH_PASSWORD"));
-	}
-	else
-	{
-		FParse::Value(FCommandLine::Get(), TEXT("AUTH_PASSWORD="), PasswordStr);
-	}
-
-	FParse::Value(FCommandLine::Get(), TEXT("TYPE="), TypeStr);
-	if (!TypeStr.IsEmpty())
-	{
-		UE_LOG_ONLINE(Warning, TEXT("TYPE commandline parameter is deprecated, use AUTH_TYPE"));
-	}
-	else
-	{
-		FParse::Value(FCommandLine::Get(), TEXT("AUTH_TYPE="), TypeStr);
-	}
+	FParse::Value(FCommandLine::Get(), TEXT("AUTH_LOGIN="), LoginStr);
+	FParse::Value(FCommandLine::Get(), TEXT("AUTH_PASSWORD="), PasswordStr);
+	FParse::Value(FCommandLine::Get(), TEXT("AUTH_TYPE="), TypeStr);
 	
 	if (!LoginStr.IsEmpty())
 	{
@@ -161,17 +135,17 @@ bool FOnlineIdentityNull::AutoLogin(int32 LocalUserNum)
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing TYPE=<type>."));
+				UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_TYPE=<type>."));
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing PASSWORD=<password>."));
+			UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_PASSWORD=<password>."));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing LOGIN=<login id>."));
+		UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_LOGIN=<login id>."));
 	}
 	return false;
 }

@@ -89,6 +89,7 @@ typedef TArray<FString> FJsonSerializableArray;
 /** Maps a key to a value */
 typedef FOnlineKeyValuePairs<FString, FString> FJsonSerializableKeyValueMap;
 typedef FOnlineKeyValuePairs<FString, int32> FJsonSerializableKeyValueMapInt;
+typedef FOnlineKeyValuePairs<FString, FVariantData> FJsonSerializeableKeyValueMapVariant;
 
 /**
  * Base interface used to serialize to/from JSON. Hides the fact there are separate read/write classes

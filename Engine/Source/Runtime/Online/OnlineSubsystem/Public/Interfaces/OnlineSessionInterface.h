@@ -119,6 +119,17 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnJoinSessionComplete, FName, EOnJoinSessi
 typedef FOnJoinSessionComplete::FDelegate FOnJoinSessionCompleteDelegate;
 
 /**
+ * Delegate fired once a single search result is returned (ie friend invite / join)
+ * Session has not been joined at this point, and requires a call to JoinSession()
+ *
+ * @param LocalUserNum the controller number of the accepting user
+ * @param bWasSuccessful the session was found and is joinable, false otherwise
+ * @param SearchResult the search/settings for the session result we've been given
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSingleSessionResultComplete, int32, bool, const FOnlineSessionSearchResult&);
+typedef FOnSingleSessionResultComplete::FDelegate FOnSingleSessionResultCompleteDelegate;
+
+/**
  * Delegate fired once the find friend task has completed
  * Session has not been joined at this point, and requires a call to JoinSession() 
  *
@@ -126,7 +137,7 @@ typedef FOnJoinSessionComplete::FDelegate FOnJoinSessionCompleteDelegate;
  * @param bWasSuccessful the session was found and is joinable, false otherwise
  * @param FriendSearchResult the search/settings for the session we're attempting to join
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnFindFriendSessionComplete, int32, bool, const FOnlineSessionSearchResult&);
+typedef FOnSingleSessionResultComplete FOnFindFriendSessionComplete;
 typedef FOnFindFriendSessionComplete::FDelegate FOnFindFriendSessionCompleteDelegate;
 
 /**
@@ -146,7 +157,7 @@ typedef FOnPingSearchResultsComplete::FDelegate FOnPingSearchResultsCompleteDele
  * @param bWasSuccessful the session was found and is joinable, false otherwise
  * @param InviteResult the search/settings for the session we're joining via invite
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSessionInviteAccepted, int32, bool, const FOnlineSessionSearchResult&);
+typedef FOnSingleSessionResultComplete FOnSessionInviteAccepted;
 typedef FOnSessionInviteAccepted::FDelegate FOnSessionInviteAcceptedDelegate;
 
 /**
