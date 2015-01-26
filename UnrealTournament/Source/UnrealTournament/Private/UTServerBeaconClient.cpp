@@ -123,7 +123,7 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 	if (LastInstanceIndex < InstanceHostNames.Num() && LastInstanceIndex < InstanceDescriptions.Num() )
 	{
 		UE_LOG(UT, Log, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
-		ClientRecieveInstance_Implementation(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
+		ClientRecieveInstance(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
 	}
 	else
 	{
