@@ -118,10 +118,11 @@ bool AUTServerBeaconClient::ServerRequestInstances_Validate(int32 LastInstanceIn
 void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInstanceIndex)
 {
 	LastInstanceIndex++;
-	
+
+	UE_LOG(UT,Log,TEXT("ServerRequestInstances %i/%i %i"), InstanceHostNames.Num(), InstanceDescriptions.Num(), LastInstanceIndex);
 	if (LastInstanceIndex < InstanceHostNames.Num() && LastInstanceIndex < InstanceDescriptions.Num() )
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
+		UE_LOG(UT, Log, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
 		ClientRecieveInstance_Implementation(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
 	}
 	else
@@ -133,7 +134,7 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 
 void AUTServerBeaconClient::ClientRecieveInstance_Implementation(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("---> Recieved Instance [%i] %s"), InstanceCount, *InstanceHostName);
+	UE_LOG(UT, Log, TEXT("---> Recieved Instance [%i] %s"), InstanceCount, *InstanceHostName);
 	if (InstanceCount >= 0 && InstanceCount < TotalInstances)
 	{
 		InstanceHostNames.Add(InstanceHostName);
