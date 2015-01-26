@@ -48,19 +48,29 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	virtual void SetBeaconNetDriverName(FString InBeaconName);
 
-	/** Send a ping RPC to the client */
+	/** Send a ping RPC to the host */
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void ServerPing();
+
+	/** Send a Pong RPC to the client */
 	UFUNCTION(client, reliable)
-	virtual void ClientPing(const FServerBeaconInfo ServerInfo, int32 InstanceCount);
-
-	/** Send a pong RPC to the host */
-	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerPong();
+	virtual void ClientPong();
 
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerSendInstances(int32 LastInstanceIndex);
+	virtual void ServerRequestInfo();
+
+	UFUNCTION(client, reliable)
+	virtual void ClientRecieveInfo(const FServerBeaconInfo ServerInfo, int32 NumInstances);
+
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void ServerRequestInstances(int32 LastInstanceIndex);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRecieveInstance(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientRecievedAllInstance(uint32 FinalCount);
+
 
 	FServerRequestResultsDelegate OnServerRequestResults;
 	FServerRequestFailureDelegate OnServerRequestFailure;

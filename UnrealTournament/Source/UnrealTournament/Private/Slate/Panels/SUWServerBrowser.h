@@ -465,7 +465,7 @@ protected:
 
 	void SortServers(FName ColumnName);
 	void SortHUBs();
-	virtual void FilterAllServers();
+	virtual void FilterAllServers(FString InitialGameType);
 	virtual void FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true);
 	virtual void FilterAllHUBs();
 	virtual void FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true);
@@ -511,6 +511,9 @@ protected:
 
 	virtual void OnQuickFilterTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 	virtual FReply BrowserTypeChanged();
+	
+	virtual void ShowServers(FString InitialGameType);
+	virtual void ShowHUBs();
 
 	virtual TSharedRef<SWidget> AddHUBBadge(TSharedPtr<FServerData> HUB);
 	virtual TSharedRef<SWidget> AddStars(TSharedPtr<FServerData> HUB);

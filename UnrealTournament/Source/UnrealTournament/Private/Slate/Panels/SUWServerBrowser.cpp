@@ -732,9 +732,8 @@ void SUWServerBrowser::AddGameFilters()
 
 FReply SUWServerBrowser::OnGameFilterSelection(FString Filter)
 {
-	GameFilterText->SetText(Filter);
 	GameFilter->SetIsOpen(false);
-	FilterAllServers();
+	FilterAllServers(Filter);
 	return FReply::Handled();
 }
 
@@ -1118,9 +1117,7 @@ void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> Sele
 {
 	if (SelectedServer->IP.Left(1) == "@")
 	{
-		BrowserTypeChanged();
-		GameFilterText->SetText(FText::FromString(SelectedServer->BeaconIP));
-		FilterAllServers();
+		ShowServers(SelectedServer->BeaconIP);
 	}
 	else
 	{
@@ -1151,8 +1148,12 @@ void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 	PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
 }
 
-void SUWServerBrowser::FilterAllServers()
+void SUWServerBrowser::FilterAllServers(FString InitialGameType)
 {
+	if (InitialGameType != TEXT(""))
+	{
+		GameFilterText->SetText(InitialGameType);
+	}
 	FilteredServers.Empty();
 	for (int32 i=0;i<InternetServers.Num();i++)
 	{
@@ -1349,38 +1350,39 @@ void SUWServerBrowser::OnQuickFilterTextCommited(const FText& NewText, ETextComm
 		}
 		else
 		{
-			FilterAllServers();
+			FilterAllServers(TEXT(""));
 		}
 	}
 }
 
 FReply SUWServerBrowser::BrowserTypeChanged()
 {
-	if (bShowingLobbies)
-	{
-		bShowingLobbies = false;
-		LobbyBrowser->SetVisibility(EVisibility::Hidden);
-		InternetServerBrowser->SetVisibility(EVisibility::All);
-		ServerListControlBox->SetVisibility(EVisibility::All);
-		FilterAllServers();
-		InternetServerList->RequestListRefresh();
-
-	}
-	else
-	{
-		bShowingLobbies = true;
-		LobbyBrowser->SetVisibility(EVisibility::All);
-		InternetServerBrowser->SetVisibility(EVisibility::Hidden);
-		ServerListControlBox->SetVisibility(EVisibility::Hidden);
-		FilterAllHUBs();
-		HUBServerList->RequestListRefresh();
-
-	}
-
-	BuildServerListControlBox();
-
+	ShowHUBs();
 	return FReply::Handled();
 }
+
+void SUWServerBrowser::ShowServers(FString InitialGameType)
+{
+	bShowingLobbies = false;
+	BuildServerListControlBox();
+	LobbyBrowser->SetVisibility(EVisibility::Hidden);
+	InternetServerBrowser->SetVisibility(EVisibility::All);
+	ServerListControlBox->SetVisibility(EVisibility::All);
+	FilterAllServers(InitialGameType);
+	InternetServerList->RequestListRefresh();
+}
+
+void SUWServerBrowser::ShowHUBs()
+{
+	bShowingLobbies = true;
+	BuildServerListControlBox();
+	LobbyBrowser->SetVisibility(EVisibility::All);
+	InternetServerBrowser->SetVisibility(EVisibility::Hidden);
+	ServerListControlBox->SetVisibility(EVisibility::Hidden);
+	FilterAllHUBs();
+	HUBServerList->RequestListRefresh();
+}
+
 
 TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
@@ -1751,16 +1753,16 @@ void SUWServerBrowser::EmptyHUBServers()
 
 	// Add the "Random" Server HUBS
 
-	RandomDMHUB = FServerData::Make( TEXT("[Internet] Individual DEATHMATCH Servers"), TEXT("@RandomDM"), TEXT("Deathmatch"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomDMHUB = FServerData::Make( TEXT("[Internet] Individual DEATHMATCH Servers"), TEXT("@RandomDM"), TEXT("/Script/UnrealTournament.UTDMGameMode"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
 	RandomDMHUB->MOTD = TEXT("Browse a random collection of Deathmatch servers on the internet.");
 	RandomDMHUB->bFakeHUB = true;
-	RandomTDMHUB = FServerData::Make( TEXT("[Internet] Individual TEAM DEATHMATCH Servers"), TEXT("@RandomTDM"), TEXT("Team Deathmatch"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomTDMHUB = FServerData::Make( TEXT("[Internet] Individual TEAM DEATHMATCH Servers"), TEXT("@RandomTDM"), TEXT("/Script/UnrealTournament.UTTeamDMGameMode"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
 	RandomTDMHUB->MOTD = TEXT("Browse a random collection of Team Deathmatch servers on the internet.");
 	RandomTDMHUB->bFakeHUB = true;
-	RandomDuelHUB = FServerData::Make( TEXT("[Internet] Individual DUEL Servers"), TEXT("@RandomDuel"), TEXT("Duel"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomDuelHUB = FServerData::Make( TEXT("[Internet] Individual DUEL Servers"), TEXT("@RandomDuel"), TEXT("/Script/UnrealTournament.UTDuelGame"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
 	RandomDuelHUB->MOTD = TEXT("Browse a random collection of Duel servers on the internet.");
 	RandomDuelHUB->bFakeHUB = true;
-	RandomCTFHUB = FServerData::Make( TEXT("[Internet] Individual CAPTURE THE FLAG Servers"), TEXT("@RandomCTF"), TEXT("Capture the Flag"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomCTFHUB = FServerData::Make( TEXT("[Internet] Individual CAPTURE THE FLAG Servers"), TEXT("@RandomCTF"), TEXT("/Script/UnrealTournament.UTCTFGameMode"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
 	RandomCTFHUB->MOTD = TEXT("Browse a random collection of Capture the Flag servers on the internet.");
 	RandomCTFHUB->bFakeHUB = true;
 
