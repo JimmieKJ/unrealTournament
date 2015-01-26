@@ -20,6 +20,13 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 	SmallMessageFont = SmallFont.Object;
 }
 
+// @TODO FIXMESTEVE temp - need smaller font
+float UUTHUDWidgetMessage_ConsoleMessages::GetDrawScaleOverride()
+{
+	return 0.5f * UTHUDOwner->HUDWidgetScaleOverride;
+}
+
+
 void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)
 {
 	Canvas->Reset();
