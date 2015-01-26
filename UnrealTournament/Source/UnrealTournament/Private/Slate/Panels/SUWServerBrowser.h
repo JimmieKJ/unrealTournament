@@ -159,6 +159,24 @@ private:
 };
 
 
+class FServerInstanceData 
+{
+public:
+	FString Description;
+	FString HostName;
+
+	FServerInstanceData(const FString& inDescription, const FString& inHostName)
+		: Description(inDescription)
+		, HostName(inHostName)
+	{};
+
+	static TSharedRef<FServerInstanceData> Make(const FString& inDescription, const FString& inHostName)
+	{
+		return MakeShareable( new FServerInstanceData( inDescription, inHostName) );
+	}
+};
+
+
 
 class FServerData
 {
@@ -189,6 +207,15 @@ public:
 	// Max. # of players allowed on this server
 	int32 MaxPlayers;
 
+	// Max. # of players allowed on this server
+	int32 NumFriends;
+
+	// HUB - returns the # of matches currently happening in this hub
+	int32 NumMatches;
+
+	// How many stars to display
+	float Rating;
+
 	// What UT/UE4 version the server is running
 	FString Version;
 
@@ -197,7 +224,12 @@ public:
 
 	// Server Flags
 	int32 Flags;
-	
+
+	FString MOTD;
+
+	bool bFakeHUB;
+
+	TArray<TSharedPtr<FServerInstanceData>> HUBInstances;
 	TArray<TSharedPtr<FServerRuleData>> Rules;
 	TArray<TSharedPtr<FServerPlayerData>> Players;
 
@@ -217,6 +249,8 @@ public:
 	{		
 		Rules.Empty();
 		Players.Empty();
+		NumFriends = 0;	// Move me once implemented
+		MOTD = TEXT("");
 	}
 
 	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, const FString& inVersion, int32 inPing, int32 inFlags)
@@ -389,6 +423,9 @@ protected:
 	// The list being displays.  It only includes servers that have met the filter requirement.
 	TArray< TSharedPtr< FServerData > > FilteredServers;
 
+	// The list being displays.  It only includes servers that have met the filter requirement.
+	TArray< TSharedPtr< FServerData > > FilteredHUBs;
+
 	// When there is a server in this list, then the game will attempt to ping them.  
 	TArray< TSharedPtr< FServerData > > PingList;
 
@@ -427,8 +464,13 @@ protected:
 	virtual FReply OnGameFilterSelection(FString Filter);
 
 	void SortServers(FName ColumnName);
+	void SortHUBs();
 	virtual void FilterAllServers();
 	virtual void FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true);
+	virtual void FilterAllHUBs();
+	virtual void FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true);
+
+	virtual void EmptyHUBServers();
 
 	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
@@ -444,16 +486,22 @@ protected:
 	TSharedPtr<class SSplitter> VertSplitter;
 	TSharedPtr<class SSplitter> HorzSplitter;
 
+	TSharedPtr<class SSplitter> LobbySplitter;
+	TSharedPtr<class SVerticalBox> LobbyInfoBox;
+
 	bool bRequireSave;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
 	void OnServerListSelectionChanged(TSharedPtr<FServerData> SelectedItem, ESelectInfo::Type SelectInfo);
+	void OnHUBListSelectionChanged(TSharedPtr<FServerData> SelectedItem, ESelectInfo::Type SelectInfo);
 
 protected:
 	virtual void OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo);
 	virtual void OnServerBeaconFailure(AUTServerBeaconClient* Sender);
 	virtual void PingNextServer();
 	virtual void PingServer(TSharedPtr<FServerData> ServerToPing);
+
+	virtual TSharedRef<SWidget> BuildPlayerList();
 
 	virtual void VertSplitterResized();
 	virtual void HorzSplitterResized();
@@ -465,6 +513,10 @@ protected:
 	virtual FReply BrowserTypeChanged();
 
 	virtual TSharedRef<SWidget> AddHUBBadge(TSharedPtr<FServerData> HUB);
+	virtual TSharedRef<SWidget> AddStars(TSharedPtr<FServerData> HUB);
+	virtual TSharedRef<SWidget> AddHUBInstances(TSharedPtr<FServerData> HUB);
+	virtual void AddHUBInfo(TSharedPtr<FServerData> HUB);
+	virtual void BuildServerListControlBox();
 
 private:
 	bool bAutoRefresh;
@@ -479,6 +531,14 @@ private:
 
 	FOnFindSessionsCompleteDelegate OnFindSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
+
+	TSharedPtr<FServerData> RandomDMHUB;
+	TSharedPtr<FServerData> RandomTDMHUB;
+	TSharedPtr<FServerData> RandomDuelHUB;
+	TSharedPtr<FServerData> RandomCTFHUB;
+
+	TSharedPtr<SHorizontalBox> ServerListControlBox;
+
 
 };
 

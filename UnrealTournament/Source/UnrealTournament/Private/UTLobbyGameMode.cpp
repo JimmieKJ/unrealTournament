@@ -219,3 +219,26 @@ void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, 
 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
+
+int32 AUTLobbyGameMode::GetInstanceData(TArray<FString> HostNames, TArray<FString> Descriptions)
+{
+	if (UTLobbyGameState)
+	{
+		for (int32 i=0;i<UTLobbyGameState->GameInstances.Num(); i++)
+		{
+			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
+			if (MatchInfo && MatchInfo->CurrentState == ELobbyMatchState::InProgress && MatchInfo->PlayersInMatchInstance.Num() >0)
+			{
+				HostNames.Add( FString::Printf(TEXT("%s=%s"), *MatchInfo->PlayersInMatchInstance[0].PlayerName, *MatchInfo->PlayersInMatchInstance[0].PlayerID.ToString()));
+				Descriptions.Add(MatchInfo->MatchBadge);
+			}
+		}
+
+		if (HostNames.Num() == Descriptions.Num() && HostNames.Num() != 0)
+		{
+			return HostNames.Num();
+		}
+
+	}
+	return 0;
+}

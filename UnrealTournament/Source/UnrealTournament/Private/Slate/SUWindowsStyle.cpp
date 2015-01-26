@@ -84,6 +84,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FSlateSound ButtonHoverSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	const FSlateSound ButtonPressSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
 
+
+	Style.Set("UWindows.Standard.Star24", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
+
 	Style.Set("UWindows.Standard.DarkBackground", new IMAGE_BRUSH( "UWindows.Standard.DarkBackground", FVector2D(32,32), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 	Style.Set("UWindows.Logos.Epic_Logo200", new IMAGE_BRUSH( "UWindows.Logos.Epic_Logo200", FVector2D(176,200), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
@@ -406,12 +409,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("UWindows.Standard.HUBBrowser.TitleText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 28))
+			.SetFont(TTF_FONT("Exo2-Medium", 18))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UWindows.Standard.HUBBrowser.TitleText.Selected", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 28))
+			.SetFont(TTF_FONT("Exo2-Medium", 18))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
@@ -420,19 +423,25 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
+		Style.Set("UWindows.Standard.HUBBrowser.SmallText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
 
 		Style.Set( "UWindows.Standard.HUBBrowser.Row", FTableRowStyle()
 			.SetEvenRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
-			.SetEvenRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal) )
+			.SetEvenRowBackgroundHoveredBrush( BORDER_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Hovered", FMargin(0.5,0.5,0.5,0.5)) )
 			.SetOddRowBackgroundBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
-			.SetOddRowBackgroundHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal ) )
+			.SetOddRowBackgroundHoveredBrush( BORDER_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Odd.Hovered", FMargin(0.5,0.5,0.5,0.5)) )
 			.SetSelectorFocusedBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
 			.SetActiveBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
 			.SetActiveHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetInactiveBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
+			.SetInactiveHoveredBrush( IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) )
 			.SetTextColor( FLinearColor::White)
 			.SetSelectedTextColor( FLinearColor::Black)
 			);
-
 
 	}
 
@@ -441,7 +450,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		Style.Set("UWindows.Standard.MenuBar.Background", new BOX_BRUSH("UWindows.Standard.MenuBar.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 		Style.Set("UWindows.Standard.Backdrop", new BOX_BRUSH("UWindows.Standard.Backdrop", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
-
+		Style.Set("UWindows.Standard.Backdrop.Highlight", new BOX_BRUSH("UWindows.Standard.Backdrop.Highlight", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+		
 
 		Style.Set("UWindows.Standard.MenuButton", FButtonStyle()
 			.SetNormal ( FSlateNoResource( FVector2D( 128.0f, 128.0f ) ))
@@ -461,7 +471,6 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetPressedSound(ButtonPressSound)
 			);
 	}
-
 
 	{ // Background Image
 	
@@ -907,6 +916,31 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		.SetFont(TTF_FONT("Exo2-Medium", 10))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
+	}
+
+
+	{	// MOTD Styles
+	
+		Style.Set("MOTD.Normal", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+		Style.Set("MOTD.Small", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+		Style.Set("MOTD.Header", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 24))
+		.SetColorAndOpacity(FLinearColor::Yellow)
+		);
+
+		Style.Set("MOTD.Header.Huge", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Medium", 32))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
 	}
 
 	return StyleRef;

@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
 #include "SlateBasics.h"
+#include "SlateExtras.h"
 #include "Slate/SlateGameResources.h"
 #include "../SUWPanel.h"
 #include "../SUWindowsDesktop.h"
@@ -17,6 +18,7 @@
 #include "../SUWInputBox.h"
 #include "UTGameEngine.h"
 #include "UTServerBeaconClient.h"
+#include "../SUWScaleBox.h"
 
 
 #if !UE_SERVER
@@ -115,69 +117,12 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 				.HeightOverride(32)
 				[
 					SNew( SHorizontalBox )
-
 					+SHorizontalBox::Slot()
 					.VAlign(VAlign_Center)
 					.Padding(0.0f,0.0f,15.0f,0.0f)
 					.AutoWidth()
 					[
-						SNew(SButton)
-						.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Button")
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.VAlign(VAlign_Center)
-							.Padding(0.0f, 3.0f, 5.0f, 0.0f)
-							.AutoWidth()
-							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.LeftArrow"))
-							]
-							+SHorizontalBox::Slot()
-							.VAlign(VAlign_Center)
-							.AutoWidth()
-							[
-								SAssignNew(BrowserTypeText, STextBlock)
-								.Text(NSLOCTEXT("SUWServerBrowser","ShowLobbies","Show Lobbies"))
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
-
-							]
-						]
-						.OnClicked(this, &SUWServerBrowser::BrowserTypeChanged)
-					]
-
-
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SAssignNew(GameFilter, SComboButton)
-						.HasDownArrow(false)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Button")
-						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0))
-						.ButtonContent()
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.HAlign(HAlign_Fill)
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.Padding(0.0f,0.0f,5.0f,0.0f)
-								.AutoWidth()
-								[
-									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUWServerBrowser","GameFilter","Game Mode:"))
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
-								]
-								+SHorizontalBox::Slot()
-								.AutoWidth()
-								[
-									SAssignNew(GameFilterText, STextBlock)
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BoldText")
-								]
-							]
-						]
+						SAssignNew( ServerListControlBox, SHorizontalBox )
 					]
 
 					+SHorizontalBox::Slot()
@@ -298,6 +243,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
 						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
 						.Text(NSLOCTEXT("SUWServerBrowser","Spectate","Spectate"))
+			
 						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
 						.OnClicked(this, &SUWServerBrowser::OnJoinClick,true)
 					]
@@ -323,26 +269,9 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	// Create some fake servers until I can hook up the server list
 	InternetServers.Empty();
 	LanServers.Empty();
-	/*
-	for( int32 ItemIndex = 0; ItemIndex < 200; ++ItemIndex )
-	{
-		FString ServerName = FString::Printf(TEXT("Server %i"), ItemIndex);
-		FString ServerIP = FString::Printf(TEXT("%i.%i.%i.%i"), FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255));
-		int32 R = FMath::Rand() % 3;
 
-		FString ServerGame = TEXT("HUB");
-
-		FString ServerMap = TEXT("UT-Entry");
-		FString ServerVer = TEXT("1234");
-		FString BeaconIP = TEXT("10.0.0.1");
-		FString ServerGamePath = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
-		FString ServerGameName = TEXT("HUB");
-		uint32 ServerPing = FMath::RandRange(35,1024);
-		TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, TEXT("10.0.0.0"), ServerGamePath, ServerGameName, ServerMap, FMath::RandRange(0,16), FMath::RandRange(0,16), FMath::RandRange(0,16), TEXT("1.0.0.0"), FMath::RandRange(10,500), 0x00);
-		HUBServers.Add( NewServer );
-	}
-	*/
 	InternetServerList->RequestListRefresh();
+	HUBServerList->RequestListRefresh();
 
 	if (PlayerOwner->IsLoggedIn())
 	{
@@ -395,9 +324,61 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 		}
 	}	
 
+	BrowserTypeChanged();
 	AddGameFilters();
-	//BrowserTypeChanged();
 }
+
+TSharedRef<SWidget> SUWServerBrowser::BuildPlayerList()
+{
+	return SNew(SBorder)
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.Padding(5,0,5,0)
+		.FillWidth(1)
+		[
+			// The list view being tested
+			SAssignNew( PlayersList, SListView< TSharedPtr<FServerPlayerData> > )
+			// List view items are this tall
+			.ItemHeight(24)
+			// When the list view needs to generate a widget for some data item, use this method
+			.OnGenerateRow( this, &SUWServerBrowser::OnGenerateWidgetForPlayersList )
+			.SelectionMode(ESelectionMode::Single)
+			.ListItemsSource( &PlayersListSource)
+
+			.HeaderRow
+			(
+				SAssignNew(PlayersHeaderRow, SHeaderRow) 
+				.Style(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header")
+
+				+ SHeaderRow::Column("Name")
+						.OnSort(this, &SUWServerBrowser::OnPlayerSort)
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+								.Text(NSLOCTEXT("SUWServerBrowser","PlayerNameColumn", "Name"))
+								.ToolTipText( NSLOCTEXT("SUWServerBrowser","PlayerNameColumnToolTip", "This player's name.") )
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+						]
+
+				+ SHeaderRow::Column("Score") 
+						.DefaultLabel(NSLOCTEXT("SUWServerBrowser","PlayerScoreColumn", "Score")) 
+						.HAlignCell(HAlign_Center) 
+						.HAlignHeader(HAlign_Center)
+						.OnSort(this, &SUWServerBrowser::OnPlayerSort)
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+								.Text(NSLOCTEXT("SUWServerBrowser","PlayerScoreColumn", "IP"))
+								.ToolTipText( NSLOCTEXT("SUWServerBrowser","PlayerScoreColumnToolTip", "This player's score.") )
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+						]
+			)
+		]
+	];
+
+}
+
 
 TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 {
@@ -620,52 +601,7 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 					+ SSplitter::Slot()
 					.Value(0.5)
 					[
-						SNew(SBorder)
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.Padding(5,0,5,0)
-							.FillWidth(1)
-							[
-								// The list view being tested
-								SAssignNew( PlayersList, SListView< TSharedPtr<FServerPlayerData> > )
-								// List view items are this tall
-								.ItemHeight(24)
-								// When the list view needs to generate a widget for some data item, use this method
-								.OnGenerateRow( this, &SUWServerBrowser::OnGenerateWidgetForPlayersList )
-								.SelectionMode(ESelectionMode::Single)
-								.ListItemsSource( &PlayersListSource)
-
-								.HeaderRow
-								(
-									SAssignNew(PlayersHeaderRow, SHeaderRow) 
-									.Style(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header")
-
-									+ SHeaderRow::Column("Name")
-											.OnSort(this, &SUWServerBrowser::OnPlayerSort)
-											.HeaderContent()
-											[
-												SNew(STextBlock)
-													.Text(NSLOCTEXT("SUWServerBrowser","PlayerNameColumn", "Name"))
-													.ToolTipText( NSLOCTEXT("SUWServerBrowser","PlayerNameColumnToolTip", "This player's name.") )
-													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-											]
-
-									+ SHeaderRow::Column("Score") 
-											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","PlayerScoreColumn", "Score")) 
-											.HAlignCell(HAlign_Center) 
-											.HAlignHeader(HAlign_Center)
-											.OnSort(this, &SUWServerBrowser::OnPlayerSort)
-											.HeaderContent()
-											[
-												SNew(STextBlock)
-													.Text(NSLOCTEXT("SUWServerBrowser","PlayerScoreColumn", "IP"))
-													.ToolTipText( NSLOCTEXT("SUWServerBrowser","PlayerScoreColumnToolTip", "This player's score.") )
-													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-											]
-								)
-							]
-						]
+						BuildPlayerList()
 					]
 
 				]
@@ -679,24 +615,53 @@ TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 			.Visibility(EVisibility::Hidden)
 			.HeightOverride(500.0f)
 			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
+				SAssignNew( LobbySplitter, SSplitter )
+				.Orientation(Orient_Horizontal)
+				.OnSplitterFinishedResizing(this, &SUWServerBrowser::VertSplitterResized)
+
+				+ SSplitter::Slot()
+				.Value(0.7)
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.FillWidth(1.0)
-					.VAlign(VAlign_Center)
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Fill)
 					[
-						// The list view being tested
-						SAssignNew( HUBServerList, SListView< TSharedPtr<FServerData> > )
-						// List view items are this tall
-						.ItemHeight(206)
-						// When the list view needs to generate a widget for some data item, use this method
-						.OnGenerateRow( this, &SUWServerBrowser::OnGenerateWidgetForHUBList )
-						.SelectionMode(ESelectionMode::Single)
-						.ListItemsSource( &HUBServers)
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.FillWidth(1.0)
+						.VAlign(VAlign_Center)
+						[
+							// The list view being tested
+							SAssignNew( HUBServerList, SListView< TSharedPtr<FServerData> > )
+							// List view items are this tall
+							.ItemHeight(64)
+							// When the list view needs to generate a widget for some data item, use this method
+							.OnGenerateRow( this, &SUWServerBrowser::OnGenerateWidgetForHUBList )
+							.SelectionMode(ESelectionMode::Single)
+							.ListItemsSource( &FilteredHUBs)
+							.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
+							.OnSelectionChanged(this, &SUWServerBrowser::OnHUBListSelectionChanged)
+						]
+					]
+				]
+				+ SSplitter::Slot()
+				.Value(0.3)
+				[
+					SNew(SScrollBox)
+					+ SScrollBox::Slot()
+					.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+					[
+						SAssignNew(LobbyInfoBox, SVerticalBox)
+
+						+SVerticalBox::Slot()
+						.Padding(5.0,5.0,5.0,5.0)
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("HUBBrowser","NoneSelected","No Server Selected!"))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+
+						]
 					]
 				]
 			];
@@ -759,7 +724,10 @@ void SUWServerBrowser::AddGameFilters()
 		}
 	}
 
-	GameFilterText->SetText(NSLOCTEXT("SUWServerBrowser", "GameFilterAll", "All"));
+	if (GameFilterText.IsValid())
+	{
+		GameFilterText->SetText(NSLOCTEXT("SUWServerBrowser", "GameFilterAll", "All"));
+	}
 }
 
 FReply SUWServerBrowser::OnGameFilterSelection(FString Filter)
@@ -830,6 +798,12 @@ void SUWServerBrowser::SortServers(FName ColumnName)
 	CurrentSortColumn = ColumnName;
 }
 
+void SUWServerBrowser::SortHUBs()
+{
+	FilteredHUBs.Sort(FCompareServerByPing());
+	HUBServerList->RequestListRefresh();
+}
+
 TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForList( TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return SNew( SServerBrowserRow, OwnerTable).ServerData( InItem ).Style(SUWindowsStyle::Get(),"UWindows.Standard.ServerBrowser.Row");
@@ -878,10 +852,14 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 
 		InternetServers.Empty();
 		FilteredServers.Empty();
+
+		EmptyHUBServers();
+
 		PlayersListSource.Empty();
 		RulesListSource.Empty();
 
 		InternetServerList->RequestListRefresh();
+		HUBServerList->RequestListRefresh();
 		PlayersList->RequestListRefresh();
 		RulesList->RequestListRefresh();
 
@@ -941,6 +919,9 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		// See the server list
 		InternetServers.Empty();
 		FilteredServers.Empty();
+		
+		EmptyHUBServers();
+		
 		PingList.Empty();
 
 		if (SearchSettings->SearchResults.Num() > 0)
@@ -1001,8 +982,11 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		}
 		UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 */
+
+		
 		AddGameFilters();
 		InternetServerList->RequestListRefresh();
+		HUBServerList->RequestListRefresh();
 		PingNextServer();
 	}
 	else
@@ -1062,11 +1046,13 @@ void SUWServerBrowser::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i,1);
-			return;
+
+			PingNextServer();
 		}
 	}
 
 	InternetServerList->RequestListRefresh();
+	HUBServerList->RequestListRefresh();
 }
 
 void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
@@ -1077,10 +1063,11 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 		{
 			// Matched... store the data.
 			PingTrackers[i].Server->Ping = Sender->Ping;
+			PingTrackers[i].Server->MOTD = ServerInfo.MOTD;
 
 			TArray<FString> PlayerData;
 			int Cnt = ServerInfo.ServerPlayers.ParseIntoArray(&PlayerData, TEXT("\t"), true);
-			for (int p=0;p+2 < Cnt; p+=3)
+			for (int32 p=0;p+2 < Cnt; p+=3)
 			{
 				FString Name = PlayerData[p];
 				FString Score = PlayerData[p+1];
@@ -1091,7 +1078,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			TArray<FString> RulesData;
 			Cnt = ServerInfo.ServerRules.ParseIntoArray(&RulesData, TEXT("\t"), true);
-			for (int r=0; r+1 < Cnt; r+=2)
+			for (int32 r=0; r+1 < Cnt; r+=2)
 			{
 				FString Rule = RulesData[r];
 				FString Value = RulesData[r+1];
@@ -1099,8 +1086,21 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 				PingTrackers[i].Server->AddRule(Rule, Value);
 			}
 
-			InternetServers.Add(PingTrackers[i].Server);
-			FilterServer(PingTrackers[i].Server);
+			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceCount; InstIndex++ )
+			{
+				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceHostNames[InstIndex], PingTrackers[i].Beacon->InstanceDescriptions[InstIndex]));	
+			}
+
+			if (PingTrackers[i].Server->GameModePath == TEXT("/Script/UnrealTournament.UTLobbyGameMode"))
+			{
+				HUBServers.Add(PingTrackers[i].Server);
+				FilterHUB(PingTrackers[i].Server);
+			}
+			else
+			{
+				InternetServers.Add(PingTrackers[i].Server);
+				FilterServer(PingTrackers[i].Server);
+			}
 
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i,1);
@@ -1111,11 +1111,21 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 	}
 
 	InternetServerList->RequestListRefresh();
+	HUBServerList->RequestListRefresh();
 }
 
 void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer)
 {
-	ConnectTo(*SelectedServer,false);
+	if (SelectedServer->IP.Left(1) == "@")
+	{
+		BrowserTypeChanged();
+		GameFilterText->SetText(FText::FromString(SelectedServer->BeaconIP));
+		FilterAllServers();
+	}
+	else
+	{
+		ConnectTo(*SelectedServer,false);
+	}
 }
 
 
@@ -1153,21 +1163,49 @@ void SUWServerBrowser::FilterAllServers()
 
 void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate)
 {
-	FString GameFilter = GameFilterText->GetText().ToString();
-	if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameModePath == GameFilter)
+	if (GameFilterText.IsValid())
 	{
-		if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
+		FString GameFilter = GameFilterText->GetText().ToString();
+		if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameModePath == GameFilter)
 		{
-			FilteredServers.Add(NewServer);
+			if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
+			{
+				FilteredServers.Add(NewServer);
+			}
 		}
+
+		if (bSortAndUpdate)
+		{
+			SortServers(CurrentSortColumn);
+		}
+	}
+}
+
+void SUWServerBrowser::FilterAllHUBs()
+{
+	FilteredHUBs.Empty();
+	for (int32 i=0;i<HUBServers.Num();i++)
+	{
+		FilterHUB(HUBServers[i], false);
+	}
+
+	SortHUBs();
+
+}
+
+
+void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate)
+{
+	if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
+	{
+		FilteredHUBs.Add(NewServer);
 	}
 
 	if (bSortAndUpdate)
 	{
-		SortServers(CurrentSortColumn);
+		SortHUBs();
 	}
 }
-
 
 void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
@@ -1305,7 +1343,14 @@ void SUWServerBrowser::OnQuickFilterTextCommited(const FText& NewText, ETextComm
 {
 	if (CommitType == ETextCommit::OnEnter)
 	{
-		FilterAllServers();
+		if (bShowingLobbies)
+		{
+			FilterAllHUBs();
+		}
+		else
+		{
+			FilterAllServers();
+		}
 	}
 }
 
@@ -1316,27 +1361,34 @@ FReply SUWServerBrowser::BrowserTypeChanged()
 		bShowingLobbies = false;
 		LobbyBrowser->SetVisibility(EVisibility::Hidden);
 		InternetServerBrowser->SetVisibility(EVisibility::All);
-		BrowserTypeText->SetText(NSLOCTEXT("SUWServerBrowser","ShowLobbies","Show HUBs"));
+		ServerListControlBox->SetVisibility(EVisibility::All);
+		FilterAllServers();
+		InternetServerList->RequestListRefresh();
+
 	}
 	else
 	{
 		bShowingLobbies = true;
 		LobbyBrowser->SetVisibility(EVisibility::All);
 		InternetServerBrowser->SetVisibility(EVisibility::Hidden);
-		BrowserTypeText->SetText(NSLOCTEXT("SUWServerBrowser","ShowServers","Show Servers"));
+		ServerListControlBox->SetVisibility(EVisibility::Hidden);
+		FilterAllHUBs();
+		HUBServerList->RequestListRefresh();
+
 	}
+
+	BuildServerListControlBox();
 
 	return FReply::Handled();
 }
 
 TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
-	bool bSelected = HUBServerList->IsItemSelected(InItem);
 	return SNew(STableRow<TSharedPtr<FServerData>>, OwnerTable)
-		.Style(SUWindowsStyle::Get(),PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.UserList.Row"))
+		.Style(SUWindowsStyle::Get(),"UWindows.Standard.HUBBrowser.Row")
 		[
 			SNew(SBox)
-			.HeightOverride(206)
+			.HeightOverride(64)
 			[
 				SNew(SVerticalBox)
 				+SVerticalBox::Slot()
@@ -1355,15 +1407,91 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 					[
 						SNew(SVerticalBox)
 						+SVerticalBox::Slot()
-						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Top)
+						.AutoHeight()
 						[
 							SNew(STextBlock)
 							.Text(InItem->Name)
-							.TextStyle(SUWindowsStyle::Get(), (bSelected ? "UWindows.Standard.HUBBrowser.TitleText" : "UWindows.Standard.HUBBrowser.TitleText.Selected"))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.TitleText")
+						]
+						+SVerticalBox::Slot()
+						.FillHeight(1.0)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.FillWidth(1.0)
+							.Padding(5.0,0.0,20.0,0.0)
+							.VAlign(VAlign_Top)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.HAlign(HAlign_Fill)
+								.AutoHeight()
+								[
+									SNew(SHorizontalBox)
+									+SHorizontalBox::Slot()
+									.Padding(0.0,0.0,20.0,0.0)
+									.VAlign(VAlign_Center)
+									.AutoWidth()
+									[
+										SNew(SBox)
+										.WidthOverride(125)
+										.HeightOverride(24)
+										[
+											AddStars(InItem)
+										]
+									]
+
+									+SHorizontalBox::Slot()
+									.Padding(0.0,0.0,20.0,0.0)
+									.AutoWidth()
+									.VAlign(VAlign_Center)
+									[
+										SNew(STextBlock)
+									.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumMatchesFormat","0 Matches"), FText::AsNumber(InItem->NumMatches)))
+									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+									]
+
+									+SHorizontalBox::Slot()
+									.Padding(0.0,0.0,20.0,0.0)
+									.AutoWidth()
+									.VAlign(VAlign_Center)
+									[
+										SNew(STextBlock)
+										.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumPlayersFormat","{0} Players"), FText::AsNumber(InItem->NumPlayers)))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+									]
+
+									+SHorizontalBox::Slot()
+									.Padding(0.0,0.0,20.0,0.0)
+									.AutoWidth()
+									.VAlign(VAlign_Center)
+									[
+										SNew(STextBlock)
+										.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumFriendsFormat","{0} Friends"), FText::AsNumber(InItem->NumFriends)))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+									]
+									+SHorizontalBox::Slot()
+									.Padding(10.0,0.0,20.0,0.0)
+									.FillWidth(1.0)
+									.VAlign(VAlign_Center)
+									[
+										SNew(SVerticalBox)
+										+SVerticalBox::Slot()
+										.HAlign(HAlign_Right)
+										[
+											SNew(STextBlock)
+											.Text(FText::Format(NSLOCTEXT("HUBBrowser","PingFormat","{0}ms"), FText::AsNumber(InItem->Ping)))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.SmallText")
+										]
+									]
+								]
+							]
 						]
 					]
 
-				]
+			]
 			]
 		];
 }
@@ -1371,12 +1499,277 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 {
 	return 	SNew(SBox)						// First the overlaid box that controls everything....
-		.HeightOverride(196)
-		.WidthOverride(196)
+		.HeightOverride(54)
+		.WidthOverride(54)
 		[
 			SNew(SImage)
 			.Image(SUWindowsStyle::Get().GetBrush("UWindows.BadgeBackground"))
 		];
+}
+
+TSharedRef<SWidget> SUWServerBrowser::AddStars(TSharedPtr<FServerData> HUB)
+{
+	TSharedPtr<SHorizontalBox> StarBox;
+
+	SAssignNew(StarBox, SHorizontalBox);
+
+	if (StarBox.IsValid())
+	{
+		for (int32 i=0;i<5;i++)
+		{
+			StarBox->AddSlot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(24)
+				.HeightOverride(24)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Star24"))
+				]
+			];
+		}
+	}
+
+	return StarBox.ToSharedRef();
+}
+
+TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HUB)
+{
+	if (!HUB->bFakeHUB && HUB->HUBInstances.Num() > 0)
+	{
+		TSharedPtr<SVerticalBox> VBox;
+		SAssignNew(VBox,SVerticalBox);
+		TSharedPtr<SHorizontalBox> Box;
+		int32 Column = 0;
+		for (int32 i=0;i<HUB->HUBInstances.Num();i++)
+		{
+			if (Column == 0)
+			{
+				VBox->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Left)
+				[
+					SAssignNew(Box, SHorizontalBox)
+				];
+			}
+
+			Box->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(5.0,0.0,5.0,5.0)
+			[
+				SNew(SDPIScaler)
+				.DPIScale(0.75)
+				[
+					SNew(SBox)
+					.WidthOverride(202)
+					.HeightOverride(202)
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SBox)
+							.HeightOverride(192)
+							.WidthOverride(192)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Backdrop.Highlight"))
+							]
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.Padding(5.0,5.0,5.0,5.0)
+							.HAlign(HAlign_Center)
+							[
+								SNew(SRichTextBlock)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
+								.Justification(ETextJustify::Center)
+								.DecoratorStyleSet( &SUWindowsStyle::Get() )
+								.AutoWrapText( true )
+								.Text(FText::FromString(*HUB->HUBInstances[i]->Description))
+							]
+						]
+					]
+
+				]
+			];
+
+			Column++;
+			if (Column > 2) Column = 0;
+		}
+		return VBox.ToSharedRef();
+	}
+
+	return SNew(SCanvas);
+}
+
+void SUWServerBrowser::AddHUBInfo(TSharedPtr<FServerData> HUB)
+{
+	LobbyInfoBox->ClearChildren();
+
+	LobbyInfoBox->AddSlot()
+	.AutoHeight()
+	.Padding(5.0,5.0,5.0,5.0)
+	[
+		SNew(SRichTextBlock)
+		.TextStyle(SUWindowsStyle::Get(),"MOTD.Normal")
+		.Justification(ETextJustify::Center)
+		.DecoratorStyleSet( &SUWindowsStyle::Get() )
+		.AutoWrapText( true )
+		.Text(FText::FromString(*HUB->MOTD))
+	];
+
+	LobbyInfoBox->AddSlot()
+	.AutoHeight()
+	.Padding(5.0,5.0,5.0,5.0)
+	[
+		AddHUBInstances(HUB)
+	];
+
+}
+
+void SUWServerBrowser::OnHUBListSelectionChanged(TSharedPtr<FServerData> SelectedItem, ESelectInfo::Type SelectInfo)
+{
+	if (SelectedItem.IsValid())
+	{
+		AddHUBInfo(SelectedItem);
+	}
+}
+
+void SUWServerBrowser::BuildServerListControlBox()
+{
+	if (ServerListControlBox.IsValid())
+	{
+		ServerListControlBox->ClearChildren();
+		if (!bShowingLobbies)
+		{
+			ServerListControlBox->AddSlot()
+				.VAlign(VAlign_Center)
+				.Padding(0.0f,0.0f,15.0f,0.0f)
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Button")
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.Padding(0.0f, 3.0f, 5.0f, 0.0f)
+						.AutoWidth()
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.LeftArrow"))
+						]
+						+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						[
+							SAssignNew(BrowserTypeText, STextBlock)
+							.Text(NSLOCTEXT("SUWServerBrowser","ShowLobbies","SHOW HUBS"))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+
+						]
+					]
+					.OnClicked(this, &SUWServerBrowser::BrowserTypeChanged)
+				];
+
+			ServerListControlBox->AddSlot()
+				.AutoWidth()
+				[
+					SAssignNew(GameFilter, SComboButton)
+					.HasDownArrow(false)
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Button")
+					.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0))
+					.ButtonContent()
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.Padding(0.0f,0.0f,5.0f,0.0f)
+							.AutoWidth()
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("SUWServerBrowser","GameFilter","Game Mode:"))
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+							]
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SAssignNew(GameFilterText, STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BoldText")
+							]
+						]
+					]
+				];
+		}
+	}
+
+}
+
+void SUWServerBrowser::EmptyHUBServers()
+{
+	HUBServers.Empty();
+
+	// Add the default HUB Servers
+/*
+	for( int32 ItemIndex = 0; ItemIndex < 25; ++ItemIndex )
+	{
+		FString ServerName = FString::Printf(TEXT("Server %i - Tag lines are for dummies!!!!"), ItemIndex);
+		FString ServerIP = FString::Printf(TEXT("%i.%i.%i.%i"), FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255));
+		int32 R = FMath::Rand() % 3;
+
+		FString ServerGame = TEXT("HUB");
+
+		FString ServerMap = TEXT("UT-Entry");
+		FString ServerVer = TEXT("1234");
+		FString BeaconIP = TEXT("10.0.0.1");
+		FString ServerGamePath = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
+		FString ServerGameName = TEXT("HUB");
+		uint32 ServerPing = FMath::RandRange(35,1024);
+
+		TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, TEXT("10.0.0.0"), ServerGamePath, ServerGameName, ServerMap, FMath::RandRange(0,16), FMath::RandRange(0,16), FMath::RandRange(0,16), TEXT("1.0.0.0"), FMath::RandRange(10,500), 0x00);
+
+		if (ItemIndex == 0)
+		{
+			NewServer->NumMatches = 2;
+			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>CAPTURE THE FLAG</>\n\n<UWindows.Standard.MatchBadge.Red>4</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>3</>\n<UWindows.Standard.MatchBadge.Small>CTF-Outside</>"), TEXT("DrSiN") ));
+			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>DUEL</>\n\n<UWindows.Standard.MatchBadge.Red>56</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>43</>\n<UWindows.Standard.MatchBadge.Small>DM-NickTest</>"),TEXT("Mysterial") ));
+			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>DEATHMATCH</>\n\n<UWindows.Standard.MatchBadge.Red>56</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>43</>\n<UWindows.Standard.MatchBadge.Small>DM-NickTest</>"),TEXT("PeteNub") ));
+			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>TEAM DEATHMATCH</>\n\n<UWindows.Standard.MatchBadge.Red>56</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>43</>\n<UWindows.Standard.MatchBadge.Small>DM-NickTest</>"),TEXT("Nick") ));
+		}
+
+		HUBServers.Add( NewServer );
+	}
+*/
+
+	// Add the "Random" Server HUBS
+
+	RandomDMHUB = FServerData::Make( TEXT("[Internet] Individual DEATHMATCH Servers"), TEXT("@RandomDM"), TEXT("Deathmatch"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomDMHUB->MOTD = TEXT("Browse a random collection of Deathmatch servers on the internet.");
+	RandomDMHUB->bFakeHUB = true;
+	RandomTDMHUB = FServerData::Make( TEXT("[Internet] Individual TEAM DEATHMATCH Servers"), TEXT("@RandomTDM"), TEXT("Team Deathmatch"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomTDMHUB->MOTD = TEXT("Browse a random collection of Team Deathmatch servers on the internet.");
+	RandomTDMHUB->bFakeHUB = true;
+	RandomDuelHUB = FServerData::Make( TEXT("[Internet] Individual DUEL Servers"), TEXT("@RandomDuel"), TEXT("Duel"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomDuelHUB->MOTD = TEXT("Browse a random collection of Duel servers on the internet.");
+	RandomDuelHUB->bFakeHUB = true;
+	RandomCTFHUB = FServerData::Make( TEXT("[Internet] Individual CAPTURE THE FLAG Servers"), TEXT("@RandomCTF"), TEXT("Capture the Flag"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
+	RandomCTFHUB->MOTD = TEXT("Browse a random collection of Capture the Flag servers on the internet.");
+	RandomCTFHUB->bFakeHUB = true;
+
+	HUBServers.Add( RandomDMHUB );
+	HUBServers.Add( RandomTDMHUB );
+	HUBServers.Add( RandomDuelHUB );
+	HUBServers.Add( RandomCTFHUB );
+
+	FilterAllHUBs();
 }
 
 

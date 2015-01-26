@@ -14,6 +14,11 @@ struct FServerBeaconInfo
 
 	UPROPERTY()
 	FString ServerPlayers;
+
+
+	UPROPERTY()
+	FString MOTD;
+
 };
 
 class AUTServerBeaconClient;
@@ -45,12 +50,28 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	/** Send a ping RPC to the client */
 	UFUNCTION(client, reliable)
-	virtual void ClientPing(const FServerBeaconInfo ServerInfo);
+	virtual void ClientPing(const FServerBeaconInfo ServerInfo, int32 InstanceCount);
 
 	/** Send a pong RPC to the host */
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void ServerPong();
 
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void ServerSendInstances(int32 LastInstanceIndex);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientRecieveInstance(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription);
+
 	FServerRequestResultsDelegate OnServerRequestResults;
 	FServerRequestFailureDelegate OnServerRequestFailure;
+
+	FString ServerMOTD;
+
+	TArray<FString> InstanceHostNames;
+	TArray<FString> InstanceDescriptions;
+	int32 InstanceCount;
+	
+protected:
+	FServerBeaconInfo HostServerInfo;
+
 };

@@ -26,12 +26,21 @@ void AUTServerBeaconClient::OnFailure()
 	PingStartTime = -2;
 }
 
-void AUTServerBeaconClient::ClientPing_Implementation(const FServerBeaconInfo ServerInfo)
+void AUTServerBeaconClient::ClientPing_Implementation(const FServerBeaconInfo ServerInfo, int32 InstanceCount)
 {
 	Ping = (GetWorld()->RealTimeSeconds - PingStartTime) * 1000.0f;
 	UE_LOG(LogBeacon, Log, TEXT("Ping %f"), Ping);
 
-	OnServerRequestResults.ExecuteIfBound(this, ServerInfo);
+	HostServerInfo = ServerInfo;
+
+	if (InstanceCount > 0)
+	{
+		ServerSendInstances(-1);
+	}
+	else
+	{
+		OnServerRequestResults.ExecuteIfBound(this, HostServerInfo);
+	}
 }
 
 bool AUTServerBeaconClient::ServerPong_Validate()
@@ -45,7 +54,7 @@ void AUTServerBeaconClient::ServerPong_Implementation()
 
 	FServerBeaconInfo ServerInfo;
 	
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+ 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
 		ServerInfo.ServerPlayers = TEXT("");
@@ -58,6 +67,8 @@ void AUTServerBeaconClient::ServerPong_Implementation()
 			FString UniqueID = GameState->PlayerArray[i]->UniqueId.IsValid() ? GameState->PlayerArray[i]->UniqueId->ToString() : TEXT("none");
 			ServerInfo.ServerPlayers += FString::Printf(TEXT("%s\t%s\t%s\t"), *PlayerName, *PlayerScore, *UniqueID);
 		}
+
+		ServerInfo.MOTD = GameState->ServerMOTD;
 	}
 
 	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
@@ -67,11 +78,39 @@ void AUTServerBeaconClient::ServerPong_Implementation()
 		GameMode->BuildServerResponseRules(ServerInfo.ServerRules);	
 	}
 
-	ClientPing(ServerInfo);
+	int32 InstanceCount = GameMode->GetInstanceData(InstanceHostNames, InstanceDescriptions);
+	
+	ClientPing(ServerInfo, InstanceCount);
 }
 
 void AUTServerBeaconClient::SetBeaconNetDriverName(FString InBeaconName)
 {
 	BeaconNetDriverName = FName(*InBeaconName);
 	NetDriverName = BeaconNetDriverName;
+}
+
+bool AUTServerBeaconClient::ServerSendInstances_Validate(int32 LastInstanceIndex) { return true; }
+void AUTServerBeaconClient::ServerSendInstances_Implementation(int32 LastInstanceIndex)
+{
+	LastInstanceIndex++;
+	
+	if (LastInstanceIndex < InstanceHostNames.Num() && LastInstanceIndex < InstanceDescriptions.Num() )
+	{
+		ClientRecieveInstance_Implementation(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
+	}
+
+	ClientRecieveInstance_Implementation(-1, InstanceHostNames.Num(), TEXT(""), TEXT(""));
+}
+
+void AUTServerBeaconClient::ClientRecieveInstance_Implementation(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription)
+{
+	if (InstanceCount >= 0 && InstanceCount < TotalInstances)
+	{
+		InstanceHostNames.Add(InstanceHostName);
+		InstanceDescriptions.Add(InstanceDescription);
+	}
+	else
+	{
+		OnServerRequestResults.ExecuteIfBound(this, HostServerInfo);		
+	}
 }

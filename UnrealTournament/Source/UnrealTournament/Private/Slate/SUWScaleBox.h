@@ -7,15 +7,19 @@ class SUWScaleBox : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWScaleBox)
 	: _bMaintainAspectRatio(true)
+	, _bFullScreen(true)
+
 	{
 	}
 
 	/** Slot for this designers content (optional) */
 	SLATE_DEFAULT_SLOT(FArguments, Content)
 	SLATE_ARGUMENT(bool, bMaintainAspectRatio)									
+	SLATE_ARGUMENT(bool, bFullScreen)
 	SLATE_END_ARGS()
 
 	bool bMaintainAspectRatio;
+	bool bFullScreen;
 
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);

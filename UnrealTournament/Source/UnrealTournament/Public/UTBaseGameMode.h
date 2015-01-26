@@ -52,4 +52,7 @@ public:
 	virtual FName GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination);
 
 
+	// Returns the # of instances controlled by this game mode and fills out the HostNames and Descriptions arrays.  
+	virtual int32 GetInstanceData(TArray<FString> HostNames, TArray<FString> Descriptions);
+
 };

@@ -7,8 +7,8 @@
 
 void SUWScaleBox::Construct(const SUWScaleBox::FArguments& InArgs)
 {
-
 	bMaintainAspectRatio = InArgs._bMaintainAspectRatio;
+	bFullScreen = InArgs._bFullScreen;
 
 	ChildSlot
 		[
@@ -30,7 +30,7 @@ void SUWScaleBox::OnArrangeChildren(const FGeometry& AllottedGeometry, FArranged
 			if (AllottedGeometry.Size != DesiredSize)
 			{
 				float Aspect = DesiredSize.X / DesiredSize.Y;
-				float Scale = AllottedGeometry.Size.Y / 720.0f;
+				float Scale = AllottedGeometry.Size.Y / (bFullScreen ? 720.0f : DesiredSize.Y);
 				DesiredSize.Y *= Scale;
 				DesiredSize.X = DesiredSize.Y * Aspect;
 
