@@ -1,5 +1,5 @@
-xcopy RunUT.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1\Win64\WindowsNoEditor
-xcopy RunUT32.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1\Win32\WindowsNoEditor
+xcopy RunUT-Test.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1\Win64\WindowsNoEditor
+xcopy RunUT-Test32.bat P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1\Win32\WindowsNoEditor
 
 pushd P:\Builds\UnrealTournament\++depot+UE4-UT-CL-%1
 
