@@ -473,6 +473,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** blueprint accessor to what firemodes the player currently has active */
 	UFUNCTION(BlueprintPure, Category = Weapon)
 	bool IsTriggerDown(uint8 FireMode);
+
 	/** sets the pending fire flag; generally should be called by whatever weapon processes the firing command, unless it's an explicit single shot */
 	inline void SetPendingFire(uint8 FireMode, bool bNowFiring)
 	{
@@ -897,6 +898,10 @@ public:
 	/** play jumping sound/effects; should be called on server and owning client */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Effects)
 	void PlayJump();
+
+	/** Pawns must be overlapping at least this much for a telefrag to occur. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+		float MinOverlapToTelefrag;
 
 	/** Landing at faster than this velocity results in damage (note: use positive number) */
 	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite)
@@ -1408,28 +1413,28 @@ protected:
 	//================================
 	// Ambient sounds
 
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=AmbientSoundUpdated, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=AmbientSoundUpdated, Category = "Audio")
 	USoundBase* AmbientSound;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	UAudioComponent* AmbientSoundComp;
 
 	/** Ambient sound played only on owning client */
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	USoundBase* LocalAmbientSound;
 
 	/** Volume of Ambient sound played only on owning client */
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	float LocalAmbientVolume;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	UAudioComponent* LocalAmbientSoundComp;
 
 	/** Status ambient sound played only on owning client */
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 		USoundBase* StatusAmbientSound;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 	UAudioComponent* StatusAmbientSoundComp;
 
 public:

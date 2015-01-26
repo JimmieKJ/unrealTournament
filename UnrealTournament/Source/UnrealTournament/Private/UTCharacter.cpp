@@ -134,6 +134,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	LastDrownTime = 0.f;
 
 	LowHealthAmbientThreshold = 40;
+	MinOverlapToTelefrag = 25.f;
 }
 
 void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
@@ -3395,7 +3396,9 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 		if (OtherC != NULL)
 		{
 			AUTTeamGameMode* TeamGame = GetWorld()->GetAuthGameMode<AUTTeamGameMode>();
-			if (TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this))
+			UE_LOG(UT, Warning, TEXT("Telefrag dist %f vs dist to telefrag %f"), (OtherC->GetActorLocation() - GetActorLocation()).Size2D(), OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinOverlapToTelefrag);
+			if ((TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this)) 
+				&& ((OtherC->GetActorLocation() - GetActorLocation()).Size2D() < OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinOverlapToTelefrag))
 			{
 				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
 				if (OtherC->CanBlockTelefrags())
