@@ -256,7 +256,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
                     FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
-                    AppLaunchCmd = @".\Engine\Binaries\Win64\UE4.exe",
+                    AppLaunchCmd = @".\Engine\Binaries\Win64\UE4-Win64-Test.exe",
                     AppLaunchCmdArgs = "UnrealTournament",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });
@@ -368,7 +368,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 			ClientCookedTargets: new ParamList<string>("UnrealTournament"),
 			ServerCookedTargets: new ParamList<string>("UnrealTournamentServer"),
 
-            ClientConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development },
+            ClientConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Test },
             ServerConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development },
             ClientTargetPlatforms: GetClientTargetPlatforms(Cmd),
             ServerTargetPlatforms: GetServerTargetPlatforms(Cmd),
