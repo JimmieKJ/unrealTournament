@@ -9,4 +9,5 @@
 AUTServerBeaconLobbyHostListener::AUTServerBeaconLobbyHostListener(const FObjectInitializer& PCIP) :
 Super(PCIP)
 {
+	NetDriverName = FName(TEXT("LobbyBeaconDriver"));
 }
