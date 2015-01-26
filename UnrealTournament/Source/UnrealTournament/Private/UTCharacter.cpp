@@ -83,6 +83,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	WeaponBreathingBobRate = 0.2f;
 	WeaponRunningBobRate = 0.8f;
 	WeaponJumpBobInterpRate = 6.5f;
+	WeaponHorizontalBobInterpRate = 4.3f;
 	WeaponLandBobDecayRate = 5.f;
 	EyeOffset = FVector(0.f, 0.f, 0.f);
 	CrouchEyeOffset = EyeOffset;
@@ -545,7 +546,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 			PlayFootstep((LastFoot + 1) & 1);
 		}
 	}
-	float JumpYInterp = ((DesiredJumpBob.Y == 0.f) || (DesiredJumpBob.Z == 0.f)) ? FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime) : FMath::Min(1.f, 4.f * WeaponJumpBobInterpRate*DeltaTime);
+	float JumpYInterp = ((DesiredJumpBob.Y == 0.f) || (DesiredJumpBob.Z == 0.f)) ? FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime) : FMath::Min(1.f, WeaponHorizontalBobInterpRate*FMath::Abs(DesiredJumpBob.Y)*DeltaTime);
 	CurrentJumpBob.X = (1.f - InterpTime)*CurrentJumpBob.X + InterpTime*DesiredJumpBob.X;
 	CurrentJumpBob.Y = (1.f - JumpYInterp)*CurrentJumpBob.Y + JumpYInterp*DesiredJumpBob.Y;
 	CurrentJumpBob.Z = (1.f - InterpTime)*CurrentJumpBob.Z + InterpTime*DesiredJumpBob.Z;

@@ -1167,6 +1167,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float WeaponJumpBobInterpRate;
 
+	/** Max horizontal weapon movement interpolation rate. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+		float WeaponHorizontalBobInterpRate;
+
 	/** How fast to decay out Land bob offset. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float WeaponLandBobDecayRate;
