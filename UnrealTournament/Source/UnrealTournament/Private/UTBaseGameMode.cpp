@@ -39,7 +39,7 @@ FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName
 	return ChatDestinations::Local;
 }
 
-int32 AUTBaseGameMode::GetInstanceData(TArray<FString> HostNames, TArray<FString> Descriptions)
+int32 AUTBaseGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions)
 {
 	return 0;
 }

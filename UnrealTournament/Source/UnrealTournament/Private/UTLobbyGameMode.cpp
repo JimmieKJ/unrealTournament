@@ -220,7 +220,7 @@ void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
-int32 AUTLobbyGameMode::GetInstanceData(TArray<FString> HostNames, TArray<FString> Descriptions)
+int32 AUTLobbyGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions)
 {
 	if (UTLobbyGameState)
 	{
