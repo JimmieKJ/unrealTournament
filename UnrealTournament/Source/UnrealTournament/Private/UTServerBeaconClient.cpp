@@ -86,9 +86,14 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 		GameMode->BuildServerResponseRules(ServerInfo.ServerRules);	
 	}
 
-	int32 NumInstances = GameMode->GetInstanceData(InstanceHostNames, InstanceDescriptions);
-	UE_LOG(UT,Log, TEXT("<--- Sending Info %i"), NumInstances);
+	int32 NumInstances = 0;
+	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	if (BaseGame)
+	{
+		NumInstances = BaseGame->GetInstanceData(InstanceHostNames, InstanceDescriptions);
+	}
 
+	UE_LOG(UT,Log, TEXT("<--- Sending Info %i"), NumInstances);
 	ClientRecieveInfo(ServerInfo, NumInstances);
 }
 
