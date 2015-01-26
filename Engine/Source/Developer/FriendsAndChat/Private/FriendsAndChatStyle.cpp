@@ -30,19 +30,43 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendButtonStyle(const FButto
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendComboBackgroundLeftBrush(const FSlateBrush& BrushStyle)
+{
+	FriendComboBackgroundLeftBrush = BrushStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendComboBackgroundRightBrush(const FSlateBrush& BrushStyle)
+{
+	FriendComboBackgroundRightBrush = BrushStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendComboBackgroundLeftFlippedBrush(const FSlateBrush& BrushStyle)
+{
+	FriendComboBackgroundLeftFlippedBrush = BrushStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendComboBackgroundRightFlippedBrush(const FSlateBrush& BrushStyle)
+{
+	FriendComboBackgroundRightFlippedBrush = BrushStyle;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendButtonContentBrush(const FSlateBrush& BrushStyle)
 {
 	AddFriendButtonContentBrush = BrushStyle;
 	return *this;
 }
 
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListStatusButtonStyle(const FButtonStyle& ButtonStyle)
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendGeneralButtonStyle(const FButtonStyle& ButtonStyle)
 {
-	FriendListStatusButtonStyle = ButtonStyle;
+	FriendGeneralButtonStyle = ButtonStyle;
 	return *this;
 }
 
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListActionButtonStyle(const FButtonStyle& ButtonStyle)
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListActionButtonStyle(const FButtonStyle& ButtonStyle)
 {
 	FriendListActionButtonStyle = ButtonStyle;
 	return *this;
@@ -60,7 +84,7 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListEmphasisButtonStyle(co
 	return *this;
 }
 
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListComboButtonStyle(const FButtonStyle& ButtonStyle)
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListComboButtonStyle(const FComboButtonStyle& ButtonStyle)
 {
 	FriendListComboButtonStyle = ButtonStyle;
 	return *this;
@@ -164,9 +188,15 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendItemSelected(const FSlateBr
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatContainerBackground(const FSlateBrush& InChatContainerBackground)
+{
+	ChatContainerBackground = InChatContainerBackground;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendContainerBackground(const FSlateBrush& InFriendContainerBackground)
 {
-	FriendContainerBackground = InFriendContainerBackground;
+	FriendsContainerBackground = InFriendContainerBackground;
 	return *this;
 }
 
@@ -284,6 +314,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetStatusButtonSize(const FVector2D&
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetActionComboButtonSize(const FVector2D& InActionComboButtonSize)
+{
+	ActionComboButtonSize = InActionComboButtonSize;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetBorderPadding(const FMargin& Padding)
 {
 	BorderPadding = Padding;
@@ -296,9 +332,9 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListWidth(const float InFr
 	return *this;
 }
 
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatListWidth(const float InChatListWidth)
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatListPadding(const float InChatListPadding)
 {
-	ChatListWidth = InChatListWidth;
+	ChatListPadding = InChatListPadding;
 	return *this;
 }
 

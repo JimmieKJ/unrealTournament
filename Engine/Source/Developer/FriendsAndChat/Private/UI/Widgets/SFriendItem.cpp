@@ -3,6 +3,9 @@
 #include "FriendsAndChatPrivatePCH.h"
 #include "SFriendItem.h"
 #include "FriendViewModel.h"
+#include "SFriendsToolTip.h"
+#include "SFriendsList.h"
+#include "SFriendsAndChatCombo.h"
 
 #define LOCTEXT_NAMESPACE "SFriendItem"
 
@@ -16,60 +19,45 @@ public:
 		this->ViewModel = InViewModel;
 		FFriendViewModel* ViewModelPtr = ViewModel.Get();
 		MenuMethod = InArgs._Method;
+		PendingAction = EFriendActionType::MAX_None;
 
 		SUserWidget::Construct(SUserWidget::FArguments()
 		[
-			SNew(SOverlay)
-			+SOverlay::Slot()
+			SNew(SButton)
+			.ButtonStyle(&FriendStyle.FriendListItemButtonSimpleStyle)
+			.ContentPadding(9.0f)
 			[
-				SAssignNew(RemoveConfirmationAnchor, SMenuAnchor)
-				.Method(InArgs._Method)
-				.OnGetMenuContent(this, &SFriendItemImpl::GetRemoveConfirmationContent)
-				.Placement(MenuMethod == EPopupMethod::UseCurrentWindow ? MenuPlacement_MenuLeft : MenuPlacement_MenuRight)
-			]
-			+ SOverlay::Slot()
-			[
-				SAssignNew(JoinGameConfirmationAnchor, SMenuAnchor)
-				.Method(InArgs._Method)
-				.OnGetMenuContent(this, &SFriendItemImpl::GetJoinGameConfirmationContent)
-				.Placement(MenuMethod == EPopupMethod::UseCurrentWindow ? MenuPlacement_MenuLeft : MenuPlacement_MenuRight)
-			]
-			+SOverlay::Slot()
-			[
-				SAssignNew(Anchor, SMenuAnchor)
-				.Method(InArgs._Method)
-				.OnGetMenuContent(this, &SFriendItemImpl::GetMenuContent)
-				.Placement(MenuMethod == EPopupMethod::UseCurrentWindow ? MenuPlacement_MenuLeft : MenuPlacement_MenuRight)
-				.Content()
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10, 0)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Left)
 				[
-					SNew(SButton)
-					.ButtonStyle(&FriendStyle.FriendListItemButtonSimpleStyle)
-					.OnClicked(this, &SFriendItemImpl::HandleItemClicked)
-					.ContentPadding(5.0f)
+					SNew(SOverlay)
+					+ SOverlay::Slot()
 					[
-						SNew( SHorizontalBox )
-						+SHorizontalBox::Slot()
-						.Padding( 10, 0 )
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Left)
-						[
-							SNew(SOverlay)
-							+SOverlay::Slot()
-							[
-								SNew(SImage)
-								.Image(this, &SFriendItemImpl::GetPresenceBrush)
+						SNew(SImage)
+						.Image(this, &SFriendItemImpl::GetPresenceBrush)
 
-							]
-							+SOverlay::Slot()
-							.VAlign(VAlign_Top)
-							.HAlign(HAlign_Right)
-							[
-								SNew(SImage)
-								.Image(this, &SFriendItemImpl::GetStatusBrush)
-							]
-						]
+					]
+					+ SOverlay::Slot()
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Right)
+					[
+						SNew(SImage)
+						.Image(this, &SFriendItemImpl::GetStatusBrush)
+					]
+				]
+				+ SHorizontalBox::Slot()
+				[
+					SNew(SOverlay)
+					+ SOverlay::Slot()
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
+						.FillWidth(1)
 						[
 							SNew(SVerticalBox)
 							+ SVerticalBox::Slot()
@@ -87,6 +75,113 @@ public:
 								.Font(FriendStyle.FriendsFontStyleSmallBold)
 								.ColorAndOpacity(FriendStyle.DefaultFontColor)
 								.Text(ViewModelPtr, &FFriendViewModel::GetFriendLocation)
+							]
+						]
+						+ SHorizontalBox::Slot()
+						.Padding(15, 0)
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Right)
+						[
+							SAssignNew(ActionMenuButton, SFriendsAndChatCombo)
+							.FriendStyle(&FriendStyle)
+							.ButtonText(FText::GetEmpty())
+							.bShowIcon(false)
+							.DropdownItems(this, &SFriendItemImpl::GetActionItems)
+							.bSetButtonTextToSelectedItem(false)
+							.bAutoCloseWhenClicked(true)
+							.ButtonSize(FriendStyle.ActionComboButtonSize)
+							.Placement(MenuPlacement_ComboBoxRight)
+							.OnDropdownItemClicked(this, &SFriendItemImpl::HandleItemClicked)
+							.OnDropdownOpened(this, &SFriendItemImpl::HandleActionMenuOpened)
+							.Visibility(this, &SFriendItemImpl::ActionMenuButtonVisibility)
+						]
+					]
+					+ SOverlay::Slot()
+					.HAlign(HAlign_Right)
+					.VAlign(VAlign_Bottom)
+					.Padding(0, 0, 5, 0)
+					[
+						SNew(SUniformGridPanel)
+						.Visibility(this, &SFriendItemImpl::PendingActionVisibility, EFriendActionType::RemoveFriend)
+						+ SUniformGridPanel::Slot(0, 0)
+						[
+							SNew(SBox)
+							.Padding(5)
+							[
+								SNew(SButton)
+								.OnClicked(this, &SFriendItemImpl::HandlePendingActionClicked, true)
+								.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::RemoveFriend)))
+								.VAlign(VAlign_Center)
+								.HAlign(HAlign_Center)
+								[
+									SNew(STextBlock)
+									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.Font(FriendStyle.FriendsFontStyleSmallBold)
+									.Text(EFriendActionType::ToText(EFriendActionType::RemoveFriend))
+								]
+							]
+						]
+						+ SUniformGridPanel::Slot(1, 0)
+						[
+							SNew(SBox)
+							.Padding(5)
+							[
+								SNew(SButton)
+								.OnClicked(this, &SFriendItemImpl::HandlePendingActionClicked, false)
+								.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::CancelFriendRequest)))
+								.VAlign(VAlign_Center)
+								.HAlign(HAlign_Center)
+								[
+									SNew(STextBlock)
+									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.Font(FriendStyle.FriendsFontStyleSmallBold)
+									.Text(EFriendActionType::ToText(EFriendActionType::CancelFriendRequest))
+								]
+							]
+						]
+					]
+					+ SOverlay::Slot()
+					.HAlign(HAlign_Right)
+					.VAlign(VAlign_Bottom)
+					.Padding(0, 0, 5, 0)
+					[
+						SNew(SUniformGridPanel)
+						.Visibility(this, &SFriendItemImpl::PendingActionVisibility, EFriendActionType::JoinGame)
+						+ SUniformGridPanel::Slot(0, 0)
+						[
+							SNew(SBox)
+							.Padding(5)
+							[
+								SNew(SButton)
+								.OnClicked(this, &SFriendItemImpl::HandlePendingActionClicked, true)
+								.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::JoinGame)))
+								.VAlign(VAlign_Center)
+								.HAlign(HAlign_Center)
+								[
+									SNew(STextBlock)
+									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.Font(FriendStyle.FriendsFontStyleSmallBold)
+									.Text(EFriendActionType::ToText(EFriendActionType::JoinGame))
+								]
+							]
+						]
+						+ SUniformGridPanel::Slot(1, 0)
+						[
+							SNew(SBox)
+							.Padding(5)
+							[
+								SNew(SButton)
+								.OnClicked(this, &SFriendItemImpl::HandlePendingActionClicked, false)
+								.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::CancelFriendRequest)))
+								.VAlign(VAlign_Center)
+								.HAlign(HAlign_Center)
+								[
+									SNew(STextBlock)
+									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.Font(FriendStyle.FriendsFontStyleSmallBold)
+									.Text(EFriendActionType::ToText(EFriendActionType::CancelFriendRequest))
+								]
 							]
 						]
 					]
@@ -132,154 +227,41 @@ private:
 		};
 	}
 
-	TSharedRef<SWidget> GetMenuContent()
+	SFriendsAndChatCombo::FItemsArray GetActionItems() const
 	{
-		TSharedPtr<SVerticalBox> ActionListBox;
-		TSharedRef<SWidget> Contents =
-			SNew(SBorder)
-			.BorderImage(&FriendStyle.Background)
-			.Padding(10)
-			[
-				SAssignNew(ActionListBox, SVerticalBox)
-			];
-
 		TArray<EFriendActionType::Type> Actions;
-
 		ViewModel->EnumerateActions(Actions);
 
-		for(const auto& FriendAction : Actions)
+		SFriendsAndChatCombo::FItemsArray ActionItems;
+		for (const auto& FriendAction : Actions)
 		{
-			ActionListBox->AddSlot()
-			.Padding(5)
-			[
-				SNew(SButton)
-				.IsEnabled(this, &SFriendItemImpl::IsActionEnabled, FriendAction)
-				.OnClicked(this, &SFriendItemImpl::HandleActionClicked, FriendAction)
-				.ButtonStyle(&FriendStyle.FriendListActionButtonStyle)
-				.IsEnabled(this, &SFriendItemImpl::IsActionEnabled, FriendAction)
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(STextBlock)
-					.ColorAndOpacity(FriendStyle.DefaultFontColor)
-					.Font(FriendStyle.FriendsFontStyle)
-					.Text(EFriendActionType::ToText(FriendAction))
-				]
-			];
+			ActionItems.AddItem(EFriendActionType::ToText(FriendAction), nullptr, FName(*EFriendActionType::ToText(FriendAction).ToString()), IsActionEnabled(FriendAction));
 		}
 
-		MenuContent = Contents;
-		return Contents;
+		return ActionItems;
 	}
 
-	TSharedRef<SWidget> GetRemoveConfirmationContent()
+	FName ActionToItemTag(EFriendActionType::Type Action)
 	{
-		TSharedRef<SWidget> Contents =
-			SNew(SBorder)
-			.BorderImage(&FriendStyle.Background)
-			.Padding(10)
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				.Padding(5)
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString("Are you sure?"))
-					.Font(FriendStyle.FriendsFontStyle)
-					.ColorAndOpacity(FriendStyle.DefaultFontColor)
-				]
-				+SVerticalBox::Slot()
-				.Padding(5)
-				[
-					SNew(SButton)
-					.OnClicked(this, &SFriendItemImpl::HandleRemoveClicked, true)
-					.ButtonStyle(&FriendStyle.FriendListCriticalButtonStyle)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SNew(STextBlock)
-						
-						.ColorAndOpacity(FriendStyle.DefaultFontColor)
-						.Font(FriendStyle.FriendsFontStyle)
-						.Text(FText::FromString("Remove"))
-					]
-				]
-				+SVerticalBox::Slot()
-				.Padding(5)
-				[
-					SNew(SButton)
-					.OnClicked(this, &SFriendItemImpl::HandleRemoveClicked, false)
-					.ButtonStyle(&FriendStyle.FriendListActionButtonStyle)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FriendStyle.DefaultFontColor)
-						.Font(FriendStyle.FriendsFontStyle)
-						.Text(FText::FromString("Cancel"))
-					]
-				]
-			];
-
-		MenuContent = Contents;
-		return Contents;
+		return FName(*EFriendActionType::ToText(Action).ToString());
 	}
 
-	TSharedRef<SWidget> GetJoinGameConfirmationContent()
+	EFriendActionType::Type ItemTagToAction(const FName& Tag)
 	{
-		TSharedRef<SWidget> Contents =
-			SNew(SBorder)
-			.BorderImage(&FriendStyle.Background)
-			.Padding(10)
-			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				.Padding(5)
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString("Join Game?"))
-					.Font(FriendStyle.FriendsFontStyle)
-					.ColorAndOpacity(FriendStyle.DefaultFontColor)
-				]
-				+ SVerticalBox::Slot()
-					.Padding(5)
-					[
-						SNew(SButton)
-						.OnClicked(this, &SFriendItemImpl::HandleJoinConfirmClicked, true)
-						.ButtonStyle(&FriendStyle.FriendListEmphasisButtonStyle)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SNew(STextBlock)
+		for (int32 ActionIdx = 0; ActionIdx < EFriendActionType::MAX_None; ActionIdx++)
+		{
+			EFriendActionType::Type ActionAsEnum = (EFriendActionType::Type)ActionIdx;
+			if (Tag == ActionToItemTag(ActionAsEnum))
+			{
+				return ActionAsEnum;
+			}
+		}
+		return EFriendActionType::MAX_None;
+	}
 
-							.ColorAndOpacity(FriendStyle.DefaultFontColor)
-							.Font(FriendStyle.FriendsFontStyle)
-							.Text(FText::FromString("Join"))
-						]
-					]
-				+ SVerticalBox::Slot()
-					.Padding(5)
-					[
-						SNew(SButton)
-						.OnClicked(this, &SFriendItemImpl::HandleJoinConfirmClicked, false)
-						.ButtonStyle(&FriendStyle.FriendListActionButtonStyle)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SNew(STextBlock)
-							.ColorAndOpacity(FriendStyle.DefaultFontColor)
-							.Font(FriendStyle.FriendsFontStyle)
-							.Text(FText::FromString("Cancel"))
-						]
-					]
-			];
-
-		MenuContent = Contents;
-		return Contents;
+	EVisibility PendingActionVisibility(EFriendActionType::Type ActionType) const
+	{
+		return PendingAction == ActionType ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
 	bool IsActionEnabled(const EFriendActionType::Type FriendAction) const
@@ -287,70 +269,71 @@ private:
 		return ViewModel->CanPerformAction(FriendAction);
 	}
 
-	FReply HandleActionClicked(const EFriendActionType::Type FriendAction)
+	FReply HandlePendingActionClicked(bool bConfirm)
 	{
-		if( FriendAction == EFriendActionType::RemoveFriend)
-		{
-			Anchor->SetIsOpen(false);
-			RemoveConfirmationAnchor->SetIsOpen(true);
-		}
-		else if (FriendAction == EFriendActionType::JoinGame)
-		{
-			Anchor->SetIsOpen(false);
-			JoinGameConfirmationAnchor->SetIsOpen(true);
-		}
-		else
-		{
-			Anchor->SetIsOpen(false);
-			ViewModel->PerformAction(FriendAction);
-		}
-		return FReply::Handled();
-	}
-
-	FReply HandleRemoveClicked(bool bConfirm)
-	{
-		RemoveConfirmationAnchor->SetIsOpen(false);
-		if(bConfirm)
-		{
-			ViewModel->PerformAction(EFriendActionType::RemoveFriend);
-		}
-		return FReply::Handled();
-	}
-
-	FReply HandleJoinConfirmClicked(bool bConfirm)
-	{
-		JoinGameConfirmationAnchor->SetIsOpen(false);
 		if (bConfirm)
 		{
-			ViewModel->PerformAction(EFriendActionType::JoinGame);
+			ViewModel->PerformAction(PendingAction);
 		}
+		PendingAction = EFriendActionType::MAX_None;
 		return FReply::Handled();
 	}
 
-	FReply HandleItemClicked()
+	void HandleItemClicked(FName ItemTag)
 	{
-		Anchor->SetIsOpen(true);
-		OpenTime = 0.2f;
-		return FReply::Handled();
-	}
-
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
-	{
-		if (Anchor.IsValid() && Anchor->IsOpen())
+		if (ViewModel.IsValid())
 		{
-			if (IsHovered() || Anchor->IsHovered() || (MenuContent.IsValid() && MenuContent->IsHovered()))
+			EFriendActionType::Type FriendAction = ItemTagToAction(ItemTag);
+
+			if (FriendAction == EFriendActionType::RemoveFriend || FriendAction == EFriendActionType::JoinGame)
 			{
-				OpenTime = 0.2f;
+				PendingAction = FriendAction;
+				FSlateApplication::Get().SetKeyboardFocus(SharedThis(this));
 			}
 			else
 			{
-				OpenTime -= InDeltaTime;
-				if (OpenTime < 0 || MenuMethod != EPopupMethod::CreateNewWindow)
-				{
-					Anchor->SetIsOpen(false);
-				}
+				ViewModel->PerformAction(FriendAction);
 			}
 		}
+	}
+
+	void HandleActionMenuOpened() const
+	{
+		LastActionMenuOpened = ActionMenuButton;
+	}
+
+	EVisibility ActionMenuButtonVisibility() const
+	{
+		return (bIsHovered && PendingAction == EFriendActionType::MAX_None && !IsAnyActionMenuOpen()) || ActionMenuButton->IsOpen() ? EVisibility::Visible : EVisibility::Hidden;
+	}
+
+	TSharedPtr<SToolTip> CreateJoingGameToolTip()
+	{
+		if(!ViewModel->CanPerformAction(EFriendActionType::JoinGame))
+		{
+			return SNew(SFriendsToolTip)
+			.DisplayText(ViewModel->GetJoinGameDisallowReason())
+			.FriendStyle(&FriendStyle);
+		}
+		return nullptr;
+	}
+
+	virtual bool SupportsKeyboardFocus() const override
+	{
+		return true;
+	}
+
+	virtual void OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath) override
+	{
+		if (!NewWidgetPath.ContainsWidget(SharedThis(this)))
+		{
+			PendingAction = EFriendActionType::MAX_None;
+		}
+	}
+
+	static bool IsAnyActionMenuOpen()
+	{
+		return LastActionMenuOpened.IsValid() && LastActionMenuOpened.Pin()->IsOpen();
 	}
 
 private:
@@ -360,16 +343,26 @@ private:
 	/** Holds the style to use when making the widget. */
 	FFriendsAndChatStyle FriendStyle;
 
-	TSharedPtr<SMenuAnchor> Anchor;
-	TSharedPtr<SMenuAnchor> RemoveConfirmationAnchor;
-	TSharedPtr<SMenuAnchor> JoinGameConfirmationAnchor;
+	TSharedPtr<SFriendsAndChatCombo> ActionMenuButton;
 
 	TSharedPtr<SWidget> MenuContent;
 
 	EPopupMethod MenuMethod;
 
 	float OpenTime;
+
+	EFriendActionType::Type PendingAction;
+
+	/**
+	 * Static ref to the last action menu combo that was opened
+	 * Used to allow a single item to open/show its menu at once
+	 * @todo: static isn't ideal but fine for now
+	 */
+	static TWeakPtr<SFriendsAndChatCombo> LastActionMenuOpened;
 };
+
+TWeakPtr<SFriendsAndChatCombo> SFriendItemImpl::LastActionMenuOpened;
+
 
 TSharedRef<SFriendItem> SFriendItem::New()
 {

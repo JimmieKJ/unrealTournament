@@ -17,28 +17,25 @@ public:
 		FriendsAndChatManager.Pin()->SetUserIsOnline(OnlineState);
 	}
 
-	virtual TArray<TSharedRef<FText> > GetStatusList() const override
+	virtual const TArray<FOnlineState>& GetStatusList() const override
 	{
 		return OnlineStateArray;
 	}
 
 	virtual FText GetStatusText() const override
 	{
-		//@todo - use loc text
-		EOnlinePresenceState::Type OnlineStatus = FriendsAndChatManager.Pin()->GetUserIsOnline();
-		switch (OnlineStatus)
+		EOnlinePresenceState::Type CurrentOnlineStatus = FriendsAndChatManager.Pin()->GetUserIsOnline();
+
+		const FOnlineState* FoundStatePtr = OnlineStateArray.FindByPredicate([CurrentOnlineStatus](const FOnlineState& InOnlineState) -> bool
 		{
-			case EOnlinePresenceState::Away:
-			case EOnlinePresenceState::ExtendedAway:
-				return FText::FromString(TEXT("Away"));
-			case EOnlinePresenceState::Chat:
-			case EOnlinePresenceState::DoNotDisturb:
-			case EOnlinePresenceState::Online:
-				return FText::FromString(TEXT("Online"));
-			case EOnlinePresenceState::Offline:
-			default:
-				return FText::FromString("Offline");
-		};
+			return InOnlineState.State == CurrentOnlineStatus;
+		});
+
+		if (FoundStatePtr != nullptr)
+		{
+			return FoundStatePtr->DisplayText;
+		}
+		return NSLOCTEXT("OnlineState", "OnlineState_Unknown", "Unknown");
 	}
 
 private:
@@ -47,13 +44,17 @@ private:
 		)
 		: FriendsAndChatManager(FriendsAndChatManager)
 	{
-		OnlineStateArray.Add(MakeShareable(new FText(NSLOCTEXT("OnlineState", "OnlineState_Online", "Online"))));
-		OnlineStateArray.Add(MakeShareable(new FText(NSLOCTEXT("OnlineState", "OnlineState_Away", "Away"))));
+		OnlineStateArray.Add(FOnlineState(true, NSLOCTEXT("OnlineState", "OnlineState_Online", "Online"), EOnlinePresenceState::Online));
+		OnlineStateArray.Add(FOnlineState(false, NSLOCTEXT("OnlineState", "OnlineState_Offline", "Offline"), EOnlinePresenceState::Offline));
+		OnlineStateArray.Add(FOnlineState(true, NSLOCTEXT("OnlineState", "OnlineState_Away", "Away"), EOnlinePresenceState::Away));
+		OnlineStateArray.Add(FOnlineState(false, NSLOCTEXT("OnlineState", "OnlineState_Away", "Away"), EOnlinePresenceState::ExtendedAway));
+		OnlineStateArray.Add(FOnlineState(false, NSLOCTEXT("OnlineState", "OnlineState_Online", "Online"), EOnlinePresenceState::DoNotDisturb));
+		OnlineStateArray.Add(FOnlineState(false, NSLOCTEXT("OnlineState", "OnlineState_Online", "Online"), EOnlinePresenceState::Chat));
 	}
 
 private:
 	TWeakPtr<FFriendsAndChatManager> FriendsAndChatManager;
-	TArray<TSharedRef<FText> > OnlineStateArray;
+	TArray<FOnlineState> OnlineStateArray;
 
 private:
 	friend FFriendsStatusViewModelFactory;

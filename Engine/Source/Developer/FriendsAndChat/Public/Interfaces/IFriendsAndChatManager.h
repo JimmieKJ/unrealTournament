@@ -18,9 +18,8 @@ public:
 	/**
 	 * Create a chat window.
 	 * @param InStyle The style to use to create the widgets
-	 * @param Parent The parent window
 	 */
-	virtual void CreateChatWindow(const struct FFriendsAndChatStyle* InStyle, TSharedPtr<SWindow> Parent) = 0;
+	virtual void CreateChatWindow(const struct FFriendsAndChatStyle* InStyle) = 0;
 
 	/**
 	 * Set the FriendsAndChatUserSettings.
@@ -94,6 +93,9 @@ public:
 
 	DECLARE_EVENT_TwoParams(IFriendsAndChatManager, FOnFriendsJoinGameEvent, const FUniqueNetId& /*FriendId*/, const FString& /*SessionId*/)
 	virtual FOnFriendsJoinGameEvent& OnFriendsJoinGame() = 0;
+
+	DECLARE_EVENT(IFriendsAndChatManager, FChatMessageReceivedEvent);
+	virtual FChatMessageReceivedEvent& OnChatMessageRecieved() = 0;
 
 	DECLARE_DELEGATE_RetVal(bool, FAllowFriendsJoinGame);
 	virtual FAllowFriendsJoinGame& AllowFriendsJoinGame() = 0;

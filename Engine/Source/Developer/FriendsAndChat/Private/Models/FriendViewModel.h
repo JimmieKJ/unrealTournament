@@ -2,6 +2,13 @@
 
 #pragma once
 
+enum class EFriendActionLevel
+{
+	Action,			// A normal action
+	Emphasis,		// An important action to be shown with emphasis
+	Critical,		// A critical action
+};
+
 // Enum holding the state of the Friends manager
 namespace EFriendActionType
 {
@@ -19,6 +26,7 @@ namespace EFriendActionType
 		SendFriendRequest,			// Send a friend request
 		Updating,					// Updating;
 		Chat,						// Chat
+		MAX_None,
 	};
 
 	inline FText ToText(EFriendActionType::Type State)
@@ -41,6 +49,22 @@ namespace EFriendActionType
 			default: return FText::GetEmpty();
 		}
 	}
+
+	inline EFriendActionLevel ToActionLevel(EFriendActionType::Type State)
+	{
+		switch (State)
+		{
+			case AcceptFriendRequest:
+			case RejectGame:
+			case SendFriendRequest:
+				return EFriendActionLevel::Emphasis;
+			case BlockFriend:
+			case RemoveFriend:
+				return EFriendActionLevel::Critical;
+			default:
+				return EFriendActionLevel::Action;
+		}
+	}
 };
 
 class FFriendViewModel
@@ -53,6 +77,7 @@ public:
 	virtual void PerformAction(const EFriendActionType::Type ActionType) = 0;
 	virtual bool CanPerformAction(const EFriendActionType::Type ActionType) = 0;
 	virtual FText GetFriendName() const = 0;
+	virtual FText GetJoinGameDisallowReason() const = 0;
 	virtual FText GetFriendLocation() const = 0;
 	virtual FString GetClientId() const = 0;
 	virtual bool IsOnline() const = 0;

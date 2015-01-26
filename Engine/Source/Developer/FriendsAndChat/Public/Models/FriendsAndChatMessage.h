@@ -13,6 +13,8 @@ namespace EFriendsRequestType
 	{
 		// A chat message
 		ChatMessage,
+		// Friend came online/in-game
+		PresenceChange,
 		// Request to join a game
 		JoinGame,
 		// Invite someone to join your game
@@ -27,7 +29,7 @@ namespace EFriendsRequestType
 };
 
 
-// Enum to list friend respose type
+// Enum to list friend response type
 namespace EFriendsResponseType
 {
 	enum Type
@@ -52,6 +54,7 @@ namespace EFriendsDisplayLists
 		FriendRequestsDisplay,			// Friend request display
 		OutgoingFriendInvitesDisplay,	// Outgoing friends invites
 		GameInviteDisplay,				// GameInviteDisplay
+		MAX_None
 	};
 
 	inline const FText ToFText(EFriendsDisplayLists::Type EnumVal)

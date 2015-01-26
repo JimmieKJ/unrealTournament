@@ -126,8 +126,8 @@ public:
 	virtual void Login() override;
 	virtual bool IsLoggedIn() override;
 	virtual void SetApplicationViewModel(TSharedPtr<IFriendsApplicationViewModel> ApplicationViewModel) override;
-	virtual void CreateFriendsListWindow(const FFriendsAndChatStyle* InStyle ) override;
-	virtual void CreateChatWindow(const struct FFriendsAndChatStyle* InStyle, TSharedPtr<SWindow> Parent) override;
+	virtual void CreateFriendsListWindow(const FFriendsAndChatStyle* InStyle) override;
+	virtual void CreateChatWindow(const struct FFriendsAndChatStyle* InStyle) override;
 	virtual void SetUserSettings(const FFriendsAndChatSettings& UserSettings) override;
 	virtual void SetAnalyticsProvider(const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider) override;
 	virtual TSharedPtr< SWidget > GenerateFriendsListWidget( const FFriendsAndChatStyle* InStyle ) override;
@@ -171,6 +171,11 @@ public:
 	bool JoinGameAllowed();
 
 	/**
+	 * @return true if in the launcher
+	 */
+	const bool IsInLauncher() const;
+
+	/**
 	 * Set the chat friend.
 	 *
 	 * @param FriendItem The friend to start a chat with.
@@ -208,7 +213,7 @@ public:
 	 * Get the recent players list.
 	 * @return the list.
 	 */
-	TArray< TSharedPtr< IFriendItem > >& GetrecentPlayerList();
+	TArray< TSharedPtr< IFriendItem > >& GetRecentPlayerList();
 
 	/**
 	 * Get outgoing request list.
@@ -270,6 +275,9 @@ public:
 
 	/** Send a game invite notification. */
 	void SendGameInviteNotification(const TSharedPtr<IFriendItem>& FriendItem);
+
+	/** Broadcast when a chat message is received - opens the chat window in the launcher. */
+	void SendChatMessageReceivedEvent();
 
 	/**
 	 * Find a user ID.
@@ -337,6 +345,12 @@ public:
 		return FriendsJoinGameEvent;
 	}
 
+	DECLARE_DERIVED_EVENT(IFriendsAndChatManager, IFriendsAndChatManager::FChatMessageReceivedEvent, FChatMessageReceivedEvent);
+	virtual FChatMessageReceivedEvent& OnChatMessageRecieved() override
+	{
+		return ChatMessageReceivedEvent;
+	}
+
 	virtual FAllowFriendsJoinGame& AllowFriendsJoinGame() override
 	{
 		return AllowFriendsJoinGameDelegate;
@@ -402,6 +416,9 @@ private:
 
 	/** Send a friend invite accepted notification. */
 	void SendInviteAcceptedNotification(TSharedPtr< IFriendItem > Friend);
+
+	/** Get Invite Notification Text */
+	const FText GetInviteNotificationText(TSharedPtr< IFriendItem > Friend) const;
 
 	/** Called when singleton is released. */
 	void ShutdownManager();
@@ -485,7 +502,7 @@ private:
 	 * @param UserId		The user ID.
 	 * @param Presence	The user presence.
 	 */
-	void OnPresenceReceived( const class FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
+	void OnPresenceReceived(const class FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& NewPresence);
 
 	/**
 	 * Delegate used when a users presence is updated.
@@ -612,6 +629,8 @@ private:
 	TArray< TSharedPtr< IFriendItem > > RecentPlayersList;
 	// Holds the filtered friends list used in the UI
 	TArray< TSharedPtr< IFriendItem > > FilteredFriendsList;
+	// Holds the list of old presence data for comparison to new presence updates
+	TMap< FUniqueNetIdString, FOnlineUserPresence > OldUserPresenceMap;
 	// Holds the outgoing friend request list used in the UI
 	TArray< TSharedPtr< IFriendItem > > FilteredOutgoingList;
 	// Holds the unprocessed friends list generated from a friends request update
@@ -687,6 +706,8 @@ private:
 	FOnInviteRejectedDelegate	OnFriendInviteRejected;
 	// Delegate for friend invite accepted
 	FOnInviteAcceptedDelegate	OnFriendInviteAccepted;
+	// Delegate for chat message received
+	FChatMessageReceivedEvent OnChatmessageRecieved;
 
 	// Holds the Friends list notification delegate
 	FOnFriendsNotificationEvent FriendsListNotificationDelegate;
@@ -696,6 +717,8 @@ private:
 	FOnFriendsUserSettingsUpdatedEvent FriendsUserSettingsUpdatedDelegate;
 	// Holds the join game request delegate
 	FOnFriendsJoinGameEvent FriendsJoinGameEvent;
+	// Holds the chat message received delegate
+	FChatMessageReceivedEvent ChatMessageReceivedEvent;
 	// Delegate callback for determining if joining games functionality should be allowed
 	FAllowFriendsJoinGame AllowFriendsJoinGameDelegate;
 
@@ -724,6 +747,8 @@ private:
 	TArray<FString> ChatRoomstoJoin;
 	// Manages private/public chat messages 
 	TSharedPtr<class FFriendsMessageManager> MessageManager;
+	// Holds the chat view model
+	TSharedPtr<class FChatViewModel> ChatViewModel;
 
 	/* Manger state
 	*****************************************************************************/

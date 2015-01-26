@@ -39,7 +39,7 @@ public:
 
 	/**
 	 * Get the client the user is logged in on
-	 * @return The client id of the user
+	 * @return The client id
 	 */
 	virtual const FString GetClientId() const = 0;
 

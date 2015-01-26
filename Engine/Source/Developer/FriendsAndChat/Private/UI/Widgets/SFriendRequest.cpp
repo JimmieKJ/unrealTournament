@@ -54,7 +54,7 @@ public:
 				[
 					SNew(SButton)
 					.HAlign(HAlign_Center)
-					.ButtonStyle(&FriendStyle.FriendListActionButtonStyle)
+					.ButtonStyle(&FriendStyle.FriendGeneralButtonStyle)
 					.OnClicked(this, &SFriendRequestImpl::HandleActionButtonClicked, true)
 					[
 						SNew(STextBlock)
@@ -67,7 +67,7 @@ public:
 				[
 					SNew(SButton)
 					.HAlign(HAlign_Center)
-					.ButtonStyle(&FriendStyle.FriendListActionButtonStyle)
+					.ButtonStyle(&FriendStyle.FriendGeneralButtonStyle)
 					.OnClicked(this, &SFriendRequestImpl::HandleActionButtonClicked, false)
 					[
 						SNew(STextBlock)

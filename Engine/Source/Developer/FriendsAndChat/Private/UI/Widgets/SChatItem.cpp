@@ -3,6 +3,7 @@
 #include "FriendsAndChatPrivatePCH.h"
 #include "ChatItemViewModel.h"
 #include "ChatViewModel.h"
+#include "ChatDisplayOptionsViewModel.h"
 #include "SChatItem.h"
 
 #define LOCTEXT_NAMESPACE "SChatWindow"
@@ -11,10 +12,11 @@ class SChatItemImpl : public SChatItem
 {
 public:
 
-	void Construct(const FArguments& InArgs, const TSharedRef<FChatItemViewModel>& InViewModel, const TSharedRef<FChatViewModel>& InOwnerViewModel)
+	void Construct(const FArguments& InArgs, const TSharedRef<FChatItemViewModel>& InViewModel, const TSharedRef<FChatDisplayOptionsViewModel>& InOwnerViewModel)
 	{
 		FriendStyle = *InArgs._FriendStyle;
 		MenuMethod = InArgs._Method;
+		float WindowWidth = InArgs._ChatWidth;
 		this->ViewModel = InViewModel;
 		this->OwnerViewModel = InOwnerViewModel;
 
@@ -44,14 +46,14 @@ public:
 		}
 		
 		FTextBlockStyle TextStyle = FriendStyle.TextStyle;
-		TextStyle.ColorAndOpacity = GetChannelColor();
+		TextStyle.ColorAndOpacity = GetChatColor();
 
 		SUserWidget::Construct(SUserWidget::FArguments()
 		[
 			SNew(SHorizontalBox)
 			+SHorizontalBox::Slot()
 			.AutoWidth()
-			.VAlign(VAlign_Center)
+			.VAlign(VAlign_Top)
 			.Padding(FMargin(5,1))
 			[
 				SNew(SImage)
@@ -59,24 +61,23 @@ public:
 				.Image(this, &SChatItemImpl::GetChatIcon)
 			]
 			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
+			.VAlign(VAlign_Top)
 			.HAlign(HAlign_Fill)
 			.Padding(FMargin(5, 1, 2, 1))
-			.MaxWidth(FriendStyle.ChatListWidth)
 			[
 				SNew( SRichTextBlock )
 				.Visibility(this, &SChatItemImpl::GetTextVisibility)
 				.Text(DisplayText)
 				.TextStyle(&TextStyle)
 				.DecoratorStyleSet(&FFriendsAndChatModuleStyle::Get())
-				.WrapTextAt(FriendStyle.ChatListWidth - 10)
+				.WrapTextAt(WindowWidth - FriendStyle.ChatListPadding)
 				+ SRichTextBlock::HyperlinkDecorator(TEXT( "UserName" ), this, &SChatItemImpl::HandleNameClicked)
 			]
 			+SHorizontalBox::Slot()
 			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Top)
 			.Padding(FMargin(5,1))
-			.VAlign(VAlign_Center)
+			.AutoWidth()
 			[
 				SNew(STextBlock)
 				.Text(ViewModel->GetMessageTime())
@@ -112,24 +113,22 @@ private:
 
 	FSlateColor GetChannelColor () const
 	{
-		if(OwnerViewModel->GetOverrideColorSet())
-		{
-			return OwnerViewModel->GetFontOverrideColor();
-		}
-		else
-		{
-			FSlateColor DisplayColor;
-			switch(ViewModel->GetMessageType())
-			{
-				case EChatMessageType::Global: DisplayColor = FriendStyle.DefaultChatColor; break;
-				case EChatMessageType::Whisper: DisplayColor =  FriendStyle.WhisplerChatColor; break;
-				case EChatMessageType::Party: DisplayColor =  FriendStyle.PartyChatColor; break;
-				default: DisplayColor = FLinearColor::Gray;
-			}
-			return DisplayColor;
-		}
+		return OwnerViewModel->GetOverrideColorSet() ? OwnerViewModel->GetFontOverrideColor() : GetChatColor();
 	}
 
+	FSlateColor GetChatColor () const
+	{
+		FSlateColor DisplayColor;
+		switch(ViewModel->GetMessageType())
+		{
+			case EChatMessageType::Global: DisplayColor = FriendStyle.DefaultChatColor; break;
+			case EChatMessageType::Whisper: DisplayColor =  FriendStyle.WhisplerChatColor; break;
+			case EChatMessageType::Party: DisplayColor =  FriendStyle.PartyChatColor; break;
+			default: DisplayColor = FLinearColor::Gray;
+		}
+		return DisplayColor;
+	}
+	
 	const FSlateBrush* GetChatIcon() const
 	{
 		if(OwnerViewModel->GetOverrideColorSet())
@@ -172,7 +171,7 @@ private:
 	TSharedPtr<FChatItemViewModel> ViewModel;
 
 	// Holds the owner view model
-	TSharedPtr<FChatViewModel> OwnerViewModel;
+	TSharedPtr<FChatDisplayOptionsViewModel> OwnerViewModel;
 
 	TSharedPtr<SBorder> FriendItemBorder;
 

@@ -29,7 +29,7 @@ public:
 				.HAlign(HAlign_Right)
 				.VAlign(VAlign_Center)
 				.OnClicked(this, &SFriendsUserSettingsImpl::HandleUserSettingsDropDownClicked)
-				.ButtonStyle(&FriendStyle.FriendListActionButtonStyle)
+				.ButtonStyle(&FriendStyle.FriendGeneralButtonStyle)
 				.Cursor(EMouseCursor::Hand)
 				[
 					SNew(SSpacer)

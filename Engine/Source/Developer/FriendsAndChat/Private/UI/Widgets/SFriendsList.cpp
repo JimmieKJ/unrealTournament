@@ -3,6 +3,7 @@
 #include "FriendsAndChatPrivatePCH.h"
 #include "SFriendsList.h"
 #include "FriendsViewModel.h"
+#include "FriendViewModel.h"
 #include "FriendListViewModel.h"
 #include "SFriendItem.h"
 
@@ -59,6 +60,20 @@ private:
 TSharedRef<SFriendsList> SFriendsList::New()
 {
 	return MakeShareable(new SFriendsListImpl());
+}
+
+const FButtonStyle* SFriendsList::GetActionButtonStyle(const FFriendsAndChatStyle& FriendStyle, EFriendActionLevel ActionLevel)
+{
+	switch (ActionLevel)
+	{
+		case EFriendActionLevel::Critical:
+			return &FriendStyle.FriendListCriticalButtonStyle;
+		case EFriendActionLevel::Emphasis:
+			return &FriendStyle.FriendListEmphasisButtonStyle;
+		case EFriendActionLevel::Action:
+		default:
+			return &FriendStyle.FriendListActionButtonStyle;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

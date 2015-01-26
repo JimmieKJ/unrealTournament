@@ -126,7 +126,7 @@ FString FFriendItem::GetGameSessionId() const
 		if (SessionId != nullptr)
 		{
 			SessionId->GetValue(SessionIdStr);
-		}		
+		}
 	}
 	return SessionIdStr;
 }

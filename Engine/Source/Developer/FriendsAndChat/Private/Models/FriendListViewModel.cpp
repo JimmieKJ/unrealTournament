@@ -98,7 +98,7 @@ private:
 		}
 		else if (ListType == EFriendsDisplayLists::RecentPlayersDisplay)
 		{
-			OfflineFriendsList = FFriendsAndChatManager::Get()->GetrecentPlayerList();
+			OfflineFriendsList = FFriendsAndChatManager::Get()->GetRecentPlayerList();
 		}
 		else
 		{

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "FriendViewModel.h"
+
 class SFriendsList : public SUserWidget
 {
 public:
@@ -19,4 +21,6 @@ public:
 	 * @param ViewModel The widget view model.
 	 */
 	virtual void Construct(const FArguments& InArgs, const TSharedRef<class FFriendListViewModel>& ViewModel) = 0;
+
+	static const FButtonStyle* GetActionButtonStyle(const FFriendsAndChatStyle& FriendStyle, EFriendActionLevel ActionLevel);
 };

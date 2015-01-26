@@ -108,7 +108,7 @@ public:
 				ChatItem->FromName = UserName;
 				ChatItem->Message = MessageText;
 				ChatItem->MessageType = EChatMessageType::Whisper;
-				ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow());
+				ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
 				ChatItem->ExpireTime = FDateTime::UtcNow() + FTimespan::FromSeconds(WhisperMessageLifetime);
 				ChatItem->bIsFromSelf = true;
 				ChatItem->SenderId = UserID;
@@ -125,7 +125,7 @@ public:
 		ChatItem->FromName = FText::FromString("Game");
 		ChatItem->Message = FText::FromString(MsgBody);
 		ChatItem->MessageType = EChatMessageType::Party;
-		ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow());
+		ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
 		ChatItem->ExpireTime = FDateTime::UtcNow() + FTimespan::FromSeconds(PartyMessageLifetime);
 		ChatItem->bIsFromSelf = false;
 		PartyMessagesCount++;
@@ -264,7 +264,7 @@ private:
 			}
 			ChatItem->Message = FText::FromString(TEXT("entered room"));
 			ChatItem->MessageType = EChatMessageType::Global;
-			ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow());
+			ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
 			ChatItem->ExpireTime = FDateTime::UtcNow() + GlobalMessageLifetime;
 			ChatItem->bIsFromSelf = false;
 			GlobalMessagesCount++;
@@ -286,7 +286,7 @@ private:
 			}
 			ChatItem->Message = FText::FromString(TEXT("left room"));
 			ChatItem->MessageType = EChatMessageType::Global;
-			ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow());
+			ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
 			ChatItem->ExpireTime = FDateTime::UtcNow() + GlobalMessageLifetime;
 			ChatItem->bIsFromSelf = false;
 			GlobalMessagesCount++;
@@ -305,7 +305,7 @@ private:
 		ChatItem->FromName = FText::FromString(*ChatMessage->GetNickname());
 		ChatItem->Message = FText::FromString(*ChatMessage->GetBody());
 		ChatItem->MessageType = EChatMessageType::Global;
-		ChatItem->MessageTimeText = FText::AsTime(ChatMessage->GetTimestamp());
+		ChatItem->MessageTimeText = FText::AsTime(ChatMessage->GetTimestamp(), EDateTimeStyle::Short);
 		ChatItem->ExpireTime = ChatMessage->GetTimestamp() + FTimespan::FromSeconds(GlobalMessageLifetime);
 		ChatItem->bIsFromSelf = ChatMessage->GetUserId() == *LoggedInUser;
 		TSharedPtr<IFriendItem> FoundFriend = FFriendsAndChatManager::Get()->FindUser(ChatMessage->GetUserId());
@@ -322,7 +322,6 @@ private:
 	void OnChatPrivateMessageReceived(const FUniqueNetId& UserId, const TSharedRef<FChatMessage>& ChatMessage)
 	{
 		TSharedPtr< FFriendChatMessage > ChatItem = MakeShareable(new FFriendChatMessage());
-
 		TSharedPtr<IFriendItem> FoundFriend = FFriendsAndChatManager::Get()->FindUser(ChatMessage->GetUserId());
 		// Ignore messages from unknown people
 		if(FoundFriend.IsValid())
@@ -331,12 +330,15 @@ private:
 			ChatItem->SenderId = FoundFriend->GetUniqueID();
 			ChatItem->Message = FText::FromString(*ChatMessage->GetBody());
 			ChatItem->MessageType = EChatMessageType::Whisper;
-			ChatItem->MessageTimeText = FText::AsTime(ChatMessage->GetTimestamp());
+			ChatItem->MessageTimeText = FText::AsTime(ChatMessage->GetTimestamp(), EDateTimeStyle::Short);
 			ChatItem->ExpireTime = ChatMessage->GetTimestamp() + FTimespan::FromSeconds(WhisperMessageLifetime);
 			ChatItem->bIsFromSelf = false;
 			ChatItem->MessageRef = ChatMessage;
 			WhisperMessagesCount++;
 			AddMessage(ChatItem.ToSharedRef());
+
+			// Inform listers that we have received a chat message
+			FFriendsAndChatManager::Get()->SendChatMessageReceivedEvent();
 		}
 	}
 

@@ -3,6 +3,8 @@
 #include "FriendsAndChatPrivatePCH.h"
 #include "FriendViewModel.h"
 
+#define LOCTEXT_NAMESPACE "FriendsAndChat"
+
 class FFriendViewModelImpl
 	: public FFriendViewModel
 {
@@ -42,7 +44,10 @@ public:
 				{
 					if (FriendItem->IsGameJoinable())
 					{
-						Actions.Add(EFriendActionType::JoinGame);
+						if(!bFromChat || CanPerformAction(EFriendActionType::JoinGame))
+						{
+							Actions.Add(EFriendActionType::JoinGame);
+						}
 					}
 					if (FFriendsAndChatManager::Get()->IsInJoinableGameSession())
 					{
@@ -152,6 +157,18 @@ public:
 				return true;
 			}
 		}
+	}
+
+	virtual FText GetJoinGameDisallowReason() const override
+	{
+		static const FText InLauncher = LOCTEXT("GameJoinFail_InLauncher", "Please ensure Fortnite is installed and up to date");
+		static const FText InSession = LOCTEXT("GameJoinFail_InSession", "Quit to the Main Menu to join a friend's game");
+
+		if(FFriendsAndChatManager::Get()->IsInLauncher())
+		{
+			return InLauncher;
+		}
+		return InSession;
 	}
 
 	~FFriendViewModelImpl()
@@ -269,3 +286,5 @@ TSharedRef< FFriendViewModel > FFriendViewModelFactory::Create(
 	ViewModel->Initialize();
 	return ViewModel;
 }
+
+#undef LOCTEXT_NAMESPACE
