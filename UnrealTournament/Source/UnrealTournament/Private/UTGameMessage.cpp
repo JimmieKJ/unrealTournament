@@ -21,6 +21,8 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","!! You didn't make the cut !!");
 	YouAreOnBlue = NSLOCTEXT("UTGameMessage", "YouAreOnBlue", "You are on BLUE.");
 	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on RED.");
+
+	bIsStatusAnnouncement = true;
 }
 
 FLinearColor UUTGameMessage::GetMessageColor(int32 MessageIndex) const
@@ -84,8 +86,8 @@ FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UOb
 	{
 		case 1: return TEXT("Overtime"); break;
 		case 7: return TEXT("SuddenDeath"); break;
-		case 9: return TEXT("YouAreOnRed"); break;
-		case 10: return TEXT("YouAreOnBlue"); break;
+		case 9: return TEXT("YouAreOnRedTeam"); break;
+		case 10: return TEXT("YouAreOnBlueTeam"); break;
 	}
 	return NAME_None;
 }
