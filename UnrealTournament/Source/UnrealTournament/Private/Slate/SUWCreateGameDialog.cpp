@@ -107,6 +107,8 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	TSharedPtr<TAttributePropertyString> ServerMOTDProp = MakeShareable(new TAttributePropertyString(AUTGameState::StaticClass()->GetDefaultObject(), &AUTGameState::StaticClass()->GetDefaultObject<AUTGameState>()->ServerMOTD));
 	PropertyLinks.Add(ServerMOTDProp);
 
+	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(128.0f, 128.0f), FName(TEXT("LevelScreenshot")));
+
 	ChildSlot
 	.VAlign(VAlign_Center)
 	.HAlign(HAlign_Center)
@@ -181,35 +183,64 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 					]
 				]
 				+ SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-					.AutoHeight()
+				.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+				.AutoHeight()
 				.VAlign(VAlign_Top)
-				.HAlign(HAlign_Center)
+				.HAlign(HAlign_Fill)
 				[
-					SAssignNew(MapAuthor, STextBlock)
-					.ColorAndOpacity(FLinearColor::White)
-					.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "Author", "Author: {0}"), FText::FromString(TEXT("-"))))
-				]
-				+ SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-					.AutoHeight()
-				.VAlign(VAlign_Top)
-				.HAlign(HAlign_Center)
-				[
-					SAssignNew(MapRecommendedPlayers, STextBlock)
-					.ColorAndOpacity(FLinearColor::White)
-					.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
-				]
-				+ SVerticalBox::Slot()
-					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-					.AutoHeight()
-				.VAlign(VAlign_Top)
-				.HAlign(HAlign_Center)
-				[
-					SAssignNew(MapDesc, STextBlock)
-					.ColorAndOpacity(FLinearColor::White)
-					.Text(FText())
-					.WrapTextAt(500.0f)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Fill)
+					.FillWidth(0.5f)
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+						.AutoHeight()
+						.VAlign(VAlign_Top)
+						.HAlign(HAlign_Center)
+						[
+							SAssignNew(MapAuthor, STextBlock)
+							.ColorAndOpacity(FLinearColor::White)
+							.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "Author", "Author: {0}"), FText::FromString(TEXT("-"))))
+						]
+						+ SVerticalBox::Slot()
+						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+						.AutoHeight()
+						.VAlign(VAlign_Top)
+						.HAlign(HAlign_Center)
+						[
+							SAssignNew(MapRecommendedPlayers, STextBlock)
+							.ColorAndOpacity(FLinearColor::White)
+							.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
+						]
+						+ SVerticalBox::Slot()
+						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+						.AutoHeight()
+						.VAlign(VAlign_Top)
+						.HAlign(HAlign_Center)
+						[
+							SAssignNew(MapDesc, STextBlock)
+							.ColorAndOpacity(FLinearColor::White)
+							.Text(FText())
+							.WrapTextAt(190.0f)
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+					.VAlign(VAlign_Top)
+					.HAlign(HAlign_Fill)
+					.FillWidth(0.5f)
+					[
+						SNew(SBox)
+						.HAlign(HAlign_Center)
+						[
+							SNew(SImage)
+							.Image(LevelScreenshot)
+						]
+					]
 				]
 			]
 		]
@@ -476,12 +507,14 @@ void SUWCreateGameDialog::OnMapSelected(TSharedPtr<FString> NewSelection, ESelec
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "Author", "Author: {0}"), FText::FromString(Summary->Author)));
 		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(Summary->OptimalPlayerCount.X), FText::AsNumber(Summary->OptimalPlayerCount.Y)));
 		MapDesc->SetText(Summary->Description);
+		*LevelScreenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : GEngine->DefaultTexture, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 	}
 	else
 	{
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "Author", "Author: {0}"), FText::FromString(TEXT("Unknown"))));
 		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)));
 		MapDesc->SetText(FText());
+		*LevelScreenshot = FSlateDynamicImageBrush(GEngine->DefaultTexture, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 	}
 }
 

@@ -17,6 +17,14 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+	virtual ~SUWCreateGameDialog()
+	{
+		if (LevelScreenshot != NULL)
+		{
+			delete LevelScreenshot;
+			LevelScreenshot = NULL;
+		}
+	}
 protected:
 	enum EServerStartMode
 	{
@@ -40,6 +48,7 @@ protected:
 	TArray<UClass*> MutatorListAvailable, MutatorListEnabled;
 	TSharedPtr< SListView<UClass*> > AvailableMutators;
 	TSharedPtr< SListView<UClass*> > EnabledMutators;
+	FSlateDynamicImageBrush* LevelScreenshot;
 
 	// container for pointers to TAttributeProperty objects linked directly to setting properties
 	TArray< TSharedPtr<TAttributePropertyBase> > PropertyLinks;

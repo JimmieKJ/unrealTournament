@@ -30,5 +30,5 @@ class UUTLevelSummary : public UObject
 	FText Description;
 	/** level screenshot */
 	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
-	FCanvasIcon Screenshot;
+	UTexture2D* Screenshot;
 };
