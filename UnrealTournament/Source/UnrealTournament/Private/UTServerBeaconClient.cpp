@@ -20,7 +20,7 @@ void AUTServerBeaconClient::OnConnected()
 {
 	Super::OnConnected();
 
-	UE_LOG(UT,Log, TEXT("---> PING"));
+	UE_LOG(LogBeacon, Verbose, TEXT("---> PING"));
 
 	// Tell the server that we want to ping
 	PingStartTime = GetWorld()->RealTimeSeconds;
@@ -29,7 +29,7 @@ void AUTServerBeaconClient::OnConnected()
 
 void AUTServerBeaconClient::OnFailure()
 {
-	UE_LOG(UT, Log, TEXT("UTServer beacon connection failure, handling connection timeout."));
+	UE_LOG(LogBeacon, Verbose, TEXT("UTServer beacon connection failure, handling connection timeout."));
 	OnServerRequestFailure.ExecuteIfBound(this);
 	Super::OnFailure();
 	PingStartTime = -2;
@@ -42,7 +42,7 @@ bool AUTServerBeaconClient::ServerPing_Validate()
 
 void AUTServerBeaconClient::ServerPing_Implementation()
 {
-	UE_LOG(UT,Log, TEXT("<--- PONG"));
+	UE_LOG(LogBeacon, Verbose, TEXT("<--- PONG"));
 	// Respond to the client
 	ClientPong();
 }
@@ -51,7 +51,7 @@ void AUTServerBeaconClient::ClientPong_Implementation()
 {
 	Ping = (GetWorld()->RealTimeSeconds - PingStartTime) * 1000.0f;
 
-	UE_LOG(UT,Log, TEXT("---> Requesting Info %f"), Ping);
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Requesting Info %f"), Ping);
 
 	// Ask for additional server info
 	ServerRequestInfo();
@@ -93,7 +93,7 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 		NumInstances = BaseGame->GetInstanceData(InstanceHostNames, InstanceDescriptions);
 	}
 
-	UE_LOG(UT,Log, TEXT("<--- Sending Info %i"), NumInstances);
+	UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Info %i"), NumInstances);
 	ClientRecieveInfo(ServerInfo, NumInstances);
 }
 
@@ -104,12 +104,12 @@ void AUTServerBeaconClient::ClientRecieveInfo_Implementation(const FServerBeacon
 
 	if (NumInstances > 0)
 	{
-		UE_LOG(UT,Log, TEXT("---> Received Info [%i] Requesting Instance Data"), NumInstances);
+		UE_LOG(LogBeacon, Verbose, TEXT("---> Received Info [%i] Requesting Instance Data"), NumInstances);
 		ServerRequestInstances(-1);
 	}
 	else
 	{
-		UE_LOG(UT,Log, TEXT("---> Received Info [%i] DONE!!!!"), NumInstances);
+		UE_LOG(LogBeacon, Verbose, TEXT("---> Received Info [%i] DONE!!!!"), NumInstances);
 		OnServerRequestResults.ExecuteIfBound(this, HostServerInfo);
 	}
 }
@@ -121,19 +121,19 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 	
 	if (LastInstanceIndex < InstanceHostNames.Num() && LastInstanceIndex < InstanceDescriptions.Num() )
 	{
-		UE_LOG(UT,Log, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
+		UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
 		ClientRecieveInstance_Implementation(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
 	}
 	else
 	{
-		UE_LOG(UT,Log, TEXT("<--- Out of Instances [%i] %i"), LastInstanceIndex, InstanceHostNames.Num());
+		UE_LOG(LogBeacon, Verbose, TEXT("<--- Out of Instances [%i] %i"), LastInstanceIndex, InstanceHostNames.Num());
 		ClientRecievedAllInstance(InstanceHostNames.Num());
 	}
 }
 
 void AUTServerBeaconClient::ClientRecieveInstance_Implementation(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription)
 {
-	UE_LOG(UT,Log, TEXT("---> Recieved Instance [%i] %s"), InstanceCount, *InstanceHostName);
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Recieved Instance [%i] %s"), InstanceCount, *InstanceHostName);
 	if (InstanceCount >= 0 && InstanceCount < TotalInstances)
 	{
 		InstanceHostNames.Add(InstanceHostName);
@@ -147,10 +147,10 @@ void AUTServerBeaconClient::ClientRecievedAllInstance_Implementation(uint32 Fina
 {
 	if (InstanceHostNames.Num() != InstanceDescriptions.Num() || InstanceHostNames.Num() != FinalCount)
 	{
-		UE_LOG(UT,Log,TEXT("ERROR: Instance Names/Descriptions doesn't meet the final size requirement: %i/%i vs %i"), InstanceHostNames.Num(), InstanceDescriptions.Num(), FinalCount);
+		UE_LOG(UT, Log, TEXT("ERROR: Instance Names/Descriptions doesn't meet the final size requirement: %i/%i vs %i"), InstanceHostNames.Num(), InstanceDescriptions.Num(), FinalCount);
 	}
 
-	UE_LOG(UT,Log, TEXT("---> Got them All DONE!!!!  [%i vs %i]"), InstanceHostNames.Num(), FinalCount );
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Got them All DONE!!!!  [%i vs %i]"), InstanceHostNames.Num(), FinalCount );
 
 	OnServerRequestResults.ExecuteIfBound(this, HostServerInfo);		
 }
