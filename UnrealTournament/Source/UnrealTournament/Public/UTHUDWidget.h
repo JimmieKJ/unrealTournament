@@ -142,8 +142,6 @@ public:
 	bool bShowBounds;
 
 protected:
-
-
 	// if TRUE, this widget will not be rendered
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	uint32 bHidden:1;
@@ -323,14 +321,11 @@ public:
 	virtual void DrawMaterial( UMaterialInterface* Material, float X, float Y, float Width, float Height, float MaterialU, float MaterialV, float MaterialUWidth, float MaterialVHeight, float DrawOpacity = 1.0f, FLinearColor DrawColor = FLinearColor::White, FVector2D RenderOffset = FVector2D(0.0f, 0.0f), float Rotation=0, FVector2D RotPivot = FVector2D(0.5f, 0.5f));
 
 protected:
-
 	// Draws any render objects associated with this widget.  NOTE: If a blueprint overrides Draw it needs to call DrawAllRenderObjects
 	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual void DrawAllRenderObjects(float DeltaTime, FVector2D DrawOffset);
 
-	/**
-	 *	These are the HUDRenderObject render functions.  They will take whatever is defined by the object and display it.  
-	 **/
+	/**	These are the HUDRenderObject render functions.  They will take whatever is defined by the object and display it. **/
 	UFUNCTION(BlueprintCallable, Category="Render Objects")
 	virtual void RenderObj_Texture(FHUDRenderObject_Texture& TextureObject, FVector2D DrawOffset = FVector2D(0,0));
 
@@ -348,12 +343,8 @@ protected:
 	virtual float GetDrawScaleOverride();
 
 private:
-
 	// This is a sorted list of all RenderObjects in this widget.  
-
 	UPROPERTY()
 	TArray<UStructProperty*> RenderObjectList;
-
-
 };
 

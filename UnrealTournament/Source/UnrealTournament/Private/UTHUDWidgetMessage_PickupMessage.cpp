@@ -5,7 +5,6 @@
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidgetMessage_PickupMessage.h"
 
-
 UUTHUDWidgetMessage_PickupMessage::UUTHUDWidgetMessage_PickupMessage(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	ManagedMessageArea = FName(TEXT("PickupMessage"));
@@ -13,12 +12,6 @@ UUTHUDWidgetMessage_PickupMessage::UUTHUDWidgetMessage_PickupMessage(const class
 	ScreenPosition = FVector2D(0.5f, 0.8f);
 	Size = FVector2D(0.0f, 0.0f);
 	Origin = FVector2D(0.5f, 0.0f);
-
 	FadeTime = 1.0;
-
-	MessageColor = FLinearColor::White;
-
-	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/Fonts/fntAmbex36.fntAmbex36'"));
-	MessageFont = Font.Object;
 }
 

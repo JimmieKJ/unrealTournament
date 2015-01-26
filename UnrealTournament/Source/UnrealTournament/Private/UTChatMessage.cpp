@@ -18,6 +18,16 @@ UUTChatMessage::UUTChatMessage(const class FObjectInitializer& ObjectInitializer
 	Lifetime = 6.0f;
 }
 
+bool UUTChatMessage::UseLargeFont(int32 MessageIndex) const
+{
+	return false;
+}
+
+FLinearColor UUTChatMessage::GetMessageColor(int32 MessageIndex) const
+{
+	return FLinearColor::Green;
+}
+
 void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FName Destination) const
 {
 	if (Cast<AUTHUD>(ClientData.LocalPC->MyHUD) != NULL)

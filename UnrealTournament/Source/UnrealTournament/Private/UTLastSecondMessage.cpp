@@ -19,6 +19,11 @@ UUTLastSecondMessage::UUTLastSecondMessage(const class FObjectInitializer& Objec
 	bIsStatusAnnouncement = false;
 }
 
+FLinearColor UUTLastSecondMessage::GetMessageColor(int32 MessageIndex) const
+{
+	return FLinearColor::Yellow;
+}
+
 FName UUTLastSecondMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
 	return (Switch == 0) ? FName(TEXT("Denied")) : FName(TEXT("LastSecondSave"));

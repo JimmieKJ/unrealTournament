@@ -14,5 +14,4 @@ class UUTHUDWidgetMessage_DeathMessages : public UUTHUDWidgetMessage
 
 protected:
 	virtual void DrawMessages(float DeltaTime);
-	virtual void LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
 };

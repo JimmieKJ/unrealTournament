@@ -36,6 +36,11 @@ class UUTFirstBloodMessage : public UUTLocalMessage
 		AnnouncementDelay = 0.5f;
 	}
 
+	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
+	{
+		return FLinearColor::Red;
+	}
+
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);

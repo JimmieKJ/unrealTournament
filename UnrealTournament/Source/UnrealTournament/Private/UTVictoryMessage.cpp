@@ -22,6 +22,11 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 	RedTeamWinsText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsText", "Red Team Wins The Match!");
 }
 
+FLinearColor UUTVictoryMessage::GetMessageColor(int32 MessageIndex) const
+{
+	return FLinearColor::Yellow;
+}
+
 // @TODO FIXMESTEVE why not passing playerstates here too?
 FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
 {

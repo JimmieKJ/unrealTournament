@@ -50,3 +50,9 @@ void UUTPickupMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		}
 	}
 }
+
+bool UUTPickupMessage::UseLargeFont(int32 MessageIndex) const
+{
+	return false;
+}
+

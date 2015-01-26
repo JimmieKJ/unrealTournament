@@ -18,6 +18,16 @@ UUTDeathMessage::UUTDeathMessage(const class FObjectInitializer& ObjectInitializ
 	Lifetime = 6.0f;
 }
 
+bool UUTDeathMessage::UseLargeFont(int32 MessageIndex) const
+{
+	return false;
+}
+
+FLinearColor UUTDeathMessage::GetMessageColor(int32 MessageIndex) const
+{
+	return FLinearColor::Red;
+}
+
 void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
 	APlayerState* PlayerState_1 = Cast<APlayerState>(ClientData.RelatedPlayerState_1);

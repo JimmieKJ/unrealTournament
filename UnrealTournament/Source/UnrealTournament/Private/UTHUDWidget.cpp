@@ -425,20 +425,15 @@ void FUTCanvasTextItem::DrawStringInternal_HackyFix( FCanvas* InCanvas, const FV
 #endif
 }
 
-
 UUTHUDWidget::UUTHUDWidget(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	bIgnoreHUDBaseColor = false;
-
 	Opacity = 1.0f;
 	Origin = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.0f, 0.0f);
-
 	bScaleByDesignedResolution = true;
 	bMaintainAspectRatio = true;
-
 	DesignedResolution=720;
-
 }
 
 void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
@@ -549,17 +544,13 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 		UTGameState = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
 	}
 
-
 	Canvas = InCanvas;
 	CanvasCenter = InCanvasCenter;
-
 	AspectScale = Size.Y > 0 ? Size.X / Size.Y : 1.0;
 
 	// Figure out the initial position.
-
 	RenderPosition.X = Canvas->ClipX * ScreenPosition.X;
 	RenderPosition.Y = Canvas->ClipY * ScreenPosition.Y;
-
 	RenderScale = (bScaleByDesignedResolution) ? Canvas->ClipY / DesignedResolution : 1.0f;
 	RenderScale *= GetDrawScaleOverride();
 
@@ -569,7 +560,6 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 	{
 		RenderSize.X = (bMaintainAspectRatio ?  RenderSize.Y * AspectScale : RenderSize.X * RenderScale);
 	}
-
 	RenderPosition.X += (Position.X * RenderScale) - (RenderSize.X * Origin.X);
 	RenderPosition.Y += (Position.Y * RenderScale) - (RenderSize.Y * Origin.Y);
 }
@@ -578,8 +568,6 @@ void UUTHUDWidget::Draw_Implementation(float DeltaTime)
 {
 	DrawAllRenderObjects(DeltaTime, FVector2D(0,0));
 }
-
-
 
 void UUTHUDWidget::PostDraw(float RenderedTime)
 {
@@ -648,7 +636,6 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, cons
 
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow, FVector2D ShadowDirection, FLinearColor ShadowColor, bool bDrawOutline, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment, const FFontRenderInfo& RenderInfo)
 {
-
 	float XL = 0.0f, YL = 0.0f;
 	if (Font && !Text.IsEmpty())
 	{
@@ -664,7 +651,6 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		// Handle Justification
 		if (TextHorzAlignment != ETextHorzPos::Left || TextVertAlignment != ETextVertPos::Top )
 		{
-		
 			if (bScaleByDesignedResolution)
 			{
 				XL *= RenderScale * TextScale;
@@ -757,8 +743,6 @@ void UUTHUDWidget::DrawMaterial( UMaterialInterface* Material, float X, float Y,
 		}
 
 		FVector2D RenderPos = FVector2D(RenderPosition.X + X - (Width * RenderOffset.X), RenderPosition.Y + Y - (Height * RenderOffset.Y));
-
-
 		FCanvasTileItem MaterialItem( RenderPos, Material->GetRenderProxy(0), FVector2D( Width, Height) , FVector2D( MaterialU, MaterialV ), FVector2D( MaterialU+MaterialUWidth, MaterialV +MaterialVHeight));
 
 		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;

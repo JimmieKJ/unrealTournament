@@ -13,13 +13,7 @@ UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class
 	ScreenPosition = FVector2D(0.5f, 0.35f);
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.5f, 0.0f);				
-
 	FadeTime = 1.0;
-
-	MessageColor = FLinearColor::Red;
-
-	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/Fonts/fntAmbex36.fntAmbex36'"));
-	MessageFont = Font.Object;
 }
 
 void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
@@ -35,26 +29,5 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
 			Y += MessageQueue[MessageIndex].TextHeight;
 			DrawCnt++;
 		}
-	}
-}
-
-void UUTHUDWidgetMessage_DeathMessages::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
-{
-	MessageQueue[QueueIndex].DisplayFont = MessageFont == NULL ? GEngine->GetSmallFont() : MessageFont;
-	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
-
-	FName MessageStyle = MessageClass->GetDefaultObject<UUTLocalMessage>()->StyleTag;
-
-	if ( MessageStyle == FName(TEXT("Spree")))
-	{
-		MessageQueue[QueueIndex].DrawColor = FLinearColor::Yellow;
-	}
-	else if (MessageStyle == FName(TEXT("Victim")))
-	{
-		MessageQueue[QueueIndex].DrawColor = FLinearColor::Red;
-	}
-	else
-	{
-		MessageQueue[QueueIndex].DrawColor = FLinearColor::White;
 	}
 }

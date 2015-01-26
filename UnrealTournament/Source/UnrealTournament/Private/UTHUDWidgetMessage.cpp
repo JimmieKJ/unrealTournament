@@ -1,15 +1,18 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-
 #include "UTHUDWidgetMessage.h"
-
 
 UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	MessageColor = FLinearColor::White;
 	FadeTime = 0.0f;
-}	
+
+	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Medium.fntScoreboard_Medium'"));
+	MessageFont = Font.Object;
+
+	static ConstructorHelpers::FObjectFinder<UFont> SmallFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Small.fntScoreboard_Small'"));
+	SmallMessageFont = SmallFont.Object;
+}
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 {
@@ -92,7 +95,6 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 			QueueIndex--;
 			continue;
 		}
-
 	}
 }
 
@@ -126,7 +128,6 @@ void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
 
 	// Fade the Message...
-
 	float Alpha = MessageQueue[QueueIndex].LifeLeft <= FadeTime ? MessageQueue[QueueIndex].LifeLeft / FadeTime : 1.0;
 	FText MessageText = MessageQueue[QueueIndex].Text;
 	if (MessageQueue[QueueIndex].MessageCount > 1)
@@ -147,7 +148,6 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 {
 	if (MessageClass == NULL || LocalMessageText.IsEmpty()) return;
 
-
 	int32 QueueIndex = MessageQueue.Num();
 	int32 MessageCount = 0;
 	if (GetDefault<UUTLocalMessage>(MessageClass)->bIsUnique)
@@ -160,7 +160,6 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 				{
 					MessageCount = (MessageQueue[QueueIndex].MessageCount == 0) ? 2 : MessageQueue[QueueIndex].MessageCount + 1;
 				}
-
 				break;
 			}
 		}
@@ -200,14 +199,11 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 	AddMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
-
 void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
-
 	MessageQueue[QueueIndex].MessageClass = MessageClass;
 	MessageQueue[QueueIndex].MessageIndex = MessageIndex;
 	MessageQueue[QueueIndex].Text = LocalMessageText;
-
 	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
 	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;
 
@@ -215,7 +211,6 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	LayoutMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1,RelatedPlayerState_2,OptionalObject);
 
 	MessageQueue[QueueIndex].MessageCount = MessageCount;
-
 	MessageQueue[QueueIndex].bHasBeenRendered = false;
 	MessageQueue[QueueIndex].TextWidth = 0;
 	MessageQueue[QueueIndex].TextHeight = 0;
@@ -223,11 +218,10 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 
 void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
-	MessageQueue[QueueIndex].DrawColor = MessageColor;
-	MessageQueue[QueueIndex].DisplayFont = MessageFont == NULL ? GEngine->GetSmallFont() : MessageFont;
+	MessageQueue[QueueIndex].DrawColor = GetDefault<UUTLocalMessage>(MessageClass)->GetMessageColor(MessageIndex);
+	MessageQueue[QueueIndex].DisplayFont = GetDefault<UUTLocalMessage>(MessageClass)->UseLargeFont(MessageIndex) ? MessageFont : SmallMessageFont;
 	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
 }
-
 
 float UUTHUDWidgetMessage::GetTextScale(int32 QueueIndex)
 {

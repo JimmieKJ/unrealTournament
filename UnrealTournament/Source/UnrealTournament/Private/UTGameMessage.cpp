@@ -23,6 +23,19 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on RED.");
 }
 
+FLinearColor UUTGameMessage::GetMessageColor(int32 MessageIndex) const
+{
+	if (MessageIndex == 9)
+	{
+		return FLinearColor::Red;
+	}
+	else if (MessageIndex == 10)
+	{
+		return FLinearColor::Blue;
+	}
+	return FLinearColor::Yellow;
+}
+
 FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const
 {
 	switch (Switch)

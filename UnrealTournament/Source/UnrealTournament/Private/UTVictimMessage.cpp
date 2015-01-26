@@ -20,6 +20,12 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideLosePoints","You know you lose points for that right?"));
 }
 
+
+FLinearColor UUTVictimMessage::GetMessageColor(int32 MessageIndex) const
+{
+	return FLinearColor::Red;
+}
+
 FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
 	switch(Switch)

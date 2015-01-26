@@ -22,6 +22,11 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 
 }
 
+FLinearColor UUTCTFGameMessage::GetMessageColor(int32 MessageIndex) const
+{
+	return FLinearColor::Yellow;
+}
+
 FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
 	switch(Switch)

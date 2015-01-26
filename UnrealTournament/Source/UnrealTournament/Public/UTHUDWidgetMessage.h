@@ -99,14 +99,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FName ManagedMessageArea;
 
-	// The Font that messages will be displayed in.  If you need more than a single font, then
-	// you should create a special handler.
+	// The large Font that messages will be displayed in. 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	UFont* MessageFont;
+		UFont* MessageFont;
 
-	// The base color for this message.
+	// The small Font that messages will be displayed in. 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	FLinearColor MessageColor;
+	UFont* SmallMessageFont;
 
 	// If true, this text will be drawn with an outline
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)

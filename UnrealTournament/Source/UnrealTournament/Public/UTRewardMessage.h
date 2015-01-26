@@ -25,6 +25,11 @@ class UUTRewardMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FName Announcement;
 
+	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
+	{
+		return FLinearColor::Red;
+	}
+
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		Super::ClientReceive(ClientData);
