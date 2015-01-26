@@ -3396,7 +3396,6 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 		if (OtherC != NULL)
 		{
 			AUTTeamGameMode* TeamGame = GetWorld()->GetAuthGameMode<AUTTeamGameMode>();
-			UE_LOG(UT, Warning, TEXT("Telefrag dist %f vs dist to telefrag %f"), (OtherC->GetActorLocation() - GetActorLocation()).Size2D(), OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinOverlapToTelefrag);
 			if ((TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this)) 
 				&& ((OtherC->GetActorLocation() - GetActorLocation()).Size2D() < OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinOverlapToTelefrag))
 			{
