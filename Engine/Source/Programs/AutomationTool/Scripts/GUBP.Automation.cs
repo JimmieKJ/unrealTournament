@@ -3885,6 +3885,10 @@ public class GUBP : BuildCommand
             LastAgentGroup = GUBPNodes[NodeToDo].AgentSharingGroup;
 
             string Agent = GUBPNodes[NodeToDo].ECAgentString();
+            if (ParseParamValue("AgentOverride") != "" && !GUBPNodes[NodeToDo].GetFullName().Contains("Mac"))
+            {
+                Agent = ParseParamValue("AgentOverride");
+            }
             if (Agent != "")
             {
                 Agent = "[" + Agent + "]";
@@ -4627,7 +4631,12 @@ public class GUBP : BuildCommand
         }
         if (!OnlyLateUpdates)
         {
-            ECProps.Add(string.Format("AgentRequirementString/{0}={1}", NodeToDo, GUBPNodes[NodeToDo].ECAgentString()));
+            string AgentReq = GUBPNodes[NodeToDo].ECAgentString();
+            if (ParseParamValue("AgentOverride") != "" && !GUBPNodes[NodeToDo].GetFullName().Contains("OnMac"))
+            {
+                AgentReq = ParseParamValue("AgentOverride");
+            }
+            ECProps.Add(string.Format("AgentRequirementString/{0}={1}", NodeToDo, AgentReq));
             ECProps.Add(string.Format("RequiredMemory/{0}={1}", NodeToDo, GUBPNodes[NodeToDo].AgentMemoryRequirement(this)));
             ECProps.Add(string.Format("Timeouts/{0}={1}", NodeToDo, GUBPNodes[NodeToDo].TimeoutInMinutes()));
             ECProps.Add(string.Format("JobStepPath/{0}={1}", NodeToDo, GetJobStepPath(NodeToDo)));
