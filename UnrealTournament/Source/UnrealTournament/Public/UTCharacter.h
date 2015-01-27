@@ -715,8 +715,26 @@ public:
 	* returns true if it's a head shot, false if a miss or if some armor effect prevents head shots
 	* if bConsumeArmor is true, the first item that prevents an otherwise valid head shot will be consumed
 	*/
-	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, float PredictionTime = 0.f);
+	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime = 0.f);
 
+	/** Called when a headshot by this character is blocked. */
+	virtual void HeadShotBlocked();
+
+	/** Sound played locally when your headshot is blocked by armor. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* HeadShotBlockedSound;
+
+	/** Replicated to cause client-side head armor block effect. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepHeadArmorFlashCount)
+		int32 HeadArmorFlashCount;
+
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		float LastHeadArmorFlashTime;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+		UParticleSystem* HeadArmorHitEffect;
+
+	
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
 	
@@ -926,6 +944,9 @@ public:
 	virtual void Landed(const FHitResult& Hit) override;
 
 	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION()
+		virtual void OnRepHeadArmorFlashCount();
 
 	/** Footstep sound played for characters you don't control. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)

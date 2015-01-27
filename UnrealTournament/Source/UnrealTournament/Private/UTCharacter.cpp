@@ -453,7 +453,7 @@ FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 	return Result + GetRewindLocation(PredictionTime) - GetActorLocation();
 }
 
-bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, float PredictionTime)
+bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime)
 {
 	if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
 	{
@@ -484,12 +484,54 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 		{
 			if (It->bCallDamageEvents && It->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
 			{
+				HeadArmorFlashCount++;
+				LastHeadArmorFlashTime = GetWorld()->GetTimeSeconds();
+				if (GetNetMode() == NM_Standalone)
+				{
+					OnRepHeadArmorFlashCount();
+				}
+				if (ShotInstigator)
+				{
+					ShotInstigator->HeadShotBlocked();
+				}
 				bHeadShot = false;
 				break;
 			}
 		}
 	}
 	return bHeadShot;
+}
+
+void AUTCharacter::OnRepHeadArmorFlashCount()
+{
+	// FIXME - what if stale, what about last time property?
+	// play helmet client-side hit effect 
+	if (HeadArmorHitEffect != NULL)
+	{
+		// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
+		UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+		PSC->bAutoDestroy = true;
+		PSC->SecondsBeforeInactive = 0.0f;
+		PSC->bAutoActivate = false;
+		PSC->SetTemplate(HeadArmorHitEffect);
+		PSC->bOverrideLODMethod = false;
+		PSC->RegisterComponentWithWorld(GetWorld());
+		PSC->AttachTo(GetMesh());
+		PSC->SetAbsolute(true, true, true);
+		PSC->SetWorldLocationAndRotation( GetHeadLocation(), GetActorRotation());
+		PSC->SetRelativeScale3D(FVector(1.f));
+		PSC->ActivateSystem(true);
+	}
+}
+
+void AUTCharacter::HeadShotBlocked()
+{
+	// locally play on instigator a sound to clearly signify headshot block
+	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController());
+	if (MyPC)
+	{
+		MyPC->ClientPlaySound(HeadShotBlockedSound, 10.f);
+	}
 }
 
 FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
@@ -2190,6 +2232,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatSpreeCount, COND_None);
@@ -3734,6 +3777,7 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 	}
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, HeadArmorFlashCount, GetWorld()->TimeSeconds - LastHeadArmorFlashTime < 1.0f);
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, HatFlashCount, GetWorld()->TimeSeconds - LastHatFlashTime < 1.0f);
 

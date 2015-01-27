@@ -75,7 +75,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		// in some cases the head sphere is partially outside the capsule
 		// so do a second search just for that
 		AUTCharacter* AltTarget = Cast<AUTCharacter>(UUTGameplayStatics::PickBestAimTarget(GetUTOwner()->Controller, SpawnLocation, FireDir, 0.98f, (Hit.Location - SpawnLocation).Size(), AUTCharacter::StaticClass()));
-		if (AltTarget != NULL && AltTarget->IsHeadShot(SpawnLocation, FireDir, GetHeadshotScale(), false, PredictionTime))
+		if (AltTarget != NULL && AltTarget->IsHeadShot(SpawnLocation, FireDir, GetHeadshotScale(), false, UTOwner, PredictionTime))
 		{
 			Hit = FHitResult(AltTarget, AltTarget->GetCapsuleComponent(), SpawnLocation + FireDir * ((AltTarget->GetHeadLocation() - SpawnLocation).Size() - AltTarget->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), -FireDir);
 		}
@@ -133,7 +133,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		TSubclassOf<UDamageType> DamageType = InstantHitInfo[CurrentFireMode].DamageType;
 
 		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
-		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, PredictionTime))
+		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner, PredictionTime))
 		{
 			Damage *= HeadshotDamageMult;
 			if (HeadshotDamageType != NULL)
