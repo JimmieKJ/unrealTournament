@@ -9,6 +9,6 @@ class UNREALTOURNAMENT_API AUTHUD_CTF : public AUTHUD
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual FLinearColor GetBaseHUDColor();
-	virtual void PostRender();
+	virtual FLinearColor GetBaseHUDColor() override;
+	virtual void NotifyMatchStateChange() override;
 };

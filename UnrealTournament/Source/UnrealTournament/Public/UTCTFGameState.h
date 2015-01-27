@@ -102,7 +102,7 @@ struct FCTFScoringPlay
 };
 
 UCLASS()
-class AUTCTFGameState: public AUTGameState
+class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 {
 	GENERATED_UCLASS_BODY()
 

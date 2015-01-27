@@ -2,19 +2,12 @@
 #include "UnrealTournament.h"
 #include "UTHUD_CTF.h"
 #include "UTCTFGameState.h"
-#include "UTHUDWidget_CTFScore.h"
-#include "UTHUDWidget_CTFFlagStatus.h"
-#include "UTHUDWidget_GameClock.h"
-#include "UTHUDWidget_CTFPlayerScore.h"
+#include "UTCTFGameMode.h"
+#include "UTCTFScoreboard.h"
 
 AUTHUD_CTF::AUTHUD_CTF(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-}
-
-void AUTHUD_CTF::PostRender()
-{
-	Super::PostRender();
 }
 
 FLinearColor AUTHUD_CTF::GetBaseHUDColor()
@@ -27,4 +20,20 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 		TeamColor = PS->Team->TeamColor;
 	}
 	return TeamColor;
+}
+
+void AUTHUD_CTF::NotifyMatchStateChange()
+{
+	UUTCTFScoreboard* CTFScoreboard = Cast<UUTCTFScoreboard>(MyUTScoreboard);
+	if (CTFScoreboard != NULL)
+	{
+		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch)
+		{
+			GetWorldTimerManager().SetTimer(CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage, 10.0f, false);
+		}
+		else
+		{
+			GetWorldTimerManager().ClearTimer(CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage);
+		}
+	}
 }

@@ -477,7 +477,6 @@ void AUTGameState::ReceivedGameModeClass()
 	}
 }
 
-
 FText AUTGameState::GetGameStatusText()
 {
 	if (!IsMatchInProgress())
@@ -493,4 +492,21 @@ FText AUTGameState::GetGameStatusText()
 	}
 
 	return FText::GetEmpty();
+}
+
+void AUTGameState::OnRep_MatchState()
+{
+	Super::OnRep_MatchState();
+
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		if (It->PlayerController != NULL)
+		{
+			AUTHUD* Hud = Cast<AUTHUD>(It->PlayerController->MyHUD);
+			if (Hud != NULL)
+			{
+				Hud->NotifyMatchStateChange();
+			}
+		}
+	}
 }

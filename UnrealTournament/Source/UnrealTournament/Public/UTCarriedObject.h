@@ -97,6 +97,10 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	uint32 bTeamPickupSendsHome:1;
 
+	// How long before this object is automatically returned to it's base
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
+	float AutoReturnTime;
+
 	// If true, when a player on the team matching this object's team picks it up, it will be sent home instead of being picked up.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
 	TSubclassOf<UUTCarriedObjectMessage> MessageClass;
@@ -202,10 +206,6 @@ protected:
 	// The timestamp of when this object was last taken.
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	float TakenTime;
-
-	// How long before this object is automatically returned to it's base
-	UPROPERTY(BlueprintReadWrite, Category = GameObject)
-	float AutoReturnTime;	
 
 	UFUNCTION()
 	virtual void OnObjectStateChanged();

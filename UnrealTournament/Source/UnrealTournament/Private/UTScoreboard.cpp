@@ -11,6 +11,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ScreenPosition = FVector2D(0.5f, 0.5f);
 	Origin = FVector2D(0.5f, 0.5f);
 
+	NumPages = 1;
 	ColumnHeaderPlayerX = 15;
 	ColumnHeaderScoreX = 403;
 	ColumnHeaderDeathsX = 480;
@@ -38,6 +39,20 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
 	TextureAtlas = Tex.Object;
 
+}
+
+void UUTScoreboard::AdvancePage(int32 Increment)
+{
+	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
+	PageChanged();
+}
+void UUTScoreboard::SetPage(uint32 NewPage)
+{
+	UTHUDOwner->ScoreboardPage = FMath::Min<uint32>(NewPage, NumPages - 1);
+	PageChanged();
+}
+void UUTScoreboard::PageChanged_Implementation()
+{
 }
 
 void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)

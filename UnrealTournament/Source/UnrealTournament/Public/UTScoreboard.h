@@ -53,7 +53,19 @@ public:
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
+	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
+	virtual void AdvancePage(int32 Increment);
+	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
+	virtual void SetPage(uint32 NewPage);
+
 protected:
+
+	/** number of 'pages' that can be flipped through on the scoreboard */
+	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
+	uint32 NumPages;
+
+	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
+	void PageChanged();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	uint32 ActualPlayerCount;

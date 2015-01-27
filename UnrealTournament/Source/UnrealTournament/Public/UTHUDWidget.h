@@ -50,6 +50,8 @@ class UNREALTOURNAMENT_API UUTHUDWidget : public UObject
 
 public:
 
+	virtual UWorld* GetWorld() const;
+
 	// This is the position of the widget relative to the Screen position and origin.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	float DesignedResolution;

@@ -839,3 +839,8 @@ float UUTHUDWidget::GetDrawScaleOverride()
 {
 	return UTHUDOwner->HUDWidgetScaleOverride;
 }
+
+UWorld* UUTHUDWidget::GetWorld() const
+{
+	return UTHUDOwner->GetWorld();
+}

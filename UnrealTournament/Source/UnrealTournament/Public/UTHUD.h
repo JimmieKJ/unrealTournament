@@ -148,6 +148,9 @@ public:
 	/** get player state of PlayerOwner's viewtarget (or own if not viewing another player) */
 	virtual AUTPlayerState* GetViewedPlayerState();
 
+	virtual void NotifyMatchStateChange()
+	{}
+
 public:
 	// This is the base HUD opacity level used by HUD Widgets RenderObjects
 	UPROPERTY(globalconfig)
@@ -196,6 +199,7 @@ public:
 	TArray<AUTPlayerState*> Leaderboard;
 
 	// Used to determine which page of the scoreboard we should show
+	UPROPERTY()
 	uint32 ScoreboardPage;
 
 protected:

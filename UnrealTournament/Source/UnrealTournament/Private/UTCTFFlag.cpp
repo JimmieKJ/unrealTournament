@@ -108,7 +108,7 @@ void AUTCTFFlag::OnObjectStateChanged()
 	{
 		if (ObjectState == CarriedObjectState::Dropped)
 		{
-			GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::SendHomeWithNotify, 30, false);
+			GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::SendHomeWithNotify, AutoReturnTime, false);
 		}
 		else
 		{

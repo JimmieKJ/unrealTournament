@@ -32,10 +32,17 @@ class UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnHeaderReturnsX;
 
+	virtual void Draw_Implementation(float DeltaTime) override;
+
+	/** no-params accessor for timers */
+	UFUNCTION()
+	void OpenScoringPlaysPage();
 
 protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+	virtual void DrawScoringPlays();
 
+	virtual void PageChanged_Implementation() override;
 };

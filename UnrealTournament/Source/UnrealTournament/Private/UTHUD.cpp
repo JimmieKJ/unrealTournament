@@ -245,6 +245,11 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	{
 		HudMessageWidgets.Add(MessageWidget->ManagedMessageArea, MessageWidget);
 	}
+	// cache ref to scoreboard (NOTE: only one!)
+	if (Widget->IsA(UUTScoreboard::StaticClass()))
+	{
+		MyUTScoreboard = Cast<UUTScoreboard>(Widget);
+	}
 
 	Widget->InitializeWidget(this);
 	return Widget;
