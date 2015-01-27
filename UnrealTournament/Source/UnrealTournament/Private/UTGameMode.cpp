@@ -190,24 +190,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		}
 	}
 
-	InOpt = ParseOption(Options, TEXT("Playerclass"));
-	if (InOpt.Len() > 0)
-	{
-
-		// Note that to specify the normal SteveUTCharacter, the command is ?Playerclass=/game/restrictedassets/blueprints/wip/steve/SteveUTCharacter.SteveUTCharacter_c
-		// allow remapping using the GameModeClassName array in Game.ini
-		InOpt = AGameMode::StaticGetFullGameClassName(InOpt);
-		TSubclassOf<AUTCharacter> CharClass = LoadClass<AUTCharacter>(NULL, *InOpt, NULL, 0, NULL);
-		if (CharClass)
-		{
-			UE_LOG(UT, Log, TEXT("Set PlayerClass: %s"), *InOpt);
-			DefaultPawnClass = CharClass;
-		}
-	}
-
-	InOpt = ParseOption(Options, TEXT("WeaponStay"));
-	bWeaponStayActive = EvalBoolOptions(InOpt, true);
-
 	InOpt = ParseOption(Options, TEXT("Demorec"));
 	if (InOpt.Len() > 0)
 	{
