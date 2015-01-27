@@ -15,11 +15,20 @@ class UNREALTOURNAMENT_API AUTHat : public AActor
 	UPROPERTY(EditDefaultsOnly)
 	FString HatAuthor;
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UPROPERTY(BlueprintReadOnly, Category=UTHat)
+	AUTCharacter* HatWearer;
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Hat Wearer Killed Enemy"))
 	virtual void OnFlashCountIncremented();
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Hat Wearer Got Killing Spree"))
 	virtual void OnSpreeLevelChanged(int32 NewSpreeLevel);
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Hat Wearer Started Taunting"))
+	virtual void OnWearerEmoteStarted();
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Hat Wearer Stopped Taunting"))
+	virtual void OnWearerEmoteEnded();
 
 	virtual void PreInitializeComponents();
 };

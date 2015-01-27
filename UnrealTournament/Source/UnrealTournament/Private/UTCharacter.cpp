@@ -3468,6 +3468,7 @@ void AUTCharacter::OnRepHat()
 		if (Hat)
 		{
 			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
+			Hat->HatWearer = this;
 		}
 	}
 }
@@ -3549,6 +3550,11 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 
 	if (EmoteAnimations.IsValidIndex(EmoteIndex) && EmoteAnimations[EmoteIndex] != nullptr && !bFeigningDeath)
 	{
+		if (Hat)
+		{
+			Hat->OnWearerEmoteStarted();
+		}
+
 		GetMesh()->bPauseAnims = false;
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL)
@@ -3573,6 +3579,11 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 	EmoteCount--;
 	if (EmoteCount == 0)
 	{
+		if (Hat)
+		{
+			Hat->OnWearerEmoteEnded();
+		}
+
 		CurrentEmote = nullptr;
 		UTCharacterMovement->bIsEmoting = false;
 	}
