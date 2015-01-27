@@ -709,10 +709,15 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	if (FParse::Param(FCommandLine::Get(), TEXT("EnableFriendsAndChat")))
 	{
 		// Friends chat styles
-		const FSlateFontInfo RobotoRegular10    = TTF_FONT("Social-WIP/Font/Lato-Regular", 10);
-		const FSlateFontInfo RobotoRegular12    = TTF_FONT("Social-WIP/Font/Lato-Regular", 12);
-		const FSlateFontInfo RobotoBold10       = TTF_FONT("Social-WIP/Font/Lato-Bold", 10 );
-		const FSlateFontInfo RobotoBold12       = TTF_FONT("Social-WIP/Font/Lato-Bold", 12);
+		//const FSlateFontInfo RobotoRegular10    = TTF_FONT("Social-WIP/Font/Lato-Regular", 10);
+		//const FSlateFontInfo RobotoRegular12    = TTF_FONT("Social-WIP/Font/Lato-Regular", 12);
+		//const FSlateFontInfo RobotoBold10       = TTF_FONT("Social-WIP/Font/Lato-Bold", 10 );
+		//const FSlateFontInfo RobotoBold12       = TTF_FONT("Social-WIP/Font/Lato-Bold", 12);
+
+		const FSlateFontInfo ExoRegularSmall    = TTF_FONT("Exo2-Regular", 10);
+		const FSlateFontInfo ExoRegular			= TTF_FONT("Exo2-Regular", 14);
+		const FSlateFontInfo ExoBoldSmall       = TTF_FONT("Exo2-Bold", 10);
+		const FSlateFontInfo ExoBold			= TTF_FONT("Exo2-Bold", 14);
 
 		const FScrollBarStyle ScrollBar = FScrollBarStyle()
 			.SetVerticalBackgroundImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f), FLinearColor(1.0f, 1.0f, 1.0f, 0.25f)))
@@ -722,7 +727,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetHoveredThumbImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f)));
 
 		const FTextBlockStyle DefaultText = FTextBlockStyle()
-			.SetFont(RobotoRegular12)
+			.SetFont(ExoRegular)
 			.SetColorAndOpacity(FSlateColor::UseForeground())
 			.SetShadowOffset(FVector2D::ZeroVector)
 			.SetShadowColorAndOpacity(FLinearColor::Black);
@@ -752,18 +757,18 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetNormalPadding(FMargin(5,2))
 			.SetPressedPadding(FMargin(5,2));
 		Style.Set("FriendsListActionButton", FriendsListActionButtonStyle);
+	 
+		const FButtonStyle FriendActionDropdownStyle = FButtonStyle(DefaultButton)
+			.SetNormal(BOX_BRUSH("Social-WIP/SocialDropdownButton_normal", Icon24x24, FMargin(0.159292, 0.0, 0.823009, 0.0)))
+			.SetPressed(BOX_BRUSH("Social-WIP/SocialDropdownButton_down", Icon24x24, FMargin(0.159292, 0.0, 0.823009, 0.0)))
+			.SetHovered(BOX_BRUSH("Social-WIP/SocialDropdownButton_over", Icon24x24, FMargin(0.159292, 0.0, 0.823009, 0.0)));
+		Style.Set("FriendActionDropdown", FriendActionDropdownStyle);
 
 		FComboButtonStyle FriendListComboButtonStyle = FComboButtonStyle()
-			.SetButtonStyle(FriendsListActionButtonStyle)
+			.SetButtonStyle(FriendActionDropdownStyle)
 			.SetDownArrowImage(FSlateNoResource())
 			.SetMenuBorderBrush(FSlateNoResource())
 			.SetMenuBorderPadding(FMargin(0.0f));
-	 
-		const FButtonStyle FriendActionDropdownStyle = FButtonStyle(DefaultButton)
-			.SetNormal(IMAGE_BRUSH("Social-WIP/SocialDropdownButton_normal", Icon24x24))
-			.SetPressed(IMAGE_BRUSH("Social-WIP/SocialDropdownButton_down", Icon24x24))
-			.SetHovered(IMAGE_BRUSH("Social-WIP/SocialDropdownButton_over", Icon24x24));
-		Style.Set("FriendActionDropdown", FriendActionDropdownStyle);
 
 		const FButtonStyle FriendsListEmphasisButtonStyle = FButtonStyle(DefaultButton)
 			.SetNormal(BOX_BRUSH("Social-WIP/SocialEmphasisButton_normal", FriendButtonSize, FMargin(0.5)))
@@ -802,7 +807,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetBackgroundImageFocused(*Style.GetBrush(TEXT("FriendList.AddFriendEditableText.NoBackground")))
 			.SetBackgroundImageReadOnly(*Style.GetBrush(TEXT("FriendList.AddFriendEditableText.NoBackground")))
 			.SetPadding(FMargin(5.0f))
-			.SetFont(RobotoRegular10);
+			.SetFont(ExoRegularSmall);
 		Style.Set("FriendList.AddFriendEditableTextStyle", AddFriendEditableTextStyle);
 
 		Style.Set("FriendsList.AddFriendEditBorder", new BOX_BRUSH("Social-WIP/OutlinedWhiteBox_OpenTop", FVector2D(8.0f, 8.0f), FMargin(0.5), FLinearColor::White));
@@ -814,7 +819,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("FriendsListItemButtonStyle", FriendsListItemButtonStyle);
 
 		const FTextBlockStyle FriendsTextStyle = FTextBlockStyle(DefaultText)
-			.SetFont(RobotoRegular10)
+			.SetFont(ExoRegularSmall)
 			.SetColorAndOpacity(FLinearColor(FColor::White));
 		Style.Set("FriendsTextStyle", FriendsTextStyle);
 
@@ -826,59 +831,66 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("WhisperChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatWhisper-XS", Icon16x16));
 		Style.Set("PartyChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatParty-XS", Icon16x16));
 
+		Style.Set("FriendsDefaultBackground", new IMAGE_BRUSH("Social-WIP/PanelBackground", FVector2D(60, 60)));
+		const FSlateBrush* FriendsDefaultBackgroundBrush = Style.GetBrush("FriendsDefaultBackground");
+		const FSlateBrush* FriendContainerHeaderBrush = Style.GetBrush("UWindows.Standard.MenuBar.Background");
+
+		FLinearColor DefaultChatColor = FLinearColor(FColor::White);
+		FLinearColor WhisplerChatColor = FLinearColor(FColor(255, 176, 59));	// orange
+		FLinearColor PartyChatColor = FLinearColor(FColor(89, 234, 186));		// light green
+
 		//Chat Window Style
 		Style.Set("FriendsStyle", FFriendsAndChatStyle()
 			.SetOnlineBrush(*Style.GetBrush("OnlineState"))
 			.SetOfflineBrush(*Style.GetBrush("OfflineState"))
 			.SetAwayBrush(*Style.GetBrush("AwayState"))
-			// .SetAwayBrush(*Style.GetBrush("AwayState"))
 			.SetFriendsListClosedButtonStyle(FriendsListClosedButtonStyle)
 			.SetFriendsListOpenButtonStyle(FriendsListOpenButtonStyle)
-			// .SetFriendsListStatusButtonStyle(FriendsListActionButtonStyle)
-			// .SetFriendGeneralButtonStyle(FriendsListActionButtonStyle)
-			// .SetFriendListActionButtonStyle(FriendsListActionButtonStyle)
+			//.SetFriendsListStatusButtonStyle(FriendsListActionButtonStyle)
+			.SetFriendGeneralButtonStyle(FriendsListActionButtonStyle)
+			.SetFriendListActionButtonStyle(FriendsListActionButtonStyle)
 			.SetFriendsListEmphasisButtonStyle(FriendsListEmphasisButtonStyle)
 			.SetFriendsListCriticalButtonStyle(FriendsListCriticalButtonStyle)
 			.SetAddFriendButtonStyle(FriendsListAddFriendButtonStyle)
-			// .SetFriendActionDropdownButtonStyle(FriendActionDropdownStyle)
-			// .SetFriendsListComboButtonStyle(FriendListComboButtonStyle)
-			// .SetFriendComboBackgroundLeftBrush(*FriendsDefaultBackgroundBrush)
-			// .SetFriendComboBackgroundRightBrush(*FriendsDefaultBackgroundBrush)
+			//.SetFriendActionDropdownButtonStyle(FriendActionDropdownStyle)
+			.SetFriendsListComboButtonStyle(FriendListComboButtonStyle)
+			.SetFriendComboBackgroundLeftBrush(*FriendsDefaultBackgroundBrush)
+			.SetFriendComboBackgroundRightBrush(*FriendsDefaultBackgroundBrush)
 			.SetAddFriendButtonContentBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
 			.SetAddFriendCloseButtonStyle(FriendsListCloseAddFriendButtonStyle)
 			.SetFriendsListItemButtonStyle(FriendsListItemButtonStyle)
 			.SetFriendsCalloutBrush(*Style.GetBrush("FriendComboDropdownBrush"))
-			// .SetBackgroundBrush(*FriendsDefaultBackgroundBrush)
-			// .SetTitleBarBrush(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
-			// .SetFriendContainerHeader(*FriendContainerHeader)
-			// .SetFriendListHeader(*FriendsListHeaderBrush)
-			// .SetFriendItemSelected(*FriendsDefaultBackgroundBrush)
-			// .SetChatContainerBackground(*FriendsDefaultBackgroundBrush)
-			// .SetFriendContainerBackground(*FriendsDefaultBackgroundBrush)
-			// .SetAddFriendEditBorder(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
-			// .SetFriendsComboDropdownImageBrush(*Style.GetBrush("FriendComboDropdownBrush"))
-			// .SetFriendsListItemButtonSimpleStyle(FriendsListItemButtonStyle)
+			.SetBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			.SetTitleBarBrush(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+			.SetFriendContainerHeader(*FriendContainerHeaderBrush)
+			//.SetFriendListHeader(*FriendsListHeaderBrush)
+			.SetFriendItemSelected(*FriendsDefaultBackgroundBrush)
+			.SetChatContainerBackground(*FriendsDefaultBackgroundBrush)
+			.SetFriendContainerBackground(*FriendsDefaultBackgroundBrush)
+			.SetAddFriendEditBorder(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+			.SetFriendsComboDropdownImageBrush(*Style.GetBrush("FriendComboDropdownBrush"))
+			.SetFriendsListItemButtonSimpleStyle(FriendsListItemButtonStyle)
 			.SetTextStyle(FriendsTextStyle)
-			.SetFontStyle(RobotoRegular12)
-			.SetFontStyleBold(RobotoBold12)
-			.SetFontStyleSmall(RobotoRegular10)
-			.SetFontStyleSmallBold(RobotoBold10)
-			// .SetDefaultFontColor(DefaultChatColor)
-			// .SetDefaultChatColor(DefaultChatColor)
-			// .SetWhisplerChatColor(WhisplerChatColor)
-			// .SetPartyChatColor(PartyChatColor)
-			// .SetChatGlobalBrush(*Style.GetBrush("GlobalChatIcon"))
+			.SetFontStyle(ExoRegular)
+			.SetFontStyleBold(ExoBold)
+			.SetFontStyleSmall(ExoRegularSmall)
+			.SetFontStyleSmallBold(ExoBoldSmall)
+			.SetDefaultFontColor(DefaultChatColor)
+			.SetDefaultChatColor(DefaultChatColor)
+			.SetWhisplerChatColor(WhisplerChatColor)
+			.SetPartyChatColor(PartyChatColor)
+			.SetChatGlobalBrush(*Style.GetBrush("GlobalChatIcon"))
 			.SetChatWhisperBrush(*Style.GetBrush("WhisperChatIcon"))
-			// .SetChatPartyBrush(*Style.GetBrush("PartyChatIcon"))
+			.SetChatPartyBrush(*Style.GetBrush("PartyChatIcon"))
 			.SetAddFriendEditableTextStyle(AddFriendEditableTextStyle)
-			.SetStatusButtonSize(FVector2D(108, 24))
+			.SetStatusButtonSize(FVector2D(136, 32))
 			.SetBorderPadding(FMargin(5,5))
 			.SetFriendsListWidth(600.f)
-			// .SetChatListPadding(130.f)
-			// .SetChatBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			.SetChatListPadding(130.f)
+			.SetChatBackgroundBrush(*FriendsDefaultBackgroundBrush)
 			.SetFriendCheckboxStyle(FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("Checkbox"))
-			// .SetChatChannelsBackgroundBrush(*FriendsDefaultBackgroundBrush)
-			// .SetChatOptionsBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			.SetChatChannelsBackgroundBrush(*FriendsDefaultBackgroundBrush)
+			.SetChatOptionsBackgroundBrush(*FriendsDefaultBackgroundBrush)
 			.SetScrollbarStyle(ScrollBar)
 			.SetWindowStyle(Style.GetWidgetStyle<FWindowStyle>("Window"))
 		);

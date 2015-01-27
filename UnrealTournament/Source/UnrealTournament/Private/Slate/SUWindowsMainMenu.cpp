@@ -17,6 +17,7 @@
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 #include "Widgets/SUTChatWidget.h"
+#include "Widgets/SUTFriendsWidget.h"
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
@@ -143,6 +144,20 @@ void SUWindowsMainMenu::CreateDesktop()
 						[
 							// SAssignNew(ChatWidget, SUTChatWidget, PlayerOwner->PlayerController)
 							SNew(SUTChatWidget, PlayerOwner->PlayerController)
+						]
+					];
+
+				Desktop->AddSlot()
+					.HAlign(HAlign_Right)
+					.VAlign(VAlign_Top)
+					.Padding(FMargin(15.0f, 30.0f))
+					[
+						SNew(SBorder)
+						.Padding(0)
+						.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
+						.Visibility(EVisibility::Visible) //this, &SUWindowsMainMenu::GetFriendsWidgetVisibility)
+						[
+							SNew(SUTFriendsWidget, PlayerOwner->PlayerController)
 						]
 					];
 			}
