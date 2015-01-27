@@ -384,10 +384,77 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device,
 		glReadBuffer( GL_COLOR_ATTACHMENT0 );
 		glDisable(GL_FRAMEBUFFER_SRGB);
 
+		int WinW, WinH;
+		SDL_GetWindowSize(Context->hWnd, &WinW, &WinH);
+		GLenum BlitFilter;
+		GLint DestX0, DestY0, DestX1, DestY1;
+
+		if ( ( WinW == BackbufferSizeX ) && ( WinH == BackbufferSizeY ) )
+		{
+			// We match up. We're probably in windowed mode, or an exact
+			//  match for FULLSCREEN_DESKTOP mode. Use a NEAREST blit and
+			//  don't clear the window system's framebuffer first.
+			BlitFilter = GL_NEAREST;
+			DestX0 = 0;
+			DestY0 = BackbufferSizeY;  // flip vertically.
+			DestX1 = BackbufferSizeX;
+			DestY1 = 0;
+		}
+		else
+		{
+			// we need to scale to match the size of the window system's
+			// framebuffer, so scale linearly, and adjust for letterboxing.
+			BlitFilter = GL_LINEAR;
+
+			const uint32 w = BackbufferSizeX;
+			const uint32 h = BackbufferSizeY;
+			const float WantedAspect = (w > h) ? (((float) w) / ((float) h)) : (((float) h) / ((float) w));
+			const float PhysicalAspect = (((float) WinW) / ((float) WinH));
+
+			bool bMustClear;  // have to clear the window framebuffer if letterboxing.
+			if ( PhysicalAspect == WantedAspect )  // Perfect aspect ratio; no letterboxing needed?
+			{
+				bMustClear = false;
+				DestX0 = 0;
+				DestY0 = WinH;  // flip vertically.
+				DestX1 = WinW;
+				DestY1 = 0;
+			}
+			else if ( PhysicalAspect > WantedAspect )  // view is wider than wanted aspect?
+			{  
+				bMustClear = true;
+				const float ScaledW = WinH * WantedAspect;
+				const float ScaledX = (((float)WinW) - ScaledW) / 2.0f;
+				DestX0 = ScaledX;
+				DestY0 = WinH;  // flip vertically.
+				DestX1 = ScaledX + ScaledW;
+				DestY1 = 0;
+			}
+			else  // view is taller than wanted aspect?
+			{
+				bMustClear = true;
+				const float ScaledH = WinW / WantedAspect;
+				const float ScaledY = (((float)WinH) - ScaledH) / 2.0f;
+				DestX0 = 0;
+				DestY0 = ScaledY + ScaledH;  // flip vertically.
+				DestX1 = WinW;
+				DestY1 = ScaledY;
+			}
+
+			// if the Steam Overlay is running, it might write garbage into our
+			//  letterbox area, so if we have a letterbox, clear the framebuffer.
+			if ( bMustClear )
+			{
+				glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+				glClear( GL_COLOR_BUFFER_BIT );
+			}
+		}
+
+		// Get it to the window system's framebuffer.
 		glBlitFramebuffer(	0, 0, BackbufferSizeX, BackbufferSizeY,
-							0, BackbufferSizeY, BackbufferSizeX, 0,
+							DestX0, DestY0, DestX1, DestY1,
 							GL_COLOR_BUFFER_BIT,
-							GL_NEAREST	);
+							BlitFilter	);
 
 		if ( bPresent )
 		{

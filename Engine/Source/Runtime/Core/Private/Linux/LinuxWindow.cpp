@@ -279,53 +279,21 @@ static void _GetBestFullscreenResolution( SDL_HWindow hWnd, int32 *pWidth, int32
 	*pHeight = BestHeight;
 }
 
-
-static void _SetBestFullscreenDisplayMode( SDL_HWindow hWnd, int32 *pWidth, int32 *pHeight )
-{
-	SDL_DisplayMode dsp_mode;
-
-	dsp_mode.w = *pWidth;
-	dsp_mode.h = *pHeight;
-	dsp_mode.format = SDL_PIXELFORMAT_ARGB8888;
-	dsp_mode.refresh_rate = 60;
-	dsp_mode.driverdata = NULL;
-
-	_GetBestFullscreenResolution( hWnd, &dsp_mode.w, &dsp_mode.h );
-	SDL_SetWindowDisplayMode( hWnd, &dsp_mode );
-
-	*pWidth  = dsp_mode.w;
-	*pHeight = dsp_mode.h;
-}
-
 void FLinuxWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 NewHeight )
 {
-	int32 closest_w = NewWidth;
-	int32 closest_h = NewHeight;
-
 	switch( WindowMode )
 	{
+		// Fullscreen and WindowedFullscreen both use SDL_WINDOW_FULLSCREEN_DESKTOP now
+		//  and code elsewhere handles the backbufer blit properly. This solves several
+		//  problems that actual mode switches cause, and a GPU scales better than your
+		//  cheap LCD display anyhow.
 		case EWindowMode::Fullscreen:
-		{
-			SDL_SetWindowFullscreen( HWnd, 0 );
-			_GetBestFullscreenResolution( HWnd, &closest_w, &closest_h );
-			SDL_SetWindowSize( HWnd, closest_w, closest_h );
-
-			_SetBestFullscreenDisplayMode( HWnd, &closest_w, &closest_h );
-			SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN );
-
-			bWasFullscreen = true;
-
-		}	break;
-
 		case EWindowMode::WindowedFullscreen:
 		{
 			SDL_SetWindowFullscreen( HWnd, 0 );
-			SDL_SetWindowPosition( HWnd, 0, 0 );
-			_SetBestFullscreenDisplayMode( HWnd, &closest_w, &closest_h );
+			SDL_SetWindowSize( HWnd, NewWidth, NewHeight );
 			SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN_DESKTOP );
-
 			bWasFullscreen = true;
-
 		}	break;
 
 		case EWindowMode::Windowed:
@@ -359,42 +327,21 @@ void FLinuxWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 {
 	if( NewWindowMode != WindowMode )
 	{
-		SDL_DisplayMode dsp_mode;
-		int32 closest_w;
-		int32 closest_h;
-
-		closest_w = VirtualWidth;
-		closest_h = VirtualHeight;
-
 		switch( NewWindowMode )
 		{
+			// Fullscreen and WindowedFullscreen both use SDL_WINDOW_FULLSCREEN_DESKTOP now
+			//  and code elsewhere handles the backbufer blit properly. This solves several
+			//  problems that actual mode switches cause, and a GPU scales better than your
+			//  cheap LCD display anyhow.
 			case EWindowMode::Fullscreen:
-			{
-				if ( bWasFullscreen != true )
-				{
-					SDL_SetWindowPosition( HWnd, 0, 0 );
-					_SetBestFullscreenDisplayMode( HWnd, &closest_w, &closest_h );
-
-					SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN );
-					SDL_SetWindowGrab( HWnd, SDL_TRUE );
-
-					bWasFullscreen = true;
-				}
-
-			}	break;
-
 			case EWindowMode::WindowedFullscreen:
 			{
 				if ( bWasFullscreen != true )
 				{
-					SDL_SetWindowPosition( HWnd, 0, 0 );
-
-					_SetBestFullscreenDisplayMode( HWnd, &closest_w, &closest_h );
+					SDL_SetWindowSize( HWnd, VirtualWidth, VirtualHeight );
 					SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN_DESKTOP );
-
 					bWasFullscreen = true;
 				}
-
 			}	break;
 
 			case EWindowMode::Windowed:
