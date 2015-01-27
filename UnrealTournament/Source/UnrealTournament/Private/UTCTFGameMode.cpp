@@ -463,7 +463,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
 
 	SetMatchState(MatchState::MatchIsAtHalftime);
-
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 11, NULL, NULL, NULL);
 }
 
 void AUTCTFGameMode::HalftimeIsOver()
