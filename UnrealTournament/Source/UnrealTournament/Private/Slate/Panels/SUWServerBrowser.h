@@ -233,7 +233,7 @@ public:
 	TArray<TSharedPtr<FServerRuleData>> Rules;
 	TArray<TSharedPtr<FServerPlayerData>> Players;
 
-	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, const FString& inVersion, int32 inPing, int32 inFlags)
+	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, const FString& inVersion, int32 inPing, int32 inFlags)
 	: Name( inName )
 	, IP( inIP )
 	, BeaconIP( inBeaconIP )
@@ -243,6 +243,7 @@ public:
 	, NumPlayers( inNumPlayers )
 	, NumSpectators( inNumSpecators )
 	, MaxPlayers( inMaxPlayers )
+	, NumMatches( inNumMatches) 
 	, Version( inVersion ) 
 	, Ping( inPing )
 	, Flags( inFlags )
@@ -254,9 +255,9 @@ public:
 		bFakeHUB = false;
 	}
 
-	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, const FString& inVersion, int32 inPing, int32 inFlags)
+	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, const FString& inVersion, int32 inPing, int32 inFlags)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inVersion, inPing, inFlags ) );
+		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inNumMatches, inVersion, inPing, inFlags ) );
 	}
 
 	void AddPlayer(const FString& PlayerName, const FString& Score, const FString& PlayerId)
@@ -536,11 +537,7 @@ private:
 	FOnFindSessionsCompleteDelegate OnFindSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
 
-	TSharedPtr<FServerData> RandomDMHUB;
-	TSharedPtr<FServerData> RandomTDMHUB;
-	TSharedPtr<FServerData> RandomDuelHUB;
-	TSharedPtr<FServerData> RandomCTFHUB;
-
+	TSharedPtr<FServerData> RandomHUB;
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
 

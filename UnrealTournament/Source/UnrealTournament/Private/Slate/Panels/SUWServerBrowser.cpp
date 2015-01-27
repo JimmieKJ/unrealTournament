@@ -953,22 +953,32 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 						ServerGameName = ServerGamePath;
 					}
 				}
+				
 				FString ServerMap;
 				Result.Session.SessionSettings.Get(SETTING_MAPNAME,ServerMap);
+				
 				int32 ServerNoPlayers = 0;
 				Result.Session.SessionSettings.Get(SETTING_PLAYERSONLINE, ServerNoPlayers);
+				
 				int32 ServerNoSpecs = 0;
 				Result.Session.SessionSettings.Get(SETTING_SPECTATORSONLINE, ServerNoSpecs);
+				
 				int32 ServerMaxPlayers = Result.Session.SessionSettings.NumPublicConnections;
+				
+				int32 ServerNumMatches = 0;
+				Result.Session.SessionSettings.Get(SETTING_NUMMATCHES, ServerNumMatches);
+				
 				FString ServerVer; 
 				Result.Session.SessionSettings.Get(SETTING_SERVERVERSION, ServerVer);
+				
 				int32 ServerFlags = 0x0000;
 				Result.Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
+				
 				uint32 ServerPing = -1;
 
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerVer, ServerPing, ServerFlags);
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerNumMatches, ServerVer, ServerPing, ServerFlags);
 				PingList.Add( NewServer );
 			}
 		}
@@ -1755,23 +1765,11 @@ void SUWServerBrowser::EmptyHUBServers()
 
 	// Add the "Random" Server HUBS
 
-	RandomDMHUB = FServerData::Make( TEXT("[Internet] Individual DEATHMATCH Servers"), TEXT("@RandomDM"), TEXT("/Script/UnrealTournament.UTDMGameMode"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
-	RandomDMHUB->MOTD = TEXT("Browse a random collection of Deathmatch servers on the internet.");
-	RandomDMHUB->bFakeHUB = true;
-	RandomTDMHUB = FServerData::Make( TEXT("[Internet] Individual TEAM DEATHMATCH Servers"), TEXT("@RandomTDM"), TEXT("/Script/UnrealTournament.UTTeamDMGameMode"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
-	RandomTDMHUB->MOTD = TEXT("Browse a random collection of Team Deathmatch servers on the internet.");
-	RandomTDMHUB->bFakeHUB = true;
-	RandomDuelHUB = FServerData::Make( TEXT("[Internet] Individual DUEL Servers"), TEXT("@RandomDuel"), TEXT("/Script/UnrealTournament.UTDuelGame"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
-	RandomDuelHUB->MOTD = TEXT("Browse a random collection of Duel servers on the internet.");
-	RandomDuelHUB->bFakeHUB = true;
-	RandomCTFHUB = FServerData::Make( TEXT("[Internet] Individual CAPTURE THE FLAG Servers"), TEXT("@RandomCTF"), TEXT("/Script/UnrealTournament.UTCTFGameMode"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,TEXT(""),0,0x00);
-	RandomCTFHUB->MOTD = TEXT("Browse a random collection of Capture the Flag servers on the internet.");
-	RandomCTFHUB->bFakeHUB = true;
+	RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,0,TEXT(""),0,0x00);
+	RandomHUB->MOTD = TEXT("Browse a random collection of Deathmatch servers on the internet.");
+	RandomHUB->bFakeHUB = true;
 
-	HUBServers.Add( RandomDMHUB );
-	HUBServers.Add( RandomTDMHUB );
-	HUBServers.Add( RandomDuelHUB );
-	HUBServers.Add( RandomCTFHUB );
+	HUBServers.Add( RandomHUB );
 
 	FilterAllHUBs();
 }

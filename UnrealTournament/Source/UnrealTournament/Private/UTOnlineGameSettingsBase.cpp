@@ -57,5 +57,9 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 
 	int32 ServerFlags = 0x0;
 	if (CurrentGame->bRequirePassword) ServerFlags = ServerFlags | SERVERFLAG_RequiresPassword;			// Passworded
+
+	int32 NumMatches = CurrentGame->GetNumMatches();
+	Set(SETTING_NUMMATCHES, NumMatches, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
 }
 

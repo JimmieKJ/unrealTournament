@@ -55,4 +55,14 @@ public:
 	// Returns the # of instances controlled by this game mode and fills out the HostNames and Descriptions arrays.  
 	virtual int32 GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions);
 
+	// Returns the # of players in this game.  By Default returns NumPlayers but can be overrride in children (like the HUBs)
+	virtual int32 GetNumPlayers();
+
+
+	// Returns the # of matches assoicated with this game type.  Typical returns 1 (this match) but HUBs will return all of their active matches
+	virtual int32 GetNumMatches();
+
+
+
+
 };

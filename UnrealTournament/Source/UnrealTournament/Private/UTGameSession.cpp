@@ -269,9 +269,9 @@ void AUTGameSession::UpdateGameState()
 			{
 				FUTOnlineGameSettingsBase* OGS = (FUTOnlineGameSettingsBase*)SessionInterface->GetSessionSettings(GameSessionName);
 
-				OGS->Set(SETTING_PLAYERSONLINE, UTGameMode->NumPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_NUMMATCHES, UTGameMode->GetNumMatches(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_PLAYERSONLINE, UTGameMode->GetNumPlayers(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 				OGS->Set(SETTING_SPECTATORSONLINE, UTGameMode->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-
 				SessionInterface->UpdateSession(SessionName, *OGS, true);
 			}
 		}

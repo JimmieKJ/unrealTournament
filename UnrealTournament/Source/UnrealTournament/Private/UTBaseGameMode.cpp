@@ -43,3 +43,14 @@ int32 AUTBaseGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FStrin
 {
 	return 0;
 }
+
+int32 AUTBaseGameMode::GetNumPlayers()
+{
+	return NumPlayers;
+}
+
+
+int32 AUTBaseGameMode::GetNumMatches()
+{
+	return 1;
+}

@@ -248,3 +248,20 @@ int32 AUTLobbyGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FStri
 	}
 	return 0;
 }
+
+int32 AUTLobbyGameMode::GetNumPlayers()
+{
+	int32 TotalPlayers = NumPlayers;
+	for (int32 i=0;i<UTLobbyGameState->AvailableMatches.Num();i++)
+	{
+		TotalPlayers += UTLobbyGameState->AvailableMatches[i]->PlayersInMatchInstance.Num();
+	}
+	
+	return TotalPlayers;
+}
+
+
+int32 AUTLobbyGameMode::GetNumMatches()
+{
+	return UTLobbyGameState->GameInstances.Num();
+}
