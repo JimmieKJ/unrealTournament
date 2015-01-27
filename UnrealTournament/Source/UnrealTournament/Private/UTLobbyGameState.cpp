@@ -14,6 +14,12 @@ AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectIniti
 	LobbyMOTD = TEXT("Welcome!");
 }
 
+void AUTLobbyGameState::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	LobbyMOTD = LobbyMOTD.Replace(TEXT("\\n"), TEXT("\n"), ESearchCase::IgnoreCase);
+}
+
 void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -218,6 +224,7 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 		NewMatchInfo->bJoinAnytime = true;
 		NewMatchInfo->bSpectatable = true;
 		NewMatchInfo->MaxPlayers = 32;
+		NewMatchInfo->bDedicatedMatch = true;
 
 		MatchOptions = MatchOptions + TEXT("?DedI=TRUE");
 
@@ -377,7 +384,7 @@ void AUTLobbyGameState::GameInstance_Empty(uint32 GameInstanceID)
 {
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID && !GameInstances[i].MatchInfo->bDedicatedMatch)
 		{
 			// Set the match info's state to recycling so all returning players will be directed properly.
 			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);

@@ -234,6 +234,9 @@ public:
 	
 	TArray<TSharedPtr<FAllowedMapData>> AvailableMaps;
 
+	// This will be true if this match is a dedicated match and shouldn't ever go down
+	bool bDedicatedMatch;
+
 protected:
 
 	// Only available on the server, this holds a cached reference to the GameState.

@@ -224,6 +224,8 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	// returns true if a match can start
 	bool CanLaunch(AUTLobbyMatchInfo* MatchToLaunch);
 
+	void PostInitializeComponents();
+
 protected:
 
 	// The instance ID of the game running in this lobby.  This ID will be used to identify any incoming data from the game server instance.  It's incremented each time a 
