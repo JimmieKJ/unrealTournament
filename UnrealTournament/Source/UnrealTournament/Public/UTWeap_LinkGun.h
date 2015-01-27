@@ -14,9 +14,6 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, Category = Bio)
 	class AUTProj_BioShot* LinkedBio;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = LinkGun)
-	int32 Links;
-
 	// scale damage on link bolts per link
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	float PerLinkDamageScalingPrimary;
@@ -62,8 +59,20 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual void LinkedConsumeAmmo(int32 Mode);
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = LinkGun)
+protected:
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = LinkGun)
 	AActor* LinkTarget;
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = LinkGun)
+	int32 Links;
+public:
+	inline AActor* GetLinkTarget() const
+	{
+		return LinkTarget;
+	}
+	inline int32 GetNumLinks() const
+	{
+		return Links;
+	}
 
 	// sound made when link is established to another player's gun (played from LinkedCharacter)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
@@ -103,13 +112,13 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	virtual void SetLinkTo(AActor* Other);
 
 	//////////////////////////////////////////////////////////////////////////
-
+protected:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual bool AddLink(int32 Size, AUTCharacter* Starter);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual void RemoveLink(int32 Size, AUTCharacter* Starter);
-
+public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual void ClearLinksTo();
 

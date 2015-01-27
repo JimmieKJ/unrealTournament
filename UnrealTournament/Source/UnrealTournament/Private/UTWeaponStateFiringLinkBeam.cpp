@@ -15,7 +15,7 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 
     LinkGun->PlayFiringEffects();
 
-    if (LinkGun != NULL && LinkGun->LinkTarget == NULL)
+	if (LinkGun != NULL && LinkGun->GetLinkTarget() == NULL)
     {
         LinkGun->ConsumeAmmo(LinkGun->GetCurrentFireMode());
     }
@@ -30,10 +30,10 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 void UUTWeaponStateFiringLinkBeam::EndState()
 {
     AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
-    if (LinkGun->LinkTarget != nullptr)
+	if (LinkGun->GetLinkTarget() != nullptr)
     {
         LinkGun->LinkBreakTime = -1.f;
-        LinkGun->LinkTarget = nullptr;
+		LinkGun->ClearLinksTo();
     }
     Super::EndState();
 }
@@ -48,32 +48,14 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
         LinkGun->FireInstantHit(false, &Hit);
 
         // We are linked to something, then check to see if we need to break the link
-        if (LinkGun->LinkTarget != nullptr)
+		if (LinkGun->GetLinkTarget() != nullptr)
         {
-            // if we're linked to something, and our hit actor isn't our linked target
-            //if (LinkGun->LinkTarget != &*Hit.Actor) // && Cast<AUTCharacter>(&*Hit.Actor)
-            //{
-            //    if (LinkGun->LinkBreakTime == -1)
-            //    {
-            //        LinkGun->LinkBreakTime = LinkGun->LinkBreakDelay;
-            //    }
-            //    LinkGun->LinkBreakTime -= DeltaTime;
-            //    if (LinkGun->LinkBreakTime <= 0)
-            //    {
-            //        LinkGun->LinkBreakTime = -1;
-            //        LinkGun->LinkTarget = NULL;
-            //    }
-            //}
-
             //Check to break Link
             if (!LinkGun->IsLinkValid())
             {
-                //LinkGun->ClearLinksTo();
-
                 LinkGun->LinkBreakTime = -1.f;
-                LinkGun->LinkTarget = nullptr;
+				LinkGun->ClearLinksTo();
             }
-
         }
 
 		if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && Hit.Actor != LinkGun->GetUTOwner())
@@ -85,12 +67,12 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 				{
 					LinkGun->SetLinkTo(Hit.Actor.Get());
 				}
-				else if (LinkGun->LinkTarget != NULL)
+				else if (LinkGun->GetLinkTarget() != NULL)
 				{
 					if (LinkGun->LinkBreakTime <= 0.f)
 					{
 						LinkGun->LinkBreakTime = -1.f;
-						LinkGun->LinkTarget = NULL;
+						LinkGun->ClearLinksTo();
 					}
 					else
 					{
@@ -99,11 +81,11 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 				}
 			}
 
-            if (LinkGun->LinkTarget == NULL)
+			if (LinkGun->GetLinkTarget() == NULL)
             {
                 float LinkedDamage = float(DamageInfo.Damage);
 
-                LinkedDamage += LinkedDamage * LinkGun->PerLinkDamageScalingSecondary * LinkGun->Links;
+                LinkedDamage += LinkedDamage * LinkGun->PerLinkDamageScalingSecondary * LinkGun->GetNumLinks();
                 Accumulator += LinkedDamage / LinkGun->GetRefireTime(LinkGun->GetCurrentFireMode()) * DeltaTime;
 
                 if (Accumulator >= MinDamage)
@@ -118,13 +100,13 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
         // beams show a clientside beam target
 		if (LinkGun->Role < ROLE_Authority && LinkGun->GetUTOwner() != NULL) // might have lost owner due to TakeDamage() call above!
         {
-            if (LinkGun->LinkTarget == NULL)
+			if (LinkGun->GetLinkTarget() == NULL)
             {
                 LinkGun->GetUTOwner()->SetFlashLocation(Hit.Location, LinkGun->GetCurrentFireMode());
             }
             else
             {
-                LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->LinkTarget->GetTargetLocation(), 10);
+				LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->GetLinkTarget()->GetTargetLocation(), 10);
             }
         }
     }

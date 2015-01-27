@@ -77,7 +77,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		// TODO: Reset Link here since Link wasn't valid?
 		LinkBreakTime = -1.f;
-		LinkTarget = NULL;
+		ClearLinksTo();
 
 		Super::FireInstantHit(bDealDamage, OutHit);
 	}
@@ -260,12 +260,16 @@ void AUTWeap_LinkGun::RemoveLink(int32 Size, AUTCharacter* Starter)
 
 void AUTWeap_LinkGun::ClearLinksTo()
 {
-	Links = 0;
+	if (LinkTarget != NULL)
+	{
+		RemoveLink(1 + Links, UTOwner);
+		LinkTarget = NULL;
+	}
 }
 
 void AUTWeap_LinkGun::ClearLinksFrom()
 {
-	LinkTarget = nullptr;
+	Links = 0;
 }
 
 void AUTWeap_LinkGun::ClearLinks()
