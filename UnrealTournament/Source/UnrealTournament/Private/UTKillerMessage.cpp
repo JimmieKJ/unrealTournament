@@ -22,7 +22,7 @@ bool UUTKillerMessage::UseLargeFont(int32 MessageIndex) const
 
 FLinearColor UUTKillerMessage::GetMessageColor(int32 MessageIndex) const
 {
-	return FLinearColor::Red;
+	return FLinearColor::White;
 }
 
 FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const

@@ -23,7 +23,7 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 
 FLinearColor UUTVictimMessage::GetMessageColor(int32 MessageIndex) const
 {
-	return FLinearColor::Red;
+	return FLinearColor::White;
 }
 
 FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const

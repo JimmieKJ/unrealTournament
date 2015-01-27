@@ -91,7 +91,12 @@ class UUTSpreeMessage : public UUTLocalMessage
 
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
 	{
-		return FLinearColor(1.f, 0.5f, 0.f, 1.f);
+		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 1.f, 0.f, 1.f);
+	}
+
+	virtual bool UseLargeFont(int32 MessageIndex) const
+	{
+		return (MessageIndex >= 0);
 	}
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
