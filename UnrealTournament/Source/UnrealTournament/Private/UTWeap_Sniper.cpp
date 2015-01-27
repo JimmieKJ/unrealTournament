@@ -16,7 +16,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	StoppedHeadshotScale = 1.8f;
 	SlowHeadshotScale = 1.4f;
 	AimedHeadshotScale = 1.f;
-	RunningHeadshotScale = 0.0f;
+	RunningHeadshotScale = 1.0f;
 	HeadshotDamageMult = 2.0f;
 	ProjClass.Insert(AUTProj_Sniper::StaticClass(), 0);
 
