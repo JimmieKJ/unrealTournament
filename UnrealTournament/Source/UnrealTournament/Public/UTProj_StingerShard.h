@@ -13,6 +13,9 @@ class AUTProj_StingerShard : public AUTProjectile
 
 	/**Overridden to do the stick*/
 	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
+	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
+
+	virtual void AttachToRagdoll(AUTCharacter* HitChar, const FVector& HitLocation);
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) override;
 
@@ -20,17 +23,21 @@ class AUTProj_StingerShard : public AUTProjectile
 
 	/** Damage taken by player jumping off impacted shard. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Shard)
-		int32 ImpactedShardDamage;
+	int32 ImpactedShardDamage;
 
 	/** Damage taken by player jumping off impacted shard. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Shard)
-		float ImpactedShardMomentum;
+	float ImpactedShardMomentum;
 
 	/** Normal of wall this shard impacted on. */
 	UPROPERTY()
-		FVector ImpactNormal;
+	FVector ImpactNormal;
 
 	/** Visible static mesh - will collide when shard sticks. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
-		UStaticMeshComponent* ShardMesh;
+	UStaticMeshComponent* ShardMesh;
+
+	/** Pawns we've attached via constraint (to avoid duplicate hits) */
+	UPROPERTY()
+	TArray<APawn*> AttachedPawns;
 };
