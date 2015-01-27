@@ -107,9 +107,9 @@ private:
 	/** Number of measurements in the buffers (0 - BufferSize). */
 	int32								NumIssuedTimestamps;
 	/** Timestamps for all StartTimings. */
-	TArray<FOpenGLRenderQuery>			StartTimestamps;
+	TArray<FOpenGLRenderQuery *>		StartTimestamps;
 	/** Timestamps for all EndTimings. */
-	TArray<FOpenGLRenderQuery>			EndTimestamps;
+	TArray<FOpenGLRenderQuery *>		EndTimestamps;
 	/** Whether we are currently timing the GPU: between StartTiming() and EndTiming(). */
 	bool								bIsTiming;
 };
