@@ -332,7 +332,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
 
-	UPROPERTY(EditDefaultsOnly, Category = Pawn)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pawn)
 	TArray<UAnimMontage*> EmoteAnimations;
 	
 	UPROPERTY()
