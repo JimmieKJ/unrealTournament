@@ -30,7 +30,12 @@ class AUTDemoRecSpectator : public AUTPlayerController
 
 	virtual bool CallRemoteFunction(UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack) override;
 	
-	virtual void CleanupPlayerState()
+	virtual void InitPlayerState() override
+	{
+		Super::InitPlayerState();
+		PlayerState->bOnlySpectator = true;
+	}
+	virtual void CleanupPlayerState() override
 	{
 		// don't do AddInactivePlayer() stuff for demo spectator
 		AController::CleanupPlayerState();
