@@ -1287,6 +1287,10 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		}
 	}
 
+	if (RandomHUB.IsValid())
+	{
+		RandomHUB->NumMatches = InternetServers.Num();
+	}
 
 }
 
