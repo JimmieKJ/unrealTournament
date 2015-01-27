@@ -90,12 +90,6 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	// Holds a list of running Game Instances.
 	TArray<FGameInstanceData> GameInstances;
 
-	/** server settings */
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
-	FString LobbyName;
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
-	FString LobbyMOTD;
-
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	TArray<AUTLobbyMatchInfo*> AvailableMatches;
 
@@ -224,7 +218,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	// returns true if a match can start
 	bool CanLaunch(AUTLobbyMatchInfo* MatchToLaunch);
 
-	void PostInitializeComponents();
+	void BeginPlay();
 
 protected:
 

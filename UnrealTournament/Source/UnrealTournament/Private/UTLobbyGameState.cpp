@@ -10,23 +10,17 @@
 AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	LobbyName = TEXT("My First HUB");
-	LobbyMOTD = TEXT("Welcome!");
 }
 
-void AUTLobbyGameState::PostInitializeComponents()
+void AUTLobbyGameState::BeginPlay()
 {
-	Super::PostInitializeComponents();
-	LobbyMOTD = LobbyMOTD.Replace(TEXT("\\n"), TEXT("\n"), ESearchCase::IgnoreCase);
+	Super::BeginPlay();
+	ServerMOTD = ServerMOTD.Replace(TEXT("\\n"), TEXT("\n"), ESearchCase::IgnoreCase);
 }
 
 void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME_CONDITION(AUTLobbyGameState, LobbyName, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTLobbyGameState, LobbyMOTD, COND_InitialOnly);
-
 	DOREPLIFETIME(AUTLobbyGameState, AvailableMatches);
 }
 

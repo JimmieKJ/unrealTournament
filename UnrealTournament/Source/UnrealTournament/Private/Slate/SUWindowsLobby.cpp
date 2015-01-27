@@ -144,7 +144,7 @@ FString SUWindowsLobby::GetMatchCount() const
 				}
 			}
 		}
-		return FString::Printf(TEXT("%s - There are %i matches available."), *LobbyGameState->LobbyName,NoActiveMatches);
+		return FString::Printf(TEXT("%s - There are %i matches available."), *LobbyGameState->ServerName,NoActiveMatches);
 	}
 
 	return TEXT("Loading Lobby...");
