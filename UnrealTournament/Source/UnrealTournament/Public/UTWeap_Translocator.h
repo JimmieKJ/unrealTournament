@@ -56,6 +56,10 @@ class AUTWeap_Translocator : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<AUTWeaponRedirector> AfterImageType;
 
+	/** Messages about translocator functionality, disruption, etc. */
+	UPROPERTY(EditDefaultsOnly, Category = Translocator)
+		TSubclassOf<class UUTLocalMessage> TranslocatorMessageClass;
+	
 	virtual void ConsumeAmmo(uint8 FireModeNum) override;
 	virtual bool HasAmmo(uint8 FireModeNum) override
 	{

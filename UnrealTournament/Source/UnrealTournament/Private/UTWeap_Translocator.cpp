@@ -6,21 +6,20 @@
 #include "UnrealNetwork.h"
 #include "UTReachSpec_HighJump.h"
 #include "UTWeaponRedirector.h"
+#include "UTTranslocatorMessage.h"
 
 AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
 {
 	TelefragDamage = 1337.0f;
-
 	BringUpTime = 0.32f;
 	PutDownTime = 0.2f;
 	AmmoCost.Add(0);
 	AmmoCost.Add(1);
-
 	RecallFireInterval = 0.1f;
 	BaseAISelectRating = -1.0f; // AI shouldn't select this unless wanted by pathing
-
 	AfterImageType = AUTWeaponRedirector::StaticClass();
+	TranslocatorMessageClass = UUTTranslocatorMessage::StaticClass();
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
@@ -29,7 +28,6 @@ void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
 
 void AUTWeap_Translocator::OnRep_TransDisk()
 {
-
 }
 
 void AUTWeap_Translocator::ClearDisk()
@@ -79,13 +77,16 @@ void AUTWeap_Translocator::FireShot()
 						TransDisk->MyTranslocator = this;
 					}
 				}
-
 				UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
 			}
 			else if (TransDisk->TransState == TLS_Disrupted)
 			{
 				// can't recall disrupted disk
 				UUTGameplayStatics::UTPlaySound(GetWorld(), DisruptedSound, UTOwner, SRT_AllButOwner);
+				if (Cast<APlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled())
+				{
+					Cast<APlayerController>(UTOwner->GetController())->ClientReceiveLocalizedMessage(TranslocatorMessageClass, 0, NULL, NULL, NULL);
+				}
 			}
 			else
 			{
