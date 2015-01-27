@@ -1342,6 +1342,7 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	ChangeState(FName(TEXT("GameOver")));
 	FinalViewTarget = EndGameFocus;
 	BehindView(true);
+	MyUTHUD->ToggleScoreboard(true);
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
 	// free all Pawns locally
