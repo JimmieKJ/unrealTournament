@@ -32,6 +32,12 @@ FText UUTPickupMessage::ResolveMessage_Implementation(int32 Switch, bool bTarget
 	const AUTInventory* Weapon = Cast<UClass>(OptionalObject) ? Cast<AUTInventory>(Cast<UClass>(OptionalObject)->GetDefaultObject()) : NULL;
 	if (Weapon)
 	{
+		const APlayerController* LocalPC = RelatedPlayerState_1 ? GEngine->GetFirstLocalPlayerController(RelatedPlayerState_1->GetWorld()) : NULL;
+		const AUTCharacter* Pawn = LocalPC ? Cast<AUTCharacter>(LocalPC->GetPawn()) : NULL;
+		if (Pawn && Pawn->GetPendingWeapon() && (Pawn->GetPendingWeapon()->GetClass() == Weapon->GetClass()))
+		{
+			return NSLOCTEXT("PickupMessage", "PendingWeaponPickup", "");
+		}
 		return Weapon->DisplayName;
 	}
 	return NSLOCTEXT("PickupMessage", "NoPickupMessage", "No Pickup Message");
@@ -40,7 +46,6 @@ FText UUTPickupMessage::ResolveMessage_Implementation(int32 Switch, bool bTarget
 void UUTPickupMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
 	Super::ClientReceive(ClientData);
-
 	if (ClientData.LocalPC)
 	{
 		AUTHUD* HUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);

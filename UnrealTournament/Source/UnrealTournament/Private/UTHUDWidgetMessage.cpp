@@ -137,6 +137,18 @@ void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 	DrawText(MessageText, X, Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, GetTextScale(QueueIndex), Alpha, MessageQueue[QueueIndex].DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
 }
 
+void UUTHUDWidgetMessage::FadeMessage(FText FadeMessageText)
+{
+	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
+	{
+		if (MessageQueue[QueueIndex].Text.EqualTo(FadeMessageText))
+		{
+			MessageQueue[QueueIndex].LifeLeft = 0.f; 
+			break;
+		}
+	}
+}
+
 void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
 {
 	Message.MessageClass = NULL;

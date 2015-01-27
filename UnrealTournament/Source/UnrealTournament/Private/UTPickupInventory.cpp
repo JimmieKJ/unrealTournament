@@ -316,7 +316,7 @@ void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 {
 	if (Cast<APlayerController>(P->GetController()))
 	{
-		Cast<APlayerController>(P->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, InventoryType);
+		Cast<APlayerController>(P->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
 	}
 }
 
