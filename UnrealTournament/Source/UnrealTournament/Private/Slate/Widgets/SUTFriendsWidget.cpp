@@ -4,6 +4,8 @@
 #include "SUTFriendsWidget.h"
 #include "FriendsAndChat.h"
 
+#if !UE_SERVER
+
 void SUTFriendsWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
 {
 	Ctx = InCtx;
@@ -48,3 +50,5 @@ FReply SUTFriendsWidget::OnClose()
 
 	return FReply::Handled();
 }
+
+#endif
