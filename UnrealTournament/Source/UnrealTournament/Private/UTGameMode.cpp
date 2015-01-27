@@ -77,6 +77,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	//LobbySetupPanelClass = SUDuelSettings::StaticClass();
 
 	DemoFilename = TEXT("%m-%td");
+
+	bDedicatedInstance = false;
+
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -141,6 +144,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	MinPlayersToStart = FMath::Max(1, GetIntOption( Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
+
+	InOpt = ParseOption(Options, TEXT("DedI"));
+	bDedicatedInstance = EvalBoolOptions(InOpt, true);
 
 	// alias for testing convenience
 	if (HasOption(Options, TEXT("Bots")))
@@ -596,7 +602,7 @@ void AUTGameMode::DefaultTimer()
 		}
 		else 
 		{
-			if (NumPlayers <= 0)
+			if (!bDedicatedInstance && NumPlayers <= 0)
 			{
 				// Catch all...
 				SendEveryoneBackToLobby();
@@ -1080,7 +1086,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 void AUTGameMode::TravelToNextMap()
 {
 
-	if (IsGameInstanceServer())
+	if (!bDedicatedInstance && IsGameInstanceServer())
 	{
 		SendEveryoneBackToLobby();
 	}

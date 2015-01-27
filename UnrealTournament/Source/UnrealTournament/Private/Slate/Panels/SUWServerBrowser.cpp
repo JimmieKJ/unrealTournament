@@ -1087,7 +1087,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceCount; InstIndex++ )
 			{
-				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceHostNames[InstIndex], PingTrackers[i].Beacon->InstanceDescriptions[InstIndex]));	
+				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceDescriptions[InstIndex], PingTrackers[i].Beacon->InstanceHostNames[InstIndex]));	
 			}
 
 			if (PingTrackers[i].Server->GameModePath == TEXT("/Script/UnrealTournament.UTLobbyGameMode"))
@@ -1605,7 +1605,9 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HU
 		return VBox.ToSharedRef();
 	}
 
-	return SNew(SCanvas);
+	return SNew(STextBlock)
+		.Text(NSLOCTEXT("ServerBrowser","NoInstances","No Game Sessions Available"))
+		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText");
 }
 
 void SUWServerBrowser::AddHUBInfo(TSharedPtr<FServerData> HUB)

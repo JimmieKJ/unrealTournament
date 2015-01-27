@@ -281,13 +281,13 @@ void AUTDuelGame::UpdateLobbyBadge()
 		FString Update = TEXT("");
 		if (RedPlayer->Score >= BluePlayer->Score)
 		{
-			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%s\n(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Blue>%s\n(%i)</>\n"), *DisplayName.ToString(), 
+			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%s</>\n<UWindows.Standard.MatchBadge.Red>(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Blue>%s></>\n<UWindows.Standard.MatchBadge.Blue>(%i)</>\n"), *DisplayName.ToString(), 
 				*RedPlayer->PlayerName, 	int(RedPlayer->Score),
 				*BluePlayer->PlayerName,	int(BluePlayer->Score));
 		}
 		else
 		{
-			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Blue>%s\n(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Red>%s\n(%i)</>\n"), *DisplayName.ToString(), 
+			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Blue>%s</>\n<<UWindows.Standard.MatchBadge.Blue>(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Red>%s</>\n<UWindows.Standard.MatchBadge.Red>(%i)</>\n"), *DisplayName.ToString(), 
 				*BluePlayer->PlayerName, 	int(RedPlayer->Score),
 				*RedPlayer->PlayerName,	int(BluePlayer->Score));
 		}

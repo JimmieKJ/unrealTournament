@@ -251,6 +251,7 @@ public:
 		Players.Empty();
 		NumFriends = 0;	// Move me once implemented
 		MOTD = TEXT("");
+		bFakeHUB = false;
 	}
 
 	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, const FString& inVersion, int32 inPing, int32 inFlags)

@@ -30,6 +30,19 @@ public:
 	UPROPERTY(GlobalConfig)
 	int32 InstancePortStep;
 
+	UPROPERTY(GlobalConfig)
+	FString AutoLaunchGameMode;
+
+	UPROPERTY(GlobalConfig)
+	FString AutoLaunchGameOptions;
+
+	UPROPERTY(GlobalConfig)
+	FString AutoLaunchMap;
+
+	// The Maximum # of instances allowed.  Set to 0 to have no cap 
+	UPROPERTY(GlobalConfig)
+	int32 MaxInstances;
+
 	UPROPERTY()
 	TSubclassOf<class UUTLocalMessage>  GameMessageClass;
 
@@ -46,7 +59,6 @@ public:
 	virtual void OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState);
 
 	virtual bool IsLobbyServer() { return true; }
-
 
 #if !UE_SERVER
 

@@ -503,6 +503,8 @@ public:
 	UPROPERTY(Config)
 	bool bLobbyAllowJoinInProgress;
 
+	bool bDedicatedInstance;
+
 protected:
 	// A Beacon for communicating back to the lobby
 	AUTServerBeaconLobbyClient* LobbyBeacon;
@@ -521,7 +523,6 @@ protected:
 	virtual void SendEveryoneBackToLobby();
 
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
-
 
 
 

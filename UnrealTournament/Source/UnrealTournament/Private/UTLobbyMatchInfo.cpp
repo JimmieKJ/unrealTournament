@@ -375,6 +375,11 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 		return;
 	}
 
+	if (!LobbyGameState->CanLaunch(this))
+	{
+		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
+		return;
+	}
 
 	if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{

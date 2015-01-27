@@ -173,6 +173,11 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString ServerURLOptions);
 
 	/**
+	 *	Create the default "MATCH" for the server.
+	 **/
+	void CreateAutoMatch(FString MatchGameMode, FString MatchOptions, FString MatchMap);
+
+	/**
 	 *	Terminate an existing game instance
 	 **/
 	void TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner);
@@ -215,6 +220,9 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 
 	// Called when a new player enters the game.  This causes all of the allowed gametypes and maps to be replicated to that player
 	void InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer);
+
+	// returns true if a match can start
+	bool CanLaunch(AUTLobbyMatchInfo* MatchToLaunch);
 
 protected:
 

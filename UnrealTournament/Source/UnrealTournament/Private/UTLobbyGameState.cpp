@@ -205,6 +205,26 @@ void AUTLobbyGameState::SetupLobbyBeacons()
 	UE_LOG(UT,Log,TEXT("Could not create Lobby Beacons"));
 }
 
+void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOptions, FString MatchMap)
+{
+	// Create the MatchInfo for this match
+	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
+	if (NewMatchInfo)
+	{	
+		AvailableMatches.Add(NewMatchInfo);
+		NewMatchInfo->MatchGameMode = MatchGameMode;
+		NewMatchInfo->MatchOptions = MatchOptions;
+		NewMatchInfo->MatchMap = MatchMap;
+		NewMatchInfo->bJoinAnytime = true;
+		NewMatchInfo->bSpectatable = true;
+		NewMatchInfo->MaxPlayers = 32;
+
+		MatchOptions = MatchOptions + TEXT("?DedI=TRUE");
+
+		LaunchGameInstance(NewMatchInfo, MatchOptions);
+	}
+}
+
 void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString ServerURLOptions)
 {
 	AUTLobbyGameMode* LobbyGame = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
@@ -463,3 +483,8 @@ TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString Game
 	return NULL;
 }
 
+bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
+{
+	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	return (GM && GameInstances.Num() < GM->MaxInstances);
+}
