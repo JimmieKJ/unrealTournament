@@ -19,6 +19,7 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 {
 	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 
+	bool bFound = false;
 	//Add any ActionMappings
 	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
 	{
@@ -36,6 +37,7 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 			{
 				*AltKey = Action.Key;
 			}
+			bFound = true;
 		}
 	}
 	//Add any AxisMappings
@@ -55,6 +57,7 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 			{
 				*AltKey = Axis.Key;
 			}
+			bFound = true;
 		}
 	}
 	//Add any CustomBinds
@@ -88,6 +91,7 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 			{
 				CustomBindings.Add(CustomBind);
 			}
+			bFound = true;
 		}
 	}
 
@@ -95,6 +99,15 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 	if (Mapping.Compare(TEXT("Console")) == 0)
 	{
 		*Key = InputSettings->ConsoleKeys[0];
+	}
+	else if (!bFound)
+	{
+		// assume not found items are CustomBinds
+		// somewhat hacky, need to figure out a better way to detect and match this stuff to the possible settings
+		FCustomKeyBinding* Bind = new(CustomBindings) FCustomKeyBinding;
+		Bind->KeyName = NAME_None;
+		Bind->EventType = IE_Pressed;
+		Bind->Command = Mapping;
 	}
 	return this;
 }
