@@ -626,7 +626,7 @@ FReply SUWindowsMainMenu::ClearCloud(TSharedPtr<SComboButton> MenuButton)
 	}
 	else
 	{
-		PlayerOwner->ShowMessage(NSLOCTEXT("SUWindowsMainMenu","NotLoggedInTitle","NOT LOGGED IN"), NSLOCTEXT("SuWindowsMainMenu","NoLoggedInMsg","You need to be logged in to clear your cloud settings"), UTDIALOG_BUTTON_OK);
+		PlayerOwner->ShowMessage(NSLOCTEXT("SUWindowsMainMenu","NotLoggedInTitle","Not Logged In"), NSLOCTEXT("SuWindowsMainMenu","NoLoggedInMsg","You need to be logged in to clear your cloud settings."), UTDIALOG_BUTTON_OK);
 	}
 	return FReply::Handled();
 }
