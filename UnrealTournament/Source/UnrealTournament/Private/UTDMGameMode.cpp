@@ -48,3 +48,15 @@ void AUTDMGameMode::UpdateLobbyBadge()
 	LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
 
 }
+
+void AUTDMGameMode::UpdateSkillRating()
+{
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateIndividualSkillRating(FName(TEXT("DMSkillRating")));
+		}
+	}
+}

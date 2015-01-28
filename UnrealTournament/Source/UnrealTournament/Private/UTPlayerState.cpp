@@ -419,6 +419,13 @@ void AUTPlayerState::BeginPlay()
 		LP = Cast<UUTLocalPlayer>(PC->Player);
 	}
 
+	if (Role == ROLE_Authority && StatManager == nullptr)
+	{
+		//Make me a statmanager
+		StatManager = ConstructObject<UStatManager>(UStatManager::StaticClass(), this);
+		StatManager->InitializeManager(this);
+	}
+
 	bool bFoundStatsId = false;
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
@@ -444,13 +451,6 @@ void AUTPlayerState::BeginPlay()
 				bFoundStatsId = true;
 			}
 		}		
-	}
-		
-	if (Role == ROLE_Authority && StatManager == nullptr)
-	{
-		//Make me a statmanager
-		StatManager = ConstructObject<UStatManager>(UStatManager::StaticClass(), this);
-		StatManager->InitializeManager(this);
 	}
 
 	// Use the chosen hat
@@ -654,17 +654,17 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch)
 		}
 	}
 
-	UE_LOG(LogGameStats, Log, TEXT("UpdateSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
+	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
 
 	// KFactor selection can be chosen many different ways, feel free to change it
-	float KFactor = 32.0f;
+	float KFactor = 32.0f / float(OpponentCount);
 	if (SkillRating > 2400)
 	{
-		KFactor = 16.0f;
+		KFactor = 16.0f / float(OpponentCount);
 	}
 	else if (SkillRating >= 2100)
 	{
-		KFactor = 24.0f;
+		KFactor = 24.0f / float(OpponentCount);
 	}
 
 	int32 NewSkillRating = 0;
@@ -679,4 +679,59 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch)
 
 	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
 	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
+	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
+}
+
+void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName)
+{
+	// Not writing stats for this player
+	if (StatManager == nullptr || StatsID.IsEmpty())
+	{
+		return;
+	}
+
+	int32 SkillRating = GetSkillRating(SkillStatName);
+
+	int32 OpponentCount = 0;
+	float ExpectedWinPercentage = 0.0f;
+	float ActualWinPercentage = 0.0f;
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < UTGameState->PlayerArray.Num(); OuterPlayerIdx++)
+	{
+		AUTPlayerState* Opponent = Cast<AUTPlayerState>(UTGameState->PlayerArray[OuterPlayerIdx]);
+		if (Opponent != this && !Opponent->bOnlySpectator)
+		{
+			OpponentCount++;
+			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
+			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
+
+			if (Score > Opponent->Score)
+			{
+				ActualWinPercentage += 1.0f;
+			}
+			else if (Score == Opponent->Score)
+			{
+				ActualWinPercentage += 0.5f;
+			}
+		}
+	}
+
+	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
+
+	// KFactor selection can be chosen many different ways, feel free to change it
+	float KFactor = 32.0f / float(OpponentCount);
+	if (SkillRating > 2400)
+	{
+		KFactor = 16.0f / float(OpponentCount);
+	}
+	else if (SkillRating >= 2100)
+	{
+		KFactor = 24.0f / float(OpponentCount);
+	}
+
+	int32 NewSkillRating = SkillRating + KFactor*(ActualWinPercentage - ExpectedWinPercentage);
+
+	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
+	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
+	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }

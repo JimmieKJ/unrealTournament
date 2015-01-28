@@ -24,7 +24,7 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 
 protected:
 	virtual void UpdateLobbyBadge();
-
+	virtual void UpdateSkillRating();
 };
 
 

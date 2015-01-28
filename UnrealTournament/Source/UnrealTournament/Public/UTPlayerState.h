@@ -216,6 +216,7 @@ public:
 
 	virtual int32 GetSkillRating(FName SkillStatName);
 	virtual void UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch);
+	virtual void UpdateIndividualSkillRating(FName SkillStatName);
 
 private:
 	bool bWroteStatsToCloud;
