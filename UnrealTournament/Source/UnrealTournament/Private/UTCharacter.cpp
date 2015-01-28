@@ -3884,10 +3884,19 @@ void AUTCharacter::DisallowWeaponFiring(bool bDisallowed)
 		bDisallowWeaponFiring = bDisallowed;
 		if (bDisallowed && Weapon != NULL)
 		{
-			UUTWeaponStateFiring* FiringState = Cast<UUTWeaponStateFiring>(Weapon->GetCurrentState());
-			if (FiringState != NULL)
+			for (int32 i = 0; i < PendingFire.Num(); i++)
 			{
-				FiringState->WeaponBecameInactive();
+				if (PendingFire[i])
+				{
+					StopFire(i);
+				}
+			}
+			for (UUTWeaponStateFiring* FiringState : Weapon->FiringState)
+			{
+				if (FiringState != NULL)
+				{
+					FiringState->WeaponBecameInactive();
+				}
 			}
 		}
 	}
