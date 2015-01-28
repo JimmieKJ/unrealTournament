@@ -44,6 +44,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	bNetDelayedShot = false;
 
 	bFPFireFromCenter = true;
+	bFPIgnoreInstantHitFireOffset = true;
 	FireOffset = FVector(75.0f, 0.0f, 0.0f);
 	FriendlyMomentumScaling = 1.f;
 
@@ -634,6 +635,7 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 		// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
 		else if (MuzzleFlash.IsValidIndex(FireMode) && MuzzleFlash[FireMode] != NULL)
 		{
+			DrawDebugSphere(GetWorld(), TargetLoc, 16.0f, 16, FColor(255, 0, 0));
 			MuzzleFlash[FireMode]->SetVectorParameter(NAME_HitLocation, TargetLoc);
 			MuzzleFlash[FireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[FireMode]->ComponentToWorld.InverseTransformPositionNoScale(TargetLoc));
 		}
@@ -794,8 +796,13 @@ bool AUTWeapon::HasAnyAmmo()
 	return !bHadCost;
 }
 
-FVector AUTWeapon::GetFireStartLoc()
+FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 {
+	// default to current firemode
+	if (FireMode == 255)
+	{
+		FireMode = CurrentFireMode;
+	}
 	if (UTOwner == NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("%s::GetFireStartLoc(): No Owner (died while firing?)"), *GetName());
@@ -803,8 +810,9 @@ FVector AUTWeapon::GetFireStartLoc()
 	}
 	else
 	{
+		const bool bIsFirstPerson = Cast<APlayerController>(UTOwner->Controller) != NULL; // TODO: first person view check (need to make sure sync'ed with server)
 		FVector BaseLoc;
-		if (bFPFireFromCenter && Cast<APlayerController>(UTOwner->Controller) != NULL) // TODO: first person view check
+		if (bFPFireFromCenter && bIsFirstPerson)
 		{
 			BaseLoc = UTOwner->GetPawnViewLocation();
 		}
@@ -818,7 +826,8 @@ FVector AUTWeapon::GetFireStartLoc()
 			// adjust for delayed shot to position client shot from
 			BaseLoc = BaseLoc + UTOwner->GetDelayedShotPosition() - UTOwner->GetActorLocation();
 		}
-		if (FireOffset.IsZero())
+		// ignore offset for instant hit shots in first person
+		if (FireOffset.IsZero() || (bIsFirstPerson && bFPIgnoreInstantHitFireOffset && InstantHitInfo.IsValidIndex(FireMode) && InstantHitInfo[FireMode].DamageType != NULL))
 		{
 			return BaseLoc;
 		}

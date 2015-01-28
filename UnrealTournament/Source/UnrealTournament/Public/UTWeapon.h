@@ -207,6 +207,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	 */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	bool bFPFireFromCenter;
+	/** if set ignore FireOffset for instant hit fire modes when in first person mode */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	bool bFPIgnoreInstantHitFireOffset;
 	/** Firing offset from weapon for weapons fire. If bFPFireFromCenter is true and it's a player in first person mode, this is from the camera center */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	FVector FireOffset;
@@ -464,7 +467,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** return start point for weapons fire */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
-	virtual FVector GetFireStartLoc();
+	virtual FVector GetFireStartLoc(uint8 FireMode = 255);
 	/** return base fire direction for weapons fire (i.e. direction player's weapon is pointing) */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
 	virtual FRotator GetBaseFireRotation();
