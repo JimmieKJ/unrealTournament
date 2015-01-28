@@ -234,12 +234,6 @@ int32 AUTLobbyGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FStri
 		{
 			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
 
-			if (MatchInfo)
-			{
-				UE_LOG(UT,Log,TEXT("GetInstanceData: %s %i %i"), *MatchInfo->CurrentState.ToString(), MatchInfo->bDedicatedMatch,MatchInfo->PlayersInMatchInstance.Num());
-			}
-
-
 			if (MatchInfo && MatchInfo->CurrentState == ELobbyMatchState::InProgress && (MatchInfo->bDedicatedMatch || MatchInfo->PlayersInMatchInstance.Num() >0))
 			{
 				if (MatchInfo->PlayersInMatchInstance.Num() > 0)

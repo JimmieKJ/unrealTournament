@@ -648,20 +648,36 @@ TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 				+ SSplitter::Slot()
 				.Value(0.3)
 				[
-					SNew(SScrollBox)
-					+ SScrollBox::Slot()
-					.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+					SNew(SOverlay)
+					+SOverlay::Slot()
 					[
-						SAssignNew(LobbyInfoBox, SVerticalBox)
-
-						+SVerticalBox::Slot()
-						.Padding(5.0,5.0,5.0,5.0)
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.FillWidth(1.0)
+						.VAlign(VAlign_Fill)
 						[
-							SNew(STextBlock)
-							.Text(NSLOCTEXT("HUBBrowser","NoneSelected","No Server Selected!"))
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
-
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
 						]
+					]
+					+SOverlay::Slot()
+					[
+						SNew(SScrollBox)
+						+ SScrollBox::Slot()
+						.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+						[
+							SAssignNew(LobbyInfoBox, SVerticalBox)
+
+							+SVerticalBox::Slot()
+							.Padding(5.0,5.0,5.0,5.0)
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("HUBBrowser","NoneSelected","No Server Selected!"))
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+
+							]
+						]
+
 					]
 				]
 			];
@@ -691,12 +707,12 @@ void SUWServerBrowser::AddGameFilters()
 {
 	TArray<FString> GameTypes;
 	GameTypes.Add(TEXT("All"));
-	for (int i=0;i<PingList.Num();i++)
+	for (int i=0;i<InternetServers.Num();i++)
 	{
-		int32 idx = GameTypes.Find(PingList[i]->GameModePath);
+		int32 idx = GameTypes.Find(InternetServers[i]->GameModeName);
 		if (idx < 0)
 		{
-			GameTypes.Add(PingList[i]->GameModePath);
+			GameTypes.Add(InternetServers[i]->GameModeName);
 		}
 	}
 
@@ -1178,7 +1194,7 @@ void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bS
 	if (GameFilterText.IsValid())
 	{
 		FString GameFilter = GameFilterText->GetText().ToString();
-		if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameModePath == GameFilter)
+		if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameModeName == GameFilter)
 		{
 			if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 			{
@@ -1401,6 +1417,7 @@ void SUWServerBrowser::ShowServers(FString InitialGameType)
 	InternetServerBrowser->SetVisibility(EVisibility::All);
 	ServerListControlBox->SetVisibility(EVisibility::All);
 	FilterAllServers(InitialGameType);
+	AddGameFilters();
 	InternetServerList->RequestListRefresh();
 }
 
