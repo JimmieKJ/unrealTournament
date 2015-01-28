@@ -2296,12 +2296,12 @@ void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 
 FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
 {
-	// TODO: should return game class path in addition to game name so client can display in local language if available
-	return FText::Format(NSLOCTEXT("UTGameMode","GameRules","{0} - GoalScore: {1}  Time Limit: {2}"), DisplayName, FText::AsNumber(GameState->GoalScore), FText::AsNumber(uint32(GameState->TimeLimit * 60)));
+	return FText::Format(NSLOCTEXT("UTGameMode", "GameRules", "{0} - GoalScore: {1}  Time Limit: {2}"), DisplayName, FText::AsNumber(GameState->GoalScore), (GameState->TimeLimit > 0) ? FText::Format(NSLOCTEXT("UTGameMode", "TimeMinutes", "{0} min"), FText::AsNumber(uint32(GameState->TimeLimit / 60))) : NSLOCTEXT("General", "None", "None"));
 }
 
 void AUTGameMode::BuildServerResponseRules(FString& OutRules)
 {
+	// TODO: need to rework this so it can be displayed in the clien't local language
 	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);
 	OutRules += FString::Printf(TEXT("Time Limit\t%i\t"), int32(TimeLimit/60.0));
 	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
