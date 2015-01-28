@@ -15,6 +15,26 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 	{
 		return;
 	}
+
+	if (!FontRenderInfo.bClipText)
+	{
+		// word wrap
+		FTextSizingParameters Parms(Font, Scale.X, Scale.Y);
+		Parms.DrawXL = (WrapXL > 0.0f) ? WrapXL : (InCanvas->GetRenderTarget()->GetSizeXY().X - Position.X);
+		Parms.DrawYL = InCanvas->GetRenderTarget()->GetSizeXY().Y;
+		TArray<FWrappedStringElement> Lines;
+		UCanvas::WrapString(Parms, 0.0f, *Text.ToString(), Lines);
+		FString NewText;
+		for (int32 i = 0; i < Lines.Num(); i++)
+		{
+			if (i > 0)
+			{
+				NewText += TEXT("\n");
+			}
+			NewText += Lines[i].Value;
+		}
+		Text = FText::FromString(NewText);
+	}
 	
 	bool bHasShadow = ShadowOffset.Size() != 0.0f;
 	if (FontRenderInfo.bEnableShadow && !bHasShadow)

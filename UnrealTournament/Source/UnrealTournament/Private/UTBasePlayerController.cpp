@@ -91,11 +91,15 @@ void AUTBasePlayerController::TeamTalk()
 
 void AUTBasePlayerController::Say(FString Message)
 {
+	// clamp message length; aside from troll prevention this is needed for networking reasons
+	Message = Message.Left(128);
 	ServerSay(Message, false);
 }
 
 void AUTBasePlayerController::TeamSay(FString Message)
 {
+	// clamp message length; aside from troll prevention this is needed for networking reasons
+	Message = Message.Left(128);
 	ServerSay(Message, true);
 }
 

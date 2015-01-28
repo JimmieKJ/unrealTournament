@@ -20,12 +20,14 @@ const float WIDGET_DEFAULT_Y_RESOLUTION = 1080;	// We design everything against 
 struct FUTCanvasTextItem : public FCanvasTextItem
 {
 	FUTCanvasTextItem(const FVector2D& InPosition, const FText& InText, class UFont* InFont, const FLinearColor& InColor)
-	: FCanvasTextItem(InPosition, InText, InFont, InColor)
+	: FCanvasTextItem(InPosition, InText, InFont, InColor), CharIncrement(0.0f), WrapXL(0.0f)
 	{}
 
 	virtual void Draw(class FCanvas* InCanvas) override;
 
 	float CharIncrement;
+	// word wrap size, if render info has !bClipText
+	float WrapXL;
 
 protected:
 	// UT version appropriately handles distance field fonts by slightly overlapping triangles to give the shadows more space
