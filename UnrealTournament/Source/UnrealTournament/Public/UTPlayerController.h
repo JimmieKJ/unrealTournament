@@ -143,7 +143,7 @@ public:
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
 	/** Timer function to bring up scoreboard after end of game. */
-	virtual void AUTPlayerController::ShowEndGameScoreboard();
+	virtual void ShowEndGameScoreboard();
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
