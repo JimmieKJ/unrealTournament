@@ -14,10 +14,7 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	StyleTag = FName(TEXT("Victim"));
 	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name}"); //  with {WeaponName} -- Removed for now
 
-	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideNiceJob","Nice job Butterfingers!"));
-	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideOwnTop","Popped your own top did ya?"));
-	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideKillOther","How about you kill the other guy!"));
-	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","SuicideLosePoints","You know you lose points for that right?"));
+	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","Suicide","You killed yourself."));
 }
 
 
