@@ -572,23 +572,26 @@ void AUTGameMode::DefaultTimer()
 			UpdateLobbyMatchStats();
 		}
 
-		// Look to see if we should time out this instance servers
-		if (!HasMatchStarted())
+		if (!bDedicatedInstance)
 		{
-			if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime)
+			// Look to see if we should time out this instance servers
+			if (!HasMatchStarted())
 			{
-				// Catch all...
-				SendEveryoneBackToLobby();
-				LobbyBeacon->Empty();			
+				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime)
+				{
+					// Catch all...
+					SendEveryoneBackToLobby();
+					LobbyBeacon->Empty();			
+				}
 			}
-		}
-		else 
-		{
-			if (!bDedicatedInstance && NumPlayers <= 0)
+			else 
 			{
-				// Catch all...
-				SendEveryoneBackToLobby();
-				LobbyBeacon->Empty();
+				if (NumPlayers <= 0)
+				{
+					// Catch all...
+					SendEveryoneBackToLobby();
+					LobbyBeacon->Empty();
+				}
 			}
 		}
 	}
