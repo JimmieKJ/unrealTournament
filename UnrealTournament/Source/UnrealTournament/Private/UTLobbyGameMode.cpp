@@ -235,7 +235,15 @@ int32 AUTLobbyGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FStri
 			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
 			if (MatchInfo && MatchInfo->CurrentState == ELobbyMatchState::InProgress && (MatchInfo->bDedicatedMatch || MatchInfo->PlayersInMatchInstance.Num() >0))
 			{
-				HostNames.Add( FString::Printf(TEXT("%s=%s"), *MatchInfo->PlayersInMatchInstance[0].PlayerName, *MatchInfo->PlayersInMatchInstance[0].PlayerID.ToString()));
+				if (MatchInfo->PlayersInMatchInstance.Num() > 0)
+				{
+					HostNames.Add( FString::Printf(TEXT("%s=%s"), *MatchInfo->PlayersInMatchInstance[0].PlayerName, *MatchInfo->PlayersInMatchInstance[0].PlayerID.ToString()));
+				}
+				else
+				{
+					HostNames.Add(TEXT("None"));
+				}
+
 				Descriptions.Add(MatchInfo->MatchBadge);
 			}
 		}
