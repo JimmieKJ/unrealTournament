@@ -74,6 +74,7 @@ class UUTSpreeMessage : public UUTLocalMessage
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 4.0f;
+
 	}
 
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
@@ -91,7 +92,7 @@ class UUTSpreeMessage : public UUTLocalMessage
 
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
 	{
-		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 1.f, 0.f, 1.f);
+		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 0.5f, 0.f, 1.f);
 	}
 
 	virtual bool UseLargeFont(int32 MessageIndex) const

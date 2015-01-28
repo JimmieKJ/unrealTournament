@@ -16,11 +16,18 @@
 #include "UTPlayerInput.h"
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
+#include "UTSpreeMessage.h"
 
 
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+void UUTCheatManager::Ann(int32 Switch)
+{
+	// play an announcement for testing
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 }
 
 void UUTCheatManager::AllAmmo()

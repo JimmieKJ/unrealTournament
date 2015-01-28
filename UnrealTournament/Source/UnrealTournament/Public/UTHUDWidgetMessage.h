@@ -51,7 +51,6 @@ struct FLocalizedMessageData
 	UFont* DisplayFont;
 
 	// These members are setup at first render.
-
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	float TextWidth;
 	
@@ -62,7 +61,6 @@ struct FLocalizedMessageData
 	bool bHasBeenRendered;
 
 	// Count is tracked differently.  It's incremented when the same message arrives
-
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	int32 MessageCount;
 
@@ -123,9 +121,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 	FLinearColor ShadowColor;
 	
-	// The shadow direction for this message.
+	UPROPERTY()
+		FVector2D ShadowDirection;
+
+	// The shadow direction with large fonts.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
-	FVector2D ShadowDirection;
+	FVector2D LargeShadowDirection;
+
+	// The shadow direction with small fonts.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+		FVector2D SmallShadowDirection;
 
 	// How long should it take for a message to fade out.  Set to 0 and the message will just wink out of
 	// existence.,  

@@ -14,6 +14,7 @@ UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.5f, 0.0f);				
 	FadeTime = 1.0;
+
 }
 
 void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)

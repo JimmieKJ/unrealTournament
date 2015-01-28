@@ -12,8 +12,6 @@ UUTHUDWidgetMessage_GameMessages::UUTHUDWidgetMessage_GameMessages(const class F
 	ScreenPosition = FVector2D(0.5f, 0.7f);
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.0f, 0.0f);				
-	bShadowedText=true;
-	ShadowDirection=FVector2D(0,1);
 	FadeTime = 0.5f;
 }
 

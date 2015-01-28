@@ -18,6 +18,10 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 
 	static ConstructorHelpers::FObjectFinder<UFont> SmallFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Tiny.fntScoreboard_Tiny'"));
 	SmallMessageFont = SmallFont.Object;
+
+	bShadowedText = false;
+	bOutlinedText = true;
+	OutlineColor = FLinearColor::Black;
 }
 
 // @TODO FIXMESTEVE temp - need smaller font
