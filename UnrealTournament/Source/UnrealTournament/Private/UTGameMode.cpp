@@ -149,6 +149,15 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	InOpt = ParseOption(Options, TEXT("DedI"));
 	bDedicatedInstance = EvalBoolOptions(InOpt, true);
 
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+
 	// alias for testing convenience
 	if (HasOption(Options, TEXT("Bots")))
 	{
@@ -1071,6 +1080,8 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
  **/
 void AUTGameMode::TravelToNextMap()
 {
+
+	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
 	if (!bDedicatedInstance && IsGameInstanceServer())
 	{
