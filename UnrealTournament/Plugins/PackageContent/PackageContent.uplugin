@@ -16,7 +16,7 @@
 		{
 			"Name" : "PackageContent",
 			"Type" : "Editor",
-			"WhitelistPlatforms" : [ "Win64", "Linux" ]
+			"WhitelistPlatforms" : [ "Win64", "Mac", "Linux" ]
 		}
 	]
 }
