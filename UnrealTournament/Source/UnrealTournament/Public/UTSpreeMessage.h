@@ -90,12 +90,12 @@ class UUTSpreeMessage : public UUTLocalMessage
 		}
 	}
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
+	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override
 	{
 		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 0.5f, 0.f, 1.f);
 	}
 
-	virtual bool UseLargeFont(int32 MessageIndex) const
+	virtual bool UseLargeFont(int32 MessageIndex) const override
 	{
 		return (MessageIndex >= 0);
 	}

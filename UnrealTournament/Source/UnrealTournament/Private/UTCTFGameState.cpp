@@ -202,16 +202,16 @@ FText AUTCTFGameState::GetGameStatusText()
 	{
 		if (AdvantageTeamIndex == 0)
 		{
-			return NSLOCTEXT("UTCTFGameState", "RedAdvantage", "!! Red Advantage !!");
+			return NSLOCTEXT("UTCTFGameState", "RedAdvantage", "Red Advantage");
 		}
 		else
 		{
-			return NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "!! Blue Advantage !!");
+			return NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "Blue Advantage");
 		}
 	}
 	else if (IsMatchAtHalftime()) 
 	{
-		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "PreOvertime", "!! Get Ready !!") : NSLOCTEXT("UTCTFGameState", "HalfTime", "!! HalfTime !!");
+		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "PreOvertime", "Get Ready!") : NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");
 	}
 	else if (IsMatchInProgress())
 	{
@@ -220,7 +220,7 @@ FText AUTCTFGameState::GetGameStatusText()
 			return NSLOCTEXT("UTFGameState", "Overtime", "!! Overtime !!");
 		}
 
-		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "SecondHalf", "!! Second Half !!") : NSLOCTEXT("UTCTFGameState", "FirstHalf", "!! First Half !!");
+		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half") : NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");
 	}
 
 	return Super::GetGameStatusText();

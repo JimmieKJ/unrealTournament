@@ -10,19 +10,24 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 {
 	MessageArea = FName(TEXT("GameMessages"));
 
-	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","BEGIN...");
-	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","!!!! OVERTIME !!!!");
-	SuddenDeathMessage = NSLOCTEXT("UTGameMessage", "SuddenDeathMessage", "!!!! SUDDEN DEATH !!!!");
+	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","START!");
+	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","OVERTIME");
+	SuddenDeathMessage = NSLOCTEXT("UTGameMessage", "SuddenDeathMessage", "SUDDEN DEATH");
 	CantBeSpectator = NSLOCTEXT("UTGameMessage", "CantBeSpectator", "You can not become a spectator!");
 	CantBePlayer = NSLOCTEXT("UTGameMessage","CantBePlayer","Sorry, you can not become a player!");
 	SwitchLevelMessage = NSLOCTEXT("UTGameMessage","SwitchLevelMessage","Loading....");
 	NoNameChange = NSLOCTEXT("UTGameMessage","NoNameChange","You can not change your name.");
 	BecameSpectator = NSLOCTEXT("UTGameMessage","BecameSpectator","You are now a spectator.");
-	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","!! You didn't make the cut !!");
+	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","You didn't make the cut");
 	YouAreOnBlue = NSLOCTEXT("UTGameMessage", "YouAreOnBlue", "You are on BLUE.");
 	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on RED.");
 
 	bIsStatusAnnouncement = true;
+}
+
+bool UUTGameMessage::UseLargeFont(int32 MessageIndex) const
+{
+	return (MessageIndex == 1) || (MessageIndex == 2) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10);
 }
 
 FLinearColor UUTGameMessage::GetMessageColor(int32 MessageIndex) const
