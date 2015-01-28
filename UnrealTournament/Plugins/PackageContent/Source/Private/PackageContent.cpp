@@ -68,7 +68,13 @@ void FPackageContent::OpenPackageLevelWindow()
 	UE_LOG(LogPackageContent, Log, TEXT("Starting to package this level!"));
 	
 	FString MapName = GWorld->GetMapName();
+#if PLATFORM_WINDOWS
 	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Win64"), *MapName, *MapName);
+#elif PLATFORM_LINUX
+	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Linux"), *MapName, *MapName);
+#else
+	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Mac"), *MapName, *MapName);
+#endif
 
 	CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
@@ -132,10 +138,22 @@ public:
 
 		if (DesktopPlatform != nullptr)
 		{
+#if PLATFORM_WINDOWS
 			FString PakPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() / TEXT("StagedBuilds") / DLCName / TEXT("WindowsNoEditor") / TEXT("UnrealTournament") / TEXT("Content") / TEXT("Paks") / DLCName + TEXT("-WindowsNoEditor.pak"));
 			
 			// Copy to game directory for now, launcher may do this for us later
 			FString DestinationPath = FPaths::ConvertRelativePathToFull(FString(FPlatformProcess::UserDir()) / FApp::GetGameName() / TEXT("Saved") / TEXT("Paks") / TEXT("MyContent") / DLCName + "-WindowsNoEditor.pak");
+#elif PLATFORM_LINUX
+			FString PakPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() / TEXT("StagedBuilds") / DLCName / TEXT("LinuxNoEditor") / TEXT("UnrealTournament") / TEXT("Content") / TEXT("Paks") / DLCName + TEXT("-LinuxNoEditor.pak"));
+
+			// Copy to game directory for now, launcher may do this for us later
+			FString DestinationPath = FPaths::ConvertRelativePathToFull(FString(FPlatformProcess::UserDir()) / FApp::GetGameName() / TEXT("Saved") / TEXT("Paks") / TEXT("MyContent") / DLCName + "-LinuxNoEditor.pak");
+#else
+			FString PakPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() / TEXT("StagedBuilds") / DLCName / TEXT("MacNoEditor") / TEXT("UnrealTournament") / TEXT("Content") / TEXT("Paks") / DLCName + TEXT("-MacNoEditor.pak"));
+
+			// Copy to game directory for now, launcher may do this for us later
+			FString DestinationPath = FPaths::ConvertRelativePathToFull(FString(FPlatformProcess::UserDir()) / FApp::GetGameName() / TEXT("Saved") / TEXT("Paks") / TEXT("MyContent") / DLCName + "-MacNoEditor.pak");
+#endif
 			if (IFileManager::Get().Copy(*DestinationPath, *PakPath, true) == COPY_OK)
 			{
 
@@ -319,7 +337,13 @@ void FPackageContent::PackageWeapon(UClass* WeaponClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString WeaponName = UBGC->ClassGeneratedBy->GetName();
+#if PLATFORM_WINDOWS
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *WeaponName);
+#elif PLATFORM_LINUX
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *WeaponName);
+#else
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *WeaponName);
+#endif
 
 		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageLevelTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
@@ -331,7 +355,13 @@ void FPackageContent::PackageHat(UClass* HatClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString HatName = UBGC->ClassGeneratedBy->GetName();
+#if PLATFORM_WINDOWS
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *HatName);
+#elif PLATFORM_LINUX
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *HatName);
+#else
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *HatName);
+#endif
 
 		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageLevelTaskName", "Packaging Hat"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
