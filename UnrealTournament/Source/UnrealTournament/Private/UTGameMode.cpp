@@ -1160,6 +1160,10 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 
 void AUTGameMode::PlayEndOfMatchMessage()
 {
+	if (!UTGameState)
+	{
+		return;
+	}
 	bool bIsFlawlessVictory = (UTGameState->WinnerPlayerState->Deaths == 0);
 /*	if (bIsFlawlessVictory)
 	{
@@ -1176,14 +1180,10 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	uint32 FlawlessOffset = bIsFlawlessVictory ? 2 : 0;
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		APlayerController* Controller = *Iterator;
-		if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC && (PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-			if (PC && (PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
-			{
-				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, FlawlessOffset + ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
-			}
+			PC->ClientReceiveLocalizedMessage(VictoryMessageClass, FlawlessOffset + ((UTGameState->WinnerPlayerState == PC->PlayerState) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, NULL);
 		}
 	}
 }

@@ -192,8 +192,10 @@ TSubclassOf<AUTProjectile> AUTWeap_RocketLauncher::GetRocketProjectile()
 
 void AUTWeap_RocketLauncher::FireShot()
 {
-	UTOwner->DeactivateSpawnProtection();
-
+	if (UTOwner)
+	{
+		UTOwner->DeactivateSpawnProtection();
+	}
 	//Alternate fire already consumed ammo
 	if (CurrentFireMode != 1)
 	{
