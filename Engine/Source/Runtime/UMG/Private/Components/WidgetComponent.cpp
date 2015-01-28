@@ -806,6 +806,26 @@ TSharedPtr<SWidget> UWidgetComponent::GetSlateWidget() const
 	return SlateWidget;
 }
 
+FVector2D UWidgetComponent::GetDrawSize() const
+{
+	return DrawSize;
+}
+
+void UWidgetComponent::SetDrawSize(FVector2D Size)
+{
+	DrawSize = FIntPoint((int32)Size.X, (int32)Size.Y);
+}
+
+float UWidgetComponent::GetMaxInteractionDistance() const
+{
+	return MaxInteractionDistance;
+}
+
+void UWidgetComponent::SetMaxInteractionDistance(float Distance)
+{
+	MaxInteractionDistance = Distance;
+}
+
 void UWidgetComponent::PostLoad()
 {
 	Super::PostLoad();

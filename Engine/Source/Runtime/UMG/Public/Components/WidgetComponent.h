@@ -68,10 +68,10 @@ public:
 	UUserWidget* GetUserWidgetObject() const;
 
 	/** @return List of widgets with their geometry and the cursor position transformed into this Widget component's space. */
-	TArray<FWidgetAndPointer> GetHitWidgetPath( const FHitResult& HitResult, bool bIgnoreEnabledStatus );
+	TArray<FWidgetAndPointer> GetHitWidgetPath(const FHitResult& HitResult, bool bIgnoreEnabledStatus);
 
 	/** @return The render target to which the user widget is rendered */
-	UTextureRenderTarget2D* GetRenderTarget() const { return RenderTarget; };
+	UTextureRenderTarget2D* GetRenderTarget() const { return RenderTarget; }
 
 	/** @return The dynamic material instance used to render the user widget */
 	UMaterialInstanceDynamic* GetMaterialInstance() const { return MaterialInstance; }
@@ -80,17 +80,27 @@ public:
 	TSharedPtr<SWidget> GetSlateWidget() const;
 
 	/** @return The draw size of the quad in the world */
-	const FIntPoint& GetDrawSize() const { return DrawSize; }
+	UFUNCTION(BlueprintCallable, Category = UI)
+	FVector2D GetDrawSize() const;
+
+	/** Sets the draw size of the quad in the world */
+	UFUNCTION(BlueprintCallable, Category = UI)
+	void SetDrawSize(FVector2D Size);
 
 	/** @return The max distance from which a player can interact with this widget */
-	float GetMaxInteractionDistance() const { return MaxInteractionDistance; }
+	UFUNCTION(BlueprintCallable, Category = UI)
+	float GetMaxInteractionDistance() const;
+	
+	/** Sets the max distance from which a player can interact with this widget */
+	UFUNCTION(BlueprintCallable, Category = UI)
+	void SetMaxInteractionDistance(float Distance);
 
 	/** @return True if the component is opaque */
 	bool IsOpaque() const { return bIsOpaque; }
 
 	/** @return The pivot point where the UI is rendered about the origin. */
 	FVector2D GetPivot() const { return Pivot; }
-	
+
 private:
 	/** The class of User Widget to create and display an instance of */
 	UPROPERTY(EditAnywhere, Category=UI)
