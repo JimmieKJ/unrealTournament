@@ -649,15 +649,19 @@ TRefCountPtr<IPooledRenderTarget>& FSceneRenderTargets::GetLightAttenuation()
 
 void FSceneRenderTargets::AdjustGBufferRefCount(int Delta)
 { 
-	GBufferRefCount += Delta; 
 	
-	if(Delta > 0 && GBufferRefCount == 1)
+	if(Delta > 0 && GBufferRefCount == 0)
 	{
 		AllocGBufferTargets();
 	}
-	else if(GBufferRefCount == 0)
+	else
 	{
-		ReleaseGBufferTargets();
+		GBufferRefCount += Delta;
+
+		if (GBufferRefCount == 0)
+		{
+			ReleaseGBufferTargets();
+		}
 	}
 }
 
