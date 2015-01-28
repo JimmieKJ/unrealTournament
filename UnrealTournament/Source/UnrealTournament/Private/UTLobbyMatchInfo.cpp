@@ -362,7 +362,6 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
-
 	if (Players.Num() < MinPlayers)
 	{
 		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
@@ -375,7 +374,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 		return;
 	}
 
-	if (!LobbyGameState->CanLaunch(this))
+	if (!CheckLobbyGameState() || !LobbyGameState->CanLaunch(this))
 	{
 		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 		return;
