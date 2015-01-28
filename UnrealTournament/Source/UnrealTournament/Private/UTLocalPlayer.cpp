@@ -870,6 +870,12 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 	if (OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
 	{
+		if (FileContents.Num() <= 0)
+		{
+			UE_LOG(LogGameStats, Warning, TEXT("Stats json content is empty"));
+			return;
+		}
+
 		if (FileContents.GetData()[FileContents.Num() - 1] != 0)
 		{
 			UE_LOG(LogGameStats, Warning, TEXT("Failed to get proper stats json"));
