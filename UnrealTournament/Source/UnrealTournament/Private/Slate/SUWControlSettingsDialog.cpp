@@ -281,7 +281,7 @@ void SUWControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Link Gun", "Select Link Gun")))
 		->AddMapping("SwitchWeapon 5")
 		->AddDefaults(EKeys::Five)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Minigun", "Select Minigun")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Stinger", "Select Stinger")))
 		->AddMapping("SwitchWeapon 6")
 		->AddDefaults(EKeys::Six)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Flak Cannon", "Select Flak Cannon")))
