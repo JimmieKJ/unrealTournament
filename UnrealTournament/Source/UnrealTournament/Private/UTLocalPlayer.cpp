@@ -668,6 +668,11 @@ FString UUTLocalPlayer::GetProfileFilename()
  */
 void UUTLocalPlayer::LoadProfileSettings()
 {
+	if (GetWorld()->IsPlayInEditor())
+	{
+		return;
+	}
+
 	if (IsLoggedIn())
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
