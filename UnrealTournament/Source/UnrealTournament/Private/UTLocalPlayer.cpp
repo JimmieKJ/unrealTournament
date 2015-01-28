@@ -781,7 +781,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	}
 	else if (FileName == GetStatsFilename())
 	{
-		UpdateBaseELOFromCloudData();
+		if (bWasSuccessful)
+		{
+			UpdateBaseELOFromCloudData();
+		}
 	}
 }
 
