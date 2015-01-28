@@ -1121,6 +1121,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 	InternetServerList->RequestListRefresh();
 	HUBServerList->RequestListRefresh();
+
 }
 
 void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer)
@@ -1287,10 +1288,27 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		}
 	}
 
-	if (RandomHUB.IsValid())
+	if (!RandomHUB.IsValid() && InternetServers.Num() > 0)
 	{
-		RandomHUB->NumMatches = InternetServers.Num();
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),TEXT(""),0,0x00);
+		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
+		RandomHUB->bFakeHUB = true;
+
+		HUBServers.Add( RandomHUB );
+		HUBServerList->RequestListRefresh();
+		FilterAllHUBs();
 	}
+
+	if (RandomHUB.IsValid() && RandomHUB->NumMatches != InternetServers.Num())
+	{
+		HUBServers.Remove(RandomHUB);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),TEXT(""),0,0x00);
+		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
+		RandomHUB->bFakeHUB = true;
+		HUBServers.Add(RandomHUB);
+		HUBServerList->RequestListRefresh();
+		FilterAllHUBs();
+	}		
 
 }
 
@@ -1465,8 +1483,8 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									.VAlign(VAlign_Center)
 									[
 										SNew(STextBlock)
-									.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumMatchesFormat","0 Matches"), FText::AsNumber(InItem->NumMatches)))
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+										.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumMatchesFormat","{0} Matches"), FText::AsNumber(InItem->NumMatches)))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
 									]
 
 									+SHorizontalBox::Slot()
@@ -1642,6 +1660,17 @@ void SUWServerBrowser::AddHUBInfo(TSharedPtr<FServerData> HUB)
 
 	LobbyInfoBox->AddSlot()
 	.AutoHeight()
+	.HAlign(HAlign_Center)
+	.Padding(5.0,10.0,5.0,10.0)
+	[
+		SNew(STextBlock)	
+		.Text(NSLOCTEXT("ServerBrowser","InstaceHeader","-- Available Matches --"))
+		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BoldText")
+	];
+
+	LobbyInfoBox->AddSlot()
+	.AutoHeight()
+	.HAlign(HAlign_Center)
 	.Padding(5.0,5.0,5.0,5.0)
 	[
 		AddHUBInstances(HUB)
@@ -1766,14 +1795,6 @@ void SUWServerBrowser::EmptyHUBServers()
 		HUBServers.Add( NewServer );
 	}
 */
-
-	// Add the "Random" Server HUBS
-
-	RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,0,TEXT(""),0,0x00);
-	RandomHUB->MOTD = TEXT("Browse a random collection of Deathmatch servers on the internet.");
-	RandomHUB->bFakeHUB = true;
-
-	HUBServers.Add( RandomHUB );
 
 	FilterAllHUBs();
 }
