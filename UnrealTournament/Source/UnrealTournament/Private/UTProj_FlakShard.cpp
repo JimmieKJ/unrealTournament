@@ -48,6 +48,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	InitialLifeSpan = 2.f;
 	BounceFinalLifeSpanIncrement = 0.5f;
 	BouncesRemaining = 2;
+	BounceDamping = 0.5f;
 	FullGravityDelay = 0.5f;
 
 	PrimaryActorTick.bCanEverTick = true;
@@ -95,7 +96,7 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 
 	// manually handle bounce velocity to match UT3 for now
-	ProjectileMovement->Velocity = 0.5f * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
+	ProjectileMovement->Velocity = BounceDamping * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
 
 	// Set gravity on bounce
 	ProjectileMovement->ProjectileGravityScale = 1.f;
