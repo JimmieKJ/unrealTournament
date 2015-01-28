@@ -27,7 +27,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 
 bool UUTGameMessage::UseLargeFont(int32 MessageIndex) const
 {
-	return (MessageIndex == 1) || (MessageIndex == 2) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10);
+	return (MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10);
 }
 
 FLinearColor UUTGameMessage::GetMessageColor(int32 MessageIndex) const
