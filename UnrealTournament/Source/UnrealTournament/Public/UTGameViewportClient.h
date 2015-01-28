@@ -14,6 +14,8 @@ class UUTGameViewportClient : public UGameViewportClient
 	virtual void PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString) override;
 	virtual void PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, enum ENetworkFailure::Type FailureType, const FString& ErrorString) override;
 
+	virtual void PostRender(UCanvas* Canvas) override;
+
 protected:
 
 	TSharedPtr<class SUWDialog> ReconnectDialog;

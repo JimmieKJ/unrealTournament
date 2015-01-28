@@ -6,7 +6,7 @@
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWRedirectDialog.h"
-
+#include "Engine/GameInstance.h"
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -121,6 +121,42 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","NetworkErrorDialogTitle","Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 	}
 #endif
+}
+
+void UUTGameViewportClient::PostRender(UCanvas* Canvas)
+{
+#if WITH_EDITORONLY_DATA
+	if (!GIsEditor)
+#endif
+	{
+		// work around bug where we can end up with no PlayerController during initial connection (or when losing connection) by rendering an overlay to explain to the user what's going on
+		TArray<ULocalPlayer*> GamePlayers;
+		if (GameInstance != NULL)
+		{
+			GamePlayers = GameInstance->GetLocalPlayers();
+			// remove players that aren't currently set up for proper rendering (no PlayerController or currently using temp proxy while waiting for server)
+			for (int32 i = GamePlayers.Num() - 1; i >= 0; i--)
+			{
+				if (GamePlayers[i]->PlayerController == NULL || GamePlayers[i]->PlayerController->Player == NULL)
+				{
+					GamePlayers.RemoveAt(i);
+				}
+			}
+		}
+		if (GamePlayers.Num() > 0)
+		{
+			Super::PostRender(Canvas);
+		}
+		else
+		{
+			UFont* Font = GetDefault<AUTHUD>()->MediumFont;
+			FText Message = NSLOCTEXT("UTHUD", "WaitingForServer", "Waiting for server to respond...");
+			float XL, YL;
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			Canvas->TextSize(Font, Message.ToString(), XL, YL);
+			Canvas->DrawText(Font, Message, (Canvas->ClipX - XL) * 0.5f, (Canvas->ClipY - YL) * 0.5f);
+		}
+	}
 }
 
 void UUTGameViewportClient::LoginFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
