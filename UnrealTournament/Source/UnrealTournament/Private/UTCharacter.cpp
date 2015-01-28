@@ -882,7 +882,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 			UTDmg.GetDefaultObject()->PlayHitEffects(this, bPlayedArmorEffect);
 		}
 		// check blood effects
-		if (LastTakeHitInfo.Damage > 0 && (UTDmg == NULL || UTDmg.GetDefaultObject()->bCausesBlood)) // TODO: maybe not if hit armor?
+		if (LastTakeHitInfo.Damage > 0 && (UTDmg == NULL || UTDmg.GetDefaultObject()->bCausesBlood)) 
 		{
 			bool bRecentlyRendered = GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f;
 			// TODO: gore setting check
@@ -902,7 +902,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 					PSC->AttachTo(GetMesh());
 					PSC->SetAbsolute(true, true, true);
 					PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
-					PSC->SetRelativeScale3D(FVector(1.f));
+					PSC->SetRelativeScale3D(bPlayedArmorEffect ? FVector(0.7f) : FVector(1.f));
 					PSC->ActivateSystem(true);
 				}
 			}
