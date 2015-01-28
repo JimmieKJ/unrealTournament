@@ -490,11 +490,11 @@ FText AUTGameState::GetGameStatusText()
 	{
 		if (HasMatchEnded())
 		{
-			return NSLOCTEXT("UTGameState", "PostGame", "!! Game Over !!");
+			return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
 		}
 		else
 		{
-			return NSLOCTEXT("UTGameState", "PreGame", "!! Pre-Game !!");
+			return NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
 		}
 	}
 
