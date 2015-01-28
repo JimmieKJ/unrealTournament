@@ -486,6 +486,15 @@ TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString Game
 
 bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
 {
-	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
-	return (GM && GameInstances.Num() < GM->MaxInstances);
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+		return (GM && GameInstances.Num() < GM->MaxInstances);
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("WOW - GetWorld() returned NULL.  That shouldn't be possible. [%s]"), *GetNameSafe(this));	
+	}
+	return false;
 }

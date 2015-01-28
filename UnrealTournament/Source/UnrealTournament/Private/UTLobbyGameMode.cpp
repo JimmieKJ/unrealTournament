@@ -260,12 +260,16 @@ int32 AUTLobbyGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FStri
 
 int32 AUTLobbyGameMode::GetNumPlayers()
 {
+	UE_LOG(UT,Log,TEXT("Session GetNumPlayers: %i in the lobby + %i instances"), NumPlayers,UTLobbyGameState->AvailableMatches.Num());
+
 	int32 TotalPlayers = NumPlayers;
 	for (int32 i=0;i<UTLobbyGameState->AvailableMatches.Num();i++)
 	{
 		TotalPlayers += UTLobbyGameState->AvailableMatches[i]->PlayersInMatchInstance.Num();
+		UE_LOG(UT,Log,TEXT("  +%i"), UTLobbyGameState->AvailableMatches[i]->PlayersInMatchInstance.Num());
 	}
 	
+	UE_LOG(UT,Log,TEXT("Session Total Players: %i"), TotalPlayers);
 	return TotalPlayers;
 }
 
