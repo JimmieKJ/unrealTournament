@@ -23,6 +23,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	bAnnounceTeam = false;
 	bHighScorerPerTeamBasis = false;
 	bHasRespawnChoices = true;
+	bWeaponStayActive = false;
 }
 
 void AUTDuelGame::InitGameState()

@@ -63,6 +63,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	EndScoreboardDelay = 2.0f;
 	GameDifficulty = 3.0f;
 	BotFillCount = 0;
+	bWeaponStayActive = true;
 	VictoryMessageClass = UUTVictoryMessage::StaticClass();
 	DeathMessageClass = UUTDeathMessage::StaticClass();
 	GameMessageClass = UUTGameMessage::StaticClass();
