@@ -46,7 +46,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
 	bTapCrouchToSlide = true;
-	CrouchRollTapInterval = 0.25f;
+	CrouchSlideTapInterval = 0.25f;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -220,6 +220,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
 	InputComponent->BindAction("ToggleCrouch", IE_Pressed, this, &AUTPlayerController::ToggleCrouch);
+	InputComponent->BindAction("Slide", IE_Pressed, this, &AUTPlayerController::Slide);
 
 	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
@@ -782,13 +783,22 @@ void AUTPlayerController::Jump()
 	}
 }
 
+void AUTPlayerController::Slide()
+{
+	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
+	if (MyCharMovement)
+	{
+		MyCharMovement->bPressedSlide = true;
+	}
+}
+
 void AUTPlayerController::Crouch()
 {
 	if (GetCharacter() != NULL)
 	{
 		GetCharacter()->Crouch(false);
 	}
-	RollTapThresholdTime = GetWorld()->GetTimeSeconds() + CrouchRollTapInterval;
+	SlideTapThresholdTime = GetWorld()->GetTimeSeconds() + CrouchSlideTapInterval;
 }
 
 void AUTPlayerController::UnCrouch()
@@ -796,15 +806,10 @@ void AUTPlayerController::UnCrouch()
 	if (GetCharacter() != NULL)
 	{
 		GetCharacter()->UnCrouch(false);
-		if (bTapCrouchToSlide && (GetWorld()->GetTimeSeconds() < RollTapThresholdTime) && (UTCharacter != NULL))
+		if (bTapCrouchToSlide && (GetWorld()->GetTimeSeconds() < SlideTapThresholdTime) && (UTCharacter != NULL))
 		{
-			// tap roll
-			RollTapThresholdTime = 0.f;
-			UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-			if (MyCharMovement)
-			{
-				MyCharMovement->bPressedSlide = true;
-			}
+			SlideTapThresholdTime = 0.f;
+			Slide();
 		}
 	}
 }

@@ -491,13 +491,16 @@ protected:
 	/** called to set the jump flag from input */
 	virtual void Jump();
 
-	/** Max held time for roll from crouch tap */
+	/** Max held time for slide from crouch tap */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
-	float CrouchRollTapInterval;
+	float CrouchSlideTapInterval;
 
-	/** max world time to release crouch tap to roll, set from CrouchRollTapInterval */
+	/** max world time to release crouch tap to slide, set from CrouchSlideTapInterval */
 	UPROPERTY(BlueprintReadOnly, Category = Dodging)
-	float RollTapThresholdTime;
+	float SlideTapThresholdTime;
+
+	/** Call to set movement slide flag from input. */
+	virtual void Slide();
 
 	virtual void Crouch();
 	virtual void UnCrouch();
