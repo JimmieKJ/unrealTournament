@@ -940,7 +940,7 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 	if (!bLanded && !TrackedPawn)
 	{
 		//Set the projectile speed here so the client can mirror the strength speed
-		ProjectileMovement->InitialSpeed = ProjectileMovement->InitialSpeed * (0.4f + GlobStrength) / (1.35f * GlobStrength);
+		ProjectileMovement->InitialSpeed = GetClass()->GetDefaultObject<AUTProjectile>()->ProjectileMovement->InitialSpeed * (0.4f + GlobStrength) / (1.35f * GlobStrength);
 		ProjectileMovement->MaxSpeed = ProjectileMovement->InitialSpeed;
 	}
 	// don't reduce remaining time for strength lost (i.e. SplashGloblings())
