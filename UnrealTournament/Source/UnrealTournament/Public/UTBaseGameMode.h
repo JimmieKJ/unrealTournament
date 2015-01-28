@@ -62,7 +62,46 @@ public:
 	// Returns the # of matches assoicated with this game type.  Typical returns 1 (this match) but HUBs will return all of their active matches
 	virtual int32 GetNumMatches();
 
+	// The Minimum ELO rank allowed on this server.
+	UPROPERTY(Config)
+	int32 MinAllowedRank;
 
+	UPROPERTY(Config)
+	int32 MaxAllowedRank;
+
+	UPROPERTY(Config)
+	bool bTrainingGround;
+
+	/**
+	 * Converts a string to a bool.  If the string is empty, it will return the default.
+	 **/
+	inline bool EvalBoolOptions(FString InOpt, bool Default)
+	{
+		if (!InOpt.IsEmpty())
+		{
+			if (FCString::Stricmp(*InOpt,TEXT("True") )==0 
+				||	FCString::Stricmp(*InOpt,*GTrue.ToString())==0
+				||	FCString::Stricmp(*InOpt,*GYes.ToString())==0)
+			{
+				return true;
+			}
+			else if(FCString::Stricmp(*InOpt,TEXT("False"))==0
+				||	FCString::Stricmp(*InOpt,*GFalse.ToString())==0
+				||	FCString::Stricmp(*InOpt,TEXT("No"))==0
+				||	FCString::Stricmp(*InOpt,*GNo.ToString())==0)
+			{
+				return false;
+			}
+			else
+			{
+				return FCString::Atoi(*InOpt) != 0;
+			}
+		}
+		else
+		{
+			return Default;
+		}
+	}
 
 
 };

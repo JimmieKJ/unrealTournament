@@ -134,6 +134,17 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 					new(NewURL.Op) FString(DefaultURL.Op[i]);
 				}
 			}
+			UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(GWorld,0));
+			if (UTLocalPlayer)
+			{
+				if (NewURL.HasOption(TEXT("Rank")))
+				{
+					NewURL.RemoveOption(TEXT("Rank"));
+				}
+
+				NewURL.AddOption(*FString::Printf(TEXT("Rank=%i"),UTLocalPlayer->GetBaseELORank()));
+			}
+
 			Context.TravelURL = NewURL.ToString();
 		}
 	}

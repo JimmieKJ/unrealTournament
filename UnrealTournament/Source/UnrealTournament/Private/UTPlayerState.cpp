@@ -557,7 +557,7 @@ void AUTPlayerState::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 
 FString AUTPlayerState::GetStatsFilename()
 {
-	return TEXT("stats.json");
+	return UUTLocalPlayer::GetStatsFilename(); //TEXT("stats.json");
 }
 
 void AUTPlayerState::WriteStatsToCloud()

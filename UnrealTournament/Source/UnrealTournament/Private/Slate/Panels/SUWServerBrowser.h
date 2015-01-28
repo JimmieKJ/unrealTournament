@@ -216,6 +216,12 @@ public:
 	// How many stars to display
 	float Rating;
 
+	// What is the min. rank that is allowed on this server
+	int32 MinRank;
+
+	// What is the max. rank that is allowed on this server
+	int32 MaxRank;
+
 	// What UT/UE4 version the server is running
 	FString Version;
 
@@ -233,7 +239,7 @@ public:
 	TArray<TSharedPtr<FServerRuleData>> Rules;
 	TArray<TSharedPtr<FServerPlayerData>> Players;
 
-	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, const FString& inVersion, int32 inPing, int32 inFlags)
+	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
 	: Name( inName )
 	, IP( inIP )
 	, BeaconIP( inBeaconIP )
@@ -244,6 +250,8 @@ public:
 	, NumSpectators( inNumSpecators )
 	, MaxPlayers( inMaxPlayers )
 	, NumMatches( inNumMatches) 
+	, MinRank ( inMinRank )
+	, MaxRank ( inMaxRank )
 	, Version( inVersion ) 
 	, Ping( inPing )
 	, Flags( inFlags )
@@ -255,9 +263,9 @@ public:
 		bFakeHUB = false;
 	}
 
-	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, const FString& inVersion, int32 inPing, int32 inFlags)
+	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inNumMatches, inVersion, inPing, inFlags ) );
+		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inNumMatches, inMinRank, inMaxRank, inVersion, inPing, inFlags ) );
 	}
 
 	void AddPlayer(const FString& PlayerName, const FString& Score, const FString& PlayerId)

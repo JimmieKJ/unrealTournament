@@ -984,6 +984,12 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				int32 ServerNumMatches = 0;
 				Result.Session.SessionSettings.Get(SETTING_NUMMATCHES, ServerNumMatches);
 				
+				int32 ServerMinRank = 0;
+				Result.Session.SessionSettings.Get(SETTING_MINELO, ServerMinRank);
+
+				int32 ServerMaxRank = 0;
+				Result.Session.SessionSettings.Get(SETTING_MAXELO, ServerMaxRank);
+
 				FString ServerVer; 
 				Result.Session.SessionSettings.Get(SETTING_SERVERVERSION, ServerVer);
 				
@@ -994,7 +1000,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerNumMatches, ServerVer, ServerPing, ServerFlags);
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags);
 				PingList.Add( NewServer );
 			}
 		}
@@ -1226,7 +1232,11 @@ void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSort
 {
 	if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 	{
-		FilteredHUBs.Add(NewServer);
+		int32 BaseRank = PlayerOwner->GetBaseELORank();
+		if (( NewServer->MinRank > 0 && BaseRank >= NewServer->MinRank) || (NewServer->MaxRank > 0 && BaseRank <= NewServer->MaxRank))
+		{
+			FilteredHUBs.Add(NewServer);
+		}
 	}
 
 	if (bSortAndUpdate)
@@ -1306,7 +1316,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 
 	if (!RandomHUB.IsValid() && InternetServers.Num() > 0)
 	{
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 
@@ -1318,7 +1328,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 	if (RandomHUB.IsValid() && RandomHUB->NumMatches != InternetServers.Num())
 	{
 		HUBServers.Remove(RandomHUB);
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 		HUBServers.Add(RandomHUB);

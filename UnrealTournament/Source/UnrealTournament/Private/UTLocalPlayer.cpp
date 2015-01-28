@@ -542,6 +542,10 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	{
 		CurrentProfileSettings = NULL;
 	}
+	else if (LoginStatus == ELoginStatus::LoggedIn)
+	{
+		ReadELOFromCloud();
+	}
 
 	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)
 	{
@@ -775,6 +779,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 #endif
 
 	}
+	else if (FileName == GetStatsFilename())
+	{
+		UpdateBaseELOFromCloudData();
+	}
 }
 
 #if !UE_SERVER
@@ -847,3 +855,57 @@ FName UUTLocalPlayer::TeamStyleRef(FName InName)
 	return FName( *(TEXT("Blue.") + InName.ToString()));
 }
 
+void UUTLocalPlayer::ReadELOFromCloud()
+{
+	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+	OnlineUserCloudInterface->ReadUserFile(*UserId, GetStatsFilename());
+}
+
+void UUTLocalPlayer::UpdateBaseELOFromCloudData()
+{
+	TArray<uint8> FileContents;
+	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+	if (OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
+	{
+		if (FileContents.GetData()[FileContents.Num() - 1] != 0)
+		{
+			UE_LOG(LogGameStats, Warning, TEXT("Failed to get proper stats json"));
+			return;
+		}
+
+		FString JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+
+		TSharedPtr<FJsonObject> StatsJson;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
+		if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.IsValid())
+		{
+			FString JsonStatsID;
+			if (StatsJson->TryGetStringField(TEXT("StatsID"), JsonStatsID) && JsonStatsID == UserId->ToString())
+			{
+				StatsJson->TryGetNumberField(TEXT("SkillRating"), DUEL_ELO);
+				StatsJson->TryGetNumberField(TEXT("TDMSkillRating"), TDM_ELO);
+				StatsJson->TryGetNumberField(TEXT("CTFSkillRating"), CTF_ELO);
+				StatsJson->TryGetNumberField(TEXT("MatchesPlayed"), MatchesPlayed);
+			}
+		}
+	}
+}
+
+int UUTLocalPlayer::GetBaseELORank()
+{
+
+	// we can do whatever we want here.  
+
+	int32 Cnt = 0;
+	int32 Total = 0;
+	if (DUEL_ELO > 0) { Cnt++; Total += DUEL_ELO; }
+	if (TDM_ELO > 0) { Cnt++; Total += TDM_ELO; }
+	if (CTF_ELO > 0) { Cnt++; Total += CTF_ELO; }
+
+	if (Cnt > 0)
+	{
+		return int32( float(Total) / float(Cnt) );
+	}
+							
+	return 1500;
+}

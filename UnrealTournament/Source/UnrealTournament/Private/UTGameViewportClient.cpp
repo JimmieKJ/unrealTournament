@@ -87,6 +87,20 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 										);
 			}
 		}
+
+		else if (ErrorString == TEXT("TOOWEAK"))
+		{
+			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","WEAKTITLE","RANK MATCH"), NSLOCTEXT("UTGameViewportClient","WEAKMSG","You are not skilled enough to play on this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+			return;
+		}
+
+		else if (ErrorString == TEXT("TOOSTRONG"))
+		{
+			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","WEAKTITLE","RANK MATCH"), NSLOCTEXT("UTGameViewportClient","STRONGMSG","Your skill is too high for this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+			return;
+		}
+
+
 		else if (ErrorString == TEXT("NOTLOGGEDIN"))
 		{
 			// NOTE: It's possible that the player logged in during the connect sequence but after Prelogin was called on the client.  If this is the case, just reconnect.
@@ -179,6 +193,12 @@ void UUTGameViewportClient::LoginFailureDialogResult(TSharedPtr<SCompoundWidget>
 		FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
 	}
 }
+
+void UUTGameViewportClient::RankDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	ReconnectDialog.Reset();
+}
+
 
 void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {

@@ -45,6 +45,21 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 	UE_LOG(UT,Log,TEXT("===================="));
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	// I should move this code up in to UTBaseGameMode and probably will (the code hooks are all there) but
+	// for right now I want to limit this to just Lobbies.
+
+	MinAllowedRank = FMath::Max(0, GetIntOption( Options, TEXT("MinAllowedRank"), MinAllowedRank));
+	if (MinAllowedRank > 0)
+	{
+		UE_LOG(UT,Log,TEXT("  Minimum Allowed ELO Rank is: %i"), MinAllowedRank)
+	}
+
+	MaxAllowedRank = FMath::Max(0, GetIntOption( Options, TEXT("MaxAllowedRank"), MaxAllowedRank));
+	if (MaxAllowedRank > 0)
+	{
+		UE_LOG(UT,Log,TEXT("  Maximum Allowed ELO Rank is: %i"), MaxAllowedRank)
+	}
 }
 
 
@@ -221,6 +236,22 @@ void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, 
 	{
 		ErrorMessage=TEXT("NOTLOGGEDIN");
 		return;
+	}
+
+	if (MinAllowedRank > 0 || MaxAllowedRank > 0)
+	{
+		int32 PendingRank = GetIntOption(Options, TEXT("Rank"), 0);
+		if (MinAllowedRank > 0 && PendingRank < MinAllowedRank)
+		{
+			ErrorMessage = TEXT("TOOWEAK");
+			return;
+		}
+
+		if (MaxAllowedRank > 0 && PendingRank > MaxAllowedRank)
+		{
+			ErrorMessage = TEXT("TOOSTRONG");
+			return;
+		}
 	}
 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);

@@ -43,6 +43,9 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 		Set(SETTING_SERVERMOTD, GameState->ServerMOTD, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	}
 
+	Set(SETTING_TRAININGGROUND, CurrentGame->bTrainingGround,EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Set(SETTING_MINELO, CurrentGame->MinAllowedRank,EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Set(SETTING_MAXELO, CurrentGame->MaxAllowedRank,EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 	Set(SETTING_PLAYERSONLINE, CurrentGame->NumPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	Set(SETTING_SPECTATORSONLINE, CurrentGame->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);

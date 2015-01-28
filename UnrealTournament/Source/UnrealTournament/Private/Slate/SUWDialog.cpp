@@ -16,8 +16,9 @@ void SUWDialog::Construct(const FArguments& InArgs)
 
 	OnDialogResult = InArgs._OnDialogResult;
 
-	FVector2D ViewportSize;
-	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+	FVector2D ViewportSize(1920,1080);
+	//GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+
 
 	// Calculate the action position;
 	ActualSize = InArgs._DialogSize;

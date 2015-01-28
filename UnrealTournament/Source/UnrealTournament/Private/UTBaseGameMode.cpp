@@ -21,7 +21,9 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	ServerPassword = TEXT("");
 	ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
 	bRequirePassword = !ServerPassword.IsEmpty();
+	bTrainingGround = EvalBoolOptions(Options, bTrainingGround);
 
+	
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
 }
 

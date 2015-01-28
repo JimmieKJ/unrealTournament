@@ -236,7 +236,24 @@ public:
 	virtual void ShowHUDSettings();
 	virtual void HideHUDSettings();
 
+	// NOTE: These functions are for getting the user's ELO rating from the clould.  This
+	// is temp code and will be changed so don't rely on it staying as is.
+private:
 
+	int32 TDM_ELO;	// The Player's current TDM ELO rank
+	int32 CTF_ELO;	// The Player's current CTF ELO rank
+	int32 DUEL_ELO;	// The Player's current Duel ELO rank
+	int32 MatchesPlayed;	// The # of matches this player has played.
+
+	void ReadELOFromCloud();
+	void UpdateBaseELOFromCloudData();
+public:
+
+	// Returns the filename for stats.
+	static FString GetStatsFilename() { return TEXT("stats.json"); }
+	
+	// Returns the base ELO Rank with any type of processing we need.
+	int GetBaseELORank();
 };
 
 
