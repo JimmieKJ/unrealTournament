@@ -147,16 +147,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
 
 	InOpt = ParseOption(Options, TEXT("DedI"));
-	bDedicatedInstance = EvalBoolOptions(InOpt, true);
-
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
-	UE_LOG(UT,Log,TEXT("DI %i"), bDedicatedInstance);
+	bDedicatedInstance = EvalBoolOptions(InOpt, bDedicatedInstance);
 
 	// alias for testing convenience
 	if (HasOption(Options, TEXT("Bots")))
