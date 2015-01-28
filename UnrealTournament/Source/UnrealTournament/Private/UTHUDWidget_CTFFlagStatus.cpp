@@ -41,7 +41,6 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 		float X = CircleSlate[Team].Position.X;
 		float Y = CircleSlate[Team].Position.Y;
-
 		FlagIconTemplate.RenderColor = Team == 0 ? RedColor : BlueColor;
 		RenderObj_TextureAt(FlagIconTemplate, X, Y,FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
 
@@ -73,11 +72,9 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			FlagArrowTemplate.Rotation = Yaw;
 			RenderObj_TextureAt(FlagArrowTemplate, X, Y, FlagArrowTemplate.GetWidth(), FlagArrowTemplate.GetHeight());
 		}
-
 	}
 
 	// Draw the Flag Status Message
-
 	if (GS->IsMatchInProgress() && UTHUDOwner != NULL && UTHUDOwner->PlayerOwner != NULL)
 	{
 		AUTPlayerState* OwnerPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
@@ -98,14 +95,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				}
 				else
 				{
-					if (GS->GetFlagState(MyTeamNum) == CarriedObjectState::Dropped)
-					{
-						StatusText = FText::GetEmpty();
-					}
-					else
-					{
-						StatusText = EnemyHasFlagText;
-					}
+					StatusText = (GS->GetFlagState(MyTeamNum) == CarriedObjectState::Dropped) ? FText::GetEmpty() : EnemyHasFlagText;
 				}
 			}
 			else if (OwnerPS->CarriedObject != NULL && Cast<AUTCTFFlag>(OwnerPS->CarriedObject) != NULL)
@@ -123,6 +113,9 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				FlagStatusText.RenderOpacity = Alpha;
 				FlagStatusText.RenderColor = DrawColor;
 				FlagStatusText.Text = StatusText;
+				FlagStatusText.bDrawShadow = true;
+				FlagStatusText.ShadowDirection = FVector2D(1.f, 2.f);
+				FlagStatusText.ShadowColor = FLinearColor::Black;
 				RenderObj_Text(FlagStatusText);
 			}
 			else

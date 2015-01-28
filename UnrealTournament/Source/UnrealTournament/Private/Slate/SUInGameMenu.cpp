@@ -576,7 +576,7 @@ void SUInGameMenu::BuildExitMatchSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ReturnToLobby", "Return to the Lobby"))
+				.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_ReturnToLobby", "Return to the Hub"))
 				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
 				.OnClicked(this, &SUInGameMenu::ReturnToLobby, DropDownButton)
 			] 

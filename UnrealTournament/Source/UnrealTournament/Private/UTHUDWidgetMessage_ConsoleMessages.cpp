@@ -19,17 +19,15 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 	static ConstructorHelpers::FObjectFinder<UFont> SmallFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Tiny.fntScoreboard_Tiny'"));
 	SmallMessageFont = SmallFont.Object;
 
-	bShadowedText = false;
-	bOutlinedText = true;
-	OutlineColor = FLinearColor::Black;
+	LargeShadowDirection = FVector2D(1.f, 1.f);
+	SmallShadowDirection = FVector2D(1.f, 1.f);
 }
 
 // @TODO FIXMESTEVE temp - need smaller font
 float UUTHUDWidgetMessage_ConsoleMessages::GetDrawScaleOverride()
 {
-	return 0.5f * UTHUDOwner->HUDWidgetScaleOverride;
+	return 0.75f * UTHUDOwner->HUDWidgetScaleOverride;
 }
-
 
 void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)
 {
