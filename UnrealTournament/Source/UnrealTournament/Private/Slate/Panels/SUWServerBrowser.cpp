@@ -1233,9 +1233,16 @@ void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSort
 	if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 	{
 		int32 BaseRank = PlayerOwner->GetBaseELORank();
-		if (( NewServer->MinRank > 0 && BaseRank >= NewServer->MinRank) || (NewServer->MaxRank > 0 && BaseRank <= NewServer->MaxRank))
+		if (NewServer->bFakeHUB)
 		{
 			FilteredHUBs.Add(NewServer);
+		}
+		else
+		{
+			if ( (NewServer->MinRank <= 0 || BaseRank >= NewServer->MinRank) && (NewServer->MaxRank <= 0 || BaseRank <= NewServer->MaxRank))
+			{
+				FilteredHUBs.Add(NewServer);
+			}
 		}
 	}
 
