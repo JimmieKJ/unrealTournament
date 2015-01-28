@@ -635,7 +635,6 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 		// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
 		else if (MuzzleFlash.IsValidIndex(FireMode) && MuzzleFlash[FireMode] != NULL)
 		{
-			DrawDebugSphere(GetWorld(), TargetLoc, 16.0f, 16, FColor(255, 0, 0));
 			MuzzleFlash[FireMode]->SetVectorParameter(NAME_HitLocation, TargetLoc);
 			MuzzleFlash[FireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[FireMode]->ComponentToWorld.InverseTransformPositionNoScale(TargetLoc));
 		}
