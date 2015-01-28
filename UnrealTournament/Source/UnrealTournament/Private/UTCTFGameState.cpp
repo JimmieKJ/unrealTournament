@@ -173,12 +173,7 @@ bool AUTCTFGameState::IsMatchInSuddenDeath() const
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
 {
-	if (IsMatchAtHalftime() || HasMatchEnded())
-	{
-		return FName(TEXT("FreeCam"));
-	}
-
-	return CurrentCameraStyle;
+	return (IsMatchAtHalftime() || HasMatchEnded()) ? FName(TEXT("FreeCam")) : Super::OverrideCameraStyle(PCOwner, CurrentCameraStyle);
 }
 
 void AUTCTFGameState::OnHalftimeChanged()

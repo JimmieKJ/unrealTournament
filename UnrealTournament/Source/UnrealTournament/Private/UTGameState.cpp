@@ -431,12 +431,19 @@ void AUTGameState::OnWinnerReceived()
 
 FName AUTGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
 {
-	if (Cast<AUTRemoteRedeemer>(PCOwner->GetPawn()) != nullptr)
+	if (HasMatchEnded())
+	{
+		return FName(TEXT("FreeCam"));
+	}
+	// FIXME: shouldn't this come from the Pawn?
+	else if (Cast<AUTRemoteRedeemer>(PCOwner->GetPawn()) != nullptr)
 	{
 		return FName(TEXT("FirstPerson"));
 	}
-
-	return CurrentCameraStyle;
+	else
+	{
+		return CurrentCameraStyle;
+	}
 }
 
 FText AUTGameState::ServerRules()
