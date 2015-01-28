@@ -217,7 +217,7 @@ FText AUTCTFGameState::GetGameStatusText()
 	{
 		if (IsMatchInOvertime())
 		{
-			return NSLOCTEXT("UTFGameState", "Overtime", "!! Overtime !!");
+			return NSLOCTEXT("UTFGameState", "Overtime", "Overtime!");
 		}
 
 		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half") : NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");

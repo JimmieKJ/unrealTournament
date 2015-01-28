@@ -1347,7 +1347,7 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	ChangeState(FName(TEXT("GameOver")));
 	FinalViewTarget = EndGameFocus;
 	BehindView(true);
-	MyUTHUD->ToggleScoreboard(true);
+	GetWorldTimerManager().SetTimer(this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
 	// free all Pawns locally
@@ -1358,6 +1358,11 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 			It->Get()->TurnOff();
 		}
 	}
+}
+
+void AUTPlayerController::ShowEndGameScoreboard()
+{
+	MyUTHUD->ToggleScoreboard(true);
 }
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
