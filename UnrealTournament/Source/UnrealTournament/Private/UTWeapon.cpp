@@ -57,6 +57,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	Mesh->SetOnlyOwnerSee(true);
 	Mesh->AttachParent = RootComponent;
 	Mesh->bSelfShadowOnly = true;
+	Mesh->bReceivesDecals = false;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPMeshOffset = FVector(0.f);
 	FirstPMeshRotation = FRotator(0.f, 0.f, 0.f);
