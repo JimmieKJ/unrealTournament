@@ -9,6 +9,7 @@
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_Drown.h"
 #include "UTDmgType_FallingCrush.h"
+#include "UTDmg_SniperHeadshot.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
@@ -410,16 +411,6 @@ bool AUTCharacter::IsSpawnProtected()
 
 void AUTCharacter::SetHeadScale(float NewHeadScale)
 {
-	// Head being detached
-	if (NewHeadScale == 0.0f)
-	{
-		if (Hat)
-		{
-			Hat->DetachRootComponentFromParent(true);
-			Hat->Destroy();
-		}
-	}
-
 	HeadScale = NewHeadScale;
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -1211,6 +1202,20 @@ void AUTCharacter::PlayDying()
 
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
+
+	if (Hat && Hat->GetAttachParentActor())
+	{
+		Hat->DetachRootComponentFromParent(true);
+
+		if (LastTakeHitInfo.DamageType->IsChildOf(UUTDmg_SniperHeadshot::StaticClass()))
+		{
+			Hat->OnWearerHeadshot();
+		}
+		else
+		{
+			Hat->SetBodiesToSimulatePhysics();
+		}
+	}
 
 	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
 	{

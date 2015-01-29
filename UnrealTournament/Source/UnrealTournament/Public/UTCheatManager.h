@@ -25,5 +25,8 @@ class UUTCheatManager : public UCheatManager
 	virtual void SetHat(const FString& Hat);
 
 	UFUNCTION(exec)
+	virtual void ImpartHats(const FString& Hat);
+
+	UFUNCTION(exec)
 	virtual void Ann(int32 Switch);
 };

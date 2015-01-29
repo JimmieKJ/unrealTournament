@@ -88,3 +88,21 @@ void UUTCheatManager::SetHat(const FString& Hat)
 		}
 	}
 }
+
+void UUTCheatManager::ImpartHats(const FString& Hat)
+{
+	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
+	for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+		if (PS)
+		{
+			FString HatPackageName;
+			if (FPackageName::SearchForPackageOnDisk(Hat, &HatPackageName))
+			{
+				HatPackageName += TEXT(".") + Hat + TEXT("_C");
+				PS->ServerReceiveHatClass(HatPackageName);
+			}
+		}
+	}
+}

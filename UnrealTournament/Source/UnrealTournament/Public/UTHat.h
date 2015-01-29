@@ -18,6 +18,13 @@ class UNREALTOURNAMENT_API AUTHat : public AActor
 	UPROPERTY(BlueprintReadOnly, Category=UTHat)
 	AUTCharacter* HatWearer;
 
+	FRotator HeadshotRotationRate;
+
+	float HeadshotRotationTime;
+
+	UPROPERTY()
+	bool bHeadshotRotating;
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Hat Wearer Killed Enemy"))
 	virtual void OnFlashCountIncremented();
 
@@ -30,5 +37,15 @@ class UNREALTOURNAMENT_API AUTHat : public AActor
 	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Hat Wearer Stopped Taunting"))
 	virtual void OnWearerEmoteEnded();
 
+	UFUNCTION(BlueprintNativeEvent)
+	void OnWearerHeadshot();
+
+	UFUNCTION()
+	void HeadshotRotationComplete();
+
 	virtual void PreInitializeComponents();
+
+	virtual void SetBodiesToSimulatePhysics();
+
+	virtual void Tick(float DeltaSeconds) override;
 };
