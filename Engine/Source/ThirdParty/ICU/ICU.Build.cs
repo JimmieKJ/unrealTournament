@@ -189,7 +189,7 @@ public class ICU : ModuleRules
                     {
                         if (Target.Platform == UnrealTargetPlatform.Mac)
                         {
-                            string LibraryName = "libicu" + Stem + LibraryNamePostfix + ".53.1" + "." + DynamicLibraryExtension;
+                            string LibraryName = "libicu" + Stem + ".53.1" + LibraryNamePostfix + "." + DynamicLibraryExtension;
                             string LibraryPath = UEBuildConfiguration.UEThirdPartyBinariesDirectory + "ICU/icu4c-53_1/Mac/" + LibraryName;
 
                             PublicDelayLoadDLLs.Add(LibraryPath);
