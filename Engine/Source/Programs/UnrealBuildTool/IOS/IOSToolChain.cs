@@ -203,7 +203,10 @@ namespace UnrealBuildTool
 					{
 						// on the Mac, we can just get the directory name
 						SubDirs = System.IO.Directory.GetDirectories(BaseSDKDir);
-						Log.TraceInformation(String.Format("Directories : {0} {1}", SubDirs, SubDirs[0]));
+						if (!ProjectFileGenerator.bGenerateProjectFiles)
+						{
+							Log.TraceInformation(String.Format("Directories : {0} {1}", SubDirs, SubDirs[0]));
+						}
 					}
 					else
 					{
@@ -266,13 +269,16 @@ namespace UnrealBuildTool
 
 			IOSSDKVersionFloat = float.Parse(IOSSDKVersion, System.Globalization.CultureInfo.InvariantCulture);
 
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				Log.TraceInformation("Compiling with IOS SDK {0} on Mac {1}", IOSSDKVersionFloat, RemoteServerName);
-			}
-			else
-			{
-				Log.TraceInformation("Compiling with IOS SDK {0}", IOSSDKVersionFloat);
+				if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+				{
+					Log.TraceInformation("Compiling with IOS SDK {0} on Mac {1}", IOSSDKVersionFloat, RemoteServerName);
+				}
+				else
+				{
+					Log.TraceInformation("Compiling with IOS SDK {0}", IOSSDKVersionFloat);
+				}
 			}
 		}
 

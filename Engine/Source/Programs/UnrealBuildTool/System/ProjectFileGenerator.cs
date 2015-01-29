@@ -1284,7 +1284,8 @@ namespace UnrealBuildTool
 			var bSuccess = true;
 			if( ShouldGenerateIntelliSenseData() && TargetFiles.Count > 0 )
 			{
-				using(ProgressWriter Progress = new ProgressWriter("Binding IntelliSense data...", true))
+				string ProgressInfoText = Utils.IsRunningOnMono ? "Generating data for project indexing..." : "Binding IntelliSense data...";
+				using(ProgressWriter Progress = new ProgressWriter(ProgressInfoText, true))
 				{
 					for(int TargetIndex = 0; TargetIndex < TargetFiles.Count; ++TargetIndex)
 					{
