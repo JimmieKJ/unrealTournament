@@ -345,7 +345,7 @@ void FPackageContent::PackageWeapon(UClass* WeaponClass)
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *WeaponName);
 #endif
 
-		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageLevelTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageWeaponTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
@@ -363,7 +363,7 @@ void FPackageContent::PackageHat(UClass* HatClass)
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *HatName);
 #endif
 
-		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageLevelTaskName", "Packaging Hat"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageCosmeticTaskName", "Packaging Cosmetic Item"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
@@ -389,7 +389,7 @@ void FPackageContent::OpenPackageWeaponWindow()
 
 void FPackageContent::OpenPackageHatWindow()
 {
-	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Package A Hat");
+	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Package A Cosmetic Item");
 
 	/** Create the window to host our package dialog widget */
 	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
@@ -449,7 +449,7 @@ void SPackageContentDialog::Construct(const FArguments& InArgs, TSharedPtr<SWind
 	{
 		TSharedPtr<FHatClassFilter> Filter = MakeShareable(new FHatClassFilter);
 		Options.ClassFilter = Filter;
-		Options.ViewerTitleString = LOCTEXT("HatClassSelect", "Select Hat Blueprint").ToString();
+		Options.ViewerTitleString = LOCTEXT("HatClassSelect", "Select Cosmetic Blueprint").ToString();
 	}
 	else
 	{
