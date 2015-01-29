@@ -16,17 +16,19 @@ void SUWDialog::Construct(const FArguments& InArgs)
 
 	OnDialogResult = InArgs._OnDialogResult;
 
-	FVector2D ViewportSize(1920,1080);
-	//GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+	FVector2D ViewportSize;
+	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
 
+	FVector2D DesignedRez(1920,1080);
+	DesignedRez.X = 1080 * (ViewportSize.X / ViewportSize.Y);
 
 	// Calculate the action position;
 	ActualSize = InArgs._DialogSize;
 	if (InArgs._bDialogSizeIsRelative)
 	{
-		ActualSize *= ViewportSize;
+		ActualSize *= DesignedRez;
 	}
-	FVector2D Pos = ViewportSize * InArgs._DialogPosition;
+	FVector2D Pos = DesignedRez * InArgs._DialogPosition;
 	ActualPosition = Pos - (ActualSize * InArgs._DialogAnchorPoint);
 
 	ChildSlot
