@@ -449,6 +449,23 @@ void AUTPlayerController::FOV(float NewFOV)
 
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
+	// hack for scoreboard until we have a real interactive system
+	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL)
+	{
+		static FName NAME_Left(TEXT("Left"));
+		static FName NAME_Right(TEXT("Right"));
+		if (Key.GetFName() == NAME_Left)
+		{
+			MyUTHUD->GetScoreboard()->AdvancePage(-1);
+			return true;
+		}
+		else if (Key.GetFName() == NAME_Right)
+		{
+			MyUTHUD->GetScoreboard()->AdvancePage(+1);
+			return true;
+		}
+	}
+
 	// unfortunately have to go roundabout because this is the only InputKey() that's virtual
 	UUTPlayerInput* Input = Cast<UUTPlayerInput>(PlayerInput);
 	if (Input != NULL)

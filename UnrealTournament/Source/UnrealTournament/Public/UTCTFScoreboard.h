@@ -42,7 +42,7 @@ protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
-	virtual void DrawScoringPlays();
+	virtual void DrawScoringPlays(float RenderDelta, float& YOffset);
 
 	virtual void PageChanged_Implementation() override;
 };

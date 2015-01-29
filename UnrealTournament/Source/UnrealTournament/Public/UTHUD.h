@@ -151,6 +151,11 @@ public:
 	virtual void NotifyMatchStateChange()
 	{}
 
+	inline UUTScoreboard* GetScoreboard() const
+	{
+		return MyUTScoreboard;
+	}
+
 public:
 	// This is the base HUD opacity level used by HUD Widgets RenderObjects
 	UPROPERTY(globalconfig)
