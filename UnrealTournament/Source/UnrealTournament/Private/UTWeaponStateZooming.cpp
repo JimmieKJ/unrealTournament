@@ -89,6 +89,7 @@ void UUTWeaponStateZooming::WeaponBecameInactive()
 		{
 			Camera->UnlockFOV();
 		}
+		GetOuterAUTWeapon()->SetActorHiddenInGame(false);
 
 		UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 	}
