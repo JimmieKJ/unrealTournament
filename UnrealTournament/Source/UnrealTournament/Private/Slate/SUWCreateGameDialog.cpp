@@ -107,7 +107,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	TSharedPtr<TAttributePropertyString> ServerMOTDProp = MakeShareable(new TAttributePropertyString(AUTGameState::StaticClass()->GetDefaultObject(), &AUTGameState::StaticClass()->GetDefaultObject<AUTGameState>()->ServerMOTD));
 	PropertyLinks.Add(ServerMOTDProp);
 
-	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(128.0f, 128.0f), FName(TEXT("LevelScreenshot")));
+	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), FName(TEXT("LevelScreenshot")));
 
 	ChildSlot
 	.VAlign(VAlign_Center)
@@ -130,7 +130,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::White)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 					.Text(NSLOCTEXT("SUWCreateGameDialog", "Gametype", "Gametype:"))
 				]
 				+ SVerticalBox::Slot()
@@ -160,7 +160,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::White)
+					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 					.Text(NSLOCTEXT("SUWCreateGameDialog", "Map", "Map:"))
 				]
 				+ SVerticalBox::Slot()
@@ -203,7 +203,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(MapAuthor, STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 							.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "Author", "Author: {0}"), FText::FromString(TEXT("-"))))
 						]
 						+ SVerticalBox::Slot()
@@ -213,7 +213,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(MapRecommendedPlayers, STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 							.Text(FText::Format(NSLOCTEXT("SUWCreateGameDialog", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
 						]
 						+ SVerticalBox::Slot()
@@ -223,7 +223,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(MapDesc, STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 							.Text(FText())
 							.WrapTextAt(190.0f)
 						]
@@ -259,7 +259,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::White)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 				.Text(NSLOCTEXT("SUWCreateGameDialog", "ServerName", "Server Name:"))
 			]
 			+ SHorizontalBox::Slot()
@@ -278,7 +278,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 		.AutoHeight()
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 			.Text(NSLOCTEXT("SUWCreateGameDialog", "ServerMOTD", "Server MOTD:"))
 		];
 		MainBox->AddSlot()
@@ -298,7 +298,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	.AutoHeight()
 	[
 		SNew(STextBlock)
-		.ColorAndOpacity(FLinearColor::White)
+		.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 		.Text(NSLOCTEXT("SUWCreateGameDialog", "GameSettings", "Game Settings:"))
 	];
 	MainBox->AddSlot()
@@ -324,7 +324,7 @@ void SUWCreateGameDialog::Construct(const FArguments& InArgs)
 	.AutoHeight()
 	[
 		SNew(STextBlock)
-		.ColorAndOpacity(FLinearColor::White)
+		.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 		.Text(NSLOCTEXT("SUWCreateGameDialog", "Mutators", "Mutators:"))
 	];
 	MainBox->AddSlot()
@@ -558,7 +558,7 @@ void SUWCreateGameDialog::OnGameSelected(UClass* NewSelection, ESelectInfo::Type
 			.Content()
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::White)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 				.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
 			]
 		];
@@ -690,7 +690,7 @@ TSharedRef<ITableRow> SUWCreateGameDialog::GenerateMutatorListRow(UClass* Mutato
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 			.Text(MutatorName)
 		]; 
 }

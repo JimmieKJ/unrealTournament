@@ -18,7 +18,7 @@ SVerticalBox::FSlot& SUWBotConfigDialog::CreateBotSlider(const FText& Desc, TSha
 			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::White)
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
 				.Text(Desc)
 			]
 			+ SHorizontalBox::Slot()
@@ -105,7 +105,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
 							SNew(STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
 							.Text(NSLOCTEXT("SUWBotConfigDialog", "BotsToAdd", "Bots to Include:"))
 						]
 						+ SVerticalBox::Slot()
@@ -135,7 +135,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
 							SNew(STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
 							.Text(NSLOCTEXT("SUWBotConfigDialog", "ConfigureBot", "Configure Bot"))
 						]
 						+ SVerticalBox::Slot()
@@ -185,9 +185,6 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 						.AutoHeight()
 						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
-							/*SNew(STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
-							.Text(FString(TEXT("-------------------------------------------")))*/
 							SNew(SImage)
 							.Image(&WhiteBar)
 						]
@@ -209,7 +206,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SNew(STextBlock)
-								.ColorAndOpacity(FLinearColor::White)
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 								.Text(NSLOCTEXT("SUWBotConfigDialog", "FavoriteWeapon", "Favorite Weapon"))
 							]
 							+ SHorizontalBox::Slot()
@@ -257,7 +254,7 @@ TSharedRef<ITableRow> SUWBotConfigDialog::GenerateBotListRow(TSharedPtr<FString>
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
 			.Text(*BotName.Get())
 		];
 }
