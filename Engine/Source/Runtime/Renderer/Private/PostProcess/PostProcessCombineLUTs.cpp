@@ -40,7 +40,7 @@ static TAutoConsoleVariable<float> CVarColorMax(
 static bool UseVolumeTextureLUT(EShaderPlatform Platform) 
 {
 	// @todo Mac OS X: in order to share precompiled shaders between GL 3.3 & GL 4.1 devices we mustn't use volume-texture rendering as it isn't universally supported.
-	return (IsFeatureLevelSupported(Platform,ERHIFeatureLevel::SM4) && GSupportsVolumeTextureRendering && !PLATFORM_MAC && RHISupportsGeometryShaders(Platform));
+	return (IsFeatureLevelSupported(Platform,ERHIFeatureLevel::SM4) && GSupportsVolumeTextureRendering && Platform != EShaderPlatform::SP_OPENGL_SM4_MAC && RHISupportsGeometryShaders(Platform));
 }
 
 // including the neutral one at index 0
