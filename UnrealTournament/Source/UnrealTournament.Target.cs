@@ -8,6 +8,9 @@ public class UnrealTournamentTarget : TargetRules
 	public UnrealTournamentTarget(TargetInfo Target)
 	{
         Type = TargetType.Game;
+
+        // Turn on shipping logging
+        UEBuildConfiguration.bUseLoggingInShipping = true;
 	}
 
 	//
@@ -32,16 +35,6 @@ public class UnrealTournamentTarget : TargetRules
         OutExtraModuleNames.Add("OnlineSubsystemNull");
 	}
     
-    public override void SetupGlobalEnvironment(
-        TargetInfo Target,
-        ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
-        ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
-        )
-    {
-        // Turn on shipping logging, this will only apply to monolithic builds
-        UEBuildConfiguration.bUseLoggingInShipping = true;
-    }
-
     public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
     {
         if (UnrealBuildTool.UnrealBuildTool.RunningRocket() || InPlatform == UnrealTargetPlatform.Mac)
