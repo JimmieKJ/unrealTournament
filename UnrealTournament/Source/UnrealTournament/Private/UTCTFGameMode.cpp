@@ -966,12 +966,5 @@ void AUTCTFGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 
 void AUTCTFGameMode::UpdateSkillRating()
 {
-	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-		if (PS && !PS->bOnlySpectator)
-		{
-			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam);
-		}
-	}
+	// No more ctf ranking
 }

@@ -241,7 +241,6 @@ public:
 private:
 
 	int32 TDM_ELO;	// The Player's current TDM ELO rank
-	int32 CTF_ELO;	// The Player's current CTF ELO rank
 	int32 DUEL_ELO;	// The Player's current Duel ELO rank
 	int32 MatchesPlayed;	// The # of matches this player has played.
 

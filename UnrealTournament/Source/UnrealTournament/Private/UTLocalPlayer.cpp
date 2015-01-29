@@ -898,7 +898,6 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 			{
 				StatsJson->TryGetNumberField(TEXT("SkillRating"), DUEL_ELO);
 				StatsJson->TryGetNumberField(TEXT("TDMSkillRating"), TDM_ELO);
-				StatsJson->TryGetNumberField(TEXT("CTFSkillRating"), CTF_ELO);
 				StatsJson->TryGetNumberField(TEXT("MatchesPlayed"), MatchesPlayed);
 			}
 		}
@@ -914,7 +913,6 @@ int UUTLocalPlayer::GetBaseELORank()
 	int32 Total = 0;
 	if (DUEL_ELO > 0) { Cnt++; Total += DUEL_ELO; }
 	if (TDM_ELO > 0) { Cnt++; Total += TDM_ELO; }
-	if (CTF_ELO > 0) { Cnt++; Total += CTF_ELO; }
 
 	if (Cnt > 0)
 	{
