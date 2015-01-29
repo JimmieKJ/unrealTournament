@@ -63,6 +63,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bAutoSlide = false;
 
 	bSpectateBehindView = true;
+	StylizedPPIndex = INDEX_NONE;
 
 	PredictionFudgeFactor = 30.f;
 	MaxPredictionPing = 0.f; 
@@ -1344,6 +1345,18 @@ void AUTPlayerController::SetCameraMode( FName NewCamMode )
 	if ( GetNetMode() == NM_DedicatedServer )
 	{
 		ClientSetCameraMode( NewCamMode );
+	}
+}
+
+void AUTPlayerController::SetStylizedPP(int32 NewPP)
+{
+	AUTPlayerCameraManager* UTPCM = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	if (UTPCM)
+	{
+		if (NewPP == INDEX_NONE || NewPP < UTPCM->StylizedPPSettings.Num())
+		{
+			StylizedPPIndex = NewPP;
+		}
 	}
 }
 

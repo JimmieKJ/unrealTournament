@@ -223,6 +223,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetAutoSlide(bool bNewAutoSlide);
 
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Camera)
+	int32 StylizedPPIndex;
+
+	UFUNCTION(exec)
+	virtual void SetStylizedPP(int32 NewPP);
+
 	/** whether player wants behindview when spectating */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Camera)
 	bool bSpectateBehindView;

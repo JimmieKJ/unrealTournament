@@ -11,7 +11,11 @@ class AUTPlayerCameraManager : public APlayerCameraManager
 	/** post process settings used when there are no post process volumes */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PostProcess)
 	FPostProcessSettings DefaultPPSettings;
-	
+
+	/** post process settings used when we want to be in stylized mode */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PostProcess)
+	TArray<FPostProcessSettings> StylizedPPSettings;
+
 	FVector LastThirdPersonCameraLoc;
 
 	UPROPERTY(Config)

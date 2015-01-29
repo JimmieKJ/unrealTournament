@@ -33,6 +33,62 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	DefaultPPSettings.AntiAliasingMethod = AAM_FXAA;
 	DefaultPPSettings.ScreenSpaceReflectionIntensity = 0.0f;
 
+	StylizedPPSettings.AddZeroed();
+	StylizedPPSettings[0].SetBaseValues();
+	StylizedPPSettings[0].bOverride_FilmWhitePoint = true;
+	StylizedPPSettings[0].bOverride_SceneFringeIntensity = true;
+	StylizedPPSettings[0].bOverride_AmbientCubemapTint = true;
+	StylizedPPSettings[0].bOverride_AmbientCubemapIntensity = true;
+	StylizedPPSettings[0].bOverride_BloomIntensity = true;
+	StylizedPPSettings[0].bOverride_BloomThreshold = true;
+	StylizedPPSettings[0].bOverride_BloomDirtMaskIntensity = true;
+	StylizedPPSettings[0].bOverride_BloomDirtMask = true;
+	StylizedPPSettings[0].bOverride_AutoExposureLowPercent = true;
+	StylizedPPSettings[0].bOverride_AutoExposureHighPercent = true;
+	StylizedPPSettings[0].bOverride_AutoExposureMinBrightness = true;
+	StylizedPPSettings[0].bOverride_AutoExposureMaxBrightness = true;
+	StylizedPPSettings[0].bOverride_AutoExposureSpeedUp = true;
+	StylizedPPSettings[0].bOverride_AutoExposureSpeedDown = true;
+	StylizedPPSettings[0].bOverride_AutoExposureBias = true;
+	StylizedPPSettings[0].bOverride_LensFlareIntensity = true;
+	StylizedPPSettings[0].bOverride_VignetteIntensity = true;
+	StylizedPPSettings[0].bOverride_AmbientOcclusionIntensity = true;
+	StylizedPPSettings[0].bOverride_AmbientOcclusionStaticFraction = true;
+	StylizedPPSettings[0].bOverride_AmbientOcclusionRadius = true;
+	StylizedPPSettings[0].bOverride_AmbientOcclusionRadiusInWS = true;
+	StylizedPPSettings[0].bOverride_AmbientOcclusionQuality = true;
+	StylizedPPSettings[0].bOverride_DepthOfFieldFocalDistance = true;
+	StylizedPPSettings[0].bOverride_DepthOfFieldScale = true;
+	StylizedPPSettings[0].bOverride_DepthOfFieldMaxBokehSize = true;
+	StylizedPPSettings[0].bOverride_DepthOfFieldNearBlurSize = true;
+	StylizedPPSettings[0].bOverride_DepthOfFieldFarBlurSize = true;
+	StylizedPPSettings[0].bOverride_MotionBlurAmount = true;
+	StylizedPPSettings[0].bOverride_MotionBlurMax = true;
+	StylizedPPSettings[0].bOverride_AntiAliasingMethod = true;
+	StylizedPPSettings[0].bOverride_ScreenSpaceReflectionIntensity = true;
+	StylizedPPSettings[0].bOverride_ScreenSpaceReflectionQuality = true;
+	StylizedPPSettings[0].bOverride_ScreenSpaceReflectionMaxRoughness = true;
+	StylizedPPSettings[0].BloomIntensity = 0.100000;
+	StylizedPPSettings[0].AmbientCubemapTint = FLinearColor(0.440000, 0.368895, 0.312400, 1.000000);
+	StylizedPPSettings[0].AmbientCubemapIntensity = 0.000000;
+	StylizedPPSettings[0].AutoExposureMinBrightness = 1.000000;
+	StylizedPPSettings[0].AutoExposureMaxBrightness = 1.000000;
+	StylizedPPSettings[0].AutoExposureSpeedUp = 1.000000;
+	StylizedPPSettings[0].AutoExposureBias = 3.000000;
+	StylizedPPSettings[0].LensFlareIntensity = 0.000000;
+	StylizedPPSettings[0].VignetteIntensity = 0.300000;
+	StylizedPPSettings[0].GrainIntensity = 0.247788;
+	StylizedPPSettings[0].AmbientOcclusionIntensity = 0.000000;
+	StylizedPPSettings[0].AmbientOcclusionRadius = 100.000000;
+	StylizedPPSettings[0].AmbientOcclusionRadiusInWS = true;
+	StylizedPPSettings[0].AmbientOcclusionQuality = 100.000000;
+	StylizedPPSettings[0].DepthOfFieldScale = 0.159292;
+	StylizedPPSettings[0].DepthOfFieldMaxBokehSize = 24.911505;
+	StylizedPPSettings[0].DepthOfFieldNearBlurSize = 17.840708;
+	StylizedPPSettings[0].DepthOfFieldFarBlurSize = 30.292036;
+	StylizedPPSettings[0].MotionBlurAmount = 0.000000;
+	StylizedPPSettings[0].MotionBlurMax = 0.000000;
+
 	LastThirdPersonCameraLoc = FVector(0);
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 }
@@ -183,6 +239,13 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 	if (GetWorld()->PostProcessVolumes.Num() == 0)
 	{
 		PostProcessBlendCache.Insert(DefaultPPSettings, 0);
+		PostProcessBlendCacheWeights.Insert(1.0f, 0);
+	}
+
+	AUTPlayerController* UTPCOwner = Cast<AUTPlayerController>(PCOwner);
+	if (UTPCOwner && UTPCOwner->StylizedPPIndex != INDEX_NONE)
+	{
+		PostProcessBlendCache.Insert(StylizedPPSettings[UTPCOwner->StylizedPPIndex], 0);
 		PostProcessBlendCacheWeights.Insert(1.0f, 0);
 	}
 }
