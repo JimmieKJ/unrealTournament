@@ -1247,6 +1247,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		if (UTPlayerState)
 		{
 			UTPlayerState->bReadyToPlay = true;
+			UTPlayerState->bPendingTeamSwitch = false;
 		}
 	}
 
@@ -1277,6 +1278,10 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 		if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 		{
 			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+			if (UTPlayerState->bPendingTeamSwitch)
+			{
+				UTPlayerState->bReadyToPlay = false;
+			}
 		}
 	}
 	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
