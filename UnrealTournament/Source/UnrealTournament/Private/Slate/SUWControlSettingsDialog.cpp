@@ -297,14 +297,14 @@ void SUWControlSettingsDialog::CreateBinds()
 		->AddMapping("SwitchWeapon 10")
 		->AddDefaults(EKeys::Zero)));
 	//Emotes
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emotes", "Emotes")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emote 1", "Emote 1")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunts", "Taunts")))->MakeHeader()));
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt1", "Taunt 1")))
 		->AddMapping("PlayEmote1")
 		->AddDefaults(EKeys::J)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emote 2", "Emote 2")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt2", "Taunt 2")))
 		->AddMapping("PlayEmote2")
 		->AddDefaults(EKeys::K)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Emote 3", "Emote 3")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt3", "Taunt 3")))
 		->AddMapping("PlayEmote3")
 		->AddDefaults(EKeys::L)));
 	//Misc
