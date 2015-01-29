@@ -94,7 +94,7 @@ private:
 		{
 			if(A.VertexDeclaration.Num() == B.VertexDeclaration.Num())
 			{
-				for(uint32 i = 0; i < A.VertexDeclaration.Num(); i++)
+				for(int32 i = 0; i < A.VertexDeclaration.Num(); i++)
 				{
 					if(FMemory::Memcmp(&A.VertexDeclaration[i], &B.VertexDeclaration[i], sizeof(FVertexElement)))
 					{
