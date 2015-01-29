@@ -265,6 +265,11 @@ FReply SDockingTabWell::StartDraggingTab( TSharedRef<SDockTab> TabToStartDraggin
 		ForegroundTabIndex = INDEX_NONE;
 		ParentTabStackPtr.Pin()->OnTabRemoved(TabToStartDragging->GetLayoutIdentifier());
 
+#if PLATFORM_MAC
+		// On Mac we need to activate the app as we may be dragging a window that is set to be invisible if the app is inactive
+		FPlatformMisc::ActivateApplication();
+#endif
+
 		// Start dragging.
 		TSharedRef<FDockingDragOperation> DragDropOperation =
 			FDockingDragOperation::New(
