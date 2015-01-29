@@ -68,8 +68,6 @@ public:
 
 	void ResetModifierKeys() { ModifierKeysFlags = 0; }
 
-	TSharedPtr<FMacWindow> GetKeyWindow();
-
 	uint32 GetModifierKeysFlags() { return ModifierKeysFlags; }
 
 	void UseMouseCaptureWindow(bool bUseMouseCaptureWindow);
@@ -131,6 +129,9 @@ private:
 	FCocoaWindow* FindEventWindow( NSEvent* CocoaEvent );
 	TSharedPtr<FMacWindow> LocateWindowUnderCursor( const NSPoint Position );
 
+	TSharedPtr<FMacWindow> GetKeyWindow();
+	void RequestKeyWindowUpdate() { bKeyWindowUpdateRequested = true; }
+
 	NSScreen* FindScreenByPoint( int32 X, int32 Y ) const;
 
 	void UpdateMouseCaptureWindow( FCocoaWindow* TargetWindow );
@@ -182,6 +183,7 @@ private:
 	NSUInteger CurrentModifierFlags;
 
 	TArray< TSharedRef< FMacWindow > > KeyWindows;
+	bool bKeyWindowUpdateRequested;
 
 	TSharedPtr<FMacTextInputMethodSystem> TextInputMethodSystem;
 

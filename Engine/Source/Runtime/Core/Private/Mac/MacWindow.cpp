@@ -305,26 +305,23 @@ void FMacWindow::BringToFront( bool bForce )
 
 void FMacWindow::Destroy()
 {
-	if( WindowHandle )
+	if (WindowHandle)
 	{
 		SCOPED_AUTORELEASE_POOL;
-		FCocoaWindow* Window = WindowHandle;
-
 		bIsClosed = true;
 
-		if( MacApplication->OnWindowDestroyed( Window ) )
+		FCocoaWindow* Window = WindowHandle;
+		const bool bIsKey = [Window isKeyWindow];
+
+		if (MacApplication->OnWindowDestroyed(Window) )
 		{
 			// This FMacWindow may have been destructed by now & so the WindowHandle will probably be invalid memory.
-			bool const bIsKey = [Window isKeyWindow];
-			
-			// Then change the focus to something useful, either the previous in the stack
-			TSharedPtr<FMacWindow> KeyWindow = MacApplication->GetKeyWindow();
-			if( KeyWindow.IsValid() && bIsKey && KeyWindow->GetOSWindowHandle() && ![(FCocoaWindow*)KeyWindow->GetOSWindowHandle() isMiniaturized] )
+
+			if (bIsKey)
 			{
-				// Activate specified previous window if still present, provided it isn't minimized
-				KeyWindow->SetWindowFocus();
+				MacApplication->RequestKeyWindowUpdate();
 			}
-			
+
 			// Close the window
 			MainThreadCall(^{
 				SCOPED_AUTORELEASE_POOL;

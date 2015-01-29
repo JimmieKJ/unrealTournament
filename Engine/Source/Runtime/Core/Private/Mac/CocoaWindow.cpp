@@ -549,7 +549,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	// Really we shouldn't be doing this - on OS X only left-click changes focus,
 	// but for the moment it is easier than changing Slate.
 	SCOPED_AUTORELEASE_POOL;
-	if([self canBecomeKeyWindow])
+	if([self canBecomeKeyWindow] && self != [NSApp keyWindow])
 	{
 		[self makeKeyWindow];
 	}

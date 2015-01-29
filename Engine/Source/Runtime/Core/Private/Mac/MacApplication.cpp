@@ -109,6 +109,7 @@ FMacApplication::FMacApplication()
 	, bIsProcessingNSEvent( false )
 	, ModifierKeysFlags( 0 )
 	, CurrentModifierFlags( 0 )
+	, bKeyWindowUpdateRequested( false )
 	, bIsWorkspaceSessionActive( true )
 {
 	CGDisplayRegisterReconfigurationCallback(FMacApplication::OnDisplayReconfiguration, this);
@@ -421,9 +422,20 @@ void FMacApplication::ProcessEvent(FMacEvent const* const Event)
 	delete Event;
 }
 
-void FMacApplication::PumpMessages( const float TimeDelta )
+void FMacApplication::PumpMessages(const float TimeDelta)
 {
-	FPlatformMisc::PumpMessages( true );
+	FPlatformMisc::PumpMessages(true);
+
+	if (bKeyWindowUpdateRequested)
+	{
+		TSharedPtr<FMacWindow> KeyWindow = GetKeyWindow();
+		if (KeyWindow.IsValid() && KeyWindow->GetOSWindowHandle() && ![(FCocoaWindow*)KeyWindow->GetOSWindowHandle() isMiniaturized])
+		{
+			// Activate specified previous window if still present, provided it isn't minimized
+			KeyWindow->SetWindowFocus();
+		}
+		bKeyWindowUpdateRequested = false;
+	}
 }
 
 void FMacApplication::OnWindowDraggingFinished()
