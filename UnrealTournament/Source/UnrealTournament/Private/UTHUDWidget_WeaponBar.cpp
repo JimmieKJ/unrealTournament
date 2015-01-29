@@ -15,6 +15,9 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 	SelectedCellScale=1.1;
 	SelectedAnimRate=0.3;
 	CellWidth = 145;
+
+	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Medium.fntScoreboard_Medium'"));
+	WeaponNameText.Font = Font.Object;
 }
 
 void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
