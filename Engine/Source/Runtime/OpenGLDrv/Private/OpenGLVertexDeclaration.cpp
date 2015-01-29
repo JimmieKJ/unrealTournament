@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "OpenGLDrvPrivate.h"
+#include "ShaderCache.h"
 
 static FORCEINLINE void SetupGLElement(FOpenGLVertexElement& GLElement, GLenum Type, GLuint Size, bool bNormalized, bool bShouldConvertToFloat)
 {
@@ -132,6 +133,14 @@ FVertexDeclarationRHIRef FOpenGLDynamicRHI::RHICreateVertexDeclaration(const FVe
 	{
 		// Create and add to the cache if it doesn't exist.
 		VertexDeclarationRefPtr = &GOpenGLVertexDeclarationCache.Add(Key,new FOpenGLVertexDeclaration(Key.VertexElements));
+		
+		FShaderCache* ShaderCache = FShaderCache::GetShaderCache();
+		if(ShaderCache)
+		{
+			check(VertexDeclarationRefPtr);
+			check(IsValidRef(*VertexDeclarationRefPtr));
+			ShaderCache->LogVertexDeclaration(Elements, *VertexDeclarationRefPtr);
+		}
 	}
 
 	// The cached declaration must match the input declaration!

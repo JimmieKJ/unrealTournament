@@ -311,12 +311,7 @@ public:
 	static FPlatformOpenGLDevice*	CreateDevice() UGL_REQUIRED(NULL)
 	static FPlatformOpenGLContext*	CreateContext( FPlatformOpenGLDevice* Device, void* WindowHandle ) UGL_REQUIRED(NULL)
 
-	static FORCEINLINE void BufferSubData(GLenum Target, GLintptr Offset, GLsizeiptr Size, const GLvoid* Data)
-	{
-		glBufferSubData(Target, Offset, Size, Data);
-	}
-
-	static FORCEINLINE void CheckFrameBuffer() 
+	static FORCEINLINE void CheckFrameBuffer()
 	{
 #if UE_BUILD_DEBUG 
 		GLenum CompleteResult = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -327,21 +322,12 @@ public:
 #endif 
 	}
 
-	static FORCEINLINE void DeleteBuffers(GLsizei Number, const GLuint* Buffers)
-	{
-		glDeleteBuffers(Number, Buffers);
-	}
-
-	static FORCEINLINE void DeleteTextures(GLsizei Number, const GLuint* Textures)
-	{
-		glDeleteTextures(Number, Textures);
-	}
-
-	static FORCEINLINE void Flush()
-	{
-		glFlush();
-	}
-
+	static FORCEINLINE void BufferSubData(GLenum Target, GLintptr Offset, GLsizeiptr Size, const GLvoid* Data)	{ glBufferSubData(Target, Offset, Size, Data); }
+	static FORCEINLINE void DeleteBuffers(GLsizei Number, const GLuint* Buffers)	{ glDeleteBuffers(Number, Buffers); }
+	static FORCEINLINE void DeleteTextures(GLsizei Number, const GLuint* Textures)	{ glDeleteTextures(Number, Textures); }
+	static FORCEINLINE void Flush()													{ glFlush(); }
+	static FORCEINLINE GLuint CreateShader(GLenum Type)								{ return glCreateShader(Type); }
+	static FORCEINLINE GLuint CreateProgram()										{ return glCreateProgram(); }
 	static FORCEINLINE bool TimerQueryDisjoint()									{ return false; }
 
 protected:
