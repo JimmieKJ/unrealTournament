@@ -1,6 +1,6 @@
 // contains bot character settings (skill modifiers, etc)
 // this is a separate object so it can be saved and loaded independently from game settings
-// Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTBotConfig.generated.h"
