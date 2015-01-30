@@ -76,19 +76,6 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 	return Super::CanBePickedUpBy(Character);
 }
 
-void AUTCTFFlag::Destroyed()
-{
-	Super::Destroyed();
-}
-
-void AUTCTFFlag::OnHolderChanged()
-{
-	Super::OnHolderChanged();
-
-	APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
-	GetMesh()->SetHiddenInGame(PC != NULL && Holder != NULL && PC->PlayerState == Holder);
-}
-
 void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 {
 	Super::DetachFrom(AttachToMesh);

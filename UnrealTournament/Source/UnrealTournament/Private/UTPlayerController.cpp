@@ -1170,6 +1170,12 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	{
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);
+		// hide flag
+		// TODO: long term would be nice to not do this and have it visible at the edge of vision
+		if (P->GetCarriedObject() != NULL)
+		{
+			HideComponentTree(Cast<UPrimitiveComponent>(P->GetCarriedObject()->GetRootComponent()), HiddenComponents);
+		}
 	}
 	else if (GetViewTarget() != NULL)
 	{

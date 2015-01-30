@@ -19,11 +19,9 @@ class AUTCTFFlag : public AUTCarriedObject
 	}
 
 	virtual bool CanBePickedUpBy(AUTCharacter* Character);
-	virtual void Destroyed() override;
 
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
 	virtual void OnObjectStateChanged();
-	virtual void OnHolderChanged();
 
 	virtual void SendHome() override;
 	virtual void SendHomeWithNotify() override;
