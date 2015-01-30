@@ -45,6 +45,9 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	DamageAttenuationDelay = 0.75f;
 	MinDamageSpeed = 800.f;
 
+	SelfDamageAttenuation = 25.0f;
+	SelfDamageAttenuationDelay = 0.11f;
+
 	InitialLifeSpan = 2.f;
 	BounceFinalLifeSpanIncrement = 0.5f;
 	BouncesRemaining = 2;
@@ -113,7 +116,15 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const
 {
 	FRadialDamageParams Result = Super::GetDamageParams_Implementation(OtherActor, HitLocation, OutMomentum);
-	Result.BaseDamage = FMath::Max<float>(Result.MinimumDamage, Result.BaseDamage - DamageAttenuation * FMath::Max<float>(0.0f, GetClass()->GetDefaultObject<AUTProj_FlakShard>()->InitialLifeSpan - GetLifeSpan() - DamageAttenuationDelay));
+	if (OtherActor == Instigator)
+	{
+		// attenuate self damage and momentum
+		Result.BaseDamage = FMath::Max<float>(0.f, Result.BaseDamage - SelfDamageAttenuation * FMath::Max<float>(0.0f, GetWorld()->GetTimeSeconds() - CreationTime - SelfDamageAttenuationDelay));
+	}
+	else
+	{
+		Result.BaseDamage = FMath::Max<float>(Result.MinimumDamage, Result.BaseDamage - DamageAttenuation * FMath::Max<float>(0.0f, GetWorld()->GetTimeSeconds() - CreationTime - DamageAttenuationDelay));
+	}
 	return Result;
 }
 

@@ -52,6 +52,14 @@ class AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
 	float DamageAttenuationDelay;
 
+	/** self (instigator) damage lost per second in flight */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
+		float SelfDamageAttenuation;
+
+	/** amount of time for full damage before self damageattenuation starts */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
+		float SelfDamageAttenuationDelay;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
 		float FullGravityDelay;
 
