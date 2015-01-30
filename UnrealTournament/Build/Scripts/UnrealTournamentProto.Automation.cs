@@ -1439,7 +1439,7 @@ public partial class EditorProject : Project
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dylib" }, null, false, false, null, false);
             
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config/"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config/"), "*", true, new string[] { }, null, false, false, null, false, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders/"), "*", true, new string[] { }, null, false, false, null, false);
             
@@ -1482,7 +1482,7 @@ public partial class EditorProject : Project
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D/"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
 
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config/"), "*", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config/"), "*", true, new string[] { }, null, false, false, null, false, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders/"), "*", true, new string[] { }, null, false, false, null, false);
 
