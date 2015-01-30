@@ -20,6 +20,7 @@ void FPackageContentCommands::RegisterCommands()
 	UI_COMMAND(PackageLevel, "Package This Level", "Cook and package up this level.", EUserInterfaceActionType::Button, FInputGesture());
 	UI_COMMAND(PackageWeapon, "Package A Weapon", "Cook and package up a weapon.", EUserInterfaceActionType::Button, FInputGesture());
 	UI_COMMAND(PackageHat, "Package A Cosmetic Item", "Cook and package up a cosmetic item.", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(ComingSoon, "Coming Soon", "We will support content cooking on this platform in the near future.", EUserInterfaceActionType::Button, FInputGesture());
 }
 
 #undef LOCTEXT_NAMESPACE

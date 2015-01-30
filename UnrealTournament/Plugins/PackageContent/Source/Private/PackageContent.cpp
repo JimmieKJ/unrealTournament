@@ -421,9 +421,13 @@ TSharedRef<SWidget> FPackageContent::GenerateOpenPackageMenuContent()
 
 	MenuBuilder.BeginSection(NAME_None, LOCTEXT("Package Content", "Package Content"));
 	{
+#if PLATFORM_WINDOWS
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageLevel);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageWeapon);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageHat);
+#else
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().ComingSoon);
+#endif
 	}
 	MenuBuilder.EndSection();
 
