@@ -200,7 +200,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             /*
             {
                 // verify the files we need exist first
-                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacNoEditor");
+                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacEditor");
                 string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
 
                 if (!FileExists(RawImageManifest))
@@ -216,7 +216,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 {
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
-                    AppLaunchCmd = @".\Engine\Binaries\Mac\UE4Editor.app",
+                    AppLaunchCmd = @"./Engine/Binaries/Mac/UE4Editor.app",
                     AppLaunchCmdArgs = "UnrealTournament",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });
@@ -1421,9 +1421,9 @@ public partial class EditorProject : Project
     {
         if (SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Mac)
         {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "UE4Editor.app", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac/UE4Editor.app"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "ShaderCompileWorker*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "CrashReportClient.app", true, new string[] { }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac/CrashReportClient.app"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "UnrealPak", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "UnrealLightmass*", true, new string[] { }, null, false, false, null, false);
 
@@ -1433,6 +1433,8 @@ public partial class EditorProject : Project
 
             SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Mono/", SC.PlatformDir), "*", true, null, null, false, false, null, false);
                         
+            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3/", SC.PlatformDir), "*", true, null, null, false, false, null, false);
+
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector"), "*", true, new string[] { "*-Debug.dylib" }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dylib" }, null, false, false, null, false);
             
