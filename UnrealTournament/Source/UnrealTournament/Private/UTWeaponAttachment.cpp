@@ -13,7 +13,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitial
 	Mesh->AttachParent = RootComponent;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	AttachSocket = FName((TEXT("WeaponPoint")));
-	HolsterSocket = FName((TEXT("b_Spine2")));
+	HolsterSocket = FName((TEXT("spine_02")));
 	HolsterOffset = FVector(0.f, 16.f, 0.f);
 	HolsterRotation = FRotator(0.f, 60.f, 75.f);
 	PickupScaleOverride = FVector(2.0f, 2.0f, 2.0f);
