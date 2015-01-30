@@ -8,9 +8,6 @@
 #include "IInputInterface.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
-#if STEAM_CONTROLLER_SUPPORT
-	#include "SteamControllerInterface.h"
-#endif // STEAM_CONTROLLER_SUPPORT
 
 #if WITH_EDITOR
 #include "ModuleManager.h"
@@ -124,9 +121,6 @@ void FLinuxApplication::InitializeWindow(	const TSharedRef< FGenericWindow >& In
 void FLinuxApplication::SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
 {
 	GenericApplication::SetMessageHandler(InMessageHandler);
-#if STEAM_CONTROLLER_SUPPORT
-	SteamInput->SetMessageHandler(InMessageHandler);
-#endif // STEAM_CONTROLLER_SUPPORT
 }
 
 namespace
@@ -781,6 +775,7 @@ void FLinuxApplication::PollGameDeviceState( const float TimeDelta )
 			TSharedPtr<IInputDevice> Device = (*InputPluginIt)->CreateInputDevice(MessageHandler);
 			if (Device.IsValid())
 			{
+				UE_LOG(LogInit, Log, TEXT("Adding external input plugin."));
 				ExternalInputDevices.Add(Device);
 			}
 		}
@@ -788,11 +783,6 @@ void FLinuxApplication::PollGameDeviceState( const float TimeDelta )
 		bHasLoadedInputPlugins = true;
 	}
 	
-#if STEAM_CONTROLLER_SUPPORT
-	// Poll game device states and send new events
-	SteamInput->SendControllerEvents();
-#endif // STEAM_CONTROLLER_SUPPORT
-
 	// Poll externally-implemented devices
 	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
 	{

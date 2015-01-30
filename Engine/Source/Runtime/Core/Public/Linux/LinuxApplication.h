@@ -5,8 +5,6 @@
 #include "GenericApplication.h"
 #include "LinuxWindow.h"
 
-#define STEAM_CONTROLLER_SUPPORT				(WITH_STEAMWORKS && WITH_ENGINE && WITH_STEAMCONTROLLER)
-
 typedef SDL_GameController* SDL_HController;
 
 class FLinuxWindow;
@@ -121,10 +119,6 @@ private:
 	SDLControllerState *ControllerStates;
 
 	float fMouseWheelScrollAccel;
-
-#if STEAM_CONTROLLER_SUPPORT
-	TSharedPtr< class SteamControllerInterface > SteamInput;
-#endif // STEAM_CONTROLLER_SUPPORT
 
 	/** List of input devices implemented in external modules. */
 	TArray< TSharedPtr<class IInputDevice> > ExternalInputDevices;
