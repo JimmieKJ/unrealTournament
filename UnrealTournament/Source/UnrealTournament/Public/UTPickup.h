@@ -90,7 +90,7 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 
 	virtual void PreNetReceive();
 	virtual void PostNetReceive();
-
+	virtual void PostEditImport() override;
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult);
 

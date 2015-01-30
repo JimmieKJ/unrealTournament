@@ -8,6 +8,17 @@
 
 static FName NAME_PercentComplete(TEXT("PercentComplete"));
 
+void AUTPickup::PostEditImport()
+{
+	Super::PostEditImport();
+
+	if (!IsPendingKill())
+	{
+		Collision->OnComponentBeginOverlap.Clear();
+		Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTPickup::OnOverlapBegin);
+	}
+}
+
 AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -16,12 +27,6 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	Collision = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->InitCapsuleSize(64.0f, 75.0f);
-
-	if (!IsPendingKill())
-	{
-		Collision->OnComponentBeginOverlap.AddDynamic(this, &AUTPickup::OnOverlapBegin);
-	}
-
 	RootComponent = Collision;
 
 	// can't - not exposed
