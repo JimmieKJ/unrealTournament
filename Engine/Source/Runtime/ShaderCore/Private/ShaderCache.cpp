@@ -34,9 +34,11 @@ FShaderCache* FShaderCache::GetShaderCache()
 
 void FShaderCache::ShutdownShaderCache()
 {
-	check(Cache);
-	delete Cache;
-	Cache = nullptr;
+	if (Cache)
+	{
+		delete Cache;
+		Cache = nullptr;
+	}
 }
 
 FShaderCache::FShaderCache()
