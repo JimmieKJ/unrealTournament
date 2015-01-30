@@ -73,7 +73,7 @@ void SULobbyInfoPanel::BuildNonChatPanel()
 						]			
 				];
 		}
-		else
+		else if (PlayerState->CurrentMatch)
 
 		// We need to show the match setup panel.  Hosts will have an interactive panel, non-hosts will just get an info dump
 
