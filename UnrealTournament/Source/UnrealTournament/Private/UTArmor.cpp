@@ -136,7 +136,8 @@ float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, fl
 bool AUTArmor::HandleArmorEffects(AUTCharacter* HitPawn) const
 {
 	bool bResult = false;
-	if (ArmorImpactEffect && HitPawn && !HitPawn->IsPendingKillPending())
+	bool bRecentlyRendered = HitPawn && !HitPawn->IsPendingKillPending() && (GetWorld()->TimeSeconds - HitPawn->GetLastRenderTime() < 1.0f);
+	if (ArmorImpactEffect && bRecentlyRendered)
 	{
 		bResult = true;
 		FVector WorldHitLocation = HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation;
