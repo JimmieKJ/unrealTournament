@@ -33,10 +33,8 @@ FName UUTVictoryMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 	if (Switch == 2)
 	{
 		//return FName(TEXT("HumiliatingDefeat"));
-		Switch = 1;
 	}
-	else 
-	if (Switch == 3)
+	else if (Switch == 3)
 	{
 		return FName(TEXT("FlawlessVictory"));
 	}
