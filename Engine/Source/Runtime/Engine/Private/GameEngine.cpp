@@ -291,7 +291,13 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	// Do not set fullscreen mode here, since it doesn't take 
 	// HMDDevice into account. The window mode will be set properly later
 	// from SwitchGameWindowToUseGameViewport() method (see ResizeWindow call).
+#if PLATFORM_LINUX
+	// A temporary hack to avoid switching to window mode which doesn't play well with Big Picture.
+	// @TODO: remove or fix the above problem with HMD device.
+	Window->SetWindowMode(WindowMode);
+#else
 	Window->SetWindowMode(EWindowMode::Windowed);
+#endif // PLATFORM_LINUX
 
 	Window->ShowWindow();
 
