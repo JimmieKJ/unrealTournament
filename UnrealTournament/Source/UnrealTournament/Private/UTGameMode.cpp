@@ -519,6 +519,11 @@ void AUTGameMode::SetBotCount(uint8 NewCount)
 	BotFillCount = NumPlayers + NewCount;
 }
 
+void AUTGameMode::AddBots(uint8 Num)
+{
+	BotFillCount = NumPlayers + Num;
+}
+
 /**
  *	DefaultTimer is called once per second and is useful for consistent timed events that don't require to be 
  *  done every frame.

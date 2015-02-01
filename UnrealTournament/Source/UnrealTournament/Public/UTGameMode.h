@@ -339,6 +339,9 @@ public:
 	/** sets bot count, ignoring startup settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual void SetBotCount(uint8 NewCount);
+	/** adds num bots to current total */
+	UFUNCTION(Exec, BlueprintCallable, Category = AI)
+		virtual void AddBots(uint8 Num);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
