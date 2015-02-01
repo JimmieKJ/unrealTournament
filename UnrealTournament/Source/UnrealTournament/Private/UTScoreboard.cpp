@@ -178,8 +178,8 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	FText CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "PLAYER");
 	FText CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "SCORE");
 	FText CH_Deaths = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerDeaths", "DEATHS");
-	FText CH_Ping = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "PING");
-	FText CH_Ready = NSLOCTEXT("UTScoreboard","ColumnHeader_Ready","");
+	FText CH_Ping = (GetWorld()->GetNetMode() == NM_Standalone) ? NSLOCTEXT("UTScoreboard", "ColumnHeader_BotSkill", "SKILL") : NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "PING");
+	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
 
 	int32 ColumnCnt = ((UTGameState && UTGameState->bTeamGame) || ActualPlayerCount > 16) ? 2 : 1;
 	float XOffset = ColumnCnt > 1 ? 0 : 322;
@@ -269,7 +269,16 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		BarOpacity = 0.5;
 	}
 
-	FText PlayerPing = FText::Format(NSLOCTEXT("UTScoreboard","PingFormatText","{0}ms"), FText::AsNumber(Ping));
+	FText PlayerPing;
+	if (GetWorld()->GetNetMode() == NM_Standalone)
+	{
+		AUTBot* Bot = Cast<AUTBot>(PlayerState->GetOwner());
+		PlayerPing = Bot ? FText::AsNumber(Bot->Skill) : FText::FromString(TEXT("-"));
+	}
+	else
+	{
+		PlayerPing = FText::Format(NSLOCTEXT("UTScoreboard", "PingFormatText", "{0}ms"), FText::AsNumber(Ping));
+	}
 
 	// Draw the position
 	
