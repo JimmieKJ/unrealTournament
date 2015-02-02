@@ -297,7 +297,13 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPlaceholderAtLocation(FVector Location);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UISound)
+		USoundBase* SelectSound;
 	
+	UFUNCTION()
+		virtual void PlayMenuSelectSound();
+
 	//-----------------------------------------------
 	// Perceived latency reduction
 	/** Used to correct prediction error. */

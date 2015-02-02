@@ -184,6 +184,7 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 				UE_LOG(UT, Log, TEXT("Team (%i) size: %i"), i, Teams[i]->GetSize());
 			}
 			PS->bPendingTeamSwitch = true;
+			PS->ForceNetUpdate();
 			return false;
 		}
 	}
@@ -199,6 +200,7 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 		}
 		Teams[NewTeam]->AddToTeam(Player);
 		PS->bPendingTeamSwitch = false;
+		PS->ForceNetUpdate();
 		return true;
 	}
 	return false;

@@ -543,7 +543,6 @@ void AUTGameMode::DefaultTimer()
 				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
 				if (PS != NULL && PS->ForceRespawnTime <= 0.0f)
 				{
-					PS->bChosePrimaryRespawnChoice = true;
 					RestartPlayer(Controller);
 				}
 			}
@@ -690,6 +689,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				KilledPlayerState->RespawnChoiceB = nullptr;
 				KilledPlayerState->RespawnChoiceA = Cast<APlayerStart>(ChoosePlayerStart(KilledPlayer));
 				KilledPlayerState->RespawnChoiceB = Cast<APlayerStart>(ChoosePlayerStart(KilledPlayer));
+				KilledPlayerState->bChosePrimaryRespawnChoice = true;
 			}
 		}
 
@@ -1349,6 +1349,7 @@ FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const
 		NewPlayerState->RespawnChoiceB = nullptr;
 		NewPlayerState->RespawnChoiceA = Cast<APlayerStart>(ChoosePlayerStart(NewPlayerController));
 		NewPlayerState->RespawnChoiceB = Cast<APlayerStart>(ChoosePlayerStart(NewPlayerController));
+		NewPlayerState->bChosePrimaryRespawnChoice = true;
 	}
 
 	return ErrorMessage;

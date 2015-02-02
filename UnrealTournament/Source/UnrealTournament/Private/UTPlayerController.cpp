@@ -71,6 +71,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	bIsDebuggingProjectiles = false;
 	bUseClassicGroups = true;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
+	SelectSound = PressedSelect.Object;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -670,6 +673,13 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 }
 
+void AUTPlayerController::PlayMenuSelectSound()
+{
+	if (GetViewTarget())
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SelectSound, GetViewTarget()->GetActorLocation(), 1.f, 1.0f, 0.0f);
+	}
+}
 void AUTPlayerController::OnFire()
 {
 	if (GetPawn() != NULL)
@@ -678,6 +688,7 @@ void AUTPlayerController::OnFire()
 	}
 	else if (IsInState(NAME_Spectating))
 	{
+		PlayMenuSelectSound();
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && 
 			bPlayerIsWaiting)
 		{
@@ -690,6 +701,7 @@ void AUTPlayerController::OnFire()
 	}
 	else
 	{
+		PlayMenuSelectSound();
 		ServerRestartPlayer();
 	}
 
@@ -709,8 +721,8 @@ void AUTPlayerController::OnAltFire()
 	}
 	else if (IsInState(NAME_Spectating))
 	{
-		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) &&
-			bPlayerIsWaiting)
+		PlayMenuSelectSound();
+		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && bPlayerIsWaiting)
 		{
 			ServerRestartPlayerAltFire();
 		}
@@ -721,6 +733,7 @@ void AUTPlayerController::OnAltFire()
 	}
 	else
 	{
+		PlayMenuSelectSound();
 		ServerRestartPlayerAltFire();
 	}
 }
@@ -1264,6 +1277,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->bChosePrimaryRespawnChoice = true;
+		UTPlayerState->ForceNetUpdate();
 	}
 
 	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
@@ -1272,6 +1286,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		{
 			UTPlayerState->bReadyToPlay = true;
 			UTPlayerState->bPendingTeamSwitch = false;
+			UTPlayerState->ForceNetUpdate();
 		}
 	}
 
@@ -1295,6 +1310,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->bChosePrimaryRespawnChoice = false;
+		UTPlayerState->ForceNetUpdate();
 	}
 
 	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
@@ -1305,6 +1321,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
 				UTPlayerState->bReadyToPlay = false;
+				UTPlayerState->ForceNetUpdate();
 			}
 		}
 	}

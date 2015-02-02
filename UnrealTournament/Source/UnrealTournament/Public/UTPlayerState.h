@@ -115,7 +115,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float ForceRespawnTime;
 
-	UPROPERTY()
+	UPROPERTY(replicated)
 	bool bChosePrimaryRespawnChoice;
 
 	UPROPERTY(replicated)
