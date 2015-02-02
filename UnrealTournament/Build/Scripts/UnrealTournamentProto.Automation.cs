@@ -197,7 +197,6 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             }
 
             // EDITOR BUILD
-            /*
             {
                 // verify the files we need exist first
                 string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacEditor");
@@ -232,7 +231,6 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Mac);
                 BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             }
-            */
         }
         else
         {
@@ -1326,17 +1324,17 @@ public class StageUTEditor : BuildCommand
     {
         var Params = GetParams(this);
 
-        EditorProject.CopyEditorBuildToStagingDirectory(Params);
+        EditorProject.CopyEditorBuildToStagingDirectory(Params, ParseParam("nomac"));
     }
 }
 
 public partial class EditorProject : Project
 {
-    public static void CopyEditorBuildToStagingDirectory(ProjectParams Params)
+    public static void CopyEditorBuildToStagingDirectory(ProjectParams Params, bool bNoMac = false)
     {
         if (Params.Stage && !Params.SkipStage)
         {
-            var DeployContextList = CreateEditorDeploymentContext(Params, false, true);
+            var DeployContextList = CreateEditorDeploymentContext(Params, false, true, bNoMac);
             foreach (var SC in DeployContextList)
             {
                 CreateEditorStagingManifest(Params, SC);
@@ -1345,14 +1343,17 @@ public partial class EditorProject : Project
         }
     }
 
-    public static List<DeploymentContext> CreateEditorDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false)
+    public static List<DeploymentContext> CreateEditorDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false, bool bNoMac = false)
     {
         ParamList<string> ListToProcess = new ParamList<string>("UnrealTournament");
         var ConfigsToProcess = new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development };
 
         List<UnrealTargetPlatform> PlatformsToStage = new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64 };
 
-        //List<UnrealTargetPlatform> PlatformsToStage = new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64, UnrealTargetPlatform.Mac };
+        if (!bNoMac)
+        {
+            PlatformsToStage.Add(UnrealTargetPlatform.Mac);
+        }
             
         List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
         foreach (var StagePlatform in PlatformsToStage)
