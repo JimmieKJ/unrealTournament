@@ -672,7 +672,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		UTexture2D* Tex = LockCrosshairTexture;
 		float W = Tex->GetSurfaceWidth();
 		float H = Tex->GetSurfaceHeight();
-		float Scale = WeaponHudWidget->GetRenderScale() * CrosshairScale;
+		float Scale = WeaponHudWidget->GetRenderScale() * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 
 		FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
 		ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
