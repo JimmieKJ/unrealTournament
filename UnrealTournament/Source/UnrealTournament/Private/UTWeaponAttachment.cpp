@@ -107,7 +107,10 @@ void AUTWeaponAttachment::DetachFromOwner_Implementation()
 
 void AUTWeaponAttachment::UpdateOverlays()
 {
-	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayMesh);
+	if (WeaponType != NULL)
+	{
+		WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayMesh);
+	}
 }
 
 void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
