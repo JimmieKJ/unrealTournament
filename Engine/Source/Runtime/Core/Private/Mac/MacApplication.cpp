@@ -109,7 +109,6 @@ FMacApplication::FMacApplication()
 	, bIsProcessingNSEvent( false )
 	, ModifierKeysFlags( 0 )
 	, CurrentModifierFlags( 0 )
-	, bKeyWindowUpdateRequested( false )
 	, bIsWorkspaceSessionActive( true )
 {
 	CGDisplayRegisterReconfigurationCallback(FMacApplication::OnDisplayReconfiguration, this);
@@ -425,16 +424,38 @@ void FMacApplication::ProcessEvent(FMacEvent const* const Event)
 void FMacApplication::PumpMessages(const float TimeDelta)
 {
 	FPlatformMisc::PumpMessages(true);
+}
 
-	if (bKeyWindowUpdateRequested)
+void FMacApplication::CloseQueuedWindows()
+{
+	if (WindowsToClose.Num() > 0)
 	{
-		TSharedPtr<FMacWindow> KeyWindow = GetKeyWindow();
-		if (KeyWindow.IsValid() && KeyWindow->GetOSWindowHandle() && ![(FCocoaWindow*)KeyWindow->GetOSWindowHandle() isMiniaturized])
-		{
-			// Activate specified previous window if still present, provided it isn't minimized
-			KeyWindow->SetWindowFocus();
-		}
-		bKeyWindowUpdateRequested = false;
+		MainThreadCall(^{
+			SCOPED_AUTORELEASE_POOL;
+
+			// Set the new key window, if needed. We cannot trust Cocoa to set the key window to the actual top most window. It will prefer windows with title bars so,
+			// for example, will choose the main window over a context menu window, when closing a submenu.
+			NSArray* AllWindows = [NSApp orderedWindows];
+			for (NSWindow* Window : AllWindows)
+			{
+				if ([Window isKindOfClass:[FCocoaWindow class]] && !WindowsToClose.Contains((FCocoaWindow*)Window) && [Window canBecomeKeyWindow])
+				{
+					if (Window != [NSApp keyWindow])
+					{
+						[Window makeKeyWindow];
+					}
+					break;
+				}
+			}
+
+			for (FCocoaWindow* Window : WindowsToClose)
+			{
+				[Window destroy];
+				[Window release];
+			}
+		}, UE4CloseEventMode, true);
+
+		WindowsToClose.Empty();
 	}
 }
 
@@ -1230,7 +1251,6 @@ void FMacApplication::OnWindowDidBecomeKey( FCocoaWindow* Window )
 	if( EventWindow.IsValid() )
 	{
 		MessageHandler->OnWindowActivationChanged( EventWindow.ToSharedRef(), EWindowActivation::Activate );
-		KeyWindows.Add( EventWindow.ToSharedRef() );
 	}
 }
 
@@ -1314,7 +1334,6 @@ void FMacApplication::OnWindowDidClose( FCocoaWindow* Window )
 			MessageHandler->OnWindowActivationChanged( EventWindow.ToSharedRef(), EWindowActivation::Deactivate );
 		}
 		Windows.Remove( EventWindow.ToSharedRef() );
-		KeyWindows.Remove( EventWindow.ToSharedRef() );
 		MessageHandler->OnWindowClose( EventWindow.ToSharedRef() );
 	}
 }
@@ -1329,7 +1348,10 @@ bool FMacApplication::OnWindowDestroyed( FCocoaWindow* Window )
 			MessageHandler->OnWindowActivationChanged( EventWindow.ToSharedRef(), EWindowActivation::Deactivate );
 		}
 		Windows.Remove( EventWindow.ToSharedRef() );
-		KeyWindows.Remove( EventWindow.ToSharedRef() );
+		if (!WindowsToClose.Contains(Window))
+		{
+			WindowsToClose.Add(Window);
+		}
 		return true;
 	}
 	return false;
@@ -1435,16 +1457,6 @@ TCHAR FMacApplication::TranslateCharCode(TCHAR CharCode, uint32 KeyCode)
 	}
 
 	return CharCode;
-}
-
-TSharedPtr<FMacWindow> FMacApplication::GetKeyWindow()
-{
-	TSharedPtr<FMacWindow> KeyWindow;
-	if(KeyWindows.Num() > 0)
-	{
-		KeyWindow = KeyWindows.Top();
-	}
-	return KeyWindow;
 }
 
 #if WITH_EDITOR

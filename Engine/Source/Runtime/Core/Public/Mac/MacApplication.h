@@ -110,6 +110,8 @@ public:
 
 	const TArray<TSharedRef<FMacWindow>>& GetAllWindows() const { return Windows; }
 
+	void CloseQueuedWindows();
+
 private:
 	enum FMacApplicationEventTypes
 	{
@@ -128,9 +130,6 @@ private:
 	void ResendEvent( NSEvent* Event );
 	FCocoaWindow* FindEventWindow( NSEvent* CocoaEvent );
 	TSharedPtr<FMacWindow> LocateWindowUnderCursor( const NSPoint Position );
-
-	TSharedPtr<FMacWindow> GetKeyWindow();
-	void RequestKeyWindowUpdate() { bKeyWindowUpdateRequested = true; }
 
 	NSScreen* FindScreenByPoint( int32 X, int32 Y ) const;
 
@@ -182,8 +181,7 @@ private:
 	/** The current set of Cocoa modifier flags, used to detect when Mission Control has been invoked & returned so that we can synthesis the modifier events it steals */
 	NSUInteger CurrentModifierFlags;
 
-	TArray< TSharedRef< FMacWindow > > KeyWindows;
-	bool bKeyWindowUpdateRequested;
+	TArray<FCocoaWindow*> WindowsToClose;
 
 	TSharedPtr<FMacTextInputMethodSystem> TextInputMethodSystem;
 

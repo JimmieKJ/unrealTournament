@@ -10,17 +10,6 @@
 
 FMacWindow::~FMacWindow()
 {
-	// While on Windows invalid HWNDs fail silently, accessing an invalid NSWindow is fatal.
-	// So instead we release the window here.
-	if(WindowHandle)
-	{
-		NSWindow* Window = WindowHandle;
-		dispatch_async(dispatch_get_main_queue(), ^{
-			SCOPED_AUTORELEASE_POOL;
-			[Window release];
-		});
-		WindowHandle = nil;
-	}
 }
 
 TSharedRef<FMacWindow> FMacWindow::Make()
@@ -309,25 +298,9 @@ void FMacWindow::Destroy()
 	{
 		SCOPED_AUTORELEASE_POOL;
 		bIsClosed = true;
-
-		FCocoaWindow* Window = WindowHandle;
-		const bool bIsKey = [Window isKeyWindow];
-
-		if (MacApplication->OnWindowDestroyed(Window) )
-		{
-			// This FMacWindow may have been destructed by now & so the WindowHandle will probably be invalid memory.
-
-			if (bIsKey)
-			{
-				MacApplication->RequestKeyWindowUpdate();
-			}
-
-			// Close the window
-			MainThreadCall(^{
-				SCOPED_AUTORELEASE_POOL;
-				[Window destroy];
-			}, UE4CloseEventMode, true);
-		}
+		[WindowHandle setAlphaValue:0.0f];
+		[WindowHandle setBackgroundColor:[NSColor clearColor]];
+		MacApplication->OnWindowDestroyed(WindowHandle);
 	}
 }
 
