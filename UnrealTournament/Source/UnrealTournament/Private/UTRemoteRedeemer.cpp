@@ -380,7 +380,7 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 		if (AdjustedDamageParams.OuterRadius > 0.0f)
 		{
 			TArray<AActor*> IgnoreActors;
-			FVector ExplosionCenter = GetActorLocation() + FVector(0, 0, 400);
+			FVector ExplosionCenter = GetActorLocation();
 
 			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, ExplosionCenter, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, CollisionFreeRadius);
