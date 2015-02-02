@@ -301,6 +301,7 @@ void FMacWindow::Destroy()
 		[WindowHandle setAlphaValue:0.0f];
 		[WindowHandle setBackgroundColor:[NSColor clearColor]];
 		MacApplication->OnWindowDestroyed(WindowHandle);
+		WindowHandle = nullptr;
 	}
 }
 
