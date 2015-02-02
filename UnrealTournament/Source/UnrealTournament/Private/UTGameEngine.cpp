@@ -66,6 +66,14 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 
 	// HACK: UGameUserSettings::ApplyNonResolutionSettings() isn't virtual so we need to force our settings to be applied...
 	GetGameUserSettings()->ApplySettings(true);
+
+	UE_LOG(UT, Log, TEXT("Running %d processors (%d logical cores)"), FPlatformMisc::NumberOfCores(), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
+	if (FPlatformMisc::NumberOfCoresIncludingHyperthreads() < ParallelRendererProcessorRequirement)
+	{
+		UE_LOG(UT, Log, TEXT("Enabling r.RHICmdBypass due to not having %d logical cores"), ParallelRendererProcessorRequirement);
+		IConsoleVariable* BypassVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RHICmdBypass"));
+		BypassVar->Set(1);
+	}
 }
 
 void UUTGameEngine::PreExit()

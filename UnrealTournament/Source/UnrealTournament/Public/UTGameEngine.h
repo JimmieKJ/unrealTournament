@@ -17,6 +17,9 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(globalconfig)
 	bool bFirstRun;
 
+	UPROPERTY(config)
+	int32 ParallelRendererProcessorRequirement;
+
 	/** UT specific networking version.  Must match for net compatibility. */
 	UPROPERTY()
 	int32 GameNetworkVersion;
