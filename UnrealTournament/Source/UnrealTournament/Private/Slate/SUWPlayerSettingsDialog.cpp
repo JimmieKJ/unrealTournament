@@ -4,6 +4,10 @@
 #include "SUWPlayerSettingsDialog.h"
 #include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
+#include "../Public/UTCanvasRenderTarget2D.h"
+#include "EngineModule.h"
+#include "SlateMaterialBrush.h"
+#include "../Public/UTPlayerCameraManager.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -28,7 +32,37 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.ButtonMask(InArgs._ButtonMask)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
-	
+
+	PlayerPreviewMesh = NULL;
+
+	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
+	if (BaseMat != NULL)
+	{
+		// FIXME: can't use, results in crash due to engine bug
+		//PlayerPreviewTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(UCanvasRenderTarget2D::StaticClass(), 512, 512);
+		{
+			PlayerPreviewTexture = ConstructObject<UUTCanvasRenderTarget2D>(UUTCanvasRenderTarget2D::StaticClass(), GetPlayerOwner()->GetWorld());
+			PlayerPreviewTexture->InitAutoFormat(512, 512);
+		}
+		PlayerPreviewTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.BindSP(this, &SUWPlayerSettingsDialog::UpdatePlayerRender);
+		PlayerPreviewMID = UMaterialInstanceDynamic::Create(BaseMat, GetPlayerOwner()->GetWorld());
+		PlayerPreviewMID->SetTextureParameterValue(FName(TEXT("TheTexture")), PlayerPreviewTexture);
+		PlayerPreviewBrush = new FSlateMaterialBrush(*PlayerPreviewMID, FVector2D(384, 384));
+	}
+	else
+	{
+		PlayerPreviewTexture = NULL;
+		PlayerPreviewMID = NULL;
+		PlayerPreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), FVector2D(384, 384));
+	}
+
+	// allocate a preview scene for rendering
+	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
+	GEngine->CreateNewWorldContext(EWorldType::Preview).SetCurrentWorld(PlayerPreviewWorld);
+	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
+	ViewState.Allocate();
+
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
 	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
@@ -374,6 +408,15 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					]
 				]
 			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SImage)
+				.Image(PlayerPreviewBrush)
+			]
 		];
 
 		WeaponPriorities->SetSelection(WeaponList[0]);
@@ -385,7 +428,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			{
 				if (HatPathList[i] == ProfileSettings->GetHatPath())
 				{
-					SelectedHat->SetText(*HatList[i]);
+					OnHatSelected(HatList[i], ESelectInfo::Direct);
 					bFoundSelectedHat = true;
 					break;
 				}
@@ -393,9 +436,34 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		}
 		if (!bFoundSelectedHat && HatPathList.Num() > 0)
 		{
-			SelectedHat->SetText(*HatList[0]);
+			OnHatSelected(HatList[0], ESelectInfo::Direct);
 		}
 	}
+}
+
+SUWPlayerSettingsDialog::~SUWPlayerSettingsDialog()
+{
+	if (PlayerPreviewTexture != NULL)
+	{
+		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
+		PlayerPreviewTexture = NULL;
+	}
+	FlushRenderingCommands();
+	if (PlayerPreviewBrush != NULL)
+	{
+		// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
+		//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
+		//delete PlayerPreviewBrush;
+		PlayerPreviewBrush->SetResourceObject(NULL);
+		PlayerPreviewBrush = NULL;
+	}
+	if (PlayerPreviewWorld != NULL)
+	{
+		PlayerPreviewWorld->DestroyWorld(true);
+		GEngine->DestroyWorldContext(PlayerPreviewWorld);
+		PlayerPreviewWorld = NULL;
+	}
+	ViewState.Destroy();
 }
 
 void SUWPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
@@ -473,6 +541,7 @@ FReply SUWPlayerSettingsDialog::PlayerColorClicked(const FGeometry& Geometry, co
 void SUWPlayerSettingsDialog::PlayerColorChanged(FLinearColor NewValue)
 {
 	SelectedPlayerColor = NewValue;
+	RecreatePlayerPreview();
 }
 
 FReply SUWPlayerSettingsDialog::OKClick()
@@ -510,16 +579,10 @@ FReply SUWPlayerSettingsDialog::OKClick()
 		}
 	}
 
-
 	if (ProfileSettings != NULL)
 	{
-		for (int32 i = 0; i < HatPathList.Num(); i++)
-		{
-			if (*HatList[i] == SelectedHat->GetText().ToString())
-			{
-				ProfileSettings->SetHatPath(HatPathList[i]);
-			}
-		}
+		int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
+		ProfileSettings->SetHatPath(HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString());
 	}
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
@@ -579,6 +642,81 @@ TOptional<int32> SUWPlayerSettingsDialog::GetEmote3Value() const
 void SUWPlayerSettingsDialog::OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedHat->SetText(*NewSelection.Get());
+	RecreatePlayerPreview();
+}
+
+void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	if (PlayerPreviewWorld != NULL)
+	{
+		PlayerPreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
+	}
+	if (PlayerPreviewTexture != NULL)
+	{
+		PlayerPreviewTexture->UpdateResource();
+	}
+}
+
+void SUWPlayerSettingsDialog::RecreatePlayerPreview()
+{
+	if (PlayerPreviewMesh != NULL)
+	{
+		PlayerPreviewMesh->Destroy();
+	}
+
+	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FRotator::ZeroRotator.Vector() * 175.0f, FRotator(0.0f, 180.0f, 0.0f));
+	if (PlayerPreviewMesh->GetBodyMI() != NULL)
+	{
+		static FName NAME_TeamColor(TEXT("TeamColor"));
+		PlayerPreviewMesh->GetBodyMI()->SetVectorParameterValue(NAME_TeamColor, SelectedPlayerColor);
+	}
+
+	int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
+	FString NewHatPath = HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString();
+	if (NewHatPath.Len() > 0)
+	{
+		TSubclassOf<AUTHat> HatClass = LoadClass<AActor>(NULL, *NewHatPath, NULL, LOAD_None, NULL);
+		if (HatClass != NULL)
+		{
+			PlayerPreviewMesh->HatClass = HatClass;
+			PlayerPreviewMesh->OnRepHat();
+		}
+	}
+}
+
+void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
+{
+	FEngineShowFlags ShowFlags(ESFIM_Game);
+	ShowFlags.SetLighting(false); // FIXME: create some proxy light and use lit mode
+	ShowFlags.SetMotionBlur(false);
+	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
+	
+	FSceneViewInitOptions PlayerPreviewInitOptions;
+	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
+	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(FVector::ZeroVector) * FInverseRotationMatrix(FRotator::ZeroRotator) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+	PlayerPreviewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(90.0f * (float)PI / 360.0f, 90.0f * (float)PI / 360.0f, 1.0f, 1.0f, GNearClippingPlane, GNearClippingPlane);
+	PlayerPreviewInitOptions.ViewFamily = &ViewFamily;
+	PlayerPreviewInitOptions.SceneViewStateInterface = ViewState.GetReference();
+	PlayerPreviewInitOptions.BackgroundColor = FLinearColor::Black;
+	PlayerPreviewInitOptions.WorldToMetersScale = GetPlayerOwner()->GetWorld()->GetWorldSettings()->WorldToMeters;
+	PlayerPreviewInitOptions.CursorPos = FIntPoint(-1, -1);
+
+	TArray<UTexture*> TexList;
+	PlayerPreviewMesh->GetMesh()->GetUsedTextures(TexList, EMaterialQualityLevel::High);
+
+	FSceneView* View = new FSceneView(PlayerPreviewInitOptions); // note: renderer gets ownership
+	View->ViewLocation = FVector::ZeroVector;
+	View->ViewRotation = FRotator::ZeroRotator;
+	FPostProcessSettings PPSettings = GetDefault<AUTPlayerCameraManager>()->DefaultPPSettings;
+	PPSettings.bOverride_AntiAliasingMethod = true;
+	PPSettings.AntiAliasingMethod = AAM_None;
+	View->OverridePostProcessSettings(PPSettings, 1.0f);
+	ViewFamily.Views.Add(View);
+	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
+	--GFrameNumber;
+	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
 }
 
 #endif

@@ -1524,6 +1524,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	UMaterialInstanceDynamic* BodyMI;
 public:
+	inline UMaterialInstanceDynamic* GetBodyMI() const
+	{
+		return BodyMI;
+	}
 	/** legacy command for dropping the flag.  Just redirects to UseCarriedObject */
 	UFUNCTION(Exec)
 	virtual void DropFlag();

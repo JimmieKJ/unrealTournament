@@ -10,7 +10,7 @@ class SUWPlayerSettingsDialog : public SUWDialog, public FGCObject
 public:
 
 	SLATE_BEGIN_ARGS(SUWPlayerSettingsDialog)
-	: _DialogSize(FVector2D(0.5f,0.8f))
+	: _DialogSize(FVector2D(0.5f,0.9f))
 	, _bDialogSizeIsRelative(true)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -30,7 +30,24 @@ public:
 
 
 	void Construct(const FArguments& InArgs);
+	virtual ~SUWPlayerSettingsDialog();
+
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
 protected:
+
+	/** world for rendering the player preview */
+	class UWorld* PlayerPreviewWorld;
+	/** view state for player preview (needed for LastRenderTime to work) */
+	FSceneViewStateReference ViewState;
+	/** preview actors */
+	class AUTCharacter* PlayerPreviewMesh;
+	/** render target for player mesh and cosmetic items */
+	class UUTCanvasRenderTarget2D* PlayerPreviewTexture;
+	/** material for the player preview since Slate doesn't support rendering the target directly */
+	class UMaterialInstanceDynamic* PlayerPreviewMID;
+	/** Slate brush to render the preview */
+	FSlateBrush* PlayerPreviewBrush;
 
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
@@ -71,9 +88,15 @@ protected:
 	void OnNameTextChanged(const FText& NewText);
 	TSharedRef<ITableRow> GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
 
+	virtual void RecreatePlayerPreview();
+	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
+
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Collector.AddReferencedObjects(WeaponList);
+		Collector.AddReferencedObject(PlayerPreviewTexture);
+		Collector.AddReferencedObject(PlayerPreviewMID);
+		Collector.AddReferencedObject(PlayerPreviewWorld);
 	}
 };
 #endif
