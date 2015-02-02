@@ -253,9 +253,37 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** core skill rating, generally 0 - 7 */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float Skill;
+
 	/** reaction time (in real seconds) for enemy positional tracking (i.e. use enemy's position this far in the past as basis) */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-	float TrackingReactionTime;
+		float TrackingReactionTime;
+	/** Max Error in bots estimate about how far to lead player based on misjudging tracking reaction */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float MaxTrackingPredictionError;
+	/** Current Error in bots estimate about how far to lead player based on misjudging tracking reaction */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float TrackingPredictionError;
+	/** Max offset error, scaled by distance to player */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float MaxTrackingOffsetError;
+	/** Current offset error, scaled by distance to player */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float TrackingOffsetError;
+	/** How frequently to update tracking error */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float TrackingErrorUpdateInterval;
+	/** Next time to update tracking error */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+		float TrackingErrorUpdateTime;
+	/** How much to reduce aiming offset error over time if either bot or target is stopped. */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+	float StoppedOffsetErrorReduction = 0.8f;
+	/** How much to reduce aiming offset error over time if both bot and target are stopped. */
+	UPROPERTY(BlueprintReadWrite, Category = Skill)
+	float BothStoppedOffsetErrorReduction = 0.5f;
+
+	virtual void UpdateTrackingError();
+
 	/** maximum vision range in UU */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
 	float SightRadius;

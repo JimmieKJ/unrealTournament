@@ -109,8 +109,14 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	PeripheralVision = 0.7f;
 	TrackingReactionTime = 0.25f;
+	MaxTrackingPredictionError = 0.2f;
+	MaxTrackingOffsetError = 0.3f;
+	TrackingErrorUpdateInterval = 0.4f;
+	TrackingErrorUpdateTime = 0.f;
 	LastIterativeLeadCheck = 1.0f;
 	TacticalAimUpdateInterval = 0.2f;
+	StoppedOffsetErrorReduction = 0.8f;
+	BothStoppedOffsetErrorReduction = 0.5f;
 
 	WaitForMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
 	WaitForLandingAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
@@ -235,6 +241,22 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	if (Skill >= 0)
 	{
 		TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (Skill + 2.0f);
+
+		// no error for really high skill bots
+		if (Skill >= 7.f)
+		{
+			MaxTrackingPredictionError = 0.f;
+			MaxTrackingOffsetError = 0.f;
+		}
+		else
+		{
+			MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 7.0f / (Skill + 2.0f);
+			MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 7.0f / (Skill + 2.0f);
+		}
+
+		TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 7.0f / (Skill + 2.0f);
+		TrackingPredictionError = MaxTrackingPredictionError;
+		TrackingOffsetError = MaxTrackingOffsetError;
 	}
 
 	/*if (Skill < 3)
@@ -568,6 +590,7 @@ void AUTBot::Tick(float DeltaTime)
 			{
 				CurrentAction->EnemyNotVisible();
 			}
+			UpdateTrackingError();
 		}
 		SightCounter -= DeltaTime;
 		if (SightCounter < 0.0f)
@@ -709,6 +732,31 @@ void AUTBot::Tick(float DeltaTime)
 	}
 
 	Super::Tick(DeltaTime);
+}
+
+// @TODO FIXMESTEVE tracking offset error should go down at higher skills over time as long as enemy is still visible and tracked
+void AUTBot::UpdateTrackingError()
+{
+	if (GetWorld()->GetTimeSeconds() > TrackingErrorUpdateTime)
+	{
+		TrackingPredictionError = MaxTrackingPredictionError * (2.f*FMath::FRand() - 1.f);
+		float OldTrackingOffsetError = TrackingOffsetError;
+		bool bStoppedEnemy = (!Enemy || Enemy->GetVelocity().IsNearlyZero());
+		bool bAmStopped = (GetPawn() && GetPawn()->GetVelocity().IsNearlyZero());
+		if (bStoppedEnemy || bAmStopped)
+		{
+			TrackingOffsetError *= ((bStoppedEnemy && bAmStopped) ? BothStoppedOffsetErrorReduction : StoppedOffsetErrorReduction);
+			if (FMath::FRand() < 0.5f)
+			{
+				TrackingOffsetError *= -0.1f;
+			}
+		}
+		else
+		{
+			TrackingOffsetError = MaxTrackingOffsetError * (2.f*FMath::FRand() - 1.f);
+		}
+		TrackingErrorUpdateTime = GetWorld()->GetTimeSeconds() + TrackingErrorUpdateInterval;
+	}
 }
 
 void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints)
@@ -1120,7 +1168,11 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 						{
 							FVector TargetLoc = SavedPositions[i - 1].Position + (SavedPositions[i].Position - SavedPositions[i - 1].Position) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
 							TrackedVelocity = SavedPositions[i - 1].Velocity + (SavedPositions[i].Velocity - SavedPositions[i - 1].Velocity) * (WorldTime - TrackingReactionTime - SavedPositions[i - 1].Time) / (SavedPositions[i].Time - SavedPositions[i - 1].Time);
-							TargetLoc = TargetLoc + TrackedVelocity * TrackingReactionTime;
+							FVector SideDir = ((TargetLoc - P->GetActorLocation()) ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
+							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FLinearColor::White, false);
+							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FLinearColor::Yellow, false);
+							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * FMath::Min(500.f, TrackingOffsetError * (TargetLoc - P->GetActorLocation()).Size());
+							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FLinearColor::Red, false);
 
 							if (CanAttack(Enemy, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 							{
