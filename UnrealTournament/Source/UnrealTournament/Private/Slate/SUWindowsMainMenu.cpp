@@ -26,6 +26,8 @@
 
 void SUWindowsMainMenu::CreateDesktop()
 {
+	bShowFriendsList = false;
+
 	MenuBar = NULL;
 	ChildSlot
 		.VAlign(VAlign_Fill)
@@ -155,7 +157,7 @@ void SUWindowsMainMenu::CreateDesktop()
 						SNew(SBorder)
 						.Padding(0)
 						.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
-						.Visibility(EVisibility::Visible) //this, &SUWindowsMainMenu::GetFriendsWidgetVisibility)
+						.Visibility_Lambda([this]()->EVisibility{return this->bShowFriendsList ? EVisibility::Visible : EVisibility::Collapsed;})
 						[
 							SNew(SUTFriendsWidget, PlayerOwner->PlayerController)
 						]
@@ -179,12 +181,38 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildMenuBar()
 		// version number
 		MenuBar->AddSlot()
 		.HAlign(HAlign_Right)
-		.VAlign(VAlign_Center)
+		.VAlign(VAlign_Fill)
 		.Padding(0.0f, 0.0f, 5.0f, 0.0f)
 		[
-			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
-			.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), GetDefault<UUTGameEngine>()->GameNetworkVersion))).ToString())
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.Padding(FMargin(10.0f,0.0f))
+			.HAlign(HAlign_Fill)
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
+				.Visibility(FParse::Param(FCommandLine::Get(), TEXT("EnableFriendsAndChat")) ? EVisibility::Visible : EVisibility::Collapsed)
+				.OnClicked(this, &SUWindowsMainMenu::HandleFriendsButtonClicked)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Fill)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Friends", "Friends"))
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.TextStyle")	
+					]
+				]
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::Black)
+				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), GetDefault<UUTGameEngine>()->GameNetworkVersion))).ToString())
+			]
 		];
 	}
 
@@ -754,6 +782,12 @@ FReply SUWindowsMainMenu::OnLeaveMatch(TSharedPtr<SComboButton> MenuButton)
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->HideMenu();
 	ConsoleCommand(TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"));
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::HandleFriendsButtonClicked()
+{
+	bShowFriendsList = !bShowFriendsList;
 	return FReply::Handled();
 }
 

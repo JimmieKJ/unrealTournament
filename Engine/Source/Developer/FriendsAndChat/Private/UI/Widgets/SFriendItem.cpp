@@ -116,7 +116,7 @@ public:
 								.HAlign(HAlign_Center)
 								[
 									SNew(STextBlock)
-									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.ColorAndOpacity(SFriendsList::GetActionButtonFontColor(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::RemoveFriend)))
 									.Font(FriendStyle.FriendsFontStyleSmallBold)
 									.Text(EFriendActionType::ToText(EFriendActionType::RemoveFriend))
 								]
@@ -134,7 +134,7 @@ public:
 								.HAlign(HAlign_Center)
 								[
 									SNew(STextBlock)
-									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.ColorAndOpacity(SFriendsList::GetActionButtonFontColor(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::CancelFriendRequest)))
 									.Font(FriendStyle.FriendsFontStyleSmallBold)
 									.Text(EFriendActionType::ToText(EFriendActionType::CancelFriendRequest))
 								]
@@ -160,7 +160,7 @@ public:
 								.HAlign(HAlign_Center)
 								[
 									SNew(STextBlock)
-									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.ColorAndOpacity(SFriendsList::GetActionButtonFontColor(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::JoinGame)))
 									.Font(FriendStyle.FriendsFontStyleSmallBold)
 									.Text(EFriendActionType::ToText(EFriendActionType::JoinGame))
 								]
@@ -178,7 +178,7 @@ public:
 								.HAlign(HAlign_Center)
 								[
 									SNew(STextBlock)
-									.ColorAndOpacity(FriendStyle.DefaultFontColor)
+									.ColorAndOpacity(SFriendsList::GetActionButtonFontColor(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::CancelFriendRequest)))
 									.Font(FriendStyle.FriendsFontStyleSmallBold)
 									.Text(EFriendActionType::ToText(EFriendActionType::CancelFriendRequest))
 								]

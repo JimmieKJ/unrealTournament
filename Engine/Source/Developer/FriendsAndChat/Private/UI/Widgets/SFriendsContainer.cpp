@@ -50,11 +50,11 @@ public:
 				[
 					SNew(SBox)
 					.WidthOverride(FriendStyle.FriendsListWidth)
+					.HeightOverride(FriendStyle.StatusButtonSize.Y)
 					[
 						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
 						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Left)
 						.AutoWidth()
 						[
 							SNew(SFriendsStatus, ViewModel->GetStatusViewModel())
@@ -63,65 +63,59 @@ public:
 						]
 						+ SHorizontalBox::Slot()
 						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Right)
+						.FillWidth(1)
+						.Padding(4, 0, 0, 0)
 						[
-							SNew(SBox)
-							.HeightOverride(FriendStyle.StatusButtonSize.Y)
+							SNew(SBorder)
+							.Visibility(this, &SFriendsContainerImpl::AddFriendBoxVisibility)
+							.BorderImage(&FriendStyle.AddFriendEditBorder)
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Fill)
 							[
-								SNew(SHorizontalBox)
-								+ SHorizontalBox::Slot()
-								.Padding(4, 0, 0, 0)
+								SAssignNew(FriendNameTextBox, SEditableTextBox)
+								.HintText(LOCTEXT("AddFriendHint", "Add friend by account name or email"))
+								.Style(&FriendStyle.AddFriendEditableTextStyle)
+								.OnTextCommitted(this, &SFriendsContainerImpl::HandleFriendEntered)
+							]
+						]
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						.Padding(4, 0, 0, 0)
+						[
+							SNew(SButton)
+							.ToolTip(CreateAddFriendToolTip())
+							.ButtonStyle(&FriendStyle.AddFriendButtonStyle)
+							.OnClicked(this, &SFriendsContainerImpl::HandleAddFriendButtonClicked)
+							.Visibility(this, &SFriendsContainerImpl::AddFriendActionVisibility)
+							.ContentPadding(0)
+							.Cursor(EMouseCursor::Hand)
+							[
+								SNew(SBox)
+								.HAlign(HAlign_Center)
+								.VAlign(VAlign_Center)
+								.WidthOverride(FriendStyle.StatusButtonSize.Y)
+								.HeightOverride(FriendStyle.StatusButtonSize.Y)
 								[
-									SNew(SBorder)
-									.Visibility(this, &SFriendsContainerImpl::AddFriendVisibility)
-									.BorderImage(&FriendStyle.AddFriendEditBorder)
-									.VAlign(VAlign_Center)
-									.HAlign(HAlign_Fill)
-									[
-										SAssignNew(FriendNameTextBox, SEditableTextBox)
-										.HintText(LOCTEXT("AddFriendHint", "Add friend by account name or email"))
-										.Style(&FriendStyle.AddFriendEditableTextStyle)
-										.OnTextCommitted(this, &SFriendsContainerImpl::HandleFriendEntered)
-									]
+									SNew(SImage)
+									.Image(&FriendStyle.AddFriendButtonContentBrush)
 								]
-								+ SHorizontalBox::Slot()
-								.Padding(4, 0, 0, 0)
-								.AutoWidth()
-								[
-									SNew(SButton)
-									.ToolTip(CreateAddFriendToolTip())
-									.ButtonStyle(&FriendStyle.AddFriendButtonStyle)
-									.OnClicked(this, &SFriendsContainerImpl::HandleAddFriendButtonClicked)
-									.Visibility(this, &SFriendsContainerImpl::AddFriendActionVisibility)
-									.ContentPadding(0)
-									.Cursor(EMouseCursor::Hand)
-									[
-										SNew(SBox)
-										.HAlign(HAlign_Center)
-										.VAlign(VAlign_Center)
-										.WidthOverride(FriendStyle.StatusButtonSize.Y)
-										.HeightOverride(FriendStyle.StatusButtonSize.Y)
-										[
-											SNew(SImage)
-											.Image(&FriendStyle.AddFriendButtonContentBrush)
-										]
-									]
-								]
-								+ SHorizontalBox::Slot()
-								.Padding(4, 0, 0, 0)
-								.AutoWidth()
-								[
-									SNew(SButton)
-									.ButtonStyle(&FriendStyle.AddFriendCloseButtonStyle)
-									.Visibility(this, &SFriendsContainerImpl::AddFriendVisibility)
-									.ContentPadding(0)
-									.Cursor(EMouseCursor::Hand)
-									[
-										SNew(SBox)
-										.WidthOverride(FriendStyle.StatusButtonSize.Y)
-										.HeightOverride(FriendStyle.StatusButtonSize.Y)
-									]
-								]
+							]
+						]
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						.Padding(4, 0, 0, 0)
+						[
+							SNew(SButton)
+							.ButtonStyle(&FriendStyle.AddFriendCloseButtonStyle)
+							.Visibility(this, &SFriendsContainerImpl::AddFriendCloseActionVisibility)
+							.ContentPadding(0)
+							.Cursor(EMouseCursor::Hand)
+							[
+								SNew(SBox)
+								.WidthOverride(FriendStyle.StatusButtonSize.Y)
+								.HeightOverride(FriendStyle.StatusButtonSize.Y)
 							]
 						]
 					]
@@ -215,7 +209,12 @@ private:
 		}
 	}
 
-	EVisibility AddFriendVisibility() const
+	EVisibility AddFriendBoxVisibility() const
+	{
+		return ViewModel->IsPerformingAction() ? EVisibility::Visible : EVisibility::Hidden;
+	}
+
+	EVisibility AddFriendCloseActionVisibility() const
 	{
 		return ViewModel->IsPerformingAction() ? EVisibility::Visible : EVisibility::Collapsed;
 	}

@@ -23,4 +23,6 @@ public:
 	virtual void Construct(const FArguments& InArgs, const TSharedRef<class FFriendListViewModel>& ViewModel) = 0;
 
 	static const FButtonStyle* GetActionButtonStyle(const FFriendsAndChatStyle& FriendStyle, EFriendActionLevel ActionLevel);
+
+	static FSlateColor GetActionButtonFontColor(const FFriendsAndChatStyle& FriendStyle, EFriendActionLevel ActionLevel);
 };

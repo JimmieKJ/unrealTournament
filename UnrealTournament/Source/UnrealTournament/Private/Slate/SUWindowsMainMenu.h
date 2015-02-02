@@ -34,5 +34,12 @@ protected:
 	virtual void BuildGameSubMenu();
 	virtual void BuildOptionsSubMenu();
 	virtual void BuildAboutSubMenu();
+
+private:
+	/** Temporary Friends list toggle button handler */
+	FReply HandleFriendsButtonClicked();
+
+	/** Temporary Friends list toggle */
+	bool bShowFriendsList;
 };
 #endif
