@@ -644,14 +644,13 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		float Scale = WeaponHudWidget->GetRenderScale() * CrosshairScale * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 
 		float DegreesPerRocket = 360.0f / MaxLoadedRockets;
-		float CrosshairRot = DegreesPerRocket * ((NumLoadedRockets > 1) ? NumLoadedRockets : 0);
+		float CrosshairRot = 0;
 
 		if (NumLoadedRockets < MaxLoadedRockets)
 		{
-			float NextCrosshairRot = CrosshairRot + DegreesPerRocket;
-			float DeltaTime = LastLoadTime + CrosshairRotationTime - GetWorld()->TimeSeconds;
+			float DeltaTime = GetWorld()->TimeSeconds - LastLoadTime;
 			float Alpha = FMath::Clamp(DeltaTime / CrosshairRotationTime, 0.0f, 1.0f);
-			CrosshairRot = FMath::Lerp(NextCrosshairRot, CrosshairRot, Alpha);
+			CrosshairRot = FMath::Lerp(0.f, DegreesPerRocket, Alpha);
 		}
 
 		WeaponHudWidget->DrawTexture(Tex, 0, 0, W * Scale, H * Scale, 0.0, 0.0, W, H, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f), CrosshairRot);
