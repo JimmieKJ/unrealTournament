@@ -108,8 +108,30 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTHat::StaticClass()))
 				{
-					HatList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTHat>()->HatName)));
+					HatList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTHat>()->CosmeticName)));
 					HatPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
+				}
+			}
+		}
+	}
+
+	{
+		EyewearList.Add(MakeShareable(new FString(TEXT("No Glasses"))));
+		EyewearPathList.Add(TEXT(""));
+
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTEyewear::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTEyewear::StaticClass()))
+				{
+					EyewearList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTEyewear>()->CosmeticName)));
+					EyewearPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
 				}
 			}
 		}
@@ -407,6 +429,52 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						]
 					]
 				]
+			]			
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(SBox)
+					.HAlign(HAlign_Center)
+					.Content()
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FLinearColor::White)
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "EyewearSelectionLabel", "Eyewear").ToString())
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(EyewearComboBox, SComboBox< TSharedPtr<FString> >)
+					.InitiallySelectedItem(0)
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.OptionsSource(&HatList)
+					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+					.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnEyewearSelected)
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						[
+							SAssignNew(SelectedHat, STextBlock)
+							.Text(FString(TEXT("No Glasses Available")))
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+						]
+					]
+				]
 			]
 			+ SVerticalBox::Slot()
 			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
@@ -437,6 +505,25 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		if (!bFoundSelectedHat && HatPathList.Num() > 0)
 		{
 			OnHatSelected(HatList[0], ESelectInfo::Direct);
+		}
+
+
+		bool bFoundSelectedEyewear = false;
+		if (ProfileSettings)
+		{
+			for (int32 i = 0; i < EyewearPathList.Num(); i++)
+			{
+				if (HatPathList[i] == ProfileSettings->GetEyewearPath())
+				{
+					OnHatSelected(EyewearList[i], ESelectInfo::Direct);
+					bFoundSelectedEyewear = true;
+					break;
+				}
+			}
+		}
+		if (!bFoundSelectedEyewear && EyewearPathList.Num() > 0)
+		{
+			OnEyewearSelected(EyewearList[0], ESelectInfo::Direct);
 		}
 	}
 }
@@ -583,6 +670,9 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	{
 		int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
 		ProfileSettings->SetHatPath(HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString());
+
+		Index = EyewearList.Find(EyewearComboBox->GetSelectedItem());
+		ProfileSettings->SetEyewearPath(EyewearPathList.IsValidIndex(Index) ? EyewearPathList[Index] : FString());
 	}
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
@@ -645,6 +735,12 @@ void SUWPlayerSettingsDialog::OnHatSelected(TSharedPtr<FString> NewSelection, ES
 	RecreatePlayerPreview();
 }
 
+void SUWPlayerSettingsDialog::OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedEyewear->SetText(*NewSelection.Get());
+	RecreatePlayerPreview();
+}
+
 void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
@@ -682,6 +778,18 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		{
 			PlayerPreviewMesh->HatClass = HatClass;
 			PlayerPreviewMesh->OnRepHat();
+		}
+	}
+
+	Index = EyewearList.Find(EyewearComboBox->GetSelectedItem());
+	FString NewEyewearPath = EyewearPathList.IsValidIndex(Index) ? EyewearPathList[Index] : FString();
+	if (NewEyewearPath.Len() > 0)
+	{
+		TSubclassOf<AUTEyewear> EyewearClass = LoadClass<AActor>(NULL, *NewEyewearPath, NULL, LOAD_None, NULL);
+		if (EyewearClass != NULL)
+		{
+			PlayerPreviewMesh->EyewearClass = EyewearClass;
+			PlayerPreviewMesh->OnRepEyewear();
 		}
 	}
 }

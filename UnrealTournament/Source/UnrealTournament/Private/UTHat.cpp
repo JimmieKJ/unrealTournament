@@ -6,52 +6,9 @@
 
 AUTHat::AUTHat(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
-{
-	SetRootComponent(ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneRootComp")));
-
-	GetRootComponent()->Mobility = EComponentMobility::Movable;
-
-	bReplicates = false;
-	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.bStartWithTickEnabled = true;
-	
+{	
 	HeadshotRotationRate.Yaw = 900;
 	HeadshotRotationTime = 0.8f;
-}
-
-void AUTHat::PreInitializeComponents()
-{
-	Super::PreInitializeComponents();
-
-	if (GetRootComponent())
-	{
-		bool bRootNotPrimitiveComponent = true;
-
-		UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
-		if (PrimComponent)
-		{
-			PrimComponent->bReceivesDecals = false;
-			PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-			bRootNotPrimitiveComponent = false;
-		}
-
-		TArray<USceneComponent*> Children;
-		GetRootComponent()->GetChildrenComponents(true, Children);
-		for (auto Child : Children)
-		{
-			PrimComponent = Cast<UPrimitiveComponent>(Child);
-			if (PrimComponent)
-			{
-				if (bRootNotPrimitiveComponent)
-				{
-					SetRootComponent(PrimComponent);
-					bRootNotPrimitiveComponent = false;
-				}
-				PrimComponent->bReceivesDecals = false;
-				PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-			}
-		}
-	}
 }
 
 void AUTHat::SetBodiesToSimulatePhysics()

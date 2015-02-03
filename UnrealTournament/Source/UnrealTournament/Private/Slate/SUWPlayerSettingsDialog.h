@@ -61,6 +61,12 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatComboBox;
 	TSharedPtr<STextBlock> SelectedHat;
 	void OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	
+	TArray<TSharedPtr<FString>> EyewearList;
+	TArray<FString> EyewearPathList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > EyewearComboBox;
+	TSharedPtr<STextBlock> SelectedEyewear;
+	void OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 	int32 Emote1Index;
 	int32 Emote2Index;

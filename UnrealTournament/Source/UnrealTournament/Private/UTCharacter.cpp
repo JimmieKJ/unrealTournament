@@ -2239,8 +2239,9 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, HatFlashCount, COND_Custom);
-	DOREPLIFETIME_CONDITION(AUTCharacter, HatSpreeCount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearClass, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
+	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3516,12 +3517,45 @@ void AUTCharacter::OnRepHat()
 		if (Hat)
 		{
 			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
-			Hat->HatWearer = this;
+			Hat->CosmeticWearer = this;
 		}
 	}
 }
 
-void AUTCharacter::OnRepHatFlashCount()
+void AUTCharacter::OnRepEyewear()
+{
+	if (EyewearClass != nullptr)
+	{
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		Params.Instigator = this;
+		Params.bNoCollisionFail = true;
+		Params.bNoFail = true;
+		Eyewear = GetWorld()->SpawnActor<AUTEyewear>(EyewearClass, GetActorLocation(), GetActorRotation(), Params);
+		if (Eyewear)
+		{
+			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget);
+			Eyewear->CosmeticWearer = this;
+		}
+	}
+}
+
+bool AUTCharacter::IsWearingAnyCosmetic()
+{
+	if (HatClass != nullptr)
+	{
+		return true;
+	}
+
+	if (EyewearClass != nullptr)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+void AUTCharacter::OnRepCosmeticFlashCount()
 {
 	if (Hat)
 	{
@@ -3529,11 +3563,11 @@ void AUTCharacter::OnRepHatFlashCount()
 	}
 }
 
-void AUTCharacter::OnRepHatSpreeCount()
+void AUTCharacter::OnRepCosmeticSpreeCount()
 {
 	if (Hat)
 	{
-		Hat->OnSpreeLevelChanged(HatSpreeCount);
+		Hat->OnSpreeLevelChanged(CosmeticSpreeCount);
 	}
 }
 
@@ -3784,7 +3818,7 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
 	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, HeadArmorFlashCount, GetWorld()->TimeSeconds - LastHeadArmorFlashTime < 1.0f);
 
-	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, HatFlashCount, GetWorld()->TimeSeconds - LastHatFlashTime < 1.0f);
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, CosmeticFlashCount, GetWorld()->TimeSeconds - LastCosmeticFlashTime < 1.0f);
 
 	// @TODO FIXMESTEVE - just don't want this ever replicated
 	DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RemoteViewPitch, false);

@@ -5,6 +5,7 @@
 #include "UTCharacterMovement.h"
 #include "UTRecastNavMesh.h"
 #include "UTHat.h"
+#include "UTEyewear.h"
 
 #include "UTCharacter.generated.h"
 
@@ -291,20 +292,32 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRepHat();
 
-	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepHatFlashCount)
-	int32 HatFlashCount;
+	UPROPERTY(replicatedUsing = OnRepEyewear)
+	TSubclassOf<AUTEyewear> EyewearClass;
 
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
-	float LastHatFlashTime;
+	AUTEyewear* Eyewear;
 
 	UFUNCTION()
-	virtual void OnRepHatFlashCount();
+	virtual void OnRepEyewear();
 
-	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepHatSpreeCount)
-	int32 HatSpreeCount;
+	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepCosmeticFlashCount)
+	int32 CosmeticFlashCount;
+
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	float LastCosmeticFlashTime;
 
 	UFUNCTION()
-	virtual void OnRepHatSpreeCount();
+	virtual bool IsWearingAnyCosmetic();
+
+	UFUNCTION()
+	virtual void OnRepCosmeticFlashCount();
+
+	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepCosmeticSpreeCount)
+	int32 CosmeticSpreeCount;
+
+	UFUNCTION()
+	virtual void OnRepCosmeticSpreeCount();
 
 	UPROPERTY(replicatedUsing=OnRepEmote)
 	FEmoteRepInfo EmoteReplicationInfo;

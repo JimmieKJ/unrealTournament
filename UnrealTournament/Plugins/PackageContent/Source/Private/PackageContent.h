@@ -100,18 +100,18 @@ public:
 	{
 		if (NULL != InClass)
 		{
-			const bool bWeaponBased = InClass->IsChildOf(AUTHat::StaticClass());
+			const bool bCosmeticBased = InClass->IsChildOf(AUTCosmetic::StaticClass());
 			const bool bBlueprintType = InClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
-			return bWeaponBased && bBlueprintType;
+			return bCosmeticBased && bBlueprintType;
 		}
 		return false;
 	}
 
 	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
 	{
-		const bool bWeaponBased = InUnloadedClassData->IsChildOf(AUTHat::StaticClass());
+		const bool bCosmeticBased = InUnloadedClassData->IsChildOf(AUTCosmetic::StaticClass());
 		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
-		return bWeaponBased && bBlueprintType;
+		return bCosmeticBased && bBlueprintType;
 	}
 };
 

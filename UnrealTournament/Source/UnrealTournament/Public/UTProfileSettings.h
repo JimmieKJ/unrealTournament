@@ -57,6 +57,9 @@ class UUTProfileSettings : public UObject
 	FString GetHatPath() { return Hat; }
 	void SetHatPath(const FString& NewHatPath) { Hat = NewHatPath; }
 
+	FString GetEyewearPath() { return Eyewear; }
+	void SetEyewearPath(const FString& NewEyewearPath) { Eyewear = NewEyewearPath; }
+
 	/**
 	 *	Apply any settings stored in this profile object
 	 **/
@@ -154,4 +157,7 @@ protected:
 
 	UPROPERTY()
 	FString Hat;
+
+	UPROPERTY()
+	FString Eyewear;
 };
