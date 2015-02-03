@@ -252,6 +252,17 @@ void FMacWindow::ReshapeWindow( int32 X, int32 Y, int32 Width, int32 Height )
 			if ( !NSEqualRects(WindowHandle.PreFullScreenRect, NewRect) )
 			{
 				WindowHandle.PreFullScreenRect = NewRect;
+				MainThreadCall(^{
+					FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+					if ( MacCursor )
+					{
+						NSSize WindowSize = [WindowHandle frame].size;
+						NSSize ViewSize = [WindowHandle openGLFrame].size;
+						float WidthScale = ViewSize.width / WindowSize.width;
+						float HeightScale = ViewSize.height / WindowSize.height;
+						MacCursor->SetMouseScaling(FVector2D(WidthScale, HeightScale));
+					}
+				}, UE4ResizeEventMode, true);
 				FMacEvent::SendToGameRunLoop([NSNotification notificationWithName:NSWindowDidResizeNotification object:WindowHandle], EMacEventSendMethod::Sync, @[ NSDefaultRunLoopMode, UE4ResizeEventMode, UE4ShowEventMode, UE4FullscreenEventMode ]);
 			}
 		}

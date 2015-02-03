@@ -397,6 +397,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	{
 		FMacEvent::SendToGameRunLoop(Notification, EMacEventSendMethod::Async, @[ NSDefaultRunLoopMode, UE4FullscreenEventMode ]);
 	}
+	[self setFrame:self.PreFullScreenRect display:YES];
 	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
 	if ( MacCursor )
 	{
