@@ -340,6 +340,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSlowerEmote();
 
+	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (FriendlyName = "Play Taunt"))
 	void PlayEmote(int32 EmoteIndex);
 
 	UFUNCTION()
