@@ -98,6 +98,40 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 	}
 }
 
+AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host, bool bIsCTFMatch)
+{
+	// Create a match and replicate all of the relevant information
+
+	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
+	if (NewMatchInfo)
+	{	
+		AvailableMatches.Add(NewMatchInfo);
+		NewMatchInfo->SetOwner(Host);
+		NewMatchInfo->AddPlayer(Host, true);
+
+		if (bIsCTFMatch)
+		{
+			NewMatchInfo->MatchGameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
+			NewMatchInfo->MatchMap = TEXT("CTF-Outside");
+			NewMatchInfo->MatchOptions = "?MinPlayers=6";
+		}
+		else
+		{
+			NewMatchInfo->MatchGameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
+			NewMatchInfo->MatchMap = TEXT("DM-Tuba");		// MOVE THIS TO CIRCUIT 
+			NewMatchInfo->MatchOptions = "?MinPlayers=4";
+		}
+
+		NewMatchInfo->bJoinAnytime = true;
+		NewMatchInfo->bSpectatable = true;
+		NewMatchInfo->MaxPlayers = 16;
+
+		NewMatchInfo->LaunchMatch();		
+	}
+
+	return NewMatchInfo;
+}
+
 AUTLobbyMatchInfo* AUTLobbyGameState::AddNewMatch(AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
 {
 	// Create a match and replicate all of the relevant information
@@ -489,3 +523,4 @@ bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	return (GM && GameInstances.Num() < GM->MaxInstances);
 }
+

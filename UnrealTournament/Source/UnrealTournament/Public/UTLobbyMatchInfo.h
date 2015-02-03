@@ -192,6 +192,9 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerStartMatch();
 	
+	// Actually launch the map.  NOTE: This is used for QuickStart and doesn't check any of the "can I launch" metrics.
+	virtual void LaunchMatch();
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerAbortMatch();
 

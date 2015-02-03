@@ -36,6 +36,8 @@ public:
 
 	void ConsoleCommand(FString Command);
 
+	// Used by generic lists to generate string widgets for each item
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
 
 protected:
 
@@ -47,6 +49,7 @@ protected:
 
 	// The Window that contains this panel.  NOTE: this will only be valid if this panel is contained within an SUWindowsDesktop.
 	TSharedPtr<SUWindowsDesktop> ParentWindow;
+
 
 };
 

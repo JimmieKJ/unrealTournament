@@ -135,6 +135,8 @@ protected:
 	// The current index in to the GameState's AllowedMaps array.
 	int32 DataIndex;
 
+public:
+	FString DesiredQuickStartGameMode;
 
 };
 

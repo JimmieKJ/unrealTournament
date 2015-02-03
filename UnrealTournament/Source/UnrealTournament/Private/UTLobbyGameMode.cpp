@@ -157,6 +157,27 @@ void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* 
 	}
 }
 
+FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+{
+	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
+	
+	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
+	if (PS)
+	{	
+		FString QuickStartOption = ParseOption(Options, TEXT("QuickStart"));
+
+		UE_LOG(UT,Log,TEXT("##### QUICKSTART %s"), *QuickStartOption);
+		if ( QuickStartOption != TEXT("") )
+		{
+			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? TEXT("/Script/UnrealTournament.UTCTFGameMode") : TEXT("/Script/UnrealTournament.UTDMGameMode");
+		}
+	}
+
+
+	return Result;
+}
+
+
 void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 {
 	Super::PostLogin(NewPlayer);
@@ -176,8 +197,32 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	if (LPS)
 	{
 		UTLobbyGameState->InitializeNewPlayer(LPS);
-	}
 
+		if (LPS->DesiredQuickStartGameMode != TEXT(""))
+		{
+			for (int32 i=0;i<UTLobbyGameState->GameInstances.Num();i++)
+			{
+				AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
+				if (MatchInfo)
+				{
+					if ( LPS->DesiredQuickStartGameMode == TEXT("") || LPS->DesiredQuickStartGameMode == MatchInfo->MatchGameMode)		
+					{
+						// Potential match.. see if there is room.
+						if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers && MatchInfo->bJoinAnytime)
+						{
+							LPS->DesiredQuickStartGameMode == TEXT("");
+							UTLobbyGameState->JoinMatch(MatchInfo, LPS);
+							return;
+						}
+					}
+				}
+			}
+
+			// There wasn't a match to play on here
+
+			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode == TEXT("/Script/UnrealTournament.UTCTFGameMode"));
+		}
+	}
 }
 
 

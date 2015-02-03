@@ -134,6 +134,11 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	virtual AUTLobbyMatchInfo* AddNewMatch(AUTLobbyPlayerState* HostOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
 
 	/**
+	 *	Create a quick match for a quick start player then get them in to it without the typical setup
+	 **/
+	virtual AUTLobbyMatchInfo* QuickStartMatch(AUTLobbyPlayerState* Host, bool bIsCTFMatch);
+
+	/**
 	 *	Sets someone as the host of a match and replicates all of the relevant match information to them
 	 **/
 	virtual void HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);

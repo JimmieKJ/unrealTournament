@@ -20,7 +20,7 @@ void SUWDialog::Construct(const FArguments& InArgs)
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
 
 	FVector2D DesignedRez(1920,1080);
-	DesignedRez.X = 1080 * (ViewportSize.X / ViewportSize.Y);
+	DesignedRez.Y = 1920 * (ViewportSize.Y / ViewportSize.X);
 
 	// Calculate the action position;
 	ActualSize = InArgs._DialogSize;

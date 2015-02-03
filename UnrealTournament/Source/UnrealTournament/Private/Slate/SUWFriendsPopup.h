@@ -1,0 +1,42 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+#pragma once
+
+#include "SlateBasics.h"
+
+#if !UE_SERVER
+
+class SUWFriendsPopup : public SCompoundWidget
+{
+	SLATE_BEGIN_ARGS(SUWFriendsPopup)
+	{}
+
+	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
+	SLATE_END_ARGS()
+
+	/** needed for every widget */
+	void Construct(const FArguments& InArgs);
+
+	inline TWeakObjectPtr<class UUTLocalPlayer> GetPlayerOwner()
+	{
+		return PlayerOwner;
+	}
+
+
+private:
+	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
+	TSharedPtr<class SWidget> GameViewportWidget;
+
+/*
+	// HACKS needed to keep window focus
+	virtual bool SupportsKeyboardFocus() const override;
+	virtual FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent) override;
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent) override;
+	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent) override;
+
+	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+*/
+};
+
+#endif

@@ -15,6 +15,7 @@
 #include "SUWScaleBox.h"
 #include "SUWPanel.h"
 #include "UTGameEngine.h"
+#include "Runtime/Engine/Classes/Engine/Console.h"
 
 #if !UE_SERVER
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
@@ -33,6 +34,9 @@ void SUWindowsDesktop::OnMenuOpened()
 {
 	GameViewportWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
+
+	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWindowsDesktop::OwnerLoginStatusChanged);
+	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 }
 
 void SUWindowsDesktop::OnMenuClosed()
@@ -46,6 +50,17 @@ void SUWindowsDesktop::OnMenuClosed()
 
 	FSlateApplication::Get().ClearUserFocus(0);
 	FSlateApplication::Get().ClearKeyboardFocus();
+
+	PlayerOwner->ClearPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+}
+
+void SUWindowsDesktop::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
+{
+}
+
+void SUWindowsDesktop::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
+{
+	OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
 }
 
 bool SUWindowsDesktop::SupportsKeyboardFocus() const
@@ -82,6 +97,11 @@ void SUWindowsDesktop::CloseMenus()
 
 FReply SUWindowsDesktop::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent)
 {
+	if ( GetDefault<UInputSettings>()->ConsoleKeys.Contains(InKeyboardEvent.GetKey()) )
+	{
+		PlayerOwner->ViewportClient->ViewportConsole->FakeGotoState(FName(TEXT("Open")));
+	}
+
 	return FReply::Handled();
 }
 
@@ -129,7 +149,7 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 			DeactivatePanel(ActivePanel.ToSharedRef());
 		}	
 
-		SOverlay::FOverlaySlot& Slot = Desktop->AddSlot()
+		SOverlay::FOverlaySlot& Slot = Desktop->AddSlot(0)
 			[
 				PanelToActivate.ToSharedRef()
 			];
@@ -143,7 +163,7 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate)
 {
 	ActivePanel->OnHidePanel();
-	Desktop->ClearChildren();
+	Desktop->RemoveSlot(0);
 
 }
 #endif

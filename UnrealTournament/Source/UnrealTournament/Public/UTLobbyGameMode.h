@@ -52,7 +52,9 @@ public:
 	virtual void RestartPlayer(AController* aPlayer);
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
+	
 	virtual void PostLogin( APlayerController* NewPlayer );
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
 	virtual void Logout(AController* Exiting);
 	virtual bool PlayerCanRestart(APlayerController* Player);
 	virtual TSubclassOf<AGameSession> GetGameSessionClass() const;

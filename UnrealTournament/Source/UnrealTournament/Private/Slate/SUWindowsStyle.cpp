@@ -67,6 +67,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FVector2D Icon25x25(25.0f, 25.0f);
 	const FVector2D Icon32x32(32.0f, 32.0f);
 	const FVector2D Icon40x40(40.0f, 40.0f);
+	const FVector2D Icon48x48(48.0f, 48.0f);
 	const FVector2D Icon64x64(64.0f, 64.0f);
 	const FVector2D Icon36x24(36.0f, 24.0f);
 	const FVector2D Icon17x22(17.0f, 22.0f);
@@ -103,6 +104,86 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("UWindows.Match.ReadyImage", new IMAGE_BRUSH( "Match/UWindows.Match.ReadyImage", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestPortrait", new IMAGE_BRUSH( "Testing/Testing.TestPortrait", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+
+	{  // Icons
+		
+		Style.Set("UT.Icon.Home", new IMAGE_BRUSH("Icons/UT.Icon.Home", Icon48x48));
+		Style.Set("UT.Icon.Online", new IMAGE_BRUSH("Icons/UT.Icon.Online", Icon48x48));
+		Style.Set("UT.Icon.Settings", new IMAGE_BRUSH("Icons/UT.Icon.Settings", Icon48x48));
+		Style.Set("UT.Icon.Exit", new IMAGE_BRUSH("Icons/UT.Icon.Exit", Icon48x48));
+		Style.Set("UT.Icon.Stats", new IMAGE_BRUSH("Icons/UT.Icon.Stats", Icon48x48));
+		Style.Set("UT.Icon.About", new IMAGE_BRUSH("Icons/UT.Icon.About", Icon48x48));
+		Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("Icons/UT.Icon.SignOut", Icon48x48));
+		Style.Set("UT.Icon.SignIn", new IMAGE_BRUSH("Icons/UT.Icon.SignIn", Icon48x48));
+		
+	}
+
+	{   // Top Menu
+
+		Style.Set("UT.TopMenu.Bar", new BOX_BRUSH("TopMenu/UT.TopMenu.Bar", FMargin(8.0f / 32.0f, 1.0f/8.0f, 8.0f / 32.0f, 1.0f/8.0f)));
+		Style.Set("UT.TopMenu.TileBar", new BOX_BRUSH("TopMenu/UT.TopMenu.TileBar", FMargin(1.0f / 32.0f, 1, 1.0f / 32.0f, 0)));
+		Style.Set("UT.TopMenu.LightFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
+		Style.Set("UT.TopMenu.DarkFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.DarkFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
+
+		Style.Set("UT.TopMenu.Button", FButtonStyle()
+			.SetNormal ( FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHovered( BOX_BRUSH("TopMenu/UT.TopMenu.Button.Hovered", FMargin(2.0f / 32.0f, 2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
+			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.Button.Pressed", FMargin(2.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
+			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UT.TopMenu.Button.Left", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonLeft.Normal", FMargin(4.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
+			.SetHovered( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonLeft.Hovered", FMargin(4.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
+			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonLeft.Pressed", FMargin(4.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
+			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UT.TopMenu.Button.Right", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonRight.Normal", FMargin(2.0f / 32.0f, 2.0f / 64.0f, 4.0f / 32.0f, 4.0f / 64.0f)))
+			.SetHovered( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonRight.Hovered", FMargin(2.0f / 32.0f, 2.0f / 64.0f, 4.0f / 32.0f, 4.0f / 64.0f)))
+			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonRight.Pressed", FMargin(2.0f / 32.0f, 2.0f / 64.0f, 4.0f / 32.0f, 4.0f / 64.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UT.TopMenu.TabButton", FButtonStyle()
+			.SetNormal( IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ))
+			.SetHovered( IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ))
+			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.TabButton.Pressed", FMargin(52.0f / 256.0f,  0.0f, 52.0f / 256.0f, 0.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+
+		Style.Set("UT.TopMenu.Button.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 30))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("UT.TopMenu.Button.SmallTextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 22))
+			.SetColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f, 1.0f))
+			);
+	}
+
+
+
+
+
+
+
+
+	// ------------------------------------- OLD STUFF !!!!!!!
+
+
 
 	{  // Standard Button
 
@@ -706,7 +787,6 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UWindows.Chat.Text.Admin", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::Yellow));
 	}
 
-	if (FParse::Param(FCommandLine::Get(), TEXT("EnableFriendsAndChat")))
 	{
 		// Friends chat styles
 		//const FSlateFontInfo RobotoRegular10    = TTF_FONT("Social-WIP/Font/Lato-Regular", 10);

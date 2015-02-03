@@ -11,6 +11,7 @@
 #include "UTLocalPlayer.generated.h"
 
 class SUWServerBrowser;
+class SUWFriendsPopup;
 
 DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -133,6 +134,8 @@ public:
 
 	// Returns true if this player is logged in to the UT Online Services
 	virtual bool IsLoggedIn();
+
+	virtual FString GetOnlinePlayerNickname();
 
 	/**
 	 *	Login to the Epic online serivces. 
@@ -268,6 +271,23 @@ public:
 	
 	// Returns the base ELO Rank with any type of processing we need.
 	int GetBaseELORank();
+
+
+#if !UE_SERVER
+protected:
+	TSharedPtr<SOverlay> ContentLoadingMessage;
+
+public:
+	virtual void ShowContentLoadingMessage();
+	virtual void HideContentLoadingMessage();
+#endif
+
+protected:
+	TSharedPtr<SUWFriendsPopup> FriendsMenu;
+
+public:
+	virtual TSharedPtr<SWidget> GetFriendsPopup();
+
 };
 
 

@@ -236,18 +236,35 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 							]
 						]
 					]
+
+					+SHorizontalBox::Slot().AutoWidth() .VAlign(VAlign_Center)
+					.VAlign(VAlign_Center)
+					[
+						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
+						SAssignNew(JoinIPButton, SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
+						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
+						.Text(NSLOCTEXT("SUWServerBrowser","JoinIP","Connect to IP..."))
+						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+						.OnClicked(this, &SUWServerBrowser::OnConnectIP)
+					]
+
 					+SHorizontalBox::Slot().AutoWidth()
+					.VAlign(VAlign_Center)
 					[
 						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
 						SAssignNew(SpectateButton, SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.RightButton")
 						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
 						.Text(NSLOCTEXT("SUWServerBrowser","Spectate","Spectate"))
 			
 						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
 						.OnClicked(this, &SUWServerBrowser::OnJoinClick,true)
 					]
+
+
 					+SHorizontalBox::Slot().AutoWidth() .VAlign(VAlign_Center)
+					.VAlign(VAlign_Center)
 					[
 						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
 						SAssignNew(JoinButton, SButton)
@@ -1832,6 +1849,42 @@ void SUWServerBrowser::EmptyHUBServers()
 
 	FilterAllHUBs();
 }
+
+FReply SUWServerBrowser::OnConnectIP()
+{
+	PlayerOwner->OpenDialog(
+							SNew(SUWInputBox)
+							.DefaultInput(PlayerOwner->LastConnectToIP)
+							.DialogSize(FVector2D(600,200))
+							.OnDialogResult(this, &SUWServerBrowser::ConnectIPDialogResult)
+							.PlayerOwner(PlayerOwner)
+							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
+							.MessageText(NSLOCTEXT("SUWindowsDesktop", "ConnecToIPDesc", "Enter address to connect to:"))
+							.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
+							);
+	return FReply::Handled();
+}
+
+void SUWServerBrowser::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
+	{
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			FString InputText = Box->GetInputText();
+			if (InputText.Len() > 0 && PlayerOwner.IsValid())
+			{
+				FString AdjustedText = InputText.Replace(TEXT("://"), TEXT(""));
+				PlayerOwner->LastConnectToIP = AdjustedText;
+				PlayerOwner->SaveConfig();
+				PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
+				PlayerOwner->HideMenu();
+			}
+		}
+	}
+}
+
 
 
 #endif

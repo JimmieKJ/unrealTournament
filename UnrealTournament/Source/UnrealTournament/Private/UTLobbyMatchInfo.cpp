@@ -382,38 +382,43 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 
 	if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
-		for (int32 i=0;i<Players.Num();i++)
+		LaunchMatch();
+	}
+}
+
+void AUTLobbyMatchInfo::LaunchMatch()
+{
+	for (int32 i=0;i<Players.Num();i++)
+	{
+		Players[i]->bReadyToPlay = true;
+	}
+
+	// Remove out the [Min/Max] info...
+
+	FString FinalOptions = MatchOptions;
+
+	int32 LeftBracket = FinalOptions.Find(TEXT("["));
+	while (LeftBracket >=0)
+	{
+		FString Left = LeftBracket > 0 ? FinalOptions.Left(LeftBracket) : TEXT("");
+		int32 RightBracket = FinalOptions.Find(TEXT("]"));
+		FString Right = RightBracket >= 0 ? FinalOptions.Right(FinalOptions.Len() - RightBracket -1) : FinalOptions.Right(FinalOptions.Len() - LeftBracket);
+		FinalOptions = Left + Right;
+		LeftBracket = FinalOptions.Find(TEXT("["));
+	}
+
+	AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
+	if (DefaultGame)
+	{
+		if (!DefaultGame->ForcedInstanceGameOptions.IsEmpty())
 		{
-			Players[i]->bReadyToPlay = true;
+			FinalOptions += DefaultGame->ForcedInstanceGameOptions;
 		}
+	}
 
-		// Remove out the [Min/Max] info...
-
-		FString FinalOptions = MatchOptions;
-
-		int32 LeftBracket = FinalOptions.Find(TEXT("["));
-		while (LeftBracket >=0)
-		{
-			FString Left = LeftBracket > 0 ? FinalOptions.Left(LeftBracket) : TEXT("");
-			int32 RightBracket = FinalOptions.Find(TEXT("]"));
-			FString Right = RightBracket >= 0 ? FinalOptions.Right(FinalOptions.Len() - RightBracket -1) : FinalOptions.Right(FinalOptions.Len() - LeftBracket);
-			FinalOptions = Left + Right;
-			LeftBracket = FinalOptions.Find(TEXT("["));
-		}
-
-		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-		if (DefaultGame)
-		{
-			if (!DefaultGame->ForcedInstanceGameOptions.IsEmpty())
-			{
-				FinalOptions += DefaultGame->ForcedInstanceGameOptions;
-			}
-		}
-
-		if (CheckLobbyGameState())
-		{
-			LobbyGameState->LaunchGameInstance(this, FinalOptions);
-		}
+	if (CheckLobbyGameState())
+	{
+		LobbyGameState->LaunchGameInstance(this, FinalOptions);
 	}
 }
 

@@ -37,4 +37,16 @@ void SUWPanel::ConsoleCommand(FString Command)
 }
 
 
+TSharedRef<SWidget> SUWPanel::GenerateStringListWidget(TSharedPtr<FString> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::Black)
+			.Text(*InItem.Get())
+		];
+}
+
+
 #endif

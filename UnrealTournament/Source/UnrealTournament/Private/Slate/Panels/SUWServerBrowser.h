@@ -409,6 +409,7 @@ protected:
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineSessionPtr OnlineSessionInterface;
 
+	TSharedPtr<class SButton> JoinIPButton;
 	TSharedPtr<class SButton> RefreshButton;
 	TSharedPtr<class SButton> SpectateButton;
 	TSharedPtr<class SButton> JoinButton;
@@ -530,6 +531,10 @@ protected:
 	virtual TSharedRef<SWidget> AddHUBInstances(TSharedPtr<FServerData> HUB);
 	virtual void AddHUBInfo(TSharedPtr<FServerData> HUB);
 	virtual void BuildServerListControlBox();
+
+	virtual FReply OnConnectIP();
+	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
 
 private:
 	bool bAutoRefresh;

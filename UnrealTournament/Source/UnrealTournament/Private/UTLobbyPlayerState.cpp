@@ -14,6 +14,7 @@ AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectI
 
 void AUTLobbyPlayerState::PreInitializeComponents()
 {
+	DesiredQuickStartGameMode = TEXT("");
 	if (GetWorld()->GetNetMode() == ENetMode::NM_Client)
 	{
 		bHostInitializationComplete = false;

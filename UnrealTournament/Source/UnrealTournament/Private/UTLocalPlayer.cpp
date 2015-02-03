@@ -21,6 +21,7 @@
 #include "Slate/SUWLoginDialog.h"
 #include "Slate/SUWPlayerSettingsDialog.h"
 #include "Slate/SUWHUDSettingsDialog.h"
+#include "Slate/SUWFriendsPopup.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -468,6 +469,11 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 	}
 }
 
+FString UUTLocalPlayer::GetOnlinePlayerNickname()
+{
+	return IsLoggedIn() ? OnlineIdentityInterface->GetPlayerNickname(0) : TEXT("None");
+}
+
 void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UniqueID, const FString& ErrorMessage)
 {
 	if (bWasSuccessful)
@@ -487,14 +493,11 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		PendingLoginUserName = TEXT("");
 
 		LoadProfileSettings();
-		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*OnlineIdentityInterface->GetPlayerNickname(0)));
+		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
 		ShowToast(WelcomeToast);
 
 		// Init the Friends And Chat system
-		if (FParse::Param(FCommandLine::Get(), TEXT("EnableFriendsAndChat")))
-		{
-			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login();
-		}
+		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login();
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
@@ -999,3 +1002,87 @@ void UUTLocalPlayer::SetDefaultURLOption(const FString& Key, const FString& Valu
 	DefaultURL.AddOption(*FString::Printf(TEXT("%s=%s"), *Key, *Value));
 	DefaultURL.SaveURLConfig(TEXT("DefaultPlayer"), *Key, GGameIni);
 }
+
+#if !UE_SERVER
+void UUTLocalPlayer::ShowContentLoadingMessage()
+{
+	if (!ContentLoadingMessage.IsValid())
+	{
+		SAssignNew(ContentLoadingMessage, SOverlay)
+		+SOverlay::Slot()
+		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Fill)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.FillWidth(1.0)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.HAlign(HAlign_Center)
+				.AutoHeight()
+				[
+					SNew(SBox)
+					.WidthOverride(400)
+					.HeightOverride(64)
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.VAlign(VAlign_Fill)
+							.HAlign(HAlign_Fill)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
+							]
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("Loading","LoadingContent","Loading Content..."))
+								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+							]
+						]
+					]
+				]
+			]
+		];
+	}
+
+	if (ContentLoadingMessage.IsValid())
+	{
+		GEngine->GameViewport->AddViewportWidgetContent(ContentLoadingMessage.ToSharedRef(), 255);
+	}
+
+}
+
+void UUTLocalPlayer::HideContentLoadingMessage()
+{
+	if (ContentLoadingMessage.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(ContentLoadingMessage.ToSharedRef());			
+		ContentLoadingMessage.Reset();
+	}
+}
+
+TSharedPtr<SWidget> UUTLocalPlayer::GetFriendsPopup()
+{
+	if (!FriendsMenu.IsValid())
+	{
+		SAssignNew(FriendsMenu, SUWFriendsPopup)
+			.PlayerOwner(this);
+	}
+
+	return FriendsMenu;
+}
+
+
+#endif
