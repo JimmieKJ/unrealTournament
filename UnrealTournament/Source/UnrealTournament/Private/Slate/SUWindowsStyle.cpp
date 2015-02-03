@@ -718,6 +718,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		const FSlateFontInfo ExoRegular			= TTF_FONT("Exo2-Regular", 14);
 		const FSlateFontInfo ExoBoldSmall       = TTF_FONT("Exo2-Bold", 10);
 		const FSlateFontInfo ExoBold			= TTF_FONT("Exo2-Bold", 14);
+		const FSlateFontInfo ExoBoldLarge		= TTF_FONT("Exo2-Bold", 18);
 		const FSlateFontInfo ExoMedRegular		= TTF_FONT("Exo2-Medium", 12);
 
 		const FScrollBarStyle ScrollBar = FScrollBarStyle()
@@ -893,6 +894,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetTextStyle(FriendsTextStyle)
 			.SetFontStyle(ExoRegular)
 			.SetFontStyleBold(ExoBold)
+			.SetFontStyleBoldLarge(ExoBoldLarge)
 			.SetFontStyleSmall(ExoRegularSmall)
 			.SetFontStyleSmallBold(ExoBoldSmall)
 			.SetDefaultFontColor(DefaultChatColor)
@@ -911,7 +913,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetComboItemTextStyle(ComboItemTextStyle)
 			.SetStatusButtonSize(FVector2D(136, 40))
 			.SetActionComboButtonSize(FVector2D(42, 42))
+			.SetUserPresenceImageSize(FVector2D(75, 68))
 			.SetBorderPadding(FMargin(10, 20))
+			.SetUserHeaderPadding(FMargin(17, 19, 12, 7))
 			.SetFriendsListWidth(500.f)
 			.SetChatListPadding(130.f)
 			.SetChatBackgroundBrush(*FriendsDefaultBackgroundBrush)
@@ -923,6 +927,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetComboMenuPadding(FMargin(0))
 			.SetComboItemPadding(FMargin(0))
 			.SetComboItemContentPadding(FMargin(10, 4, 10, 4))
+			.SetHasUserHeader(false)
 		);
 
 	}

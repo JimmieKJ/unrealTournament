@@ -302,6 +302,20 @@ public:
 	void SetUserIsOnline(EOnlinePresenceState::Type OnlineState);
 
 	/**
+	* Get the owner's client id
+	*
+	* @return client id string (or an empty string if it fails)
+	*/
+	FString GetUserClientId() const;
+
+	/**
+	* Get the owner's display name
+	*
+	* @return display/nickname string (or an empty string if it fails)
+	*/
+	FString GetUserNickname() const;
+
+	/**
 	 * Find a recent player.
 	 *
 	 * @param InUserId The user id to find.
@@ -318,7 +332,6 @@ public:
 	TSharedPtr< IFriendItem > FindUser(const FUniqueNetId& InUserID);
 
 	TSharedPtr<class FFriendViewModel> GetFriendViewModel(const FUniqueNetId& InUserID);
-
 
 	// External events
 	DECLARE_DERIVED_EVENT(FFriendsAndChatManager, IFriendsAndChatManager::FOnFriendsNotificationEvent, FOnFriendsNotificationEvent)

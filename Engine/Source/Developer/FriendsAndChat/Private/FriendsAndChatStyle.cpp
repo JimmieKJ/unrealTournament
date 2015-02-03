@@ -230,6 +230,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFontStyleBold(const FSlateFontInf
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFontStyleBoldLarge(const FSlateFontInfo& InFontStyle)
+{
+	FriendsFontStyleBoldLarge = InFontStyle;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFontStyleSmall(const FSlateFontInfo& FontStyle)
 {
 	FriendsFontStyleSmall = FontStyle;
@@ -362,9 +368,21 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetActionComboButtonSize(const FVect
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetUserPresenceImageSize(const FVector2D& InUserPresenceImageSize)
+{
+	UserPresenceImageSize = InUserPresenceImageSize;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetBorderPadding(const FMargin& Padding)
 {
 	BorderPadding = Padding;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetUserHeaderPadding(const FMargin& InUserHeaderPadding)
+{
+	UserHeaderPadding = InUserHeaderPadding;
 	return *this;
 }
 
@@ -425,6 +443,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemPadding(const FMargin& I
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemContentPadding(const FMargin& InPadding)
 {
 	ComboItemContentPadding = InPadding;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetHasUserHeader(bool InHasUserHeader)
+{
+	HasUserHeader = InHasUserHeader;
 	return *this;
 }
 
