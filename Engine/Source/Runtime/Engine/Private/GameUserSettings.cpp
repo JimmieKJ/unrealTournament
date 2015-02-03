@@ -211,6 +211,10 @@ void UGameUserSettings::ApplyNonResolutionSettings()
 
 void UGameUserSettings::ApplyResolutionSettings(bool bCheckForCommandLineOverrides)
 {
+#if UE_SERVER
+	return;
+#endif
+
 	ValidateSettings();
 
 	EWindowMode::Type NewFullscreenMode = GetFullscreenMode();
