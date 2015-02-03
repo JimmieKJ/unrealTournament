@@ -162,7 +162,13 @@ void FEngineAnalytics::Initialize()
 							 FAnalytics::Get().GetBuildType() == FAnalytics::Release) &&
 							!FEngineBuildSettings::IsInternalBuild();	// Internal Epic build
 
-						if( FRocketSupport::IsRocket() )
+						if (GIsEditor)
+						{
+							const TCHAR* DevelopmentAccountAPIKeyET = TEXT("UTEditor.Source.Dev");
+							const TCHAR* ReleaseAccountAPIKeyET = TEXT("UTEditor.Source.Release");
+							ConfigMap.Add(TEXT("APIKeyET"), bUseReleaseAccount ? ReleaseAccountAPIKeyET : DevelopmentAccountAPIKeyET);
+						}
+						else if( FRocketSupport::IsRocket() )
 						{
 							const TCHAR* DevelopmentAccountAPIKeyET = TEXT("Rocket.Dev");
 							const TCHAR* ReleaseAccountAPIKeyET = TEXT("Rocket.Release");
