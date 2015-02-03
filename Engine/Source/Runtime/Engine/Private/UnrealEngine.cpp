@@ -6560,7 +6560,7 @@ static void DrawProperty(UCanvas* CanvasObject, UObject* Obj, const FDebugDispla
 		CanvasObject->ClippedStrLen(GEngine->GetSmallFont(), 1.0f, 1.0f, XL, YL, *PropText);
 		FTextSizingParameters DrawParams(X, Y, CanvasObject->SizeX - X, 0, GEngine->GetSmallFont());
 		TArray<FWrappedStringElement> TextLines;
-		UCanvas::WrapString(DrawParams, X + XL, *Str, TextLines);
+		CanvasObject->WrapString(DrawParams, X + XL, *Str, TextLines);
 		int32 XL2 = XL;
 		if (TextLines.Num() > 0)
 		{

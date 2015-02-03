@@ -7,14 +7,188 @@
 #pragma once
 
 #include "Engine/EngineTypes.h"
+#include "IBreakIterator.h"
 #include "BatchedElements.h"
 #include "CanvasItem.h"
+#include "CanvasTypes.generated.h"
 
 class FMaterialRenderProxy;
 class FTexture;
 class FRenderTarget;
 class FHitProxyConsumer;
 class FRHICommandListImmediate;
+
+/**
+ * General purpose data structure for grouping all parameters needed when sizing or wrapping a string
+ */
+USTRUCT()
+struct FTextSizingParameters
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** a pixel value representing the horizontal screen location to begin rendering the string */
+	UPROPERTY()
+	float DrawX;
+
+	/** a pixel value representing the vertical screen location to begin rendering the string */
+	UPROPERTY()
+	float DrawY;
+
+	/** a pixel value representing the width of the area available for rendering the string */
+	UPROPERTY()
+	float DrawXL;
+
+	/** a pixel value representing the height of the area available for rendering the string */
+	UPROPERTY()
+	float DrawYL;
+
+	/** A value between 0.0 and 1.0, which represents how much the width/height should be scaled, where 1.0 represents 100% scaling. */
+	UPROPERTY()
+	FVector2D Scaling;
+
+	/** the font to use for sizing/wrapping the string */
+	UPROPERTY()
+	const UFont* DrawFont;
+
+	/** Horizontal spacing adjustment between characters and vertical spacing adjustment between wrapped lines */
+	UPROPERTY()
+	FVector2D SpacingAdjust;
+
+	FTextSizingParameters()
+		: DrawX(0)
+		, DrawY(0)
+		, DrawXL(0)
+		, DrawYL(0)
+		, Scaling(ForceInit)
+		, DrawFont(NULL)
+		, SpacingAdjust(ForceInit)
+	{
+	}
+
+
+		FTextSizingParameters( float inDrawX, float inDrawY, float inDrawXL, float inDrawYL, const UFont* inFont=NULL )
+		: DrawX(inDrawX), DrawY(inDrawY), DrawXL(inDrawXL), DrawYL(inDrawYL)
+		, Scaling(1.f,1.f), DrawFont(inFont)
+		, SpacingAdjust( 0.0f, 0.0f )
+		{
+		}
+		FTextSizingParameters( const UFont* inFont, float ScaleX, float ScaleY)
+		: DrawX(0.f), DrawY(0.f), DrawXL(0.f), DrawYL(0.f)
+		, Scaling(ScaleX,ScaleY), DrawFont(inFont)
+		, SpacingAdjust( 0.0f, 0.0f )
+		{
+		}
+	
+};
+
+/**
+ * Used by UUIString::WrapString to track information about each line that is generated as the result of wrapping.
+ */
+USTRUCT()
+struct FWrappedStringElement
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** the string associated with this line */
+	UPROPERTY()
+	FString Value;
+
+	/** the size (in pixels) that it will take to render this string */
+	UPROPERTY()
+	FVector2D LineExtent;
+
+
+	FWrappedStringElement()
+		: LineExtent(ForceInit)
+	{
+	}
+
+
+		/** Constructor */
+		FWrappedStringElement( const TCHAR* InValue, float Width, float Height )
+		: Value(InValue), LineExtent(Width,Height)
+		{}
+	
+};
+
+class FCanvasWordWrapper
+{
+public:
+	/** Array of indices where the wrapped lines begin and end in the source string */
+	typedef TArray< TPair<int32, int32> > FWrappedLineData;
+
+private:
+	struct FWrappingState
+	{
+		FWrappingState(	const TCHAR* const InString,
+						const int32 InStringLength,
+						const FTextSizingParameters& InParameters,
+						TArray<FWrappedStringElement>& InResults,
+						FWrappedLineData* const InWrappedLineData)
+			: String(InString)
+			, StringLength(InStringLength)
+			, Parameters(InParameters)
+			, StartIndex(0)
+			, Results(InResults)
+			, WrappedLineData(InWrappedLineData)
+		{}
+
+		const TCHAR* const String;
+		const int32 StringLength;
+		const FTextSizingParameters& Parameters;
+		int32 StartIndex;
+		TArray<FWrappedStringElement>& Results;
+		FWrappedLineData* const WrappedLineData;
+	};
+
+public:
+	FCanvasWordWrapper();
+
+	/**
+	* Used to generate multi-line/wrapped text.
+	*
+	* @param InString The unwrapped text.
+	* @param InFontInfo The font used to render the text.
+	* @param InWrapWidth The width available.
+	* @param OutWrappedLineData An optional array to fill with the indices from the source string marking the begin and end points of the wrapped lines
+	*/
+	ENGINE_API void Execute(const TCHAR* const InString, const FTextSizingParameters& InParameters, TArray<FWrappedStringElement>& OutStrings, FWrappedLineData* const OutWrappedLineData);
+
+private:
+	/**
+		* Processes the string using a word wrapping algorithm, resulting in up to a single line.
+		*
+		* @return	True if a new line could be processed, false otherwise such as having reached the end of the string.
+		*/
+	bool ProcessLine(FWrappingState& WrappingState);
+
+	/**
+		* Stub method that should measure the substring of the range [StartIndex, EndIndex).
+		*
+		* @return	True if the substring fits the desired width.
+		*/
+	bool DoesSubstringFit(FWrappingState& WrappingState, const int32 EndIndex);
+
+	/**
+		* Stub method that should measure the substring starting from StartIndex until the wrap width is found or no more indices remain.
+		*
+		* @return	The index of the character that is at or after the desired width.
+		*/
+	int32 FindIndexAtOrAfterWrapWidth(FWrappingState& WrappingState);
+
+	/**
+		* Stub method for processing a single produced substring of the range [StartIndex, EndIndex) as a new line.
+		*/
+	void AddLine(FWrappingState& WrappingState, const int32 EndIndex);
+
+	int32 FindFirstMandatoryBreakBetween(FWrappingState& WrappingState, const int32 WrapIndex);
+	int32 FindLastBreakCandidateBetween(const int32 StartIndex, const int32 WrapIndex);
+	int32 FindEndOfLastWholeGraphemeCluster(const int32 StartIndex, const int32 WrapIndex);
+
+private:
+	TSharedPtr<IBreakIterator> GraphemeBreakIterator;
+	TSharedPtr<IBreakIterator> LineBreakIterator;
+};
 
 /**
  * Encapsulates the canvas state.
@@ -362,6 +536,11 @@ public:
 		bScaledToRenderTarget = scale;
 	}
 	FORCEINLINE bool IsScaledToRenderTarget() const { return bScaledToRenderTarget; }
+
+public:
+	/** Private class for handling word wrapping behavior. */
+	FCanvasWordWrapper WordWrapper;
+
 private:
 	/** Stack of SortKeys. All rendering is done using the top most sort key */
 	TArray<int32> DepthSortKeyStack;	

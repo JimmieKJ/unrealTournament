@@ -19,7 +19,6 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintGraphClasses.h"
 
-#include "SlateWordWrapper.h"
 #include "AutomationCommon.h"
 #include "AutomationEditorCommon.h"
 #include "AutomationTest.h"
@@ -187,89 +186,6 @@ bool FGenericImportAssetsAutomationTest::RunTest(const FString& Parameters)
 	CurLogItemIndex = ExecutionInfo.LogItems.Num();
 
 	return CurTestSuccessful;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-/**
- * FTextWrappingAutomationTest
- * Simple unit test that wraps text using FSlateFontInfo::WrapTextToClippingWidth(). Cannot be run in a commandlet
- * as it executes code that routes through Slate.
- */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FTextWrappingAutomationTest, "Engine.Rendering.Slate.Text Wrapping", EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_NonNullRHI )
-
-/** 
- * Execute the text wrapping test
- *
- * @return	true if the test was successful, false otherwise
- */
-bool FTextWrappingAutomationTest::RunTest(const FString& Parameters)
-{
-	struct FTestStruct
-	{
-		static bool TestMethod(const FSlateFontInfo& FontInfo, const float WrapWidth, const FString& TestString, const int32 ArgumentCount, ...)
-		{
-			va_list Arguments;
-			va_start(Arguments, ArgumentCount);
-
-			TArray<FString> CorrectLines;
-			for(int32 i = 0; i < ArgumentCount; ++i)
-			{
-				const TCHAR* const Fragment = va_arg(Arguments, const TCHAR* const);
-				CorrectLines.Add(Fragment);
-			}
-
-			va_end(Arguments);
-
-			FString Result = SlateWordWrapper::WrapText(TestString, FontInfo, WrapWidth, 1.0f);
-			TArray<FString> ResultLines;
-			Result.ParseIntoArray(&ResultLines, TEXT("\n"), false);
-
-			return ResultLines == CorrectLines;
-		}
-	};
-
-	const FSlateFontInfo FontInfo = FEditorStyle::GetFontStyle("NormalFont");
-
-	const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-	const float GlyphWidth = FontMeasureService->Measure( TEXT("A"), FontInfo).X;
-
-#define TEST(WrapWidth, TestString, ArgumentCount, ...)\
-	{\
-	if( !FTestStruct::TestMethod(FontInfo, (WrapWidth), (TestString), (ArgumentCount), __VA_ARGS__) )\
-		{\
-			AddError( TEXT("Testing string wrap failed, did not break line where expected.") );\
-		}\
-	}
-
-	TEST(GlyphWidth * 4, FString(TEXT("AAA    BBB CCC")), 3,   TEXT("AAA"),
-															TEXT("BBB"),
-															TEXT("CCC") );
-
-	TEST(GlyphWidth * 3, FString(TEXT("AAA BBB CCC")), 3,   TEXT("AAA"),
-															TEXT("BBB"),
-															TEXT("CCC") );
-
-	TEST(GlyphWidth * 2, FString(TEXT("AAA BBB CCC")), 6,   TEXT("AA"),
-															TEXT("A"),
-															TEXT("BB"),
-															TEXT("B"),
-															TEXT("CC"),
-															TEXT("C") );
-
-	TEST(GlyphWidth * 1, FString(TEXT("AAA BBB CCC")), 9,   TEXT("A"),
-															TEXT("A"),
-															TEXT("A"),
-															TEXT("B"),
-															TEXT("B"),
-															TEXT("B"),
-															TEXT("C"),
-															TEXT("C"),
-															TEXT("C") );
-
-#undef TEST
-
-	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////

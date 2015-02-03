@@ -57,7 +57,7 @@ public:
 	 * If any of the active subtitles need to be split into multiple lines, do so now
 	 * - caveat - this assumes the width of the subtitle region does not change while the subtitle is active
 	 */
-	void		SplitLinesToSafeZone( FIntRect & SubtitleRegion );
+	void		SplitLinesToSafeZone( FCanvas* Canvas, FIntRect & SubtitleRegion );
 
 	/**
 	 * Find the highest priority subtitle from the list of currently active ones

@@ -163,7 +163,7 @@ void FSubtitleManager::DisplaySubtitle( FCanvas* Canvas, FActiveSubtitle* Subtit
  * If any of the active subtitles need to be split into multiple lines, do so now
  * - caveat - this assumes the width of the subtitle region does not change while the subtitle is active
  */
-void FSubtitleManager::SplitLinesToSafeZone( FIntRect& SubtitleRegion )
+void FSubtitleManager::SplitLinesToSafeZone( FCanvas* Canvas, FIntRect& SubtitleRegion )
 {
 	int32				i;
 	FString			Concatenated;
@@ -215,7 +215,7 @@ void FSubtitleManager::SplitLinesToSafeZone( FIntRect& SubtitleRegion )
 		// Word wrap into lines
 		TArray<FWrappedStringElement> Lines;
 		FTextSizingParameters RenderParms( 0.0f, 0.0f, SubtitleRegion.Width(), 0.0f, GEngine->GetSubtitleFont() );
-		UCanvas::WrapString( RenderParms, 0, *Concatenated, Lines );
+		UCanvas::WrapString( Canvas->WordWrapper, RenderParms, 0, *Concatenated, Lines );
 
 		// Set up the times
 		Subtitle.Subtitles.Empty();
@@ -333,7 +333,7 @@ void FSubtitleManager::DisplaySubtitles( FCanvas* InCanvas, FIntRect& InSubtitle
 		TrimRegionToSafeZone( InCanvas, InSubtitleRegion );
 
 		// If the lines have not already been split, split them to the safe zone now
-		SplitLinesToSafeZone( InSubtitleRegion );
+		SplitLinesToSafeZone( InCanvas, InSubtitleRegion );
 
 		// Find the subtitle to display
 		PTRINT HighestPriorityID = FindHighestPrioritySubtitle( InAudioTimeSeconds );

@@ -10,7 +10,7 @@
 #include "EngineFontServices.h"
 #include "TileRendering.h"
 #include "RHIStaticStates.h"
-#include "WordWrapper.h"
+#include "BreakIterator.h"
 
 #include "IHeadMountedDisplay.h"
 #include "Debug/ReporterGraph.h"
@@ -26,6 +26,180 @@ DEFINE_STAT(STAT_Canvas_DrawStringTime);
 DEFINE_STAT(STAT_Canvas_GetBatchElementsTime);
 DEFINE_STAT(STAT_Canvas_AddTileRenderTime);
 DEFINE_STAT(STAT_Canvas_NumBatchesCreated);
+
+FCanvasWordWrapper::FCanvasWordWrapper()
+	: GraphemeBreakIterator(FBreakIterator::CreateCharacterBoundaryIterator())
+	, LineBreakIterator(FBreakIterator::CreateLineBreakIterator())
+{
+}
+
+void FCanvasWordWrapper::Execute(const TCHAR* const InString, const FTextSizingParameters& InParameters, TArray<FWrappedStringElement>& OutStrings, FWrappedLineData* const OutWrappedLineData)
+{
+	FWrappingState WrappingState(InString, FCString::Strlen(InString), InParameters, OutStrings, OutWrappedLineData);
+
+	if (WrappingState.WrappedLineData)
+	{
+		WrappingState.WrappedLineData->Empty();
+	}
+
+	GraphemeBreakIterator->SetString(WrappingState.String, WrappingState.StringLength);
+	LineBreakIterator->SetString(WrappingState.String, WrappingState.StringLength);
+
+	for(int32 i = 0; i < WrappingState.StringLength; ++i) // Sanity check: Doesn't seem valid to have more lines than code units.
+	{	
+		if( !ProcessLine(WrappingState) )
+		{
+			break;
+		}
+	}
+}
+
+bool FCanvasWordWrapper::ProcessLine(FWrappingState& WrappingState)
+{
+	bool bHasAddedLine = false;
+	if(WrappingState.StartIndex < WrappingState.StringLength)
+	{
+		int32 BreakIndex = FindFirstMandatoryBreakBetween(WrappingState, WrappingState.StringLength);
+
+		int32 NextStartIndex;
+		if( BreakIndex == INDEX_NONE || !DoesSubstringFit(WrappingState, BreakIndex) )
+		{
+			BreakIndex = INDEX_NONE;
+			int32 WrapIndex = FindIndexAtOrAfterWrapWidth(WrappingState);
+
+			if (WrapIndex == WrappingState.StringLength)
+			{
+				BreakIndex = WrapIndex;
+			}
+
+			if (BreakIndex <= WrappingState.StartIndex) // No mandatory break.
+			{
+				BreakIndex = FindLastBreakCandidateBetween(WrappingState.StartIndex, WrapIndex);
+			}
+
+			if (BreakIndex <= WrappingState.StartIndex) // No candidate break.
+			{
+				// Break after minimum length that would preserve the meaning/appearance.
+				BreakIndex = FindEndOfLastWholeGraphemeCluster(WrappingState.StartIndex, WrapIndex);
+			}
+
+			if (BreakIndex <= WrappingState.StartIndex) // No complete grapheme cluster.
+			{
+				BreakIndex = WrapIndex; // Break at wrap.
+			}
+
+			// Index for the next search
+			NextStartIndex = BreakIndex;
+		}
+		else
+		{
+			// Index for the next search
+			NextStartIndex = BreakIndex;
+			// The index is inclusive of the break - we don't want the break char in the string
+			--BreakIndex;			
+		}
+
+		while (BreakIndex > 0 && FText::IsWhitespace(WrappingState.String[BreakIndex - 1]))
+		{
+			--BreakIndex;
+		}
+
+		if (WrappingState.StartIndex <= BreakIndex)
+		{
+			AddLine(WrappingState, BreakIndex);
+
+			bHasAddedLine = true;
+		}
+
+		while (NextStartIndex < WrappingState.StringLength && FText::IsWhitespace(WrappingState.String[NextStartIndex]))
+		{
+			++NextStartIndex;
+		}
+
+		if(WrappingState.WrappedLineData)
+		{
+			WrappingState.WrappedLineData->Add(TPairInitializer<int32, int32>(WrappingState.StartIndex, BreakIndex));
+		}
+
+		WrappingState.StartIndex = NextStartIndex;
+	}
+	return bHasAddedLine;
+}
+
+bool FCanvasWordWrapper::DoesSubstringFit(FWrappingState& WrappingState, const int32 EndIndex)
+{
+	FTextSizingParameters MeasureParameters(WrappingState.Parameters);
+	int32 Unused;
+	UCanvas::MeasureStringInternal( MeasureParameters, WrappingState.String + WrappingState.StartIndex, EndIndex - WrappingState.StartIndex, 0, UCanvas::ELastCharacterIndexFormat::Unused, Unused );
+	return MeasureParameters.DrawXL <= WrappingState.Parameters.DrawXL;
+}
+
+int32 FCanvasWordWrapper::FindIndexAtOrAfterWrapWidth(FWrappingState& WrappingState)
+{
+	FTextSizingParameters MeasureParameters(WrappingState.Parameters);
+	int32 Return = INDEX_NONE;
+	UCanvas::MeasureStringInternal(MeasureParameters, WrappingState.String + WrappingState.StartIndex, WrappingState.StringLength - WrappingState.StartIndex, WrappingState.Parameters.DrawXL, UCanvas::ELastCharacterIndexFormat::CharacterAtOffset, Return);
+	return WrappingState.StartIndex + Return;
+}
+
+void FCanvasWordWrapper::AddLine(FWrappingState& WrappingState, const int32 EndIndex)
+{
+	FTextSizingParameters MeasureParameters(WrappingState.Parameters);
+	FString Substring(EndIndex - WrappingState.StartIndex, WrappingState.String + WrappingState.StartIndex);
+	FWrappedStringElement Element(*Substring, 0.0f, 0.0f);
+	UCanvas::CanvasStringSize(MeasureParameters, *Element.Value);
+	Element.LineExtent.X = MeasureParameters.DrawXL;
+	Element.LineExtent.Y = MeasureParameters.DrawYL;
+	WrappingState.Results.Add(Element);
+}
+
+int32 FCanvasWordWrapper::FindFirstMandatoryBreakBetween(FWrappingState& WrappingState, const int32 WrapIndex)
+{
+	int32 BreakIndex = INDEX_NONE;
+	for(int32 i = WrappingState.StartIndex + 1; i < WrapIndex; ++i)
+	{
+		const TCHAR Previous = WrappingState.String[i - 1];
+		if( FChar::IsLinebreak(Previous) ) // Line break occurs *after* linebreak character.
+		{
+			const TCHAR* const Current = i < WrapIndex ? WrappingState.String + i : NULL;
+			if(	Previous != FChar::CarriageReturn || !(Current && *Current == FChar::LineFeed) ) // Line break cannot occur within CR LF pair.
+			{
+				BreakIndex = i;
+				break;
+			}
+		}
+	}
+	// If we reached the end of the string we must also check that the last char is not a newline
+	if( BreakIndex == INDEX_NONE )
+	{
+		const TCHAR Previous = WrappingState.String[WrapIndex - 1];
+		if( FChar::IsLinebreak(Previous) ) // Line break occurs *after* linebreak character.
+		{
+			BreakIndex = WrapIndex;
+		}
+	}
+	return BreakIndex;
+}
+
+int32 FCanvasWordWrapper::FindLastBreakCandidateBetween(const int32 InStartIndex, const int32 WrapIndex)
+{
+	int32 BreakIndex = LineBreakIterator->MoveToCandidateBefore(WrapIndex + 1);
+	if(BreakIndex < InStartIndex)
+	{
+		BreakIndex = INDEX_NONE;
+	}
+	return BreakIndex;
+}
+
+int32 FCanvasWordWrapper::FindEndOfLastWholeGraphemeCluster(const int32 InStartIndex, const int32 WrapIndex)
+{
+	int32 BreakIndex = GraphemeBreakIterator->MoveToCandidateBefore(WrapIndex + 1);
+	if(BreakIndex < InStartIndex)
+	{
+		BreakIndex = INDEX_NONE;
+	}
+	return BreakIndex;
+}
 
 FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel)
 :	ViewRect(0,0,0,0)
@@ -1033,81 +1207,14 @@ void UCanvas::CanvasStringSize( FTextSizingParameters& Parameters, const TCHAR* 
 	MeasureStringInternal(Parameters, pText, FCString::Strlen(pText), 0, ELastCharacterIndexFormat::Unused, Unused);
 }
 
-namespace
+void UCanvas::WrapString( FCanvasWordWrapper& Wrapper, FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData)
 {
-	class FCanvasWordWrapper : public FWordWrapper
-	{
-	public:
-		/**
-		 * Used to generate multi-line/wrapped text.
-		 *
-		 * @param InString The unwrapped text.
-		 * @param InFontInfo The font used to render the text.
-		 * @param InWrapWidth The width available.
-		 * @param OutWrappedLineData An optional array to fill with the indices from the source string marking the begin and end points of the wrapped lines
-		 */
-		static void Execute(FTextSizingParameters& InParameters, const TCHAR* const InString, TArray<FWrappedStringElement>& OutStrings, FWrappedLineData* const OutWrappedLineData);
-	protected:
-		bool DoesSubstringFit(const int32 StartIndex, const int32 EndIndex);
-		int32 FindIndexAtOrAfterWrapWidth(const int32 StartIndex);
-		void AddLine(const int32 StartIndex, const int32 EndIndex);
-	private:
-		FCanvasWordWrapper(FTextSizingParameters& InParameters, const TCHAR* const InString, TArray<FWrappedStringElement>& OutStrings, FWrappedLineData* const OutWrappedLineData);
-	private:
-		FTextSizingParameters& Parameters;
-		TArray<FWrappedStringElement>& Results;
-	};
-
-	void FCanvasWordWrapper::Execute(FTextSizingParameters& InParameters, const TCHAR* const InString, TArray<FWrappedStringElement>& OutStrings, FWrappedLineData* const OutWrappedLineData)
-	{
-		FCanvasWordWrapper WordWrapper(InParameters, InString, OutStrings, OutWrappedLineData);
-		const int32 StringLength = FCString::Strlen(InString);
-		for(int32 i = 0; i < StringLength; ++i) // Sanity check: Doesn't seem valid to have more lines than code units.
-		{	
-			if( !WordWrapper.ProcessLine() )
-			{
-				break;
-			}
-		}
-	}
-
-	bool FCanvasWordWrapper::DoesSubstringFit(const int32 StartIndex, const int32 EndIndex)
-	{
-		FTextSizingParameters MeasureParameters(Parameters);
-		int32 Unused;
-		UCanvas::MeasureStringInternal( MeasureParameters, String + StartIndex, EndIndex - StartIndex, 0, UCanvas::ELastCharacterIndexFormat::Unused, Unused );
-		return MeasureParameters.DrawXL <= Parameters.DrawXL;
-	}
-
-	int32 FCanvasWordWrapper::FindIndexAtOrAfterWrapWidth(const int32 StartIndex)
-	{
-		FTextSizingParameters MeasureParameters(Parameters);
-		int32 Return = INDEX_NONE;
-		UCanvas::MeasureStringInternal(MeasureParameters, String + StartIndex, StringLength - StartIndex, Parameters.DrawXL, UCanvas::ELastCharacterIndexFormat::CharacterAtOffset, Return);
-		return StartIndex + Return;
-	}
-
-	void FCanvasWordWrapper::AddLine(const int32 StartIndex, const int32 EndIndex)
-	{
-		FTextSizingParameters MeasureParameters(Parameters);
-		FString Substring(EndIndex - StartIndex, String + StartIndex);
-		FWrappedStringElement Element(*Substring, 0.0f, 0.0f);
-		UCanvas::CanvasStringSize(MeasureParameters, *Element.Value);
-		Element.LineExtent.X = MeasureParameters.DrawXL;
-		Element.LineExtent.Y = MeasureParameters.DrawYL;
-		Results.Add(Element);
-	}
-
-	FCanvasWordWrapper::FCanvasWordWrapper(FTextSizingParameters& InParameters, const TCHAR* const InString, TArray<FWrappedStringElement>& OutStrings, FWrappedLineData* const OutWrappedLineData)
-		: FWordWrapper(InString, FString(InString).Len(), OutWrappedLineData), Parameters(InParameters), Results(OutStrings)
-	{
-		Results.Empty();
-	}
+	Wrapper.Execute(pText, Parameters, out_Lines, OutWrappedLineData);
 }
 
-void UCanvas::WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FWordWrapper::FWrappedLineData* const OutWrappedLineData)
+void UCanvas::WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData)
 {
-	FCanvasWordWrapper::Execute(Parameters, pText, out_Lines, OutWrappedLineData);
+	UCanvas::WrapString( Canvas->WordWrapper, Parameters, InCurX, pText, out_Lines, OutWrappedLineData);
 }
 
 /*-----------------------------------------------------------------------------

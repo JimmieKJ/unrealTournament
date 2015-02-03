@@ -5,12 +5,11 @@
 //=============================================================================
 
 #pragma once
-#include "Internationalization/WordWrapper.h"
+
+#include "CanvasTypes.h"
 #include "Canvas.generated.h"
 
 class FSceneView;
-class FCanvas;
-class FCanvasItem;
 class UFont;
 
 /**
@@ -48,100 +47,6 @@ struct FCanvasIcon
 	{
 	}
 
-};
-
-
-/**
- * General purpose data structure for grouping all parameters needed when sizing or wrapping a string
- */
-USTRUCT()
-struct FTextSizingParameters
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** a pixel value representing the horizontal screen location to begin rendering the string */
-	UPROPERTY()
-	float DrawX;
-
-	/** a pixel value representing the vertical screen location to begin rendering the string */
-	UPROPERTY()
-	float DrawY;
-
-	/** a pixel value representing the width of the area available for rendering the string */
-	UPROPERTY()
-	float DrawXL;
-
-	/** a pixel value representing the height of the area available for rendering the string */
-	UPROPERTY()
-	float DrawYL;
-
-	/** A value between 0.0 and 1.0, which represents how much the width/height should be scaled, where 1.0 represents 100% scaling. */
-	UPROPERTY()
-	FVector2D Scaling;
-
-	/** the font to use for sizing/wrapping the string */
-	UPROPERTY()
-	const UFont* DrawFont;
-
-	/** Horizontal spacing adjustment between characters and vertical spacing adjustment between wrapped lines */
-	UPROPERTY()
-	FVector2D SpacingAdjust;
-
-	FTextSizingParameters()
-		: DrawX(0)
-		, DrawY(0)
-		, DrawXL(0)
-		, DrawYL(0)
-		, Scaling(ForceInit)
-		, DrawFont(NULL)
-		, SpacingAdjust(ForceInit)
-	{
-	}
-
-
-		FTextSizingParameters( float inDrawX, float inDrawY, float inDrawXL, float inDrawYL, const UFont* inFont=NULL )
-		: DrawX(inDrawX), DrawY(inDrawY), DrawXL(inDrawXL), DrawYL(inDrawYL)
-		, Scaling(1.f,1.f), DrawFont(inFont)
-		, SpacingAdjust( 0.0f, 0.0f )
-		{
-		}
-		FTextSizingParameters( const UFont* inFont, float ScaleX, float ScaleY)
-		: DrawX(0.f), DrawY(0.f), DrawXL(0.f), DrawYL(0.f)
-		, Scaling(ScaleX,ScaleY), DrawFont(inFont)
-		, SpacingAdjust( 0.0f, 0.0f )
-		{
-		}
-	
-};
-
-/**
- * Used by UUIString::WrapString to track information about each line that is generated as the result of wrapping.
- */
-USTRUCT()
-struct FWrappedStringElement
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** the string associated with this line */
-	UPROPERTY()
-	FString Value;
-
-	/** the size (in pixels) that it will take to render this string */
-	UPROPERTY()
-	FVector2D LineExtent;
-
-
-	FWrappedStringElement()
-		: LineExtent(ForceInit)
-	{
-	}
-
-
-		/** Constructor */
-		FWrappedStringElement( const TCHAR* InValue, float Width, float Height )
-		: Value(InValue), LineExtent(Width,Height)
-		{}
-	
 };
 
 UCLASS(transient)
@@ -209,7 +114,6 @@ public:
 	FSceneView* SceneView;
 	FMatrix	ViewProjectionMatrix;
 	FQuat HmdOrientation;
-	
 
 	// UCanvas interface.
 	
@@ -346,7 +250,10 @@ public:
 	 *							not clear the array first.
 	 * @param	OutWrappedLineData An optional array to fill with the indices from the source string marking the begin and end points of the wrapped lines
 	 */
-	static void WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FWordWrapper::FWrappedLineData* const OutWrappedLineData = nullptr);
+	static void WrapString( FCanvasWordWrapper& Wrapper, FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData = nullptr);
+
+	void WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData = nullptr);
+
 
 	/** Transforms a 3D world-space vector into 2D screen coordinates. */
 	FVector Project(FVector Location) const;

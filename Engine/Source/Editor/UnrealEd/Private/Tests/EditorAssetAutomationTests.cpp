@@ -21,7 +21,6 @@
 #include "Matinee/InterpData.h"
 #include "Styling/ButtonWidgetStyle.h"
 
-#include "SlateWordWrapper.h"
 #include "AutomationCommon.h"
 #include "AutomationEditorCommon.h"
 #include "Engine/Selection.h"
