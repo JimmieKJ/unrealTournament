@@ -428,7 +428,7 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 {
 	// Calculate the rotation 	
 	AUTCharacter* UTC = UTPlayerOwner->GetUTCharacter();
-	if (UTC != NULL && ! UTC->IsDead())	// If have a pawn and it's alive...
+	if (UTC != NULL && ! UTC->IsDead() && (DamageAmount > 0))	// If have a pawn and it's alive...
 	{
 		FVector CharacterLocation;
 		FRotator CharacterRotation;
@@ -458,19 +458,13 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 				}
 			}
 		}
-
 		DamageIndicators[BestIndex].FadeTime = DAMAGE_FADE_DURATION;
 		DamageIndicators[BestIndex].RotationAngle = FinalAng;
 		DamageIndicators[BestIndex].bFriendlyFire = bFriendlyFire;
-
-//		UUTHUDWidget_WeaponCrosshair* CrossHairWidget =
-	
-
 		if (DamageAmount > 0)
 		{
 			UTC->PlayDamageEffects();
 		}
-
 	}
 }
 
@@ -491,7 +485,6 @@ void AUTHUD::DrawDamageIndicators()
 			ImageItem.PivotPoint = FVector2D(0.5,0.5);
 			ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 			Canvas->DrawItem( ImageItem );
-
 			DamageIndicators[i].FadeTime -= RenderDelta;
 		}
 	}
