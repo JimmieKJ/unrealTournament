@@ -612,15 +612,13 @@ void UUTCharacterMovement::UTCallServerMove()
 	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
 
 	// Decide whether to hold off on move
-	// @TODO FIXMESTEVE - send important moves right away (have some slack built in)
-	// @TODO FIXMESTEVE - base netmovedeltas on CurrentNetSpeed
-	// @TODO FIXMESTEVE -force send move if about to run out of space? && (ClientData->SavedMoves.Num() < ClientData->MaxSavedMoveCount - 4)
 	// never delay if spawning shot must sync
 	const FSavedMovePtr& NewMove = ClientData->SavedMoves.Last();
 	if (CanDelaySendingMove(NewMove))
 	{
 		UPlayer* Player = (PC ? PC->Player : NULL);
 		int32 CurrentNetSpeed = Player ? Player->CurrentNetSpeed : 0;
+		// @TODO FIXMESTEVE - base acceptable netmovedelta on CurrentNetSpeed
 		float NetMoveDelta = NewMove->IsImportantMove(ClientData->LastAckedMove) ? 0.017f : 0.033f;
 
 		if (((NewMove->TimeStamp - ClientData->ClientUpdateTime) * CharacterOwner->GetWorldSettings()->GetEffectiveTimeDilation() < NetMoveDelta))
