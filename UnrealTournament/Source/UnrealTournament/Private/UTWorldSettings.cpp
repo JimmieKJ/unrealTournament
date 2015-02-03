@@ -193,6 +193,20 @@ void AUTWorldSettings::AddTimedMaterialParameter(UMaterialInstanceDynamic* InMI,
 	new(MaterialParamCurves) FTimedMaterialParameter(InMI, InParamName, InCurve, bInClearOnComplete);
 }
 
+void AUTWorldSettings::AddTimedLightParameter(ULightComponent* InLight, ETimedLightParameter InParam, UCurveBase* InCurve)
+{
+	for (int32 i = 0; i < LightParamCurves.Num(); i++)
+	{
+		if (LightParamCurves[i].Light == InLight && LightParamCurves[i].Param == InParam)
+		{
+			LightParamCurves[i] = FTimedLightParameter(InLight, InParam, InCurve);
+			return;
+		}
+	}
+
+	new(LightParamCurves) FTimedLightParameter(InLight, InParam, InCurve);
+}
+
 void AUTWorldSettings::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -248,6 +262,50 @@ void AUTWorldSettings::Tick(float DeltaTime)
 			if (bAtEnd)
 			{
 				MaterialParamCurves.RemoveAt(i--, 1);
+			}
+		}
+	}
+	for (int32 i = 0; i < LightParamCurves.Num(); i++)
+	{
+		if (!LightParamCurves[i].Light.IsValid() || LightParamCurves[i].ParamCurve == NULL)
+		{
+			LightParamCurves.RemoveAt(i--, 1);
+		}
+		else
+		{
+			LightParamCurves[i].ElapsedTime += DeltaTime;
+			bool bAtEnd = false;
+			{
+				float MinTime, MaxTime;
+				LightParamCurves[i].ParamCurve->GetTimeRange(MinTime, MaxTime);
+				bAtEnd = LightParamCurves[i].ElapsedTime > MaxTime;
+			}
+			switch (LightParamCurves[i].Param)
+			{
+				case TLP_Color:
+				{
+					UCurveLinearColor* ColorCurve = Cast<UCurveLinearColor>(LightParamCurves[i].ParamCurve);
+					if (ColorCurve != NULL)
+					{
+						LightParamCurves[i].Light->SetLightColor(ColorCurve->GetLinearColorValue(LightParamCurves[i].ElapsedTime));
+					}
+					break;
+				}
+				case TLP_Intensity:
+				{
+					UCurveFloat* FloatCurve = Cast<UCurveFloat>(LightParamCurves[i].ParamCurve);
+					if (FloatCurve != NULL)
+					{
+						LightParamCurves[i].Light->SetIntensity(FloatCurve->GetFloatValue(LightParamCurves[i].ElapsedTime));
+					}
+					break;
+				}
+				default:
+					break;
+			}
+			if (bAtEnd)
+			{
+				LightParamCurves.RemoveAt(i--, 1);
 			}
 		}
 	}

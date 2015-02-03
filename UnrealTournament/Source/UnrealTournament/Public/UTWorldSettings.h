@@ -53,6 +53,40 @@ struct FTimedMaterialParameter
 	{}
 };
 
+UENUM()
+enum ETimedLightParameter
+{
+	TLP_Intensity,
+	TLP_Color,
+};
+
+/** used to animate any light component over time */
+USTRUCT()
+struct FTimedLightParameter
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** the light component to operator on */
+	UPROPERTY()
+	TWeakObjectPtr<class ULightComponent> Light;
+	/** parameter to change */
+	UPROPERTY()
+	TEnumAsByte<ETimedLightParameter> Param;
+	/** the curve to retrieve values from */
+	UPROPERTY()
+	UCurveBase* ParamCurve;
+	/** elapsed time along the curve */
+	UPROPERTY()
+	float ElapsedTime;
+
+	FTimedLightParameter()
+		: Light(NULL)
+	{}
+	FTimedLightParameter(ULightComponent* InLight, ETimedLightParameter InParam, UCurveBase* InCurve)
+		: Light(InLight), Param(InParam), ParamCurve(InCurve), ElapsedTime(0.0f)
+	{}
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 {
@@ -114,10 +148,15 @@ public:
 
 	UPROPERTY()
 	TArray<FTimedMaterialParameter> MaterialParamCurves;
+	UPROPERTY()
+	TArray<FTimedLightParameter> LightParamCurves;
 
 	/** adds a material parameter curve to manage timing for */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
 	virtual void AddTimedMaterialParameter(UMaterialInstanceDynamic* InMI, FName InParamName, UCurveBase* InCurve, bool bInClearOnComplete = true);
+	/** adds a light parameter curve to manage timing for */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
+	virtual void AddTimedLightParameter(ULightComponent* InLight, ETimedLightParameter InParam, UCurveBase* InCurve);
 
 	virtual void Tick(float DeltaTime) override;
 
