@@ -106,3 +106,35 @@ void UUTCheatManager::ImpartHats(const FString& Hat)
 		}
 	}
 }
+
+void UUTCheatManager::SetEyewear(const FString& Eyewear)
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(GetOuterAPlayerController()->PlayerState);
+	if (PS)
+	{
+		FString EyewearPackageName;
+		if (FPackageName::SearchForPackageOnDisk(Eyewear, &EyewearPackageName))
+		{
+			EyewearPackageName += TEXT(".") + Eyewear + TEXT("_C");
+			PS->ServerReceiveEyewearClass(EyewearPackageName);
+		}
+	}
+}
+
+void UUTCheatManager::ImpartEyewear(const FString& Eyewear)
+{
+	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
+	for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+		if (PS)
+		{
+			FString EyewearPackageName;
+			if (FPackageName::SearchForPackageOnDisk(Eyewear, &EyewearPackageName))
+			{
+				EyewearPackageName += TEXT(".") + Eyewear + TEXT("_C");
+				PS->ServerReceiveEyewearClass(EyewearPackageName);
+			}
+		}
+	}
+}

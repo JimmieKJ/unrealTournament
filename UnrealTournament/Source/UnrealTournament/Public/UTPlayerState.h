@@ -8,6 +8,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "UTDamageType.h"
 #include "UTHat.h"
+#include "UTEyewear.h"
 #include "UTPlayerState.generated.h"
 
 USTRUCT(BlueprintType)
@@ -186,6 +187,12 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatClass(const FString& NewHatClass);
+
+	UPROPERTY()
+	TSubclassOf<AUTEyewear> EyewearClass;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveEyewearClass(const FString& NewEyewearClass);
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;

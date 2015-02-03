@@ -14,6 +14,9 @@ AUTCosmetic::AUTCosmetic(const class FObjectInitializer& ObjectInitializer)
 	bReplicates = false;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+
+	CosmeticName = TEXT("Unnamed Cosmetic");
+	CosmeticAuthor = TEXT("Anonymous");
 }
 
 void AUTCosmetic::PreInitializeComponents()

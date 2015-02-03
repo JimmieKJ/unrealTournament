@@ -279,6 +279,27 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 	return true;
 }
 
+void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
+{
+	EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
+
+	AController* Controller = Cast<AController>(GetOwner());
+	if (Controller != NULL)
+	{
+		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+		if (Pawn != NULL)
+		{
+			Pawn->EyewearClass = EyewearClass;
+			Pawn->OnRepEyewear();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewearClass)
+{
+	return true;
+}
+
 /** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have 
     have a proper ID available.  */
 void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
@@ -463,6 +484,12 @@ void AUTPlayerState::BeginPlay()
 			if (HatClass)
 			{
 				ServerReceiveHatClass(ProfileSettings->GetHatPath());
+			}
+
+			UClass* EyewearClass = LoadClass<AUTEyewear>(NULL, *ProfileSettings->GetEyewearPath(), NULL, LOAD_NoWarn, NULL);
+			if (EyewearClass)
+			{
+				ServerReceiveEyewearClass(ProfileSettings->GetEyewearPath());
 			}
 		}
 	}

@@ -28,5 +28,11 @@ class UUTCheatManager : public UCheatManager
 	virtual void ImpartHats(const FString& Hat);
 
 	UFUNCTION(exec)
+	virtual void SetEyewear(const FString& Eyewear);
+
+	UFUNCTION(exec)
+	virtual void ImpartEyewear(const FString& Eyewear);
+
+	UFUNCTION(exec)
 	virtual void Ann(int32 Switch);
 };
