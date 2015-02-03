@@ -20,13 +20,11 @@ struct FWeaponSpree
 
 	FWeaponSpree(FName InSpreeSoundName) : SpreeSoundName(InSpreeSoundName), Kills(0) {};
 
-	/** Position of player at time Time. */
 	UPROPERTY()
-		FName SpreeSoundName;
+	FName SpreeSoundName;
 
-	/** Rotation of player at time Time. */
 	UPROPERTY()
-		int32 Kills;
+	int32 Kills;
 };
 
 UCLASS()
@@ -40,7 +38,19 @@ private:
 	UPROPERTY()
 	class UStatManager *StatManager;
 
+protected:
+	/** selected character (if NULL left at default) */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
+	TSubclassOf<class AUTCharacterContent> SelectedCharacter;
 public:
+	UFUNCTION(BlueprintCallable, Category = Character)
+	virtual void SetCharacter(const FString& CharacterPath);
+	UFUNCTION(BlueprintCallable, Reliable, Server, WithValidation, Category = Character)
+	void ServerSetCharacter(const FString& CharacterPath);
+	inline TSubclassOf<class AUTCharacterContent> GetSelectedCharacter() const
+	{
+		return SelectedCharacter;
+	}
 
 	/** player's team if we're playing a team game */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
@@ -56,7 +66,7 @@ public:
 
 	/** Whether this player has a pending switch team request (waiting for swap partner) */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
-		uint32 bPendingTeamSwitch : 1;
+	uint32 bPendingTeamSwitch : 1;
 
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;
@@ -136,7 +146,7 @@ public:
 	TSubclassOf<UUTDamageType> WeaponSpreeDamage;
 
 	UFUNCTION()
-		void OnWeaponSpreeDamage();
+	void OnWeaponSpreeDamage();
 
 	virtual void AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<class UUTDamageType> UTDamage);
 
@@ -145,7 +155,7 @@ public:
 
 	/** Team has changed, announce, tell pawn, etc. */
 	UFUNCTION()
-		virtual void HandleTeamChanged(AController* Controller);
+	virtual void HandleTeamChanged(AController* Controller);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void NotifyTeamChanged();
@@ -209,7 +219,6 @@ public:
 
 	virtual	bool ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModType);
 
-	
 	// Where should any chat go.  NOTE: some commands like Say and TeamSay ignore this value
 	UPROPERTY(replicated)
 	FName ChatDestination;

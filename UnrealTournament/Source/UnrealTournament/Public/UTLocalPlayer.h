@@ -111,6 +111,21 @@ public:
 	UPROPERTY(config)
 	uint32 bNoMidGameMenu:1;
 
+	/** returns path for player's cosmetic item
+	 * profile settings takes priority over .ini
+	 */
+	virtual FString GetHatPath() const;
+	virtual void SetHatPath(const FString& NewHatPath);
+	virtual FString GetEyewearPath() const;
+	virtual void SetEyewearPath(const FString& NewEyewearPath);
+	/** returns path for player's character (visual only data) */
+	virtual FString GetCharacterPath() const;
+	virtual void SetCharacterPath(const FString& NewCharacterPath);
+
+	/** accessors for default URL options */
+	virtual FString GetDefaultURLOption(const TCHAR* Key) const;
+	virtual void SetDefaultURLOption(const FString& Key, const FString& Value);
+
 // ONLINE ------
 
 	// Called after creation on non-default objects to setup the online Subsystem

@@ -1095,7 +1095,7 @@ public:
 	virtual void SetWeaponAttachmentClass(TSubclassOf<class AUTWeaponAttachment> NewWeaponAttachmentClass);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
-		virtual void SetHolsteredWeaponAttachmentClass(TSubclassOf<class AUTWeaponAttachment> NewWeaponAttachmentClass);
+	virtual void SetHolsteredWeaponAttachmentClass(TSubclassOf<class AUTWeaponAttachment> NewWeaponAttachmentClass);
 
 	/** uses WeaponOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
 	UFUNCTION()
@@ -1154,6 +1154,8 @@ public:
 
 	virtual void PlayerChangedTeam();
 	virtual void PlayerSuicide();
+
+	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data);
 
 	//--------------------------
 	// Weapon bob and eye offset
@@ -1346,12 +1348,11 @@ public:
 
 	/** spawn/destroy/replace the current weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()
-		virtual void UpdateWeaponAttachment();
+	virtual void UpdateWeaponAttachment();
 
 	/** spawn/destroy/replace the current holstered weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()
-		virtual void UpdateHolsteredWeaponAttachment();
-
+	virtual void UpdateHolsteredWeaponAttachment();
 
 	virtual FVector GetNavAgentLocation() const override
 	{
@@ -1377,7 +1378,6 @@ public:
 	/** sets walking movement reduction */
 	UFUNCTION(BlueprintCallable, Category = Movement)
 	virtual void SetWalkMovementReduction(float InPct, float InDuration);
-
 
 protected:
 
@@ -1475,11 +1475,11 @@ public:
 
 	/** Ambient sound played while low in health*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* LowHealthAmbientSound;
+	USoundBase* LowHealthAmbientSound;
 
 	/** Health threshold for low health ambient sound */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		int32 LowHealthAmbientThreshold;
+	int32 LowHealthAmbientThreshold;
 
 	/** sets replicated ambient (looping) sound on this Pawn
 	* only one ambient sound can be set at a time
@@ -1502,15 +1502,15 @@ public:
 	void LocalAmbientSoundUpdated();
 
 
-	/** sets local (not replicated) statud ambient (looping) sound on this Pawn
+	/** sets local (not replicated) status ambient (looping) sound on this Pawn
 	* only one status ambient sound can be set at a time
 	* pass bClear with a valid NewAmbientSound to remove only if NewAmbientSound == CurrentAmbientSound
 	*/
 	UFUNCTION(BlueprintCallable, Category = Audio)
-		virtual void SetStatusAmbientSound(USoundBase* NewAmbientSound, float SoundVolume = 0.f, float PitchMultipier = 1.f, bool bClear = false);
+	virtual void SetStatusAmbientSound(USoundBase* NewAmbientSound, float SoundVolume = 0.f, float PitchMultipier = 1.f, bool bClear = false);
 
 	UFUNCTION()
-		void StatusAmbientSoundUpdated();
+	void StatusAmbientSoundUpdated();
 
 	//================================
 protected:

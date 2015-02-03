@@ -54,12 +54,6 @@ class UUTProfileSettings : public UObject
 	 **/
 	FString GetPlayerName() { return PlayerName; };
 
-	FString GetHatPath() { return Hat; }
-	void SetHatPath(const FString& NewHatPath) { Hat = NewHatPath; }
-
-	FString GetEyewearPath() { return Eyewear; }
-	void SetEyewearPath(const FString& NewEyewearPath) { Eyewear = NewEyewearPath; }
-
 	/**
 	 *	Apply any settings stored in this profile object
 	 **/
@@ -70,6 +64,14 @@ class UUTProfileSettings : public UObject
 	 **/
 	UPROPERTY()
 	uint32 SettingsRevisionNum;
+
+	UPROPERTY()
+	FString HatPath;
+	UPROPERTY()
+	FString EyewearPath;
+
+	UPROPERTY()
+	FString CharacterPath;
 
 protected:
 
@@ -154,10 +156,4 @@ protected:
 
 	UPROPERTY()
 	float PlayerFOV;
-
-	UPROPERTY()
-	FString Hat;
-
-	UPROPERTY()
-	FString Eyewear;
 };

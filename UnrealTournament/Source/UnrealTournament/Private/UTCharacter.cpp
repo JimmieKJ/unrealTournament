@@ -23,6 +23,8 @@
 #include "UTDroppedPickup.h"
 #include "UTWeaponStateFiring.h"
 #include "UTMovementBaseInterface.h"
+#include "UTCharacterContent.h"
+#include "ComponentReregisterContext.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1421,6 +1423,11 @@ void AUTCharacter::Destroyed()
 		Hat->Destroy();
 		Hat = NULL;
 	}
+	if (Eyewear != NULL)
+	{
+		Eyewear->Destroy();
+		Eyewear = NULL;
+	}
 
 	if (GetWorld()->GetNetMode() != NM_DedicatedServer && GEngine->GetWorldContextFromWorld(GetWorld()) != NULL) // might not be able to get world context when exiting PIE
 	{
@@ -1955,6 +1962,7 @@ void AUTCharacter::DiscardAllInventory()
 		Inv->Destroy();
 		Inv = NextInv;
 	}
+	SavedAmmo.Empty();
 }
 
 void AUTCharacter::InventoryEvent(FName EventName)
@@ -3214,27 +3222,50 @@ void AUTCharacter::OnRep_GoodMoveAckTime()
 	}
 }
 
+void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
+{
+	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : NULL;
+	if (Data->Mesh != NULL)
+	{
+		FComponentReregisterContext ReregisterContext(GetMesh());
+		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
+		BodyMI = GetMesh()->CreateAndSetMaterialInstanceDynamic(0);
+		GetMesh()->SkeletalMesh = Data->Mesh->SkeletalMesh;
+		GetMesh()->PhysicsAssetOverride = Data->Mesh->PhysicsAssetOverride;
+		GetMesh()->RelativeScale3D = Data->Mesh->RelativeScale3D;
+		GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
+		GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
+	}
+}
+
 void AUTCharacter::NotifyTeamChanged()
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS != NULL && BodyMI != NULL)
+	if (PS != NULL)
 	{
-		static FName NAME_TeamColor(TEXT("TeamColor"));
-		if (PS->Team != NULL)
+		if (PS->GetSelectedCharacter() != NULL)
 		{
-			BodyMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+			ApplyCharacterData(PS->GetSelectedCharacter());
 		}
-		else
+		if (BodyMI != NULL)
 		{
-			// in FFA games, let the local player decide the team coloring
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			static FName NAME_TeamColor(TEXT("TeamColor"));
+			if (PS->Team != NULL)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-				if (PC != NULL && PC->FFAPlayerColor.A > 0.0f)
+				BodyMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+			}
+			else
+			{
+				// in FFA games, let the local player decide the team coloring
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					BodyMI->SetVectorParameterValue(NAME_TeamColor, PC->FFAPlayerColor);
-					// NOTE: no splitscreen support, first player wins
-					break;
+					AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+					if (PC != NULL && PC->FFAPlayerColor.A > 0.0f)
+					{
+						BodyMI->SetVectorParameterValue(NAME_TeamColor, PC->FFAPlayerColor);
+						// NOTE: no splitscreen support, first player wins
+						break;
+					}
 				}
 			}
 		}
@@ -3508,13 +3539,17 @@ void AUTCharacter::OnRepHat()
 {
 	if (HatClass != nullptr)
 	{
+		if (Hat != NULL)
+		{
+			Hat->Destroy();
+		}
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
 		Params.bNoCollisionFail = true;
 		Params.bNoFail = true;
 		Hat = GetWorld()->SpawnActor<AUTHat>(HatClass, GetActorLocation(), GetActorRotation(), Params);
-		if (Hat)
+		if (Hat != NULL)
 		{
 			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
 			Hat->CosmeticWearer = this;
@@ -3526,13 +3561,17 @@ void AUTCharacter::OnRepEyewear()
 {
 	if (EyewearClass != nullptr)
 	{
+		if (Eyewear != NULL)
+		{
+			Eyewear->Destroy();
+		}
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
 		Params.bNoCollisionFail = true;
 		Params.bNoFail = true;
 		Eyewear = GetWorld()->SpawnActor<AUTEyewear>(EyewearClass, GetActorLocation(), GetActorRotation(), Params);
-		if (Eyewear)
+		if (Eyewear != NULL)
 		{
 			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget);
 			Eyewear->CosmeticWearer = this;

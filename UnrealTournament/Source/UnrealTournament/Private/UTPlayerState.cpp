@@ -7,6 +7,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTGameMessage.h"
 #include "UTHat.h"
+#include "UTCharacterContent.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -473,26 +474,37 @@ void AUTPlayerState::BeginPlay()
 			}
 		}		
 	}
+}
 
-	// Use the chosen hat
-	if (LP != nullptr)
+void AUTPlayerState::SetCharacter(const FString& CharacterPath)
+{
+	if (Role == ROLE_Authority)
 	{
-		UUTProfileSettings* ProfileSettings = LP->GetProfileSettings();
-		if (ProfileSettings)
+		// TODO: check entitlement
+		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, LOAD_None, NULL) : NULL;
+// redirect from blueprint, for easier testing in the editor via C/P
+#if WITH_EDITORONLY_DATA
+		if (SelectedCharacter == NULL)
 		{
-			UClass* HatClass = LoadClass<AUTHat>(NULL, *ProfileSettings->GetHatPath(), NULL, LOAD_NoWarn, NULL);
-			if (HatClass)
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, LOAD_None, NULL);
+			if (BP != NULL)
 			{
-				ServerReceiveHatClass(ProfileSettings->GetHatPath());
-			}
-
-			UClass* EyewearClass = LoadClass<AUTEyewear>(NULL, *ProfileSettings->GetEyewearPath(), NULL, LOAD_NoWarn, NULL);
-			if (EyewearClass)
-			{
-				ServerReceiveEyewearClass(ProfileSettings->GetEyewearPath());
+				SelectedCharacter = *BP->GeneratedClass;
 			}
 		}
+#endif
+		NotifyTeamChanged();
 	}
+}
+
+bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
+{
+	return true;
+}
+void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
+{
+	// TODO: maybe ignore if already have valid character to avoid trolls?
+	SetCharacter(CharacterPath);
 }
 
 bool AUTPlayerState::ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModType)

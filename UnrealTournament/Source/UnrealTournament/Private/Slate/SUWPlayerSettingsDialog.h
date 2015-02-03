@@ -68,6 +68,12 @@ protected:
 	TSharedPtr<STextBlock> SelectedEyewear;
 	void OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
+	TArray<TSharedPtr<FString>> CharacterList;
+	TArray<FString> CharacterPathList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > CharacterComboBox;
+	TSharedPtr<STextBlock> SelectedCharacter;
+	void OnCharacterSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	int32 Emote1Index;
 	int32 Emote2Index;
 	int32 Emote3Index;

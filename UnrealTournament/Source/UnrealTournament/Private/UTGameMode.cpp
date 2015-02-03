@@ -18,6 +18,7 @@
 #include "UTSquadAI.h"
 #include "Slate/Panels/SUDuelSettings.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
+#include "UTCharacterContent.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -410,7 +411,27 @@ APlayerController* AUTGameMode::Login(class UPlayer* NewPlayer, const FString& P
 	{
 		BaseMutator->ModifyLogin(ModdedPortal, ModdedOptions);
 	}
-	return Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* Result = Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
+	AUTPlayerState* PS = Cast<AUTPlayerState>(Result->PlayerState);
+	if (PS != NULL)
+	{
+		FString InOpt = ParseOption(Options, TEXT("Character"));
+		if (InOpt.Len() > 0)
+		{
+			PS->SetCharacter(InOpt);
+		}
+		InOpt = ParseOption(Options, TEXT("Hat"));
+		if (InOpt.Len() > 0)
+		{
+			PS->ServerReceiveHatClass(InOpt);
+		}
+		InOpt = ParseOption(Options, TEXT("Eyewear"));
+		if (InOpt.Len() > 0)
+		{
+			PS->ServerReceiveEyewearClass(InOpt);
+		}
+	}
+	return Result;
 }
 
 AUTBot* AUTGameMode::AddBot(uint8 TeamNum)

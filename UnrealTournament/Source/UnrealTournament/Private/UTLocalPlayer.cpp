@@ -921,3 +921,81 @@ int UUTLocalPlayer::GetBaseELORank()
 							
 	return 1500;
 }
+
+FString UUTLocalPlayer::GetHatPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatPath : GetDefaultURLOption(TEXT("Hat"));
+}
+void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->HatPath = NewHatPath;
+	}
+	SetDefaultURLOption(TEXT("Hat"), NewHatPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveHatClass(NewHatPath);
+		}
+	}
+}
+FString UUTLocalPlayer::GetEyewearPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearPath : GetDefaultURLOption(TEXT("Eyewear"));
+}
+void UUTLocalPlayer::SetEyewearPath(const FString& NewEyewearPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->EyewearPath = NewEyewearPath;
+	}
+	SetDefaultURLOption(TEXT("Eyewear"), NewEyewearPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveEyewearClass(NewEyewearPath);
+		}
+	}
+}
+FString UUTLocalPlayer::GetCharacterPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->CharacterPath : GetDefaultURLOption(TEXT("Character"));
+}
+void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->CharacterPath = NewCharacterPath;
+	}
+	SetDefaultURLOption(TEXT("Character"), NewCharacterPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerSetCharacter(NewCharacterPath);
+		}
+	}
+}
+
+FString UUTLocalPlayer::GetDefaultURLOption(const TCHAR* Key) const
+{
+	FURL DefaultURL;
+	DefaultURL.LoadURLConfig(TEXT("DefaultPlayer"), GGameIni);
+	FString Op = DefaultURL.GetOption(Key, TEXT(""));
+	FString Result;
+	Op.Split(TEXT("="), NULL, &Result);
+	return Result;
+}
+void UUTLocalPlayer::SetDefaultURLOption(const FString& Key, const FString& Value)
+{
+	FURL DefaultURL;
+	DefaultURL.LoadURLConfig(TEXT("DefaultPlayer"), GGameIni);
+	DefaultURL.AddOption(*FString::Printf(TEXT("%s=%s"), *Key, *Value));
+	DefaultURL.SaveURLConfig(TEXT("DefaultPlayer"), *Key, GGameIni);
+}
