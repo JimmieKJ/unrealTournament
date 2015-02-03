@@ -65,7 +65,7 @@ void FPackageContent::Initialize()
 
 void FPackageContent::OpenPackageLevelWindow()
 {
-	UE_LOG(LogPackageContent, Log, TEXT("Starting to package this level!"));
+	UE_LOG(LogPackageContent, Log, TEXT("Starting to publish this level!"));
 	
 	FString MapName = GWorld->GetMapName();
 #if PLATFORM_WINDOWS
@@ -76,7 +76,7 @@ void FPackageContent::OpenPackageLevelWindow()
 	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Mac"), *MapName, *MapName);
 #endif
 
-	CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Publishing Level"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
 class FPackageContentNotificationTask
@@ -159,7 +159,7 @@ public:
 
 			}
 
-			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContent", "Content packaged successfully. Would you like to publish it now?")))
+			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContent", "Content publishing successfully. Would you like to share it now?")))
 			{
 				FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
 				if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine))
@@ -168,7 +168,7 @@ public:
 				}
 				else
 				{
-					if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallLauncherPrompt", "Publishing content requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
+					if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallLauncherPrompt", "Sharing content requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
 					{
 						if (!DesktopPlatform->OpenLauncher(true, LauncherCommandLine))
 						{
@@ -345,7 +345,7 @@ void FPackageContent::PackageWeapon(UClass* WeaponClass)
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *WeaponName);
 #endif
 
-		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageWeaponTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageWeaponTaskName", "Publishing Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
@@ -363,13 +363,13 @@ void FPackageContent::PackageHat(UClass* HatClass)
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *HatName);
 #endif
 
-		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageCosmeticTaskName", "Packaging Cosmetic Item"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageCosmeticTaskName", "Publishing Cosmetic Item"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
 void FPackageContent::OpenPackageWeaponWindow()
 {	
-	PackageDialogTitle = LOCTEXT("PackageWeaponDialogTitle", "Package A Weapon");
+	PackageDialogTitle = LOCTEXT("PackageWeaponDialogTitle", "Publish A Weapon");
 
 	/** Create the window to host our package dialog widget */
 	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
@@ -389,7 +389,7 @@ void FPackageContent::OpenPackageWeaponWindow()
 
 void FPackageContent::OpenPackageHatWindow()
 {
-	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Package A Cosmetic Item");
+	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Publish A Cosmetic Item");
 
 	/** Create the window to host our package dialog widget */
 	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
@@ -410,7 +410,7 @@ void FPackageContent::OpenPackageHatWindow()
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
 {
 	Builder.AddComboButton(FUIAction(),	FOnGetContent::CreateSP(this, &FPackageContent::GenerateOpenPackageMenuContent),
-						   LOCTEXT("PackageContent_Label", "Package"), LOCTEXT("PackageContent_ToolTip", "Put your custom content into a package file to get it ready for marketplace."),
+						   LOCTEXT("PackageContent_Label", "Publish"), LOCTEXT("PackageContent_ToolTip", "Put your custom content into a package file to get it ready for marketplace."),
 		                   FSlateIcon(FPackageContentStyle::GetStyleSetName(), "PackageContent.PackageContent"));
 }
 
@@ -419,7 +419,7 @@ TSharedRef<SWidget> FPackageContent::GenerateOpenPackageMenuContent()
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, ActionList);
 
-	MenuBuilder.BeginSection(NAME_None, LOCTEXT("Package Content", "Package Content"));
+	MenuBuilder.BeginSection(NAME_None, LOCTEXT("PublishContent", "Publish Content"));
 	{
 #if PLATFORM_WINDOWS
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageLevel);
