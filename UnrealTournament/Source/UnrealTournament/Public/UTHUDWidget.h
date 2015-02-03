@@ -12,6 +12,7 @@
  **/
 
 #include "UTATypes.h"
+#include "CanvasTypes.h"
 #include "UTHUDWidget.generated.h"
 
 const float WIDGET_DEFAULT_Y_RESOLUTION = 1080;	// We design everything against 1080p
@@ -19,8 +20,8 @@ const float WIDGET_DEFAULT_Y_RESOLUTION = 1080;	// We design everything against 
 /** UT version of FCanvasTextItem that properly handles distance field font features */
 struct FUTCanvasTextItem : public FCanvasTextItem
 {
-	FUTCanvasTextItem(const FVector2D& InPosition, const FText& InText, class UFont* InFont, const FLinearColor& InColor)
-	: FCanvasTextItem(InPosition, InText, InFont, InColor), CharIncrement(0.0f), WrapXL(0.0f)
+	FUTCanvasTextItem(const FVector2D& InPosition, const FText& InText, class UFont* InFont, const FLinearColor& InColor, const TSharedPtr<FCanvasWordWrapper> InWordWrapper)
+	: FCanvasTextItem(InPosition, InText, InFont, InColor), CharIncrement(0.0f), WrapXL(0.0f), WordWrapper(InWordWrapper)
 	{}
 
 	virtual void Draw(class FCanvas* InCanvas) override;
@@ -28,6 +29,8 @@ struct FUTCanvasTextItem : public FCanvasTextItem
 	float CharIncrement;
 	// word wrap size, if render info has !bClipText
 	float WrapXL;
+	
+	TSharedPtr<FCanvasWordWrapper> WordWrapper;
 
 protected:
 	// UT version appropriately handles distance field fonts by slightly overlapping triangles to give the shadows more space
@@ -177,6 +180,8 @@ protected:
 	// The scale needed to maintain aspect ratio
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")
 	float AspectScale;
+
+	TSharedPtr<FCanvasWordWrapper> WordWrapper;
 
 public:
 	/**

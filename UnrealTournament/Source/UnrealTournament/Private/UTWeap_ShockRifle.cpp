@@ -55,7 +55,11 @@ void AUTWeap_ShockRifle::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Heig
 		FString AmmoText = FString::FromInt(Ammo);
 		float XL, YL;
 		C->TextSize(ScreenFont, AmmoText, XL, YL);
-		FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(AmmoText), ScreenFont, (Ammo <= 5) ? FLinearColor::Red : FLinearColor::White);
+		if (!WordWrapper.IsValid())
+		{
+			WordWrapper = MakeShareable(new FCanvasWordWrapper());
+		}
+		FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(AmmoText), ScreenFont, (Ammo <= 5) ? FLinearColor::Red : FLinearColor::White, WordWrapper);
 		Item.FontRenderInfo = RenderInfo;
 		C->DrawItem(Item);
 	}

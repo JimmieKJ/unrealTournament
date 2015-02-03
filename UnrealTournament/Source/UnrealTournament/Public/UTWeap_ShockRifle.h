@@ -36,6 +36,8 @@ class AUTWeap_ShockRifle : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = Mesh)
 	UMaterialInstanceDynamic* ScreenMI;
 
+	TSharedPtr<FCanvasWordWrapper> WordWrapper;
+
 	/** set (client only) to last time user recorded a kill while holding this weapon, used to change on-mesh screen display */
 	UPROPERTY(BlueprintReadWrite, Category = Mesh)
 	float LastClientKillTime;

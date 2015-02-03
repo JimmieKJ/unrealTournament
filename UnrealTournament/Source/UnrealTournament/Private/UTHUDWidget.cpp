@@ -24,7 +24,7 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 		Parms.DrawYL = InCanvas->GetRenderTarget()->GetSizeXY().Y;
 		TArray<FWrappedStringElement> Lines;
 
-		InCanvas->WrapString(Parms, 0, *Text.ToString(), Lines, nullptr);
+		UCanvas::WrapString(*WordWrapper, Parms, 0, *Text.ToString(), Lines);
 
 		FString NewText;
 		for (int32 i = 0; i < Lines.Num(); i++)
@@ -693,7 +693,11 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;
 		Canvas->DrawColor = DrawColor.ToFColor(false);
 
-		FUTCanvasTextItem TextItem(RenderPos, Text, Font, DrawColor);
+		if (!WordWrapper.IsValid())
+		{
+			WordWrapper = MakeShareable(new FCanvasWordWrapper());
+		}
+		FUTCanvasTextItem TextItem(RenderPos, Text, Font, DrawColor, WordWrapper);
 		TextItem.FontRenderInfo = RenderInfo;
 
 		if (bDrawOutline)
