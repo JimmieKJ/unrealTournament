@@ -4,7 +4,6 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SUWMessageBox.h"
 #include "SUWindowsStyle.h"
-#include "SlateWordWrapper.h"
 
 #if !UE_SERVER
 
@@ -34,18 +33,8 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 			SAssignNew(MessageTextBlock, STextBlock)
 			.Text(InArgs._MessageText)
 			.TextStyle(SUWindowsStyle::Get(), *InArgs._MessageTextStyleName)
+			.WrapTextAt(ActualSize.X - MessageTextPaddingX * 2.0f - 1.0f)
 		];
-
-		// we have to manually apply the wrapping because SlateWordWrapper::WrapText() has a bug where it discards multi-line breaks and replaces with a single line break
-		FWordWrapper::FWrappedLineData WrapData;
-		SlateWordWrapper::WrapText(InArgs._MessageText.ToString(), SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>(*InArgs._MessageTextStyleName).Font, ActualSize.X - MessageTextPaddingX * 2.0f - 1.0f, 1.0f, &WrapData);
-		
-		FString WrappedText = InArgs._MessageText.ToString();
-		for (int32 i = 0; i < WrapData.Num(); i++)
-		{
-			WrappedText.InsertAt(WrapData[i].Value + i, TEXT("\n"));
-		}
-		MessageTextBlock->SetText(FText::FromString(WrappedText));
 	}
 }
 

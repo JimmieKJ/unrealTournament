@@ -23,7 +23,8 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 		Parms.DrawXL = (WrapXL > 0.0f) ? WrapXL : (InCanvas->GetRenderTarget()->GetSizeXY().X - Position.X);
 		Parms.DrawYL = InCanvas->GetRenderTarget()->GetSizeXY().Y;
 		TArray<FWrappedStringElement> Lines;
-		UCanvas::WrapString(Parms, 0.0f, *Text.ToString(), Lines);
+
+		InCanvas->WordWrapper.Execute(*Text.ToString(), Parms, Lines, nullptr);
 		FString NewText;
 		for (int32 i = 0; i < Lines.Num(); i++)
 		{
