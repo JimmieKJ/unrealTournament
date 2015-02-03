@@ -539,7 +539,7 @@ public:
 
 public:
 	/** Private class for handling word wrapping behavior. */
-	FCanvasWordWrapper WordWrapper;
+	TSharedPtr<FCanvasWordWrapper> WordWrapper;
 
 private:
 	/** Stack of SortKeys. All rendering is done using the top most sort key */
@@ -666,6 +666,8 @@ public:
 	ENGINE_API int32 DrawShadowedString( float StartX, float StartY, const TCHAR* Text, const UFont* Font, const FLinearColor& Color, const FLinearColor& ShadowColor = FLinearColor::Black );
 	
 	ENGINE_API int32 DrawShadowedText( float StartX, float StartY, const FText& Text, const UFont* Font, const FLinearColor& Color, const FLinearColor& ShadowColor = FLinearColor::Black );
+
+	ENGINE_API void WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData = nullptr);
 
 	ENGINE_API void DrawNGon(const FVector2D& Center, const FColor& Color, int32 NumSides, float Radius);
 

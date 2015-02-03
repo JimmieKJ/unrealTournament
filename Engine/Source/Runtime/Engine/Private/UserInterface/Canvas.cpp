@@ -1083,6 +1083,14 @@ int32 FCanvas::DrawShadowedText( float StartX,float StartY,const FText& Text,con
 	return TextItem.DrawnSize.Y;	
 }
 
+void FCanvas::WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData)
+{
+	if (!WordWrapper.IsValid())
+	{
+		WordWrapper = MakeShareable(new FCanvasWordWrapper());
+	}
+	UCanvas::WrapString( *WordWrapper, Parameters, InCurX, pText, out_Lines, OutWrappedLineData);
+}
 
 ENGINE_API void StringSize(const UFont* Font,int32& XL,int32& YL,const TCHAR* Text)
 {
@@ -1214,7 +1222,7 @@ void UCanvas::WrapString( FCanvasWordWrapper& Wrapper, FTextSizingParameters& Pa
 
 void UCanvas::WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData)
 {
-	UCanvas::WrapString( Canvas->WordWrapper, Parameters, InCurX, pText, out_Lines, OutWrappedLineData);
+	Canvas->WrapString(Parameters, InCurX, pText, out_Lines, OutWrappedLineData);
 }
 
 /*-----------------------------------------------------------------------------

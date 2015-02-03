@@ -215,7 +215,7 @@ void FSubtitleManager::SplitLinesToSafeZone( FCanvas* Canvas, FIntRect& Subtitle
 		// Word wrap into lines
 		TArray<FWrappedStringElement> Lines;
 		FTextSizingParameters RenderParms( 0.0f, 0.0f, SubtitleRegion.Width(), 0.0f, GEngine->GetSubtitleFont() );
-		UCanvas::WrapString( Canvas->WordWrapper, RenderParms, 0, *Concatenated, Lines );
+		Canvas->WrapString( RenderParms, 0, *Concatenated, Lines );
 
 		// Set up the times
 		Subtitle.Subtitles.Empty();
