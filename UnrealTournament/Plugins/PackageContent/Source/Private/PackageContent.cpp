@@ -132,6 +132,14 @@ public:
 		: DLCName(InDLCName)
 	{ }
 
+	void ShowOpenExplorerDialog(const FString& FullPath)
+	{
+		if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("ShowInExplorer", "Your content is ready to use, would you like to open an explorer window?")))
+		{
+			FPlatformProcess::ExploreFolder(*FullPath);
+		}
+	}
+
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
 		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
@@ -159,7 +167,7 @@ public:
 
 			}
 
-			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContent", "Content publishing successfully. Would you like to share it now?")))
+			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContentSuccess", "Content published successfully. Would you like to share it now?")))
 			{
 				FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
 				if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine))
@@ -176,6 +184,8 @@ public:
 					}
 				}
 			}
+
+			ShowOpenExplorerDialog(DestinationPath);
 		}
 	}
 
