@@ -513,9 +513,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		{
 			for (int32 i = 0; i < EyewearPathList.Num(); i++)
 			{
-				if (HatPathList[i] == ProfileSettings->GetEyewearPath())
+				if (EyewearPathList[i] == ProfileSettings->GetEyewearPath())
 				{
-					OnHatSelected(EyewearList[i], ESelectInfo::Direct);
+					OnEyewearSelected(EyewearList[i], ESelectInfo::Direct);
 					bFoundSelectedEyewear = true;
 					break;
 				}
