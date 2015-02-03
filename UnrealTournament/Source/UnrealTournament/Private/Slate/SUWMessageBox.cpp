@@ -26,14 +26,14 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 
 	if (DialogContent.IsValid())
 	{
-		const float MessageTextPaddingX = 10.0f;
+		const float MessageTextPaddingX = 50.0f;
 		TSharedPtr<STextBlock> MessageTextBlock;
 		DialogContent->AddSlot()
 		[
 			SAssignNew(MessageTextBlock, STextBlock)
 			.Text(InArgs._MessageText)
 			.TextStyle(SUWindowsStyle::Get(), *InArgs._MessageTextStyleName)
-			.WrapTextAt(ActualSize.X - MessageTextPaddingX * 2.0f - 1.0f)
+			.WrapTextAt(ActualSize.X - MessageTextPaddingX)
 		];
 	}
 }
