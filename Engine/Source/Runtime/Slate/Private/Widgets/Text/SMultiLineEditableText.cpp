@@ -5,7 +5,6 @@
 #if WITH_FANCY_TEXT
 
 #include "TextEditHelper.h"
-#include "SlateWordWrapper.h"
 #include "PlainTextLayoutMarshaller.h"
 #include "GenericCommands.h"
 
