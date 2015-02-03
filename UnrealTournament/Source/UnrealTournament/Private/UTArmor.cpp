@@ -17,6 +17,10 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 {
 	Super::GivenTo(NewOwner, bAutoActivate);
 
+	if (ArmorType == FName(TEXT("Helmet")))
+	{
+		NewOwner->bIsWearingHelmet = true;
+	}
 	if (OverlayMaterial != NULL)
 	{
 		NewOwner->SetCharacterOverlay(OverlayMaterial, true);
@@ -27,6 +31,10 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTArmor::Removed()
 {
+	if (ArmorType == FName(TEXT("Helmet")))
+	{
+		GetUTOwner()->bIsWearingHelmet = false;
+	}
 	if (OverlayMaterial != NULL)
 	{
 		GetUTOwner()->SetCharacterOverlay(OverlayMaterial, false);

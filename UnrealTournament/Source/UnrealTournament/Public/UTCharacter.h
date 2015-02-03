@@ -748,7 +748,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 		UParticleSystem* HeadArmorHitEffect;
 
-	
+	/** Replicate if this character has a helmet on (headshot blocking) */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
+		bool bIsWearingHelmet;
+
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
 	
