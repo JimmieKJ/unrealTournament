@@ -15,7 +15,7 @@
 		{
 			"Name" : "SteamController",
 			"Type" : "Runtime",
-			"WhitelistPlatforms" : [ "Linux" ]
+			"WhitelistPlatforms" : [ "Win64", "Linux" ]
 		}
 	]
 }
