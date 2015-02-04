@@ -958,7 +958,7 @@ void AUTGameMode::AnnounceMatchStart()
 void AUTGameMode::BeginGame()
 {
 	UE_LOG(UT,Log,TEXT("BEGIN GAME GameType: %s"), *GetNameSafe(this));
-	UE_LOG(UT,Log,TEXT("Difficulty: %i GoalScore: %i TimeLimit: %i"), GameDifficulty, GoalScore, TimeLimit);
+	UE_LOG(UT,Log,TEXT("Difficulty: %f GoalScore: %i TimeLimit (sec): %i"), GameDifficulty, GoalScore, TimeLimit);
 
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
