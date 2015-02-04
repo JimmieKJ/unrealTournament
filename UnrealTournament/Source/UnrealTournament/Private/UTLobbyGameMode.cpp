@@ -210,7 +210,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 						// Potential match.. see if there is room.
 						if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers && MatchInfo->bJoinAnytime)
 						{
-							LPS->DesiredQuickStartGameMode == TEXT("");
+							LPS->DesiredQuickStartGameMode = TEXT("");
 							UTLobbyGameState->JoinMatch(MatchInfo, LPS);
 							return;
 						}
