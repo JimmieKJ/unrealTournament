@@ -7,6 +7,9 @@
 #ifndef __STATICBOUNDSHADERSTATE_H__
 #define __STATICBOUNDSHADERSTATE_H__
 
+#include "RenderResource.h"
+#include "Shader.h"
+
 /**
  * FGlobalBoundShaderState
  * 
