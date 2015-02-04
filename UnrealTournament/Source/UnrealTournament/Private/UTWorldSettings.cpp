@@ -305,6 +305,21 @@ void AUTWorldSettings::Tick(float DeltaTime)
 			}
 			if (bAtEnd)
 			{
+				// if the light is part of a timed effect, terminate it when the animation completes if it is at zero intensity
+				if (LightParamCurves[i].Light->Intensity <= 0.0f)
+				{
+					for (int32 j = 0; j < TimedEffects.Num(); j++)
+					{
+						if (TimedEffects[j].EffectComp == LightParamCurves[i].Light)
+						{
+							TimedEffects[j].EffectComp->DetachFromParent();
+							TimedEffects[j].EffectComp->DestroyComponent();
+							TimedEffects.RemoveAt(j--);
+							break;
+						}
+					}
+				}
+				
 				LightParamCurves.RemoveAt(i--, 1);
 			}
 		}

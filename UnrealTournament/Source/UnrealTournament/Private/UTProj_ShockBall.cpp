@@ -87,7 +87,7 @@ void AUTProj_ShockBall::PerformCombo(class AController* InstigatedBy, class AAct
 	// Replicate combo and execute locally
 	bComboExplosion = true;
 	OnRep_ComboExplosion();
-	Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
+	Explode(GetActorLocation(), FVector(1.0f, 0.0f, 0.0f));
 }
 
 void AUTProj_ShockBall::OnRep_ComboExplosion()
