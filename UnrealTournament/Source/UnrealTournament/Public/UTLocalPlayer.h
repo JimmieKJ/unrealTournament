@@ -280,14 +280,14 @@ protected:
 public:
 	virtual void ShowContentLoadingMessage();
 	virtual void HideContentLoadingMessage();
-#endif
 
+	virtual TSharedPtr<SWidget> GetFriendsPopup();
 protected:
 	TSharedPtr<SUWFriendsPopup> FriendsMenu;
 
-public:
-	virtual TSharedPtr<SWidget> GetFriendsPopup();
+#endif
 
+	
 };
 
 
