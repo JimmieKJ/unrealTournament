@@ -8,7 +8,7 @@ void AUTPickupWeapon::BeginPlay()
 {
 	AUTPickup::BeginPlay(); // skip AUTPickupInventory so we can propagate WeaponType as InventoryType
 
-	SetInventoryType(WeaponType);
+	SetInventoryType((Role == ROLE_Authority) ? TSubclassOf<AUTInventory>(WeaponType) : InventoryType); // initial replication is before BeginPlay() now so we need to make sure client doesn't clobber it :(
 }
 
 void AUTPickupWeapon::SetInventoryType(TSubclassOf<AUTInventory> NewType)
