@@ -3552,7 +3552,11 @@ void AUTCharacter::OnRepHat()
 		Hat = GetWorld()->SpawnActor<AUTHat>(HatClass, GetActorLocation(), GetActorRotation(), Params);
 		if (Hat != NULL)
 		{
+			FVector HatRelativeLocation = Hat->GetRootComponent()->RelativeLocation;
+			FRotator HatRelativeRotation = Hat->GetRootComponent()->RelativeRotation;
 			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
+			Hat->SetActorRelativeRotation(HatRelativeRotation);
+			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->CosmeticWearer = this;
 		}
 	}
