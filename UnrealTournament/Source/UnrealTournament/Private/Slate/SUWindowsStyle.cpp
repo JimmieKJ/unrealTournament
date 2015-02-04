@@ -912,7 +912,10 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("OnlineState", new IMAGE_BRUSH("Social-WIP/FriendOnlineState", FVector2D(16, 16)));
 		Style.Set("OfflineState", new IMAGE_BRUSH("Social-WIP/FriendOfflineStatus", FVector2D(16, 16)));
 		Style.Set("AwayState", new IMAGE_BRUSH("Social-WIP/FriendAwayStatus", FVector2D(16, 16)));
+
 		Style.Set("FriendImageBrush", new IMAGE_BRUSH("Social-WIP/OfflineIcon", FVector2D(55, 50)));
+		Style.Set("LauncherImageBrush", new IMAGE_BRUSH("Social-WIP/LauncherIcon", FVector2D(55, 50)));
+		Style.Set("FortniteImageBrush", new IMAGE_BRUSH("Social-WIP/FortniteIcon", FVector2D(55, 50)));
 
 		Style.Set("GlobalChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatGlobal-XS", Icon16x16));
 		Style.Set("WhisperChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatWhisper-XS", Icon16x16));
@@ -971,6 +974,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetFriendsComboDropdownImageBrush(*Style.GetBrush("FriendComboDropdownBrush"))
 			.SetFriendsListItemButtonSimpleStyle(FriendsListItemButtonStyle)
 			.SetFriendImageBrush(*Style.GetBrush("FriendImageBrush"))
+			.SetLauncherImageBrush(*Style.GetBrush("LauncherImageBrush"))
+			.SetFortniteImageBrush(*Style.GetBrush("FortniteImageBrush"))
 			.SetTextStyle(FriendsTextStyle)
 			.SetFontStyle(ExoRegular)
 			.SetFontStyleBold(ExoBold)
