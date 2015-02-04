@@ -105,6 +105,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float GracePeriod;
 
+	/** Burst rocket firing interval */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
+		float BurstInterval;
+
 	/**Distance from the center of the launcher to where the rockets fire from*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float BarrelRadius;

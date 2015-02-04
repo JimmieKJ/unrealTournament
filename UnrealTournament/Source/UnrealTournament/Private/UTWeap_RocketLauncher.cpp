@@ -44,6 +44,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BarrelRadius = 9.0f;
 
 	GracePeriod = 0.5f;
+	BurstInterval = 0.15f;
 
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
@@ -206,8 +207,11 @@ void AUTWeap_RocketLauncher::FireShot()
 	{
 		FireProjectile();
 		PlayFiringEffects();
-		ClearLoadedRockets();
-		SetLockTarget(NULL);
+		if (NumLoadedRockets <= 0)
+		{
+			ClearLoadedRockets();
+			SetLockTarget(NULL);
+		}
 	}
 
 	if (GetUTOwner() != NULL)
@@ -237,10 +241,6 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 				// when retreating, we want grenades
 				// otherwise, if close, spiral; if not, spread
 				if (B->GetEnemy() == NULL || B->LostContact(1.0f) /*|| B.IsRetreating() || B.IsInState('StakeOut')*/)
-				{
-					CurrentRocketFireMode = 2;
-				}
-				else if ((UTOwner->GetActorLocation() - B->GetEnemyLocation(B->GetEnemy(), false)).Size() < 2200.0f)
 				{
 					CurrentRocketFireMode = 1;
 				}
@@ -366,105 +366,40 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 
 	switch (CurrentRocketFireMode)
 	{
-		case 0://spread
-		{
-			float StartSpread = (NumLoadedRockets - 1) * GetSpread(0) * -0.5;
-			for (int32 i = 0; i < NumLoadedRockets; i++)
-			{
-				FRotator SpreadRot = SpawnRotation + FRotator(0.0f, GetSpread(0) * i + StartSpread, 0.0f);
-				SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot));
-				if (i == 0)
-				{
-					ResultProj = SeekerList[0];
-				}
-			}
-			break;
-		}
-		case 1://spiral
+		case 0://rockets
 		{
 			float RotDegree = 360.0f / NumLoadedRockets;
-			for (int32 i = 0; i < NumLoadedRockets; i++)
-			{
-				FVector SpreadLoc = SpawnLocation;
-				SpawnRotation.Roll = RotDegree * i;
+			FVector SpreadLoc = SpawnLocation;
+			SpawnRotation.Roll = RotDegree * NumLoadedRockets;
+			NetSynchRandomSeed(); 
+			SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpawnRotation));
+			ResultProj = SeekerList[0];
 
-				//Spiral needs rockets centered but seeking needs to be at the BarrelRadius
-				if (HasLockedTarget())
-				{
-					FVector Up = SpawnRotMat.GetUnitAxis(EAxis::Z);
-					SpreadLoc = SpawnLocation + (Up * BarrelRadius);
-				}
-				else
-				{
-					NetSynchRandomSeed(); 
-					SpreadLoc = SpawnLocation - 2.0f * ((FMath::Sin(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Y) - (FMath::Cos(i * 2.0f * PI / MaxLoadedRockets) * 8.0f - 7.0f) * SpawnRotMat.GetUnitAxis(EAxis::Z)) - SpawnRotMat.GetUnitAxis(EAxis::X) * 8.0f * FMath::FRand();
-				}
-				//Adjust from the center of the gun to the barrel
-				{
-					FHitResult Hit;
-					if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, SpreadLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
-					{
-						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).GetSafeNormal();
-					}
-				}
-
-				SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpreadLoc, SpawnRotation));
-				if (i == 0)
-				{
-					ResultProj = SeekerList[0];
-				}
-			}
-			// tell spiral rockets about each other
-			for (int32 i = 0; i < SeekerList.Num(); i++)
+			//Setup the seeking target
+			if (HasLockedTarget() && Cast<AUTProj_RocketSeeking>(ResultProj))
 			{
-				AUTProj_RocketSpiral* Rocket = Cast<AUTProj_RocketSpiral>(SeekerList[i]);
-				if (Rocket != NULL)
-				{
-					Rocket->bCurl = (i % 2 == 1);
-					int32 FlockId = 0;
-					for (int32 j = 0; j < SeekerList.Num() && FlockId < ARRAY_COUNT(Rocket->Flock); j++)
-					{
-						if (i != j)
-						{
-							Rocket->Flock[FlockId++] = Cast<AUTProj_RocketSpiral>(SeekerList[j]);
-						}
-					}
-				}
+				Cast<AUTProj_RocketSeeking>(ResultProj)->TargetActor = LockedTarget;
 			}
+
 			break;
 		}
-		case 2://Grenade
+		case 1://Grenades
 		{
 			float GrenadeSpread = GetSpread(0);
 			float RotDegree = 360.0f / MaxLoadedRockets;
-			for (int32 i = 0; i < NumLoadedRockets; i++)
+			SpawnRotation.Roll = RotDegree * MaxLoadedRockets;
+			FRotator SpreadRot = SpawnRotation;
+			SpreadRot.Yaw += GrenadeSpread*float(MaxLoadedRockets) - GrenadeSpread;
+				
+			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot);
+				
+			if (SpawnedProjectile != nullptr)
 			{
-				SpawnRotation.Roll = RotDegree * i;
-				FVector Up = FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z);
-				FVector SpreadLoc = SpawnLocation + (Up * BarrelRadius);
-				{
-					FHitResult Hit;
-					if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, SpreadLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
-					{
-						SpreadLoc = Hit.Location - (SpreadLoc - SpawnLocation).GetSafeNormal();
-					}
-				}
-				FRotator SpreadRot = SpawnRotation;
-				SpreadRot.Yaw += GrenadeSpread*float(i) - GrenadeSpread;
-				
-				AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpreadLoc, SpreadRot);
-				
-				if (SpawnedProjectile != nullptr)
-				{
-					//Spread the TossZ
-					SpawnedProjectile->ProjectileMovement->Velocity.Z += (i%2) * GetSpread(2);
-				}
-
-				if (i == 0)
-				{
-					ResultProj = SpawnedProjectile;
-				}
+				//Spread the TossZ
+				SpawnedProjectile->ProjectileMovement->Velocity.Z += (MaxLoadedRockets % 2) * GetSpread(2);
 			}
+
+			ResultProj = SpawnedProjectile;
 			break;
 		}
 		default:
@@ -472,17 +407,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			break;
 		}
 
-	//Setup the seeking target
-	if (HasLockedTarget())
-	{
-		for (AUTProjectile* Rocket : SeekerList)
-		{
-			if (Cast<AUTProj_RocketSeeking>(Rocket) != NULL)
-			{
-				((AUTProj_RocketSeeking*)Rocket)->TargetActor = LockedTarget;
-			}
-		}
-	}
+	NumLoadedRockets--;
 	return NULL;
 }
 
