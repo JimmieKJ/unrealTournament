@@ -237,6 +237,8 @@ void AUTRemoteRedeemer::Detonate()
 		{
 			UE_LOG(UT, Warning, TEXT("UTRemoteRedeemer does not have a proper reference to UTProj_Redeemer"));
 		}
+
+		ShutDown();
 	}
 }
 
