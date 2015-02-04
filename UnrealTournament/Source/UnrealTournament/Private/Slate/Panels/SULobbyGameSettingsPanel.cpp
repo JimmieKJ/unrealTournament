@@ -147,7 +147,7 @@ void SULobbyGameSettingsPanel::Tick( const FGeometry& AllottedGeometry, const do
 {
 	BuildPlayerList(InDeltaTime);
 
-	if (MatchInfo && MatchInfo->CurrentState == ELobbyMatchState::Launching)
+	if (MatchInfo.IsValid() && MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
 		BlinkyTimer += InDeltaTime;
 		if (BlinkyTimer > 0.25)
