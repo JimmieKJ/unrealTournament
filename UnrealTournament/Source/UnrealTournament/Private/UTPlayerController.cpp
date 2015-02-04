@@ -947,7 +947,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				}
 				// set minimum volume
 				// we're assuming that the radius was already checked via HearSound() and thus this won't cause hearing the audio level-wide
-				AttenuationOverride->Attenuation.dBAttenuationAtMax = 30.0f;
+				AttenuationOverride->Attenuation.dBAttenuationAtMax = 50.0f;
 				// move sound closer
 				AActor* ViewTarget = GetViewTarget();
 				if (ViewTarget != NULL)
@@ -957,7 +957,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 						SoundLocation = SoundPlayer->GetActorLocation();
 					}
 					FVector SoundOffset = GetViewTarget()->GetActorLocation() - SoundLocation;
-					SoundLocation = SoundLocation + SoundOffset * FMath::Min<float>(SoundOffset.Size() * 0.25f, 2000.0f);
+					SoundLocation = SoundLocation + SoundOffset.GetSafeNormal() * FMath::Min<float>(SoundOffset.Size() * 0.25f, 2000.0f);
 				}
 			}
 			float VolumeMultiplier = bIsOccluded ? 0.5f : 1.0f;
