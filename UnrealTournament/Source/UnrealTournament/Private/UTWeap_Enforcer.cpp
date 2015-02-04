@@ -40,7 +40,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	LeftMesh->SetOnlyOwnerSee(true);
 	LeftMesh->AttachParent = RootComponent;
 	LeftMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-	LeftMesh->bSelfShadowOnly = true;
+	//LeftMesh->bSelfShadowOnly = true;
 	LeftMesh->bHiddenInGame = true;
 	FirstPLeftMeshOffset = FVector(0.f);
 
