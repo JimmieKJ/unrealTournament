@@ -19,7 +19,7 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	/** Capsule collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
-		UCapsuleComponent* CapsuleComp;
+	UCapsuleComponent* CapsuleComp;
 
 	/** Used to get damage values */
 	UPROPERTY(EditDefaultsOnly, Category = Projectile)
@@ -48,7 +48,7 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 
 	/** Effect when detonated by enemy fire. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-		TSubclassOf<class AUTImpactEffect> DetonateEffects;
+	TSubclassOf<class AUTImpactEffect> DetonateEffects;
 
 	UFUNCTION()
 	virtual bool TryToDrive(APawn* NewDriver);
@@ -110,24 +110,15 @@ class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 	float CollisionFreeRadius;
 
 	bool bExploded;
+	/** set when we were shot down by an enemy instead of exploding on contact with the big boom */
+	UPROPERTY(Replicated)
+	bool bShotDown;
+
+	virtual void TornOff() override;
 
 	void ShutDown();
 
 	void ExplodeStage(float RangeMultiplier);
-
-	/** Replicate to client to play explosion effects client-side. */
-	UPROPERTY(ReplicatedUsing=OnRep_PlayExplosionEffects)
-	bool bPlayExplosionEffects;
-
-	/** Replicate to client to play detonate effects client-side. */
-	UPROPERTY(ReplicatedUsing = OnRep_PlayDetonateEffects)
-		bool bPlayDetonateEffects;
-
-	UFUNCTION()
-	void OnRep_PlayExplosionEffects();
-
-	UFUNCTION()
-	void OnRep_PlayDetonateEffects();
 
 	/** Create effects for full nuclear blast. */
 	virtual void PlayExplosionEffects();

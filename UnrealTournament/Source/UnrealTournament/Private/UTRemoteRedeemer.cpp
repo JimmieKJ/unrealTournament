@@ -142,25 +142,21 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 
 void AUTRemoteRedeemer::OnStop(const FHitResult& Hit)
 {
-	BlowUp();
+	if (Role == ROLE_Authority)
+	{
+		BlowUp();
+	}
 }
 
 void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (Role != ROLE_Authority)
+	if (Role == ROLE_Authority && Driver != OtherActor)
 	{
-		return;
-	}
-
-	if (Driver == OtherActor)
-	{
-		return;
-	}
-
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS == NULL || !GS->OnSameTeam(this, OtherActor))
-	{
-		BlowUp();
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS == NULL || !GS->OnSameTeam(this, OtherActor))
+		{
+			BlowUp();
+		}
 	}
 }
 
@@ -177,9 +173,13 @@ void AUTRemoteRedeemer::BlowUp()
 	if (!bExploded)
 	{
 		bExploded = true;
+		bTearOff = true;
 
 		GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
-		DriverLeave(true);
+		if (Role == ROLE_Authority)
+		{
+			DriverLeave(true);
+		}
 
 		ProjectileMovement->SetActive(false);
 
@@ -201,9 +201,13 @@ void AUTRemoteRedeemer::Detonate()
 	if (!bExploded)
 	{
 		bExploded = true;
+		bTearOff = true;
 
 		GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
-		DriverLeave(true);
+		if (Role == ROLE_Authority)
+		{
+			DriverLeave(true);
+		}
 
 		ProjectileMovement->SetActive(false);
 
@@ -236,20 +240,8 @@ void AUTRemoteRedeemer::Detonate()
 	}
 }
 
-void AUTRemoteRedeemer::OnRep_PlayDetonateEffects()
-{
-	PlayDetonateEffects();
-}
-
-void AUTRemoteRedeemer::OnRep_PlayExplosionEffects()
-{
-	PlayExplosionEffects();
-}
-
 void AUTRemoteRedeemer::PlayDetonateEffects()
 {
-	bPlayDetonateEffects = true;
-
 	// stop any looping audio
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
@@ -274,8 +266,7 @@ void AUTRemoteRedeemer::PlayDetonateEffects()
 
 void AUTRemoteRedeemer::PlayExplosionEffects()
 {
-	bPlayExplosionEffects = true;
-	
+
 	// stop any looping audio
 	TArray<USceneComponent*> Components;
 	GetComponents<USceneComponent>(Components);
@@ -454,8 +445,19 @@ void AUTRemoteRedeemer::GetLifetimeReplicatedProps(TArray<class FLifetimePropert
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AUTRemoteRedeemer, bPlayExplosionEffects, COND_None);
-	DOREPLIFETIME_CONDITION(AUTRemoteRedeemer, bPlayDetonateEffects, COND_None);
+	DOREPLIFETIME_CONDITION(AUTRemoteRedeemer, bShotDown, COND_None);
+}
+
+void AUTRemoteRedeemer::TornOff()
+{
+	if (bShotDown)
+	{
+		Detonate();
+	}
+	else
+	{
+		BlowUp();
+	}
 }
 
 void AUTRemoteRedeemer::Tick(float DeltaSeconds)
@@ -540,6 +542,7 @@ float AUTRemoteRedeemer::TakeDamage(float Damage, const FDamageEvent& DamageEven
 				if (EventInstigator != NULL)
 				{
 					EventInstigator->InstigatedAnyDamage(ActualDamage, DamageTypeCDO, this, DamageCauser);
+					DamageInstigator = EventInstigator;
 				}
 				
 				// small explosion when damaged
