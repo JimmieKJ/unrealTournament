@@ -20,6 +20,7 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 	ViewModel->OnChatMessageCommitted().AddSP(this, &SUTChatWidget::OnChatTextCommitted);
 	ViewModel->OnChatListUpdated().AddSP(this, &SUTChatWidget::HandleChatListUpdated);
 	ViewModel->OnNetworkMessageSentEvent().AddSP(this, &SUTChatWidget::HandleFriendsNetworkChatMessage);
+	ViewModel->EnableGlobalChat(false);
 
 	//some constant values
 	const int32 PaddingValue = 2;

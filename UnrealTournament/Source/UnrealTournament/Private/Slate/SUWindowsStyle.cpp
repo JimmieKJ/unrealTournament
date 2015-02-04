@@ -920,6 +920,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("GlobalChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatGlobal-XS", Icon16x16));
 		Style.Set("WhisperChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatWhisper-XS", Icon16x16));
 		Style.Set("PartyChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatParty-XS", Icon16x16));
+		Style.Set("InvalidChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatInvalid-XS", Icon16x16));
 
 		Style.Set("FriendsDefaultBackground", new IMAGE_BRUSH("Social-WIP/DefaultBackground", FVector2D(8, 8)));
 		const FSlateBrush* FriendsDefaultBackgroundBrush = Style.GetBrush("FriendsDefaultBackground");
@@ -994,6 +995,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetChatGlobalBrush(*Style.GetBrush("GlobalChatIcon"))
 			.SetChatWhisperBrush(*Style.GetBrush("WhisperChatIcon"))
 			.SetChatPartyBrush(*Style.GetBrush("PartyChatIcon"))
+			.SetChatInvalidBrush(*Style.GetBrush("InvalidChatIcon"))
 			.SetAddFriendEditableTextStyle(AddFriendEditableTextStyle)
 			.SetComboItemTextStyle(ComboItemTextStyle)
 			.SetStatusButtonSize(FVector2D(136, 40))

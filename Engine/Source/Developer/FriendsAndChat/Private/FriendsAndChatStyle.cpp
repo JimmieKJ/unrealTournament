@@ -332,6 +332,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatWhisperBrush(const FSlateBrus
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatInvalidBrush(const FSlateBrush& Brush)
+{
+	ChatInvalidBrush = Brush;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendEditableTextStyle(const FEditableTextBoxStyle& InEditableTextStyle)
 {
 	AddFriendEditableTextStyle = InEditableTextStyle;

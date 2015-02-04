@@ -425,6 +425,7 @@ void FFriendsAndChatManager::SetChatWindowContents()
 	TSharedRef<FChatDisplayOptionsViewModel> DisplayViewModel = FChatDisplayOptionsViewModelFactory::Create(ChatViewModel.ToSharedRef());
 	DisplayViewModel->SetInGameUI(false);
 	DisplayViewModel->SetCaptureFocus(false);
+	DisplayViewModel->EnableGlobalChat(true);
 
 	TSharedRef< FFriendsStatusViewModel > StatusViewModel = FFriendsStatusViewModelFactory::Create(SharedThis(this));
 
