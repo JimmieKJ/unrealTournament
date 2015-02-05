@@ -38,6 +38,7 @@ void UUTConsole::FakeGotoState(FName NextStateName)
 				LP->ShowMenu();
 			}
 		}
+		bReopenMenus = false;
 	}
 #endif
 	Super::FakeGotoState(NextStateName);
