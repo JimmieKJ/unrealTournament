@@ -378,7 +378,7 @@ void FUTCanvasTextItem::DrawStringInternal_HackyFix( FCanvas* InCanvas, const FV
 
 			const bool bIsWhitespace = FChar::IsWhitespace(CurrentChar);
 
-			if( !bIsWhitespace && CharIndex > 0 )
+			if( !bIsWhitespace && CharIndex > 0 && PreviousCharEntry && PreviousCharEntry->IsValidEntry() && Entry.IsValidEntry())
 			{
 				Kerning = CharacterList.GetKerning( *PreviousCharEntry, Entry );
 			}
