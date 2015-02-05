@@ -920,9 +920,6 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	PlayerPreviewInitOptions.WorldToMetersScale = GetPlayerOwner()->GetWorld()->GetWorldSettings()->WorldToMeters;
 	PlayerPreviewInitOptions.CursorPos = FIntPoint(-1, -1);
 
-	TArray<UTexture*> TexList;
-	PlayerPreviewMesh->GetMesh()->GetUsedTextures(TexList, EMaterialQualityLevel::High);
-
 	FSceneView* View = new FSceneView(PlayerPreviewInitOptions); // note: renderer gets ownership
 	View->ViewLocation = FVector::ZeroVector;
 	View->ViewRotation = FRotator::ZeroRotator;
