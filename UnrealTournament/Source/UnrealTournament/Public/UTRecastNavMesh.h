@@ -173,6 +173,47 @@ struct UNREALTOURNAMENT_API FSingleEndpointEval : public FUTNodeEvaluator
 	{}
 };
 
+struct UNREALTOURNAMENT_API FSingleEndpointEvalWeighted : public FSingleEndpointEval
+{
+	/** map of additional node costs to bias the path taken to the target */
+	TMap< TWeakObjectPtr<UUTPathNode>, uint32 > ExtraCosts;
+
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance)
+	{
+		return ExtraCosts.FindRef(Link.End);
+	}
+
+	explicit FSingleEndpointEvalWeighted(AActor* InGoalActor)
+		: FSingleEndpointEval(InGoalActor)
+	{}
+	explicit FSingleEndpointEvalWeighted(const FVector& InGoalLoc)
+		: FSingleEndpointEval(InGoalLoc)
+	{}
+};
+
+/** ends pathing when it encounters one of any number of target nodes */
+struct UNREALTOURNAMENT_API FMultiPathNodeEval : public FUTNodeEvaluator
+{
+	TSet<const UUTPathNode*> Goals;
+
+	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData) override
+	{
+		return Goals.Num() > 0;
+	}
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
+	{
+		return Goals.Contains(Node) ? 10.0f : 0.0f;
+	}
+
+	FMultiPathNodeEval() = default;
+	explicit FMultiPathNodeEval(const TSet<const UUTPathNode*>& InGoals)
+		: Goals(InGoals)
+	{}
+	explicit FMultiPathNodeEval(const TArray<const UUTPathNode*>& InGoals)
+		: Goals(InGoals)
+	{}
+};
+
 UCLASS()
 class AUTRecastNavMesh : public ARecastNavMesh
 {
@@ -211,6 +252,11 @@ class AUTRecastNavMesh : public ARecastNavMesh
 	{
 		return Super::GetPolyCenter(PolyID, OutCenter);
 	}
+
+	/** returns the poly XY center projected onto the surface of the mesh (GetPolyCenter() just returns an average of the verts)
+	 * this function is better when using the results as a movement or pathing target
+	 */
+	FVector GetPolySurfaceCenter(NavNodeRef PolyID) const;
 
 	/** return Z coordinate of the given polygon at the specified XY location
 	 * if the specified location is not on the polygon, returns the Z at the polygon's center
@@ -310,7 +356,6 @@ class AUTRecastNavMesh : public ARecastNavMesh
 
 	/** returns poly that the given target should be "on" for purposes of pathing, i.e. the source location for path finding and following
 	* Asker may be NULL; if specified and it has a valid LastReachedMoveTarget then that takes precedence over a poly search to minimize errors where a Pawn reaches a target but then doesn't use it as the next start location
-	* if bAllowFallbackTraces is set, when no valid poly can be found at TestLoc then we attempt to find a directly reachable fallback poly via world traces
 	*/
 	virtual NavNodeRef FindAnchorPoly(const FVector& TestLoc, APawn* Asker, const FNavAgentProperties& AgentProps) const;
 

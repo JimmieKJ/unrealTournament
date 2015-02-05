@@ -412,6 +412,28 @@ int32 AUTRecastNavMesh::CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPol
 	return FMath::TruncToInt(Distance);
 }
 
+FVector AUTRecastNavMesh::GetPolySurfaceCenter(NavNodeRef PolyID) const
+{
+	FVector PolyCenter;
+	if (!GetPolyCenter(PolyID, PolyCenter))
+	{
+		return FVector::ZeroVector;
+	}
+	else
+	{
+		float PolyHeight = PolyCenter.Z;
+		{
+			dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
+			FVector RecastCenter = Unreal2RecastPoint(PolyCenter);
+			if (dtStatusSucceed(InternalQuery.getPolyHeight(PolyID, (float*)&RecastCenter, &PolyHeight)))
+			{
+				PolyCenter.Z = PolyHeight;
+			}
+		}
+		return PolyCenter;
+	}
+}
+
 FCapsuleSize AUTRecastNavMesh::GetHumanPathSize() const
 {
 	if (ScoutClass != NULL)
@@ -1732,7 +1754,7 @@ bool AUTRecastNavMesh::FindPolyPath(FVector StartLoc, const FNavAgentProperties&
 	{
 		StartLoc = Unreal2RecastPoint(StartLoc);
 		float RecastStart[3] = { StartLoc.X, StartLoc.Y, StartLoc.Z };
-		FVector RecastEndVect = Unreal2RecastPoint(GetPolyCenter(Target.TargetPoly));
+		FVector RecastEndVect = Unreal2RecastPoint(GetPolySurfaceCenter(Target.TargetPoly));
 		float RecastEnd[3] = { RecastEndVect.X, RecastEndVect.Y, RecastEndVect.Z };
 		dtQueryResult PathData;
 		dtStatus Result = GetRecastNavMeshImpl()->SharedNavQuery.findPath(StartPoly, Target.TargetPoly, RecastStart, RecastEnd, GetDefaultDetourFilter(), PathData, NULL);
@@ -1761,7 +1783,7 @@ bool AUTRecastNavMesh::DoStringPulling(const FVector& OrigStartLoc, const TArray
 	{
 		FVector StartLoc = Unreal2RecastPoint(OrigStartLoc);
 		float RecastStart[3] = { StartLoc.X, StartLoc.Y, StartLoc.Z };
-		FVector RecastEndVect = Unreal2RecastPoint(GetPolyCenter(PolyRoute.Last()));
+		FVector RecastEndVect = Unreal2RecastPoint(GetPolySurfaceCenter(PolyRoute.Last()));
 		float RecastEnd[3] = { RecastEndVect.X, RecastEndVect.Y, RecastEndVect.Z };
 		int32 NumResultPoints = PolyRoute.Num() * 3;
 		float* ResultPoints = (float*)FMemory_Alloca(sizeof(float)* 3 * NumResultPoints);

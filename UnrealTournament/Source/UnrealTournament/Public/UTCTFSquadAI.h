@@ -26,6 +26,18 @@ class AUTCTFSquadAI : public AUTSquadAI
 	/** recent hiding spots to avoid reusing a spot too quickly */
 	UPROPERTY()
 	TArray< TWeakObjectPtr<UUTPathNode> > UsedHidingSpots;
+	/** alternate routes for getting back home with enemy flag */
+	UPROPERTY()
+	TArray<FAlternateRoute> CapRoutes;
+
+	virtual void SetObjective(AActor* InObjective) override
+	{
+		if (InObjective != Objective)
+		{
+			CapRoutes.Empty();
+		}
+		Super::SetObjective(InObjective);
+	}
 
 	virtual void Initialize(AUTTeamInfo* InTeam, FName InOrders) override;
 	virtual bool MustKeepEnemy(APawn* TheEnemy) override;
@@ -41,4 +53,6 @@ class AUTCTFSquadAI : public AUTSquadAI
 
 	virtual void NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName) override;
 	virtual bool HasHighPriorityObjective(AUTBot* B);
+
+	virtual bool TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString) override;
 };

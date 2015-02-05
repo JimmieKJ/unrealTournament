@@ -141,6 +141,7 @@ bool AUTTeamInfo::AssignToSquad(AController* C, FName Orders, AController* Leade
 	if (NewSquad == NULL && (Leader == NULL || Leader == C))
 	{
 		NewSquad = GetWorld()->SpawnActor<AUTSquadAI>(GetWorld()->GetAuthGameMode<AUTGameMode>()->SquadType);
+		Squads.Add(NewSquad);
 		NewSquad->Initialize(this, Orders);
 	}
 	if (NewSquad == NULL)
@@ -188,6 +189,9 @@ void AUTTeamInfo::NotifyObjectiveEvent(AActor* InObjective, AController* Instiga
 	for (AUTSquadAI* Squad : Squads)
 	{
 		// by default just notify all squads and let them filter
-		Squad->NotifyObjectiveEvent(InObjective, InstigatedBy, EventName);
+		if (Squad != NULL && !Squad->bPendingKillPending)
+		{
+			Squad->NotifyObjectiveEvent(InObjective, InstigatedBy, EventName);
+		}
 	}
 }

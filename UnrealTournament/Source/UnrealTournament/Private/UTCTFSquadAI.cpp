@@ -67,6 +67,19 @@ float AUTCTFSquadAI::ModifyEnemyRating(float CurrentRating, const FBotEnemyInfo&
 	}
 }
 
+bool AUTCTFSquadAI::TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
+{
+	// maintain a separate list of alternate routes for capturing the taken enemy flag (i.e. from enemy base to home base)
+	if (Goal == FriendlyBase && FollowAlternateRoute(B, Goal, CapRoutes, bAllowDetours, SuccessGoalString))
+	{
+		return true;
+	}
+	else
+	{
+		return Super::TryPathTowardObjective(B, Goal, bAllowDetours, SuccessGoalString);
+	}
+}
+
 bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 {
 	if (FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home)
@@ -192,7 +205,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	// return to base
 	// TODO: much more to do here
 	bool bAllowDetours = (FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home) || (B->GetPawn()->GetActorLocation() - EnemyBase->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size();
-	return B->TryPathToward(FriendlyBase, bAllowDetours, "Return to base with enemy flag");
+	return TryPathTowardObjective(B, FriendlyBase, bAllowDetours, "Return to base with enemy flag");
 }
 
 bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
@@ -320,8 +333,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else
 		{
-			// TODO: alternate path logic
-			return B->TryPathToward(Objective, true, "Attack objective");
+			return TryPathTowardObjective(B, Objective, true, "Attack objective");
 		}
 	}
 	else if (Cast<APlayerController>(Leader) != NULL && Leader->GetPawn() != NULL)
@@ -354,6 +366,14 @@ void AUTCTFSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* Insti
 {
 	if (InstigatedBy != NULL && InObjective == Objective && GameObjective != NULL && GameObjective->GetCarriedObject() != NULL && GameObjective->GetCarriedObject()->Holder == InstigatedBy->PlayerState)
 	{
+		// re-enable alternate paths for flag carrier so it can consider them for planning its escape
+		AUTBot* B = Cast<AUTBot>(InstigatedBy);
+		if (B != NULL)
+		{
+			B->bDisableSquadRoutes = false;
+			B->SquadRouteGoal.Clear();
+			B->UsingSquadRouteIndex = INDEX_NONE;
+		}
 		SetLeader(InstigatedBy);
 	}
 

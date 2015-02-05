@@ -117,6 +117,7 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	TacticalAimUpdateInterval = 0.2f;
 	StoppedOffsetErrorReduction = 0.8f;
 	BothStoppedOffsetErrorReduction = 0.5f;
+	UsingSquadRouteIndex = INDEX_NONE;
 
 	WaitForMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
 	WaitForLandingAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForLanding>(this, FName(TEXT("WaitForLanding")));
@@ -367,6 +368,9 @@ void AUTBot::PawnPendingDestroy(APawn* InPawn)
 	MoveTarget.Clear();
 	bHasTranslocator = false;
 	ImpactJumpZ = 0.0f;
+	UsingSquadRouteIndex = INDEX_NONE;
+	bDisableSquadRoutes = false;
+	SquadRouteGoal.Clear();
 	if (Squad != NULL && Squad->Team != NULL)
 	{
 		Squad->Team->ClearPickupClaimFor(InPawn);
@@ -968,7 +972,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 				LastTacticalAimUpdateTime = GetWorld()->TimeSeconds;
 
 				TargetLoc = FocalPoint;
-				const FVector FireStart = MyWeap->GetFireStartLoc();
+				const FVector FireStart = MyWeap->GetFireStartLoc(NextFireMode);
 
 				// handle tossed projectiles
 				if (DefaultProj != NULL && DefaultProj->ProjectileMovement != NULL && DefaultProj->ProjectileMovement->ProjectileGravityScale > 0.0f)
@@ -2462,7 +2466,17 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 		FVector MyVel = GetPawn()->GetVelocity();
 		MyVel.Z = 0.0f;
 		MyVel *= 0.25f;
-		if (!MyVel.IsNearlyZero() && !GetWorld()->SweepTest(TeleportLoc + MyVel, TeleportLoc - FVector(0.0f, 0.0f, DownDist) + MyVel, FQuat::Identity, ECC_Pawn, TestShape, Params))
+		FVector ForwardLoc = TeleportLoc;
+		if (!MyVel.IsNearlyZero())
+		{
+			ForwardLoc += MyVel;
+			FHitResult Hit;
+			if (GetWorld()->SweepSingle(Hit, TeleportLoc, ForwardLoc, FQuat::Identity, ECC_Pawn, TestShape, Params))
+			{
+				ForwardLoc = Hit.Location + Hit.Normal;
+			}
+		}
+		if ((ForwardLoc - TeleportLoc).SizeSquared2D() > 2.0f && !GetWorld()->SweepTest(ForwardLoc, ForwardLoc - FVector(0.0f, 0.0f, DownDist), FQuat::Identity, ECC_Pawn, TestShape, Params))
 		{
 			return false;
 		}

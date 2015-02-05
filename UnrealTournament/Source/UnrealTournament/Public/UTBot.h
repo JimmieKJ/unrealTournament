@@ -341,6 +341,16 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	float CurrentAggression;
 
+	/** set when using squad alternate routes to the route ID currently in use (bot will keep using temporarily even if squad's desired alternate path changes so as not to get confused and backtrack unnecessarily) */
+	UPROPERTY()
+	int32 UsingSquadRouteIndex;
+	/** set to disable using squad alternate routes temporarily (usually because something went wrong) - cleared on death or objective change */
+	UPROPERTY()
+	bool bDisableSquadRoutes;
+	/** bot's current target along the squad route - we don't follow the route exactly but rather jump ahead a few steps at a time to reduce congestion, getting confused by temporary path obstructions, etc */
+	UPROPERTY()
+	FRouteCacheItem SquadRouteGoal;
+
 	/** debugging string set during decision logic */
 	UPROPERTY()
 	FString GoalString;
