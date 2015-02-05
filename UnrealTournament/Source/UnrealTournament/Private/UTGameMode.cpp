@@ -58,8 +58,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	ForceRespawnTime = 3.5f;
 	MaxReadyWaitTime = 20;
 	bHasRespawnChoices = false;
-	MinPlayersToStart = 1;
-	MaxWaitForPlayers = 120.f;
+	MinPlayersToStart = 2;
+	MaxWaitForPlayers = 90.f;
 	bOnlyTheStrongSurvive = true;
 	EndScoreboardDelay = 2.0f;
 	GameDifficulty = 3.0f;
