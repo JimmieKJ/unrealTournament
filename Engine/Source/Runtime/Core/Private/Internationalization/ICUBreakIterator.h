@@ -25,6 +25,7 @@ public:
 
 private:
 	static FICUBreakIteratorManager* Singleton;
+	FCriticalSection AllocatedIteratorsCS;
 	TSet<TSharedPtr<icu::BreakIterator>> AllocatedIterators;
 };
 
