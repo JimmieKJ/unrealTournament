@@ -380,7 +380,9 @@ void FUTCanvasTextItem::DrawStringInternal_HackyFix( FCanvas* InCanvas, const FV
 
 			if( !bIsWhitespace && CharIndex > 0 && PreviousCharEntry && PreviousCharEntry->IsValidEntry() && Entry.IsValidEntry())
 			{
-				Kerning = CharacterList.GetKerning( *PreviousCharEntry, Entry );
+				// FIXME: temp workaround because this was crashing
+				//Kerning = CharacterList.GetKerning( *PreviousCharEntry, Entry );
+				Kerning = 0;
 			}
 			else
 			{
