@@ -76,6 +76,12 @@ class UUTLocalMessage : public ULocalMessage
 	/** Return color of displayed message. */
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const;
 
+	/** How long to scale to 1 from initial message scale. */
+	virtual float GetScaleInTime(int32 MessageIndex) const;
+
+	/** Initial Message scale */
+	virtual float GetScaleInSize(int32 MessageIndex) const;
+
 	/** return whether this announcement should interrupt/cancel the passed in announcement */
 	UFUNCTION(BlueprintNativeEvent)
 	bool InterruptAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;

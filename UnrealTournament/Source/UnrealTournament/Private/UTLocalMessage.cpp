@@ -56,6 +56,16 @@ FLinearColor UUTLocalMessage::GetMessageColor(int32 MessageIndex) const
 	return FLinearColor::White;
 }
 
+float UUTLocalMessage::GetScaleInTime(int32 MessageIndex) const
+{
+	return 0.2f;
+}
+
+float UUTLocalMessage::GetScaleInSize(int32 MessageIndex) const
+{
+	return 1.f;
+}
+
 void UUTLocalMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
 	// naive default implementation just keeps querying until we get a fail

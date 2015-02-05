@@ -132,8 +132,16 @@ void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
 
-	// Fade the Message...
-	float Alpha = MessageQueue[QueueIndex].LifeLeft <= FadeTime ? MessageQueue[QueueIndex].LifeLeft / FadeTime : 1.0;
+	// Fade the Message out
+	float Alpha = MessageQueue[QueueIndex].LifeLeft <= FadeTime ? MessageQueue[QueueIndex].LifeLeft / FadeTime : 1.f;
+
+	// Fade the message in if scaling
+	if ((MessageQueue[QueueIndex].ScaleInTime > 0.f) && (MessageQueue[QueueIndex].ScaleInSize != 1.f)
+		&& (MessageQueue[QueueIndex].LifeLeft > MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].ScaleInTime))
+	{
+			Alpha = (MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].LifeLeft) / MessageQueue[QueueIndex].ScaleInTime;
+	}
+
 	FText MessageText = MessageQueue[QueueIndex].Text;
 	if (MessageQueue[QueueIndex].MessageCount > 1)
 	{
@@ -224,6 +232,8 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	MessageQueue[QueueIndex].Text = LocalMessageText;
 	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
 	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;
+	MessageQueue[QueueIndex].ScaleInTime = GetDefault<UUTLocalMessage>(MessageClass)->GetScaleInTime(MessageIndex);
+	MessageQueue[QueueIndex].ScaleInSize = GetDefault<UUTLocalMessage>(MessageClass)->GetScaleInSize(MessageIndex);
 
 	// Layout the widget
 	LayoutMessage(QueueIndex, MessageClass, MessageIndex, LocalMessageText, MessageCount, RelatedPlayerState_1,RelatedPlayerState_2,OptionalObject);
@@ -243,6 +253,12 @@ void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTL
 
 float UUTHUDWidgetMessage::GetTextScale(int32 QueueIndex)
 {
+	if ((MessageQueue[QueueIndex].ScaleInTime > 0.f) && (MessageQueue[QueueIndex].ScaleInSize != 1.f)
+		&& (MessageQueue[QueueIndex].LifeLeft > MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].ScaleInTime))
+	{
+		float Pct = (MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].LifeLeft) / MessageQueue[QueueIndex].ScaleInTime;
+		return Pct + MessageQueue[QueueIndex].ScaleInSize * (1.f - Pct);
+	}
 	return 1.0f;
 }
 

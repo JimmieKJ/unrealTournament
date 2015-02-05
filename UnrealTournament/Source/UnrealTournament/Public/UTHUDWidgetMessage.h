@@ -34,9 +34,17 @@ struct FLocalizedMessageData
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	float LifeLeft;
 
-	// How long total this message has in it's life
+	// How long total this message has in its life
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	float LifeSpan;
+
+	// How long to scale in this message
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		float ScaleInTime;
+
+	// Starting scale of message
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		float ScaleInSize;
 
 	// The optional object for this class.  
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
