@@ -44,9 +44,8 @@ public class Steamworks : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
-			LibraryPath += "linux64";
-			PublicLibraryPaths.Add(LibraryPath);
-			PublicAdditionalLibraries.Add(LibraryName);
+			LibraryPath += "linux64/libsteam_api.so";
+			PublicDelayLoadDLLs.Add(LibraryPath);
 		}
 	}
 }
