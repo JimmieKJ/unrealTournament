@@ -16,7 +16,7 @@ private:
 	/** Class responsible for creating instance(s) of the subsystem */
 	class FOnlineFactorySteam* SteamFactory;
 
-#if PLATFORM_WINDOWS || PLATFORM_MAC
+#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
 	/** Handle to the STEAM API dll */
 	void* SteamDLLHandle;
 	/** Handle to the STEAM dedicated server support dlls */
@@ -37,7 +37,7 @@ public:
 
 	FOnlineSubsystemSteamModule()
         : SteamFactory(NULL)
-#if PLATFORM_WINDOWS || PLATFORM_MAC
+#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
 		, SteamDLLHandle(NULL)
 		, SteamServerDLLHandle(NULL)
 #endif	//PLATFORM_WINDOWS
