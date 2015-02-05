@@ -23,5 +23,11 @@
 			"LoadingPhase": "Default"
 		}
 	],
+	"Plugins": [
+		{
+			"Name": "SteamController",
+			"Enabled": true
+		}
+	],
 	"EpicSampleNameHash": "0"
 }

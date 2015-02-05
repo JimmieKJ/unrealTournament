@@ -53,7 +53,15 @@ bool LoadSteamModule()
 #elif PLATFORM_MAC
 	void* SteamDLLHandle = FPlatformProcess::GetDllHandle(TEXT("libsteam_api.dylib"));
 #elif PLATFORM_LINUX
+	UE_LOG(LogSteamController, Log, TEXT("Loading system libsteam_api.so."));
 	void* SteamDLLHandle = FPlatformProcess::GetDllHandle(TEXT("libsteam_api.so"));
+	if (SteamDLLHandle == nullptr)
+	{
+		// try bundled one
+		UE_LOG(LogSteamController, Log, TEXT("Could not find system one, loading bundled libsteam_api.so."));
+		FString RootSteamPath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/ThirdParty/Steamworks/%s/Linux/"), STEAM_SDK_VER); 
+		SteamDLLHandle = FPlatformProcess::GetDllHandle(*(RootSteamPath + "libsteam_api.so"));
+	}
 #endif	//PLATFORM_WINDOWS
 
 	if (!SteamDLLHandle)
@@ -63,6 +71,11 @@ bool LoadSteamModule()
 	}
 
 	return true;
+}
+
+void UnloadSteamModule()
+{
+	// @todo: implement
 }
 
 class FSteamController : public IInputDevice
@@ -90,7 +103,7 @@ public:
 			FString VdfPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(*ContentDir, TEXT("Controller.vdf")));
 
 			bool bInited = SteamController()->Init(TCHAR_TO_ANSI(*VdfPath));
-			UE_LOG(LogSteamController, Log, TEXT("SteamController %s initialized with vdf file '%s'."), bInited ? TEXT("could not be") : TEXT("has been"), *VdfPath);
+			UE_LOG(LogSteamController, Log, TEXT("SteamController %s initialized with vdf file '%s'."), bInited ? TEXT("has been") : TEXT("could not be"), *VdfPath);
 
 			// [RCL] 2014-05-05 FIXME: disable when could not init?
 			if (bInited)
