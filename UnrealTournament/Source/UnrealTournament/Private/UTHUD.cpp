@@ -538,7 +538,7 @@ void AUTHUD::CalcStanding()
 
 	if (!UTPlayerOwner || !MyPS) return;	// Quick out if not ready
 
-	CurrentPlayerScore = int32(UTPlayerOwner->PlayerState->Score);
+	CurrentPlayerScore = int32(MyPS->Score);
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
