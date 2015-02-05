@@ -50,6 +50,7 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 
 	virtual void BeginPlay() override;
 	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType) override;
+	virtual void InventoryTypeUpdated_Implementation() override;
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
 

@@ -20,6 +20,20 @@ void AUTPickupWeapon::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 	}
 	Super::SetInventoryType(NewType);
 }
+void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
+{
+	// make sure client matches the variables, since only InventoryType is replicated
+	if (Role < ROLE_Authority)
+	{
+		if (InventoryType != NULL)
+		{
+			RespawnTime = InventoryType.GetDefaultObject()->RespawnTime;
+			bDelayedSpawn = InventoryType.GetDefaultObject()->bDelayedSpawn;
+		}
+		WeaponType = *InventoryType;
+	}
+	Super::InventoryTypeUpdated_Implementation();
+}
 
 bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
 {
