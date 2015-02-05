@@ -43,7 +43,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	BarrelRadius = 9.0f;
 
-	GracePeriod = 0.5f;
+	GracePeriod = 0.75f;
 	BurstInterval = 0.15f;
 
 	BasePickupDesireability = 0.78f;
