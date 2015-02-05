@@ -73,7 +73,7 @@ class UUTSpreeMessage : public UUTLocalMessage
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 4.0f;
+		Lifetime = 3.f;
 
 	}
 

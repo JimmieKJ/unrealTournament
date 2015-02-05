@@ -33,7 +33,7 @@ class UUTMultiKillMessage : public UUTLocalMessage
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 4.0f;
+		Lifetime = 3.0f;
 	}
 
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const

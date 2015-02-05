@@ -17,7 +17,7 @@ class UUTRewardMessage : public UUTLocalMessage
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
-		Lifetime = 4.0f;
+		Lifetime = 3.0f;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
