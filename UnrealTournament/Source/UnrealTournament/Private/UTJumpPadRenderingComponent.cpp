@@ -28,29 +28,38 @@ public:
 			JumpPadTarget = JumpPad->JumpTarget;
 		}
 	}
-	virtual void DrawDynamicElements(FPrimitiveDrawInterface* PDI, const FSceneView* View)
+
+	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
 	{
-		static const float LINE_THICKNESS = 20;
-		static const int32 NUM_DRAW_LINES = 16;
-		static const float FALL_DAMAGE_VELOCITY = GetDefault<AUTCharacter>()->MaxSafeFallSpeed; // TODO: find default pawn class and pull from that
-
-		FVector Start = JumpPadLocation;
-		float TimeTick = JumpTime / NUM_DRAW_LINES;
-
-		for (int32 i = 1; i <= NUM_DRAW_LINES; i++)
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
-			//Find the position in the Trajectory
-			float TimeElapsed = TimeTick * i;
-			FVector End = JumpPadLocation + (JumpVelocity * TimeElapsed);
-			End.Z -= (-GravityZ * FMath::Pow(TimeElapsed, 2)) / 2;
+			if (VisibilityMap & (1 << ViewIndex))
+			{
+				FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
 
-			//Colour gradient to show how fast the player will be travelling. Useful to visualize fall damage
-			float speed = FMath::Clamp(FMath::Abs(Start.Z - End.Z) / TimeTick / FALL_DAMAGE_VELOCITY, 0.0f, 1.0f);
-			FColor LineClr = FColor::MakeRedToGreenColorFromScalar(1-speed);
+				static const float LINE_THICKNESS = 20;
+				static const int32 NUM_DRAW_LINES = 16;
+				static const float FALL_DAMAGE_VELOCITY = GetDefault<AUTCharacter>()->MaxSafeFallSpeed; // TODO: find default pawn class and pull from that
 
-			//Draw and swap line ends
-			PDI->DrawLine(Start, End, LineClr, 0, LINE_THICKNESS);
-			Start = End;
+				FVector Start = JumpPadLocation;
+				float TimeTick = JumpTime / NUM_DRAW_LINES;
+
+				for (int32 i = 1; i <= NUM_DRAW_LINES; i++)
+				{
+					//Find the position in the Trajectory
+					float TimeElapsed = TimeTick * i;
+					FVector End = JumpPadLocation + (JumpVelocity * TimeElapsed);
+					End.Z -= (-GravityZ * FMath::Pow(TimeElapsed, 2)) / 2;
+
+					//Colour gradient to show how fast the player will be travelling. Useful to visualize fall damage
+					float speed = FMath::Clamp(FMath::Abs(Start.Z - End.Z) / TimeTick / FALL_DAMAGE_VELOCITY, 0.0f, 1.0f);
+					FColor LineClr = FColor::MakeRedToGreenColorFromScalar(1 - speed);
+
+					//Draw and swap line ends
+					PDI->DrawLine(Start, End, LineClr, 0, LINE_THICKNESS);
+					Start = End;
+				}
+			}
 		}
 	}
 
@@ -62,7 +71,7 @@ public:
 	FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
 	{
 		FPrimitiveViewRelevance Result;
-		Result.bDrawRelevance = IsShown(View) && (View && View->Family && View->Family->EngineShowFlags.Navigation);
+		Result.bDrawRelevance = IsShown(View) && (IsSelected() || View->Family->EngineShowFlags.Navigation);
 		Result.bDynamicRelevance = true;
 		Result.bNormalTranslucencyRelevance = IsShown(View);
 		Result.bShadowRelevance = IsShadowCast(View);
