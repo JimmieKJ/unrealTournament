@@ -140,6 +140,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 		FVector2D SmallShadowDirection;
 
+	// direction messages scale in from
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
+	float ScaleInDirection;
+
 	// How long should it take for a message to fade out.  Set to 0 and the message will just wink out of
 	// existence.,  
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)

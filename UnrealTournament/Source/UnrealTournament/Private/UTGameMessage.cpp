@@ -32,6 +32,10 @@ bool UUTGameMessage::UseLargeFont(int32 MessageIndex) const
 
 float UUTGameMessage::GetScaleInSize(int32 MessageIndex) const
 {
+	if ((MessageIndex >= 2) && (MessageIndex <= 6))
+	{
+		return 1.f;
+	}
 	return UseLargeFont(MessageIndex) ? 3.f : 4.f;
 }
 

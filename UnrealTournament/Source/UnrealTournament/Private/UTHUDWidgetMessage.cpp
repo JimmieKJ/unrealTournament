@@ -17,6 +17,7 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectI
 	LargeShadowDirection = FVector2D(1.5f, 3.f);
 	SmallShadowDirection = FVector2D(1.f, 2.f);
 	ShadowDirection = LargeShadowDirection;
+	ScaleInDirection = 0.f;
 }
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
@@ -131,18 +132,20 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 void UUTHUDWidgetMessage::DrawMessage(int32 QueueIndex, float X, float Y)
 {
 	MessageQueue[QueueIndex].bHasBeenRendered = true;
-
-	// Fade the Message out
-	float Alpha = MessageQueue[QueueIndex].LifeLeft <= FadeTime ? MessageQueue[QueueIndex].LifeLeft / FadeTime : 1.f;
+	float CurrentTextScale = GetTextScale(QueueIndex);
+	float Alpha = 1.f;
 
 	// Fade the message in if scaling
 	if ((MessageQueue[QueueIndex].ScaleInTime > 0.f) && (MessageQueue[QueueIndex].ScaleInSize != 1.f)
 		&& (MessageQueue[QueueIndex].LifeLeft > MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].ScaleInTime))
 	{
 			Alpha = (MessageQueue[QueueIndex].LifeSpan - MessageQueue[QueueIndex].LifeLeft) / MessageQueue[QueueIndex].ScaleInTime;
+			Y = Y + MessageQueue[QueueIndex].DisplayFont->GetMaxCharHeight() * (GetTextScale(QueueIndex) - 1.f) * ScaleInDirection;
 	}
-	float CurrentTextScale = GetTextScale(QueueIndex);
-	//Y -= MessageQueue[QueueIndex].DisplayFont->GetMaxCharHeight() * (GetTextScale(QueueIndex) - 1.f);
+	else if (MessageQueue[QueueIndex].LifeLeft <= FadeTime)
+	{
+		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
+	}
 	FText MessageText = MessageQueue[QueueIndex].Text;
 	if (MessageQueue[QueueIndex].MessageCount > 1)
 	{
