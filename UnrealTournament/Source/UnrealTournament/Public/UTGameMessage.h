@@ -46,5 +46,6 @@ class UUTGameMessage : public UUTLocalMessage
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override;
 	virtual bool UseLargeFont(int32 MessageIndex) const override;
+	virtual float GetScaleInSize(int32 MessageIndex) const override;
 };
 

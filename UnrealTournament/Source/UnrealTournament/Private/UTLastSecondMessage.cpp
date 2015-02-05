@@ -24,6 +24,11 @@ FLinearColor UUTLastSecondMessage::GetMessageColor(int32 MessageIndex) const
 	return FLinearColor::Yellow;
 }
 
+float UUTLastSecondMessage::GetScaleInSize(int32 MessageIndex) const
+{
+	return 3.f;
+}
+
 FName UUTLastSecondMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
 	return (Switch == 0) ? FName(TEXT("Denied")) : FName(TEXT("LastSecondSave"));

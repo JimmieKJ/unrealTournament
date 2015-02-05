@@ -95,6 +95,11 @@ class UUTSpreeMessage : public UUTLocalMessage
 		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 0.5f, 0.f, 1.f);
 	}
 
+	virtual float GetScaleInSize(int32 MessageIndex) const
+	{
+		return UseLargeFont(MessageIndex) ? 3.f : 1.f;
+	}
+
 	virtual bool UseLargeFont(int32 MessageIndex) const override
 	{
 		return (MessageIndex >= 0);

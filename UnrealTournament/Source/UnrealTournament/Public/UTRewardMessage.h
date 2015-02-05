@@ -30,6 +30,11 @@ class UUTRewardMessage : public UUTLocalMessage
 		return FLinearColor::Red;
 	}
 
+	virtual float GetScaleInSize(int32 MessageIndex) const
+	{
+		return 3.f;
+	}
+
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		Super::ClientReceive(ClientData);
