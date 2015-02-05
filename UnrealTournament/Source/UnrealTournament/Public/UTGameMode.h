@@ -342,6 +342,9 @@ public:
 	/** adds num bots to current total */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 		virtual void AddBots(uint8 Num);
+	/** Remove all bots */
+	UFUNCTION(Exec, BlueprintCallable, Category = AI)
+		virtual void KillBots();
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);

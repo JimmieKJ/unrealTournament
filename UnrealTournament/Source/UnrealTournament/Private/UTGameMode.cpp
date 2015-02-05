@@ -545,6 +545,20 @@ void AUTGameMode::AddBots(uint8 Num)
 	BotFillCount = NumPlayers + Num;
 }
 
+void AUTGameMode::KillBots()
+{
+	BotFillCount = 0;
+	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+	{
+		AUTBot* B = Cast<AUTBot>(It->Get());
+		if (B != NULL)
+		{
+			B->Destroy();
+			It--;
+		}
+	}
+}
+
 /**
  *	DefaultTimer is called once per second and is useful for consistent timed events that don't require to be 
  *  done every frame.
@@ -580,6 +594,7 @@ void AUTGameMode::DefaultTimer()
 				if (B != NULL)
 				{
 					B->Destroy();
+					break;
 				}
 			}
 		}
