@@ -12,7 +12,4 @@ public:
 	{
 		return !bShowScores;
 	}
-
-protected:
-	float GetTextScale(int32 QueueIndex);
 };

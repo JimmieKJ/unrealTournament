@@ -15,8 +15,4 @@ UUTHUDWidgetMessage_GameMessages::UUTHUDWidgetMessage_GameMessages(const class F
 	FadeTime = 0.5f;
 }
 
-float UUTHUDWidgetMessage_GameMessages::GetTextScale(int32 QueueIndex)
-{
-	return 0.75;
-}
 
