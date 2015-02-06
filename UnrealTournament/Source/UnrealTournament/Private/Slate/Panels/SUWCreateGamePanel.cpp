@@ -709,7 +709,7 @@ void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FString> NewSelection, ESelect
 
 	UUTLevelSummary* Summary = NULL;
 	FString MapFullName;
-	if (FPackageName::SearchForPackageOnDisk(*NewSelection + FPackageName::GetMapPackageExtension(), &MapFullName))
+	if (NewSelection.IsValid() && FPackageName::SearchForPackageOnDisk(*NewSelection + FPackageName::GetMapPackageExtension(), &MapFullName))
 	{
 		static FName NAME_LevelSummary(TEXT("LevelSummary"));
 
