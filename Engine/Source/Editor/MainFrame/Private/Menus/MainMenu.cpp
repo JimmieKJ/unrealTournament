@@ -410,13 +410,13 @@ TSharedRef< SWidget > FMainMenu::MakeMainTabMenu( const TSharedPtr<FTabManager>&
 		{
 			MenuBuilder.BeginSection( "FileRecentFiles" );
 			{
-				if ( FMainFrameActionCallbacks::ProjectNames.Num() > 0 )
+				if (GetDefault<UEditorStyleSettings>()->bShowProjectMenus && FMainFrameActionCallbacks::ProjectNames.Num() > 0)
 				{
 					MenuBuilder.AddSubMenu(
 						LOCTEXT("SwitchProjectSubMenu", "Recent Projects"),
 						LOCTEXT("SwitchProjectSubMenu_ToolTip", "Select a project to switch to"),
-						FNewMenuDelegate::CreateStatic( &FRecentProjectsMenu::MakeMenu ), false, FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.RecentProjects")
-					);
+						FNewMenuDelegate::CreateStatic(&FRecentProjectsMenu::MakeMenu), false, FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.RecentProjects")
+						);
 				}
 			}
 			MenuBuilder.EndSection();
@@ -435,11 +435,14 @@ TSharedRef< SWidget > FMainMenu::MakeMainTabMenu( const TSharedPtr<FTabManager>&
 	
 		IMainFrameModule& MainFrameModule = FModuleManager::GetModuleChecked<IMainFrameModule>("MainFrame");
 
-		Extender->AddMenuExtension(
-			"FileLoadAndSave",
-			EExtensionHook::After,
-			MainFrameModule.GetMainFrameCommandBindings(),
-			FMenuExtensionDelegate::CreateStatic( &Local::FillProjectMenuItems ) );
+		if (GetDefault<UEditorStyleSettings>()->bShowProjectMenus)
+		{
+			Extender->AddMenuExtension(
+				"FileLoadAndSave",
+				EExtensionHook::After,
+				MainFrameModule.GetMainFrameCommandBindings(),
+				FMenuExtensionDelegate::CreateStatic(&Local::FillProjectMenuItems));
+		}
 
 		Extender->AddMenuExtension(
 			"FileLoadAndSave",

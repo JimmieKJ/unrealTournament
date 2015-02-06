@@ -74,6 +74,10 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=UserInterface, AdvancedDisplay)
 	uint32 bExpandConfigurationMenus:1;
 
+	/** When enabled, the Editor Preferences and Project Settings menu items in the main menu will be expanded with sub-menus for each settings section. */
+	UPROPERTY(config)
+	uint32 bShowProjectMenus : 1;
+
 	/** The display mode for timestamps in the output log */
 	UPROPERTY(EditAnywhere, config, Category=UserInterface)
 	TEnumAsByte<ELogTimes::Type> LogTimestampMode;
